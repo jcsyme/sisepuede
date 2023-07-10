@@ -1,0 +1,6 @@
+﻿Variable Type,Variable,Information,Variable Schema,Dashboard,Notes,Data Link,Reference,Internal Model Variable,Default LHS Scalar Minimum at Final Time Period,Default LHS Scalar Maximum at Final Time Period,Emissions Total by Gas Component
+Output,:math:`\text{CH}_4` Emissions from Transportation,,``emission_co2e_$EMISSION-GAS$_trns_$CAT-TRANSPORTATION$`` (``$EMISSION-GAS$ = ch4``),,,,,1,1,1,1
+Output,:math:`\text{CO}_2` Emissions from Transportation,,``emission_co2e_$EMISSION-GAS$_trns_$CAT-TRANSPORTATION$`` (``$EMISSION-GAS$ = co2``),,,,,1,1,1,1
+Output,:math:`\text{N}_2\text{O}` Emissions from Transportation,,``emission_co2e_$EMISSION-GAS$_trns_$CAT-TRANSPORTATION$`` (``$EMISSION-GAS$ = n2o``),,,,,1,1,1,1
+Output,Energy Consumption from Transportation,,``energy_consumption_trns_$CAT-TRANSPORTATION$``,,,,,1,1,1,0
+Output,Total Vehicle Distance Traveled,,``vehicle_distance_traveled_trns_$CAT-TRANSPORTATION$``,,Reporting units are based on the ``length_units`` configuration parameter.,,,1,1,1,0

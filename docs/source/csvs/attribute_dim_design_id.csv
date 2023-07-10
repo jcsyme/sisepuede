@@ -1,0 +1,5 @@
+design_id,vary_l,vary_x,linear_transform_l_m,linear_transform_l_b,linear_transform_l_inf,linear_transform_l_sup,design_name,include
+0,0,1,1,0,1,1,Vary Xs (design 0),1
+1,1,1,1,0.5,0.5,1,Vary Xs and Les; Cap LE at 1 (design 1),0
+2,1,1,1,0.5,0.5,1.5,Vary Xs and LEs; Cap LE at 1.5 (design 2),0
+3,1,0,1,0.5,0.5,1,Vary LEs; (design 3),0

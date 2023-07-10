@@ -1,0 +1,1498 @@
+from attribute_table import AttributeTable
+import define_transformations_afolu as dta
+import define_transformations_circular_economy as dtc
+import define_transformations_energy as dte
+import define_transformations_ippu as dti
+import ingestion as ing
+import logging
+import model_attributes as ma
+import model_ippu as mi
+import numpy as np
+import os, os.path
+import pandas as pd
+import setup_analysis as sa
+import sisepuede_file_structure as sfs
+import support_classes as sc
+import support_functions as sf
+import time
+import transformations_base_general as tbg
+import transformations_base_cross_sector as tbc
+from typing import *
+import warnings
+
+
+
+class TransformationsIntegrated:
+    """
+    Build energy transformations using general transformations defined in
+        auxiliary_definitions_transformations. Wraps more general forms from 
+        auxiliary_definitions_transformations into functions and classes
+        with shared ramps, paramters, and build functionality.
+
+    NOTE: To update transformations, users need to follow three steps:
+
+        1. Use or create a function in auxiliarty_definitions_transformations, 
+            which modifies an input DataFrame, using the ModelAttributes object
+            and any approprite SISEPUEDE models. 
+
+        2. If the transformation is not the composition of existing 
+            transformation functions, create a transformation definition 
+            function using the following functional template:
+
+            def transformation_sabv_###(
+                df_input: pd.DataFrame,
+                strat: Union[int, None] = None,
+                **kwargs
+            ) -> pd.DataFrame:
+                #DOCSTRING
+                ...
+                return df_out
+
+            This function is where parameterizations are defined (can be passed 
+                through dict_config too if desired, but not done here)
+
+            If using the composition of functions, can leverage the 
+            sc.Transformation composition functionality, which lets the user
+            enter lists of functions (see ?sc.Transformation for more 
+            information)
+
+        3. Finally, define the Transformation object using the 
+            `sc.Transformation` class, which connects the function to the 
+            Strategy name in attribute_strategy_id, assigns an id, and 
+            simplifies the organization and running of strategies. 
+
+
+    Initialization Arguments
+    ------------------------
+    - model_attributes: ModelAttributes object used to manage variables and
+        coordination
+    - dict_config: configuration dictionary used to pass parameters to 
+        transformations. See ?TransformationEnergy._initialize_parameters() for
+        more information on requirements.
+    - dir_jl: location of Julia directory containing Julia environment and 
+        support modules
+    - fp_nemomod_reference_files: directory housing reference files called by
+        NemoMod when running electricity model. Required to access data in 
+        ElectricEnergy. Needs the following CSVs:
+
+        * Required keys or CSVs (without extension):
+            (1) CapacityFactor
+            (2) SpecifiedDemandProfile
+
+    Optional Arguments
+    ------------------
+    - fp_nemomod_temp_sqlite_db: optional file path to use for SQLite database
+        used in Julia NemoMod Electricity model
+        * If None, defaults to a temporary path sql database
+    - logger: optional logger object
+    - model_afolu: optional AFOLU object to pass for property and method access.
+        * NOTE: if passing, ensure that the ModelAttributes objects used to 
+            instantiate the model + what is passed to the model_attributes
+            argument are the same.
+    - model_circecon: optional CircularEconomy object to pass for property and
+        method access.
+        * NOTE: if passing, ensure that the ModelAttributes objects used to 
+            instantiate the model + what is passed to the model_attributes
+            argument are the same.
+    - model_electricity: optional ElectricEnergy object to pass for property and 
+        method access.
+        * NOTE: if passing, ensure that the ModelAttributes objects used to 
+            instantiate the model + what is passed to the model_attributes
+            argument are the same.
+    - model_ippu: optional IPPU object to pass for property and method access.
+        * NOTE: if passing, ensure that the ModelAttributes objects used to 
+            instantiate the model + what is passed to the model_attributes
+            argument are the same.
+    - **kwargs 
+    """
+    
+    def __init__(self,
+        dict_config: Dict,
+        df_input: Union[pd.DataFrame, None] = None,
+        field_region: Union[str, None] = None,
+        logger: Union[logging.Logger, None] = None,
+        regex_template_prepend: str = "sisepuede_run",
+        regions: Union[List[str], None] = None,
+        **kwargs
+    ):
+
+        self.logger = logger
+
+        self._initialize_file_structure(regex_template_prepend = regex_template_prepend)
+        self._initialize_attributes(field_region)
+        self._initialize_base_input_database(regions = regions)
+        self._initialize_config(dict_config = dict_config)
+        self._initialize_parameters()
+        self._initialize_ramp()
+
+        # set transformations by sector, models (which come from sectoral transformations)
+        self._initialize_sectoral_transformations(
+            df_input = df_input,
+            **kwargs,
+        )
+        self._initialize_models()
+        self._initialize_transformations()
+        self._initialize_templates()
+        
+
+
+
+    ##################################
+    #    INITIALIZATION FUNCTIONS    #
+    ##################################
+
+    def get_ramp_characteristics(self,
+        dict_config: Union[Dict, None] = None,
+    ) -> List[str]:
+        """
+        Get parameters for the implementation of transformations. Returns a 
+            tuple with the following elements:
+
+            (
+                n_tp_ramp,
+                vir_renewable_cap_delta_frac,
+                vir_renewable_cap_max_frac,
+                year_0_ramp, 
+            )
+        
+        If dict_config is None, uses self.config.
+
+        NOTE: Requires those keys in dict_config to set. If not found, will set
+            the following defaults:
+                * year_0_ramp: 9th year (10th time period)
+                * n_tp_ramp: n_tp - t0_ramp - 1 (ramps to 1 at final time 
+                    period)
+
+        Keyword Arguments
+        -----------------
+        - dict_config: dictionary mapping input configuration arguments to key 
+            values. Must include the following keys:
+
+            * categories_entc_renewable: list of categories to tag as renewable 
+                for the Renewable Targets transformation.
+        """
+
+        dict_config = self.config if not isinstance(dict_config, dict) else dict_config
+        n_tp = len(self.time_periods.all_time_periods)
+
+        # get first year of non-baseline
+        default_year = self.time_periods.all_years[min(9, n_tp - 1)]
+        year_0_ramp = dict_config.get(self.key_config_year_0_ramp)
+        year_0_ramp = (
+            self.time_periods.all_years[default_year] 
+            if not sf.isnumber(year_0_ramp, integer = True)
+            else year_0_ramp
+        )
+
+        # shift by 2--1 to account for baseline having no uncertainty, 1 for py reindexing
+        default_n_tp_ramp = n_tp - self.time_periods.year_to_tp(year_0_ramp) - 1
+        n_tp_ramp = dict_config.get(self.key_config_n_tp_ramp)
+        n_tp_ramp = (
+            default_n_tp_ramp
+            if not sf.isnumber(n_tp_ramp, integer = True)
+            else n_tp_ramp
+        )
+
+        tup_out = (
+            n_tp_ramp,
+            year_0_ramp, 
+        )
+
+        return tup_out
+
+
+
+    def _initialize_attributes(self,
+        field_region: Union[str, None],
+    ) -> None:
+        """
+        Initialize the model attributes object. Checks implementation and throws
+            an error if issues arise. Sets the following properties
+
+            * self.attribute_strategy
+            * self.key_region
+            * self.regions (support_classes.Regions object)
+            * self.time_periods (support_classes.TimePeriods object)
+        """
+
+        # run checks and throw and
+        error_q = False
+        error_q = error_q | (self.model_attributes is None)
+        if error_q:
+            raise RuntimeError(f"Error: invalid specification of model_attributes in TransformationsIPPU")
+
+        # get strategy attribute, baseline strategy, and some fields
+        attribute_strategy = self.model_attributes.dict_attributes.get(f"dim_{self.model_attributes.dim_strategy_id}")
+        baseline_strategy = int(
+            attribute_strategy.table[
+                attribute_strategy.table["baseline_strategy_id"] == 1
+            ][attribute_strategy.key].iloc[0]
+        )
+        field_region = self.model_attributes.dim_region if (field_region is None) else field_region
+
+        # set some useful classes
+        time_periods = sc.TimePeriods(self.model_attributes)
+        regions = sc.Regions(self.model_attributes)
+
+
+        ##  SET PROPERTIES
+        
+        self.attribute_strategy = attribute_strategy
+        self.baseline_strategy = baseline_strategy
+        self.key_region = field_region
+        self.key_strategy = attribute_strategy.key
+        self.time_periods = time_periods
+        self.regions = regions
+
+        return None
+
+
+
+    def _initialize_base_input_database(self,
+        regions: Union[List[str], None] = None,
+    ) -> None:
+        """
+        Initialize the BaseInputDatabase class used to construct future
+            trajectories. Initializes the following properties:
+
+            * self.base_input_database
+            * self.base_input_database_demo
+            * self.baseline_strategy
+            * self.regions
+
+
+        Keyword Arguments
+        ------------------
+        - regions: list of regions to run experiment for
+            * If None, will attempt to initialize all regions defined in
+                ModelAttributes
+        """
+
+        self._log("Initializing BaseInputDatabase", type_log = "info")
+
+        dir_templates = self.file_struct.dict_data_mode_to_template_directory.get("calibrated")
+        dir_templates_demo = self.file_struct.dict_data_mode_to_template_directory.get("demo")
+        
+        # try building base input database for all
+        try:
+            base_input_database = ing.BaseInputDatabase(
+                dir_templates,
+                self.model_attributes,
+                regions,
+                demo_q = False,
+                logger = self.logger
+            )
+
+        except Exception as e:
+            msg = f"Error initializing BaseInputDatabase -- {e}"
+            self._log(msg, type_log = "error")
+            raise RuntimeError(msg)
+
+
+        # trying building for demo
+        try:
+            base_input_database_demo = ing.BaseInputDatabase(
+                dir_templates_demo,
+                self.model_attributes,
+                regions[0],
+                demo_q = True,
+                logger = self.logger
+            )
+
+        except Exception as e:
+            msg = f"Error initializing BaseInputDatabase for demo -- {e}"
+            self._log(msg, type_log = "error")
+            raise RuntimeError(msg)
+
+
+        self.base_input_database = base_input_database
+        self.base_input_database_demo = base_input_database_demo
+        self.baseline_strategy = base_input_database.baseline_strategy
+        self.regions = base_input_database.regions
+
+        return None
+
+
+
+    def _initialize_baseline_inputs(self,
+        df_inputs: Union[pd.DataFrame, None],
+    ) -> None:
+        """
+        Initialize the baseline inputs dataframe based on the initialization 
+            value of df_inputs. It not initialied, sets as None. Sets the 
+            following properties:
+
+            * self.baseline_inputs
+        """
+
+        baseline_inputs = (
+            self.transformation_pflo_baseline(df_inputs, strat = self.baseline_strategy) 
+            if isinstance(df_inputs, pd.DataFrame) 
+            else None
+        )
+
+        self.baseline_inputs = baseline_inputs
+
+        return None
+
+
+
+    def _initialize_config(self,
+        dict_config: Union[Dict[str, Any], None],
+    ) -> None:
+        """
+        Define the configuration dictionary and paramter keys. Sets the 
+            following properties:
+
+            * self.config (configuration dictionary)
+            * self.key_* (keys)
+            
+        Function Arguments
+        ------------------
+        - dict_config: dictionary mapping input configuration arguments to key 
+            values. Can include the following keys:
+
+            * "categories_entc_max_investment_ramp": list of categories to apply
+                self.vec_implementation_ramp_renewable_cap to with a maximum
+                investment cap (implemented *after* turning on renewable target)
+            * "categories_entc_renewable": list of categories to tag as 
+                renewable for the Renewable Targets transformation (sets 
+                self.cats_renewable)
+            * "dict_entc_renewable_target_msp": optional dictionary mapping 
+                renewable ENTC categories to MSP fractions to use in the 
+                Renewable Targets trasnsformationl. Can be used to ensure some
+                minimum contribution of certain renewables--e.g.,
+
+                    {
+                        "pp_hydropower": 0.1,
+                        "pp_solar": 0.15
+                    }
+
+                will ensure that hydropower is at least 10% of the mix and solar
+                is at least 15%. 
+
+            * "n_tp_ramp": number of time periods to use to ramp up. If None or
+                not specified, builds to full implementation by the final time
+                period
+            * "vir_renewable_cap_delta_frac": change (applied downward from 
+                "vir_renewable_cap_max_frac") in cap for for new technology
+                capacities available to build in time period while transitioning
+                to renewable capacties. Default is 0.01 (will decline by 1% each
+                time period after "year_0_ramp")
+            * "vir_renewable_cap_max_frac": cap for for new technology 
+                capacities available to build in time period while transitioning
+                to renewable capacties; entered as a fraction of estimated
+                capacity in "year_0_ramp". Default is 0.05
+            * "year_0_ramp": last year with no diversion from baseline strategy
+                (baseline for implementation ramp)
+        """
+
+        dict_config = {} if not isinstance(dict_config, dict) else dict_config
+
+        # set parameters
+        self.config = dict_config
+
+        self.key_config_cats_entc_max_investment_ramp = "categories_entc_max_investment_ramp"
+        self.key_config_cats_entc_renewable = "categories_entc_renewable"
+        self.key_config_cats_inen_high_heat = "categories_inen_high_heat",
+        self.key_config_dict_entc_renewable_target_msp = "dict_entc_renewable_target_msp"
+        self.key_config_frac_inen_high_temp_elec_hydg = "frac_inen_low_temp_elec"
+        self.key_config_frac_inen_low_temp_elec = "frac_inen_low_temp_elec"
+        self.key_config_n_tp_ramp = "n_tp_ramp"
+        self.key_config_vir_renewable_cap_delta_frac = "vir_renewable_cap_delta_frac"
+        self.key_config_vir_renewable_cap_max_frac = "vir_renewable_cap_max_frac"
+        self.key_config_year_0_ramp = "year_0_ramp" 
+
+        return None
+    
+
+
+    def _initialize_file_structure(self,
+        dir_ingestion: Union[str, None] = None,
+        id_str: Union[str, None] = None,
+        regex_template_prepend: str = "sisepuede_run"
+    ) -> None:
+        """
+        Intialize the SISEPUEDEFileStructure object and model_attributes object.
+            Initializes the following properties:
+
+            * self.file_struct
+            * self.model_attributes
+
+        Optional Arguments
+        ------------------
+        - dir_ingestion: directory containing templates for ingestion. The
+            ingestion directory should include subdirectories for each template
+            class that may be run, including:
+                * calibrated: input variables that are calibrated for each
+                    region and sector
+                * demo: demo parameters that are independent of region (default
+                    in quick start)
+                * uncalibrated: preliminary input variables defined for each
+                    region that have not yet been calibrated
+            The calibrated and uncalibrated subdirectories require separate
+                subdrectories for each region, each of which contains an input
+                template for each
+        - id_str: Optional id_str used to create AnalysisID (see ?AnalysisID
+            for more information on properties). Can be used to set outputs for
+            a previous ID/restore a session.
+            * If None, creates a unique ID for the session (used in output file
+                names)
+        """
+
+        self.file_struct = None
+        self.model_attributes = None
+
+        try:
+            self.file_struct = sfs.SISEPUEDEFileStructure(
+                initialize_directories = False,
+                logger = self.logger,
+                regex_template_prepend = regex_template_prepend
+            )
+            self._log(f"Successfully initialized SISEPUEDEFileStructure.", type_log = "info")
+
+        except Exception as e:
+            self._log(f"Error trying to initialize SISEPUEDEFileStructure: {e}", type_log = "error")
+            raise RuntimeError()
+
+        self.model_attributes = self.file_struct.model_attributes
+
+        return None
+
+
+
+    def _initialize_models(self,
+    ) -> None:
+        """
+        Define model objects for use in variable access and base estimates. Sets
+            the following properties:
+
+            * self.model_afolu
+            * self.model_circular_economy
+            * self.model_electricity
+            * self.model_energy
+            * self.model_ippu
+            * self.model_socioeconomic
+        """
+
+        self.model_afolu = self.transformations_afolu.model_afolu
+        self.model_circular_economy = self.transformations_circular_economy.model_circecon
+        self.model_electricity = self.transformations_energy.model_electricity
+        self.model_energy = self.transformations_energy.model_energy
+        self.model_ippu = self.transformations_ippu.model_ippu
+        self.model_socioeconomic = self.model_ippu.model_socioeconomic
+
+        return None
+
+
+    
+    def _initialize_parameters(self,
+        dict_config: Union[Dict[str, Any], None] = None,
+    ) -> None:
+        """
+        Define key parameters for transformation. For keys needed to initialize
+            and define these parameters, see ?self._initialize_config
+    
+        """
+
+        dict_config = dict_config = (
+            self.config 
+            if dict_config is None
+            else dict_config
+        )
+
+        # get parameters from configuration dictionary
+        (
+            n_tp_ramp,
+            year_0_ramp
+        ) = self.get_ramp_characteristics()
+
+
+        ##  SET PROPERTIES
+
+        self.n_tp_ramp = n_tp_ramp
+        self.year_0_ramp = year_0_ramp
+
+        return None
+    
+
+
+    def _initialize_ramp(self,
+    ) -> None: 
+        """
+        Initialize the ramp vector for implementing transformations. Sets the 
+            following properties:
+
+            * self.vec_implementation_ramp
+        """
+        
+        vec_implementation_ramp = self.build_implementation_ramp_vector()
+        
+        ##  SET PROPERTIES
+        self.vec_implementation_ramp = vec_implementation_ramp
+
+        return None
+    
+
+
+    def _initialize_sectoral_transformations(self,
+        df_input: Union[pd.DataFrame, None] = None,
+        dict_config: Union[Dict, None] = None,
+        **kwargs,
+    ) -> None:
+        """
+        Initialize other TransformationXXXX classes for use here.
+            
+        Sets the following properties:
+
+            * self.transformations_afolu
+            * self.transformations_circular_economy
+            * self.transformations_energy
+            * self.transformations_ippu
+
+        Function Arguments
+        ------------------
+        - dir_jl: location of Julia directory containing Julia environment and 
+        support modules
+        - fp_nemomod_reference_files: directory housing reference files called 
+            by NemoMod when running electricity model. Required to access data 
+            in ElectricEnergy. Needs the following CSVs:
+
+            * Required keys or CSVs (without extension):
+                (1) CapacityFactor
+                (2) SpecifiedDemandProfile
+
+        Kewyord Arguments
+        ------------------
+        - dict_config: configuration dictionary passed to objects
+        """
+
+        dict_config = (
+            self.config 
+            if dict_config is None
+            else dict_config
+        )
+        # initialize all transformations with df_input
+        # then use those functions to set baseline_inputs
+
+        self.transformations_afolu = dta.TransformationsAFOLU(
+            self.model_attributes,
+            dict_config,
+            df_input = df_input,
+            field_region = self.key_region,
+            logger = self.logger,
+            model_afolu = kwargs.get("model_afolu"),
+        )
+
+        self.transformations_circular_economy = dtc.TransformationsCircularEconomy(
+            self.model_attributes,
+            dict_config,
+            df_input = df_input,
+            field_region = self.key_region,
+            logger = self.logger,
+            model_circecon = kwargs.get("model_circecon"),
+        )
+
+        self.transformations_energy = dte.TransformationsEnergy(
+            self.model_attributes,
+            dict_config,
+            self.file_struct.dir_jl,
+            self.file_struct.dir_ref_nemo,
+            df_input = df_input,
+            field_region = self.key_region,
+            logger = self.logger,
+            model_afolu = kwargs.get("model_afolu"),
+            model_electricity = kwargs.get("model_electricity"),
+        )
+
+        self.transformations_ippu = dti.TransformationsIPPU(
+            self.model_attributes,
+            dict_config,
+            df_input = df_input,
+            field_region = self.key_region,
+            logger = self.logger,
+            model_ippu = kwargs.get("model_ippu"),
+        )
+
+
+        ##  Finally -- initialize baseline using the data frame
+        self._initialize_baseline_inputs(df_input)
+
+        return None
+
+    
+
+    def _initialize_templates(self,
+    ) -> None:
+        """
+        Initialize sectoral templates. Sets the following properties:
+
+            * self.dict_sectoral_templates
+            * self.input_template
+        """
+
+        # initialize some components
+        input_template = ing.InputTemplate(
+            None,
+            self.model_attributes
+        )
+        attr_sector = self.model_attributes.dict_attributes.get("abbreviation_sector")
+        dict_sectoral_templates = {}
+
+        for sector in self.model_attributes.all_sectors:
+            
+            # get baseline "demo" template, use for ranges
+            fp_read = self.base_input_database_demo.get_template_path(
+                self.regions[0], 
+                sector
+            )
+            df_template = pd.read_excel(
+                fp_read, 
+                sheet_name = input_template.name_sheet_from_index(input_template.baseline_strategy)
+            )
+
+            # extract key fields (do not need time periods)
+            fields_ext = [x for x in input_template.list_fields_required_base]
+            fields_ext += [x for x in df_template.columns if input_template.regex_template_max.match(str(x)) is not None]
+            fields_ext += [x for x in df_template.columns if input_template.regex_template_min.match(str(x)) is not None]
+            df_template = df_template[fields_ext].drop_duplicates()
+
+            dict_sectoral_templates.update({sector: df_template})
+
+        self.dict_sectoral_templates = dict_sectoral_templates
+        self.input_template = input_template
+
+        return None
+
+
+
+    def _initialize_transformations(self,
+    ) -> None:
+        """
+        Initialize all sc.Transformation objects used to manage the construction
+            of transformations. Note that each transformation == a strategy.
+
+        NOTE: This is the key function mapping each function to a transformation
+            name.
+            
+        Sets the following properties:
+
+            * self.all_transformations
+            * self.all_transformations_non_baseline
+            * self.dict_transformations
+            * self.transformation_id_baseline
+            * self.transformation_***
+        """
+
+        attr_strategy = self.attribute_strategy
+        all_transformations = []
+
+        dict_transformations = {}
+        dict_transformations.update(self.transformations_afolu.dict_transformations)
+        dict_transformations.update(self.transformations_circular_economy.dict_transformations)
+        dict_transformations.update(self.transformations_energy.dict_transformations)
+        dict_transformations.update(self.transformations_ippu.dict_transformations)
+
+
+
+        ##################
+        #    BASELINE    #
+        ##################
+
+        self.baseline = sc.Transformation(
+            "BASE", 
+            self.transformation_pflo_baseline, 
+            attr_strategy
+        )
+        all_transformations.append(self.baseline)
+
+
+
+        #################################
+        #    CROSS-SECTOR PORTFOLIOS    #
+        #################################
+
+
+        ##  FOR ALL, CALL ALL FUNCTIONS FROM SUBSECTORS
+
+        function_list = self.transformations_circular_economy.ce_all.function_list.copy()
+        function_list += self.transformations_energy.en_all.function_list.copy()
+        function_list += self.transformations_ippu.ip_all.function_list.copy()
+        function_list += [
+            self.transformation_pflo_industrial_ccs,
+            self.transformation_pflo_healthier_diets
+        ]
+
+        # break out before adding AFOLU so that w & w/o reallocation can be sent to different transformations
+        function_list_plur = function_list.copy()
+        function_list += self.transformations_afolu.af_all.function_list.copy()
+
+        self.pflo_all = sc.Transformation(
+            "PFLO:ALL", 
+            function_list, 
+            attr_strategy
+        )
+        all_transformations.append(self.pflo_all)
+
+
+        ##  FOR PLUR, ENSURE PLUR IS ON
+        
+        function_list_plur += (
+            self.transformations_afolu
+            .af_all_with_partial_reallocation
+            .function_list
+            .copy()
+        )
+
+        self.pflo_all_with_partial_reallocation = sc.Transformation(
+            "PFLO:ALL_PLUR", 
+            function_list_plur, 
+            attr_strategy
+        )
+        all_transformations.append(self.pflo_all_with_partial_reallocation)
+
+
+        ##  PROVIDE ONE W/O LVST EXPORTS
+        
+        """
+        # NOTE: would have to reinstantiate above if uncommenting
+        function_list_plur_no_lvst_exp_reduction += (
+            self.transformations_afolu
+            .af_all_no_lvst_export_reduction_with_partial_reallocation
+            .function_list
+            .copy()
+        )
+
+        self.pflo_all_no_lvst_export_reduction_with_partial_reallocation = sc.Transformation(
+            "PFLO:ALL_NO_LVST_EXPORT_REDUCTION_PLUR", 
+            function_list_plur_no_lvst_exp_reduction, 
+            attr_strategy
+        )
+        all_transformations.append(self.pflo_all_no_lvst_export_reduction_with_partial_reallocation)
+        """;
+
+        self.pflo_better_baseline = sc.Transformation(
+            "PFLO:BETTER_BASE", 
+            [
+                self.transformations_afolu.transformation_agrc_improve_rice_management,
+                self.transformations_afolu.transformation_agrc_increase_crop_productivity,
+                self.transformations_afolu.transformation_agrc_reduce_supply_chain_losses,
+                self.transformations_afolu.transformation_agrc_expand_conservation_agriculture,
+                self.transformations_afolu.transformation_lndu_reallocate_land,
+                self.transformations_afolu.transformation_lvst_increase_productivity,
+                self.transformations_afolu.transformation_soil_reduce_excess_fertilizer,
+                self.transformations_circular_economy.transformation_wali_improve_sanitation_industrial,
+                self.transformations_circular_economy.transformation_wali_improve_sanitation_rural,
+                self.transformations_circular_economy.transformation_wali_improve_sanitation_urban,
+                self.transformations_circular_economy.transformation_waso_increase_landfilling,
+                self.transformations_circular_economy.transformation_waso_increase_recycling,
+                self.transformations_energy.transformation_entc_reduce_transmission_losses,
+                self.transformations_energy.transformation_fgtv_maximize_flaring,
+                self.transformations_energy.transformation_inen_maximize_efficiency_energy,
+                self.transformations_energy.transformation_scoe_increase_applicance_efficiency,
+                self.transformations_energy.transformation_scoe_reduce_heat_energy_demand,
+                self.transformations_energy.transformation_trns_increase_efficiency_electric,
+                self.transformations_energy.transformation_trns_increase_efficiency_non_electric,
+                self.transformations_ippu.transformation_ippu_reduce_cement_clinker
+            ], 
+            attr_strategy
+        )
+        all_transformations.append(self.pflo_better_baseline)
+
+
+        self.plfo_healthier_diets = sc.Transformation(
+            "PFLO:BETTER_DIETS", 
+            self.transformation_pflo_healthier_diets, 
+            attr_strategy
+        )
+        all_transformations.append(self.plfo_healthier_diets)
+
+
+        self.plfo_healthier_diets_with_partial_reallocation = sc.Transformation(
+            "PFLO:BETTER_DIETS_PLUR", 
+            [
+                self.transformation_pflo_healthier_diets, 
+                self.transformations_afolu.transformation_lndu_reallocate_land
+            ],
+            attr_strategy
+        )
+        all_transformations.append(self.plfo_healthier_diets_with_partial_reallocation)
+
+
+        self.pflo_industrial_ccs = sc.Transformation(
+            "PFLO:IND_INC_CCS", 
+            self.transformation_pflo_industrial_ccs, 
+            attr_strategy
+        )
+        all_transformations.append(self.pflo_industrial_ccs)
+
+
+        self.pflo_sociotechnical = sc.Transformation(
+            "PFLO:CHANGE_CONSUMPTION",
+            [
+                self.transformation_pflo_healthier_diets,
+                self.transformations_afolu.transformation_frst_stop_deforestation,
+                self.transformations_afolu.transformation_lndu_reallocate_land,
+                self.transformations_afolu.transformation_lvst_decrease_exports,
+                self.transformations_circular_economy.transformation_waso_decrease_food_waste,
+                self.transformations_circular_economy.transformation_waso_increase_anaerobic_treatment_and_composting,
+                self.transformations_energy.transformation_trns_electrify_road_light_duty,
+                self.transformations_energy.transformation_trns_increase_occupancy_light_duty,
+                self.transformations_energy.transformation_trns_mode_shift_public_private,
+                self.transformations_energy.transformation_trns_mode_shift_regional
+            ],
+            attr_strategy
+        )
+        all_transformations.append(self.pflo_sociotechnical)
+
+
+        self.pflo_supply_side_technology = sc.Transformation(
+            "PFLO:SUPPLY_SIDE_TECH", 
+            [
+                self.transformation_pflo_industrial_ccs, 
+                self.transformations_afolu.transformation_lndu_expand_silvopasture,
+                self.transformations_afolu.transformation_lndu_reallocate_land,
+                self.transformations_afolu.transformation_lsmm_improve_manure_management_cattle_pigs,
+                self.transformations_afolu.transformation_lsmm_improve_manure_management_other,
+                self.transformations_afolu.transformation_lsmm_improve_manure_management_poultry,
+                self.transformations_afolu.transformation_lsmm_increase_biogas_capture,
+                self.transformations_afolu.transformation_lvst_reduce_enteric_fermentation,
+                self.transformations_circular_economy.transformation_trww_increase_biogas_capture,
+                self.transformations_circular_economy.transformation_waso_increase_biogas_capture,
+                self.transformations_circular_economy.transformation_waso_increase_energy_from_biogas,
+                self.transformations_circular_economy.transformation_waso_increase_energy_from_incineration,
+                self.transformations_energy.transformation_fgtv_minimize_leaks,
+                self.transformations_energy.transformation_inen_fuel_switch_low_and_high_temp,
+                self.transformations_energy.transformation_scoe_fuel_switch_electrify,
+                self.transformations_energy.transformation_trns_electrify_rail,
+                self.transformations_energy.transformation_trns_fuel_switch_maritime,
+                self.transformations_energy.transformation_trns_fuel_switch_road_medium_duty,
+                self.transformations_energy.transformation_trns_mode_shift_freight,
+                self.transformations_energy.transformation_support_entc_clean_grid,
+                self.transformations_ippu.transformation_ippu_reduce_demand,
+                self.transformations_ippu.transformation_ippu_reduce_hfcs,
+                self.transformations_ippu.transformation_ippu_reduce_n2o,
+                self.transformations_ippu.transformation_ippu_reduce_other_fcs,
+                self.transformations_ippu.transformation_ippu_reduce_pfcs
+            ], 
+            attr_strategy
+        )
+        all_transformations.append(self.pflo_supply_side_technology)
+
+        
+
+        ## specify dictionary of transformations and get all transformations + baseline/non-baseline
+
+        dict_transformations.update(
+            dict(
+                (x.id, x) 
+                for x in all_transformations
+                if x.id in attr_strategy.key_values
+            )
+        )
+        all_transformations = sorted(list(dict_transformations.keys()))
+        all_transformations_non_baseline = [
+            x for x in all_transformations 
+            if not dict_transformations.get(x).baseline
+        ]
+
+        transformation_id_baseline = [
+            x for x in all_transformations 
+            if x not in all_transformations_non_baseline
+        ]
+        transformation_id_baseline = transformation_id_baseline[0] if (len(transformation_id_baseline) > 0) else None
+
+
+        # SET ADDDITIONAL PROPERTIES
+
+        self.all_transformations = all_transformations
+        self.all_transformations_non_baseline = all_transformations_non_baseline
+        self.dict_transformations = dict_transformations
+        self.transformation_id_baseline = transformation_id_baseline
+
+        return None
+
+
+
+
+
+    ################################################
+    ###                                          ###
+    ###    OTHER NON-TRANSFORMATION FUNCTIONS    ###
+    ###                                          ###
+    ################################################
+
+    def build_implementation_ramp_vector(self,
+        year_0: Union[int, None] = None,
+        n_years_ramp: Union[int, None] = None,
+    ) -> np.ndarray:
+        """
+        Build the implementation ramp vector
+
+        Function Arguments
+        ------------------
+
+        Keyword Arguments
+        -----------------
+        - year_0: last year without change from baseline
+        - n_years_ramp: number of years to go from 0 to 1
+        """
+        year_0 = self.year_0_ramp if (year_0 is None) else year_0
+        n_years_ramp = self.n_tp_ramp if (n_years_ramp is None) else n_years_ramp
+
+        tp_0 = self.time_periods.year_to_tp(year_0) #10
+        n_tp = len(self.time_periods.all_time_periods) #25
+
+        vec_out = np.array([max(0, min((x - tp_0)/n_years_ramp, 1)) for x in range(n_tp)])
+
+        return vec_out
+
+
+
+    def build_strategies_long(self,
+        df_input: Union[pd.DataFrame, None] = None,
+        include_base_df: bool = True,
+        strategies: Union[List[str], List[int], None] = None,
+    ) -> pd.DataFrame:
+        """
+        Return a long (by model_attributes.dim_strategy_id) concatenated
+            DataFrame of transformations.
+
+        Function Arguments
+        ------------------
+
+        Keyword Arguments
+        -----------------
+        - df_input: baseline (untransformed) data frame to use to build 
+            strategies. Must contain self.key_region and 
+            self.model_attributes.dim_time_period in columns. If None, defaults
+            to self.baseline_inputs
+        - include_base_df: include df_input in the output DataFrame? If False,
+            only includes strategies associated with transformation 
+        - strategies: strategies to build for. Can be a mixture of strategy_ids
+            and names. If None, runs all available. 
+        """
+
+        # INITIALIZE STRATEGIES TO LOOP OVER
+
+        strategies = (
+            self.all_transformations_non_baseline
+            if strategies is None
+            else [x for x in self.all_transformations_non_baseline if x in strategies]
+        )
+        strategies = [self.get_strategy(x) for x in strategies]
+        strategies = sorted([x.id for x in strategies if x is not None])
+        n = len(strategies)
+
+
+        # LOOP TO BUILD
+        
+        t0 = time.time()
+        self._log(
+            f"TransformationsIPPU.build_strategies_long() starting build of {n} strategies...",
+            type_log = "info"
+        )
+        
+        # initialize baseline
+        df_out = (
+            self.transformation_ip_baseline(df_input)
+            if df_input is not None
+            else (
+                self.baseline_inputs
+                if self.baseline_inputs is not None
+                else None
+            )
+        )
+
+        if df_out is None:
+            return None
+
+        # initialize to overwrite dataframes
+        iter_shift = int(include_base_df)
+        df_out = [df_out for x in range(len(strategies) + iter_shift)]
+
+        for i, strat in enumerate(strategies):
+            t0_cur = time.time()
+            transformation = self.get_strategy(strat)
+
+            if transformation is not None:
+                try:
+                    df_out[i + iter_shift] = transformation(df_out[i + iter_shift])
+                    t_elapse = sf.get_time_elapsed(t0_cur)
+                    self._log(
+                        f"\tSuccessfully built transformation {self.key_strategy} = {transformation.id} ('{transformation.name}') in {t_elapse} seconds.",
+                        type_log = "info"
+                    )
+
+                except Exception as e: 
+                    df_out[i + 1] = None
+                    self._log(
+                        f"\tError trying to build transformation {self.key_strategy} = {transformation.id}: {e}",
+                        type_log = "error"
+                    )
+            else:
+                df_out[i + iter_shift] = None
+                self._log(
+                    f"\tTransformation {self.key_strategy} not found: check that a support_classes.Transformation object has been defined associated with the code.",
+                    type_log = "warning"
+                )
+
+        # concatenate, log time elapsed and completion
+        df_out = pd.concat(df_out, axis = 0).reset_index(drop = True)
+
+        t_elapse = sf.get_time_elapsed(t0)
+        self._log(
+            f"TransformationsIPPU.build_strategies_long() build complete in {t_elapse} seconds.",
+            type_log = "info"
+        )
+
+        return df_out
+    
+
+
+    def build_strategies_to_templates(self,
+        df_input: Union[pd.DataFrame, None] = None,
+        regions: Union[List[str], None] = None,
+        replace_template: bool = False,
+        return_q: bool = False,
+        sectors: Union[List[str], str] = None,
+        strategies: Union[List[str], List[int], None] = None,
+    ) -> pd.DataFrame:
+        """
+        Return a long (by model_attributes.dim_strategy_id) concatenated
+            DataFrame of transformations.
+
+        Function Arguments
+        ------------------
+
+        Keyword Arguments
+        -----------------
+        - df_input: baseline (untransformed) data frame to use to build 
+            strategies. Must contain self.key_region and 
+            self.model_attributes.dim_time_period in columns. If None, defaults
+            to self.baseline_inputs
+        - regions: optional list of regions to build strategies for. If None, 
+            defaults to all defined.
+        - replace_template: replace template if it exists? If False, tries to 
+            overwrite existing sheets.
+        - return_q: return an output dictionary? If True, will return all 
+            templates in the form of a dictionary. Otherwise, writes to output 
+            path implied by SISEPUEDEFileStructure
+        - sectors: optional sectors to specify for export. If None, will export 
+            all.
+        - strategies: strategies to build for. Can be a mixture of strategy_ids
+            and names. If None, runs all available. 
+        """
+
+        # INITIALIZE STRATEGIES TO LOOP OVER
+        
+        # initialize attributes and other basic variables
+        attr_sector = self.model_attributes.dict_attributes.get(f"abbreviation_sector")
+        attr_strat = self.model_attributes.dict_attributes.get(f"dim_{self.model_attributes.dim_strategy_id}")
+        fields_var_all = self.model_attributes.build_variable_dataframe_by_sector(
+            None, 
+            include_time_periods = False
+        )
+        fields_var_all = list(fields_var_all["variable"])
+        
+        
+        # initialize baseline dataframe
+        df_out = (
+            self.transformation_pflo_baseline(df_input)
+            if df_input is not None
+            else self.baseline_inputs
+        )
+        return_none = df_out is None
+        
+        
+        # get input component and add baseline strategy marker
+        fields_sort = (
+            [
+                attr_strat.key, 
+                self.time_periods.field_time_period
+            ] 
+            if (attr_strat.key in df_out.columns) 
+            else [field_time_period]
+        )
+        
+        
+        # check regions
+        regions = (
+            [x for x in self.regions if x in regions]
+            if sf.islistlike(regions)
+            else self.regions
+        )
+        n_r = len(regions)
+        return_none |= (len(regions) == 0)
+        
+        
+        # check sectors
+        sectors = (
+            [x for x in sectors if x in self.model_attributes.all_sectors]
+            if sf.islistlike(sectors)
+            else self.model_attributes.all_sectors
+        )
+        return_none |= (len(sectors) == 0)
+        
+        
+        # check strategies
+        strategies = (
+            self.all_transformations_non_baseline
+            if strategies is None
+            else [x for x in self.all_transformations_non_baseline if x in strategies]
+        )
+        strategies = [self.get_strategy(x) for x in strategies]
+        strategies = sorted([x.id for x in strategies if x is not None])
+        n = len(strategies)
+        
+        if return_none:
+            return None
+        
+        
+        # LOOP TO BUILD
+
+        t0 = time.time()
+        self._log(
+            f"Starting build of {n} strategies in {n_r} regions...",
+            type_log = "info"
+        )
+        
+
+        # initialize to overwrite dataframes
+        dict_sectors = dict((s, {}) for s in attr_sector.key_values)
+        dict_write = dict((r, dict_sectors) for r in regions)
+        df_out_grouped = df_out.groupby([self.key_region])
+        
+        for r, df in df_out_grouped:
+            
+            if r not in regions:
+                continue
+            
+            self._log(f"Starting build for region {r}", type_log = "info")
+            
+            df_out_list = [df, df.copy()]
+            dict_cur = (
+                dict_write.get(r)
+                if return_q
+                else dict_sectors.copy()
+            )
+                
+            for i, strat in enumerate(strategies):
+                t0_cur = time.time()
+                transformation = self.get_strategy(strat)
+
+                if transformation is None:
+                    self._log(
+                        f"\tTransformation {self.key_strategy} not found: check that a support_classes.Transformation object has been defined associated with the code.",
+                        type_log = "warning"
+                    )
+                    continue
+
+
+                # build strategies (baseline and alternative)
+                try:
+                    df_out_list[1] = transformation(df)
+
+                    t_elapse = sf.get_time_elapsed(t0_cur)
+                    self._log(
+                        f"\tSuccessfully built transformation {self.key_strategy} = {transformation.id} ('{transformation.name}') in {t_elapse} seconds.",
+                        type_log = "info"
+                    )
+                    skip_q = False
+                    
+                except Exception as e: 
+                    df_out[i + 1] = None
+                    self._log(
+                        f"\tError trying to build transformation {self.key_strategy} = {transformation.id}: {e}",
+                        type_log = "error"
+                    )
+                    continue
+                
+                # turn into input to template builder 
+                df_cur = pd.concat(df_out_list, axis = 0).reset_index(drop = True)
+                fields_drop = [x for x in df_cur.columns if x not in fields_var_all + fields_sort]
+                df_cur = (
+                    df_cur
+                    .drop(fields_drop, axis = 1)
+                    .sort_values(by = fields_sort)
+                    .reset_index(drop = True)
+                )
+
+                global dfc
+                dfc = df_cur
+
+                for sector_abv in attr_sector.key_values:
+
+                    # get sector name
+                    sector = attr_sector.field_maps.get(f"{attr_sector.key}_to_sector").get(sector_abv)
+                    df_template = self.dict_sectoral_templates.get(sector)
+
+                    # build template
+                    dict_write_cur = self.input_template.template_from_inputs(
+                        df_cur,
+                        df_template,
+                        sector_abv
+                    )
+                    
+                    dict_cur[sector_abv].update(dict_write_cur)
+                
+            global dc
+            dc = dict_cur
+            
+            # export 
+            if not return_q:
+                for sector_abv in attr_sector.key_values:
+                    
+                    sector = attr_sector.field_maps.get(f"{attr_sector.key}_to_sector").get(sector_abv)
+                    if sector not in sectors:
+                        continue
+                        
+                        
+                    fp_write = self.base_input_database.get_template_path(
+                        r, 
+                        sector,
+                        create_export_dir = True
+                    )
+                    self._log(
+                        f"Exporting '{sector_abv}' template in region {r} to {fp_write}", 
+                        type_log = "info"
+                    )
+
+                    sf.dict_to_excel(
+                        fp_write,
+                        dict_cur.get(sector_abv),
+                        replace_file = replace_template,
+                    )
+                    
+            
+            self._log(f"Templates build for region {r} complete.\n\n", type_log = "info")
+
+        t_elapse = sf.get_time_elapsed(t0)
+        self._log(
+            f"Integrated transformations build complete in {t_elapse} seconds.",
+            type_log = "info"
+        )
+        
+        return_val = dict_write if return_q else 0
+
+        return return_val
+
+        
+
+    def get_strategy(self,
+        strat: Union[int, str, None],
+        field_strategy_code: str = "strategy_code",
+        field_strategy_name: str = "strategy",
+    ) -> None:
+        """
+        Get strategy `strat` based on strategy code, id, or name
+        
+        If strat is None or an invalid valid of strat is entered, returns None; 
+            otherwise, returns the sc.Transformation object. 
+            
+        Function Arguments
+        ------------------
+        - strat: strategy id, strategy name, or strategy code to use to retrieve 
+            sc.Trasnformation object
+            
+        Keyword Arguments
+        ------------------
+        - field_strategy_code: field in strategy_id attribute table containing
+            the strategy code
+        - field_strategy_name: field in strategy_id attribute table containing
+            the strategy name
+        """
+
+        if not (sf.isnumber(strat, integer = True) | isinstance(strat, str)):
+            return None
+
+        dict_code_to_strat = self.attribute_strategy.field_maps.get(
+            f"{field_strategy_code}_to_{self.attribute_strategy.key}"
+        )
+        dict_name_to_strat = self.attribute_strategy.field_maps.get(
+            f"{field_strategy_name}_to_{self.attribute_strategy.key}"
+        )
+
+        # check strategy by trying both dictionaries
+        if isinstance(strat, str):
+            strat = (
+                dict_name_to_strat.get(strat)
+                if strat in dict_name_to_strat.keys()
+                else dict_code_to_strat.get(strat)
+            )
+
+        out = (
+            None
+            if strat not in self.attribute_strategy.key_values
+            else self.dict_transformations.get(strat)
+        )
+        
+        return out
+
+
+
+    def _log(self,
+        msg: str,
+        type_log: str = "log",
+        **kwargs
+    ) -> None:
+        """
+        Clean implementation of sf._optional_log in-line using default logger. See ?sf._optional_log for more information
+
+        Function Arguments
+        ------------------
+        - msg: message to log
+
+        Keyword Arguments
+        -----------------
+        - type_log: type of log to use
+        - **kwargs: passed as logging.Logger.METHOD(msg, **kwargs)
+        """
+        sf._optional_log(self.logger, msg, type_log = type_log, **kwargs)
+
+        return None
+
+
+
+
+
+    ############################################
+    ###                                      ###
+    ###    BEGIN TRANSFORMATION FUNCTIONS    ###
+    ###                                      ###
+    ############################################
+
+    ##########################################################
+    #    BASELINE - TREATED AS TRANSFORMATION TO INPUT DF    #
+    ##########################################################
+    """
+    NOTE: needed for certain modeling approaches; e.g., preventing new hydro 
+        from being built. The baseline can be preserved as the input DataFrame 
+        by the Transformation as a passthrough (e.g., return input DataFrame) 
+
+    NOTE: modifications to input variables should ONLY affect IPPU variables
+    """
+
+    def transformation_pflo_baseline(self,
+        df_input: pd.DataFrame,
+        strat: Union[int, None] = None,
+    ) -> pd.DataFrame:
+        """
+        Implement the "Baseline" from which other transformations deviate 
+            (pass through)
+        """
+
+        # clean production scalar so that they are always 1 in the first time period
+        #df_out = tbg.prepare_demand_scalars(
+        #    df_input,
+        #    self.model_ippu.modvar_ippu_scalar_production,
+        #    self.model_attributes,
+        #    key_region = self.key_region,
+        #)
+        df_out = df_input.copy()
+
+        # call transformations from other sectors
+        df_out = self.transformations_afolu.transformation_af_baseline(df_out)
+        df_out = self.transformations_circular_economy.transformation_ce_baseline(df_out)
+        df_out = self.transformations_energy.transformation_en_baseline(df_out)
+        df_out = self.transformations_ippu.transformation_ip_baseline(df_out)
+
+        if sf.isnumber(strat, integer = True):
+            df_out = sf.add_data_frame_fields_from_dict(
+                df_out,
+                {
+                self.model_attributes.dim_strategy_id: int(strat)
+                },
+                overwrite_fields = True,
+                prepend_q = True,
+            )
+
+        return df_out
+
+
+
+    ########################################
+    #    CROSS-SECTORAL TRANSFORMATIONS    #
+    ########################################
+
+    def transformation_pflo_healthier_diets(self,
+        df_input: Union[pd.DataFrame, None] = None,
+        strat: Union[int, None] = None,
+    ) -> pd.DataFrame:
+        """
+        Implement the "Healthier Diets" transformation on input DataFrame
+            df_input (affects IPPU and INEN).
+        """
+        # check input dataframe
+        df_input = (
+            self.baseline_inputs
+            if not isinstance(df_input, pd.DataFrame) 
+            else df_input
+        )
+        
+        df_out = tbg.transformation_general(
+            df_input,
+            self.model_attributes,
+            {
+                self.model_socioeconomic.modvar_gnrl_frac_eating_red_meat: {
+                    "bounds": (0, 1),
+                    "magnitude": 0.5,
+                    "magnitude_type": "final_value_ceiling",
+                    "vec_ramp": self.vec_implementation_ramp
+                },
+
+                # TEMPORARY UNTIL A DEMAND SCALAR CAN BE ADDED IN
+                self.model_afolu.modvar_agrc_elas_crop_demand_income: {
+                    "bounds": (-2, 2),
+                    "categories": ["sugar_cane"],
+                    "magnitude": -0.2,
+                    "magnitude_type": "final_value_ceiling",
+                    "vec_ramp": self.vec_implementation_ramp
+                },
+            },
+            field_region = self.key_region,
+            strategy_id = strat,
+        )
+
+        return df_out
+
+
+
+    def transformation_pflo_industrial_ccs(self,
+        df_input: Union[pd.DataFrame, None] = None,
+        strat: Union[int, None] = None,
+    ) -> pd.DataFrame:
+        """
+        Implement the "Industrial Point of Capture" transformation on input 
+            DataFrame df_input (affects IPPU and INEN).
+        """
+        # check input dataframe
+        df_input = (
+            self.baseline_inputs
+            if not isinstance(df_input, pd.DataFrame) 
+            else df_input
+        )
+
+        dict_magnitude_eff = None
+        dict_magnitude_prev = {
+            "cement": 0.8,
+            "chemicals": 0.8,
+            "metals": 0.8,
+            "plastic": 0.8,
+        }
+
+        # increase prevalence of capture
+        df_out = tbc.transformation_mlti_industrial_carbon_capture(
+            df_input,
+            dict_magnitude_eff,
+            dict_magnitude_prev,
+            self.vec_implementation_ramp,
+            self.model_attributes,
+            model_ippu = self.model_ippu,
+            field_region = self.key_region,
+            strategy_id = strat,
+        )
+
+        return df_out
+
+

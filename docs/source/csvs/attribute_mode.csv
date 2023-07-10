@@ -1,0 +1,3 @@
+﻿Mode Name,``$MODE$``,Description,Generation Category,Storage Category
+Generate,``generate``,"Storage technologies (``st_``) can generate and store electricity, while power plants (``pp_``) can only generate electricity.",1,0
+Store,``store``,Storage technologies (``st_``) can generate and store electricity.,0,1

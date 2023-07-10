@@ -1,0 +1,12 @@
+{
+	"ingestion_data": {
+        "FAOSTAT": {
+            "source": "http://www.fao.org/faostat/en/#home",
+            "date": "2021-09-14"
+        },
+        "WORLDBANK": {
+            "API_CRI_DS2_en_csv_v2_2770157": "https://data.worldbank.org/country/costa-rica",
+            "date": "2021-09-14"
+        }
+	}
+}

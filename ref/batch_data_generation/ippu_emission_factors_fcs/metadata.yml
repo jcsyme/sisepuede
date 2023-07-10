@@ -1,0 +1,21 @@
+date:        2023-04-16
+variable :
+  name : HFC, PFC, and other Fluorinated Compound Emission Factors by Production and GDP
+  subsector :   Industrial Processes and Product Use
+  longname :  FC Emission Factors in IPPU
+  units: see SISEPUEDE/docs/source/csvs/table_varreqs_by_partial_category_ip_ippu.csv for individual units (generally unitless for production or tonne/billion $USD GDP)
+
+resources: https://essd.copernicus.org/articles/13/5213/2021/
+    - url:   NA
+      descrip: >
+            - ESSD synthetic data (see additional information--https://essd.copernicus.org/articles/13/5213/2021/) are synthetic emission data used to 
+
+aditional_information:
+      assumptions: >
+            - Combine ESSD synthetic emissions data with production numbers (historical values of SISEPUEDE model variable "Initial Industrial Production" as stored in sisepuede_data repository) to estimate emissions.
+            - In cases where multiple emission outputs coincide with one ESSD estimate, distribute homogenously
+            - The **ESSD dataset** gives some sector-level emissions that we cannot obtain elsewhere, notably chemicals and cement emissions
+              - Minx, J. C., Lamb, W. F., Andrew, R. M., Canadell, J. G., Crippa, M., Döbbeling, N., Forster, P. M., Guizzardi, D., Olivier, J., Peters, G. P., Pongratz, J., Reisinger, A., Rigby, M., Saunois, M., Smith, S. J., Solazzo, E., and Tian, H.: A comprehensive and synthetic dataset for global, regional, and national greenhouse gas emissions by sector 1970–2018 with an extension to 2019, Earth Syst. Sci. Data, 13, 5213–5252, https://doi.org/10.5194/essd-13-5213-2021, 2021. 
+              - Article is accessible at https://essd.copernicus.org/articles/13/5213/2021/)
+            - The data itself (linked from above) can be accessed at https://zenodo.org/record/5566761#.ZBzAPC-B0bQ 
+            - The data include mappings to IPCC emission codes, and it could be used as part of a two part calibration or aggregate calibration (IPPU + INEN at the same time)

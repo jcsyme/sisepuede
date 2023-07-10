@@ -1,0 +1,24 @@
+﻿Variable Type,Variable,Information,Variable Schema,Dashboard,Notes,Data Link,Reference,Internal Model Variable,Default LHS Scalar Minimum at Final Time Period,Default LHS Scalar Maximum at Final Time Period,Unnamed: 11,``$CAT-FUEL$``,Energy Demand Variable by Fuel,Energy Efficiency Variable by Fuel,Fuel Fraction Variable by Fuel,Emissions Total by Gas Component
+Input,Annual Capture and Sequestration by Type,,"``qty_ccsq_$UNIT-MASS$_$EMISSION-GAS$_captured_sequestered_by_$CAT-CCSQ$`` (``$EMISSION-GAS$ = co2``, ``$UNIT-MASS$ = mt``)",,,,,,0,1,1,none,0,0,0,0
+Input,CCSQ Efficiency Factor for Heat Energy from Geothermal,"Energy efficiency factor for geothermal Heat Energy. For example, value of 0.99 indicates that 99% of input energy results in output energy at point of use.",``efficfactor_ccsq_heat_energy_$CAT-CCSQ$_geothermal``,,,,,,0,1,1,``fuel_geothermal``,0,1,0,0
+Input,CCSQ Efficiency Factor for Heat Energy from Hydrogen,"Energy efficiency factor for hydrogen Heat Energy. For example, value of 0.8 indicates that 80% of input energy results in output energy at point of use.",``efficfactor_ccsq_heat_energy_$CAT-CCSQ$_hydrogen``,,,,,,0,1,1,``fuel_hydrogen``,0,1,0,0
+Input,CCSQ Efficiency Factor for Heat Energy from Natural Gas,"Energy efficiency factor for natural gas Heat Energy. For example, value of 0.8 indicates that 80% of input energy results in output energy at point of use.",``efficfactor_ccsq_heat_energy_$CAT-CCSQ$_natural_gas``,,,,,,0,1,1,``fuel_natural_gas``,0,1,0,0
+Input,CCSQ Energy Demand Per Mass of :math:`\text{CO}_2` Captured,,"``energy_intensity_ccsq_$CAT-CCSQ$_$UNIT-ENERGY$_per_$UNIT-MASS$_$EMISSION-GAS$`` (``$EMISSION-GAS$ = co2``, ``$UNIT-ENERGY$ = gj``, ``$UNIT-MASS$ = tonne``)",," | See the `World Resources Institute <https://www.wri.org/insights/direct-air-capture-resource-considerations-and-costs-carbon-removal>_` for information on direct air capture.
+ | 
+ | See etc.",,,,1,1,1,none,0,0,0,0
+Input,CCSQ Fraction Energy Electricity,Fraction of total energy demand required to operate ``$CAT-CCSQ$`` that is electric energy.,``frac_ccsq_energydem_$CAT-CCSQ$_electricity``,,,,,,0,1,1,none,0,0,0,0
+Input,CCSQ Fraction Energy Heat,Fraction of total energy demand required to operate ``$CAT-CCSQ$`` that is heat energy (from fuels).,``frac_ccsq_energydem_$CAT-CCSQ$_heat``,,,,,,0,1,1,none,0,0,0,0
+Input,CCSQ Fraction Heat Energy Demand Geothermal," | Fraction of total **point-of-use** heat energy demand required to operate ``$CAT-CCSQ$`` from geothermal fuels.
+ | 
+ | This fraction will differ from the fraction of total consumption. ",``frac_ccsq_heat_energy_$CAT-CCSQ$_geothermal``,,,,,,0,1,1,``fuel_geothermal``,0,0,1,0
+Input,CCSQ Fraction Heat Energy Demand Hydrogen," | Fraction of total **point-of-use** heat energy demand required to operate ``$CAT-CCSQ$`` from hydrogen fuels.
+ | 
+ | This fraction will differ from the fraction of total consumption. ",``frac_ccsq_heat_energy_$CAT-CCSQ$_hydrogen``,,,,,,0,1,1,``fuel_hydrogen``,0,0,1,0
+Input,CCSQ Fraction Heat Energy Demand Natural Gas," | Fraction of total **point-of-use** heat energy demand required to operate ``$CAT-CCSQ$`` from natural.
+ | 
+ | This fraction will differ from the fraction of total consumption. ",``frac_ccsq_heat_energy_$CAT-CCSQ$_natural_gas``,,,,,,0,1,1,``fuel_natural_gas``,0,0,1,0
+Output,:math:`\text{CH}_4` Emissions from CCSQ,Emissions of :math:`\text{CH}_4` from fuel use for heat energy in carbon capture and sequestration.,``emission_co2e_$EMISSION-GAS$_ccsq_$CAT-CCSQ$`` (``$EMISSION-GAS$ = ch4``),,,,,,1,1,1,none,0,0,0,1
+Output,:math:`\text{CO}_2` Emissions from CCSQ,**Net** emissions :math:`\text{CO}_2` of from carbon capture and sequestration. Calculated as :math:`C_{emitted} - C_{sequestered}`. A negative number represents a net removal of :math:`\text{CO}_2` from the atmosphere.,``emission_co2e_$EMISSION-GAS$_ccsq_$CAT-CCSQ$`` (``$EMISSION-GAS$ = co2``),,,,,,1,1,1,none,0,0,0,1
+Output,:math:`\text{N}_2\text{O}` Emissions from CCSQ,Emissions of :math:`\text{N}_2\text{O}` from fuel use for heat energy in carbon capture and sequestration.,``emission_co2e_$EMISSION-GAS$_ccsq_$CAT-CCSQ$`` (``$EMISSION-GAS$ = n2o``),,,,,,1,1,1,none,0,0,0,1
+Output,Electrical Energy Consumption from CCSQ,"Energy consumption, which includes inflation to demands due to systemic inefficiencies.",``energy_consumption_electricity_ccsq_$CAT-CCSQ$``,,,,,,1,1,1,none,0,0,0,0
+Output,Energy Consumption from CCSQ,"Total consumption in CCSQ, which includes inflation to demands due to systemic inefficiencies.",``energy_consumption_ccsq_$CAT-CCSQ$``,,,,,,1,1,1,none,0,0,0,0

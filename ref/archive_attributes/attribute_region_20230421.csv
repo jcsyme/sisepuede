@@ -1,0 +1,27 @@
+category_name,region,iso_alpha_3,description,hourly_capacity_factor_region,powerplant_data,io_data,fao_area_code
+Argentina,argentina,arg,,Southern,Yes,Yes,9
+Bahamas,bahamas,bhs,,Northern,No,No,12
+Barbados,barbados,brb,,Equatorial,No,No,14
+Belize,belize,blz,,Equatorial,No,No,23
+Bolivia,bolivia,bol,,Southern,Yes,Yes,19
+Brazil,brazil,bra,,Southern,Yes,Yes,21
+Chile,chile,chl,,Southern,Yes,Yes,40
+Colombia,colombia,col,,Equatorial,Yes,Yes,44
+Costa Rica,costa_rica,cri,,Equatorial,Yes,Yes,48
+Dominican Republic,dominican_republic,dom,,Northern,Yes,Yes,56
+Ecuador,ecuador,ecu,,Equatorial,Yes,Yes,58
+El Salvador,el_salvador,slv,,Equatorial,Yes,Yes,60
+Guatemala,guatemala,gtm,,Equatorial,Yes,Yes,89
+Guyana,guyana,guy,,Equatorial,Yes,No,91
+Haiti,haiti,hti,,Northern,No,No,93
+Honduras,honduras,hnd,,Southern,Yes,Yes,95
+Jamaica,jamaica,jam,,Southern,Yes,No,109
+Mexico,mexico,mex,,Northern,Yes,Yes,138
+Nicaragua,nicaragua,nic,,Equatorial,Yes,Yes,157
+Panama,panama,pan,,Equatorial,Yes,Yes,166
+Paraguay,paraguay,pry,,Southern,Yes,Yes,169
+Peru,peru,per,,Southern,Yes,Yes,170
+Suriname,suriname,sur,,Equatorial,Yes,No,207
+Trinidad and Tobago,trinidad_and_tobago,tto,,Equatorial,Yes,No,220
+Uruguay,uruguay,ury,,Southern,Yes,Yes,234
+Venezuela,venezuela,ven,,Equatorial,Yes,Yes,236

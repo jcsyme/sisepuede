@@ -1,0 +1,6 @@
+﻿Area,``$UNIT-AREA$`` ,Name ,Area Equivalent m2,Area Equivalent acre,Area Equivalent ha,Area Equivalent km2,Area Equivalent miles2
+m2,``m2``,Square Meters,1,0.000247105,0.0001,0.000001,3.86E-07
+acre,``acre``,Acres,4046.86,1,0.404686,0.00404686,0.0015625
+ha,``ha``,Hectares,10000,2.47105,1,0.01,0.00386102
+km2,``km2``,Square Kilometers,1000000,247.105,100,1,0.386102
+miles2,``miles2``,Square Miles,2589990,640,258.999,2.58999,1

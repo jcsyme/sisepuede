@@ -1,0 +1,11 @@
+﻿Variable Type,Variable,Information,Variable Schema,Dashboard,Notes,Data Link,Reference,Internal Model Variable,Default LHS Scalar Minimum at Final Time Period,Default LHS Scalar Maximum at Final Time Period,``$CAT-WASTEWATER-TREATMENT$``,Emissions Total by Gas Component
+Input,Treatment Fraction Advanced Aerobic,,``frac_wali_$CAT-WASTE-LIQUID$_treatment_path_advanced_aerobic``,,,,,0,1,1,``treated_advanced_aerobic``,0
+Input,Treatment Fraction Advanced Anaerobic,,``frac_wali_$CAT-WASTE-LIQUID$_treatment_path_advanced_anaerobic``,,,,,0,1,1,``treated_advanced_anaerobic``,0
+Input,Treatment Fraction Improved Latrine,,``frac_wali_$CAT-WASTE-LIQUID$_treatment_path_latrine_improved``,,,,,0,1,1,``treated_latrine_improved``,0
+Input,Treatment Fraction Primary,,``frac_wali_$CAT-WASTE-LIQUID$_treatment_path_primary``,,,,,0,1,1,``treated_primary``,0
+Input,Treatment Fraction Secondary Aerobic,,``frac_wali_$CAT-WASTE-LIQUID$_treatment_path_secondary_aerobic``,,,,,0,1,1,``treated_secondary_aerobic``,0
+Input,Treatment Fraction Secondary Anaerobic,,``frac_wali_$CAT-WASTE-LIQUID$_treatment_path_secondary_anaerobic``,,,,,0,1,1,``treated_secondary_anaerobic``,0
+Input,Treatment Fraction Septic,,``frac_wali_$CAT-WASTE-LIQUID$_treatment_path_septic``,,,,,0,1,1,``treated_septic``,0
+Input,Treatment Fraction Unimproved Latrine,,``frac_wali_$CAT-WASTE-LIQUID$_treatment_path_latrine_unimproved``,,,,,0,1,1,``treated_latrine_unimproved``,0
+Input,Treatment Fraction Untreated No Sewerage,,``frac_wali_$CAT-WASTE-LIQUID$_treatment_path_untreated_no_sewerage``,,,,,0,1,1,``untreated_no_sewerage``,0
+Input,Treatment Fraction Untreated With Sewerage,,``frac_wali_$CAT-WASTE-LIQUID$_treatment_path_untreated_with_sewerage``,,,,,0,1,1,``untreated_with_sewerage``,0

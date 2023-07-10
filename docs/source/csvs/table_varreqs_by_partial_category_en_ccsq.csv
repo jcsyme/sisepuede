@@ -1,0 +1,3 @@
+﻿Variable Type,Variable,Information,Variable Schema,Dashboard,Categories,Notes,Data Link,Reference,Internal Model Variable,Default LHS Scalar Minimum at Final Time Period,Default LHS Scalar Maximum at Final Time Period,Energy Demand Variable by Fuel,Emissions Total by Gas Component,
+Output,Total Electrical Energy Consumption from CCSQ,,``energy_consumption_electricity_ccsq_total``,,none,,,,1,1,1,none,0,0
+Output,Total Energy Consumption from CCSQ,,``energy_consumption_ccsq_total``,,none,,,,1,1,1,none,0,0

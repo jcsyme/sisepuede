@@ -1,0 +1,216 @@
+NAME_EN,kcc,count
+Chile,110.0,21
+Chile,120.0,47
+Chile,130.0,52
+Chile,211.0,4077
+Chile,212.0,322158
+Chile,221.0,7
+Chile,222.0,53406
+Chile,311.0,16112
+Chile,312.0,147582
+Chile,313.0,19328
+Chile,331.0,89
+Chile,332.0,166561
+Chile,333.0,136257
+Chile,510.0,234818
+Chile,520.0,1181
+Bolivia,110.0,56589
+Bolivia,120.0,578983
+Bolivia,130.0,146003
+Bolivia,211.0,14
+Bolivia,212.0,109104
+Bolivia,221.0,101014
+Bolivia,222.0,130121
+Bolivia,321.0,49140
+Bolivia,322.0,96985
+Bolivia,323.0,6896
+Bolivia,331.0,3778
+Bolivia,332.0,14475
+Bolivia,510.0,34467
+Bolivia,520.0,186
+Peru,110.0,641515
+Peru,120.0,48406
+Peru,130.0,163900
+Peru,211.0,121521
+Peru,212.0,74269
+Peru,221.0,11152
+Peru,222.0,29154
+Peru,312.0,62
+Peru,322.0,69415
+Peru,323.0,9146
+Peru,332.0,88562
+Peru,333.0,2166
+Peru,510.0,272088
+Peru,520.0,493
+Argentina,211.0,68253
+Argentina,212.0,728013
+Argentina,221.0,336906
+Argentina,222.0,1033069
+Argentina,312.0,132483
+Argentina,313.0,46356
+Argentina,321.0,239779
+Argentina,322.0,31941
+Argentina,331.0,1094903
+Argentina,332.0,130355
+Argentina,333.0,38149
+Argentina,412.0,1
+Argentina,413.0,165
+Argentina,433.0,22
+Argentina,510.0,126611
+Argentina,520.0,4678
+Suriname,110.0,73182
+Suriname,120.0,405
+Suriname,130.0,96192
+Guyana,110.0,133786
+Guyana,120.0,23372
+Guyana,130.0,90176
+Guyana,332.0,401
+Costa Rica,110.0,21696
+Costa Rica,120.0,12958
+Costa Rica,130.0,18559
+Costa Rica,312.0,29
+Costa Rica,322.0,776
+Costa Rica,323.0,1
+Costa Rica,332.0,6251
+Costa Rica,333.0,20
+Costa Rica,510.0,250
+Nicaragua,110.0,11429
+Nicaragua,120.0,61530
+Nicaragua,130.0,80550
+Nicaragua,312.0,10
+Nicaragua,322.0,481
+Nicaragua,332.0,211
+Brazil,110.0,1724759
+Brazil,120.0,5073128
+Brazil,130.0,1830261
+Brazil,211.0,432
+Brazil,221.0,371300
+Brazil,311.0,552
+Brazil,312.0,832
+Brazil,321.0,213137
+Brazil,322.0,67247
+Brazil,331.0,665538
+Brazil,332.0,233244
+Uruguay,331.0,241352
+Uruguay,332.0,4537
+Haiti,110.0,6679
+Haiti,120.0,15770
+Haiti,130.0,7847
+Haiti,221.0,979
+Haiti,322.0,1029
+Haiti,332.0,835
+Dominican Republic,110.0,16830
+Dominican Republic,120.0,22287
+Dominican Republic,130.0,10218
+Dominican Republic,221.0,2969
+Dominican Republic,322.0,312
+Dominican Republic,331.0,41
+Dominican Republic,332.0,7028
+Dominican Republic,333.0,9
+Dominican Republic,510.0,5
+El Salvador,120.0,24340
+El Salvador,322.0,370
+Guatemala,110.0,28240
+Guatemala,120.0,41890
+Guatemala,130.0,35505
+Guatemala,221.0,83
+Guatemala,321.0,1
+Guatemala,322.0,19240
+Guatemala,323.0,62
+Guatemala,331.0,29
+Guatemala,332.0,6728
+Guatemala,510.0,325
+Honduras,110.0,16479
+Honduras,120.0,68370
+Honduras,130.0,35045
+Honduras,221.0,73
+Honduras,311.0,160
+Honduras,312.0,455
+Honduras,321.0,1164
+Honduras,322.0,7380
+Honduras,331.0,1713
+Honduras,332.0,4584
+Ecuador,110.0,119458
+Ecuador,120.0,57267
+Ecuador,130.0,17319
+Ecuador,211.0,7644
+Ecuador,221.0,18993
+Ecuador,222.0,122
+Ecuador,312.0,1347
+Ecuador,322.0,9074
+Ecuador,323.0,19
+Ecuador,331.0,123
+Ecuador,332.0,44130
+Ecuador,333.0,433
+Ecuador,510.0,22080
+Ecuador,520.0,48
+Colombia,110.0,609928
+Colombia,120.0,153086
+Colombia,130.0,408794
+Colombia,211.0,3642
+Colombia,221.0,9467
+Colombia,312.0,5535
+Colombia,313.0,6
+Colombia,322.0,6951
+Colombia,323.0,198
+Colombia,332.0,107199
+Colombia,333.0,1666
+Colombia,510.0,24662
+Colombia,520.0,91
+Paraguay,110.0,291
+Paraguay,120.0,159640
+Paraguay,130.0,7202
+Paraguay,221.0,158852
+Paraguay,321.0,883
+Paraguay,331.0,181499
+Mexico,110.0,32890
+Mexico,120.0,501853
+Mexico,130.0,91220
+Mexico,211.0,462589
+Mexico,212.0,85605
+Mexico,221.0,476872
+Mexico,222.0,321906
+Mexico,311.0,4293
+Mexico,312.0,5960
+Mexico,321.0,172424
+Mexico,322.0,295051
+Mexico,323.0,526
+Mexico,331.0,28133
+Mexico,332.0,24384
+Mexico,333.0,84
+Mexico,510.0,770
+Mexico,520.0,1
+Belize,110.0,6176
+Belize,120.0,7668
+Belize,130.0,13283
+Panama,110.0,12304
+Panama,120.0,24878
+Panama,130.0,47887
+Panama,312.0,2
+Panama,322.0,133
+Panama,332.0,2476
+Panama,333.0,5
+Panama,510.0,34
+Venezuela,110.0,253332
+Venezuela,120.0,539999
+Venezuela,130.0,227111
+Venezuela,211.0,638
+Venezuela,221.0,25563
+Venezuela,312.0,289
+Venezuela,322.0,4360
+Venezuela,323.0,30
+Venezuela,332.0,20285
+Venezuela,333.0,42
+Venezuela,510.0,2608
+Bahamas,120.0,13530
+Bahamas,130.0,1097
+Bahamas,221.0,1010
+Trinidad and Tobago,110.0,3078
+Trinidad and Tobago,120.0,430
+Trinidad and Tobago,130.0,2571
+Barbados,120.0,161
+Barbados,130.0,369
+Jamaica,110.0,6071
+Jamaica,120.0,2279
+Jamaica,130.0,5091
+Jamaica,332.0,63

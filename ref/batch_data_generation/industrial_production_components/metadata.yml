@@ -1,0 +1,20 @@
+date:        2023-04-16
+variable :
+  name : Elasticity of Industrial Production to GDP
+  subsector :   Industrial Processes and Product Use
+  longname :  Elasticity of industrial production to GDP
+  units: elasticities (ratio of % changes)
+
+resources:
+    - url:   NA
+      descrip:   Generated using GDP and Production (historical) numbers from SISEPUEDE Dataset
+
+
+aditional_information:
+      assumptions: >
+            - Get historical elasticities to GDP and use as direct inputs to SISEPUEDE (used to replicate historical emissions)
+            - Use data from historical period to estimate elasticity of production to GDP and project industrial growth
+            - elasticities are bound using `elast_bounds` variable (set between -0.5 and 2.0)
+            - apply this elasticity at the _second_ projection time period following the historical, and drift to 1 by final time period (elast = 1 is proportional growth with GDP)
+            - for first projection time period, use a regression over historical time periods to estimate point (also bounded at +/- some proportion `max_dev_from_mean`, set to 20%)
+
