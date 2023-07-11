@@ -2,6 +2,7 @@ from analysis_id import *
 from attribute_table import AttributeTable
 import base64
 import boto3
+import logging
 import model_attributes as ma
 import numpy as np
 import os, os.path
@@ -49,7 +50,7 @@ class ShellTemplate:
         )
         
     
-           
+        
     def _initialize_replacement_matchstrings(self,
         char_esc: str = "$$",
     ) -> None:
@@ -85,8 +86,8 @@ class ShellTemplate:
     
     
     def _initialize_template(self,
-         fp_template: str,
-         raw_template_input: bool = False,
+        fp_template: str,
+        raw_template_input: bool = False,
     ) -> None:
         """
         Initialize the template string from file path `fp_template`. Sets the 
@@ -198,6 +199,9 @@ class AWSManager:
         template string rather than a file path
     - as_string_user_data: set to True to pass fp_template_user_data as a 
         template string rather than a file path
+    - logger: optional logging.Logger object to use for logs
+    - partitions_ordered: ordering for partitions in S3 file paths for Athena.
+        If None, no partitioning is performed.
     """
 
     def __init__(self,
@@ -207,8 +211,12 @@ class AWSManager:
         fp_template_user_data: str,
         as_string_docker_shell: bool = False,
         as_string_user_data: bool = False,
+        logger: Union[logging.Logger, None] = None,
+        partitions_ordered: Union[List[str], None] = None,
     ) -> None:
         
+        self.logger = logger
+
         self._initialize_template_matchstrs()
         self._initialize_attributes(file_struct)
         self._initialize_config(config)
@@ -225,8 +233,11 @@ class AWSManager:
         self._initialize_docker_properties()
 
         # initialize aws 
-        self._initialize_aws_properties()
+        self._initialize_aws_properties(
+            partitions_ordered = partitions_ordered,
+        )
         self._initialize_aws()
+        self._initialize_s3_paths()
 
 
 
@@ -234,23 +245,6 @@ class AWSManager:
     ########################
     #    INITIALIZATION    #
     ########################
-
-    def get_instance_metadata_file_path(self,
-        dir_out: str,
-    ) -> str:
-        """
-        Build the file path for instance metadata.
-
-        Function Arguments
-        ------------------
-        - dir_out: output directory to store the file
-        """
-        env_var = self.shell_env_instance_id
-        fp_out = os.path.join(dir_out, f"instance_info_{env_var}.yaml")
-
-        return fp_out
-
-
 
     def get_sisepuede_relative_paths(self,
         path_type: str,
@@ -528,7 +522,9 @@ class AWSManager:
             * self.client_athena
             * self.client_ec2
             * self.client_s3
+            * self.command_aws
             * self.resource_s3
+            * self.s3_buckets
         
         Function Arguments
         ------------------
@@ -572,12 +568,25 @@ class AWSManager:
             #region_name = aws_region,
         )
         
-        #get clients and resources
+        # get clients and resources
         client_athena = b3_session.client("athena")
         client_ec2 = b3_session.client("ec2")
         client_s3 = b3_session.client("s3")
         resource_s3 = b3_session.resource("s3")
         
+        # get some often-used derivatives
+        buckets = self.get_buckets(client_s3)
+
+
+        ##  OTHER PROPERTIES
+
+        command_aws = self.config.get("aws_ec2.path_aws")
+        command_aws = (
+            "aws"
+            if not isinstance(command_aws, str)
+            else command_aws
+        )
+
         
         ##  SET PROPERTIES
 
@@ -585,19 +594,23 @@ class AWSManager:
         self.client_athena = client_athena
         self.client_ec2 = client_ec2
         self.client_s3 = client_s3
+        self.command_aws = command_aws
         self.resource_s3 = resource_s3
+        self.s3_buckets = buckets
 
         return None
 
 
 
     def _initialize_aws_properties(self,
+        partitions_ordered: Union[List[str], None] = None,
     ) -> None:
         """
         Use the configuration file to set some key shared properties for AWS. 
             Sets the following properties:
 
             * self.athena_database
+            * self.athena_partitions_ordered
             * self.aws_dict_tags
             * self.aws_url_instance_id_metadata
             * self.ec2_image
@@ -610,6 +623,11 @@ class AWSManager:
 
         NOTE: *Excludes* paths on instances. Those are set in
             _initialize_paths()
+
+        Keyword Arguments
+        -----------------
+        - partitions_ordered: ordering for partitions in S3 file paths for 
+            Athena. If None, no partitioning is performed.
         """
 
         # general AWS properties
@@ -618,6 +636,7 @@ class AWSManager:
 
         # athena properties
         self.athena_database = self.config.get("aws_athena.database")
+        self.athena_partitions_ordered = partitions_ordered
 
         # EC2 properties
         self.ec2_image = self.config.get("aws_ec2.database")
@@ -707,9 +726,9 @@ class AWSManager:
         # directories
         dir_instance_home = self.config.get("aws_ec2.dir_home")
         dir_instance_out = self.config.get("aws_ec2.dir_output")
-
+        dir
         # file paths
-        fp_instance_instance_info = self.get_instance_metadata_file_path(dir_instance_out)
+        fp_instance_instance_info = self.get_path_instance_metadata(dir_instance_out)
         fp_instance_shell_script = self.config.get("aws_ec2.instance_shell_path")
         
 
@@ -726,8 +745,7 @@ class AWSManager:
             self.get_sisepuede_relative_paths("python")
         )
 
-        # file paths
-
+        dir_instance_out_db = self.get_path_instance_output_db(dir_instance_out)
 
 
         ##  SET PROPERTIES
@@ -737,8 +755,38 @@ class AWSManager:
         self.dir_docker_sisepuede_repo = dir_docker_sisepuede_repo
         self.dir_instance_home = dir_instance_home
         self.dir_instance_out = dir_instance_out
+        self.dir_instance_out_db = dir_instance_out_db
         self.fp_instance_instance_info = fp_instance_instance_info
         self.fp_instance_shell_script = fp_instance_shell_script
+
+        return None
+    
+
+
+    def _initialize_s3_paths(self,
+    ) -> None:
+        """
+        Initialize some s3 paths. Initializes the following properties:
+
+            * self.s3p_athena_database
+            * self.s3p_run_metadata
+
+        NOTE: must be initialized *after* 
+            _initialize_aws()
+
+        Function Arguments
+        ------------------
+        """
+        ##  S3 PATHS
+
+        s3p_athena_database = self.get_s3_path_athena_output("database")
+        s3p_run_metadata = self.get_s3_path_athena_output("metadata")
+
+
+        ##  SET PROPERTIES
+
+        self.s3p_athena_database = s3p_athena_database
+        self.s3p_run_metadata = s3p_run_metadata
 
         return None
     
@@ -858,6 +906,28 @@ class AWSManager:
         self.matchstr_terminate_instance = "LINES_TERMINATE_INSTANCE"
 
         return None
+    
+
+
+    def _log(self,
+        msg: str,
+        type_log: str = "log",
+        **kwargs
+    ) -> None:
+        """
+        Clean implementation of sf._optional_log in-line using default logger. See
+            ?sf._optional_log for more information.
+
+        Function Arguments
+        ------------------
+        - msg: message to log
+
+        Keyword Arguments
+        -----------------
+        - type_log: type of log to use
+        - **kwargs: passed as logging.Logger.METHOD(msg, **kwargs)
+        """
+        sf._optional_log(self.logger, msg, type_log = type_log, **kwargs)
 
 
 
@@ -934,7 +1004,7 @@ class AWSManager:
         save_inputs = True if (save_inputs is None) else save_inputs
         flag = self.dict_dims_to_docker_flags.get("save_inputs")
         (
-            flags.append(f"--{flag} {save_inputs}") 
+            flags.append(f"--{flag}") 
             if isinstance(flag, str)
             else None
         )
@@ -1125,6 +1195,19 @@ class AWSManager:
         dict_fill_user_data.update({
             self.matchstr_mkdir_instance_out: str_output_mount
         })
+
+        # S3 copy command
+        str_cp_to_s3 = self.build_user_data_str_copy_to_s3(
+            dict_dimensional_subset, 
+            instance_launch_index,
+        )
+        (
+            dict_fill_user_data.update({
+                self.matchstr_copy_to_s3: str_cp_to_s3
+            })
+            if isinstance(str_cp_to_s3, str)
+            else None
+        )
         
 
         ##  SPLIT TO ALLOW USE OF "screen" REMOTELY?
@@ -1184,22 +1267,71 @@ class AWSManager:
 
 
     def build_user_data_str_copy_to_s3(self,
-        dict_subset: Dict[str, List[int]],
+        dict_partition: Union[Dict[str, Any], None],
+        launch_index: int, 
         delim_newline: str = "\n",
-        output_type: str = "echo",
-    ) -> str:
+    ) -> Union[str, None]:
         """
         Copy outputs to S3
-        
+
         Function Arguments
         ------------------
-        
-
+        - dict_partition: dictionary representing the partition generated by
+            the instance
+        - launch_index: the launch index for the user data
 
         Keyword Arguments
         -----------------
-        
+        - delim_newline: new line delimitter
+        - tab
         """
+        
+        bucket = self.config.get("aws_s3.bucket")
+        bucket = (
+            bucket
+            if self.validate_bucket(bucket)
+            else None
+        )
+        return_none = (bucket is None)
+        
+        # get keys and check
+        key_database = self.config.get("aws_s3.key_database")
+        key_metadata = self.config.get("aws_s3.key_metadata")
+        return_none |= (key_database is None)
+        return_none |= (key_metadata is None)
+
+        
+        if return_none is None:
+            return None
+        
+        
+        ##  PREPARE PATHS AND NAMES
+        
+        # get database path and get tables to try to copy out
+        tables_copy = self.get_tables_to_copy_to_s3()
+        lines_out = []
+        
+        # copy output tables
+        for table in tables_copy:
+            
+            fp_source = os.path.join(self.dir_instance_out_db, f"{table}.csv")
+            fp_target = self.get_s3_path_athena_table(
+                table,
+                dict_partition,
+                index = launch_index,
+            )
+            
+            comm = f"{self.command_aws} s3 cp '{fp_source}' '{fp_target}'"
+            lines_out.append(comm)
+        
+        # copy instance metadata
+        fp_target = self.get_s3_path_instance_metadata()
+        comm = f"{self.command_aws} s3 cp '{self.fp_instance_instance_info}' '{fp_target}'"
+        lines_out.append(comm)
+        
+        lines_out = delim_newline.join([str(x) for x in lines_out])
+        
+        return lines_out
 
 
 
@@ -1274,7 +1406,7 @@ class AWSManager:
         # build the command as a list
         command_out = ["docker pull"]
         command_out.append(name_docker_image)
-       
+    
         # join commands
         command_out = " ".join(command_out)
 
@@ -1544,7 +1676,7 @@ class AWSManager:
             if not isinstance(screen_name, str) 
             else screen_name
         )
- 
+
         # build the command
         command_out = []
         command_out.append(
@@ -1558,7 +1690,494 @@ class AWSManager:
         command_out = delim_newline.join(command_out)
 
         return command_out
+    
+
+
+    
+    ###########################
+    #    SOME AWS COMMANDS    #
+    ###########################
+
+    def build_ec2_iam_instance_profile_regex(self,
+        delim_name: str = "/",
+    ) -> Tuple[re.Pattern, str]:
+        """
+        Build a regular expression for verifying iam instance profiles. Returns 
+            a tuple of the following form
+            
+            (re_iam_instance_profile, delim_name)
+            
+        Keyword Arguments
+        -----------------
+        - delim_name: delimiter in IAM instance profile used to separate ARN from Name
+        """
+        re_iam_instance_profile = re.compile(f"arn:aws:iam::(.*):instance-profile{delim_name}(.*)")
         
+        out = (re_iam_instance_profile, delim_name)
+        
+        return out
+    
+
+
+    def format_for_ec2_iam_instance_profile(self,
+        instance_iam_role: str,
+        key_arn: str = "Arn",
+        key_name: str = "Name",
+        return_arn: bool = True,
+        return_name: bool = False,
+    ) -> Union[Dict[str, str], None]:
+        """
+        Transform IAM Instance Profile string to a dictionary for upload with 
+            client_ec2.run_instances().
+        
+        Function Arguments
+        ------------------
+        - instance_iam_role: role to format 
+
+        Keyword Arguments
+        -----------------
+        - key_arn: key in output dictionary containing ARN
+        - key_name: key in output dictionary containing profile name
+        - return_arn: return ARN in the output dictionary?
+        - return_name: return name in the output dictionary?
+        """
+        
+        regex_check, delim_name = self.build_ec2_iam_instance_profile_regex()
+        
+        # see info here: https://stackoverflow.com/questions/41518334/how-do-i-use-boto3-to-launch-an-ec2-instance-with-an-iam-role
+        if not isinstance(instance_iam_role, str):
+            return None
+        
+        if regex_check.match(instance_iam_role) is None:
+            return None
+        
+        # split into ARN and name, extract name (2nd element)
+        list_components = instance_iam_role.split(delim_name)
+        if len(list_components) != 2:
+            return None
+        
+        dict_out = {}
+        (
+            dict_out.update({key_arn: instance_iam_role})
+            if return_arn
+            else None
+        )
+        (
+            dict_out.update({key_name: list_components[1]})
+            if return_name
+            else None
+        )
+
+        return dict_out
+
+
+
+    def format_for_ec2_tags(self,
+        dict_tags: Dict[str, Any],
+    ) -> Union[List[Dict[str, Any]], None]:
+        """
+        Transform configuration tags as a list of dictionaries for upload with 
+            client_ec2.run_instances()
+        """
+        
+        if not isinstance(dict_tags, dict):
+            return None
+        
+        tags_out = []
+        
+        for k, v in dict_tags.items():
+            tags_out.append(
+                {
+                    "Key": k,
+                    "Value": v
+                }
+            )
+            
+        return tags_out
+
+
+
+    def get_buckets(self,
+        client_s3: Union[boto3.client, None] = None,
+    ) -> Union[List[str], None]:
+        """
+        Retrieve buckets associated with an S3 client
+        """
+
+        client_s3 = (
+            self.client_s3
+            if client_s3 is None
+            else client_s3
+        )
+
+        try:
+            buckets = client_s3.list_buckets()
+        except Exception as e:
+            self._log(
+                f"Error retrieving buckets using AWSManager.get_buckets(): {e}",
+                type_log = "error",
+            )
+
+            return None
+        
+        bucket_names = [x.get("Name") for x in buckets.get("Buckets")]
+
+        return bucket_names
+    
+
+
+    def get_path_instance_metadata(self,
+        dir_out: str,
+    ) -> str:
+        """
+        Build the file path for instance metadata.
+
+        Function Arguments
+        ------------------
+        - dir_out: output directory to store the file
+        """
+        env_var = self.shell_env_instance_id
+        fp_out = os.path.join(dir_out, f"instance_info_{env_var}.yaml")
+
+        return fp_out
+    
+
+
+    def get_path_instance_output_db(self,
+        dir_instance_out: Union[str, None] = None,
+    ) -> str:
+        """
+        Get the directory on the instance containing output from the Docker
+            image.
+        """
+        
+        dir_instance_out = (
+            self.dir_instance_out
+            if dir_instance_out is None
+            else dir_instance_out
+        )
+
+        dir_instance_db = self.file_struct.fp_base_output_raw
+        dir_instance_db = dir_instance_db.replace(
+            self.file_struct.dir_out, 
+            dir_instance_out
+        )
+        
+        return dir_instance_db
+    
+
+
+    def get_s3_path_athena_output(self,
+        return_type: str,
+    ) -> Union[str, None]:
+        """
+        Build the output path for the database on S3
+        
+            NOTE: All tables are *within* the database path
+        
+        Function Arguments
+        ------------------
+        - return_type: "database" or "metadata"
+        """
+        
+        # get bucket
+        bucket = self.config.get("aws_s3.bucket")
+        bucket = (
+            bucket
+            if self.validate_bucket(bucket)
+            else None
+        )
+        return_none = (bucket is None)
+        
+        # get keys
+        key_database = self.config.get("aws_s3.key_database")
+        key_metadata = self.config.get("aws_s3.key_metadata")
+        
+        return_none |= (key_database is None)
+        return_none |= (key_metadata is None)
+        
+        if return_none:
+            return None
+        
+        
+        key = (
+            key_database
+            if return_type == "database"
+            else key_metadata
+        )
+        
+        address_out = os.path.join(bucket, key, self.file_struct.id_fs_safe)
+        address_out = f"s3://{address_out}"
+
+        return address_out
+    
+
+
+    def get_s3_path_athena_table(self,
+        table_name: str,
+        dict_partitions: Union[Dict[str, Any], None],
+        ext: str = "csv",
+        index: Union[Any, None] = None,
+    ) -> Union[str, None]:
+        """
+        Build the output path for the database on S3
+        
+            NOTE: All tables are *within* the database path
+        
+        Function Arguments
+        ------------------
+        - table_name: table name
+        - dict_partitions: dictionary of dimensions to partition on. If None, no
+            partitioning is performed
+
+        Keyword Arguments
+        -----------------
+        - ext: file extension to use
+        - index: optional index to add to the table (such as launch index)
+        """
+
+        if not isinstance(table_name, str):
+            return None
+
+        # get basename
+        base_name = (
+            table_name
+            if not isinstance(index, int)
+            else f"{table_name}_{index}"
+        )
+        base_name = base_name.lower()
+        base_name = f"{base_name}.{ext}"
+
+        # initialize as base name
+        address_out = [self.s3p_athena_database, table_name]
+
+        if isinstance(dict_partitions, dict):
+            for key in self.athena_partitions_ordered:
+                val = dict_partitions.get(key)
+
+                # skip if value not found or the value is a list-like object with not 1-element
+                continue_q = (val is None)
+                continue_q |= (sf.islistlike(val) & len(val) != 1)
+                if continue_q:
+                    continue
+                
+                # if listlike, take only element
+                val = val[0] if sf.islistlike(val) else val
+                address_out.append(f"{key}={val}")
+
+        # add output table and join
+        address_out.append(base_name)
+        address_out = os.path.join(*address_out)
+
+        return address_out
+    
+
+
+    def get_s3_path_instance_metadata(self,
+    ) -> Union[str, None]:
+        """
+        Build the output path for the instance metadata file to store
+        
+            NOTE: All tables are *within* the database path
+        
+        Function Arguments
+        ------------------
+
+        Keyword Arguments
+        -----------------
+        - ext: file extension to use
+        - index: optional index to add to the table (such as launch index)
+        """
+
+        fp_out = os.path.join(
+            self.s3p_run_metadata,
+            os.path.basename(self.fp_instance_instance_info)
+        )
+
+        return fp_out
+
+
+
+    def get_tables_to_copy_to_s3(self,
+        tables: Union[str, List[str], None] = None,
+        delim: str = ",",
+    ) -> Union[List[str], None]:
+        """
+        Using a lit of tables (string delimited by delim or list or names), 
+            return the list of tables to extract from the instance.
+        """
+        tables = (
+            self.config.get("aws_s3.tables_copy")
+            if tables is None
+            else tables
+        )
+        
+        tables = (
+            tables.split(delim)
+            if isinstance(tables, str)
+            else tables
+        )
+        
+        tables = (
+            tables
+            if sf.islistlike(tables)
+            else None
+        )
+        
+        return tables
+
+
+
+    def launch_instance(self,
+        user_data: Union[str, None],
+        ami: Union[str, None] = None,
+        iam_instance_profile: Union[str, None] = None,
+        instance_type: Union[str, None] = None,
+        key_name: Union[str, None] = None,
+        max_count: int = 1,
+        min_count: int = 1,
+        name: Union[str, None] = None,
+        security_group: Union[str, None] = None,
+        subnet: Union[str, None] = None,
+        tags: Union[Dict[str, str], None] = None,
+    ) -> Union[Dict, None]:
+        """
+        Launch an instance 
+        
+        Function Arguments
+        ------------------
+        - user_data: string of user data to use on launch. If None, launches 
+            with no user data.
+
+        Keyword Arguments
+        -----------------
+        - ami: optional image id. If None, calls from configuration
+        - iam_instance_profile: optional iam instance profile to use on launch.
+            If None, calls from configuration
+        - instance_type: optional instance type. If None, calls from 
+            configuration
+        - key_name: optional key pair name to pass. If None, calls from 
+            configuration
+        - max_count: maximum number of instances to launch
+        - min_count: minimum number of instances to launch
+        - name: optional name for the instance
+        - security_group: optional security group id. If None, calls from 
+            configuration
+        - subnet: optional subnet id. If None, calls from configuration
+        - tags: optional tags to specify (as dictionary). None, calls from 
+            configuration
+        """
+        
+        ##  SOME CHECKS
+        
+        return_none = not isinstance(user_data, str)
+        return_none |= not isinstance(max_count, int)
+        return_none |= not isinstance(min_count, int)
+        
+        if return_none:
+            return None
+        
+        
+        ##  EC2 LAUNCH CONFIG
+        
+        ami = (
+            self.config.get("aws_ec2.image")
+            if not isinstance(ami, str)
+            else ami
+        )
+        
+        iam_instance_profile = (
+            self.config.get("aws_ec2.iam_instance_profile")
+            if iam_instance_profile is None
+            else iam_instance_profile
+        )
+        iam_instance_profile = self.format_for_ec2_iam_instance_profile(
+            iam_instance_profile
+        )
+
+        instance_type = (
+            self.config.get("aws_ec2.instance_type")
+            if not isinstance(instance_type, str)
+            else instance_type
+        )
+
+        key_name = (
+            self.config.get("aws_ec2.key_name")
+            if not isinstance(key_name, str)
+            else key_name
+        )
+        
+        security_group = (
+            self.config.get("aws_general.security_group")
+            if not isinstance(security_group, str)
+            else security_group
+        )
+        
+        subnet = (
+            self.config.get("aws_general.subnet")
+            if not isinstance(subnet, str)
+            else subnet
+        )
+        
+        tags = (
+            self.config.get("aws_general.tag")
+            if not isinstance(tags, Dict)
+            else tags
+        )
+        (
+            tags.update({"Name": name})
+            if isinstance(name, str)
+            else None
+        )
+        
+        list_tag_dicts = self.format_for_ec2_tags(tags)
+
+        
+        # initialize output and
+        try:
+            out = self.client_ec2.run_instances(
+                IamInstanceProfile = iam_instance_profile,
+                ImageId = ami,
+                InstanceType = instance_type,
+                KeyName = key_name,
+                MinCount = min_count,
+                MaxCount = max_count,
+                SecurityGroupIds = [security_group],
+                SubnetId = subnet,
+                TagSpecifications = [{
+                    "ResourceType": "instance",
+                    "Tags": list_tag_dicts
+                }],
+                UserData = user_data.encode("ascii")
+            )
+        
+        except Exception as e:
+            
+            self._log(
+                f"Error occured trying to launch instance using AWSManager.launch_instance(): {e}",
+                type_log = "error",
+            )
+            
+            return out
+        
+        return out
+
+    
+
+
+    def validate_bucket(self,
+        bucket_name: str
+    ) -> bool:
+        """
+        Checks if bucket_name is valid and present in S3
+        """
+        
+        out = (bucket_name in self.s3_buckets)
+        return out
+
+
+
+
 
         
 

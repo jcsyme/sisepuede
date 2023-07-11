@@ -475,6 +475,7 @@ class ModelAttributes:
         """
 
         # run checks and raise errors if invalid data are found in the attribute tables
+        self._check_attribute_tables_abv_subsector()
         self._check_attribute_tables_agrc()
         self._check_attribute_tables_enfu()
         self._check_attribute_tables_enst()
@@ -1442,6 +1443,24 @@ class ModelAttributes:
     ####################################################
     #    SECTOR-SPECIFIC AND CROSS SECTORIAL CHECKS    #
     ####################################################
+
+    def _check_attribute_tables_abv_subsector(self,
+    ) -> None:
+        """
+        Check subsector attribute table
+        """
+        # check for proper specifications in attribute table
+        attr = self.dict_attributes.get("abbreviation_subsector")
+
+        self._check_binary_fields(
+            attr, 
+            "subsector",
+            ["emission_subsector"]
+        )
+       
+        return None
+
+
 
     def _check_attribute_tables_agrc(self,
     ) -> None:

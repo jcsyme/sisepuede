@@ -871,6 +871,7 @@ def transformation_support_lndu_get_adjusted_fractions_from_transition_w_natural
     vec_lndu_prevalence_pasture_intervention = sf.vec_bounds(vec_lndu_prevalence_grass_intervention - vec_lndu_prevalence_natural_grassland_base, (min_frac_grassland_pasture, 1.0))
     vec_lndu_carrying_capacity_new = vec_lndu_carrying_target_base/vec_lndu_prevalence_pasture_intervention
     
+    
     # get new pasture fraction
     vec_lndu_pasture_frac_new = np.nan_to_num(
         vec_lndu_prevalence_pasture_intervention/vec_lndu_prevalence_grass_intervention,
@@ -1785,7 +1786,7 @@ def transformation_lndu_increase_silvopasture(
             },
             **kwargs
         )
-
+        print(df_trans["scalar_lvst_carrying_capacity"])
         
         if df_out is None:
             df_out = [df_trans for k in range(len(df_group))]

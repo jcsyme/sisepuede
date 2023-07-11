@@ -474,12 +474,11 @@ def transformation_general(
 
                 elif magnitude_type in ["vector_specification"]:
                     
-                    # CASE WHERE VECTOR IS EXPLICITLY SPECIFIED
+                    # CASE WHERE VECTOR IS EXPLICITLY SPECIFIED - specificy everything as float
 
-                    arr_final = np.array(df_in_new[fields_adjust])
+                    arr_final = np.array(df_in_new[fields_adjust]).astype(float)
                     for j, field in enumerate(fields_adjust):
-                        arr_final[:, j] = magnitude
-
+                        arr_final[:, j] = np.array(magnitude).astype(float)  
 
                 else:
 

@@ -2049,7 +2049,11 @@ class AFOLU:
             return_type = "array_base",
             var_bounds = (0, np.inf)
         )
-        vec_lvst_carry_capacity_scale = vec_lvst_carry_capacity_scale/vec_lvst_carry_capacity_scale[0]
+        vec_lvst_carry_capacity_scale = np.nan_to_num(
+            vec_lvst_carry_capacity_scale/vec_lvst_carry_capacity_scale[0],
+            nan = 1.0,
+            posinf = 1.0
+        )
 
 
         #############################
@@ -2395,10 +2399,19 @@ class AFOLU:
             inds_lvst_where_pop_noncc = np.where(vec_lvst_cc_proj == 0)[0]
             vec_lvst_prod_proj = vec_lvst_cc_proj*area_pstr_proj*vec_lvst_pstr_weights
             vec_lvst_unmet_demand = np.nan_to_num(arr_lvst_dem[i + 1] - vec_lvst_prod_proj)
+            # vec_lvst_scale_cc[i + 1] is a problem
+            vec = vec_lvst_cc_init
+            print(f"vec_lvst_cc_init:\t{vec}")
             
             # calculate net surplus met
-            vec_lvst_unmet_demand_to_impexp = sf.vec_bounds(vec_lvst_unmet_demand, (0, np.inf))*arr_lndu_frac_increasing_net_imports_met[i + 1, self.ind_lndu_grass]
-            vec_lvst_unmet_demand_to_impexp += sf.vec_bounds(vec_lvst_unmet_demand, (-np.inf, 0))*arr_lndu_frac_increasing_net_exports_met[i + 1, self.ind_lndu_grass]
+            vec_lvst_unmet_demand_to_impexp = (
+                sf.vec_bounds(vec_lvst_unmet_demand, (0, np.inf))
+                *arr_lndu_frac_increasing_net_imports_met[i + 1, self.ind_lndu_grass]
+            )
+            vec_lvst_unmet_demand_to_impexp += (
+                sf.vec_bounds(vec_lvst_unmet_demand, (-np.inf, 0))
+                *arr_lndu_frac_increasing_net_exports_met[i + 1, self.ind_lndu_grass]
+            )
             vec_lvst_unmet_demand_lost = vec_lvst_unmet_demand - vec_lvst_unmet_demand_to_impexp
             
             # update production in livestock to account for lost unmet demand (unmet demand is + if imports increase, - if exports increase)
@@ -2413,7 +2426,7 @@ class AFOLU:
             vec_lvst_reallocation = vec_lvst_unmet_demand*vec_lndu_yrf[i + 1] # demand for livestock met by reallocating land
             vec_lvst_net_import_increase = vec_lvst_unmet_demand - vec_lvst_reallocation # demand for livestock met by increasing net imports (neg => net exports)
             vec_lvst_pop_adj += vec_lvst_reallocation
-            
+
             # update output arrays
             arr_lvst_pop_adj[i + 1] = np.round(vec_lvst_pop_adj).astype(int)
             
