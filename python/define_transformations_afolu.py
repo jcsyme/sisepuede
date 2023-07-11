@@ -1346,18 +1346,18 @@ class TransformationsAFOLU:
             else df_input
         )
 
-        # modify ramp to be a binary
+        # BEGIN modify ramp to be a binary
         vec_ramp = np.array(
             [float(int(x > 0)) for x in self.vec_implementation_ramp]
         )
-        """
+        w = np.where(vec_ramp == 1)[0][0]
         vec_ramp = np.array(
             [
                 float(sf.vec_bounds((x - (w - 1))/5, (0, 1))) 
                 for x in range(len(self.vec_implementation_ramp))
             ]
         )
-        """
+        # END
 
         df_out = tba.transformation_frst_reduce_deforestation(
             df_input,

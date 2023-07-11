@@ -500,6 +500,7 @@ class AWSManager:
             "database_type": "database-type",
             "max_solve_attempts": "max-solve-attempts",
             "random_seed": "random-seed",
+            "save_inputs": "save-inputs",
         }
 
         ##  SET PROPERTIES
@@ -928,6 +929,16 @@ class AWSManager:
             else None
         )
 
+        # add in save inputs
+        save_inputs = self.config.get("sisepuede_runtime.save_inputs")
+        save_inputs = True if (save_inputs is None) else save_inputs
+        flag = self.dict_dims_to_docker_flags.get("save_inputs")
+        (
+            flags.append(f"--{flag} {save_inputs}") 
+            if isinstance(flag, str)
+            else None
+        )
+
         flags = delim_args.join(flags)
 
         return flags
@@ -1170,6 +1181,28 @@ class AWSManager:
 
         return out
     
+
+
+    def build_user_data_str_copy_to_s3(self,
+        dict_subset: Dict[str, List[int]],
+        delim_newline: str = "\n",
+        output_type: str = "echo",
+    ) -> str:
+        """
+        Copy outputs to S3
+        
+        Function Arguments
+        ------------------
+        
+
+
+        Keyword Arguments
+        -----------------
+        
+        """
+
+
+
 
 
     def build_user_data_str_dimensional_reads(self,

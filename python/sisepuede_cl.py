@@ -323,7 +323,7 @@ def parse_arguments() -> dict:
 
     ##  OPTIONAL ARGUMENTS/FLAGS
 
-    # optional random seed 
+    # optional database type specification
     msg_hlp_db_type = f"""
     Optional specification of output database type (str). Default is sqlite. 
         Acceptable options are "csv" and "sqlite"
@@ -421,6 +421,21 @@ def parse_arguments() -> dict:
         help = msg_hlp_random_seed,
         default = None
     )
+
+
+    # optional save inputs
+    msg_hlp_save_inputs = f"""
+    Include the --save-inputs flag to save off inputs to the 
+        SISEPUEDEOutputDatabase. In general, model inputs are not saved off to 
+        reduce space requirements and can generally be accessed using
+        SISEPUEDE.experimental_manager.dict_future_trajectories.get(region).generate_future_from_lhs_vector()
+    """
+    parser.add_argument(
+        "--save-inputs",
+        action = "store_true",
+        help = msg_hlp_save_inputs,
+    )
+
     
 
     if False:
@@ -520,10 +535,12 @@ def main(
     db_type = args.get("database_type")
     db_type = "sqlite" if (db_type not in ["sqlite", "csv"]) else db_type
     id_str = args.get("id")
+
     include_fuel_prod = (not args.get("exclude_fuel_production"))
     max_solve_attempts = args.get("max_solve_attempts")
     n_trials = args.get("n_trials")
     random_seed = args.get("random_seed")
+    save_inputs = args.get("save_inputs")
 
     # checks
     return_none = (regions_run is None)
@@ -553,6 +570,7 @@ def main(
         include_electricity_in_energy = include_fuel_prod,
         max_attempts = max_solve_attempts,
         reinitialize_output_table_on_verification_failure = True,
+        save_inputs = save_inputs,
     )
 
     sisepuede._log(
@@ -567,5 +585,6 @@ def main(
 if __name__ == "__main__":
 
     args = parse_arguments()
-
+        
     main(args)
+    

@@ -33,9 +33,10 @@ FROM julia:1.8.5-bullseye as final
 COPY --from=build /venv /venv
 WORKDIR /sisepuede
 
-# COPY SISEPUEDE COMPONENTS OVER
+# COPY SISEPUEDE COMPONENTS OVER]
+RUN mkdir ./python
 COPY ./docs ./docs
-COPY ./python ./python
+COPY ./python/*.py ./python/
 COPY ./julia ./julia
 COPY ./ref ./ref
 COPY ./sisepuede.config ./sisepuede.config
