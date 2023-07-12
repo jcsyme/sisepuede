@@ -1,10 +1,16 @@
-# NOTE: THIS APPROACH WORKS—NEED TO TRY SOME ADDITIONAL PIECES, LIKE CACHING PRE-BUILD AND MOVING TO JULIA ALPINE
+# USE MULTI-STAGE BUILD TO GENERATE SISEPUEDE DOCKER IMAGE 
+# - https://pythonspeed.com/articles/conda-docker-image-size/
+# 1. build conda and environment 
+# 2. use `conda-pack` to transfer to Julia image
+# - file can be improved with some work
+#   - e.g., move to Julia Alpine, but will require more precise installation
 
-# MULTI-STAGE: build conda and environment first, then use conda-pack to transfer to Julia image
-# https://pythonspeed.com/articles/conda-docker-image-size/
+
+##  (1) BUILD CONDA ENVIRONMENT
+
 FROM continuumio/miniconda3 AS build
 
-# see https://jcristharif.com/conda-docker-tips.html for decision
+# see https://jcristharif.com/conda-docker-tips.html for use of this environment variable
 ENV PYTHONDONTWRITEBYTECODE=true
 
 # get and create environment from yaml, then drop unnecessary files 
@@ -28,20 +34,17 @@ RUN conda-pack -n sisepuede -o /tmp/env.tar \
 RUN /venv/bin/conda-unpack
 
 
+##  (2) COPY TO JULIA BUILD
 
 FROM julia:1.8.5-bullseye as final
 COPY --from=build /venv /venv
 WORKDIR /sisepuede
 
-# COPY SISEPUEDE COMPONENTS OVER]
-RUN mkdir ./python
-COPY ./docs ./docs
-COPY ./python/*.py ./python/
+# COPY JULIA DIRECTORY OVER FIRST
+# - stable code
+# - doesn't have to be rebuilt often
+# - necessary for setting up julia environment
 COPY ./julia ./julia
-COPY ./ref ./ref
-COPY ./sisepuede.config ./sisepuede.config
-RUN mkdir ./out \
-    && chmod 777 ./out
 
 # UPDATE AND GET KEY TOOLS
 RUN apt-get update \
@@ -64,12 +67,17 @@ RUN source /venv/bin/activate \
     && pip install julia \
     && python -c "import julia; julia.install()"
 
-# TEMPORARY CMD
-#COPY sisepuede_exec.sh .
+# COPY REST OF SISEPUEDE OVER
+RUN mkdir ./python
+COPY ./docs ./docs
+COPY ./python/*.py ./python/
+COPY ./ref ./ref
+COPY ./sisepuede.config ./sisepuede.config
+RUN mkdir ./out \
+    && chmod 777 ./out
+
+
+# SETUP CONDA IN BASH AND SET ENTRYPOINT
+# - feed a script from host using -c
 SHELL ["conda", "run", "-n", "sisepuede", "/bin/bash", "-c"]
-#WORKDIR /sisepuede/python
-#ENV JULIA_NUM_THREADS=`$(nproc)\*2`
-#ENV LD_PRELOAD=/usr/local/julia/lib/julia/libstdc++.so.6
 ENTRYPOINT ["/bin/bash"]
-#ENTRYPOINT ["/bin/bash", "-c", "source ./sisepuede_exec.sh"]
-#CMD ["-c", "chmod +x /venv/bin/activate", "-c", "/venv/bin/activate", "python", "sisepuede_cl.py"]

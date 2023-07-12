@@ -2399,9 +2399,6 @@ class AFOLU:
             inds_lvst_where_pop_noncc = np.where(vec_lvst_cc_proj == 0)[0]
             vec_lvst_prod_proj = vec_lvst_cc_proj*area_pstr_proj*vec_lvst_pstr_weights
             vec_lvst_unmet_demand = np.nan_to_num(arr_lvst_dem[i + 1] - vec_lvst_prod_proj)
-            # vec_lvst_scale_cc[i + 1] is a problem
-            vec = vec_lvst_cc_init
-            print(f"vec_lvst_cc_init:\t{vec}")
             
             # calculate net surplus met
             vec_lvst_unmet_demand_to_impexp = (

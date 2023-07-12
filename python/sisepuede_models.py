@@ -446,9 +446,7 @@ class SISEPUEDEModels:
 			except Exception as e:
 				self._log(f"Error running IPPU model: {e}", type_log = "error")
 
-		global dict_columns
-		dict_columns = {}
-		dict_columns.update({"cols_0": list(df_return[0].columns)}) if isinstance(df_return, list) else None
+
 		##  4. Run Non-Electric Energy (excluding Fugitive Emissions) and collect output
 
 		if "Energy" in models_run:
@@ -471,7 +469,7 @@ class SISEPUEDEModels:
 
 			except Exception as e:
 				self._log(f"Error running NonElectricEnergy without Fugitive Emissions: {e}", type_log = "error")
-		dict_columns.update({"cols_1": list(df_return[0].columns)}) if isinstance(df_return, list) else None
+		
 
 		##  5. Run Electricity and collect output
 
@@ -503,7 +501,7 @@ class SISEPUEDEModels:
 			except Exception as e:
 				self._log(f"Error running ElectricEnergy model: {e}", type_log = "error")
 
-		dict_columns.update({"cols_2": list(df_return[0].columns)}) if isinstance(df_return, list) else None
+		
 		##  6. Add fugitive emissions from Non-Electric Energy and collect output
 
 		if "Energy" in models_run:
@@ -532,7 +530,7 @@ class SISEPUEDEModels:
 			except Exception as e:
 				self._log(f"Error running Fugitive Emissions from Energy model: {e}", type_log = "error")
 
-		dict_columns.update({"cols_3": list(df_return[0].columns)}) if isinstance(df_return, list) else None
+		
 		##  7. Add Socioeconomic output at the end to avoid double-initiation throughout models
 
 		if len(df_return) > 0:
@@ -555,7 +553,7 @@ class SISEPUEDEModels:
 			except Exception as e:
 				self._log(f"Error appending Socioeconomic outputs: {e}", type_log = "error")
 
-		dict_columns.update({"cols_4": list(df_return[0].columns)}) if isinstance(df_return, list) else None
+		
 		# build output data frame
 		df_return = (
 			sf.merge_output_df_list(
@@ -579,5 +577,5 @@ class SISEPUEDEModels:
 				if return_df
 				else None
 			)
-		dict_columns.update({"cols_0": list(df_return.columns)})
+
 		return df_return

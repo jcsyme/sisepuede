@@ -492,6 +492,7 @@ class AWSManager:
             key_primary: "keys-primary",
             key_strategy: "keys-strategy",
             "database_type": "database-type",
+            "id": "id",
             "max_solve_attempts": "max-solve-attempts",
             "random_seed": "random-seed",
             "save_inputs": "save-inputs",
@@ -730,6 +731,7 @@ class AWSManager:
         # file paths
         fp_instance_instance_info = self.get_path_instance_metadata(dir_instance_out)
         fp_instance_shell_script = self.config.get("aws_ec2.instance_shell_path")
+        fp_instance_sisepuede_log = self.get_path_instance_log(dir_instance_out)
         
 
         ##  DOCKER PATHS
@@ -758,6 +760,7 @@ class AWSManager:
         self.dir_instance_out_db = dir_instance_out_db
         self.fp_instance_instance_info = fp_instance_instance_info
         self.fp_instance_shell_script = fp_instance_shell_script
+        self.fp_instance_sisepuede_log = fp_instance_sisepuede_log
 
         return None
     
@@ -780,12 +783,14 @@ class AWSManager:
         ##  S3 PATHS
 
         s3p_athena_database = self.get_s3_path_athena_output("database")
+        s3p_run_log = self.get_s3_path_athena_output("logs")
         s3p_run_metadata = self.get_s3_path_athena_output("metadata")
 
 
         ##  SET PROPERTIES
 
         self.s3p_athena_database = s3p_athena_database
+        self.s3p_run_log = s3p_run_log
         self.s3p_run_metadata = s3p_run_metadata
 
         return None
@@ -980,15 +985,6 @@ class AWSManager:
             
             flags.append(flag)
         
-        # add in max solve attempts
-        max_attempts = self.config.get("sisepuede_runtime.max_solve_attempts")
-        flag = self.dict_dims_to_docker_flags.get("max_solve_attempts")
-        (
-            flags.append(f"--{flag} {max(max_attempts, 1)}") 
-            if isinstance(max_attempts, int)
-            else None
-        )
-
         # add in database type
         db_type = self.config.get("sisepuede_runtime.database_type")
         db_type = "csv" if (db_type is None) else db_type
@@ -996,6 +992,24 @@ class AWSManager:
         (
             flags.append(f"--{flag} {db_type}") 
             if isinstance(flag, str)
+            else None
+        )
+
+        # add in id type
+        id_str = self.file_struct.id
+        flag = self.dict_dims_to_docker_flags.get("id")
+        (
+            flags.append(f"--{flag} \"{id_str}\"") 
+            if isinstance(flag, str)
+            else None
+        )
+
+        # add in max solve attempts
+        max_attempts = self.config.get("sisepuede_runtime.max_solve_attempts")
+        flag = self.dict_dims_to_docker_flags.get("max_solve_attempts")
+        (
+            flags.append(f"--{flag} {max(max_attempts, 1)}") 
+            if isinstance(max_attempts, int)
             else None
         )
 
@@ -1208,6 +1222,13 @@ class AWSManager:
             if isinstance(str_cp_to_s3, str)
             else None
         )
+
+        # terminate instance command
+        str_terminate_instance = self.build_user_data_str_terminate_instance()
+        dict_fill_user_data.update({
+            self.matchstr_terminate_instance: str_terminate_instance
+        })
+
         
 
         ##  SPLIT TO ALLOW USE OF "screen" REMOTELY?
@@ -1283,7 +1304,6 @@ class AWSManager:
         Keyword Arguments
         -----------------
         - delim_newline: new line delimitter
-        - tab
         """
         
         bucket = self.config.get("aws_s3.bucket")
@@ -1296,10 +1316,9 @@ class AWSManager:
         
         # get keys and check
         key_database = self.config.get("aws_s3.key_database")
+        key_logs = self.config.get("aws_s3.key_logs")
         key_metadata = self.config.get("aws_s3.key_metadata")
-        return_none |= (key_database is None)
-        return_none |= (key_metadata is None)
-
+        return_none |= any([(x is None) for x in [key_database, key_logs, key_metadata]])
         
         if return_none is None:
             return None
@@ -1328,12 +1347,15 @@ class AWSManager:
         fp_target = self.get_s3_path_instance_metadata()
         comm = f"{self.command_aws} s3 cp '{self.fp_instance_instance_info}' '{fp_target}'"
         lines_out.append(comm)
+
+        # copy log
+        fp_target = self.get_s3_path_instance_log()
+        comm = f"{self.command_aws} s3 cp '{self.fp_instance_sisepuede_log}' '{fp_target}'"
+        lines_out.append(comm)
         
         lines_out = delim_newline.join([str(x) for x in lines_out])
         
         return lines_out
-
-
 
 
 
@@ -1693,6 +1715,17 @@ class AWSManager:
     
 
 
+    def build_user_data_str_terminate_instance(self,
+    ) -> str:
+        """
+        Build the line to terminate the instance
+        """
+        comm = f"{self.command_aws} ec2 terminate-instances --instance-ids \"{self.shell_env_instance_id}\""
+        
+        return comm
+    
+
+
     
     ###########################
     #    SOME AWS COMMANDS    #
@@ -1826,6 +1859,25 @@ class AWSManager:
     
 
 
+    def get_path_instance_log(self,
+        dir_out: str,
+    ) -> str:
+        """
+        Retrieve the instance log file path
+
+        Function Arguments
+        ------------------
+        - dir_out: output directory to store the file
+        """
+        fp_out = os.path.join(
+            dir_out,
+            os.path.basename(self.file_struct.fp_log_default)
+        )
+        
+        return fp_out
+    
+
+
     def get_path_instance_metadata(self,
         dir_out: str,
     ) -> str:
@@ -1877,7 +1929,7 @@ class AWSManager:
         
         Function Arguments
         ------------------
-        - return_type: "database" or "metadata"
+        - return_type: "database", "logs", or "metadata"
         """
         
         # get bucket
@@ -1891,20 +1943,23 @@ class AWSManager:
         
         # get keys
         key_database = self.config.get("aws_s3.key_database")
+        key_logs = self.config.get("aws_s3.key_logs")
         key_metadata = self.config.get("aws_s3.key_metadata")
         
-        return_none |= (key_database is None)
-        return_none |= (key_metadata is None)
+        return_none |= ((key_database is None) & (return_type == "database"))
+        return_none |= ((key_logs is None) & (return_type == "logs"))
+        return_none |= ((key_metadata is None) & (return_type == "metadata"))
         
         if return_none:
             return None
         
-        
-        key = (
-            key_database
-            if return_type == "database"
-            else key_metadata
-        )
+        # map key type to specified configuration key
+        dict_key_S3 = {
+            "database": key_database,
+            "logs": key_logs,
+            "metadata": key_metadata
+        }
+        key = dict_key_S3.get(return_type)
         
         address_out = os.path.join(bucket, key, self.file_struct.id_fs_safe)
         address_out = f"s3://{address_out}"
@@ -1970,6 +2025,31 @@ class AWSManager:
         address_out = os.path.join(*address_out)
 
         return address_out
+    
+
+
+    def get_s3_path_instance_log(self,
+    ) -> Union[str, None]:
+        """
+        Build the output path for the instance log file to store
+        
+            NOTE: All tables are *within* the database path
+        
+        Function Arguments
+        ------------------
+
+        Keyword Arguments
+        -----------------
+        - ext: file extension to use
+        - index: optional index to add to the table (such as launch index)
+        """
+
+        fp_out = os.path.join(
+            self.s3p_run_log,
+            f"log_{self.shell_env_instance_id}.log"
+        )
+
+        return fp_out
     
 
 

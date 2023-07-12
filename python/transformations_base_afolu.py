@@ -1786,7 +1786,6 @@ def transformation_lndu_increase_silvopasture(
             },
             **kwargs
         )
-        print(df_trans["scalar_lvst_carrying_capacity"])
         
         if df_out is None:
             df_out = [df_trans for k in range(len(df_group))]

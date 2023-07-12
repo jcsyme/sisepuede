@@ -427,7 +427,7 @@ class SISEPUEDEFileStructure:
 		"""
 
 		# initialize file base names
-		fbn_log = f"{self.id_fs_safe}_log"
+		fbn_log = f"{self.id_fs_safe}_log.log"
 		fbn_output_db = f"{self.id_fs_safe}_output_database"
 		fn_output_pkl = f"{self.id_fs_safe}_model_attributes.pkl"
 

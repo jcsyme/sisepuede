@@ -2017,7 +2017,11 @@ class ElectricEnergy:
             attribute_technology = attribute_technology
         ) if (dict_tech_info is None) else dict_tech_info
 
-        modvar_enfu_production = self.modvar_enfu_production_fuel if (modvar_enfu_production is None) else modvar_enfu_production
+        modvar_enfu_production = (
+            self.modvar_enfu_production_fuel 
+            if (modvar_enfu_production is None) 
+            else modvar_enfu_production
+        )
 
         # drop imports
         cats_entc_dummy_imports = self.get_enfu_cats_with_high_dummy_tech_costs(
