@@ -607,6 +607,21 @@ def dict_to_excel(
 
 
 
+def div_with_modulo(
+    n: int,
+    d: int,
+) -> Tuple[int, int]:
+    """
+    Divide numerator n by denominator d and return modulo if n > d
+    """
+
+    base = int(np.floor(n/d))
+    modifier = int(n > d)*(n%d)
+
+    return base, modifier
+
+
+
 def do_array_mult(
     arr_stable: np.ndarray,
     arr_variable: np.ndarray,
@@ -1104,6 +1119,73 @@ def get_dict_from_lines(
         dict_out.update({key: val})
         
     return dict_out
+
+
+
+def get_dimensional_values(
+    keys_in: Union[List[str], str],
+    key: str,
+    delim: str = ",",
+    return_type: type = int,
+) -> List[int]:
+    """
+    Read in dimensional values from a string OR a csv file. `keys_in` can be a list of values separated by
+        `delim`, or a path to a text file--the text file will be read as a data
+        frame and must contain column header key.
+    
+    Function Arguments
+    ------------------
+    - keys_in: 
+        * if not os.path.exists(keys_in): list of values separated by `delim`
+        * if os.path.exists(keys_in): tries to read as a csv, pulling from
+             column `key`
+    - key: optional column specification
+
+    Keyword Arguments
+    -----------------
+    - delim: delimitter to use for input strings
+    - return_type: type to convert output to
+    """
+
+    values = None
+
+    # if list, return values
+    if islistlike(keys_in):
+        try:
+            values = [int(x) for x in keys_in]
+        except Exception as e:
+            raise RuntimeError(f"Error converting elements to integer in get_dimensional_values(): {e}")
+        return values
+    
+    # if passing an integer, return integer in a list
+    if isinstance(keys_in, return_type):
+        return [keys_in]
+
+    # otherwise, return none
+    if not isinstance(keys_in, str):
+        return None
+
+
+    ##  GET VALUES FROM STRING
+
+    if os.path.exists(keys_in):
+        try:
+            df = pd.read_csv(keys_in)
+        except Exception as e:
+            raise RuntimeError(f"Error trying to read keys from file {keys_in}: {e}")
+        
+        if key not in df.columns:
+            raise RuntimeError(f"Error reading keys from file {keys_in}: key '{key}' not found in the file.")
+        
+        values = [return_type(x) for x in list(df[key])]
+
+    elif isinstance(keys_in, str):
+        try:
+            values = [return_type(x) for x in keys_in.split(delim)]
+        except Exception as e:
+            raise RuntimeError(f"Error trying to read keys in input string: {e}")
+
+    return values
 
 
 

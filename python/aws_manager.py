@@ -5,8 +5,10 @@ import boto3
 import logging
 import model_attributes as ma
 import numpy as np
+import ordered_direct_product_table as odpt
 import os, os.path
 import pandas as pd
+import random
 import re
 import setup_analysis as sa
 import shutil
@@ -187,6 +189,8 @@ class AWSManager:
     ------------------------
     - file_struct: SISEPUEDEFileStructure used to access ID information and
         model_attributes
+    - primary_key_database: OrderedDirectProductTable used to identify primary
+        keys 
     - config: path to YAML config file or sc.YAMLConfiguration object
     - fp_template_docker_shell: path to template shell file used to launch 
         application on docker
@@ -206,6 +210,7 @@ class AWSManager:
 
     def __init__(self,
         file_struct: sfs.SISEPUEDEFileStructure,
+        primary_key_database: odpt.OrderedDirectProductTable,
         config: Union[str, sc.YAMLConfiguration],
         fp_template_docker_shell: str,
         fp_template_user_data: str,
@@ -218,7 +223,10 @@ class AWSManager:
         self.logger = logger
 
         self._initialize_template_matchstrs()
-        self._initialize_attributes(file_struct)
+        self._initialize_attributes(
+            file_struct,
+            primary_key_database,
+        )
         self._initialize_config(config)
         self._initialize_templates(
             fp_template_docker_shell,
@@ -457,6 +465,7 @@ class AWSManager:
 
     def _initialize_attributes(self,
         file_struct: sfs.SISEPUEDEFileStructure,
+        primary_key_database: odpt.OrderedDirectProductTable,
     ) -> None:
         """
         Initialize the model attributes object. Checks implementation and throws
@@ -484,6 +493,13 @@ class AWSManager:
         key_primary = model_attributes.dim_primary_id
         key_strategy = model_attributes.dim_strategy_id
 
+        # additional command line flags
+        flag_key_database_type = "database_type"
+        flag_key_id = "id"
+        flag_key_max_solve_attempts = "max_solve_attempts"
+        flag_key_random_seed = "random_seed"
+        flag_key_save_inputs = "save_inputs"
+
         # map keys to flag values
         dict_dims_to_docker_flags = {
             key_design: "keys-design",
@@ -491,23 +507,58 @@ class AWSManager:
             key_region: "regions",
             key_primary: "keys-primary",
             key_strategy: "keys-strategy",
-            "database_type": "database-type",
-            "id": "id",
-            "max_solve_attempts": "max-solve-attempts",
-            "random_seed": "random-seed",
-            "save_inputs": "save-inputs",
+            flag_key_database_type: "database-type",
+            flag_key_id: "id",
+            flag_key_max_solve_attempts: "max-solve-attempts",
+            flag_key_random_seed: "random-seed",
+            flag_key_save_inputs: "save-inputs",
         }
+
+        regions = sc.Regions(model_attributes)
+
+        # set some fields for output fields
+        field_launch_index = "launch_index"
+        field_instance_id = "instance_id"
+        field_random_seed = "random_seed"
+        field_ip_address = "ip_address"
+
+
+        ##  SOME EXPERIMENTAL PROPERTIES
+
+        # check the specification of the primary_key_database
+        primary_key_database_out = None
+        try:
+            primary_key_database.dim_cardinality
+            primary_key_database_out = primary_key_database
+        except Exception as e:
+            None
+
+        # regular expression to use for experimental components
+        regex_config_experiment_components = re.compile("part_(\d*$)")
+
 
         ##  SET PROPERTIES
 
         self.dict_dims_to_docker_flags = dict_dims_to_docker_flags
+        self.field_launch_index = field_launch_index
+        self.field_instance_id = field_instance_id
+        self.field_random_seed = field_random_seed
+        self.field_ip_address = field_ip_address
         self.file_struct = file_struct
+        self.flag_key_database_type = flag_key_database_type
+        self.flag_key_id = flag_key_id
+        self.flag_key_max_solve_attempts = flag_key_max_solve_attempts
+        self.flag_key_random_seed = flag_key_random_seed
+        self.flag_key_save_inputs = flag_key_save_inputs
         self.key_design = key_design
         self.key_future = key_future
         self.key_region = key_region
         self.key_primary = key_primary
         self.key_strategy = key_strategy
         self.model_attributes = model_attributes
+        self.primary_key_database = primary_key_database_out
+        self.regex_config_experiment_components = regex_config_experiment_components
+        self.regions = regions
 
         return None
     
@@ -617,7 +668,7 @@ class AWSManager:
             * self.ec2_image
             * self.ec2_instance_base_name
             * self.ec2_instance_type
-            * self.ec2_n_instances
+            * self.ec2_max_n_instances
             * self.s3_bucket
             * self.s3_key_database
             * self.s3_key_metadata
@@ -643,7 +694,7 @@ class AWSManager:
         self.ec2_image = self.config.get("aws_ec2.database")
         self.ec2_instance_base_name = self.config.get("aws_ec2.instance_base_name")
         self.ec2_instance_type = self.config.get("aws_ec2.instance_type")
-        self.ec2_n_instances = int(self.config.get("aws_ec2.n_instances"))
+        self.ec2_max_n_instances = int(self.config.get("aws_ec2.max_n_instances"))
 
         # S3 properties
         self.s3_bucket = self.config.get("aws_s3.bucket")
@@ -707,13 +758,16 @@ class AWSManager:
         """
         Initialize some paths. Initializes the following properties:
 
-            * self.dir_docker_sisepuede_out
             * self.dir_docker_sisepuede_python
+            * self.dir_docker_sisepuede_out
             * self.dir_docker_sisepuede_repo
             * self.dir_instance_home
             * self.dir_instance_out
+            * self.dir_instance_out_db
+            * self.dir_instance_out_run_package
             * self.fp_instance_instance_info
             * self.fp_instance_shell_script
+            * self.fp_instance_sisepuede_log
 
         NOTE: must be initialized *after* 
             _initialize_shell_script_environment_vars()
@@ -727,12 +781,9 @@ class AWSManager:
         # directories
         dir_instance_home = self.config.get("aws_ec2.dir_home")
         dir_instance_out = self.config.get("aws_ec2.dir_output")
-        dir
-        # file paths
-        fp_instance_instance_info = self.get_path_instance_metadata(dir_instance_out)
-        fp_instance_shell_script = self.config.get("aws_ec2.instance_shell_path")
-        fp_instance_sisepuede_log = self.get_path_instance_log(dir_instance_out)
-        
+        dir_instance_out_db = self.get_path_instance_output_db(dir_instance_out)
+        dir_instance_out_run_package = self.get_path_instance_output_run_package(dir_instance_out)
+
 
         ##  DOCKER PATHS
 
@@ -747,7 +798,12 @@ class AWSManager:
             self.get_sisepuede_relative_paths("python")
         )
 
-        dir_instance_out_db = self.get_path_instance_output_db(dir_instance_out)
+
+        ##  FILE PATHS
+        
+        fp_instance_instance_info = self.get_path_instance_metadata(dir_instance_out)
+        fp_instance_shell_script = self.config.get("aws_ec2.instance_shell_path")
+        fp_instance_sisepuede_log = self.get_path_instance_log(dir_instance_out_run_package)
 
 
         ##  SET PROPERTIES
@@ -758,6 +814,7 @@ class AWSManager:
         self.dir_instance_home = dir_instance_home
         self.dir_instance_out = dir_instance_out
         self.dir_instance_out_db = dir_instance_out_db
+        self.dir_instance_out_run_package = dir_instance_out_run_package
         self.fp_instance_instance_info = fp_instance_instance_info
         self.fp_instance_shell_script = fp_instance_shell_script
         self.fp_instance_sisepuede_log = fp_instance_sisepuede_log
@@ -988,7 +1045,7 @@ class AWSManager:
         # add in database type
         db_type = self.config.get("sisepuede_runtime.database_type")
         db_type = "csv" if (db_type is None) else db_type
-        flag = self.dict_dims_to_docker_flags.get("database_type")
+        flag = self.dict_dims_to_docker_flags.get(self.flag_key_database_type)
         (
             flags.append(f"--{flag} {db_type}") 
             if isinstance(flag, str)
@@ -997,7 +1054,7 @@ class AWSManager:
 
         # add in id type
         id_str = self.file_struct.id
-        flag = self.dict_dims_to_docker_flags.get("id")
+        flag = self.dict_dims_to_docker_flags.get(self.flag_key_id)
         (
             flags.append(f"--{flag} \"{id_str}\"") 
             if isinstance(flag, str)
@@ -1006,7 +1063,7 @@ class AWSManager:
 
         # add in max solve attempts
         max_attempts = self.config.get("sisepuede_runtime.max_solve_attempts")
-        flag = self.dict_dims_to_docker_flags.get("max_solve_attempts")
+        flag = self.dict_dims_to_docker_flags.get(self.flag_key_max_solve_attempts)
         (
             flags.append(f"--{flag} {max(max_attempts, 1)}") 
             if isinstance(max_attempts, int)
@@ -1016,7 +1073,7 @@ class AWSManager:
         # add in save inputs
         save_inputs = self.config.get("sisepuede_runtime.save_inputs")
         save_inputs = True if (save_inputs is None) else save_inputs
-        flag = self.dict_dims_to_docker_flags.get("save_inputs")
+        flag = self.dict_dims_to_docker_flags.get(self.flag_key_save_inputs)
         (
             flags.append(f"--{flag}") 
             if isinstance(flag, str)
@@ -1350,7 +1407,7 @@ class AWSManager:
 
         # copy log
         fp_target = self.get_s3_path_instance_log()
-        comm = f"{self.command_aws} s3 cp '{self.fp_instance_sisepuede_log}' '{fp_target}'"
+        comm = f"{self.command_aws} s3 cp \"{self.fp_instance_sisepuede_log}\" \"{fp_target}\""
         lines_out.append(comm)
         
         lines_out = delim_newline.join([str(x) for x in lines_out])
@@ -1720,7 +1777,10 @@ class AWSManager:
         """
         Build the line to terminate the instance
         """
+        aws_region = self.config.get("aws_config.region_name")
+
         comm = f"{self.command_aws} ec2 terminate-instances --instance-ids \"{self.shell_env_instance_id}\""
+        comm = f"{comm} --region {aws_region}"
         
         return comm
     
@@ -1900,7 +1960,10 @@ class AWSManager:
     ) -> str:
         """
         Get the directory on the instance containing output from the Docker
-            image.
+            image. This is the CSV database path, which is contained within the
+            broader run package.
+
+        NOTE: contained within get_path_instance_output_run_package()
         """
         
         dir_instance_out = (
@@ -1916,6 +1979,64 @@ class AWSManager:
         )
         
         return dir_instance_db
+    
+
+
+    def get_path_instance_output_run_package(self,
+        dir_instance_out: Union[str, None] = None,
+    ) -> str:
+        """
+        Get the directory on the instance containing the run package for 
+            SISEPUEDE, including the output database, pickle, and log.
+        """
+        
+        dir_instance_out = (
+            self.dir_instance_out
+            if dir_instance_out is None
+            else dir_instance_out
+        )
+
+        dir_instance_db = self.file_struct.dir_base_output_raw
+        dir_instance_db = dir_instance_db.replace(
+            self.file_struct.dir_out, 
+            dir_instance_out
+        )
+        
+        return dir_instance_db
+    
+
+
+    def get_regions(self,
+        regions: Union[List[str], str, None] = None,
+        delim: str = ",",
+    ) -> Union[List[str], None]:
+        """
+        Return valid regions from a string or `delim` delimitted list. If 
+            None, calls from configuration.
+        """
+        
+        regions_config = self.config.get("experiment.regions")
+        
+        if (regions is None) & (regions_config is None):
+            return None
+        
+        regions = (
+            regions_config
+            if regions is None
+            else regions
+        )
+        
+        regions = (
+            regions.split(delim)
+            if isinstance(regions, str)
+            else regions
+        )
+        
+        
+        regions = [self.regions.return_region_or_iso(x) for x in regions]
+        regions = [x for x in self.regions.all_regions if x in regions]
+        
+        return regions
     
 
 
@@ -2006,7 +2127,7 @@ class AWSManager:
         # initialize as base name
         address_out = [self.s3p_athena_database, table_name]
 
-        if isinstance(dict_partitions, dict):
+        if isinstance(dict_partitions, dict) & (self.athena_partitions_ordered is not None):
             for key in self.athena_partitions_ordered:
                 val = dict_partitions.get(key)
 
@@ -2258,6 +2379,577 @@ class AWSManager:
 
 
 
+
+    ##################################
+    ###                            ###
+    ###    EXPERIMENT FUNCTIONS    ###
+    ###                            ###
+    ##################################
+
+    def build_experiment(self,
+        dict_experimental_components: Union[Dict[str, Union[Dict[str, List[int]], List[int]]], None] = None,
+        regex_config_parts: Union[re.Pattern, None] = None,
+    ) -> Union[Dict[str, int], None]:
+        """
+        Build the experimental design to split. Returns a list of unique
+            key_primary (generally primary_id) values to run.
+        
+        Keyword Arguments
+        -----------------
+        - dict_experimental_components: dictionary of components with keys
+            matching regex_config_parts
+        - regex_config_parts: regular expression for determining experimental
+            components. If None, defaults to 
+            self.regex_config_experiment_components
+        """
+        
+        # can't build without db
+        return_none = (self.primary_key_database is None)
+        
+        # get the dictionary, return None if invalidly specified
+        dict_experimental_components = self.get_experimental_dictionary(
+            dict_experimental_components = dict_experimental_components,
+            regex_config_parts = regex_config_parts,
+        )
+        return_none |= (dict_experimental_components is None)
+        
+        
+        if return_none:
+            return None
+        
+        # loop to get primary ids that need to be run
+        set_primaries = set({})
+        
+        for k, v in dict_experimental_components.items():
+
+            keys_primary_cur = (
+                self.primary_key_database.get_indexing_dataframe_from_primary_key(
+                    v.get(self.key_primary)
+                )
+                if self.key_primary in v.keys()
+                else self.primary_key_database.get_indexing_dataframe(v)
+            )
+
+            if keys_primary_cur is None:
+                continue
+                
+            keys_primary_cur = keys_primary_cur[self.key_primary]
+            set_primaries |= set(keys_primary_cur)
+            
+        set_primaries = sorted(list(set_primaries))
+        
+        return set_primaries
+    
+
+
+    def get_design_splits_by_launch_index(self,
+        max_n_instances: Union[int, None] = None,
+        primary_keys: Union[Dict[str, int], List[int], None] = None,
+        regions: Union[List[str], str, None] = None,
+    ) -> Union[Dict, None]:
+        """
+        Divide the experimental design by region/primary keys. Generates a 
+            dictionary with launch indices by key and each value is a tuple of
+            the form
+
+            (
+                regions,
+                primary_keys
+            )
+
+            to run with that launch index.
+
+        Function Arguments
+        ------------------
+        - max_n_instances: maximum number of instances to spawn
+        - primary_keys: dictionary of key dimensions to dimensional values 
+            (collapsed using AND logic) OR list of primary key indices
+
+        Keyword Arguments
+        -----------------
+        - regions: optional regions to specify. Must be defined in 
+            configuration.
+        """
+
+        ##  INITIALIZE
+
+        # get regions and implement checks
+        regions = self.get_regions(regions)
+        return_none = (regions is None)
+        return_none |= (
+            len(regions) == 0
+            if not return_none
+            else return_none
+        )
+
+        # number of instances
+        max_n_instances = (
+            self.ec2_max_n_instances
+            if not isinstance(max_n_instances, int)
+            else max_n_instances
+        )
+        return_none |= (max_n_instances is None)
+
+        # primary keys to run
+        primary_keys = self.build_experiment(primary_keys)
+        return_none |= (primary_keys is None)
+
+        # if any conditions are met, return none
+        if return_none:
+            return None
+
+
+        ##  SECONDARY INIT (POST FILTERING WITH return_non)
+        
+        dict_launch_index = self.get_region_groups(regions, max_n_instances, primary_keys)
+        
+        
+        return dict_launch_index
+
+
+
+    def get_experimental_dictionary(self,
+        delim: str = ",",
+        dict_experimental_components: Union[Dict[str, Union[Dict[str, List[int]], List[int]]], None] = None,
+        regex_config_parts: Union[re.Pattern, None] = None,
+    ) -> Union[Dict[str, int], None]:
+        """
+        Check the specification of dict_experimental_components
+
+        Function Arguments
+        ------------------
+            
+        Keyword Arguments
+        -----------------
+        - delim: string delimiter for configuration
+        - dict_experimental_components: dictionary of components with keys
+            matching regex_config_parts
+        - regex_config_parts: regular expression for determining experimental
+            components. If None, defaults to 
+            self.regex_config_experiment_components
+        """
+        
+        # look for configuration components
+        regex_config_parts = (
+            self.regex_config_experiment_components
+            if not isinstance(regex_config_parts, re.Pattern)
+            else regex_config_parts
+        )
+        key_default = regex_config_parts.pattern.replace("(\\d*$)", "0")
+        
+        # default key if no parts are specified
+        dict_experimental_components = (
+            {self.key_primary: dict_experimental_components}
+            if sf.islistlike(dict_experimental_components)
+            else dict_experimental_components
+        )
+        dict_experimental_components = (
+            self.config.get("experiment")
+            if not isinstance(dict_experimental_components, dict)
+            else dict_experimental_components
+        )
+        if dict_experimental_components is None:
+            return None
+
+
+        # check for keys breaking it into parts; if none are present, then look for any dimensional keys
+        keys_keep = [
+            self.key_design,
+            self.key_future,
+            self.key_primary,
+            self.key_strategy
+        ]
+        
+        keys_parts = [
+            x for x in list(dict_experimental_components.keys())
+            if regex_config_parts.match(x) is not None
+        ]
+
+        if len(keys_parts) > 0:
+            dict_experimental_components = dict(
+                (k, v)
+                for k, v in dict_experimental_components.items()
+                if isinstance(v, dict) & (k in keys_parts)
+            )
+        else:
+            dict_experimental_components = {
+                key_default: dict_experimental_components
+            }
+
+        # next, verify presernce of any dimensional keys
+        dict_out = {}
+
+        for k, v in dict_experimental_components.items():
+
+            if not any([x in keys_keep for x in v.keys()]):
+                continue
+            
+            # drop any other dimensions if primary is specified (avoids conflict)
+            v = (
+                {self.key_primary: v.get(self.key_primary)}
+                if self.key_primary in v.keys()
+                else v
+            )
+            
+            # split to ensure list output
+            v = dict(
+                (j, sf.get_dimensional_values(z, j))
+                for j, z in v.items()
+                if j in keys_keep
+            )
+            
+            dict_out.update({k: v})
+
+        dict_experimental_components = (
+            dict_out
+            if len(dict_out) > 0
+            else None
+        )
+
+        return dict_experimental_components
+
+    
+
+    def get_number_of_instances(self,
+        n_regions: int,
+        n_scenarios: int,
+        max_n_instances: int,
+    ) -> int:
+        """
+        Calculate the number of instances to spawn based on the number of regions,
+            number of scenarios to run (per each region), and maximum number of
+            instances
+        """
+
+        n_instances = min(
+            max_n_instances,
+            n_regions*n_scenarios
+        )
+
+        return n_instances
+    
+
+
+    def get_random_seeds(self,
+        regions: List[str],
+        key_config_all: str = "ALL",
+        random_seed_max: int = 10**9,
+    ) -> Dict[str, int]:
+        """
+        Map regions to a random seed. Seeds can be specified as a uniform
+            seed (defaults to configuration, or can specify as ALL) or as
+            a region name or ISO. If a conflict occurs, pull from ISO. 
+            
+            Specify in configuration under 
+            
+            experiment.random_seed.ISO
+            experiment.random_seed.REGION_NAME
+            
+            or 
+            
+            experiment.random_seed.ALL for all
+            
+        Function Arguments
+        ------------------
+        - regions: regions to assign random seeds for
+
+        Keyword Arguments
+        -----------------
+        - key_config_all: key in configuration to use for assigning a seed
+            for all countries
+        - random_seed_max: max seed for generating a random seed
+        """
+        
+        uniform_seed_q = self.config.get("experiment.uniform_random_seed")
+        uniform_seed_q = (
+            uniform_seed_q
+            if isinstance(uniform_seed_q, bool)
+            else False
+        )
+        
+        # set up the seed
+        seed_all = self.config.get(f"experiment.random_seed.{key_config_all}")
+        seed_all = (
+            self.model_attributes.configuration.get("random_seed")
+            if not isinstance(seed_all, int)
+            else seed_all
+        )
+        seed_all = (
+            random.randint(0, random_seed_max)
+            if not isinstance(seed_all, int)
+            else seed_all
+        )
+        
+        
+        ##  ITERATE TO BUILD DICTIONARY
+        
+        dict_out = {}
+        
+        for region in regions:
+            
+            region_name = self.regions.return_region_or_iso(region, return_type = "region")
+            region_iso = self.regions.return_region_or_iso(region, return_type = "iso")
+            
+            if uniform_seed_q:
+                dict_out.update({region: seed_all})
+                continue
+                
+            # check for a seed, def
+            config_key_name = f"experiment.random_seed.{region_name}"
+            config_key_iso = f"experiment.random_seed.{region_iso}"
+            seed_name = self.config.get(config_key_name)
+            seed_iso = self.config.get(config_key_iso)
+            
+            seed = (
+                seed_iso
+                if isinstance(seed_iso, int)
+                else (
+                    seed_name
+                    if isinstance(seed_iso, int)
+                    else random.randint(0, random_seed_max)
+                )
+            )
+
+            dict_out.update({region: seed})
+            
+        
+        return dict_out
+
+
+
+    def get_region_groups(self,
+        regions: List[str],
+        max_n_instances: int,
+        primary_keys: List[int],
+    ) -> Dict[int, Tuple]:
+        """
+        Get groups of regions for instances. Returns a dictionary that maps a
+            launch group to a tuple of the following form
+
+            {
+                i: (
+                    [regions_i...],
+                    [primary_keys_i...]
+                )
+            }
+
+            for launch index i, regions to launch regions_i, and primary_keys
+            primary_keys_i.
+
+            
+        Function Arguments
+        ------------------
+        - regions: list of regions to split
+        - max_n_instances: maximum number of instances to spawn
+        - primary_keys: list of primary keys that will be reun
+        """
+        # some initialization
+        n_primary_keys = len(primary_keys)
+
+        # set number of instances
+        n_regions = len(regions)
+        n_instances = self.get_number_of_instances(
+            n_regions,
+            len(primary_keys),
+            max_n_instances,
+        )
+        base_n_regions_per_instance, n_instances_w_extra_region = sf.div_with_modulo(n_regions, n_instances)
+        base_n_regions_per_instance = max(base_n_regions_per_instance, 1)
+
+
+        ##  GENERATE REGION GROUPS
+
+        # randomize order of regions
+        dict_region_groups = {}
+        regions_shuffled = regions.copy()
+        random.shuffle(regions_shuffled)
+
+        ind_extra_regions = 0
+        ind_base = 0
+
+        for i in range(min(n_regions, n_instances)):
+
+            ind_0 = ind_base
+            ind_1 = ind_base + base_n_regions_per_instance
+            ind_1 += int(ind_extra_regions < n_instances_w_extra_region)
+
+            ind_extra_regions += 1
+
+            # select slice
+            grp = regions_shuffled[ind_0:ind_1]
+            dict_region_groups.update({i: grp})
+
+            # update base
+            ind_base = ind_1
+
+        n_region_groups = len(dict_region_groups)
+
+
+        ##  ASSIGN INSTANCES
+
+        base_n_instances_per_rg, n_rg_w_extra_instances = sf.div_with_modulo(n_instances, n_region_groups)
+
+        # get keys to assign extra instances to (sorted from largest to leas)
+        assignment_queue = sorted(
+            [
+                (len(v), k) for k, v in dict_region_groups.items()
+            ], 
+            reverse = True
+        )
+        assignment_queue = [x[1] for x in assignment_queue]
+
+        # iterate to assign
+        dict_launch_index = {}
+        ind_extra_instance = 0
+        ind_launch_index = 0
+
+        for i, k in enumerate(assignment_queue):
+            # get the 
+            v = dict_region_groups.get(k)
+
+            n_instances_cur_group = base_n_instances_per_rg
+            n_instances_cur_group += int(ind_extra_instance < n_rg_w_extra_instances)
+
+            # now, split up primary keys
+            base_n_keys_per_instance, n_instances_with_extra_keys = sf.div_with_modulo(n_primary_keys, n_instances_cur_group)
+
+            # some iterators - note, ind_launch_index should be outside the assignment queue
+            ind_pk_0 = 0
+            ind_key_extra = 0
+            list_splits = {}
+
+            for j in range(n_instances_cur_group):
+
+                ind_pk_1 = ind_pk_0 + base_n_keys_per_instance
+                ind_pk_1 += int(ind_key_extra < n_instances_with_extra_keys)
+                ind_key_extra += 1
+
+                dict_launch_index.update(
+                    {
+                        ind_launch_index: (
+                            v,
+                            primary_keys[ind_pk_0:ind_pk_1]
+                        )
+                    }
+                )
+
+                ind_pk_0 = ind_pk_1
+
+                # inner iteration; we want to map each set of primary keys/region to a launch index
+                ind_launch_index += 1
+
+            ind_extra_instance += 1
+
+        """
+        # get number of instances  
+        out = (
+            dict_launch_index,
+            dict_region_groups, 
+            n_instances, 
+            n_region_groups,
+        )
+        """;
+
+        return dict_launch_index
+    
+
+
+    def launch_experiment(self,
+        delim: str = ",",
+        dict_launcher: Union[Dict[int, Tuple[List[str], List[int]]], None] = None,
+        launch: bool = True,
+    ) -> Tuple[pd.DataFrame, Dict]:
+        """
+        Launch a design specified in dict_launcher
+        
+        Function Arguments
+        ------------------
+        
+        Keyword Arugments
+        -----------------
+        - delim: delimiter to use to print regions in output DataFrame
+        - dict_launcher: dictionary building launcher information (see 
+            self.get_design_splits_by_launch_index())
+        - launch: set to False to return random seeds and launch index 
+            dictionary
+        """
+        
+        dict_launcher = (
+            self.get_design_splits_by_launch_index()
+            if not isinstance(dict_launcher, dict)
+            else dict_launcher
+        )
+    
+        # get the regions that will be launched, and get the seed dictionary
+        regions_launch = [
+            [x[0] for x in dict_launcher.values()]
+        ]
+        regions_launch = sorted(list(set(sum(sum(regions_launch, []), []))))
+        dict_region_to_seed = self.get_random_seeds(regions_launch)    
+        
+        
+        # initialize information for information dataframe + dictionary of UserData
+        df_run_information = []
+        fields_out = [
+            self.field_launch_index,
+            self.field_instance_id,
+            self.key_region,
+            self.key_primary,
+            self.field_random_seed,
+            self.field_ip_address
+        ]
+        
+        dict_ud = {}
+        
+        for ind_launch, spec_tuple in dict_launcher.items():
+            
+            continue_q = not isinstance(ind_launch, int)
+            continue_q |= not sf.islistlike(spec_tuple[0])
+            continue_q |= not sf.islistlike(spec_tuple[1])
+            
+            if continue_q:
+                continue
+            
+            # 
+            
+            random_seed = dict_region_to_seed.get(spec_tuple[0][0])
+            
+            dict_specification = {
+                self.key_region: spec_tuple[0],
+                self.key_primary: spec_tuple[1],
+                self.flag_key_random_seed: random_seed,
+            }
+            
+            # get user data and add to dictionary
+            user_data = self.build_user_data(
+                dict_specification, 
+                instance_launch_index = ind_launch
+            )
+            dict_ud.update({ind_launch: user_data})
+            
+            
+            # try to run instance
+            dict_instance = self.launch_instance(user_data)
+            
+            if isinstance(dict_instance, dict):
+                
+                info = dict_instance.get("Instances")[0]
+                
+                # add output roww
+                row = [
+                    ind_launch,
+                    info.get("InstanceId"),
+                    delim.join(spec_tuple[0]),
+                    delim.join([str(x) for x in spec_tuple[1]]),
+                    random_seed,
+                    info.get("PrivateIpAddress")
+                ]
+                
+                df_run_information.append(row)
+                
+        df_run_information = pd.DataFrame(df_run_information, columns = fields_out)
+        
+        return dict_ud, df_run_information
 
         
 

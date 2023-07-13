@@ -869,15 +869,26 @@ class SISEPUEDE:
 			possible primary keys.
 		"""
 
+
 		if isinstance(primary_keys, dict):
-			primary_keys = sorted(list(
-				self.odpt_primary.get_indexing_dataframe(
+
+			df_odpt = (
+				self.odpt_primary.get_indexing_dataframe_from_primary_key(
+					primary_keys.get(self.odpt_primary.key_primary),
+					keys_return = [self.odpt_primary.key_primary],
+				)
+				if self.odpt_primary.key_primary in primary_keys.keys()
+				else self.odpt_primary.get_indexing_dataframe(
 					key_values = primary_keys,
-					keys_return = [self.odpt_primary.key_primary]
-				)[self.odpt_primary.key_primary]
-			))
+					keys_return = [self.odpt_primary.key_primary],
+				)
+			)
+
+			primary_keys = sorted(list(df_odpt[self.odpt_primary.key_primary]))
+
 		elif isinstance(primary_keys, list):
 			primary_keys = sorted([x for x in primary_keys if x in self.odpt_primary.range_key_primary])
+		
 		elif primary_keys is None:
 			primary_keys = self.odpt_primary.range_key_primary
 

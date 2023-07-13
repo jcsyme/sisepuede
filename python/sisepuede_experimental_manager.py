@@ -139,7 +139,7 @@ class SISEPUEDEExperimentalManager:
 		self._initialize_lhs_design()
 
 		# generate some elements
-		self._generate_primary_keys_index()
+		self._initialize_primary_keys_index()
 
 
 
@@ -600,7 +600,7 @@ class SISEPUEDEExperimentalManager:
 
 
 
-	def _generate_primary_keys_index(self,
+	def _initialize_primary_keys_index(self,
 	) -> None:
 		"""
 		Generate a data frame of primary scenario keys. Assigns the following
@@ -626,28 +626,10 @@ class SISEPUEDEExperimentalManager:
 		    [self.key_design, self.key_strategy, self.key_future],
 		    key_primary = self.key_primary
 		)
-		"""
-		prods = [
-			all_designs,
-			all_strategies,
-			all_futures
-		]
 
-		df_primary_keys = pd.DataFrame(
-		 	list(itertools.product(*prods)),
-			columns = [self.key_design, self.key_strategy, self.key_future]
-		)
-
-		df_primary_keys = sf.add_data_frame_fields_from_dict(
-			df_primary_keys,
-			{
-				self.key_primary: range(len(df_primary_keys))
-			}
-		)
-
-		self.primary_key_database = df_primary_keys
-		"""
 		self.primary_key_database = odtp_database
+
+		return None
 
 
 
