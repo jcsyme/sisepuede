@@ -511,7 +511,6 @@ class AFOLU:
         self.modvar_agrc_frac_wet = "Agriculture Fraction Wet"
         self.modvar_agrc_n_content_of_above_ground_residues = "N Content of Above Ground Residues"
         self.modvar_agrc_n_content_of_below_ground_residues = "N Content of Below Ground Residues"
-        self.modvar_agrc_net_imports = "Change to Net Imports of Crops"
         self.modvar_agrc_ratio_above_ground_residue_to_harvested_yield = "Ratio of Above Ground Residue to Harvested Yield"
         self.modvar_agrc_ratio_below_ground_biomass_to_above_ground_biomass = "Ratio of Below Ground Biomass to Above Ground Biomass"
         self.modvar_agrc_regression_m_above_ground_residue = "Above Ground Residue Dry Matter Slope"
@@ -729,7 +728,6 @@ class AFOLU:
         self.modvar_lvst_genfactor_nitrogen = "Daily Nitrogen Generation Factor"
         self.modvar_lvst_genfactor_volatile_solids = "Daily Volatile Solid Generation Factor"
         self.modvar_lvst_b0_manure_ch4 = "Maximum Manure :math:\\text{CH}_4 Generation Capacity"
-        self.modvar_lvst_net_imports = "Change to Net Imports of Livestock"
         self.modvar_lvst_pop = "Livestock Head Count"
         self.modvar_lvst_pop_init = "Initial Livestock Head Count"
         self.modvar_lvst_total_animal_mass = "Total Domestic Animal Mass"
@@ -3229,12 +3227,16 @@ class AFOLU:
             self.modvar_agrc_changes_to_net_imports_lost,
             "mass"
         )
+        """
+        # JSYME REMOVED 2023-07-13: removing modvar_agrc_net_imports variable
+        # self.modvar_agrc_net_imports = "Change to Net Imports of Crops"
         # convert change to net imports loss
         arr_agrc_net_import_increase *= self.model_attributes.get_variable_unit_conversion_factor(
             self.modvar_agrc_yf,
             self.modvar_agrc_net_imports,
             "mass"
         )
+        """;
         # get total domestic crop demand
         arr_agrc_demand_out = arr_agrc_yield_out*self.model_attributes.get_variable_unit_conversion_factor(
             self.modvar_agrc_yield,

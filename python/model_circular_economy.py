@@ -225,15 +225,13 @@ class CircularEconomy:
         self.modvar_agrc_total_food_lost_in_ag_to_msw = "Total Food Loss Sent to Municipal Solid Waste"
         self.modvar_lsmm_dung_incinerated = "Dung Incinerated"
         self.modvar_lvst_animal_weight = "Animal Weight"
-        self.modvar_lvst_net_imports = "Change to Net Imports of Livestock"
-        self.modvar_lvst_pop = "Livestock Head Count"
+        self.modvar_lvst_demand_domestic = "Livestock Demand"
         self.modvar_lvst_total_animal_mass = "Total Domestic Animal Mass"
 
         list_vars_required_for_integration = [
             self.modvar_agrc_total_food_lost_in_ag_to_msw,
             self.modvar_lsmm_dung_incinerated,
-            self.modvar_lvst_pop,
-			self.modvar_lvst_net_imports,
+            self.modvar_lvst_demand_domestic,
             self.modvar_lvst_animal_weight,
             self.modvar_lvst_total_animal_mass
 		]
@@ -848,13 +846,20 @@ class CircularEconomy:
         vec_wali_protein_per_capita *= self.model_attributes.configuration.get("days_per_year")
         
         # get livestock population (a) and net imports (b) if available; otherwise, default to an elasticity
-        modvar_proj_protein_driver_a, array_project_protein_driver_a = self.model_attributes.get_optional_or_integrated_standard_variable(
+        modvar_proj_protein_driver, array_project_protein_driver = self.model_attributes.get_optional_or_integrated_standard_variable(
             df_ce_trajectories,
-            self.modvar_lvst_pop,
+            self.modvar_lvst_demand_domestic,
             self.modvar_wali_optional_elasticity_protein_to_gdppc,
             override_vector_for_single_mv_q = True,
             return_type = "array_base"
         )
+
+        """
+        JSYME REMOVED 20230713:
+        # modvar_lvst_net_imports not returned from AFOLU (deprecated)
+        # REMOVED TWO VARS:
+        # self.modvar_lvst_net_imports = "Change to Net Imports of Livestock"
+        # self.modvar_lvst_pop = "Livestock Head Count"
         modvar_proj_protein_driver_b, array_project_protein_driver_b = self.model_attributes.get_optional_or_integrated_standard_variable(
             df_ce_trajectories,
             self.modvar_lvst_net_imports,
@@ -862,9 +867,10 @@ class CircularEconomy:
             override_vector_for_single_mv_q = True,
             return_type = "array_base"
         )
+        """;
 
         # project depending on availability
-        if modvar_proj_protein_driver_a == self.modvar_lvst_pop:
+        if modvar_proj_protein_driver == self.modvar_lvst_demand_domestic:
             """
             use estimate of total animal weight for increase in protein content 
                 in diet
@@ -873,17 +879,23 @@ class CircularEconomy:
             - however, we still have to correct for the reduction of protein in 
                 non-red meat diets
             """
-            array_lvst_total_dem = array_project_protein_driver_a + array_project_protein_driver_b
+            array_lvst_total_dem = array_project_protein_driver
             vec_lvst_weights = self.model_attributes.get_ordered_category_attribute("Livestock", "animal_weight_kg")
             vec_protein_growth = np.sum(array_lvst_total_dem*vec_lvst_weights, axis = 1)
             vec_protein_growth = np.concatenate([np.ones(1), np.cumprod(vec_protein_growth[1:]/vec_protein_growth[0:-1])])
+        
         else:
             if vec_rates_gdp_per_capita is None:
                 raise ValueError(f"Error in project_protein_consumption: Livestock growth rates not found in data frame. To use the '{self.modvar_wali_optional_elasticity_protein_to_gdppc}' variable, specify a vector of gdp growth rates.")
             
             # in this case, array_project_protein_driver_a == array_project_protein_driver_a
-            vec_wali_elast_protein = array_project_protein_driver_a.flatten()
-            vec_protein_growth = sf.project_growth_scalar_from_elasticity(vec_rates_gdp_per_capita, vec_wali_elast_protein, False, "standard")
+            vec_wali_elast_protein = array_project_protein_driver.flatten()
+            vec_protein_growth = sf.project_growth_scalar_from_elasticity(
+                vec_rates_gdp_per_capita, 
+                vec_wali_elast_protein, 
+                False, 
+                "standard"
+            )
        
        # total protein
         vec_wali_protein_kg = vec_wali_protein_per_capita*vec_pop*vec_protein_growth*vec_wali_protein_scalar
