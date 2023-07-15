@@ -10,7 +10,7 @@ Input,NemoMod TotalAnnualMinCapacityInvestmentStorage,,``nemomod_enst_total_annu
 Input,NemoMod TotalAnnualMinCapacityStorage," | Total annual minimum capacity for a generation technology. If none, enter -999 as a flag.. 
  | 
  | Exlucdes storage technologies.",``nemomod_enst_total_annual_min_capacity_$CAT-STORAGE$_$UNIT-ENERGY$`` (``$UNIT-ENERGY$ = pj``),,,,,0,1,1,0
-Ouptut,NemoMod Discounted Capital Investment Storage," | Discounted capital investment in new generation technologies (in configuration monetary_units).
+Output,NemoMod Discounted Capital Investment Storage," | Discounted capital investment in new generation technologies (in configuration monetary_units).
  | 
  | NemoMod output variable **vdiscountedcapitalinvestment**",``nemomod_enst_discounted_capital_investment_$CAT-STORAGE$``,,,,,1,1,1,0
 Output,NemoMod Discounted Operating Costs Storage," | Discounted operating (fixed and variable) costs by generation technology (in configuration monetary_units).

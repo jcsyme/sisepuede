@@ -65,7 +65,7 @@ def get_regions(
     if region_args == "ALLREGIONS":
         return None
 
-    regions = get_dimensional_values(
+    regions = sf.get_dimensional_values(
         region_args, 
         regions_obj.key,
         delim = delim,
@@ -111,7 +111,7 @@ def get_dimensional_dict(
 
     if args.get(cl_key_primary) is not None:
         key = dict_key_map.get(cl_key_primary)
-        vals = get_dimensional_values(args.get(cl_key_primary), key)
+        vals = sf.get_dimensional_values(args.get(cl_key_primary), key)
         (
             dict_out.update({key: vals})
             if vals is not None
@@ -121,7 +121,7 @@ def get_dimensional_dict(
     else:
         for k in [cl_key_design, cl_key_future, cl_key_strategy]:
             key = dict_key_map.get(k)
-            vals = get_dimensional_values(args.get(k), key)
+            vals = sf.get_dimensional_values(args.get(k), key)
             (
                 dict_out.update({key: vals})
                 if vals is not None
@@ -138,45 +138,8 @@ def get_dimensional_dict(
 
 
 
-def get_dimensional_values(
-    keys_in: str,
-    key: str,
-    delim: str = ",",
-    return_type: type = int,
-) -> List[int]:
-    """
-    Read in dimensional values. `keys_in` can be a list of values separated by
-        `delim`, or a path to a text file--the text file will be read as a data
-        frame and must contain column header key.
-    """
-
-    values = None
-
-    if not isinstance(keys_in, str):
-        return None
-
-    if os.path.exists(keys_in):
-        try:
-            df = pd.read_csv(keys_in)
-        except Exception as e:
-            raise RuntimeError(f"Error trying to read keys from file {keys_in}: {e}")
-        
-        if key not in df.columns:
-            raise RuntimeError(f"Error reading keys from file {keys_in}: key '{key}' not found in the file.")
-        
-        values = [return_type(x) for x in list(df[key])]
-
-    elif isinstance(keys_in, str):
-        try:
-            values = [return_type(x) for x in keys_in.split(delim)]
-        except Exception as e:
-            raise RuntimeError(f"Error trying to read keys in input string: {e}")
-
-    return values
-
-
-
-def parse_arguments() -> dict:
+def parse_arguments(
+) -> dict:
 
     desc = f"""
     Command line utility to run SImulating SEctoral Pathways and Uncertainty 

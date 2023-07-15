@@ -460,7 +460,8 @@ class ElectricEnergy:
             "gams_cplex": "GAMS",
             "glpk": "GLPK",
             "gurobi": "Gurobi",
-            "highs": "HiGHS"
+            "highs": "HiGHS",
+            "ipopt": "Ipopt",
         }
         self.dict_julia_package_to_solver = sf.reverse_dict(self.dict_solver_to_julia_package)
 
@@ -3146,6 +3147,11 @@ class ElectricEnergy:
             self.julia_jump.set_optimizer_attribute(optimizer, "NumericFocus", 2)
             #print(self.julia_base.propertynames(optimizer))
 
+        # HiGHS parameters            
+        if (solver == "highs"):
+            # see https://www.gurobi.com/documentation/9.5/refman/numericfocus.html#parameter:NumericFocus
+            self.julia_jump.set_optimizer_attribute(optimizer, "solver", "simplex")
+            #TRUYING
         return optimizer
 
 

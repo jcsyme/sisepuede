@@ -279,7 +279,7 @@ class Socioeconomic:
             * If False, returns only the variables calculated in SE 
         """
         # add population and interpolate if necessary
-        self.model_attributes.manage_pop_to_df(df_se_trajectories, "add")
+        #self.model_attributes.manage_pop_to_df(df_se_trajectories, "add")
         self.check_df_fields(df_se_trajectories)
         dict_dims, df_se_trajectories, n_projection_time_periods, projection_time_periods = self.model_attributes.check_projection_input_df(
             df_se_trajectories,
@@ -290,7 +290,13 @@ class Socioeconomic:
         df_out = (
             [df_se_trajectories.reset_index(drop = True)]
             if project_for_internal
-            else [df_se_trajectories[self.required_dimensions].copy()]
+            else [
+                (
+                    df_se_trajectories[self.required_dimensions]
+                    .copy()
+                    .reset_index(drop = True)
+                )
+            ]
         )
 
         # get some basic emission drivers
@@ -345,11 +351,35 @@ class Socioeconomic:
 
         # add to output
         df_out += [
-            self.model_attributes.array_to_df(vec_gdp_per_capita, self.modvar_econ_gdp_per_capita, False),
-            self.model_attributes.array_to_df(vec_gnrl_occrate, self.modvar_gnrl_occ_rate, False),
-            self.model_attributes.array_to_df(vec_gnrl_num_hh, self.modvar_grnl_num_hh, False)
+            self.model_attributes.array_to_df(
+                vec_pop,
+                self.modvar_gnrl_pop_total,
+                False
+            ),
+            self.model_attributes.array_to_df(
+                vec_gdp_per_capita, 
+                self.modvar_econ_gdp_per_capita, 
+                False
+            ),
+            self.model_attributes.array_to_df(
+                vec_gnrl_occrate, 
+                self.modvar_gnrl_occ_rate, 
+                False
+            ),
+            self.model_attributes.array_to_df(
+                vec_gnrl_num_hh, 
+                self.modvar_grnl_num_hh, 
+                False
+            )
         ]
-        df_se_trajectories = pd.concat(df_out, axis = 1).reset_index(drop = True)
+
+        df_se_trajectories = (
+            pd.concat(
+                df_out, 
+                axis = 1
+            )
+            .reset_index(drop = True)
+        )
 
 
         ##  setup output
@@ -374,5 +404,5 @@ class Socioeconomic:
             )
 
             out = (df_se_trajectories, df_se_internal_shared_variables)
-
+        self.cols = list(df_se_trajectories.columns)
         return out

@@ -675,6 +675,19 @@ class ModelAttributes:
         self.dim_time_period = "time_period"
         self.dim_time_series_id = "time_series_id"
         self.dim_primary_id = "primary_id"
+
+        # setup dtypes
+        self.dict_dtypes_doas = {
+            self.dim_design_id: "int64",
+            self.dim_future_id: "int64",
+            self.dim_mode: "string",
+            self.dim_region: "string",
+            self.dim_strategy_id: "int64",
+            self.dim_time_period: "int64",
+            self.dim_time_series_id: "int64",
+            self.dim_primary_id: "int64",
+        }
+
         # ordered by sort hierarchy
         self.sort_ordered_dimensions_of_analysis = [
             self.dim_primary_id,
@@ -1105,6 +1118,7 @@ class ModelAttributes:
             * self.all_subsector_abvs
             * self.all_subsectors_with_primary_category
             * self.all_subsectors_without_primary_category
+            * self.emission_subsectors
         """
 
         table_key_sector = (
@@ -1120,10 +1134,11 @@ class ModelAttributes:
         attr_sec = self.dict_attributes.get(table_key_sector)
         attr_subsec = self.dict_attributes.get(table_key_subsector)
 
-        # all sectors and subsectors
+        # all sectors and subsectors +  emission subsectors
         all_sectors = sorted(list(attr_sec.table["sector"].unique()))
         all_subsectors = sorted(list(attr_subsec.table["subsector"].unique()))
-        
+        emission_subsectors = self.get_emission_subsectors()
+
         # some subsector splits based on w+w/o primary categories
         l_with = sorted(list(attr_subsec.field_maps["subsector_to_primary_category_py"].keys()))
         l_without = sorted(list(set(all_subsectors) - set(l_with)))
@@ -1134,6 +1149,7 @@ class ModelAttributes:
         self.all_subsector_abvs = attr_subsec.key_values
         self.all_subsectors_with_primary_category = l_with
         self.all_subsectors_without_primary_category = l_without
+        self.emission_subsectors = emission_subsectors
 
         return None
 
@@ -2156,15 +2172,29 @@ class ModelAttributes:
 
 
     def get_all_subsector_emission_total_fields(self,
+        filter_on_emitting_only: bool = True,
     ) -> List[str]:
         """
         Generate a list of all subsector emission total fields added to
-            model outputs.
+            model outputs. Set `filter_on_emitting_only = False` to include 
+            nominal fields for non-emitting subsectors.
         """
-        out = [self.get_subsector_emission_total_field(x) for x in self.all_subsectors]
+        # get emission subsectors
+        attr = self.dict_attributes.get("abbreviation_subsector")
+        subsectors_emission = (
+            list(
+                attr.table[
+                    attr.table["emission_subsector"] == 1
+                ]["subsector"]
+            )
+            if filter_on_emitting_only
+            else self.all_subsectors
+        )
+
+        out = [self.get_subsector_emission_total_field(x) for x in subsectors_emission]
 
         return out
-
+    
 
 
     def get_attribute_table(self,
@@ -2239,7 +2269,7 @@ class ModelAttributes:
         subsector: str,
         dict_subset: dict,
         attribute_type: str = "pycategory_primary",
-        subsector_extract_key: str = None
+        subsector_extract_key: str = None,
     ) -> list:
         """
         Return categories from an attribute table that match some 
@@ -2315,6 +2345,22 @@ class ModelAttributes:
             warnings.warn(f"Invalid dimensional attribute '{return_type}'. Valid return type values are:{valid_rts}")
         
         return out_val
+    
+
+
+    def get_emission_subsectors(self,
+    ) -> List[str]:
+        """
+        Get subsectors that generate emissions
+        """
+        attr = self.dict_attributes.get("abbreviation_subsector")
+        subsectors_emission = list(
+            attr.table[
+                attr.table["emission_subsector"] == 1
+            ]["subsector"]
+        )
+
+        return subsectors_emission
     
 
 
@@ -3490,7 +3536,8 @@ class ModelAttributes:
     def add_subsector_emissions_aggregates(self,
         df_in: pd.DataFrame,
         list_subsectors: list,
-        stop_on_missing_fields_q: bool = False
+        stop_on_missing_fields_q: bool = False,
+        skip_non_emission_subsectors: bool = True,
     ) -> str:
         """
         Add a total of all emission fields (across those output variables 
@@ -3506,9 +3553,19 @@ class ModelAttributes:
         -----------------
         - stop_on_missing_fields_q: default = False. If True, will stop if any 
             component emission variables are missing.
+        - skip_non_emission_subsectors: skip subsectors that don't generate
+            emissions? Otherwise, adds a field without 0
         """
+
+        list_subsectors = (
+            [x for x in list_subsectors if x in self.emission_subsectors]
+            if skip_non_emission_subsectors
+            else list_subsectors
+        )
+
         # loop over base subsectors
         for subsector in list_subsectors:
+
             vars_subsec = self.dict_model_variables_by_subsector.get(subsector)
 
             # add subsector abbreviation
@@ -3534,8 +3591,8 @@ class ModelAttributes:
                 str_mf = f"Missing fields {str_mf}.%s"
                 if stop_on_missing_fields_q:
                     raise ValueError(str_mf%(" Subsector emission totals will not be added."))
-                else:
-                    warnings.warn(str_mf%(" Subsector emission totals will exclude these fields."))
+
+                warnings.warn(str_mf%(" Subsector emission totals will exclude these fields."))
 
             keep_fields = [x for x in flds_add if x in df_in.columns]
             df_in[fld_nam] = df_in[keep_fields].sum(axis = 1)

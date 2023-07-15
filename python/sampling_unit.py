@@ -1291,7 +1291,6 @@ class SamplingUnit:
 
 	## UNCERTAINY FAN FUNCTIONS
 
-	 # construct the "ramp" vector for uncertainties
 	def build_ramp_vector(self,
 		tuple_param: Union[tuple, None] = None
 	) -> np.ndarray:
@@ -1303,20 +1302,34 @@ class SamplingUnit:
 		- tuple_param: tuple of parameters to pass to f_fan
 
 		"""
-		tuple_param = self.get_f_fan_function_parameter_defaults(self.uncertainty_fan_function_type) if (tuple_param is None) else tuple_param
+		tuple_param = (
+			self.get_f_fan_function_parameter_defaults(self.uncertainty_fan_function_type) 
+			if (tuple_param is None) 
+			else tuple_param
+		)
 
-		if len(tuple_param) == 4:
-			tp_0 = self.time_period_end_certainty
-			n = len(self.time_periods) - tp_0 - 1
-
-			return np.array([int(i > tp_0)*self.f_fan(i - tp_0 , n, *tuple_param) for i in range(len(self.time_periods))])
-		else:
+		if len(tuple_param) != 4:
 			raise ValueError(f"Error: tuple_param {tuple_param} in build_ramp_vector has invalid length. It should have 4 parameters.")
+		
+		tp_0 = self.time_period_end_certainty
+		n = len(self.time_periods) - tp_0 - 1
+
+		arr_out = np.array(
+			[
+				int(i > tp_0)*self.f_fan(i - tp_0 , n, *tuple_param) 
+				for i in range(len(self.time_periods))
+			]
+		)
+
+		return arr_out
+			
 
 
-	# basic function that determines the shape; based on a generalization of the sigmoid (includes linear option)
 	def f_fan(self, x, n, a, b, c, d):
 		"""
+		Basic function that determines the shape of the uncertainty fan; based 
+			on a generalization of the sigmoid (includes linear option).
+
 		 *defaults*
 
 		 for linear:
@@ -1443,9 +1456,19 @@ class SamplingUnit:
 					for cat_cur in [cat_b0, cat_b1, cat_mix]:
 
 						# get the index for the current vs/cat_cur
-						inds = np.sort(np.array(list(inds0 & set(np.where(df_baseline_strategy[self.field_variable_trajgroup_type] == cat_cur)[0]))))
+						inds = np.sort(
+							np.array(
+								list(inds0 & set(np.where(df_baseline_strategy[self.field_variable_trajgroup_type] == cat_cur)[0]))
+							)
+						)
 						n_inds = len(inds)
-						df_ids0 = df_baseline_strategy[[x for x in self.fields_id if (x != self.key_strategy)]].loc[inds.repeat(n_strat)].reset_index(drop = True)
+						df_ids0 = (
+							df_baseline_strategy[
+								[x for x in self.fields_id if (x != self.key_strategy)]
+							]
+							.loc[inds.repeat(n_strat)]
+							.reset_index(drop = True)
+						)
 						new_strats = list(np.zeros(len(df_ids0)).astype(int))
 
 						# initialize as list - we only do this to guarantee the sort is correct
@@ -1456,6 +1479,7 @@ class SamplingUnit:
 						for strat in all_strats:
 							# replace strategy ids
 							new_strats[ind_repl*n_inds:((ind_repl + 1)*n_inds)] = [strat for x in inds]
+
 							# get the strategy difference that is adjusted by lhs_trial_x_delta; if baseline strategy, use 0s
 							df_repl = np.zeros((n_inds, len(self.fields_time_periods))) if (strat == strat_base) else arrs_strategy_diffs[strat][inds, :]*lhs_trial_l
 							np.put(
@@ -1469,8 +1493,20 @@ class SamplingUnit:
 							ind_repl += 1
 
 						df_ids0[self.key_strategy] = new_strats
-						df_future_strat = pd.concat([df_ids0, pd.DataFrame(df_future_strat, columns = self.fields_time_periods)], axis = 1).sort_values(by = self.fields_id).reset_index(drop = True)
-						l_modified_cats.append(dict_arrs[cat_cur] + np.array(df_future_strat[self.fields_time_periods]))
+						df_future_strat = (
+							pd.concat(
+								[
+									df_ids0, 
+									pd.DataFrame(df_future_strat, columns = self.fields_time_periods)
+								], 
+								axis = 1
+							)
+							.sort_values(by = self.fields_id)
+							.reset_index(drop = True)
+						)
+						l_modified_cats.append(
+							dict_arrs[cat_cur] + np.array(df_future_strat[self.fields_time_periods])
+						)
 
 					arr_out = self.mix_tensors(*l_modified_cats, constraints_mix_tg)
 

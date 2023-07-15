@@ -671,6 +671,7 @@ class AWSManager:
             * self.ec2_max_n_instances
             * self.s3_bucket
             * self.s3_key_database
+            * self.s3_key_logs
             * self.s3_key_metadata
 
         NOTE: *Excludes* paths on instances. Those are set in
@@ -684,6 +685,7 @@ class AWSManager:
 
         # general AWS properties
         self.aws_dict_tags = self.config.get("aws_general.tag")
+        self.aws_region_name = self.config.get("aws_config.region_name")
         self.aws_url_instance_id_metadata = "http://169.254.169.254/latest/meta-data/instance-id/"
 
         # athena properties
@@ -699,6 +701,7 @@ class AWSManager:
         # S3 properties
         self.s3_bucket = self.config.get("aws_s3.bucket")
         self.s3_key_database = self.config.get("aws_s3.key_database")
+        self.s3_key_logs = self.config.get("aws_s3.key_logs")
         self.s3_key_metadata = self.config.get("aws_s3.key_metadata")
 
         return None
@@ -741,13 +744,30 @@ class AWSManager:
         Use the configuration file to set some key shared properties for AWS. 
             Sets the following properties:
 
-            * self.
+            * self.docker_image_name
+            * self.use_ecr
 
         NOTE: *Excludes* paths on instances. Those are set in
             _initialize_paths()
         """
 
-        self.docker_image_name = self.config.get("docker.image_name")
+        # check if using AWS ECR
+        use_ecr = self.config.get("docker.use_ecr")
+        use_ecr = bool(use_ecr) if (use_ecr is not None) else False
+
+        name_docker_image_public = self.config.get("docker.image_name")
+        name_docker_image_ecr = self.config.get("docker.image_name_ecr")
+
+        # get the image name
+        name_docker_image = (
+            name_docker_image_ecr
+            if use_ecr & (name_docker_image_ecr is not None)
+            else name_docker_image_public
+        )
+
+
+        self.docker_image_name = name_docker_image
+        self.use_ecr = use_ecr
 
         return None
 
@@ -840,6 +860,7 @@ class AWSManager:
         ##  S3 PATHS
 
         s3p_athena_database = self.get_s3_path_athena_output("database")
+        s3p_athena_queries = self.get_s3_path_athena_output("queries")
         s3p_run_log = self.get_s3_path_athena_output("logs")
         s3p_run_metadata = self.get_s3_path_athena_output("metadata")
 
@@ -847,6 +868,7 @@ class AWSManager:
         ##  SET PROPERTIES
 
         self.s3p_athena_database = s3p_athena_database
+        self.s3p_athena_queries = s3p_athena_queries
         self.s3p_run_log = s3p_run_log
         self.s3p_run_metadata = s3p_run_metadata
 
@@ -1167,6 +1189,28 @@ class AWSManager:
         str_out = delim.join([str(x) for x in str_out])
 
         return str_out
+    
+
+
+    def build_table_names_to_input_output(self,
+    ) -> Dict:
+        """
+        Build a dictionary mapping table names to input/output based
+            on configuration.
+        """
+        dict_table_names_to_io = {}
+
+        for val in ["input", "output"]:
+            key = f"sisepuede_runtime.table_{val}"
+            table_name = self.config.get(key)
+
+            (
+                dict_table_names_to_io.update({table_name: val})
+                if table_name is not None
+                else None
+            )
+
+        return dict_table_names_to_io
 
 
 
@@ -1372,9 +1416,9 @@ class AWSManager:
         return_none = (bucket is None)
         
         # get keys and check
-        key_database = self.config.get("aws_s3.key_database")
-        key_logs = self.config.get("aws_s3.key_logs")
-        key_metadata = self.config.get("aws_s3.key_metadata")
+        key_database = self.s3_key_database #config.get("aws_s3.key_database")
+        key_logs = self.s3_key_logs #config.get("aws_s3.key_logs")
+        key_metadata = self.s3_key_metadata #
         return_none |= any([(x is None) for x in [key_database, key_logs, key_metadata]])
         
         if return_none is None:
@@ -1391,7 +1435,7 @@ class AWSManager:
         for table in tables_copy:
             
             fp_source = os.path.join(self.dir_instance_out_db, f"{table}.csv")
-            fp_target = self.get_s3_path_athena_table(
+            fp_target = self.get_s3_path_athena_table_file(
                 table,
                 dict_partition,
                 index = launch_index,
@@ -1468,6 +1512,8 @@ class AWSManager:
 
 
     def build_user_data_str_docker_pull(self,
+        delim_imgname: str = "/",
+        delim_newline: str = "\n",
     ) -> str:
         """
         Build the docker pull command
@@ -1477,17 +1523,33 @@ class AWSManager:
 
         Keyword Arguments
         -----------------
+        - delim_imgname: delimiter in AWS ECR image name separating docker 
+            account info from image
+        - delim_newline: new line delimiter
         """
 
-        # get the image name
+        # get some key properties
+        aws_region = self.aws_region_name
         name_docker_image = self.docker_image_name
+        use_ecr = self.use_ecr
+        
+        # initialize output command - if using ECR, must retrieve credentials on the instance 
+        # see https://docs.aws.amazon.com/AmazonECR/latest/userguide/docker-push-ecr-image.html
+        command_out = []
 
-        # build the command as a list
-        command_out = ["docker pull"]
-        command_out.append(name_docker_image)
-    
-        # join commands
-        command_out = " ".join(command_out)
+        if use_ecr:
+            std_in = name_docker_image.split(delim_imgname)[0]
+            comm_ecr = f"{self.command_aws} ecr get-login-password --region {aws_region}"
+            comm_ecr = f"{comm_ecr} | docker login --username AWS --password-stdin {std_in}"
+
+            command_out.append(comm_ecr)
+
+
+        # build the basic docker command and join the list out
+        command_pull = f"docker pull {name_docker_image}"
+        command_out.append(command_pull)
+
+        command_out = delim_newline.join(command_out)
 
         return command_out
 
@@ -1505,7 +1567,7 @@ class AWSManager:
         -----------------
         """
 
-        # get the image nameHEREHERE
+        # get the image name
         name_docker_image = self.docker_image_name
         fp_instance_sh = self.fp_instance_shell_script
         
@@ -1777,7 +1839,7 @@ class AWSManager:
         """
         Build the line to terminate the instance
         """
-        aws_region = self.config.get("aws_config.region_name")
+        aws_region = self.aws_region_name
 
         comm = f"{self.command_aws} ec2 terminate-instances --instance-ids \"{self.shell_env_instance_id}\""
         comm = f"{comm} --region {aws_region}"
@@ -1887,6 +1949,22 @@ class AWSManager:
             )
             
         return tags_out
+    
+
+
+    def format_table_name_for_athena(self,
+        table_name: str,
+    ) -> str:
+        """
+        Format a table name for Athena using the analysis run id
+        """
+        
+        appendage = self.get_time_hash_for_table()
+        
+        out = f"`{table_name}_{appendage}`"
+        out = out.lower()
+        
+        return out
 
 
 
@@ -2006,6 +2084,24 @@ class AWSManager:
     
 
 
+    def get_time_hash_for_table(self,
+    ) -> str:
+        """
+        Get the component of the analysis id that is prepended to runs
+        """
+        id_prependage = self.file_struct.regex_template_analysis_id.pattern.replace("(.+$)" , "")
+        id_str = self.file_struct.id
+        
+        dict_repl = dict(
+            (x, "") for x in ["-", ";", ":", ".", "T", id_prependage]
+        )
+        
+        id_str = sf.str_replace(id_str, dict_repl)
+        
+        return id_str
+    
+
+
     def get_regions(self,
         regions: Union[List[str], str, None] = None,
         delim: str = ",",
@@ -2050,7 +2146,7 @@ class AWSManager:
         
         Function Arguments
         ------------------
-        - return_type: "database", "logs", or "metadata"
+        - return_type: "database", "logs", "metadata", or "queries
         """
         
         # get bucket
@@ -2066,10 +2162,12 @@ class AWSManager:
         key_database = self.config.get("aws_s3.key_database")
         key_logs = self.config.get("aws_s3.key_logs")
         key_metadata = self.config.get("aws_s3.key_metadata")
+        key_queries = self.config.get("aws_s3.key_queries")
         
         return_none |= ((key_database is None) & (return_type == "database"))
         return_none |= ((key_logs is None) & (return_type == "logs"))
         return_none |= ((key_metadata is None) & (return_type == "metadata"))
+        return_none |= ((key_queries is None) & (return_type == "queries"))
         
         if return_none:
             return None
@@ -2078,12 +2176,15 @@ class AWSManager:
         dict_key_S3 = {
             "database": key_database,
             "logs": key_logs,
-            "metadata": key_metadata
+            "metadata": key_metadata,
+            "queries": key_queries,
         }
         key = dict_key_S3.get(return_type)
         
         address_out = os.path.join(bucket, key, self.file_struct.id_fs_safe)
         address_out = f"s3://{address_out}"
+        # required for partitioning and MSCK REPAIR TABLE
+        address_out = address_out.lower()
 
         return address_out
     
@@ -2091,8 +2192,25 @@ class AWSManager:
 
     def get_s3_path_athena_table(self,
         table_name: str,
+    ) -> str:
+        """
+        Get the path to the Athena table with table name `table_name`.
+
+        NOTE: Sets to lower case to allow partitioning using MSCK REPAIR TABLE
+        (see https://docs.aws.amazon.com/athena/latest/ug/partitions.html)
+        """
+
+        out = os.path.join(self.s3p_athena_database, table_name.lower())
+
+        return out
+    
+
+
+    def get_s3_path_athena_table_file(self,
+        table_name: str,
         dict_partitions: Union[Dict[str, Any], None],
         ext: str = "csv",
+        file_name: str = "data",
         index: Union[Any, None] = None,
     ) -> Union[str, None]:
         """
@@ -2100,6 +2218,10 @@ class AWSManager:
         
             NOTE: All tables are *within* the database path
         
+        Paths are stored as
+
+        s3://BUCKET/key_database/table_name/(partitions).../table_name_$(ind)/data.csv
+
         Function Arguments
         ------------------
         - table_name: table name
@@ -2109,6 +2231,7 @@ class AWSManager:
         Keyword Arguments
         -----------------
         - ext: file extension to use
+        - file_name: file name on S3 of CSV
         - index: optional index to add to the table (such as launch index)
         """
 
@@ -2122,10 +2245,13 @@ class AWSManager:
             else f"{table_name}_{index}"
         )
         base_name = base_name.lower()
-        base_name = f"{base_name}.{ext}"
+        file_name = f"{file_name}.{ext}"
 
         # initialize as base name
-        address_out = [self.s3p_athena_database, table_name]
+        address_out = [
+            #self.s3p_athena_database, table_name
+            self.get_s3_path_athena_table(table_name)
+        ]
 
         if isinstance(dict_partitions, dict) & (self.athena_partitions_ordered is not None):
             for key in self.athena_partitions_ordered:
@@ -2142,7 +2268,7 @@ class AWSManager:
                 address_out.append(f"{key}={val}")
 
         # add output table and join
-        address_out.append(base_name)
+        address_out.extend([base_name, file_name])
         address_out = os.path.join(*address_out)
 
         return address_out
@@ -2386,6 +2512,256 @@ class AWSManager:
     ###                            ###
     ##################################
 
+    def build_athena_query_create_table(self,
+        table_name: str,
+        schema: str, 
+        address_s3: Union[str, None] = None,
+    ) -> str:
+        """
+        Build a create table query for target athena database. 
+        
+        Function Arguments
+        ------------------
+        - table_name: name of table to create
+        - schema: table schema used in create table argument
+        
+        Keyword Arguments
+        -----------------
+        - address_s3: address on S3 where the table is stored. Set to None
+            to keep with AWSManager structure
+        """
+        
+        ##  INITIALIZE BASE QUERY AND S3 ADDRESS
+
+        # get the output address
+        address_s3 = (
+            self.get_s3_path_athena_table(table_name)
+            if not isinstance(address_s3, str)
+            else address_s3
+        )
+
+        database_name = f"`{self.athena_database}`"
+        
+        # initialize query, then add some components below
+        table_name_out = self.format_table_name_for_athena(table_name)
+        query_create_table = f"CREATE EXTERNAL TABLE IF NOT EXISTS {database_name}.{table_name_out}"
+        query_create_table = f"{query_create_table} (\n{schema}\n)"
+        
+
+        ##  PREPARE CONDITIONS
+
+        # appendages have to be ordered
+        appends_ordered = [
+            "ROW FORMAT",
+            #"WITH SERDEPROPERTIES",
+            #"STORED AS",
+            "LOCATION",
+            # TBLPROPERTIES follows everything else; see https://docs.aws.amazon.com/athena/latest/ug/vpc-flow-logs.html for example
+            "TBLPROPERTIES"
+        ]
+        
+        (
+            appends_ordered.insert(0, "PARTITIONED BY")
+            if self.athena_partitions_ordered is not None
+            else []
+        )
+        
+        # get the partition string
+        str_partition = self.build_athena_sql_table_schema_for_inputs_outputs(
+            self.athena_partitions_ordered,
+            None,
+            partition_field_appendage = None,
+        )
+        str_partition = (
+            f"(\n{str_partition[0]}\n)"
+            if str_partition is not None
+            else str_partition
+        )
+
+        # add the string for row formatting
+        str_row_format = f"""DELIMITED
+            FIELDS TERMINATED BY ','
+            ESCAPED BY '\\\\'
+            LINES TERMINATED BY '\\n'
+        """
+
+
+        ##  MAP COMPONENTS TO VALUES, THEN APPEND TO QUERY
+
+        # map each query component to its value
+        dict_query_components = {
+            "PARTITIONED BY": str_partition, 
+            "LOCATION": f"'{address_s3}'",
+            "ROW FORMAT": str_row_format,
+            # see https://docs.aws.amazon.com/athena/latest/ug/lazy-simple-serde.html for info on lazy
+            "ROW FORMAT SERDE": "'org.apache.hadoop.hive.serde2.lazy.LazySimpleSerDe'",
+            "STORED AS": "TEXTFILE",
+            "TBLPROPERTIES": "(\"skip.header.line.count\"=\"1\")",
+            "WITH SERDEPROPERTIES": f"""(
+                'separatorChar' = ',',
+                'quoteChar' = '\\"',
+                'escapeChar' = '\\\\'
+            )
+            """,
+        }
+        
+        for k in appends_ordered:
+            v = dict_query_components.get(k)
+            query_create_table = f"{query_create_table}\n{k} {v}"
+
+        query_create_table = f"{query_create_table};"
+        
+        return query_create_table
+    
+
+
+    def build_athena_query_repair_table(self,
+        table_name: str,
+    ) -> str:
+        """
+        Build the MSCK REPAIR TABLE query that indexes partitions
+        
+        Function Arguments
+        ------------------
+        - table_name: base table name used to generate ttable
+        """
+        
+        database_name = f"`{self.athena_database}`"
+
+        # get table name and write query
+        query = self.format_table_name_for_athena(table_name)
+        query = f"MSCK REPAIR TABLE {database_name}.{query};"
+        
+        return query
+
+
+
+    def build_athena_sql_table_schema_for_inputs_outputs(self,
+        index_fields_ordered: List[str],
+        table_type: str,
+        dict_fields_to_dtype_sql: Union[Dict[str, Union[str, type]], None] = None,
+        fields_data_integer: Union[List[str], None] = None,
+        float_as_double: bool = False,
+        model_attributes: Union[ma.ModelAttributes, None] = None,
+        partition_field_appendage: Union[str, None] = "dummy",
+        sep: str = ",\n",
+        sql_type_object_default: str = "STRING",
+    ) -> Tuple[str, List[str]]:
+        """
+        Generate an SQL schema from a data frame. For use in automating table
+            setup in remote SQL or SQL-like databases.
+        
+        Returns a two-ple of the following form:
+        
+            (schema_out, fields_out)
+    
+    
+        Function Arguments
+        ------------------
+        - index_fields_ordered: ordered index fields, which are prepended to all
+            input/output fields
+        - table_type: "input" or "output"
+        
+        Keyword Arguments
+        -----------------
+        - dict_fields_to_dtype_sql: dictionary mapping fields to specific SQL 
+            data types; keys are fields and dtypes are SQL data types.
+            * If None, infers from DataFrame dtype
+        - fields_data_integer: optional data fields to store as integer instead 
+            of float
+        - model_attributes: Model Attributes object used to identify input and
+            output variables
+        - partition_field_appendage: appendage to add to output fields included
+            in the table that are used to partition the Athena db. If None, no
+            appendage is added.
+        - sep: string separator to use in schema (", " or "\n, ", should always 
+            have a comma)
+        - sql_type_object_default: default data type for fields specified as 
+            object (any valid SQL data type)
+        """
+
+        ##  INITIALIZATION AND CHECKS
+
+        # initialize model attributes
+        model_attributes = (
+            self.model_attributes
+            if model_attributes is None
+            else model_attributes
+        )
+
+        # initialize fields, schema out, and fields that were successfully pushed to the schema
+        return_none = any([(x not in model_attributes.sort_ordered_dimensions_of_analysis) for x in index_fields_ordered])
+        return_none |= not sf.islistlike(index_fields_ordered)
+        if return_none:
+            return None
+        
+
+        ##  SECONDARY INIT
+    
+        dict_dtypes_indices = model_attributes.dict_dtypes_doas
+        fields_data_integer = (
+            [] 
+            if not sf.islistlike(fields_data_integer) 
+            else fields_data_integer
+        )
+
+        schema_out = []
+        fields_out = []
+        
+        
+        fields = sorted(list(index_fields_ordered))
+        if table_type in ["input", "output"]:
+            fields += (
+                sorted(model_attributes.all_variables_output)
+                if table_type.lower() == "output"
+                else sorted(model_attributes.all_variables_input)
+            )
+
+        # some data type dictionaries that are used
+        dict_dtypes_to_sql_types = {
+            "string": "string",
+            "o": "string", 
+            "float64": "double",
+            "int64": "int",
+        }
+    
+        for i, field in enumerate(fields):
+            
+            # 1. try getting sql data type from indexing dictionary; if not, 
+            # 2. check if specified as integer; if not
+            # 3. specify as float
+            dtype_sql = dict_dtypes_indices.get(field)
+            
+            if dtype_sql is None:
+                
+                dtype_sql = (
+                    "int64"  
+                    if field in fields_data_integer
+                    else "float64"
+                )
+            
+            # skip if failed
+            dtype_sql = dict_dtypes_to_sql_types.get(dtype_sql, "STRING")
+            if dtype_sql is None:
+                continue
+
+            # finally, if the field is used to partition, append a dummy 
+            field_name = (
+                f"{field}_{partition_field_appendage}"
+                if (field in self.athena_partitions_ordered) & isinstance(partition_field_appendage, str)
+                else field
+            )
+                
+            # otherwise, build schema
+            schema_out.append(f"{field_name} {dtype_sql}")
+            fields_out.append(field)
+        
+        schema_out = str(sep).join(schema_out)
+        
+        return schema_out, fields_out
+
+
+
     def build_experiment(self,
         dict_experimental_components: Union[Dict[str, Union[Dict[str, List[int]], List[int]]], None] = None,
         regex_config_parts: Union[re.Pattern, None] = None,
@@ -2439,6 +2815,130 @@ class AWSManager:
         set_primaries = sorted(list(set_primaries))
         
         return set_primaries
+    
+
+
+    def execute_create_table_athena_query(self,
+        fields_data_integer: Union[List[str], None] = None,
+        s3p_out: Union[str, None] = None,
+    ) -> Dict:
+        """
+        Execute an athena create table query based on the model id. Returns
+            the response from AWS as a dictionary
+        
+        Function Arguments
+        ------------------
+        
+        Keyword Arguments
+        -----------------
+        - fields_data_integer: optional data fields to store as integer instead 
+            of float
+        - s3p_out: path on s3 containing output database information
+        """
+        
+        ##  SOME INITIALIZATION
+        
+        # output path for queries
+        s3p_out = (
+            self.s3p_athena_queries
+            if not isinstance(s3p_out, str)
+            else s3p_out
+        )
+        
+        # set index keys (same for inputs and outputs)
+        keys_index_ordered = [
+            self.model_attributes.dim_primary_id,
+            self.model_attributes.dim_region,
+            self.model_attributes.dim_time_period
+        ]
+        
+        # initialize some dictionaries
+        dict_table_to_schema_type = self.build_table_names_to_input_output()
+        dict_query_info = {}
+        
+        
+        ##  BUILD QUERIES AND TABLES
+        
+        # build queries
+        for k, v in dict_table_to_schema_type.items():
+            
+            response_create = None
+            response_repair = None
+            
+            tup = self.build_athena_sql_table_schema_for_inputs_outputs(
+                keys_index_ordered,
+                v,
+                fields_data_integer = fields_data_integer,
+            )
+
+            query_create = self.build_athena_query_create_table(
+                k,
+                tup[0],
+            )
+
+            query_repair = self.build_athena_query_repair_table(k)
+            
+
+            # try the CreateTable query
+            try:
+                response_create = self.client_athena.start_query_execution(
+                    QueryString = query_create,
+                    ResultConfiguration = {"OutputLocation": s3p_out}
+                )
+
+            except Exception as e:
+                self._log(
+                    f"Error trying CREATE TABLE {k}: {e}",
+                    type_log = "error",
+                )
+            
+            if response_create is None:
+                continue
+
+            # log the success
+            qe_id = response_create.get("QueryExecutionId")
+            self._log(
+                f"Successfully executed CREATE TABLE {k} with QueryExecutionId {qe_id}",
+                type_log = "info",
+            )
+                
+                
+            #  try the MSCK REPAIR TABLE query
+            try:
+                response_repair = self.client_athena.start_query_execution(
+                    QueryString = query_repair,
+                    ResultConfiguration = {"OutputLocation": s3p_out}
+                )
+
+            except Exception as e:
+                self._log(
+                    f"Error trying MSCK REPAIR TABLE {k}: {e}",
+                    type_log = "error",
+                )
+                
+            if response_repair is None:
+                continue
+        
+            # log the success
+            qe_id = response_repair.get("QueryExecutionId")
+            self._log(
+                f"Successfully executed MSCK REPAIR TABLE {k} with QueryExecutionId {qe_id}",
+                type_log = "info",
+            )
+
+            
+            # add queries to dictionary
+            dict_query_info.update(
+                {
+                    v: {
+                        "create": (query_create, response_create),
+                        "repair": (query_repair, response_repair),
+                    }
+                }
+            )
+
+
+        return dict_query_info
     
 
 
@@ -2858,6 +3358,7 @@ class AWSManager:
         delim: str = ",",
         dict_launcher: Union[Dict[int, Tuple[List[str], List[int]]], None] = None,
         launch: bool = True,
+        **kwargs
     ) -> Tuple[pd.DataFrame, Dict]:
         """
         Launch a design specified in dict_launcher
@@ -2872,6 +3373,7 @@ class AWSManager:
             self.get_design_splits_by_launch_index())
         - launch: set to False to return random seeds and launch index 
             dictionary
+        - **kwargs: passed to AWSManager.execute_create_table_athena_query()
         """
         
         dict_launcher = (
@@ -2934,11 +3436,12 @@ class AWSManager:
             if isinstance(dict_instance, dict):
                 
                 info = dict_instance.get("Instances")[0]
-                
+                instance_id = info.get("InstanceId")
+
                 # add output roww
                 row = [
                     ind_launch,
-                    info.get("InstanceId"),
+                    instance_id,
                     delim.join(spec_tuple[0]),
                     delim.join([str(x) for x in spec_tuple[1]]),
                     random_seed,
@@ -2946,10 +3449,20 @@ class AWSManager:
                 ]
                 
                 df_run_information.append(row)
+
+                self._log(
+                    f"Launch index {ind_launch} successfully launched instance {instance_id}",
+                    type_log = "info"
+                )
                 
         df_run_information = pd.DataFrame(df_run_information, columns = fields_out)
         
-        return dict_ud, df_run_information
+        # then, build the queries to create the Athena database
+        dict_query_responses = self.execute_create_table_athena_query(
+            **kwargs
+        )
+
+        return dict_query_responses, dict_ud, df_run_information
 
         
 

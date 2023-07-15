@@ -1140,7 +1140,7 @@ class AFOLU:
         vec_proportional_emission /= np.sum(vec_proportional_emission)
         vec_proportional_sequestration = np.array([sequestration_curve(x) for x in range(D)])
         vec_proportional_sequestration /= np.sum(vec_proportional_sequestration)
-
+        
         #vec_proportional_emission = np.ones(D)/D#np.array(range(D, 0, -1))/(D*(D + 1)/2)
         #vec_proportional_sequestration = np.ones(D)/D#np.array(range(1, D + 1))/(D*(D + 1)/2)
         # get arrays in terms of sequestration and emission
@@ -1149,7 +1149,7 @@ class AFOLU:
         arrs_emission = sf.vec_bounds(arrs, (-np.inf, 0))
 
         v_out = np.zeros(n)
-
+        
         for i in range(n):
             v_cur_emission = vec_proportional_emission*(arrs_emission[i].sum())
             v_cur_sequestration = vec_proportional_sequestration*(arrs_sequestration[i].sum())
@@ -1698,10 +1698,12 @@ class AFOLU:
             cat_soil = clean_schema(self.model_attributes.get_variable_attribute(modvar, attr_soil.key))
             ind_soil = attr_soil.get_key_value_index(cat_soil)
             #
+
             arr_frst_avg_soc_cur = arr_lndu_area[:, inds_lndu]*dict_soil_fracs_to_use_frst[modvar][:, inds_frst]
             arr_frst_avg_soc_cur = np.nan_to_num(arr_frst_avg_soc_cur/arr_lndu_area[:, inds_lndu], 0.0, posinf = 0.0).transpose()
             arr_frst_avg_soc_cur *= arr_soil_soc_stock[:, ind_soil]*arr_lndu_factor_soil_carbon[:, inds_lndu].transpose()
             arr_frst_avg_soc += arr_frst_avg_soc_cur.transpose()*arr_lndu_frac_mineral_soils[:, inds_lndu]
+
 
         for i in enumerate(inds_lndu):
             i, ind = i
@@ -2206,6 +2208,7 @@ class AFOLU:
         dem_scale_proj_pc = (gdp_per_capita_rates.transpose()*elast[0:-1].transpose()).transpose()
         dem_scale_proj_pc = np.cumprod(1 + dem_scale_proj_pc, axis = 0)
         dem_scale_proj_pc = np.concatenate([np.ones((1,len(dem_scale_proj_pc[0]))), dem_scale_proj_pc])
+        
         # estimate demand for livestock (used in CBA) - start with livestock population per capita
         dem_pc_scalar_exog = np.ones(pop.shape) if (dem_pc_scalar_exog is None) else dem_pc_scalar_exog
 
@@ -2955,11 +2958,27 @@ class AFOLU:
 
         # make sure socioeconomic variables are added and
         df_afolu_trajectories, df_se_internal_shared_variables = self.model_socioeconomic.project(df_afolu_trajectories)
+
         # check that all required fields are contained—assume that it is ordered by time period
         self.check_df_fields(df_afolu_trajectories)
-        dict_dims, df_afolu_trajectories, n_projection_time_periods, projection_time_periods = self.model_attributes.check_projection_input_df(df_afolu_trajectories, True, True, True)
+        (
+            dict_dims, 
+            df_afolu_trajectories, 
+            n_projection_time_periods, 
+            projection_time_periods
+        ) = self.model_attributes.check_projection_input_df(
+            df_afolu_trajectories, 
+            True, 
+            True, 
+            True
+        )
+
         # check integrated variables for HWP
-        dict_check_integrated_variables = self.model_attributes.check_integrated_df_vars(df_afolu_trajectories, self.dict_integration_variables_by_subsector, "all")
+        dict_check_integrated_variables = self.model_attributes.check_integrated_df_vars(
+            df_afolu_trajectories, 
+            self.dict_integration_variables_by_subsector, 
+            "all"
+        )
 
         ##  CATEGORY INITIALIZATION
         pycat_agrc = self.model_attributes.get_subsector_attribute(self.subsec_name_agrc, "pycategory_primary")
@@ -2968,6 +2987,7 @@ class AFOLU:
         pycat_lsmm = self.model_attributes.get_subsector_attribute(self.subsec_name_lsmm, "pycategory_primary")
         pycat_lvst = self.model_attributes.get_subsector_attribute(self.subsec_name_lvst, "pycategory_primary")
         pycat_soil = self.model_attributes.get_subsector_attribute(self.subsec_name_soil, "pycategory_primary")
+        
         # attribute tables
         attr_agrc = self.model_attributes.dict_attributes[pycat_agrc]
         attr_frst = self.model_attributes.dict_attributes[pycat_frst]
@@ -3004,6 +3024,7 @@ class AFOLU:
             override_vector_for_single_mv_q = False, 
             return_type = "array_base"
         )
+
         vec_rates_gdp = np.array(df_se_internal_shared_variables["vec_rates_gdp"].dropna())
         vec_rates_gdp_per_capita = np.array(df_se_internal_shared_variables["vec_rates_gdp_per_capita"].dropna())
 
@@ -4077,12 +4098,20 @@ class AFOLU:
         # get crop components of synthetic and organic fertilizers for ef1 (will overwrite rice)
         ind_rice = attr_agrc.get_key_value_index(self.cat_agrc_rice)
         # some variables
-        arr_lndu_frac_mineral_soils = self.model_attributes.get_standard_variables(df_afolu_trajectories, self.modvar_lndu_frac_mineral_soils, True, "array_base", expand_to_all_cats = True, var_bounds = (0, 1))
+        arr_lndu_frac_mineral_soils = self.model_attributes.get_standard_variables(
+            df_afolu_trajectories,
+            self.modvar_lndu_frac_mineral_soils, 
+            expand_to_all_cats = True, 
+            override_vector_for_single_mv_q = True, 
+            return_type = "array_base", 
+            var_bounds = (0, 1),
+        )
+    
         arr_lndu_frac_organic_soils = 1 - arr_lndu_frac_mineral_soils
         vec_soil_area_crop_pasture = arr_land_use[:, [self.ind_lndu_crop, self.ind_lndu_grass]]
         vec_soil_area_crop_pasture[:, 1] *= vec_lndu_frac_grassland_pasture
         vec_soil_area_crop_pasture = np.sum(vec_soil_area_crop_pasture, axis = 1)
-
+        
 
         ##  F_ON AND F_SN - SYNTHETIC FERTILIZERS AND ORGANIC AMENDMENTS
 
@@ -4376,9 +4405,7 @@ class AFOLU:
             arrs_lndu_soc_conversion_factors,
             20# get from config HEREHERE
         )
-        #vec_soil_delta_soc_mineral = (arrs_lndu_land_conv*arrs_lndu_soc_conversion_factors).sum(axis = 1).sum(axis = 1)
-        self.vec_soil_delta_soc_mineral = vec_soil_delta_soc_mineral
-
+        
         # initialize organic SOC, then loop over tropical/temperate cropland to get soil carbon for organic drained soils
         vec_soil_emission_co2_soil_carbon_organic = 0.0
         for modvar in self.modvar_list_agrc_frac_temptrop:

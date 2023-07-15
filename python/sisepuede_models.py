@@ -9,6 +9,7 @@ from model_socioeconomic import Socioeconomic
 import numpy as np
 import os, os.path
 import pandas as pd
+import support_classes as sc
 import support_functions as sf
 import sqlalchemy
 import tempfile
@@ -47,11 +48,13 @@ class SISEPUEDEModels:
 		fp_julia: Union[str, None] = None,
 		fp_nemomod_reference_files: Union[str, None] = None,
 		fp_nemomod_temp_sqlite_db: Union[str, None] = None,
-		logger: Union[logging.Logger, None] = None
+		logger: Union[logging.Logger, None] = None,
 	):
 		# initialize input objects
-		self.logger = logger
-		self.model_attributes = model_attributes
+		self._initialize_attributes(
+			model_attributes,
+			logger = logger,
+		)
 
 		# initialize sql path for electricity projection and path to electricity models
 		self._initialize_path_nemomod_reference(allow_electricity_run, fp_nemomod_reference_files)
@@ -68,6 +71,29 @@ class SISEPUEDEModels:
 	##############################################
 	#	SUPPORT AND INITIALIZATION FUNCTIONS	#
 	##############################################
+
+	def _initialize_attributes(self,
+		model_attributes: ModelAttributes,
+		logger: Union[logging.Logger, None] = None,
+	) -> None:
+		"""
+		Initialize key attributes for the model. Initializes the following 
+			properties:
+
+			* self.logger
+			* self.model_attributes
+			* self.time_periods
+		"""
+
+		time_periods = sc.TimePeriods(model_attributes)
+
+		self.logger = logger
+		self.model_attributes = model_attributes
+		self.time_periods = time_periods
+
+		return None
+
+
 
 	def _initialize_models(self,
 	) -> None:
@@ -336,6 +362,7 @@ class SISEPUEDEModels:
 		models_run: Union[List[str], None] = None,
 		regions: Union[List[str], str, None] = None,
 		run_integrated: bool = True,
+		time_periods_run: Union[List[int], None] = None,
 		**kwargs
 	) -> pd.DataFrame:
 		"""
@@ -379,6 +406,7 @@ class SISEPUEDEModels:
 		- run_integrated: run models as integrated collection?
 			* If False, will run each model individually, without interactions
 				(not recommended)
+		- time_periods_run: optional specification of time periods to run
 		- **kwargs: passed to SISEPUEDEModels.check_model_results()
 		"""
 
@@ -386,6 +414,27 @@ class SISEPUEDEModels:
 		models_run = self.model_attributes.get_sector_list_from_projection_input(models_run)
 		regions = self.model_attributes.get_region_list_filtered(regions)
 		
+
+		# check time periods
+		time_periods_run = (
+			[x for x in time_periods_run if x in self.time_periods.all_time_periods]
+			if sf.islistlike(time_periods_run)
+			else None
+		)
+		if time_periods_run is not None:
+			time_periods_run = None if (len(time_periods_run) == 0) else time_periods_run
+
+		df_input_data = (
+			(
+				df_input_data[
+					df_input_data[self.model_attributes.dim_time_period].isin(time_periods_run)
+				]
+				.reset_index(drop = True)
+			)
+			if time_periods_run is not None
+			else df_input_data
+		)
+
 		
 		##  1. Run AFOLU and collect output
 

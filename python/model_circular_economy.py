@@ -1019,27 +1019,52 @@ class CircularEconomy:
         # bod/cod
         vec_wali_bod_percap_init = self.model_attributes.get_standard_variables(
             df_ce_trajectories, 
-            self.modvar_wali_bod_per_capita, True, return_type = "array_units_corrected")[0, :]*self.model_attributes.configuration.get("days_per_year")
+            self.modvar_wali_bod_per_capita, 
+            override_vector_for_single_mv_q = True, 
+            return_type = "array_units_corrected"
+        )[0, :]
+        vec_wali_bod_percap_init*= self.model_attributes.configuration.get("days_per_year")
+
         vec_wali_bod_correction = self.model_attributes.get_standard_variables(
             df_ce_trajectories, 
-            self.modvar_wali_bod_correction, False, return_type = "array_base")
+            self.modvar_wali_bod_correction,
+            return_type = "array_base"
+        )
         array_wali_bod_percap = np.outer(vec_wali_bod_correction, vec_wali_bod_percap_init)
         array_wali_cod_pergdp = self.model_attributes.get_standard_variables(
             df_ce_trajectories, 
-            self.modvar_wali_cod_per_gdp, True, return_type = "array_units_corrected")
+            self.modvar_wali_cod_per_gdp, 
+            override_vector_for_single_mv_q = True, 
+            return_type = "array_units_corrected"
+        )
         # get elasticity of wastewater
         vec_wali_logelastic = self.model_attributes.get_standard_variables(
             df_ce_trajectories, 
-            self.modvar_wali_logelast_ww_to_gdppc, False, return_type = "array_base")
-        vec_wali_scale_percapita_dem = sf.project_growth_scalar_from_elasticity(vec_rates_gdp_per_capita, vec_wali_logelastic, False, "log")
+            self.modvar_wali_logelast_ww_to_gdppc, 
+            return_type = "array_base"
+        )
+        vec_wali_scale_percapita_dem = sf.project_growth_scalar_from_elasticity(
+            vec_rates_gdp_per_capita, 
+            vec_wali_logelastic, 
+            False, 
+            "log"
+        )
+
         # volume per capita (m3)
         array_wali_vol_domww_percap = self.model_attributes.get_standard_variables(
             df_ce_trajectories, 
-            self.modvar_wali_init_pcap_wwgen, True, return_type = "array_base")
+            self.modvar_wali_init_pcap_wwgen, 
+            override_vector_for_single_mv_q = True, 
+            return_type = "array_base"
+        )
         array_wali_vol_domww_percap = (array_wali_vol_domww_percap.transpose() * vec_wali_bod_correction).transpose()
         array_wali_vol_indww_per_gdp = self.model_attributes.get_standard_variables(
             df_ce_trajectories, 
-            self.modvar_wali_init_pgdp_wwgen, True, return_type = "array_base")
+            self.modvar_wali_init_pgdp_wwgen, 
+            override_vector_for_single_mv_q = True, 
+            return_type = "array_base"
+        
+        )
         # scale per capita volume and bod/person (representing increases)
         array_wali_bod_percap = (array_wali_bod_percap.transpose()*vec_wali_scale_percapita_dem).transpose()
         array_wali_vol_domww_percap = (array_wali_vol_domww_percap.transpose()*vec_wali_scale_percapita_dem).transpose()

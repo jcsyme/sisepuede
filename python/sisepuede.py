@@ -1250,6 +1250,7 @@ class SISEPUEDE:
 		regions: Union[List[str], str, None] = None,
 		reinitialize_output_table_on_verification_failure: bool = False,
 		save_inputs: Union[bool, None] = None,
+		skip_nas_in_input: bool = False,
 		**kwargs
 	) -> List[int]:
 		"""
@@ -1288,12 +1289,12 @@ class SISEPUEDE:
 			verification failure during iteration. 
 		- save_inputs: save inputs to input table? Defaults to configuration
 			defaults if None
+		- skip_nas_in_input: skip futures with NAs on input? If true, will 
+			skip any inputs that contain NAs
 		- **kwargs: passed to SISEPUEDE.models.project(..., **kwargs)
 		"""
 
-		
-
-		# ma
+		# maximum solve attempts
 		max_attempts = (
 			int(min(max(max_attempts, 1), 5))
 			if sf.isnumber(max_attempts)
@@ -1429,7 +1430,8 @@ class SISEPUEDE:
 							continue
 				
 
-						# filter the data frame further
+						##  FILTER THE DATA FRAME, AND, OPTIONALLY, SKIP IF NAs ARE PRESENT
+
 						df_input_cur = (
 							df_input[
 								df_input[self.key_strategy].isin([strategy])
@@ -1440,10 +1442,27 @@ class SISEPUEDE:
 							.drop([x for x in df_input.columns if x in self.keys_index], axis = 1)
 						)
 
+						# compare w/NAs and without; if skipping, log and move to next iteration
+						if skip_nas_in_input:
+							if len(df_input_cur.dropna()) != len(df_input_cur):
+								self._log(
+									f"Skipping {self.key_primary} = {id_primary} in region {region}: NAs found in input future.", 
+									type_log = "warning"
+								)
+
+								continue
+
+
 						success = False
-						self._log(f"Trying run {self.key_primary} = {id_primary} in region {region}", type_log = "info")
+						self._log(
+							f"Trying run {self.key_primary} = {id_primary} in region {region}", 
+							type_log = "info"
+						)
 						
-						# try to run the model, report error if failed
+
+
+						##  TRY TO RUN THE MODEL AND REPORT ERRORS 
+
 						try:
 							t0 = time.time()
 

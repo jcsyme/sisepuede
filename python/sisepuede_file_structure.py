@@ -51,7 +51,7 @@ class SISEPUEDEFileStructure:
 		id_str: Union[str, None] = None,
 		initialize_directories: bool = True,
 		logger: Union[logging.Logger, None] = None,
-		regex_template_prepend: str = "sisepuede_run"
+		regex_template_prepend: str = "sisepuede_run",
 	):
 
 		self.logger = logger
