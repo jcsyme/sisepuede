@@ -206,7 +206,8 @@ def format_type_for_sql_query(
 
 def join_list_for_query(
     list_in: list,
-    delim: str = ", "
+    delim: str = ", ",
+    quote: str = "'",
 ) -> str:
     """
     Join the elements of a list to format for a query.
@@ -216,14 +217,20 @@ def join_list_for_query(
     - list_in: list of elements to format for query
         * If elements are strings, then adds ''
         * Otherwise, enter elements
+
+    Keyword Arguments
+    -----------------
+    - delim: delimiter
+    - quote: quote character
     """
 
     list_join = [
-        f"'{x}'" if isinstance(x, str) else str(x)
+        f"{quote}{x}{quote}" if isinstance(x, str) else str(x)
         for x in list_in
     ]
+    list_join = delim.join(list_join)
 
-    return delim.join(list_join)
+    return list_join
 
 
 

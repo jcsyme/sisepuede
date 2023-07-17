@@ -7,7 +7,8 @@ from typing import *
 class OrderedDirectProductTable:
     """
     Define an index table to map the direct product of multiple dimensions to a
-        key. Three key methods are available:
+        key. There are four key methods (among others) used to identify scenario
+        dimension information:
 
         * OrderedDirectProductTable.get_dims_from_key()
             Get dimensional values associated with a key (inverse of
@@ -17,7 +18,14 @@ class OrderedDirectProductTable:
                 get_dims_from_key)
         * OrderedDirectProductTable.get_indexing_dataframe()
             Get a data frame associated with select dimensional values or with
-                key values.
+                key values 
+        * OrderedDirectProductTable.get_indexing_dataframe_from_primary_key()
+            Get a data frame associated with the primary key only. 
+
+            NOTE: get_indexing_dataframe_from_primary_key() is a separate method
+            from get_indexing_dataframe() to avoid potential discrepancies in 
+            input dictionaries and reduce ambiguity.
+            
 
     Function Arguments
     ------------------

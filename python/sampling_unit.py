@@ -1373,18 +1373,23 @@ class SamplingUnit:
 		vary_q: Union[bool, None] = None
 	) -> Dict[str, np.ndarray]:
 		"""
-		Generate a dictionary mapping each variable specification to futures ordered by self.coordinates_id
+		Generate a dictionary mapping each variable specification to futures 
+			ordered by self.coordinates_id
 
 		Function Arguments
 		------------------
-		- lhs_trial_x: LHS trial used to generate uncertainty fan for base future
+		- lhs_trial_x: LHS trial used to generate uncertainty fan for base 
+			future
 
 		Keyword Arguments
 		------------------
 		- lhs_trial_l: LHS trial used to modify strategy effect
-		- baseline_future_q: generate a baseline future? If so, lhs trials do not apply
-		- constraints_mix_tg: constraints on the mixing fraction for trajectory groups
-		- flatten_output_array: return a flattened output array (apply np.flatten())
+		- baseline_future_q: generate a baseline future? If so, lhs trials do 
+			not apply
+		- constraints_mix_tg: constraints on the mixing fraction for trajectory 
+			groups
+		- flatten_output_array: return a flattened output array (apply 
+			np.flatten())
 		- vary_q: does the future vary? if not, returns baseline
 		"""
 
@@ -1527,6 +1532,7 @@ class SamplingUnit:
 
 				# order the uniform scaling by the ordered trajectory arrays
 				vec_unif_scalar = self.ordered_by_ota_from_fid_dict(dict_var_info["uniform_scaling_q"], (vs, None))
+				
 				# gives 1s where we keep standard fanning (using the ramp vector) and 0s where we use uniform scaling
 				vec_base = 1 - vec_unif_scalar
 				#
@@ -1553,6 +1559,7 @@ class SamplingUnit:
 					# get series of strategies
 					series_strats = self.df_coordinates_id[self.key_strategy]
 					w = np.where(np.array(series_strats) == strat_base)[0]
+					
 					# get strategy adjustments
 					lhs_mult_deltas = 1.0 if baseline_future_q else lhs_trial_l
 					array_strat_deltas = np.concatenate(
@@ -1834,7 +1841,7 @@ class FutureTrajectories:
 		dict_baseline_ids: Union[Dict[str, int], None] = None,
 		dict_expand_vars: Union[Dict[str, List[str]], None] = None,
 		drop_duplicates: bool = False,
-		sample_unit_id: Any = None
+		sample_unit_id: Any = None,
 	) -> pd.DataFrame:
 		"""
 		Prepare an input data frame for initializing SamplingUnit within
@@ -1861,7 +1868,6 @@ class FutureTrajectories:
 		- drop_duplicates: drop duplicates in the input dataframe?
 		- sample_unit_id: optional id to pass for error troubleshooting
 		"""
-
 		dict_all_dims = self.dict_all_dimensional_values if (dict_all_dims is None) else dict_all_dims
 		if not isinstance(dict_all_dims, dict):
 			return df_su_input
@@ -1877,12 +1883,17 @@ class FutureTrajectories:
 		df_su_base.drop_duplicates(inplace = True) if drop_duplicates else None
 
 		# add expansion variables
-		dict_expand_vars = {
-			self.field_variable_trajgroup_type: list(df_su_input[self.field_variable_trajgroup_type].unique()),
-			self.field_variable: list(df_su_input[self.field_variable].unique())
-		} if (dict_expand_vars is None) else dict_expand_vars
+		dict_expand_vars = (
+			{
+				self.field_variable_trajgroup_type: list(df_su_input[self.field_variable_trajgroup_type].unique()),
+				self.field_variable: list(df_su_input[self.field_variable].unique())
+			}
+			if (dict_expand_vars is None) 
+			else dict_expand_vars
+		)
 		dict_all_dims.update(dict_expand_vars)
 
+		# 
 		n_req_baseline = np.prod([len(v) for v in dict_expand_vars.values()])
 		if len(df_su_base) != n_req_baseline:
 			sg = "" if (sample_unit_id is not None) else f" {sample_unit_id}"
@@ -2078,16 +2089,31 @@ class FutureTrajectories:
 		- regex_trajmix: regular expression used to match the mixing component of a trajectory group variable element
 		"""
 
-		# input dataframe
-		#df_in = self.df_input_database if (df_in is None) else df_in
-
 		# key fields
-		field_sample_unit_group = self.field_sample_unit_group if (field_sample_unit_group is None) else field_sample_unit_group
-		field_variable = self.field_variable if (field_variable is None) else field_variable
-		field_variable_trajgroup = self.field_variable_trajgroup if (field_variable_trajgroup is None) else field_variable_trajgroup
-		field_variable_trajgroup_type = self.field_variable_trajgroup_type if (field_variable_trajgroup_type is None) else field_variable_trajgroup_type
+		field_sample_unit_group = (
+			self.field_sample_unit_group 
+			if (field_sample_unit_group is None) 
+			else field_sample_unit_group
+		)
+		field_variable = (
+			self.field_variable 
+			if (field_variable is None) 
+			else field_variable
+		)
+		field_variable_trajgroup = (
+			self.field_variable_trajgroup 
+			if (field_variable_trajgroup is None) 
+			else field_variable_trajgroup
+		)
+		field_variable_trajgroup_type = (
+			self.field_variable_trajgroup_type 
+			if (field_variable_trajgroup_type is None) 
+			else field_variable_trajgroup_type
+		)
+
 		# set the missing flag
 		missing_flag = self.missing_flag_int if (missing_trajgroup_flag is None) else int(missing_trajgroup_flag)
+		
 		# regular expressions
 		regex_trajgroup = self.regex_trajgroup if (regex_trajgroup is None) else regex_trajgroup
 		regex_trajmax = self.regex_trajmax if (regex_trajmax is None) else regex_trajmax

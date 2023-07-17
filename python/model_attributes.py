@@ -1512,6 +1512,7 @@ class ModelAttributes:
             * self.field_enfu_biogas_fuel_category
             * self.field_enfu_electricity_demand_category
             * self.field_enfu_hydrogen_fuel_category
+            * self.field_enfu_hydropower_fuel_category
             * self.field_enfu_upstream_to_fuel_category
             * self.field_enfu_waste_fuel_category
         """
@@ -1524,6 +1525,7 @@ class ModelAttributes:
         self.field_enfu_biogas_fuel_category = "biogas_fuel_category"
         self.field_enfu_electricity_demand_category = "electricity_demand_category"
         self.field_enfu_hydrogen_fuel_category = "hydrogen_fuel_category"
+        self.field_enfu_hydropower_fuel_category = "hydropower_fuel_category"
         self.field_enfu_upstream_to_fuel_category = "upstream_to_fuel_category"
         self.field_enfu_waste_fuel_category = "waste_fuel_category"
 
@@ -1533,6 +1535,7 @@ class ModelAttributes:
             self.field_enfu_biogas_fuel_category,
             self.field_enfu_electricity_demand_category,
             self.field_enfu_hydrogen_fuel_category,
+            self.field_enfu_hydropower_fuel_category,
             self.field_enfu_waste_fuel_category
         ]
         self._check_binary_fields(
@@ -4487,7 +4490,8 @@ class ModelAttributes:
         expand_to_all_cats: bool = False,
         all_cats_missing_val: float = 0.0,
         return_num_type: type = np.float64,
-        throw_error_on_missing_fields: bool = True
+        throw_error_on_missing_fields: bool = True,
+        include_time_period: bool = False,
     ) -> pd.DataFrame:
 
         """
@@ -4511,6 +4515,8 @@ class ModelAttributes:
         - force_boundary_restriction: default is True. Set to True to enforce 
             the boundaries on the variable. If False, a variable that is out of 
             bounds will raise an error.
+        - include_time_period: include the time period? Only applies if 
+            return_type == "data_frame"
         - override_vector_for_single_mv_q: default is False. Set to True to 
             return an array if the dimension of the variable is 1; otherwise, a 
             vector will be returned (if not a dataframe).
@@ -4539,7 +4545,11 @@ class ModelAttributes:
             raise ValueError(f"Invalid variable specified in get_standard_variables: variable '{modvar}' not found.")
 
         flds = self.dict_model_variables_to_variables.get(modvar)
-        flds = flds[0] if ((len(flds) == 1) and not override_vector_for_single_mv_q) else flds
+        flds = (
+            flds[0] 
+            if ((len(flds) == 1) and not override_vector_for_single_mv_q) 
+            else flds
+        )
 
         flds_check = set([flds]) if isinstance(flds, str) else set(flds)
         if not flds_check.issubset(set(df_in.columns)):
@@ -4580,20 +4590,21 @@ class ModelAttributes:
             # check bounds
             if m_1 > b_1:
                 str_warn = f"Invalid maximum value of '{modvar}': specifed value of {m_1} exceeds bound {b_1}."
-                if force_boundary_restriction:
-                    warnings.warn(str_warn + "\nForcing maximum value in trajectory.")
-                else:
+                if not force_boundary_restriction:
                     raise ValueError(str_warn)
+                
+                warnings.warn(str_warn + "\nForcing maximum value in trajectory.")
+
             # check min
             if m_0 < b_0:
                 str_warn = f"Invalid minimum value of '{modvar}': specifed value of {m_0} below bound {b_0}."
-                if force_boundary_restriction:
-                    warnings.warn(str_warn + "\nForcing minimum value in trajectory.")
-                else:
+                if not force_boundary_restriction:
                     raise ValueError(str_warn)
+                
+                warnings.warn(str_warn + "\nForcing minimum value in trajectory.")
 
-            if force_boundary_restriction:
-                out = sf.vec_bounds(out, var_bounds)
+            # force boundary if required
+            out = sf.vec_bounds(out, var_bounds) if force_boundary_restriction else out
 
 
         # merge output to all categories?
@@ -4608,6 +4619,11 @@ class ModelAttributes:
         if (return_type == "data_frame"):
             flds = [flds] if (not type(flds) in [list, np.ndarray]) else flds
             out = pd.DataFrame(out, columns = flds)
+
+            # add the time period?
+            if include_time_period & (self.dim_time_period in df_in.columns):
+                out[self.dim_time_period] = list(df_in[self.dim_time_period])
+                out = out[[self.dim_time_period] + flds]
 
         return out
 

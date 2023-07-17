@@ -12,7 +12,9 @@ import random
 import re
 import setup_analysis as sa
 import shutil
+import sisepuede as ssp
 import sisepuede_file_structure as sfs
+import sql_utilities as squ
 import support_classes as sc
 import support_functions as sf
 import sys
@@ -187,8 +189,8 @@ class AWSManager:
 
     Initialization Arguments
     ------------------------
-    - file_struct: SISEPUEDEFileStructure used to access ID information and
-        model_attributes
+    - sisepuede: SISEPUEDE object used to access ID information, 
+        model_attributes, primary_key_database, and table names
     - primary_key_database: OrderedDirectProductTable used to identify primary
         keys 
     - config: path to YAML config file or sc.YAMLConfiguration object
@@ -209,8 +211,7 @@ class AWSManager:
     """
 
     def __init__(self,
-        file_struct: sfs.SISEPUEDEFileStructure,
-        primary_key_database: odpt.OrderedDirectProductTable,
+        sisepuede: ssp.SISEPUEDE,
         config: Union[str, sc.YAMLConfiguration],
         fp_template_docker_shell: str,
         fp_template_user_data: str,
@@ -224,8 +225,7 @@ class AWSManager:
 
         self._initialize_template_matchstrs()
         self._initialize_attributes(
-            file_struct,
-            primary_key_database,
+            sisepuede,
         )
         self._initialize_config(config)
         self._initialize_templates(
@@ -239,6 +239,7 @@ class AWSManager:
         self._initialize_shell_script_environment_vars()
         self._initialize_paths()
         self._initialize_docker_properties()
+        self._initialize_table_attributes()
 
         # initialize aws 
         self._initialize_aws_properties(
@@ -246,6 +247,7 @@ class AWSManager:
         )
         self._initialize_aws()
         self._initialize_s3_paths()
+        
 
 
 
@@ -253,6 +255,69 @@ class AWSManager:
     ########################
     #    INITIALIZATION    #
     ########################
+
+    def build_s3_query_output_file_names(self,
+    ) -> Dict:
+        """
+        Return a dictionary of file names for query result files. Returns a 
+            dictionary mapping types to file names
+        """
+
+        valid_types = [
+            "create_input",
+            "create_output",
+            "input",
+            "output",
+            "repair_input",
+            "repair_output",
+        ]
+
+        # get appendage to input/output tables
+        appendage_table_name = self.config.get("aws_athena.query_table_appendage")
+        appendage_table_name = (
+            ""
+            if not isinstance(appendage_table_name, str)
+            else appendage_table_name
+        )
+        
+        # build dictionary of file base names
+        keys_modify = ["input", "output"]
+        dict_fbn = dict(
+            (x, x) for x in valid_types
+        )
+
+        for key in keys_modify:
+            table_name = self.dict_input_output_to_table_names.get(key)
+            if table_name is None:
+                continue
+
+            table_name = f"{table_name}{appendage_table_name}"
+
+            dict_fbn.update({key: table_name.lower()})
+
+        return dict_fbn
+
+
+
+    def build_table_name_to_type_dicts(self,
+    ) -> Tuple[Dict, Dict]:
+        """
+        Build a dictionary mapping table names to input/output based on 
+            configuration. Returns a tuple of dictionaries of the following 
+            form:
+
+            (dict_table_names_to_io, dict_io_to_table_names)
+        """
+        dict_table_names_to_io = {
+            self.sisepuede_database.table_name_input: "input",
+            self.sisepuede_database.table_name_output: "output",
+        }
+
+        dict_io_to_table_names = sf.reverse_dict(dict_table_names_to_io)
+
+        return dict_table_names_to_io, dict_io_to_table_names
+
+
 
     def get_sisepuede_relative_paths(self,
         path_type: str,
@@ -464,8 +529,7 @@ class AWSManager:
 
 
     def _initialize_attributes(self,
-        file_struct: sfs.SISEPUEDEFileStructure,
-        primary_key_database: odpt.OrderedDirectProductTable,
+        sisepuede: ssp.SISEPUEDE,
     ) -> None:
         """
         Initialize the model attributes object. Checks implementation and throws
@@ -474,24 +538,39 @@ class AWSManager:
             * self.attribute_strategy
             * self.dict_dims_to_docker_flags (map SISEPUEDE dimensions to docker 
                 flags)
-            * self.file_struct = file_struct
+            * self.field_launch_index
+            * self.field_instance_id
+            * self.field_random_seed
+            * self.field_ip_address
+            * self.file_struct
+            * self.flag_key_database_type
+            * self.flag_key_id
+            * self.flag_key_max_solve_attempts
+            * self.flag_key_random_seed
+            * self.flag_key_save_inputs
             * self.key_design
             * self.key_future
             * self.key_region
             * self.key_primary
             * self.key_strategy
             * self.model_attributes
-            * self.regions (support_classes.Regions object)
-            * self.time_periods (support_classes.TimePeriods object)
+            * self.primary_key_database
+            * self.regex_config_experiment_components
+            * self.regions
+            * self.sisepuede_database
         """
-        model_attributes = file_struct.model_attributes
+        # pull in some SISEPUEDE attributes
+        model_attributes = sisepuede.model_attributes
+        primary_key_database = sisepuede.experimental_manager.primary_key_database
+        database = sisepuede.database
 
         # analysis dimensional keys
-        key_design = model_attributes.dim_design_id
-        key_future = model_attributes.dim_future_id
-        key_region = model_attributes.dim_region
-        key_primary = model_attributes.dim_primary_id
-        key_strategy = model_attributes.dim_strategy_id
+        key_design = sisepuede.key_design
+        key_future = sisepuede.key_future
+        key_region = sisepuede.key_region
+        key_primary = sisepuede.key_primary
+        key_strategy = sisepuede.key_strategy
+        key_time_period = sisepuede.key_time_period
 
         # additional command line flags
         flag_key_database_type = "database_type"
@@ -525,14 +604,6 @@ class AWSManager:
 
         ##  SOME EXPERIMENTAL PROPERTIES
 
-        # check the specification of the primary_key_database
-        primary_key_database_out = None
-        try:
-            primary_key_database.dim_cardinality
-            primary_key_database_out = primary_key_database
-        except Exception as e:
-            None
-
         # regular expression to use for experimental components
         regex_config_experiment_components = re.compile("part_(\d*$)")
 
@@ -544,7 +615,7 @@ class AWSManager:
         self.field_instance_id = field_instance_id
         self.field_random_seed = field_random_seed
         self.field_ip_address = field_ip_address
-        self.file_struct = file_struct
+        self.file_struct = sisepuede.file_struct
         self.flag_key_database_type = flag_key_database_type
         self.flag_key_id = flag_key_id
         self.flag_key_max_solve_attempts = flag_key_max_solve_attempts
@@ -555,10 +626,12 @@ class AWSManager:
         self.key_region = key_region
         self.key_primary = key_primary
         self.key_strategy = key_strategy
+        self.key_time_period = key_time_period
         self.model_attributes = model_attributes
-        self.primary_key_database = primary_key_database_out
+        self.primary_key_database = primary_key_database
         self.regex_config_experiment_components = regex_config_experiment_components
         self.regions = regions
+        self.sisepuede_database = database
 
         return None
     
@@ -864,9 +937,11 @@ class AWSManager:
         s3p_run_log = self.get_s3_path_athena_output("logs")
         s3p_run_metadata = self.get_s3_path_athena_output("metadata")
 
+        dict_s3p_query_fbns_by_type = self.build_s3_query_output_file_names()
 
         ##  SET PROPERTIES
 
+        self.dict_s3p_query_fbns_by_type = dict_s3p_query_fbns_by_type
         self.s3p_athena_database = s3p_athena_database
         self.s3p_athena_queries = s3p_athena_queries
         self.s3p_run_log = s3p_run_log
@@ -890,6 +965,57 @@ class AWSManager:
 
         self.heredoc_eof = "XEOF"
         self.shell_env_instance_id = "$INSTANCEID"
+
+        return None
+    
+
+
+    def _initialize_table_attributes(self,
+    ) -> None:
+        """
+        Initialize key table information. Sets the following properties:
+
+            * self.dict_input_output_to_table_names
+            * self.dict_keys_table_name_to_index_ordered
+            * self.dict_table_names_to_input_output
+
+        NOTE: These hardcode some information from 
+        """
+
+        # dictionary mapping 
+        (
+            dict_table_names_to_input_output, 
+            dict_input_output_to_table_names
+        ) = self.build_table_name_to_type_dicts()
+
+
+        # get table indicies for input
+        dict_keys_table_name_to_index_ordered = {}
+
+        for key, table in dict_input_output_to_table_names.items():
+            keys_table_index_ordered_cur = (
+                self.sisepuede_database
+                .db
+                .dict_iterative_database_tables
+                .get(table)
+                .fields_index
+                .copy()
+            )
+            keys_table_index_ordered_cur.extend([self.key_time_period])
+
+            keys_table_index_ordered_cur = [
+                x for x in self.model_attributes.sort_ordered_dimensions_of_analysis
+                if x in keys_table_index_ordered_cur
+            ]
+
+            dict_keys_table_name_to_index_ordered.update({table: keys_table_index_ordered_cur})
+
+    
+        ##  SET PROPERTIES
+
+        self.dict_input_output_to_table_names = dict_input_output_to_table_names
+        self.dict_keys_table_name_to_index_ordered = dict_keys_table_name_to_index_ordered
+        self.dict_table_names_to_input_output = dict_table_names_to_input_output
 
         return None
 
@@ -1189,28 +1315,6 @@ class AWSManager:
         str_out = delim.join([str(x) for x in str_out])
 
         return str_out
-    
-
-
-    def build_table_names_to_input_output(self,
-    ) -> Dict:
-        """
-        Build a dictionary mapping table names to input/output based
-            on configuration.
-        """
-        dict_table_names_to_io = {}
-
-        for val in ["input", "output"]:
-            key = f"sisepuede_runtime.table_{val}"
-            table_name = self.config.get(key)
-
-            (
-                dict_table_names_to_io.update({table_name: val})
-                if table_name is not None
-                else None
-            )
-
-        return dict_table_names_to_io
 
 
 
@@ -2136,6 +2240,38 @@ class AWSManager:
     
 
 
+
+    def get_s3_bucket_and_key_from_address(self,
+        address: str,
+        sep: str = "/",
+    ) -> Tuple[Union[str, None], Union[str, None]]:
+        """
+        Return a tuple giving the bucket and key from a full s3 address
+        """
+        # check inputs
+        return_none = not isinstance(address, str)
+        return_none |= not isinstance(sep, str)
+        if return_none:
+            return None
+        
+        # use bucket as splitter
+        
+        bucket = f"{self.s3_bucket}{sep}"
+        tup = address.split(bucket)
+        key = (
+            tup[1]
+            if len(tup) > 1
+            else None
+        )
+        
+        out = (self.s3_bucket, key)
+        
+        return out
+
+
+    
+
+
     def get_s3_path_athena_output(self,
         return_type: str,
     ) -> Union[str, None]:
@@ -2322,6 +2458,38 @@ class AWSManager:
         )
 
         return fp_out
+    
+
+
+    def get_s3_path_query_output(self,
+        output_type: str,
+    ) -> Union[str, None]:
+        """
+        Return the path of queries that are output. 
+
+        Function Arguments
+        ------------------
+        - output_type: specification of file type within query S3 key to build.
+            Valid options are:
+
+            * "input": returns path to query-modified SISEPUEDE input table 
+            * "output": returns path to query-modified SISEPUEDE input table
+            * "create_input": path to the create input table query output
+            * "create_output": path to the create output table query output
+            * "repair_input": path to the repair input table query
+            * "repair_output": path to the repair output table query
+
+        Returns None if invalid specification is found.
+        """
+
+        # now, build output path
+        address_out = self.dict_s3p_query_fbns_by_type.get(output_type)
+        if address_out is None:
+            return address_out
+
+        address_out = os.path.join(self.s3p_athena_queries, f"{address_out}.csv")#HEREHERE
+
+        return address_out
 
 
 
@@ -2690,7 +2858,12 @@ class AWSManager:
         )
 
         # initialize fields, schema out, and fields that were successfully pushed to the schema
-        return_none = any([(x not in model_attributes.sort_ordered_dimensions_of_analysis) for x in index_fields_ordered])
+        return_none = any(
+            [
+                (x not in model_attributes.sort_ordered_dimensions_of_analysis) 
+                for x in index_fields_ordered
+            ]
+        )
         return_none |= not sf.islistlike(index_fields_ordered)
         if return_none:
             return None
@@ -2741,7 +2914,7 @@ class AWSManager:
                 )
             
             # skip if failed
-            dtype_sql = dict_dtypes_to_sql_types.get(dtype_sql, "STRING")
+            dtype_sql = dict_dtypes_to_sql_types.get(dtype_sql, "string")
             if dtype_sql is None:
                 continue
 
@@ -2759,12 +2932,142 @@ class AWSManager:
         schema_out = str(sep).join(schema_out)
         
         return schema_out, fields_out
+    
+
+
+    def build_athena_sql_query_for_retrieval(self,
+        delim: str = ",",
+        fields_retrieve: Union[List[str], str, None] = None,
+        fields_retrieval_key: str = "field",
+        order_by: bool = True,
+    ) -> Tuple[str, str]:
+        """
+        Using a list of SISEPUEDE fields, setup the retrieval queries.
+        
+        Function Arguments
+        ------------------
+
+        Keyword Arguments
+        -----------------
+        - delim: delimiter used in fields_retrieve if specified as string
+        - fields_retrieve: optional specification of fields to retrieve from query. 
+            Can be specified as delimited string (using delim) or file path
+        - fields_retrieval_key: key used to read fields from `fields_retrieval`
+            if specified as a file
+        - order_by: order table by indices? Can increase query execution time
+        """
+        
+        ##  INITIALIZATION AND CHECKS
+        
+        fields_retrieve = (
+            self.config.get("aws_athena.fields_retrieve")
+            if not isinstance(fields_retrieve, str)
+            else fields_retrieve
+        )
+        return_none = (fields_retrieve is None)
+
+        if return_none:
+            return None
+        
+        
+        # retrieve fields, which can be specified in a file
+        fields_retrieve = sf.get_dimensional_values(
+            fields_retrieve,
+            fields_retrieval_key,
+            delim = delim,
+            return_type = str,
+        )
+
+        # build input and output queries
+        query_input = self.build_athena_sql_query_for_retrieval_by_io(
+            "input", 
+            fields_retrieve,
+            order_by = order_by
+        )
+        
+        query_output = self.build_athena_sql_query_for_retrieval_by_io(
+            "output", 
+            fields_retrieve,
+            order_by = order_by
+        )
+        
+        return query_input, query_output   
+
+
+
+    def build_athena_sql_query_for_retrieval_by_io(self,
+        table_type: str,
+        fields_retrieve: List[str],
+        order_by: bool = True,
+    ) -> str:
+        """
+        Build a query to select from a table by table type
+
+        Function Arguments
+        ------------------
+        - table_type: input or output
+        - fields_retrieve: fields to retrieve
+
+        Keyword Arguments
+        -----------------
+        - order_by: order output by indices? Can increase query execution time
+        """
+
+        ##  INITIALIZATION
+
+        table_type = (
+            "output"
+            if table_type not in self.dict_input_output_to_table_names.keys()
+            else table_type
+        )
+        domain = (
+            self.model_attributes.all_variables_input
+            if table_type == "input"
+            else self.model_attributes.all_variables_output
+        )
+
+        database_name = f"\"{self.athena_database}\""
+
+
+        ##  GET NAME AND FIELDS
+
+        table_name = self.dict_input_output_to_table_names.get(table_type)
+        fields_ind = self.dict_keys_table_name_to_index_ordered.get(table_name).copy()
+        fields = fields_ind + sorted([x for x in domain if x in fields_retrieve])
+        
+        table_name_db = self.format_table_name_for_athena(table_name)
+        table_name_db = table_name_db.replace("`", "\"") # clean tick marks 
+        query = squ.join_list_for_query(
+            fields, 
+            delim  = ",", 
+            quote = "\""
+        )
+
+        
+        ##  BUILD QUERY
+
+        query = f"SELECT {query} FROM {database_name}.{table_name_db}"
+
+        # order by indexing fields?
+        if order_by:
+            query_order_by = squ.join_list_for_query(
+                fields_ind, 
+                delim  = ",", 
+                quote = "\""
+            )
+            query_order_by = f"ORDER BY ({query_order_by})"
+            query = f"{query} {query_order_by}"
+
+        query = f"{query};"
+
+        return query 
 
 
 
     def build_experiment(self,
         dict_experimental_components: Union[Dict[str, Union[Dict[str, List[int]], List[int]]], None] = None,
         regex_config_parts: Union[re.Pattern, None] = None,
+        return_type: str = "list",
     ) -> Union[Dict[str, int], None]:
         """
         Build the experimental design to split. Returns a list of unique
@@ -2777,7 +3080,10 @@ class AWSManager:
         - regex_config_parts: regular expression for determining experimental
             components. If None, defaults to 
             self.regex_config_experiment_components
+        - return_type: "list" or "indexing_data_frame"
         """
+
+        ##  CHECKS
         
         # can't build without db
         return_none = (self.primary_key_database is None)
@@ -2788,12 +3094,19 @@ class AWSManager:
             regex_config_parts = regex_config_parts,
         )
         return_none |= (dict_experimental_components is None)
-        
-        
+    
         if return_none:
             return None
         
-        # loop to get primary ids that need to be run
+        
+        ##  BUILD PRIMARY KEYS
+
+        # initialize some elements
+        return_type = (
+            return_type
+            if return_type in ["list", "indexing_data_frame"]
+            else "list"
+        )
         set_primaries = set({})
         
         for k, v in dict_experimental_components.items():
@@ -2811,8 +3124,14 @@ class AWSManager:
                 
             keys_primary_cur = keys_primary_cur[self.key_primary]
             set_primaries |= set(keys_primary_cur)
-            
+        
+        # built final output
         set_primaries = sorted(list(set_primaries))
+        set_primaries = (
+            self.primary_key_database.get_indexing_dataframe_from_primary_key(set_primaries)
+            if return_type == "indexing_data_frame"
+            else set_primaries
+        )
         
         return set_primaries
     
@@ -2845,15 +3164,8 @@ class AWSManager:
             else s3p_out
         )
         
-        # set index keys (same for inputs and outputs)
-        keys_index_ordered = [
-            self.model_attributes.dim_primary_id,
-            self.model_attributes.dim_region,
-            self.model_attributes.dim_time_period
-        ]
-        
         # initialize some dictionaries
-        dict_table_to_schema_type = self.build_table_names_to_input_output()
+        dict_table_to_schema_type = self.dict_table_names_to_input_output
         dict_query_info = {}
         
         
@@ -2865,33 +3177,23 @@ class AWSManager:
             response_create = None
             response_repair = None
             
+            # pull index keys from database
+            keys_index_ordered = self.dict_keys_table_name_to_index_ordered.get(k)
             tup = self.build_athena_sql_table_schema_for_inputs_outputs(
                 keys_index_ordered,
                 v,
                 fields_data_integer = fields_data_integer,
             )
+            
 
-            query_create = self.build_athena_query_create_table(
-                k,
-                tup[0],
+            ##  TRY TO CREATE THE TABLE
+
+            query_create = self.build_athena_query_create_table(k, tup[0])
+            response_create = self.exec_query(
+                query_create,
+                self.get_s3_path_query_output(f"create_{v}"),
+                log_msg_supplement = " CREATE TABLE",
             )
-
-            query_repair = self.build_athena_query_repair_table(k)
-            
-
-            # try the CreateTable query
-            try:
-                response_create = self.client_athena.start_query_execution(
-                    QueryString = query_create,
-                    ResultConfiguration = {"OutputLocation": s3p_out}
-                )
-
-            except Exception as e:
-                self._log(
-                    f"Error trying CREATE TABLE {k}: {e}",
-                    type_log = "error",
-                )
-            
             if response_create is None:
                 continue
 
@@ -2903,19 +3205,14 @@ class AWSManager:
             )
                 
                 
-            #  try the MSCK REPAIR TABLE query
-            try:
-                response_repair = self.client_athena.start_query_execution(
-                    QueryString = query_repair,
-                    ResultConfiguration = {"OutputLocation": s3p_out}
-                )
+            ##  NEXT, TRY TO PARTITION THE TABLE THROUGH REPAIR
 
-            except Exception as e:
-                self._log(
-                    f"Error trying MSCK REPAIR TABLE {k}: {e}",
-                    type_log = "error",
-                )
-                
+            query_repair = self.build_athena_query_repair_table(k)
+            response_repair = self.exec_query(
+                response_repair,
+                self.get_s3_path_query_output(f"repair_{v}"),
+                log_msg_supplement = " MSCK REPAIR TABLE",
+            )   
             if response_repair is None:
                 continue
         
@@ -2939,6 +3236,41 @@ class AWSManager:
 
 
         return dict_query_info
+    
+
+
+    def exec_query(self,
+        query: str,
+        s3p_query: str,
+        log_msg_supplement: Union[str, None] = None
+    ) -> Dict:
+        """
+        Execute query with output sent to location s3p_query. Optionally
+            pass logging info supplement log_msg_supplement
+        """
+        log_msg_supplement = (
+            "" 
+            if not isinstance(log_msg_supplement, str) 
+            else log_msg_supplement
+        )
+        response = None
+        
+        
+        # try the CreateTable query
+        try:
+            response = self.client_athena.start_query_execution(
+                QueryString = query,
+                ResultConfiguration = {"OutputLocation": s3p_query}
+            )
+
+        except Exception as e:
+            self._log(
+                f"Error trying to execute query{log_msg_supplement}: {e}",
+                type_log = "error",
+            )
+        
+        return response
+            
     
 
 
@@ -3358,6 +3690,7 @@ class AWSManager:
         delim: str = ",",
         dict_launcher: Union[Dict[int, Tuple[List[str], List[int]]], None] = None,
         launch: bool = True,
+        setup_database: bool = True,
         **kwargs
     ) -> Tuple[pd.DataFrame, Dict]:
         """
@@ -3457,9 +3790,14 @@ class AWSManager:
                 
         df_run_information = pd.DataFrame(df_run_information, columns = fields_out)
         
-        # then, build the queries to create the Athena database
-        dict_query_responses = self.execute_create_table_athena_query(
-            **kwargs
+
+        # then, build the queries to create the Athena database if specified
+        dict_query_responses = (
+            self.execute_create_table_athena_query(
+                **kwargs
+            )
+         if setup_database
+         else None
         )
 
         return dict_query_responses, dict_ud, df_run_information

@@ -885,6 +885,12 @@ class ElectricEnergy:
                 self.model_attributes.field_enfu_hydrogen_fuel_category: 1
             }
         )[0]
+        self.cat_enfu_hpwr = self.model_attributes.get_categories_from_attribute_characteristic(
+            self.subsec_name_enfu, 
+            {
+                self.model_attributes.field_enfu_hydropower_fuel_category : 1
+            }
+        )[0]
         self.cat_enfu_wste = self.model_attributes.get_categories_from_attribute_characteristic(
             self.subsec_name_enfu, 
             {
@@ -1339,17 +1345,42 @@ class ElectricEnergy:
             the application of ElectricEnergy.transform_field_year_nemomod()
         """
 
-        time_period_as_year = self.nemomod_time_period_as_year if (time_period_as_year is None) else time_period_as_year
+        time_period_as_year = (
+            self.nemomod_time_period_as_year 
+            if (time_period_as_year is None) 
+            else time_period_as_year
+        )
 
-        field_year = self.field_nemomod_year if (field_year is None) else field_year
+        field_year = (
+            self.field_nemomod_year 
+            if (field_year is None) 
+            else field_year
+        )
 
         # get time periods that are available
-        years = self.model_attributes.get_time_periods()[0] if time_period_as_year else self.model_attributes.get_time_period_years()
-        years = [x for x in years if x in restriction_years] if (restriction_years is not None) else years
+        years = (
+            self.model_attributes.get_time_periods()[0] 
+            if time_period_as_year 
+            else self.model_attributes.get_time_period_years()
+        )
+        years = (
+            [x for x in years if x in restriction_years] 
+            if (restriction_years is not None) 
+            else years
+        )
+
         # add to output using outer product, then clean up the years for NemoMod to prevent any values of 0
-        df_input = self.add_index_field_from_key_values(df_input, years, field_year, outer_prod = outer_prod)
+        df_input = self.add_index_field_from_key_values(
+            df_input, 
+            years, 
+            field_year, 
+            outer_prod = outer_prod
+        )
         if not override_time_period_transformation:
-            df_input[field_year] = self.transform_field_year_nemomod(df_input[field_year], time_period_as_year = time_period_as_year)
+            df_input[field_year] = self.transform_field_year_nemomod(
+                df_input[field_year], 
+                time_period_as_year = time_period_as_year
+            )
 
         return df_input
 
@@ -1358,7 +1389,7 @@ class ElectricEnergy:
     def add_multifields_from_key_values(self,
         df_input_base: pd.DataFrame,
         fields_to_add: list,
-        time_period_as_year: bool = None,
+        time_period_as_year: Union[bool, None] = None,
         override_time_period_transformation: Union[bool, None] = False,
         regions: Union[List[str], None] = None
     ) -> pd.DataFrame:
@@ -1381,8 +1412,16 @@ class ElectricEnergy:
             to ElectricEnergy.nemomod_time_period_as_year
         """
 
-        time_period_as_year = self.nemomod_time_period_as_year if (time_period_as_year is None) else time_period_as_year
-        override_time_period_transformation = False if (override_time_period_transformation is None) else override_time_period_transformation
+        time_period_as_year = (
+            self.nemomod_time_period_as_year 
+            if (time_period_as_year is None) 
+            else time_period_as_year
+        )
+        override_time_period_transformation = (
+            False 
+            if (override_time_period_transformation is None) 
+            else override_time_period_transformation
+        )
         df_input = df_input_base.copy()
 
         # if id is in the table and we are adding other fields, rename it
@@ -1390,10 +1429,33 @@ class ElectricEnergy:
         if len([x for x in fields_to_add if (x != self.field_nemomod_id)]) > 0:
             df_input.rename(columns = {self.field_nemomod_id: field_id_rnm}, inplace = True) if (self.field_nemomod_id in df_input.columns) else None
         # ordered additions
-        df_input = self.add_index_field_technology(df_input) if (self.field_nemomod_technology in fields_to_add) else df_input
-        df_input = self.add_index_field_fuel(df_input) if (self.field_nemomod_fuel in fields_to_add) else df_input
-        df_input = self.add_index_field_region(df_input, restriction_regions = regions) if (self.field_nemomod_region in fields_to_add) else df_input
-        df_input = self.add_index_field_year(df_input, time_period_as_year = time_period_as_year, override_time_period_transformation = override_time_period_transformation) if (self.field_nemomod_year in fields_to_add) else df_input
+        df_input = (
+            self.add_index_field_technology(df_input) 
+            if (self.field_nemomod_technology in fields_to_add) 
+            else df_input
+        )
+        df_input = (
+            self.add_index_field_fuel(df_input) 
+            if (self.field_nemomod_fuel in fields_to_add) 
+            else df_input
+        )
+        df_input = (
+            self.add_index_field_region(
+                df_input, 
+                restriction_regions = regions
+            )
+            if (self.field_nemomod_region in fields_to_add) 
+            else df_input
+        )
+        df_input = (
+            self.add_index_field_year(
+                df_input, 
+                time_period_as_year = time_period_as_year, 
+                override_time_period_transformation = override_time_period_transformation
+            )
+            if (self.field_nemomod_year in fields_to_add) 
+            else df_input
+        )
 
         # set sorting hierarchy, then drop original id field
         fields_sort_hierarchy = [x for x in self.fields_nemomod_sort_hierarchy if (x in fields_to_add) and (x != self.field_nemomod_id)]
@@ -2251,11 +2313,31 @@ class ElectricEnergy:
 
         Function Arguments
         ------------------
-        - cat_name: "waste", "wste", "biogas", or "bgas"
+        - cat_name: 
+            * "biogas", or "bgas"
+            * "hydropower" or "hpwr"
+            * "waste", "wste"
         """
-        pycat_enfu = self.model_attributes.get_subsector_attribute(self.model_attributes.subsec_name_enfu, "pycategory_primary")
-        cat_name = cat_name if (cat_name in ["waste", "wste", "biogas", "bgas"]) else "waste"
-        cat_switch = self.cat_enfu_wste if (cat_name in ["waste", "wste"]) else self.cat_enfu_bgas
+        pycat_enfu = self.model_attributes.get_subsector_attribute(
+            self.model_attributes.subsec_name_enfu, 
+            "pycategory_primary"
+        )
+
+        dict_cat_name_to_cat = {
+            "bgas": self.cat_enfu_bgas,
+            "biogas": self.cat_enfu_bgas,
+            "hpwr": self.cat_enfu_hpwr,
+            "hydropower": self.cat_enfu_hpwr,
+            "waste": self.cat_enfu_wste,
+            "wste": self.cat_enfu_wste,
+        }
+
+        cat_name = (
+            cat_name 
+            if (cat_name in dict_cat_name_to_cat.keys()) 
+            else "waste"
+        )
+        cat_switch = dict_cat_name_to_cat.get(cat_name)
 
         cat_out = self.model_attributes.get_categories_from_attribute_characteristic(
             self.subsec_name_entc,
@@ -2946,7 +3028,7 @@ class ElectricEnergy:
 
             # get projected demand for the fuel
             ind_enfu_fuel = attribute_fuel.get_key_value_index(fuel)
-            vec_prod_est_cur_fuel = tuple_enfu_production_and_demands[4][:, ind_enfu_fuel]#HEREHERE
+            vec_prod_est_cur_fuel = tuple_enfu_production_and_demands[4][:, ind_enfu_fuel]
 
             # ordered by cats_no_growth
             row_inds_no_growth = [dict_entc_cat_to_position_base_prod_est.get(x) for x in cats_no_growth]
@@ -3010,6 +3092,63 @@ class ElectricEnergy:
         }
         
         return fld if (fld in dict_abv.values()) else dict_abv.get(fld)
+    
+
+
+    def get_gnrl_ccf_hydropower_factor_df(self,
+        df_elec_trajectories: pd.DataFrame,
+    ) -> Tuple[pd.DataFrame, str]:
+        """
+        Retrieve a data frame with time period, hydropower tech, and the climate
+            change factor for hydropower production. Returns a tuple with two
+            elements of the following form
+
+            (
+                df_gnrl_ccf_hydropower,
+                field_gnrl_ccf_hydropower,
+            )
+
+            where `field_gnrl_ccf_hydropower` is the field containing the
+            DataFrame
+        """
+        field_region = self.model_attributes.dim_region
+
+
+        # get hydropower climate change factor
+        df_gnrl_ccf_hydropower = self.model_attributes.get_standard_variables(
+            df_elec_trajectories,
+            self.model_socioeconomic.modvar_gnrl_climate_change_hydropower_availability,
+            include_time_period = True,
+            return_type = "data_frame",
+        )
+        if field_region in df_elec_trajectories.columns:
+            df_gnrl_ccf_hydropower[field_region] = list(df_elec_trajectories[field_region])
+
+        # add technology for hydro
+        cat_entc_hpwr = self.get_entc_cat_for_integration("hpwr")
+        df_gnrl_ccf_hydropower[self.field_nemomod_technology] = cat_entc_hpwr
+        field_gnrl_ccf_hydropower = [
+            x for x in df_gnrl_ccf_hydropower.columns 
+            if x not in [self.model_attributes.dim_time_period, self.field_nemomod_technology]
+        ][0]
+
+        # convert  HEREHERE
+        df_gnrl_ccf_hydropower[self.field_nemomod_year] = self.transform_field_year_nemomod(
+        df_gnrl_ccf_hydropower[self.model_attributes.dim_time_period], 
+            time_period_as_year = self.nemomod_time_period_as_year,
+        )
+        (
+            df_gnrl_ccf_hydropower
+            .drop(
+                [self.model_attributes.dim_time_period], 
+                axis = 1,
+                inplace = True
+            )
+        )
+
+        out = df_gnrl_ccf_hydropower, field_gnrl_ccf_hydropower
+
+        return out
 
 
 
@@ -3652,7 +3791,9 @@ class ElectricEnergy:
         df_out = df_out[~df_out[self.field_nemomod_value].isin([drop_flag])] if (drop_flag is not None) else df_out
         if isinstance(df_append, pd.DataFrame):
             df_out = pd.concat([df_out, df_append[df_out.columns]], axis = 0).reset_index(drop = True)
-        df_out = self.add_multifields_from_key_values(df_out,
+        
+        df_out = self.add_multifields_from_key_values(
+            df_out,
             fields_index_nemomod,
             override_time_period_transformation = override_time_period_transformation,
             regions = regions
@@ -4177,6 +4318,7 @@ class ElectricEnergy:
             # then, get total exogenous emissions
             fields = list(set(dict_gas_to_emission_fields[emission]) & set(df_elec_trajectories.columns))
             vec_exogenous_emissions = np.sum(np.array(df_elec_trajectories[fields]), axis = 1)
+            
             # retrieve the limit, store the origina (for dropping), and convert units
             vec_emission_limit = self.model_attributes.get_standard_variables(
                 df_elec_trajectories,
@@ -4228,8 +4370,8 @@ class ElectricEnergy:
 
 
 
-    ##  format CapacityFactor for NemoMod
     def format_nemomod_table_capacity_factor(self,
+        df_elec_trajectories: pd.DataFrame,
         df_reference_capacity_factor: pd.DataFrame,
         attribute_technology: AttributeTable = None,
         attribute_region: AttributeTable = None,
@@ -4242,6 +4384,7 @@ class ElectricEnergy:
 
         Function Arguments
         ------------------
+        - df_elec_trajectories: data frame of model variable input trajectories
         - df_reference_capacity_factor: data frame of regional capacity factors 
             for technologies that vary (others revert to default)
 
@@ -4264,14 +4407,26 @@ class ElectricEnergy:
         attribute_region = self.model_attributes.dict_attributes.get(self.model_attributes.dim_region) if (attribute_region is None) else attribute_region
         pycat_entc = self.model_attributes.get_subsector_attribute(self.subsec_name_entc, "pycategory_primary")
 
-        ###############################################
-        #    INTEGRATE CLIMATE CHANGE FACTORS HERE    #
-        ###############################################
+
+        ##  GET CLIMATE CHANGE FACTORS
+
+        # hydropower
+        (
+            df_gnrl_ccf_hydropower, 
+            field_gnrl_ccf_hydropower
+        ) = self.get_gnrl_ccf_hydropower_factor_df(
+            df_elec_trajectories
+        )
+    
 
         # regions to keep
         regions = self.model_attributes.get_region_list_filtered(regions, attribute_region = attribute_region)
         regions_keep = set(attribute_region.key_values) & set(regions)
-        regions_keep = (regions_keep & set(df_reference_capacity_factor[self.field_nemomod_region])) if (self.field_nemomod_region in df_reference_capacity_factor.columns) else regions_keep
+        regions_keep = (
+            (regions_keep & set(df_reference_capacity_factor[self.field_nemomod_region])) 
+            if (self.field_nemomod_region in df_reference_capacity_factor.columns) 
+            else regions_keep
+        )
 
         # reshape to long
         fields_melt = [x for x in df_reference_capacity_factor.columns if (x in attribute_technology.key_values)]
@@ -4284,6 +4439,7 @@ class ElectricEnergy:
             self.field_nemomod_technology,
             self.field_nemomod_value
         )
+
         # add output fields
         df_out = self.add_multifields_from_key_values(
             df_out,
@@ -4298,9 +4454,35 @@ class ElectricEnergy:
             regions = regions
         )
 
+
+        ##  ADD IN CLIMATE CHANGE COMPONENTS
+        
+        df_out = pd.merge(
+            df_out,
+            df_gnrl_ccf_hydropower,
+            how = "left"
+        )
+        
+        df_out[field_gnrl_ccf_hydropower].fillna(1.0, inplace = True)
+        df_out[self.field_nemomod_value] = (
+            np.array(df_out[self.field_nemomod_value]) 
+            * np.array(df_out[field_gnrl_ccf_hydropower])
+        )
+
+        df_out = (
+            df_out
+            .drop([field_gnrl_ccf_hydropower], axis = 1)
+            .sort_index()
+        )
+
         # ensure capacity factors are properly specified
-        df_out[self.field_nemomod_value] = sf.vec_bounds(np.array(df_out[self.field_nemomod_value]), (0, 1))
-        dict_return = {self.model_attributes.table_nemomod_capacity_factor: df_out}
+        df_out[self.field_nemomod_value] = sf.vec_bounds(
+            np.array(df_out[self.field_nemomod_value]), 
+            (0, 1)
+        )
+        dict_return = {
+            self.model_attributes.table_nemomod_capacity_factor: df_out
+        }
 
         return dict_return
 
@@ -8777,7 +8959,7 @@ class ElectricEnergy:
                 attribute_fuel = attribute_fuel
             )
         )
-        #MODEOFOPERATION
+        # MODEOFOPERATION
         dict_out.update(
             self.format_nemomod_attribute_table_mode_of_operation(
                 attribute_mode = attribute_mode
@@ -8817,7 +8999,11 @@ class ElectricEnergy:
         ##  2. ADD TABLES THAT ARE INDEPENDENT OF MODEL PASS THROUGH (df_elec_trajectories)
 
         # DefaultParams
-        dict_out.update(self.format_nemomod_table_default_parameters(attribute_nemomod_table = attribute_nemomod_table))
+        dict_out.update(
+            self.format_nemomod_table_default_parameters(
+                attribute_nemomod_table = attribute_nemomod_table
+            )
+        )
         # OperationalLife and OperationalLifeStorage
         dict_out.update(
             self.format_nemomod_table_operational_life(
@@ -9011,6 +9197,7 @@ class ElectricEnergy:
         if df_reference_capacity_factor is not None:
             dict_out.update(
                 self.format_nemomod_table_capacity_factor(
+                    df_elec_trajectories,
                     df_reference_capacity_factor,
                     attribute_technology = attribute_technology,
                     attribute_region = attribute_region,
@@ -9199,6 +9386,7 @@ class ElectricEnergy:
 
         # make sure socioeconomic variables are added and
         df_elec_trajectories, df_se_internal_shared_variables = self.model_socioeconomic.project(df_elec_trajectories)
+        
         # check that all required fields are contained—assume that it is ordered by time period
         self.check_df_fields(df_elec_trajectories)
         dict_dims, df_elec_trajectories, n_projection_time_periods, projection_time_periods = self.model_attributes.check_projection_input_df(df_elec_trajectories, True, True, True)

@@ -1152,13 +1152,13 @@ def get_dimensional_values(
     # if list, return values
     if islistlike(keys_in):
         try:
-            values = [int(x) for x in keys_in]
+            values = [return_type(x) for x in keys_in]
         except Exception as e:
             raise RuntimeError(f"Error converting elements to integer in get_dimensional_values(): {e}")
         return values
     
     # if passing an integer, return integer in a list
-    if isinstance(keys_in, return_type):
+    if isinstance(keys_in, return_type) & (return_type != str):
         return [keys_in]
 
     # otherwise, return none

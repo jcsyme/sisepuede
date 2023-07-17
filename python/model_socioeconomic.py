@@ -205,6 +205,7 @@ class Socioeconomic:
         """
 
         self.modvar_gnrl_area = "Area of Country"
+        self.modvar_gnrl_climate_change_hydropower_availability = "Climate Change Factor for Average Hydropower Availability"
         self.modvar_gnrl_elasticity_occrate_to_gdppc = "Elasticity National Occupation Rate to GDP Per Capita"
         self.modvar_gnrl_emission_limit_ch4 = ":math:\\text{CH}_4 Annual Emission Limit"
         self.modvar_gnrl_emission_limit_co2 = ":math:\\text{CO}_2 Annual Emission Limit"
