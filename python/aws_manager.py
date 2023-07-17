@@ -596,10 +596,13 @@ class AWSManager:
         regions = sc.Regions(model_attributes)
 
         # set some fields for output fields
-        field_launch_index = "launch_index"
         field_instance_id = "instance_id"
-        field_random_seed = "random_seed"
         field_ip_address = "ip_address"
+        field_launch_index = "launch_index"
+        field_n_launch_tries = "n_launch_tries"
+        field_random_seed = "random_seed"
+        
+        
 
 
         ##  SOME EXPERIMENTAL PROPERTIES
@@ -611,10 +614,11 @@ class AWSManager:
         ##  SET PROPERTIES
 
         self.dict_dims_to_docker_flags = dict_dims_to_docker_flags
-        self.field_launch_index = field_launch_index
         self.field_instance_id = field_instance_id
-        self.field_random_seed = field_random_seed
         self.field_ip_address = field_ip_address
+        self.field_launch_index = field_launch_index
+        self.field_n_launch_tries = field_n_launch_tries
+        self.field_random_seed = field_random_seed
         self.file_struct = sisepuede.file_struct
         self.flag_key_database_type = flag_key_database_type
         self.flag_key_id = flag_key_id
@@ -3209,7 +3213,7 @@ class AWSManager:
 
             query_repair = self.build_athena_query_repair_table(k)
             response_repair = self.exec_query(
-                response_repair,
+                query_repair,
                 self.get_s3_path_query_output(f"repair_{v}"),
                 log_msg_supplement = " MSCK REPAIR TABLE",
             )   
@@ -3275,6 +3279,7 @@ class AWSManager:
 
 
     def get_design_splits_by_launch_index(self,
+        ind_base: Union[int, None] = None,
         max_n_instances: Union[int, None] = None,
         primary_keys: Union[Dict[str, int], List[int], None] = None,
         regions: Union[List[str], str, None] = None,
@@ -3293,12 +3298,13 @@ class AWSManager:
 
         Function Arguments
         ------------------
-        - max_n_instances: maximum number of instances to spawn
-        - primary_keys: dictionary of key dimensions to dimensional values 
-            (collapsed using AND logic) OR list of primary key indices
 
         Keyword Arguments
         -----------------
+        - ind_base: base index to use for launching instances
+        - max_n_instances: maximum number of instances to spawn
+        - primary_keys: dictionary of key dimensions to dimensional values 
+            (collapsed using AND logic) OR list of primary key indices
         - regions: optional regions to specify. Must be defined in 
             configuration.
         """
@@ -3333,7 +3339,12 @@ class AWSManager:
 
         ##  SECONDARY INIT (POST FILTERING WITH return_non)
         
-        dict_launch_index = self.get_region_groups(regions, max_n_instances, primary_keys)
+        dict_launch_index = self.get_region_groups(
+            regions, 
+            max_n_instances, 
+            primary_keys,
+            ind_launch_base = ind_base,
+        )
         
         
         return dict_launch_index
@@ -3553,6 +3564,7 @@ class AWSManager:
         regions: List[str],
         max_n_instances: int,
         primary_keys: List[int],
+        ind_launch_base: int = 0,
     ) -> Dict[int, Tuple]:
         """
         Get groups of regions for instances. Returns a dictionary that maps a
@@ -3573,10 +3585,16 @@ class AWSManager:
         ------------------
         - regions: list of regions to split
         - max_n_instances: maximum number of instances to spawn
-        - primary_keys: list of primary keys that will be reun
+        - primary_keys: list of primary keys that will be run
+
+        Keyword Arguments
+        -----------------
+        - ind_launch_base: starting index for the launch
         """
         # some initialization
         n_primary_keys = len(primary_keys)
+        ind_launch_base = 0 if not sf.isnumber(ind_launch_base) else ind_launch_base
+        ind_launch_base = max(ind_launch_base, 0)
 
         # set number of instances
         n_regions = len(regions)
@@ -3597,12 +3615,12 @@ class AWSManager:
         random.shuffle(regions_shuffled)
 
         ind_extra_regions = 0
-        ind_base = 0
+        ind_range = 0
 
         for i in range(min(n_regions, n_instances)):
 
-            ind_0 = ind_base
-            ind_1 = ind_base + base_n_regions_per_instance
+            ind_0 = ind_range
+            ind_1 = ind_range + base_n_regions_per_instance
             ind_1 += int(ind_extra_regions < n_instances_w_extra_region)
 
             ind_extra_regions += 1
@@ -3612,7 +3630,7 @@ class AWSManager:
             dict_region_groups.update({i: grp})
 
             # update base
-            ind_base = ind_1
+            ind_range = ind_1
 
         n_region_groups = len(dict_region_groups)
 
@@ -3633,7 +3651,7 @@ class AWSManager:
         # iterate to assign
         dict_launch_index = {}
         ind_extra_instance = 0
-        ind_launch_index = 0
+        ind_launch_index = ind_launch_base#0
 
         for i, k in enumerate(assignment_queue):
             # get the 
@@ -3690,7 +3708,8 @@ class AWSManager:
         delim: str = ",",
         dict_launcher: Union[Dict[int, Tuple[List[str], List[int]]], None] = None,
         launch: bool = True,
-        setup_database: bool = True,
+        setup_database: bool = False,
+        try_number: int = 1,
         **kwargs
     ) -> Tuple[pd.DataFrame, Dict]:
         """
@@ -3706,6 +3725,9 @@ class AWSManager:
             self.get_design_splits_by_launch_index())
         - launch: set to False to return random seeds and launch index 
             dictionary
+        - setup_database: set up the Athena database? 
+            NOTE: The repair query has to be launched completion even if True
+        - try_number: pass the try number for this scenario
         - **kwargs: passed to AWSManager.execute_create_table_athena_query()
         """
         
@@ -3731,7 +3753,8 @@ class AWSManager:
             self.key_region,
             self.key_primary,
             self.field_random_seed,
-            self.field_ip_address
+            self.field_ip_address,
+            self.field_n_launch_tries
         ]
         
         dict_ud = {}
@@ -3778,7 +3801,8 @@ class AWSManager:
                     delim.join(spec_tuple[0]),
                     delim.join([str(x) for x in spec_tuple[1]]),
                     random_seed,
-                    info.get("PrivateIpAddress")
+                    info.get("PrivateIpAddress"),
+                    try_number
                 ]
                 
                 df_run_information.append(row)

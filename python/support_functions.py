@@ -2252,6 +2252,25 @@ def str_replace(
 
 
 
+def str_split(
+    x: str, 
+    delim: str = ",",
+    return_type: type = str,
+):
+    """
+    Split string x using delimiter delim. Tries to return return_type. Useful
+        for applying to DataFrames.
+    """
+    out = x.split(delim)
+    try:
+        out = [return_type(y) for y in out]
+    except Exception as e:
+        None
+
+    return out
+
+
+
 def subset_df(
     df: pd.DataFrame,
     dict_in: Union[Dict[str, List], None]
