@@ -483,6 +483,33 @@ class TransformationsAFOLU:
         )
         all_transformations.append(self.af_all_with_partial_reallocation)
 
+
+        self.af_all_with_deforestation_and_partial_reallocation = sc.Transformation(
+            "AF:ALL_NO_STOPPING_DEFORESTATION_PLUR", 
+            [
+                #self.transformation_agrc_decrease_exports,
+                self.transformation_agrc_expand_conservation_agriculture,
+                self.transformation_agrc_improve_rice_management,
+                self.transformation_agrc_increase_crop_productivity,
+                self.transformation_agrc_reduce_supply_chain_losses,
+                # self.transformation_lndu_integrated_transitions replaces:
+                self.transformation_lndu_expand_silvopasture,
+                #   self.transformation_frst_stop_deforestation
+                self.transformation_lndu_reallocate_land,
+                self.transformation_lsmm_improve_manure_management_cattle_pigs,
+                self.transformation_lsmm_improve_manure_management_other,
+                self.transformation_lsmm_improve_manure_management_poultry,
+                self.transformation_lsmm_increase_biogas_capture,
+                self.transformation_lvst_decrease_exports,
+                self.transformation_lvst_increase_productivity,
+                self.transformation_lvst_reduce_enteric_fermentation,
+                self.transformation_soil_reduce_excess_fertilizer,
+                self.transformation_soil_reduce_excess_lime
+            ],
+            attr_strategy
+        )
+        all_transformations.append(self.af_all_with_deforestation_and_partial_reallocation)
+
         """
         self.af_all_no_lvst_export_reduction_with_partial_reallocation = sc.Transformation(
             "AF:ALL_NO_LVST_EXPORT_REDUCTION_PLUR", 

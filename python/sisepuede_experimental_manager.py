@@ -373,11 +373,13 @@ class SISEPUEDEExperimentalManager:
 		"""
 
 		self._log("Initializing FutureTrajectories", type_log = "info")
-
+		
 		self.dict_future_trajectories = {}
 		self.dict_n_factors = {}
+		self.dict_n_factors_varying = {}
 		self.dict_n_factors_l = {}
 		self.dict_n_factors_x = {}
+		self.dict_sampling_units_varying = {}
 
 		drop_regions = []
 
@@ -414,12 +416,39 @@ class SISEPUEDEExperimentalManager:
 				self.dict_future_trajectories.update({
 					region: future_trajectories_cur
 				})
-				self.dict_n_factors.update({
-					region: len(future_trajectories_cur.all_sampling_units)
+
+				
+				##  GET SOME NUMBERS OF FACTORS ETC.
+
+				# set the number of factors to sample
+				n_factors = len(future_trajectories_cur.all_sampling_units_l)
+				n_factors += len(future_trajectories_cur.all_sampling_units_x)
+
+				# all baseline varying (allows for levers as well)
+				sampling_units_varying_x = [
+					k for k, v in future_trajectories_cur.dict_sampling_units.items()
+					if v.x_varies
+				]
+				n_factors_varying = len(sampling_units_varying_x)
+
+
+				# assign sampling units
+				self.dict_sampling_units_varying.update({
+					region: sampling_units_varying_x
 				})
+				# total number of factors
+				self.dict_n_factors.update({
+					region: n_factors
+				})
+				# number of factors that vary as exogenous uncertainties (can include baselines for strategies) 
+				self.dict_n_factors_varying.update({
+					region: n_factors_varying
+				})
+				# number of L(ever) factors
 				self.dict_n_factors_l.update({
 					region: len(future_trajectories_cur.all_sampling_units_l)
 				})
+				# number of (e)X(ogenous uncertainties)
 				self.dict_n_factors_x.update({
 					region: len(future_trajectories_cur.all_sampling_units_x)
 				})
@@ -427,8 +456,14 @@ class SISEPUEDEExperimentalManager:
 				self._log(f"\tFutureTrajectories for '{region_print}' complete.", type_log = "info")
 
 			except Exception as e:
-				self._log(f"Error initializing FutureTrajectories for region {region_print} -- {e}.", type_log = "error")
-				self._log(f"Dropping region '{region_print}' due to error in FutureTrajectories initialization.", type_log = "warning")
+				self._log(
+					f"Error initializing FutureTrajectories for region {region_print} -- {e}.", 
+					type_log = "error"
+				)
+				self._log(
+					f"Dropping region '{region_print}' due to error in FutureTrajectories initialization.", 
+					type_log = "warning"
+				)
 				drop_regions.append(region)
 
 		# update regions if necessary
@@ -468,20 +503,21 @@ class SISEPUEDEExperimentalManager:
 			region_print = self.get_output_region(region)
 
 			try:
-
+				
+				fields_factors_x = self.dict_sampling_units_varying.get(region)
 				future_trajectories_cur = self.dict_future_trajectories.get(region)
-				n_factors = self.dict_n_factors.get(region)
+				n_factors_varying = self.dict_n_factors_varying.get(region)
 				n_factors_l = self.dict_n_factors_l.get(region)
 
 				lhs_design_cur = LHSDesign(
 					self.attribute_design,
 					self.key_future,
 					n_factors_l = n_factors_l,
-					n_factors_x = n_factors,
+					n_factors_x = n_factors_varying,
 					n_trials = self.n_trials,
 					random_seed = self.random_seed,
 					fields_factors_l = future_trajectories_cur.all_sampling_units_l,
-					fields_factors_x = future_trajectories_cur.all_sampling_units,
+					fields_factors_x = fields_factors_x,#future_trajectories_cur.all_sampling_units,
 					logger = self.logger
 				)
 
@@ -489,7 +525,11 @@ class SISEPUEDEExperimentalManager:
 					region: lhs_design_cur
 				})
 
-				self.vector_lhs_key_values = lhs_design_cur.vector_lhs_key_values if (self.vector_lhs_key_values is None) else self.vector_lhs_key_values
+				self.vector_lhs_key_values = (
+					lhs_design_cur.vector_lhs_key_values 
+					if (self.vector_lhs_key_values is None) 
+					else self.vector_lhs_key_values
+				)
 
 				self._log(f"\tLHSDesign for region '{region_print}' complete.", type_log = "info")
 

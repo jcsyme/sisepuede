@@ -725,6 +725,7 @@ class TransformationsIntegrated:
 
         # break out before adding AFOLU so that w & w/o reallocation can be sent to different transformations
         function_list_plur = function_list.copy()
+        function_list_plur_no_deforestation_stoppage = function_list.copy()
         function_list += self.transformations_afolu.af_all.function_list.copy()
 
         self.pflo_all = sc.Transformation(
@@ -752,9 +753,26 @@ class TransformationsIntegrated:
         all_transformations.append(self.pflo_all_with_partial_reallocation)
 
 
-        ##  PROVIDE ONE W/O LVST EXPORTS
-        
+        ##  PROVIDE ALL W/O PREVENTING DEFORESTATION
+
+        function_list_plur_no_deforestation_stoppage += (
+            self.transformations_afolu
+            .af_all_with_deforestation_and_partial_reallocation
+            .function_list
+            .copy()
+        )
+
+        self.pflo_all_with_deforestation_and_partial_reallocation = sc.Transformation(
+            "PFLO:ALL_NO_STOPPING_DEFORESTATION_PLUR", 
+            function_list_plur_no_deforestation_stoppage, 
+            attr_strategy
+        )
+        all_transformations.append(self.pflo_all_with_deforestation_and_partial_reallocation)
+
+
         """
+        ##  PROVIDE ONE W/O LVST EXPORTS
+
         # NOTE: would have to reinstantiate above if uncommenting
         function_list_plur_no_lvst_exp_reduction += (
             self.transformations_afolu

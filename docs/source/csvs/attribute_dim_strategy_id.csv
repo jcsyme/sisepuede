@@ -42,8 +42,9 @@
 1026,LVST: Reduce enteric fermentation,LVST:DEC_ENTERIC_FERMENTATION,0,Reduce enteric fermentation (20% in buffalo and cattle and 28% in goats and sheep)
 1027,SOIL: Improve fertilizer application,SOIL:DEC_N_APPLIED,0,Decrease total nitrogen applied to soils by 5% through more precise fertilizer use
 1028,SOIL: Improve lime application,SOIL:DEC_LIME_APPLIED,0,Decrease lime applied to soils by 5%
-1029,AF: All AFOLU transformations,AF:ALL,0,
-1030,AF: All AFOLU transformations with partial land use reallocation,AF:ALL_PLUR,0,
+1029,AF: All AFOLU transformations with partial land use reallocation and without stopping deforestation,AF:ALL_NO_STOPPING_DEFORESTATION_PLUR,0,
+1030,AF: All AFOLU transformations,AF:ALL,0,
+1031,AF: All AFOLU transformations with partial land use reallocation,AF:ALL_PLUR,0,
 2001,TRWW: All wastewater treatment transformations,TRWW:ALL,0,
 2002,TRWW: Increase biogas capture,TRWW:INC_CAPTURE_BIOGAS,0,
 2003,TRWW: Increase septic compliance,TRWW:INC_COMPLIANCE_SEPTIC,0,
@@ -137,5 +138,6 @@
 5004,PFLO: Change consumer behavior,PFLO:CHANGE_CONSUMPTION,0,Sweeping changes to consumer behavrior and social norms
 5005,PFLO: Industrial point of capture CCSQ,PFLO:IND_INC_CCS,0,Specifies point-of-capture carbon capture and sequestration in IPPU and INEN
 5006,PFLO: Supply side technologies and transformations,PFLO:SUPPLY_SIDE_TECH,0,Macro-scale transformations without consumer behavioral shifts
-5007,PFLO: All transformations,PFLO:ALL,0,All transformations
-5008,PFLO: All transformations with partial land use reallocation,PFLO:ALL_PLUR,0,All transformations
+5007,PFLO: All transformations without stopping deforestation and partial land use reallocation,PFLO:ALL_NO_STOPPING_DEFORESTATION_PLUR,0,All transformations and partial land use reallocation *except* for stopping deforestation.
+5008,PFLO: All transformations,PFLO:ALL,0,All transformations
+5009,PFLO: All transformations with partial land use reallocation,PFLO:ALL_PLUR,0,All transformations

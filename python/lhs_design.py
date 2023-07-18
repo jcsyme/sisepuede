@@ -11,38 +11,61 @@ from typing import *
 
 class LHSDesign:
 	"""
-	LHSDesign stores LHC sample tables for Xs and Ls, managing different designs based on a design_id attribute table
+	LHSDesign stores LHC sample tables for Xs and Ls, managing different designs 
+		based on a design_id attribute table
 
 	Initialization Arguments
 	------------------------
-	- attribute_design_id: AttributeTable containing information on the uncertainty design, including transformation parameters for assesseing uncertainties in lever (strategy) effects
+	- attribute_design_id: AttributeTable containing information on the 
+		uncertainty design, including transformation parameters for assesseing 
+		uncertainties in lever (strategy) effects
 	- field_lhs_key: field to use to as a key for indexing unique LHS trials
 
 	Keyword Arguments
 	------------------
-	The following arguments can be set at initialization and/or updated dynamically with LHSDesign._set_lhs_parameters():
-	- n_factors_l: optional number of factors associated with lever (strategy) uncertainties to set at initialization
-	- n_factors_x: optional number of factors associated with exogenous uncertainties to set at initialization
+	The following arguments can be set at initialization and/or updated 
+		dynamically with LHSDesign._set_lhs_parameters():
+	- n_factors_l: optional number of factors associated with lever (strategy) 
+		uncertainties to set at initialization
+	- n_factors_x: optional number of factors associated with exogenous 
+		uncertainties to set at initialization
 	- n_trials: optional number of trials to set at initialization
-	- random_seed: optional random seed to specify in generation of tables (sequentially increases by one for ach additional LHS table)
+	- random_seed: optional random seed to specify in generation of tables 
+		(sequentially increases by one for ach additional LHS table)
 
 	Additional arguments:
 	- default_return_type: governs output type for LHS arrays
 		* pd.DataFrame or np.ndarray
-	- field_transform_b: field in AttributeTable giving the value of `b` for each design_id
-	- field_transform_m: field in AttributeTable giving the value of `m` for each design_id
-	- field_transform_inf: field in AttributeTable giving the value of `inf` for each design_id
-	- field_transform_sup: field in AttributeTable giving the value of `sup` for each design_id
-	- field_vary_l: field in AttributeTable giving the binary value of whether or not to vary lever effects
-	- field_vary_x: field in AttributeTable giving the binary value of whether or not to vary exogenous uncertainties
-	- fields_factors_l: fields used to name factors associated with lever effects in LHS tables retrieved using LHSDesign.retrieve_lhs_tables_by_design()
-		* If None, defaults to numnerical ordering (i.e., 0, 1, 2, ... , n_factors_l - 1)
-	- fields_factors_x: fields used to name factors associated with exogenous uncertainties in LHS tables retrieved using self.retrieve_lhs_tables_by_design()
-		* If None, defaults to numnerical ordering (i.e., 0, 1, 2, ... , n_factors_x - 1)
+	- field_transform_b: field in AttributeTable giving the value of `b` for 
+		each design_id
+	- field_transform_m: field in AttributeTable giving the value of `m` for 
+		each design_id
+	- field_transform_inf: field in AttributeTable giving the value of `inf` 
+		for each design_id
+	- field_transform_sup: field in AttributeTable giving the value of `sup` 
+		for each design_id
+	- field_vary_l: field in AttributeTable giving the binary value of whether 
+		or not to vary lever effects
+	- field_vary_x: field in AttributeTable giving the binary value of whether 
+		or not to vary exogenous uncertainties
+	- fields_factors_l: fields used to name factors associated with lever 
+		effects in LHS tables retrieved using 
+		LHSDesign.retrieve_lhs_tables_by_design()
+		* If None, defaults to numnerical ordering 
+			(i.e., 0, 1, 2, ... , n_factors_l - 1)
+	- fields_factors_x: fields used to name factors associated with exogenous 
+		uncertainties in LHS tables retrieved using 
+		self.retrieve_lhs_tables_by_design()
+		* If None, defaults to numnerical ordering 
+			(i.e., 0, 1, 2, ... , n_factors_x - 1)
 
-		* NOTE for fields_factors_l and fields_factors_x: if n_factors_x is reset using LHSDesign._set_lhs_parameters(), then the associated fields_factors_# should also be updated. If not, the fields are reset to numerical indexing.
+		* NOTE for fields_factors_l and fields_factors_x: if n_factors_x is 
+			reset using LHSDesign._set_lhs_parameters(), then the associated 
+			fields_factors_# should also be updated. If not, the fields are 
+			reset to numerical indexing.
 
-	- ignore_trial_flag: flag in output LHS tables to use as a flag. Should be a negative float
+	- ignore_trial_flag: flag in output LHS tables to use as a flag. Should be 
+		a negative float
 	"""
 
 	def __init__(self,
@@ -192,7 +215,15 @@ class LHSDesign:
 						self.fields_factors_l = fields_factors_l
 						self._log(f"LHSDesign.fields_factors_l reset successful.", type_log = "info")
 					else:
-						self._log(f"Warning in _set_lhs_parameters(): the length of fields_factors_l did not match self.n_factors_l. Setting output fields_factors_l to default integer indexing.", type_log = "warning")
+						self._log(
+							f"""
+							Warning in _set_lhs_parameters(): the length of 
+							fields_factors_l did not match self.n_factors_l. 
+							Setting output fields_factors_l to default integer 
+							indexing.
+							""", 
+							type_log = "warning"
+						)
 			else:
 				self.fields_factors_l = None
 
@@ -214,7 +245,15 @@ class LHSDesign:
 						self.fields_factors_x = fields_factors_x
 						self._log(f"LHSDesign.fields_factors_x reset successful.", type_log = "info")
 					else:
-						self._log(f"Warning in _set_lhs_parameters(): the length of fields_factors_x did not match self.n_factors_x. Setting output fields_factors_x to default integer indexing.", type_log = "warning")
+						self._log(
+							f"""
+							Warning in _set_lhs_parameters(): the length of 
+							fields_factors_x did not match self.n_factors_x. 
+							Setting output fields_factors_x to default integer 
+							indexing.
+							""", 
+							type_log = "warning"
+						)
 			else:
 				self.fields_factors_x = None
 
@@ -241,6 +280,8 @@ class LHSDesign:
 
 		# refresh the LHS tables?
 		self._set_lhs_tables() if refresh_lhs else None
+
+		return None
 
 
 

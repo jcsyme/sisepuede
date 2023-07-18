@@ -38,6 +38,8 @@ class SamplingUnit:
 		(integer)
 	- field_variable_trajgroup_type: field used to identify the trajectory group
 		type (max, min, mix, or lhs)
+	- group: optional group specification for tracking collections of 
+		SamplingUnits
 	- key_strategy: field used to identify the strategy (int)
 		* This field is important as uncertainty in strategies is assessed
 			differently than uncetainty in other variables
@@ -64,12 +66,13 @@ class SamplingUnit:
 		field_variable_trajgroup: str = "variable_trajectory_group",
 		field_variable_trajgroup_type: str = "variable_trajectory_group_trajectory_type",
 		field_variable: str = "variable",
+		group: Union[int, None] = None,
 		key_strategy: str = "strategy_id",
 		missing_trajgroup_flag: int = -999,
 		regex_id: re.Pattern = re.compile("(\D*)_id$"),
 		regex_max: re.Pattern = re.compile("max_(\d*$)"),
 		regex_min: re.Pattern = re.compile("min_(\d*$)"),
-		regex_tp: re.Pattern = re.compile("(\d*$)")
+		regex_tp: re.Pattern = re.compile("(\d*$)"),
 	):
 
 		# perform initializations
@@ -91,6 +94,9 @@ class SamplingUnit:
 			regex_min,
 			regex_tp,
 			check_duplicates = check_duplicates_in_variable_definition
+		)
+		self._initialize_properties(
+			group = group,
 		)
 		self._initialize_uncertainty_functional_form(fan_function_specification)
 		self._initialize_scenario_variables(dict_baseline_ids)
@@ -148,7 +154,7 @@ class SamplingUnit:
 
 	def _initialize_time_start_uncertainty(self,
 		t0: int
-	) -> int:
+	) -> None:
 		"""
 		Initialize the following properties:
 
@@ -159,6 +165,8 @@ class SamplingUnit:
 		- t0: input integer secifying start time for uncertainty
 		"""
 		self.time_period_end_certainty = max(t0, 1)
+
+		return None
 
 
 
@@ -392,9 +400,9 @@ class SamplingUnit:
 		df_in:Union[pd.DataFrame, None] = None
 	) -> Tuple[str, str, int]:
 		"""
-		Determine final time period (tp_final) as well as the fields associated with the minimum
-			and maximum scalars (field_min/field_max) using input template df_in. Returns a tuple
-			with the following elements:
+		Determine final time period (tp_final) as well as the fields associated 
+			with the minimum and maximum scalars (field_min/field_max) using 
+			input template df_in. Returns a tuple with the following elements:
 
 			* field_min
 			* field_max
@@ -404,8 +412,8 @@ class SamplingUnit:
 		------------------
 		- regex_max: re.Pattern (compiled regular expression) used to match the
 			field storing the maximum scalar values at the final time period
-		- regex_min: re.Pattern used to match the field storing the minimum scalar
-			values at the final time period
+		- regex_min: re.Pattern used to match the field storing the minimum 
+			scalar values at the final time period
 
 		Keyword Arguments
 		-----------------
@@ -582,14 +590,17 @@ class SamplingUnit:
 		"""
 
 		df_in = self.df_variable_definitions if (df_in is None) else df_in
-
 		if not self.field_variable_trajgroup in df_in.columns:
 			raise ValueError(f"Field '{self.field_variable_trajgroup}' not found in data frame.")
-		# determine if this is associated with a trajectory group
-		if len(df_in[df_in[self.field_variable_trajgroup] > self.missing_trajgroup_flag]) > 0:
-			return int(list(df_in[self.field_variable_trajgroup].unique())[0])
-		else:
-			return None
+
+		# determine if this is associated with a trajectory group		
+		out = (
+			int(list(df_in[self.field_variable_trajgroup].unique())[0])
+			if len(df_in[df_in[self.field_variable_trajgroup] > self.missing_trajgroup_flag]) > 0
+			else None
+		)
+
+		return out
 
 
 
@@ -662,7 +673,7 @@ class SamplingUnit:
 
 		self.df_variable_definitions = self.check_input_data_frame(
 			df_variable_definition,
-			drop_duplicates = check_duplicates
+			drop_duplicates = check_duplicates,
 		)
 
 		self.fields_id = self.get_id_fields(regex_id)
@@ -678,7 +689,7 @@ class SamplingUnit:
 		self.variable_trajectory_group_vary_q = self.get_trajgroup_vary_q()
 
 		return None
-
+ 
 
 
 	def _initialize_base_fields_and_keys(self,
@@ -1235,6 +1246,50 @@ class SamplingUnit:
 		self.xl_type = type_out
 
 		return None
+	
+
+
+	def _initialize_properties(self,
+		group: Union[int, None] = None,
+	) -> None:
+		"""
+		Initialize properties definining whether or not the trajectory can vary
+			with LHS trials or uncertainty assessment. Sets the following
+			properties:
+
+			* self.group
+			* self.x_varies
+
+		Keyword Arguments
+		-----------------
+		- group: optional group id to use for tracking collections of sampling 
+			units 
+		"""
+
+		# check whether or not there will be variation
+		df = self.df_variable_definitions
+		field_max = self.field_max_scalar
+		field_min = self.field_max_scalar
+
+		s_max = set(df[field_max].astype(float))
+		s_min = set(df[field_min].astype(float))
+		x_varies = not (
+			len(df[[field_max, field_min]].drop_duplicates()) == 1
+			& (s_max == s_min)
+			& (s_max == set({1.0}))
+		)
+
+		# check the group specification
+		group = int(group) if sf.isnumber(group) else None
+
+
+		##  SET PROPERTIES
+		
+		self.group = group
+		self.x_varies = x_varies
+
+		return None
+
 
 
 
@@ -1670,6 +1725,7 @@ class FutureTrajectories:
 		# dictionary of baseline ids and fan function
 		self.dict_baseline_ids = dict_baseline_ids
 		self.fan_function_specification = fan_function_specification
+
 		# set default fields
 		self.key_future = key_future
 		self.field_sample_unit_group = field_sample_unit_group
@@ -1680,10 +1736,13 @@ class FutureTrajectories:
 		self.field_variable = field_variable
 		self.field_variable_trajgroup = field_variable_trajgroup
 		self.field_variable_trajgroup_type = field_variable_trajgroup_type
+
 		# logging.Logger
 		self.logger = logger
+
 		# missing values flag
 		self.missing_flag_int = -999
+
 		# default regular expressions
 		self.regex_id = regex_id
 		self.regex_max = regex_max
@@ -1693,10 +1752,12 @@ class FutureTrajectories:
 		self.regex_trajmax = regex_trajmax
 		self.regex_trajmin = regex_trajmin
 		self.regex_trajmix = regex_trajmix
+
 		# some default internal specifications used in templates
 		self.specification_tgt_lhs = specification_tgt_lhs
 		self.specification_tgt_max = specification_tgt_max
 		self.specification_tgt_min = specification_tgt_min
+
 		# first period with uncertainty
 		self.time_period_u0 = time_period_u0
 
@@ -1785,22 +1846,43 @@ class FutureTrajectories:
 		"""
 		Determine X/L sampling units--sets three properties:
 
-		- all_sampling_units_l
-		- all_sampling_units_x
-		- dict_sampling_unit_to_xl_type
+			* self.all_sampling_units_l
+			* self.all_sampling_units_x
+			* self.dict_sampling_unit_to_xl_type
+
+		NOTE: any sampling units that *do not vary* are ignored and do not end
+			up being assigned to all_sampling_units_x or all_sampling_units_l
 		"""
 		all_sampling_units_l = []
 		all_sampling_units_x = []
 		dict_sampling_unit_to_xl_type = {}
 
-		for k in self.dict_sampling_units.keys():
-			xl_type = self.dict_sampling_units.get(k).xl_type
+		for k, samp in self.dict_sampling_units.items():
+			xl_type = samp.xl_type
+			x_varies = samp.x_varies
+
 			dict_sampling_unit_to_xl_type.update({k: xl_type})
-			all_sampling_units_x.append(k) if (xl_type == "X") else all_sampling_units_l.append(k)
+			
+			(
+				all_sampling_units_x.append(k) 
+				if (xl_type == "X") & x_varies
+				else None
+			)
+
+			(	
+			 all_sampling_units_l.append(k)
+			 if (xl_type == "L")
+			 else None
+			)
+
+
+		##  SET PROPERTIES
 
 		self.all_sampling_units_l = all_sampling_units_l
 		self.all_sampling_units_x = all_sampling_units_x
 		self.dict_sampling_unit_to_xl_type = dict_sampling_unit_to_xl_type
+
+		return None
 
 
 
@@ -1968,9 +2050,20 @@ class FutureTrajectories:
 			k, su = k
 			samp = self.dict_sampling_units.get(su)
 
-			if samp is not None:
+			# some skipping conditions
+			if samp is None:
+				continue
 
-				# get LHC samples for X and L
+			if (not samp.x_varies) & (samp.xl_type == "X"):
+				# if the sampling unit doesn't vary as X, return baseline future
+				dict_fut = samp.generate_future(
+					None,
+					None,
+					baseline_future_q = True,
+				)
+
+			else:
+				# get LHC samples for X and L HEREHERE
 				lhs_x = self.get_df_row_element(df_row_lhc_sample_x, su)
 				lhs_l = self.get_df_row_element(df_row_lhc_sample_l, su, 1.0)
 
@@ -1981,18 +2074,18 @@ class FutureTrajectories:
 					baseline_future_q = baseline_future_q
 				)
 
-				dict_df.update(
-					dict((key, value.flatten()) for key, value in dict_fut.items())
-				)
+			dict_df.update(
+				dict((key, value.flatten()) for key, value in dict_fut.items())
+			)
 
-				# initialize indexing if necessary
-				if len(df_out) == 0:
-					dict_fields = None if (future_id is None) else {self.key_future: future_id}
-					df_out.append(
-						samp.generate_indexing_data_frame(
-							dict_additional_fields = dict_fields
-						)
+			# initialize indexing if necessary
+			if len(df_out) == 0:
+				dict_fields = None if (future_id is None) else {self.key_future: future_id}
+				df_out.append(
+					samp.generate_indexing_data_frame(
+						dict_additional_fields = dict_fields
 					)
+				)
 
 		df_out.append(pd.DataFrame(dict_df))
 		df_out = pd.concat(df_out, axis = 1).reset_index(drop = True)
@@ -2233,7 +2326,7 @@ class FutureTrajectories:
 			the dataframe, then an error will occur.
 
 		Keword Arguments
-		-----------------
+		----------------
 		- df_in: input database used to identify sampling units. Must include
 			self.field_sample_unit_group
 		- dict_all_dims: optional dictionary to pass that contains dimensions.
@@ -2244,7 +2337,7 @@ class FutureTrajectories:
 		- fan_function: function specification to use for uncertainty fans
 		- **kwargs: passed to SamplingUnit initialization
 		"""
-
+#HEREHERE
 		# get some defaults
 		df_in = self.input_database if (df_in is None) else df_in
 		fan_function = self.fan_function_specification if (fan_function is None) else fan_function
@@ -2268,6 +2361,7 @@ class FutureTrajectories:
 
 		dfgroup_sg = df_in.drop_duplicates().groupby(self.field_sample_unit_group)
 		all_sample_groups = sorted(list(set(df_in[self.field_sample_unit_group])))
+
 		n_sg = len(dfgroup_sg)
 		if isinstance(dict_all_dims, dict):
 			dict_all_dims = dict((k, v) for k, v in dict_all_dims.items() if k in self.dict_baseline_ids.keys())
@@ -2285,7 +2379,14 @@ class FutureTrajectories:
 			sg = int(df_sg[self.field_sample_unit_group].iloc[0])
 
 			# fill in missing values from baseline if dims are missing in input database
-			df_sg = self.clean_sampling_unit_input_df(df_sg, dict_all_dims = dict_all_dims) if (dict_all_dims is not None) else df_sg
+			df_sg = (
+				self.clean_sampling_unit_input_df(
+					df_sg, 
+					dict_all_dims = dict_all_dims
+				) 
+				if (dict_all_dims is not None) 
+				else df_sg
+			)
 
 			samp = SamplingUnit(
 				df_sg.drop(self.field_sample_unit_group, axis = 1),
@@ -2299,6 +2400,7 @@ class FutureTrajectories:
 				field_variable_trajgroup = field_variable_trajgroup,
 				field_variable_trajgroup_type = field_variable_trajgroup_type,
 				field_variable = field_variable,
+				group = sg,
 				key_strategy = key_strategy,
 				missing_trajgroup_flag = self.missing_flag_int,
 				regex_id = regex_id,
@@ -2307,7 +2409,13 @@ class FutureTrajectories:
 				regex_tp = regex_tp
 			)
 
-			dict_sampling_units = dict(zip(all_sample_groups, [samp for x in range(n_sg)])) if (i == 0) else dict_sampling_units
+			
+			# update sampling unit dictionary
+			dict_sampling_units = (
+				dict(zip(all_sample_groups, [samp for x in range(n_sg)])) 
+				if (i == 0) 
+				else dict_sampling_units
+			)
 			dict_sampling_units.update({sg: samp})
 
 			self._log(f"Iteration {i} complete.", type_log = "info") if (i%250 == 0) else None
@@ -2315,6 +2423,11 @@ class FutureTrajectories:
 		t_elapse = sf.get_time_elapsed(t0)
 		self._log(f"\t{n_sg} sampling units complete in {t_elapse} seconds.", type_log = "info")
 
+
+		##  SET PROPERTIES
+
 		self.n_su = n_sg
 		self.all_sampling_units = all_sample_groups
 		self.dict_sampling_units = dict_sampling_units
+
+		return None
