@@ -740,6 +740,7 @@ class AWSManager:
 
             * self.athena_database
             * self.athena_partitions_ordered
+            * self.athena_reponse_key_exec_id
             * self.aws_dict_tags
             * self.aws_url_instance_id_metadata
             * self.ec2_image
@@ -768,6 +769,7 @@ class AWSManager:
         # athena properties
         self.athena_database = self.config.get("aws_athena.database")
         self.athena_partitions_ordered = partitions_ordered
+        self.athena_reponse_key_exec_id = "QueryExecutionId"
 
         # EC2 properties
         self.ec2_image = self.config.get("aws_ec2.database")
@@ -3141,9 +3143,104 @@ class AWSManager:
     
 
 
+    def check_queries_success(self,
+        execution_ids: Union[List[str], str],
+        max_execution: int = 10,
+        return_single_val_on_str: bool = True,
+        sleep_time: int = 5,
+        state_queued: str = "QUEUED",
+        state_running: str = "RUNNING",
+        state_succeeded: str = "SUCCEEDED",
+    ) -> Dict[str, bool]:
+        """
+        Check whether or not a query has succeeded. Will use thread.sleep to 
+            occupy, at most, sleep_time*max_execution seconds. Adapted from 
+            
+            https://www.learnaws.org/2022/01/16/aws-athena-boto3-guide/#how-to-create-a-new-database-in-athena
+        
+        Function Arguments
+        ------------------
+        - execution_ids: list of execution ids to check or a single execution id
+        
+        Keyword Arguments
+        -----------------
+        - max_execution: maximum number of times to check
+        - return_single_val_on_str: if execution_ids is a string (singleton), 
+            return only the value?
+        - sleep_time: time to sleep (in seconds) while waiting for status 
+            updates
+        - state_queued: AWS state returned if query is queued
+        - state_running: AWS state returned if query is running
+        - state_succeeded: AWS state returned if query succeeeded
+        """
+        
+        exec_ids_entered_as_str = isinstance(execution_ids, str) 
+        
+        # check execution ids
+        execution_ids = (
+            [execution_ids] 
+            if exec_ids_entered_as_str
+            else execution_ids
+        )
+        execution_ids = (
+            execution_ids 
+            if sf.islistlike(execution_ids) 
+            else None
+        )
+        return_none = execution_ids is None
+        
+        # check max execution
+        return_none = not isinstance(return_none, int)
+        if return_none:
+            return None
+        
+        
+        # initialize states
+        dict_states = {}
+        for x in execution_ids:
+            state_cur = self.get_query_state(x)
+            dict_states.update({x: state_cur})
+
+        all_states = set(dict_states.values())
+        states_continue = set({state_running, state_queued})
+        ind_iter = 0
+        
+        while (ind_iter < max_execution) & (len(all_states & states_continue) > 0):
+            
+            ind_iter += 1
+            
+            for exec_id, state in dict_states.items():
+                
+                if state == state_succeeded:
+                    continue
+                
+                state_cur = self.get_query_state(exec_id)
+                dict_states.update({exec_id: state_cur})
+            
+            all_states = set(dict_states.values())
+
+            time.sleep(sleep_time)
+            
+            
+        # return bools - if entered as a string originally, the dict will have length one
+        out = dict(
+            (x, (dict_states.get(x) == state_succeeded))
+            for x in execution_ids
+        )
+        out = (
+            list(out.values())[0]
+            if exec_ids_entered_as_str
+            else out
+        )
+
+        return out
+    
+
+
     def execute_create_table_athena_query(self,
         fields_data_integer: Union[List[str], None] = None,
         s3p_out: Union[str, None] = None,
+        **kwargs
     ) -> Dict:
         """
         Execute an athena create table query based on the model id. Returns
@@ -3157,6 +3254,7 @@ class AWSManager:
         - fields_data_integer: optional data fields to store as integer instead 
             of float
         - s3p_out: path on s3 containing output database information
+        - **kwargs: passed to self.check_queries_success
         """
         
         ##  SOME INITIALIZATION
@@ -3178,6 +3276,7 @@ class AWSManager:
         # build queries
         for k, v in dict_table_to_schema_type.items():
             
+            dict_query_info.update({v: {}})
             response_create = None
             response_repair = None
             
@@ -3201,8 +3300,20 @@ class AWSManager:
             if response_create is None:
                 continue
 
-            # log the success
-            qe_id = response_create.get("QueryExecutionId")
+            # check the creation query
+            qe_id = response_create.get(self.athena_reponse_key_exec_id)
+            success = self.check_queries_success(qe_id, **kwargs)
+
+            # log the outcome and update output and update the output dictionary
+            if not success:
+                self._log(
+                    f"CREATE TABLE {k} with QueryExecutionId {qe_id} has not successfully completed in time allotted for checking. Skipping repair query.",
+                    type_log = "info",
+                )
+                continue
+            
+            # update the output
+            dict_query_info[v].update({"create": (query_create, qe_id)})
             self._log(
                 f"Successfully executed CREATE TABLE {k} with QueryExecutionId {qe_id}",
                 type_log = "info",
@@ -3219,23 +3330,24 @@ class AWSManager:
             )   
             if response_repair is None:
                 continue
-        
-            # log the success
-            qe_id = response_repair.get("QueryExecutionId")
+
+            # check the creation query
+            qe_id = response_repair.get(self.athena_reponse_key_exec_id)
+            success = self.check_queries_success(qe_id, **kwargs)
+
+            # log the outcome and update output and update the output dictionary
+            if not success:
+                self._log(
+                    f"MSCK REPAIR TABLE {k} with QueryExecutionId {qe_id} has not successfully completed in time allotted for checking.",
+                    type_log = "info",
+                )
+                continue
+            
+            # update the output
+            dict_query_info[v].update({"repair": (query_repair, qe_id)})
             self._log(
                 f"Successfully executed MSCK REPAIR TABLE {k} with QueryExecutionId {qe_id}",
                 type_log = "info",
-            )
-
-            
-            # add queries to dictionary
-            dict_query_info.update(
-                {
-                    v: {
-                        "create": (query_create, response_create),
-                        "repair": (query_repair, response_repair),
-                    }
-                }
             )
 
 
@@ -3470,6 +3582,44 @@ class AWSManager:
         )
 
         return n_instances
+    
+
+
+    def get_query_state(self,
+        exec_id: str,
+        client: Union[boto3.client, None] = None,
+    ) -> Union[str, None]:
+        """
+        Get the state of a query with execution id exec_id
+        """
+
+        client = (
+            self.client_athena
+            if client is None
+            else client
+        )
+        
+        response = client.get_query_execution(
+            QueryExecutionId = exec_id
+        )
+
+        query_exec = (
+            response.get("QueryExecution")
+            if isinstance(response, dict)
+            else None
+        )
+        query_exec = (
+            query_exec.get("Status")
+            if isinstance(query_exec, dict)
+            else None
+        )
+        state_cur = (
+            query_exec.get("State")
+            if isinstance(query_exec, dict)
+            else None
+        )
+        
+        return state_cur
     
 
 
