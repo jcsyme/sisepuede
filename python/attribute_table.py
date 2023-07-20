@@ -193,6 +193,20 @@ class AttributeTable:
 
         return out
 
+    
+
+    def to_csv(self,
+        *args,
+        **kwargs,
+    ) -> None:
+        """
+        Write the attribute table to csv
+        """
+
+        self.table.to_csv(*args, **kwargs)
+
+        return None
+
 
 
 

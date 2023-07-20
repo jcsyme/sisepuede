@@ -257,13 +257,19 @@ class AWSManager:
     ########################
 
     def build_s3_query_output_file_names(self,
+        table_name_composite_default: str = "composite",
     ) -> Dict:
         """
         Return a dictionary of file names for query result files. Returns a 
             dictionary mapping types to file names
+
+        Keyword Arguments
+        -----------------
+        - table_name_composite_default: default table name
         """
 
         valid_types = [
+            "composite",
             "create_input",
             "create_output",
             "input",
@@ -286,14 +292,25 @@ class AWSManager:
             (x, x) for x in valid_types
         )
 
+        # update with tables from SISEPUEDE
         for key in keys_modify:
             table_name = self.dict_input_output_to_table_names.get(key)
             if table_name is None:
                 continue
 
             table_name = f"{table_name}{appendage_table_name}"
-
             dict_fbn.update({key: table_name.lower()})
+
+
+        # add in composite query
+        table_name_composite = self.config.get("aws_athena.filename_composite_query")
+        table_name_composite = (
+            table_name_composite_default 
+            if table_name_composite is None
+            else table_name_composite
+        )
+
+        dict_fbn.update({"composite": table_name_composite})
 
         return dict_fbn
 
@@ -2686,6 +2703,46 @@ class AWSManager:
     ###                            ###
     ##################################
 
+    def build_athena_sql_query_component_primary_keys_all(self,
+        delim: str = ",",
+        table_base: str = "output",
+    ) -> Union[str, Dict[str, str]]:
+        """
+        Using a list of SISEPUEDE fields, setup the retrieval queries.
+
+        Function Arguments
+        ------------------
+
+        Keyword Arguments
+        -----------------
+        - delim: delimiter used in fields_retrieve if specified as string
+        - table_base: base table for primary key values; must be present in 
+            AWSManager.dict_input_output_to_table_names().keys()
+        """
+
+        # get the database name and table names
+        database_name = f"\"{self.athena_database}\""
+        table_name = self.dict_input_output_to_table_names.get(table_base)
+        table_name_db = self.format_table_name_for_athena(table_name)
+        table_name_db = table_name_db.replace("`", "\"")
+
+        n_regions = len(self.get_regions())
+
+        
+
+        query = f"""
+        SELECT \"{self.key_primary}\"
+        FROM (
+            SELECT DISTINCT \"{self.key_primary}\", \"{self.key_region}\" from {database_name}.{table_name_db}
+        )
+        GROUP BY \"{self.key_primary}\"
+        HAVING COUNT(\"{self.key_region}\") = {n_regions}
+        """
+
+        return query
+
+
+
     def build_athena_query_create_table(self,
         table_name: str,
         schema: str, 
@@ -2945,8 +3002,13 @@ class AWSManager:
         delim: str = ",",
         fields_retrieve: Union[List[str], str, None] = None,
         fields_retrieval_key: str = "field",
+        key_model_inputs: str = "model_inputs",
+        key_model_outputs: str = "model_outputs",
+        key_model_primary_all: str = "primary_keys_all",
         order_by: bool = True,
-    ) -> Tuple[str, str]:
+        return_type: str = "composite",
+        table_name_intermediate: str = "merge_1",
+    ) -> Union[str, Dict[str, str]]:
         """
         Using a list of SISEPUEDE fields, setup the retrieval queries.
         
@@ -2956,11 +3018,25 @@ class AWSManager:
         Keyword Arguments
         -----------------
         - delim: delimiter used in fields_retrieve if specified as string
-        - fields_retrieve: optional specification of fields to retrieve from query. 
+        - fields_retrieve: optional specification of fields to retrieve from
+            query. 
             Can be specified as delimited string (using delim) or file path
         - fields_retrieval_key: key used to read fields from `fields_retrieval`
             if specified as a file
+        - key_model_inputs: model inputs table key in output dictionary + temporary table name in SQL query
+        - key_model_outputs: model outputs table  key in output dictionary + temporary table name in SQL query
+        - key_model_primary_all: intersctinal primary keys key in output dictionary + temporary table name in SQL query
         - order_by: order table by indices? Can increase query execution time
+        - return_type: 
+            * "composite": return a composite query
+            * "input": return input query only
+            * "output": return output query only
+            * "primary_keys_all": return the query for only primary keys
+            * "query_dictionary": return queries in a dictionary with keys
+                - key_model_inputs
+                - key_model_outputs
+                - key_model_primary_all
+        - table_name_intermediate: intermediate table name for staged merge in query
         """
         
         ##  INITIALIZATION AND CHECKS
@@ -2975,6 +3051,11 @@ class AWSManager:
         if return_none:
             return None
         
+        # set order by 
+        order_by_internal = order_by & (return_type != "composite")
+       
+    
+        ##
         
         # retrieve fields, which can be specified in a file
         fields_retrieve = sf.get_dimensional_values(
@@ -2983,21 +3064,114 @@ class AWSManager:
             delim = delim,
             return_type = str,
         )
+        fields_retrieve = [
+            x for x in fields_retrieve
+            if x in (self.model_attributes.all_variables_input)
+            or x in (self.model_attributes.all_variables_output)
+        ]
 
-        # build input and output queries
+        
+        # build input table query and return if desired
         query_input = self.build_athena_sql_query_for_retrieval_by_io(
             "input", 
             fields_retrieve,
-            order_by = order_by
+            order_by = order_by_internal,
         )
+        if return_type == "input":
+            return query_input
         
+        
+        # build output table query and return if desired
         query_output = self.build_athena_sql_query_for_retrieval_by_io(
             "output", 
             fields_retrieve,
-            order_by = order_by
+            order_by = order_by_internal,
         )
+        if return_type == "output":
+            return query_output
         
-        return query_input, query_output   
+        
+        # build primary filter and return if desired
+        query_primary_filter = self.build_athena_sql_query_component_primary_keys_all()
+        if return_type == "primary_keys_all":
+            return query_primary_filter
+        
+        
+        # if dictionary, return
+        dict_out = {
+            key_model_inputs: query_input,
+            key_model_outputs: query_output,
+            key_model_primary_all: query_primary_filter,
+        }
+        if return_type == "query_dictionary":
+            return dict_out
+        
+        
+        
+        ##  OTHERWISE, BUILD COMPOSITE QUERY
+
+        # set up shared index fields - output
+        table_name_input = self.dict_input_output_to_table_names.get("input")
+        table_name_output = self.dict_input_output_to_table_names.get("output")
+        fields_ind = self.dict_keys_table_name_to_index_ordered.get(table_name_input).copy()
+        fields_ind = [
+            x for x in fields_ind if x in
+            self.dict_keys_table_name_to_index_ordered.get(table_name_output)
+        ]
+        
+        # get fields to select as index
+        fields_full_select = [f"{key_model_outputs}.\"{x}\"" for x in fields_ind]
+        fields_full_select = delim.join(fields_full_select)
+        
+        fields_full_select_retrieve = squ.join_list_for_query(
+            fields_retrieve, 
+            delim  = delim, 
+            quote = "\""
+        )
+        fields_full_select = f"{fields_full_select}{delim}{fields_full_select_retrieve}"
+              
+        # setup merge columns
+        fields_merge = [
+            f"{table_name_intermediate}.\"{x}\" = {key_model_outputs}.\"{x}\""
+            for x in fields_ind
+        ]
+        fields_merge_str = " AND ".join(fields_merge)
+        
+        # do some quick cleaning
+        query_input = query_input.replace(";", "")
+        query_output = query_output.replace(";", "")
+        query_primary_filter = query_primary_filter.replace(";", "")
+        
+
+        # the query filters for primary ids that succeeded
+        # then merges inputs and outputs with those
+        query = f"""WITH {key_model_primary_all} AS ({query_primary_filter}), 
+        {key_model_inputs} AS ({query_input}),
+        {key_model_outputs} AS ({query_output}),
+        {table_name_intermediate} AS (
+         SELECT {key_model_inputs}.* FROM {key_model_primary_all}
+         INNER JOIN {key_model_inputs}
+         ON {key_model_inputs}.{self.key_primary} = {key_model_primary_all}.{self.key_primary}
+        )
+        SELECT
+        {fields_full_select}
+        FROM {table_name_intermediate}
+        INNER JOIN {key_model_outputs}
+        ON {fields_merge_str}"""
+        
+        # order by indexing fields?
+        if order_by:
+            query_order_by = squ.join_list_for_query(
+                fields_ind, 
+                delim  = ",", 
+                quote = "\""
+            )
+            query_order_by = f"ORDER BY ({query_order_by})"
+            query = f"{query}\n{query_order_by}"
+
+        query = f"{query};"
+
+        return query
 
 
 
@@ -3976,6 +4150,184 @@ class AWSManager:
 
         return dict_query_responses, dict_ud, df_run_information
 
+
+
+    #############################
+    #    PACKAGING FUNCTIONS    #
+    #############################
+
+    def generate_presign_command(
+        dict_response: Dict,
+        table_type: str,
+        expiration: int = 10800,
+    ) -> Union[str, None]:
+        """
+        Generate a presigned AWS S3 share command for a file based on a query
+            execution response dictionary.
+        
+        Function Arguments
+        ------------------
+        - dict_response: response dictionary generated by 
+            self.client_athena.get_query_execution OR execution id string
+        - table_type: any valid input to self.get_s3_path_query_output (see 
+            ?get_s3_path_query_output())
+
+        Keyword Arguments
+        -----------------
+        - expiration: expiration time of link in seconds
+        """
+        # some checks
+        return_none = not isinstance(dict_response, dict)
+        return_none &= not isinstance(dict_response, str)
+        
+        address_s3_query = aws_manager.get_s3_path_query_output(table_type)
+        return_none |= not isinstance(address_s3_query, str)
+        return_none |= not isinstance(expiration, int)
+        
+        if return_none:
+            return None
+        
+        # try getting execution id
+        exec_id = (
+            dict_response.get(aws_manager.athena_reponse_key_exec_id)
+            if isinstance(dict_response, dict)
+            else dict_response
+        )
+        
+        if exec_id is None:
+            return None
+        
+        
+        address_s3_query = aws_manager.get_s3_path_query_output(table_type)
+        address_s3_query = os.path.join(address_s3_query, f"{exec_id}.csv")
+        comm = f"aws s3 presign \"{address_s3_query}\" --expires-in {expiration}"
+        
+        return comm
+
+
+
+    def _write_attribute_generic(self,
+        dims: Union[str, List[str], None],
+        dir_local_write: Union[str, None] = None,
+        **kwargs,
+    ) -> None:
+        """
+        Write generic model attribute files (including design and strategy) to
+            files.
+        
+        Function Arguments
+        ------------------
+        - dims: valid dimensions include
+            * design
+            * strategy
+            * time_period
+
+        Keyword Arguments
+        -----------------
+        - dir_local_write: output directory to write files to. If None, defaults
+            to self.file_struct.fp_base_output_raw
+        - **kwargs: passed to AWSManager.build_experiment()
+        """
+        
+        
+        ##  CHECKS
+
+        dims = [dims] if isinstance(dims, str) else dims
+        dims = (
+            [x for x in dims if f"dim_{x}" in self.model_attributes.dict_attributes.keys()] 
+            if sf.islistlike(dims) 
+            else None
+        )
+        
+        if dims is None:
+            return None
+
+
+        # check output directory
+        dir_local_write = self.file_struct.fp_base_output_raw
+        (
+            os.makedirs(dir_local_write, exist_ok = True)
+            if not os.path.exists(dir_local_write)
+            else None
+        )
+        
+        for dim in dims:
+            key = f"dim_{dim}"
+            attr = self.model_attributes.dict_attributes.get(key)
+
+            if attr is None:
+                self._log(
+                    f"From AWSManager._write_attribute_generic(): table key '{key}' not found in ModelAttributes. It will not be written.",
+                    type_log = "warning",
+                )
+                continue
+
+            attr.table.to_csv(
+                os.path.join(
+                    dir_local_write,
+                    f"ATTRIBUTE_{dim.upper()}.csv"
+                ),
+                index = None,
+                encoding = "UTF-8",
+            )
+        
+        return None
+
+
+
+    def _write_attribute_primary(self,
+        dict_experimental_components: Union[Dict, None] = None,
+        dir_local_write: Union[str, None] = None,
+        **kwargs,
+    ) -> None:
+        """
+        Retrieve output, input, and other files from S3 and add to 
+            SISEPUEDE.id output location
+        
+        Function Arguments
+        ------------------
+
+        Keyword Arguments
+        -----------------
+        - dict_experimental_components: optional experimental definition 
+            dictionary to pass to AWSManager.build_experiment() (see docstring
+            at ?AWSManager.build_experiment for more information)
+        - dir_local_write: output directory to write files to. If None, defaults
+            to self.file_struct.fp_base_output_raw
+        - **kwargs: passed to AWSManager.build_experiment()
+        """
+        
+        
+        ##  CHECKS
+        
+        return_none = False
+        if return_none:
+            return None
+
+        # check output directory
+        dir_local_write = self.file_struct.fp_base_output_raw
+        (
+            os.makedirs(dir_local_write, exist_ok = True)
+            if not os.path.exists(dir_local_write)
+            else None
+        )
+        
+        (
+            self.build_experiment(
+                dict_experimental_components = dict_experimental_components,
+                return_type = "indexing_data_frame",
+            )
+            .to_csv(
+                os.path.join(
+                    dir_local_write,
+                    f"{self.sisepuede_database.table_name_attribute_primary}.csv"
+                ),
+                index = None,
+                encoding = "UTF-8",
+            )
+        )
+        
+        return None
         
 
 

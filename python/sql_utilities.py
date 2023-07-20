@@ -204,6 +204,90 @@ def format_type_for_sql_query(
 
 
 
+def generate_schema_from_df(
+    df_in: pd.DataFrame,
+    dict_fields_to_dtype_sql: Union[Dict[str, Union[str, type]], None] = None,
+    field_type_object_default: str = "string",
+    float_as_double: bool = False,
+    sep: str = ",\n",
+    type_str_float: str = "FLOAT",
+    type_str_integer: str = "INTEGER",
+    type_str_string: str = "STRING",
+) -> str:
+    """
+    Generate an SQL schema from a data frame. For use in automating table
+        setup in remote SQL or SQL-like databases.
+    
+    Returns a two-ple of the following form:
+    
+        (schema_out, fields_out)
+ 
+ 
+    Function Arguments
+    ------------------
+    - df_in: input data frame
+    
+    Keyword Arguments
+    -----------------
+    - dict_fields_to_dtype_sql: dictionary mapping fields to specific SQL data 
+        types; keys are fields and dtypes are SQL data types.
+        * If None, infers from DataFrame dtype
+    - field_type_object_default: default data type for fields specified as 
+        object (any valid SQL data type)
+    - sep: string separator to use in schema (", " or "\n, ", should always have
+        a comma)
+    - type_str_float: string used to denote FLOAT type (can vary based on 
+        platform)
+    - type_str_integer: string used to denote INTEGER type (can vary based on 
+        platform)
+    - type_str_strings: tring used to denote STRING type (can vary based on 
+        platform)
+    """
+    # initialize fields, schema out, and fields that were successfully pushed to the schema
+    fields = list(df_in.columns)
+    schema_out = []
+    fields_out = []
+    
+    # some data type dictionaries that are used
+    dict_dtypes = df_in.dtypes.to_dict()
+    dict_dtypes_to_sql_types = {
+        "string": type_str_string,
+        "o": type_str_string,
+        "float64": type_str_float,
+        "int64": type_str_integer,
+    }
+    dict_fields_to_dtype_sql = (
+        dict_fields_to_dtype_sql
+        if isinstance(dict_fields_to_dtype_sql, dict)
+        else {}
+    )
+    
+    for i, field in enumerate(fields):
+        
+        # try getting sql data type from external dictionary; otherwise, pull from pandas datatype
+        dtype_sql = dict_fields_to_dtype_sql.get(field)
+        if dtype_sql is None:
+            dtype_sql = dict_dtypes.get(field)
+            dtype_sql = (
+                dict_dtypes_to_sql_types.get(dtype_sql.name, type_str_string)
+                if dtype_sql is not None
+                else None
+            )
+        
+        # skip if failed
+        if dtype_sql is None:
+            continue
+            
+        # otherwise, build schema
+        schema_out.append(f"{field} {dtype_sql}")
+        fields_out.append(field)
+    
+    schema_out = str(sep).join(schema_out)
+    
+    return schema_out, fields_out
+
+
+
 def join_list_for_query(
     list_in: list,
     delim: str = ", ",

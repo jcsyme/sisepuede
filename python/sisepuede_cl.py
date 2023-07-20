@@ -199,16 +199,6 @@ def parse_arguments(
                         defaults to configuration specifation. Enter a negative
                         number to generate on the fly.
 
-    #####
-	#
-	# LICENSE INFORMATION 
-	# -----------------------
-	#
-	# https://www.gnu.org/licenses/gpl-howto.html (use this )
-	# GNU 3.0
-	#
-	#####
-
     """
     parser = argparse.ArgumentParser(
         description = ""
@@ -458,7 +448,14 @@ def main(
     args: dict,
 ) -> None:
     """
-    Run SISEPUEDE from the command line
+    SImulation of SEctoral Pathways and Uncertaintay Exploration for DEcarbonization
+    (SISEPUEDE)
+    
+    Copyright (C) 2023 James Syme
+    
+    This program comes with ABSOLUTELY NO WARRANTY. This is free software, and 
+    you are welcome to redistribute it under certain conditions. See LICENSE.md 
+    for the conditions. 
     """
 
     warnings.filterwarnings("ignore")
