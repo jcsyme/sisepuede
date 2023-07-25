@@ -269,6 +269,7 @@ class SISEPUEDEFileStructure:
 			* self.dir_out
 			* self.dir_ref_batch_data
 			* self.dir_ref_data_crosswalks
+			* self.dir_ref_metadata
 		"""
 
 		# output and temporary directories (can be created)
@@ -300,6 +301,12 @@ class SISEPUEDEFileStructure:
 
 			self.dir_ref_data_crosswalks = sf.check_path(
 				os.path.join(self.dir_ref, "data_crosswalks"), 
+				create_q = initialize_directories,
+				throw_error_q = initialize_directories,
+			)
+
+			self.dir_ref_metadata = sf.check_path(
+				os.path.join(self.dir_ref, "metadata"), 
 				create_q = initialize_directories,
 				throw_error_q = initialize_directories,
 			)

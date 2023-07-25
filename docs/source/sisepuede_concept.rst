@@ -4,7 +4,7 @@ SISEPUEDE - Model Concept
 
 Integrated Modeling Framework (IMF)
 
-.. image:: img/diagram_integrated.jpg
+.. image:: img/sisepuede_dag.jpg
 
 
 

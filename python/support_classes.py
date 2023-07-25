@@ -483,7 +483,8 @@ class Regions:
 
 
     def return_region_or_iso(self,
-        region: str,
+        region: Union[str, List[str]],
+        clean_inputs: bool = False,
         return_type: str = "region",
     ) -> Union[str, None]:
         """
@@ -495,19 +496,47 @@ class Regions:
 
         Keyword Arguments
         -----------------
-        return_type: "region" or "iso". Will return a region if set to "region" 
-            or ISO if set to "iso"
+        - clean_inputs: try to clean the input region first
+        - return_type: "region" or "iso". Will return a region if set to 
+            "region" or ISO if set to "iso"
         """
-        return_type = "region" if (return_type not in ["region", "iso"]) else return_type
-        dict_retrieve = self.dict_iso_to_region if (return_type == "region") else self.dict_region_to_iso
-        all_vals = self.all_regions if (return_type == "region") else self.all_isos
-
-        # check region
-        region = (
-            dict_retrieve.get(region)
-            if region not in all_vals
-            else region
+        return_type = (
+            "region" 
+            if (return_type not in ["region", "iso"]) 
+            else return_type
         )
+        dict_retrieve = (
+            self.dict_iso_to_region 
+            if (return_type == "region") 
+            else self.dict_region_to_iso
+        )
+        all_vals = (
+            self.all_regions 
+            if (return_type == "region") 
+            else self.all_isos
+        )
+
+        # set up to allow for listlike or string
+        str_input = isinstance(region, str)
+        region = [region] if str_input else region
+        region = region if sf.islistlike(region) else None
+        if region is None:
+            return None
+
+        region = [
+            (self.clean_region(x) if clean_inputs else x) for x in region
+        ]
+        # check region
+        region = [
+            (
+                dict_retrieve.get(x)
+                if x not in all_vals
+                else x
+            )
+            for x in region
+        ]
+
+        region = region[0] if str_input else region
 
         return region
 
@@ -567,7 +596,21 @@ class Regions:
         df_out[field_new] = vec
 
         return df_out
+    
 
+
+    def clean_region(self,
+        region: str,
+    ) -> str:
+        """
+        Clean the region name
+        """
+        dict_repl = dict((x, "_") for x in ["-", " "])
+
+        out = region.strip().lower()
+        out = sf.str_replace(out, dict_repl)
+
+        return out
 
 
 
@@ -606,7 +649,7 @@ class Regions:
             )
         )
 
-        vec_iso = [x.lower().replace(" ", "_") for x in vec_iso]
+        vec_iso = [self.clean_region(x) for x in vec_iso]
         vec_iso = [self.dict_iea_countries_lc_to_regions.get(x, x) for x in vec_iso]
         vec_iso = [self.dict_region_to_iso.get(x, x) for x in vec_iso]
         
@@ -668,7 +711,7 @@ class Regions:
         # try to build
         for i, region_base in enumerate(vec_iso):
             
-            region = region_base.lower().replace(" ", "_")
+            region = self.clean_region(region_base)
 
             # set a hierarchy
             region_full = (
