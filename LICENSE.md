@@ -1,4 +1,4 @@
-SISEPUDE (C) 2023 James Syme is licensed under the GNU GPL v3.0.
+SISEPUEDE (C) 2023 James Syme is licensed under the GNU GPL v3.0.
 
 
 The GNU General Public License is a free, copyleft license for software and other kinds of works.
