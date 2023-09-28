@@ -1373,14 +1373,14 @@ class TransformationsAFOLU:
             else df_input
         )
 
-        # BEGIN modify ramp to be a binary
+        # BEGIN modify ramp to be a binary/start in another year
         vec_ramp = np.array(
             [float(int(x > 0)) for x in self.vec_implementation_ramp]
         )
         w = np.where(vec_ramp == 1)[0][0]
         vec_ramp = np.array(
             [
-                float(sf.vec_bounds((x - (w - 1))/5, (0, 1))) 
+                float(sf.vec_bounds((x - (w - 1))/15, (0, 1))) # start in 2040
                 for x in range(len(self.vec_implementation_ramp))
             ]
         )

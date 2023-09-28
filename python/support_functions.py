@@ -903,16 +903,19 @@ def filter_df_on_reference_df_rows(
         df_return = []
         df_group = df_compare.groupby(fields_groupby)
 
-        for i in df_group:
-            i, df = i
-
+        for i, df in df_group:
+            
             df_check = (df[fields_compare] != df[fields_compare_ref].rename(columns = dict_rnm_rev))
             series_keep = df_check.any(axis = 1) if (filter_method == "any") else df_check.all(axis = 1)
             append_df = any(list(series_keep))
 
             df_return.append(df) if append_df else None
 
-        df_return = pd.concat(df_return, axis = 0).reset_index(drop = True) if (len(df_return) > 0) else None
+        df_return = (
+            pd.concat(df_return, axis = 0).reset_index(drop = True) 
+            if (len(df_return) > 0) 
+            else None
+        )
 
     if df_return is not None:
         df_return.drop(
@@ -1380,18 +1383,22 @@ def islistlike(
 
 def isnumber(
     x: Any,
-    integer: bool = False
+    integer: bool = False,
+    skip_nan: bool = True,
 ) -> bool:
     """
     Check if x is an integer or float. Set integer = True to force integer only
-        checks.
+        checks. skip_nan = True will return False if x is np.nan
     """
     types_check = (
         (int, float, np.int64, np.int32, np.int, np.float64, np.float32, np.float)
         if not integer
         else (int, np.int64, np.int32, np.int)
     )
+
+    # check type and verify whether or not np.nan matters
     out = isinstance(x, types_check)
+    out = (not np.isnan(x)) if (out & skip_nan) else out
 
     return out
 
@@ -1757,12 +1764,14 @@ def print_setdiff(
 
 def project_from_array(
     arr_in: np.ndarray,
-    max_deviation_from_mean: float = 0.2
-) -> np.ndarray:
+    max_deviation_from_mean: float = 0.2,
+    max_lookback: Union[int, None] = None,
+) -> Union[np.ndarray, None]:
     """
     Use a regression to project next value + apply bounds to maximum 
         deviation from the observed mean. Useful for projecting a sequential
-        observation in a time series.
+        observation in a time series. Returns None is arr_in is not a NumPy 
+        array.
         
     Function Arguments
     ------------------
@@ -1773,18 +1782,34 @@ def project_from_array(
     -----------------
     - max_deviation_from_mean: maximium proportional deviation from mean; used
         to prevent large swings in the regression.
+    - max_lookback: optional maximum number of rows to use for identifying 
     """
     
-    n, m = arr_in.shape
+    # some checks
+    return_none = not isinstance(arr_in, np.ndarray)
+    return_none |= False if return_none else (arr_in.shape[0] == 0)
+    if return_none:
+        return None
+
+    # reduce the array if a valid lookback is provided
+    n_rows = (
+        None
+        if not isinstance(max_lookback, int)
+        else max(min(max_lookback, arr_in.shape[0]), 1)
+    )
+    arr = arr_in if (n_rows is None) else arr_in[-n_rows:]
+
+    # get some regression components
+    n, m = arr.shape
     x = np.array([range(n), np.ones(n)]).transpose()
     xtx_inv = np.linalg.inv(np.dot(x.transpose(), x))
     
-    vec_inputs_proj = np.array([[n + 1 , 1]])
+    vec_inputs_proj = np.array([[n + 1, 1]])
     vec_output_proj_by_class = np.zeros(m)
                                
     for i in range(m):       
                                
-        y = np.array([arr_in[:, i]]).transpose()
+        y = np.array([arr[:, i]]).transpose()
         y_bar = np.mean(y)
         bounds = ((1 - max_deviation_from_mean)*y_bar, (1 + max_deviation_from_mean)*y_bar)
         

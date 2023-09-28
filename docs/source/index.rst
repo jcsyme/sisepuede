@@ -2,7 +2,7 @@
 SISEPUEDE Documentation
 =======================
 
-SISEPUEDE (**SI**mulating **SE**ctoral **P**athways and **U**ncertainty **E**xploration for **DE**carbonization) is an integrated Python/Julia modeling framework that facilitates exploratory analyses of decarbonization transformations within emissions sectors at the region level. It includes several key components:
+SISEPUEDE (**SI**\ mulating **SE**\ ctoral **P**\ athways and **U**\ ncertainty **E**\ xploration for **DE**\ carbonization) is an integrated Python/Julia modeling framework that facilitates exploratory analyses of decarbonization transformations within emissions sectors at the region level. It includes several key components:
 
 - Integrated yet separable sectoral models of emissions based on IPCC guidelines for greenhouse gas inventories
 - Uncertainty specification and trajectory sampling mechanism

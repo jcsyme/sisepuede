@@ -1192,21 +1192,33 @@ class SISEPUEDE:
 			df_lhs_l, df_lhs_x = lhs_design_cur.retrieve_lhs_tables_by_design(design, return_type = pd.DataFrame)
 
 			# reduce lhs tables - LEs
-			df_lhs_l = df_lhs_l[
-				df_lhs_l[self.key_future].isin([future])
-			] if (df_lhs_l is not None) else df_lhs_l
+			df_lhs_l = (
+				df_lhs_l[df_lhs_l[self.key_future].isin([future])] 
+				if (df_lhs_l is not None) 
+				else df_lhs_l
+			)
 			# Xs
-			df_lhs_x = df_lhs_x[
-				df_lhs_x[self.key_future].isin([future])
-			] if (df_lhs_x is not None) else df_lhs_x
+			df_lhs_x = (
+				df_lhs_x[df_lhs_x[self.key_future].isin([future])] 
+				if (df_lhs_x is not None) 
+				else df_lhs_x
+			)
 
 
 			##  GENERATE INPUT BY FUTURE
 
 			# determine if baseline future and fetch lhs rows
 			base_future_q = (future == self.baseline_future)
-			lhs_l = df_lhs_l[df_lhs_l[self.key_future] == future].iloc[0] if ((df_lhs_l is not None) and not base_future_q) else None
-			lhs_x = df_lhs_x[df_lhs_x[self.key_future] == future].iloc[0] if ((df_lhs_x is not None) and not base_future_q) else None
+			lhs_l = (
+				df_lhs_l[df_lhs_l[self.key_future] == future].iloc[0] 
+				if ((df_lhs_l is not None) and not base_future_q) 
+				else None
+			)
+			lhs_x = (
+				df_lhs_x[df_lhs_x[self.key_future] == future].iloc[0] 
+				if ((df_lhs_x is not None) and not base_future_q) 
+				else None
+			)
 
 			# generate the futures and get available strategies
 			df_input = future_trajectories_cur.generate_future_from_lhs_vector(

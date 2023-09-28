@@ -797,16 +797,26 @@ class NonElectricEnergy:
     #    SUBSECTOR SPECIFIC FUNCTIONS    #
     ######################################
 
-    ##
     def get_agrc_lvst_prod_and_intensity(self,
         df_neenergy_trajectories: pd.DataFrame
-    ):
+    ) -> Tuple:
         """
-            Retrieve agriculture and livstock production (total mass) and initial energy consumption, then calculate energy intensity (in terms of self.modvar_inen_en_prod_intensity_factor) and return production (in terms of self.model_ippu.modvar_ippu_qty_total_production)
+        Retrieve agriculture and livstock production (total mass) and initial 
+            energy consumption, then calculate energy intensity (in terms of 
+            self.modvar_inen_en_prod_intensity_factor) and return production (in 
+            terms of self.model_ippu.modvar_ippu_qty_total_production).
 
-            Function Arguments
-            ------------------
-            - df_neenergy_trajectories: model input dataframe
+            Returns a tuple of the form:
+
+            (
+                index_inen_agrc, 
+                vec_inen_energy_intensity_agrc_lvst, 
+                vec_inen_prod_agrc_lvst,
+            )
+
+        Function Arguments
+        ------------------
+        - df_neenergy_trajectories: model input dataframe
         """
 
         attr_inen = self.model_attributes.get_attribute_table(self.subsec_name_inen)
@@ -863,7 +873,9 @@ class NonElectricEnergy:
         vec_inen_energy_intensity_agrc_lvst = np.nan_to_num(vec_inen_energy_intensity_agrc_lvst/vec_inen_prod_agrc_lvst, 0.0, posinf = 0.0)
 
         # return index + vectors
-        return index_inen_agrc, vec_inen_energy_intensity_agrc_lvst, vec_inen_prod_agrc_lvst
+        tup_out = index_inen_agrc, vec_inen_energy_intensity_agrc_lvst, vec_inen_prod_agrc_lvst
+
+        return tup_out
 
 
 
@@ -1604,15 +1616,16 @@ class NonElectricEnergy:
         df_neenergy_trajectories: pd.DataFrame,
         vec_consumption_intensity_initial: np.ndarray,
         arr_driver: np.ndarray,
+        modvar_demscalar: str,
         modvar_fuel_efficiency: str,
         dict_fuel_fracs: dict,
         dict_fuel_frac_to_fuel_cat: dict
-    ) -> np.ndarray:
+    ) -> Union[np.ndarray, None]:
 
         """
         Project energy consumption--in terms of units of the input vector
             vec_consumption_initial--given changing demand fractions and
-            efficiency factors
+            efficiency factors.  
 
         Returns a tuple of the form
 
@@ -1620,6 +1633,9 @@ class NonElectricEnergy:
                 arr_demand, # array of point of use demand
                 dict_consumption_by_fuel_out # dictionary of consumption by fuel
             )
+
+            or None if model variables are incorrectly specified. 
+
 
         Function Arguments
         ------------------
@@ -1634,6 +1650,8 @@ class NonElectricEnergy:
 
             (n_projection_time_periods, )
 
+        - modvar_demsacalar: string model variable giving the demand scalar for
+            INEN energy demand
         - modvar_fuel_efficiency: string model variable for enfu fuel efficiency
         - dict_fuel_fracs: dictionary mapping each fuel fraction variable to its
             fraction of energy.
@@ -1642,21 +1660,51 @@ class NonElectricEnergy:
             to its associated fuel category
         """
 
-        ##  estimate demand at point of use (account for heat delivery efficiency)
+        # initialize some model_attributes objects
+        attr_enfu = self.model_attributes.get_attribute_table(self.subsec_name_enfu)
+        return_none = self.model_attributes.check_modvar(modvar_demsacalar) is None
+        return_none |= self.model_attributes.check_modvar(modvar_fuel_efficiency) is None
 
-        # initializations
+        if return_none:
+            self._log(
+                f"Error in project_energy_consumption_by_fuel_from_fuel_cats(): invalid model variable specification.",
+                type_log = "error",
+            )
+
+            self._log(
+                f"Variable values:\n\tmodvar_demsacalar = {modvar_demsacalar}\n\tmodvar_fuel_efficiency = {modvar_fuel_efficiency}",
+                type_log = "debug",
+            )
+
+            return None
+
+
+        ##  START CALCULATIONS
+        
         arr_frac_norm = 0
+
+        # get some variables - start with energy efficiency
         arr_enfu_efficiency = self.model_attributes.get_standard_variables(
             df_neenergy_trajectories,
             modvar_fuel_efficiency,
-            True,
-            "array_base",
-            expand_to_all_cats = True
+            expand_to_all_cats = True,
+            override_vector_for_single_mv_q = True,
+            return_type = "array_base",
         )
-        attr_enfu = self.model_attributes.get_attribute_table(self.subsec_name_enfu)
+        # scalar for point of use demand
+        arr_inen_demscalar = self.model_attributes.get_standard_variables(
+            df_neenergy_trajectories,
+            modvar_demscalar,
+            all_cats_missing_val = 1.0,
+            expand_to_all_cats = True,
+            override_vector_for_single_mv_q = True,
+            return_type = "array_base",
+            var_bounds = (0, np.inf),
+        )
 
         # use fractions of demand + efficiencies to calculate fraction of consumption
         for modvar_fuel_frac in dict_fuel_fracs.keys():
+
             cat_fuel = dict_fuel_frac_to_fuel_cat.get(modvar_fuel_frac)
             index_enfu_fuel = attr_enfu.get_key_value_index(cat_fuel)
 
@@ -1669,6 +1717,7 @@ class NonElectricEnergy:
         arr_frac_norm = arr_frac_norm.transpose()
         arr_demand = np.nan_to_num(vec_consumption_intensity_initial/arr_frac_norm[0], nan = 0.0, posinf = 0.0)
         arr_demand = sf.do_array_mult(arr_driver, arr_demand)
+        arr_demand *= arr_inen_demscalar
 
         # calculate consumption
         dict_consumption_by_fuel_out = {}
@@ -2441,6 +2490,7 @@ class NonElectricEnergy:
             df_neenergy_trajectories,
             arr_inen_energy_consumption_intensity_prod[0],
             arr_inen_prod,
+            self.modvar_inen_demscalar,
             self.modvar_enfu_efficiency_factor_industrial_energy,
             dict_arrs_inen_frac_energy,
             dict_inen_fuel_frac_to_eff_cat
@@ -2463,6 +2513,7 @@ class NonElectricEnergy:
             df_neenergy_trajectories,
             arr_inen_energy_consumption_intensity_gdp[0],
             vec_gdp,
+            self.modvar_inen_demscalar,
             self.modvar_enfu_efficiency_factor_industrial_energy,
             dict_arrs_inen_frac_energy,
             dict_inen_fuel_frac_to_eff_cat

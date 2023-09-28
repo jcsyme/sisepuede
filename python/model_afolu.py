@@ -2026,6 +2026,7 @@ class AFOLU:
             vec_gnrl_frac_eating_red_meat_scalar,
             int
         )
+
         # get imports, domestic production for domestic demand (unadj), and domestic production
         arr_lvst_imports_unadj = arr_lvst_domestic_demand_unadj*arr_lvst_frac_imported
         arr_lvst_domestic_production_for_domestic_demand_unadj = arr_lvst_domestic_demand_unadj - arr_lvst_imports_unadj
@@ -2090,8 +2091,9 @@ class AFOLU:
             "mass"
         )
 
-        #  1. get initial cropland areas and yields
-        #
+
+        ##   1. get initial cropland areas and yields
+        
         vec_agrc_frac_cropland_area = self.check_cropland_fractions(df_afolu_trajectories, "initial")[0]
         vec_agrc_cropland_area = area_agrc_cropland_init*vec_agrc_frac_cropland_area
         # get yield factors and calculate yield
@@ -2107,8 +2109,9 @@ class AFOLU:
         )
         vec_agrc_yield_init = arr_agrc_yf[0]*vec_agrc_cropland_area
 
-        #  2. get dietary demand scalar for crop demand (increases based on reduction in red meat demand) - depends on how many people eat red meat (vec_gnrl_frac_eating_red_meat)
-        #
+
+        ##  2. get dietary demand scalar for crop demand (increases based on reduction in red meat demand) - depends on how many people eat red meat (vec_gnrl_frac_eating_red_meat)
+        
         vec_agrc_diet_exchange_scalar = self.model_attributes.get_standard_variables(
             df_afolu_trajectories,
             self.modvar_lndu_vdes,
@@ -2122,15 +2125,18 @@ class AFOLU:
         arr_agrc_demscale = np.outer(vec_agrc_demscale, vec_agrc_scale_demands_for_veg)
         arr_agrc_demscale = arr_agrc_demscale + np.outer(np.ones(len(vec_agrc_demscale)), 1 - vec_agrc_scale_demands_for_veg)
 
-        #  3. Calculate crop demands split into yield for livestock feed (responsive to changes in domestic livestock population) and yield for consumption and export (nonlvstfeed)
-        #
+
+        ##  3. Calculate crop demands split into yield for livestock feed (responsive to changes in domestic livestock population) and yield for consumption and export (nonlvstfeed)
+        
         vec_agrc_domestic_demand_init = sf.vec_bounds(vec_agrc_yield_init - arr_agrc_exports_unadj[0], (0, np.inf))
         vec_agrc_domestic_demand_init /= (1 - arr_agrc_frac_imported[0])
         vec_agrc_domestic_demand_init = sf.vec_bounds(np.nan_to_num(vec_agrc_domestic_demand_init, 0.0, posinf = 0.0), (0, np.inf))
+        
         # split out livestock demands and human consumption
         vec_agrc_domestic_demand_init_lvstfeed = vec_agrc_domestic_demand_init*arr_agrc_frac_feed[0]
         vec_agrc_domestic_demand_init_nonlvstfeed = vec_agrc_domestic_demand_init - vec_agrc_domestic_demand_init_lvstfeed
         vec_agrc_production_init_lvstfeed = vec_agrc_domestic_demand_init_lvstfeed*(1 - arr_agrc_frac_imported[0])
+        
         # project domestic demand
         arr_agrc_domestic_demand_nonfeed_unadj = self.project_per_capita_demand(
             vec_agrc_domestic_demand_init_nonlvstfeed,
@@ -2142,9 +2148,10 @@ class AFOLU:
         )
         arr_agrc_imports_unadj = arr_agrc_domestic_demand_nonfeed_unadj*arr_agrc_frac_imported
         arr_agrc_production_nonfeed_unadj = arr_agrc_domestic_demand_nonfeed_unadj - arr_agrc_imports_unadj + arr_agrc_exports_unadj
+ 
 
-        #  4. Apply production wasted scalar to projected supply requirements, then re-calculate demand (reducing domestic production loss will drop future demands)
-        #
+        ##  4. Apply production wasted scalar to projected supply requirements, then re-calculate demand (reducing domestic production loss will drop future demands)
+        
         vec_agrc_frac_production_wasted = self.model_attributes.get_standard_variables(
             df_afolu_trajectories,
             self.modvar_agrc_frac_production_lost,
@@ -2152,8 +2159,10 @@ class AFOLU:
             var_bounds = (0, 1)
         )
         vec_agrc_frac_production_wasted_scalar = np.nan_to_num((1 - vec_agrc_frac_production_wasted[0])/(1 - vec_agrc_frac_production_wasted), posinf = 0.0)
+       
         arr_agrc_production_nonfeed_unadj = (arr_agrc_production_nonfeed_unadj.transpose()*vec_agrc_frac_production_wasted_scalar).transpose()
         arr_agrc_domestic_demand_nonfeed_unadj = arr_agrc_production_nonfeed_unadj + arr_agrc_imports_unadj
+        
         # array gives the total yield of crop type i allocated to livestock type j at time 0
         arr_lndu_yield_i_reqd_lvst_j_init = np.outer(vec_agrc_production_init_lvstfeed, vec_lvst_feed_allocation_weights)
 
@@ -3205,16 +3214,26 @@ class AFOLU:
         arrs_lndu_conv_from = np.array([np.sum(x - np.diag(np.diagonal(x)), axis = 1) for x in arrs_lndu_land_conv])
 
         # get total production wasted FLAG!!HEREHERE - check if arr_agrc_production_nonfeed_unadj is correct
-        vec_agrc_food_produced_wasted_before_consumption = np.sum(arr_agrc_production_nonfeed_unadj.transpose()*vec_agrc_frac_production_wasted, axis = 0)
+
+        vec_agrc_food_produced_wasted_before_consumption = np.sum(
+            arr_agrc_production_nonfeed_unadj.transpose()*vec_agrc_frac_production_wasted, 
+            axis = 0
+        )
         vec_agrc_food_produced_wasted_before_consumption *= self.model_attributes.get_variable_unit_conversion_factor(
             self.modvar_agrc_yf,
             self.modvar_agrc_total_food_lost_in_ag,
             "mass"
         )
-
-        # get total production that is wasted or lost that ends up in landfilles
-        vec_agrc_frac_production_loss_to_landfilles = self.model_attributes.get_standard_variables(df_afolu_trajectories, self.modvar_agrc_frac_production_loss_to_msw, False, "array_base", var_bounds = (0, 1))
-        vec_agrc_food_wasted_to_landfills = vec_agrc_food_produced_wasted_before_consumption*vec_agrc_frac_production_loss_to_landfilles
+        
+        # get total production that is wasted or lost that ends up in landfills
+        vec_agrc_frac_production_loss_to_landfills = self.model_attributes.get_standard_variables(
+            df_afolu_trajectories, 
+            self.modvar_agrc_frac_production_loss_to_msw, 
+            override_vector_for_single_mv_q = False,
+            return_type = "array_base", 
+            var_bounds = (0, 1),
+        )
+        vec_agrc_food_wasted_to_landfills = vec_agrc_food_produced_wasted_before_consumption*vec_agrc_frac_production_loss_to_landfills
         vec_agrc_food_wasted_to_landfills *= self.model_attributes.get_variable_unit_conversion_factor(
             self.modvar_agrc_total_food_lost_in_ag,
             self.modvar_agrc_total_food_lost_in_ag_to_msw,

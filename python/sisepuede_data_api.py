@@ -505,8 +505,8 @@ class SISEPUEDEBatchDataRepository:
             None, defaults to SISEPUEDEBatchDataRepository.key_historical
         - key_projected: optional key to use for historical subdirectories. If
             None, defaults to SISEPUEDEBatchDataRepository.key_projected
-        - periods_write: projected or historical? If None, keep both. Can specify
-            as a list or str containing 
+        - periods_write: projected or historical? If None, keep both. Can 
+            specify as a list or str containing 
             SISEPUEDEBatchDataRepository.key_historical or
             SISEPUEDEBatchDataRepository.key_projected
         - write_q: write output data to files
@@ -735,7 +735,6 @@ class SISEPUEDEBatchDataRepository:
         df_out = None
         df_index = None # used to govern merges
         dict_modvar_to_fields = {}
-        dict_modvar_to_ordered_cats = {}
         
         modvars = list(dict_modvars.keys())
 
@@ -747,7 +746,7 @@ class SISEPUEDEBatchDataRepository:
             cats = (
                 [x for x in cats_defined if x in cats]
                 if (cats_defined is not None)
-                else [None]
+                else None
             )
             
             subsec = self.model_attributes.get_variable_subsector(modvar)
@@ -756,18 +755,30 @@ class SISEPUEDEBatchDataRepository:
             )
             sector_repo = dict_sector_to_subdir.get(sector)
 
-            if (sector_repo is None) | (len(cats) == 0):
+            # check if need to skip iteration
+            continue_q = (sector_repo is None)
+            continue_q |= (len(cats) == 0) if (cats is not None) else False
+            if continue_q:
                 continue
-
-            for cat in cats:
+            
+            # build field names to retrieve
+            var_names = self.model_attributes.build_varlist(
+                subsec,
+                modvar, 
+                restrict_to_category_values = cats
+            )
+            
+            for var_name in var_names:
                 
+                """
                 restriction = None if (cat is None) else [cat]
                 var_name = self.model_attributes.build_varlist(
                     subsec,
                     modvar, 
                     restrict_to_category_values = restriction
                 )[0]
-
+                """;
+                
                 df_var = []
                 i = 0
 
@@ -829,6 +840,7 @@ class SISEPUEDEBatchDataRepository:
                 df_var = pd.concat(df_var, axis = 0) if (len(df_var) > 0) else None
                 global dfv
                 dfv = df_var
+
                 if ((fields_index is not None) and (df_var is not None)):                    
                     # get dictionaries
                     fields_add = sorted([x for x in df_var.columns if x not in fields_index])
@@ -840,18 +852,9 @@ class SISEPUEDEBatchDataRepository:
                         else dict_modvar_to_fields[modvar].extend(fields_add)
                     )
                     
-                    (
-                        dict_modvar_to_ordered_cats.update({modvar: [cat]}) 
-                        if fields_exist is None
-                        else dict_modvar_to_ordered_cats[modvar].append(cat)
-                    )
-                    
-                    
                 if df_var is not None:
 
                     df_var.sort_values(by = fields_index, inplace = True)
-                    #df_var.set_index(fields_index, inplace = True)
-                    
                     df_var.reset_index(drop = True, inplace = True)
 
                     if (df_out is None):
@@ -929,6 +932,5 @@ class SISEPUEDEBatchDataRepository:
             if add_time_periods
             else df_out
         )
-        # , dict_modvar_to_fields, dict_modvar_to_ordered_cats
 
         return df_out

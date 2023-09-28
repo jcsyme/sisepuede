@@ -2,7 +2,13 @@
 Circular Economy
 ================
 
-The **Circular Economy** sector represents liquid and solid waste from municipal and domestic sources.
+**Circular Economy (CircularEconomy)** includes three subsectors (* indicates non-emission subsector): 
+
+* Liquid Waste* (WALI)
+* Solid Waste (WASO)
+* Wastewater Treatment (TRWW)
+
+Circular Economy is used to account for the production of, and emissions from, liquid and solid waste from industrial and domestic sources. Circular Economy includes three subsectors: liquid waste (used only to account for the production of liquid waste), solid waste, and wastewater treatment. These three sectors are derived from Volume 5 of the IPCC guidance for national greenhouse gas inventories and include detailed estimates of of emissions from wastewater treatment and management pathways, solid waste treatment pathways, including a first order decay model of landfilled waste, and recycling, which then is passed to the industrial production model to estimate changes to production of virgin materials. Waste generation is primarily driven by per person generation factors, which are responsive to changes in GDP, GDP/capita, and population and other sectors, including livestock manure management and supply chain loss in agriculture. 
 
 
 Liquid Waste

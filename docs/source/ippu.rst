@@ -2,7 +2,14 @@
 Industrial Processes and Product Use (IPPU)
 ===========================================
 
-IPPU here
+**Industrial Processes and Product Use (IPPU)** includes only one subsector (* indicates non-emission subsector): 
+
+* Industrial Processes and Product Use (IPPU)
+
+Emission accounting for IPPU is based primarily on Volume 3 of the IPCC guidance for national greenhouse gas inventories. The IPPU sector includes estimates of emissions of a range of gasses released during industrial production, including a by-gas accounting of a number of fluorinated compounds (including HFCs, PFCs, and other FCs) derived from other bottom-up estimates in the literature. Industrial production is driven primarily by domestic demands and trade and is responsive to changes in GDP, GDP/capita, and recycling (for applicable industries). Production is generally written in terms of mass produced.
+
+.. note:: The IPPU model contains the python method for industrial production, which is accessed in both AFOLU and CircularEconomy. 
+
 
 Industrial Processes and Product Use
 ====================================
@@ -37,3 +44,8 @@ All industrial categorization is derived from the *2019 Refinement to the 2006 I
    :header-rows: 1
 
 .. note:: The Electronics Industry is broken into four key subcategories given the high degree of variation in emission factors and emission-relevant gasses governing each of these subcategories and the relative magnitude of the GWP of fluorinated compounds used in the electronics manufacturing process. Other categories--like metals--are not broken into subcategories (e.g., such as steel, aluminum, magnesium, zinc, etc... ) given the relatively similar magnitude of emission factors across gasses and the low prevalence of gasses associated with very-high GWPs. See `V3, C6 IPCC GNGHGI (2019R)<https://www.ipcc-nggip.iges.or.jp/public/2019rf/pdf/3_Volume3/19R_V3_Ch06_Electronics.pdf>`_ Table 6.6 for default emission factors associated with electronics manufacturing.
+
+
+Known Issues and Future Improvements
+====================================
+* IPPU models most production in terms of tonnage. SISEPUEDE 2.0 will include higher refinement of industrial emissions modeling using more common units (e.g., :math:`m^2` of substrate in electronics manufacturing).

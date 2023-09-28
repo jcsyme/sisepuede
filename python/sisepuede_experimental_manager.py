@@ -391,22 +391,21 @@ class SISEPUEDEExperimentalManager:
 		}
 
 		# filter base input database for each region to instantiate a new FutureTrajectories object
-		for region in self.regions:
+		dfg = (
+			self.base_input_database
+			.database
+			.groupby([self.field_region])
+		)
+
+		for region, df in dfg:
 
 			region_print = self.get_output_region(region)
 
 			try:
-				df_input = (
-					self.base_input_database.database[
-						self.base_input_database.database[self.field_region] == region
-					]
-					.reset_index(drop = True)
-				)
-
 				future_trajectories_cur = FutureTrajectories(
-					df_input,
+					df.reset_index(drop = True),
 					{
-						self.key_strategy: self.base_input_database.baseline_strategy
+						self.key_strategy: self.base_input_database.baseline_strategy,
 					},
 					self.time_period_u0,
 					dict_all_dims = dict_all_dims,

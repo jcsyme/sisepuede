@@ -817,10 +817,14 @@ def transformation_entc_renewable_target(
             if not keep_q:
                 del dict_cats_entc_max_investment[cat]
 
-    dict_cats_entc_max_investment = None if not isinstance(dict_cats_entc_max_investment, dict) else (
-        None
-        if len(dict_cats_entc_max_investment) == 0
-        else dict_cats_entc_max_investment
+    dict_cats_entc_max_investment = (
+        None 
+        if not isinstance(dict_cats_entc_max_investment, dict) 
+        else (
+            None
+            if len(dict_cats_entc_max_investment) == 0
+            else dict_cats_entc_max_investment
+        )
     )
 
 
@@ -890,8 +894,7 @@ def transformation_entc_renewable_target(
 
             if var_names is not None:
                 if len(var_names) > 0:
-                    val = 1 if (cat in cats_renewable) else 0
-                    df[var_names[0]] = val
+                    df[var_names[0]] = int(cat in cats_renewable)
         
 
         # setup magnitude of change

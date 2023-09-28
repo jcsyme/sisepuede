@@ -790,7 +790,7 @@ class TransformationsEnergy:
                 self.transformation_trns_increase_efficiency_electric,
                 self.transformation_trns_increase_efficiency_non_electric,
                 self.transformation_trns_increase_occupancy_light_duty,
-                self.transformation_trns_mode_shift_freight,
+                #self.transformation_trns_mode_shift_freight,
                 self.transformation_trns_mode_shift_public_private,
                 self.transformation_trns_mode_shift_regional,
                 self.transformation_support_entc_clean_grid
@@ -1222,7 +1222,7 @@ class TransformationsEnergy:
                 self.transformation_trns_increase_efficiency_electric,
                 self.transformation_trns_increase_efficiency_non_electric,
                 self.transformation_trns_increase_occupancy_light_duty,
-                self.transformation_trns_mode_shift_freight,
+                #self.transformation_trns_mode_shift_freight,
                 self.transformation_trns_mode_shift_public_private,
                 self.transformation_trns_mode_shift_regional
             ], 
@@ -1242,7 +1242,7 @@ class TransformationsEnergy:
                 self.transformation_trns_increase_efficiency_electric,
                 self.transformation_trns_increase_efficiency_non_electric,
                 self.transformation_trns_increase_occupancy_light_duty,
-                self.transformation_trns_mode_shift_freight,
+                #self.transformation_trns_mode_shift_freight,
                 self.transformation_trns_mode_shift_public_private,
                 self.transformation_trns_mode_shift_regional,
 		        self.transformation_support_entc_clean_grid
@@ -1305,7 +1305,7 @@ class TransformationsEnergy:
         self.trns_bundle_mode_shift = sc.Transformation(
             "TRNS:BUNDLE_MODE_SHIFT", 
             [
-                self.transformation_trns_mode_shift_freight,
+                #self.transformation_trns_mode_shift_freight,
                 self.transformation_trns_mode_shift_public_private,
                 self.transformation_trns_mode_shift_regional
             ], 
@@ -1317,7 +1317,7 @@ class TransformationsEnergy:
         self.trns_bundle_mode_shift_with_rep = sc.Transformation(
             "TRNS:BUNDLE_MODE_SHIFT_REP", 
             [
-                self.transformation_trns_mode_shift_freight,
+                #self.transformation_trns_mode_shift_freight,
                 self.transformation_trns_mode_shift_public_private,
                 self.transformation_trns_mode_shift_regional,
                 self.transformation_support_entc_clean_grid
@@ -1862,6 +1862,32 @@ class TransformationsEnergy:
             df_input,
             cats_to_cap,
             strat = strat
+        )
+
+
+        ##  NEW ADDITION (2023-09-27): ADD BASELINE INCREASE IN RENEWABLE ADOPTION
+
+        # check the total minimum value shares in self.dict_entc_renewable_target_cats_max_investment;
+        # if greater than the target for the baseline, scale them proportionally; otherwise, leave them
+        target_renewables_value_min = 0.3
+        target_renewables_value_base_specified = sum(self.dict_entc_renewable_target_msp.values())
+        scalar_renewables_value_base = min(target_renewables_value_min/target_renewables_value_base_specified, 1.0)
+        
+        # build the dictionary
+        dict_entc_renewable_target_msp_baseline = dict(
+            (k, v*scalar_renewables_value_base) 
+            for k, v in self.dict_entc_renewable_target_msp.items()
+        )
+
+        df_out = tbe.transformation_entc_renewable_target(
+            df_out,
+            target_renewables_value_min,
+            self.vec_implementation_ramp,
+            self.model_electricity,
+            dict_cats_entc_max_investment = self.dict_entc_renewable_target_cats_max_investment,
+            field_region = self.key_region,
+            magnitude_renewables = dict_entc_renewable_target_msp_baseline,
+            strategy_id = strat
         )
 
         return df_out
@@ -2911,7 +2937,8 @@ class TransformationsEnergy:
             if not isinstance(df_input, pd.DataFrame) 
             else df_input
         )
-
+        
+        """
         df_out = tbe.transformation_general(
             df_input,
             self.model_attributes,
@@ -2924,6 +2951,44 @@ class TransformationsEnergy:
                     "categories_target": {
                         "rail_passenger": 0.5,
                         "road_heavy_regional": 0.5
+                    },
+                    "vec_ramp": self.vec_implementation_ramp
+                }
+            },
+            field_region = self.key_region,
+            strategy_id = strat
+        )
+        """
+        df_out = tbe.transformation_general(
+            df_input,
+            self.model_attributes,
+            {
+                self.model_energy.modvar_trns_modeshare_regional: {
+                    "bounds": (0, 1),
+                    "magnitude": 0.1,
+                    "magnitude_type": "transfer_value_scalar",
+                    "categories_source": ["aviation"],
+                    "categories_target": {
+                        "road_heavy_regional": 1.0
+                    },
+                    "vec_ramp": self.vec_implementation_ramp
+                }
+            },
+            field_region = self.key_region,
+            strategy_id = strat
+        )
+
+        df_out = tbe.transformation_general(
+            df_out,
+            self.model_attributes,
+            {
+                self.model_energy.modvar_trns_modeshare_regional: {
+                    "bounds": (0, 1),
+                    "magnitude": 0.2,
+                    "magnitude_type": "transfer_value_scalar",
+                    "categories_source": ["road_light"],
+                    "categories_target": {
+                        "road_heavy_regional": 1.0
                     },
                     "vec_ramp": self.vec_implementation_ramp
                 }

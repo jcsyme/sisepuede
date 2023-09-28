@@ -845,17 +845,24 @@ class InputTemplate:
 			include in the database (integer). If None, include all.
 
 		"""
-		dict_strategies_to_sheet = self.dict_strategy_id_to_sheet if (dict_strategies_to_sheet is None) else dict_strategies_to_sheet
+		dict_strategies_to_sheet = (
+			self.dict_strategy_id_to_sheet 
+			if (dict_strategies_to_sheet is None) 
+			else dict_strategies_to_sheet
+		)
 		strat_base = self.baseline_strategy
 		strats_all = sorted(list(dict_strategies_to_sheet.keys()))
-		strategies_include = strats_all if (strategies_include is None) else [x for x in strategies_include if x in strats_all]
-		if strat_base not in strategies_include:
-			if strat_base in dict_strategies_to_sheet.keys():
-				strategies_include = [strat_base] + [x for x in strategies_include if (x != strat_base)]
-			else:
-				raise KeyError(f"Error in build_inputs_by_strategy: key '{strat_base}' (baseline strategy) not found")
-		else:
-			strategies_include = [strat_base] + [x for x in strategies_include if (x != strat_base)]
+		strategies_include = (
+			strats_all 
+			if (strategies_include is None)
+			else [x for x in strategies_include if x in strats_all]
+		)
+
+		if (strat_base not in strategies_include) & (strat_base not in dict_strategies_to_sheet.keys()):
+			raise KeyError(f"Error in build_inputs_by_strategy: key '{strat_base}' (baseline strategy) not found")
+				
+		strategies_include = [strat_base] + [x for x in strategies_include if (x != strat_base)]
+
 		#
 		df_out = []
 
@@ -882,11 +889,41 @@ class InputTemplate:
 
 		df_out = pd.concat(df_out, axis = 0)
 
+		# do some conversions
+		df_out = self.clean_inputs(df_out)
+
 		return df_out
+	
+
+
+	def clean_inputs(self,
+		df_in: pd.DataFrame,
+	) -> pd.DataFrame:
+		"""
+		Apply some cleaning to the inputs 
+		"""
+
+		# clean up the normalization group field
+		df_in[self.field_req_normalize_group] = (
+			df_in[self.field_req_normalize_group]
+			.replace({" ": 0})
+			.fillna(0)
+			.astype(int)
+		)
+
+		# clean up other fields as type integer
+		flds_clean = [
+			self.field_req_trajgroup_no_vary_q,
+			self.field_req_uniform_scaling_q,
+		]
+		
+		for fld in flds_clean:
+			df_in[flds_clean] = df_in[flds_clean].astype(int)
+
+		return df_in
 
 
 
-	##  check specification of time periods on an input template sheet, then return any valid fields + a cleaned pd.DataFrame
 	def verify_and_return_sheet_time_periods(self,
 		df_in: pd.DataFrame,
 		regex_max: Union[re.Pattern, None] = None,
@@ -1163,7 +1200,7 @@ class BaseInputDatabase:
 	##################################
 
 	def get_regions(self,
-		regions: Union[str,  None]
+		regions: Union[str,  None],
 	) -> list:
 		"""
 		Import regions for the BaseInputDatabase class from BaseInputDatabase
@@ -1183,7 +1220,9 @@ class BaseInputDatabase:
 
 
 
-	def get_sectors(self, sectors: Union[str, None]) -> list:
+	def get_sectors(self, 
+		sectors: Union[str, None],
+	) -> list:
 		"""
 		Import regions for the BaseInputDatabase class from BaseInputDatabase
 		"""
@@ -1253,13 +1292,11 @@ class BaseInputDatabase:
 		regions = self.regions if (regions is None) else self.get_regions(regions)
 		sectors = self.sectors if (sectors is None) else self.get_regions(sectors)
 
-		for region in enumerate(regions):
-			i, region = region
+		for i, region in enumerate(regions):
 
 			df_out_region = []
 
-			for sector in enumerate(sectors):
-				j, sector = sector
+			for j, sector in enumerate(sectors):
 
 				# read the input database for the sector
 				try:

@@ -93,7 +93,7 @@ class SamplingUnit:
 			regex_max,
 			regex_min,
 			regex_tp,
-			check_duplicates = check_duplicates_in_variable_definition
+			check_duplicates = check_duplicates_in_variable_definition,
 		)
 		self._initialize_properties(
 			group = group,
@@ -135,9 +135,14 @@ class SamplingUnit:
 		- fields_req: fields that the dataframe is required to contain
 		"""
 		# some standardized fields to require
-		field_req_variable_trajectory_group_trajectory_type = self.field_variable_trajgroup_type if (field_req_variable_trajectory_group_trajectory_type is None) else field_req_variable_trajectory_group_trajectory_type
+		field_req_variable_trajectory_group_trajectory_type = (
+			self.field_variable_trajgroup_type 
+			if (field_req_variable_trajectory_group_trajectory_type is None) 
+			else field_req_variable_trajectory_group_trajectory_type
+		)
 		fields_req = self.required_fields if fields_req is None else fields_req
 
+		# raise an error if any required fields are missing
 		if not set(fields_req).issubset(set(df_in.columns)):
 			fields_missing = list(set(fields_req) - (set(fields_req) & set(df_in.columns)))
 			fields_missing.sort()
@@ -297,7 +302,7 @@ class SamplingUnit:
 
 		# ensure sorting of input ID/VVT coords
 		tups_id = sorted(list(tups_id))
-		tups_vvt = sorted(list(tups_vvt)) #HEREHERE
+		tups_vvt = sorted(list(tups_vvt))
 		n_vvt = len(tups_vvt)
 
 		# initialize components for
@@ -585,8 +590,7 @@ class SamplingUnit:
 
 		Keyword Arguments
 		-----------------
-		- df_in: input data frame defining variable specifications. If None,
-			uses self.
+		- df_in: input data frame defining variable specifications.
 		"""
 
 		df_in = self.df_variable_definitions if (df_in is None) else df_in
@@ -595,7 +599,11 @@ class SamplingUnit:
 
 		# determine if this is associated with a trajectory group		
 		out = (
-			int(list(df_in[self.field_variable_trajgroup].unique())[0])
+			(
+				int(list(df_in[self.field_variable_trajgroup].unique())[0])
+				if len(self.get_all_vs(df_in)) > 1
+				else None
+			)
 			if len(df_in[df_in[self.field_variable_trajgroup] > self.missing_trajgroup_flag]) > 0
 			else None
 		)
@@ -1157,8 +1165,11 @@ class SamplingUnit:
 		)
 		dict_strategy_info.update({"baseline_strategy_data_table": df_base})
 
+		global dict_vi2
+		dict_vi2 = None
 		# iterate over rows to assign outputs to dictionaries
 		for i in range(len(df_in)):
+
 			#
 			tup_ans = arr_tups_ans[i]
 			tup_id = arr_tups_id[i]
@@ -1171,6 +1182,7 @@ class SamplingUnit:
 			ind_id = self.fun_id_key(tup_id) # for fixed V/VTT
 			ind_vvt = self.fun_vvt_key(tup_vvt) # for fixed ID
 
+			
 			# initialize dictionary components
 			(
 				dict_var_info.update({tup_vvt: self.initialize_dict_vi()}) 
@@ -1210,6 +1222,13 @@ class SamplingUnit:
 			dict_ordered_vec_max_scalars[tup_vvt][ind_id] = vec_max_scalar[i]
 			dict_ordered_vec_min_scalars[tup_vvt][ind_id] = vec_min_scalar[i]
 
+			if "electric" in tup_vvt[0]:
+				dict_vi2 = "elec!"
+				# future of this wrt research? dict_var_info
+
+		global dict_ordered_traj_arrays_by_ans2
+		dict_ordered_traj_arrays_by_ans2 = dict_ordered_traj_arrays_by_ans
+		
 
 		##  BUILD ORDERED TRAJECTORY ARRAYS
 
@@ -1269,7 +1288,7 @@ class SamplingUnit:
 		# check whether or not there will be variation
 		df = self.df_variable_definitions
 		field_max = self.field_max_scalar
-		field_min = self.field_max_scalar
+		field_min = self.field_min_scalar
 
 		s_max = set(df[field_max].astype(float))
 		s_min = set(df[field_min].astype(float))
@@ -1425,7 +1444,7 @@ class SamplingUnit:
 		baseline_future_q: bool = False,
 		constraints_mix_tg: tuple = (0, 1),
 		flatten_output_array: bool = False,
-		vary_q: Union[bool, None] = None
+		vary_q: Union[bool, None] = None,
 	) -> Dict[str, np.ndarray]:
 		"""
 		Generate a dictionary mapping each variable specification to futures 
@@ -1448,20 +1467,24 @@ class SamplingUnit:
 		- vary_q: does the future vary? if not, returns baseline
 		"""
 
-		vary_q = self.variable_trajectory_group_vary_q if not isinstance(vary_q, bool) else vary_q
+		vary_q = (
+			self.variable_trajectory_group_vary_q 
+			if not isinstance(vary_q, bool) 
+			else vary_q
+		)
 
 		# clean up some cases for None entries
-		baseline_future_q = True if (lhs_trial_x is None) else baseline_future_q
+		baseline_future_q |= (lhs_trial_x is None)
+		baseline_future_q |= (not vary_q)
+
 		lhs_trial_x = 1.0 if (lhs_trial_x is None) else lhs_trial_x
 		lhs_trial_l = 1.0 if (lhs_trial_l is None) else lhs_trial_l
 
 		# some additional checks for potential negative numbers
-		baseline_future_q = True if (lhs_trial_x < 0) else baseline_future_q
+		no_vary_x = (baseline_future_q | (lhs_trial_x < 0))
+		no_vary_l = (baseline_future_q | (lhs_trial_l < 0))
 		lhs_trial_x = 1.0 if (lhs_trial_x < 0) else lhs_trial_x
 		lhs_trial_l = 1.0 if (lhs_trial_l < 0) else lhs_trial_l
-
-		# set to baseline if not varying
-		baseline_future_q = baseline_future_q | (not vary_q)
 
 		# initialization
 		all_strats = self.dict_id_values.get(self.key_strategy)
@@ -1470,7 +1493,7 @@ class SamplingUnit:
 
 		# index by variable_specification at keys
 		dict_out = {}
-
+	
 		if self.variable_trajectory_group is not None:
 
 			cat_mix = self.dict_required_tg_spec_fields.get("mixing_trajectory")
@@ -1479,10 +1502,10 @@ class SamplingUnit:
 
 			# use mix between 0/1 (0 = 100% trajectory_boundary_0, 1 = 100% trajectory_boundary_1)
 			for vs in self.variable_specifications:
+
 				#ordered_traj_array = self.dict_ordered_trajectory_arrays.get((vs, None))
 				dict_scalar_diff_arrays = self.dict_scalar_diff_arrays.get((vs, None))
 				dict_var_info = self.dict_variable_info.get((vs, None))
-
 				dict_arrs = {
 					cat_b0: self.dict_ordered_trajectory_arrays.get((vs, cat_b0)),
 					cat_b1: self.dict_ordered_trajectory_arrays.get((vs, cat_b1)),
@@ -1490,8 +1513,13 @@ class SamplingUnit:
 				}
 
 				# for trajectory groups, the baseline is the specified mixing vector
-				mixer = dict_arrs[cat_mix] if baseline_future_q else lhs_trial_x
-				arr_out = self.mix_tensors(dict_arrs[cat_b0], dict_arrs[cat_b1], mixer, constraints_mix_tg)
+				mixer = dict_arrs.get(cat_mix) if no_vary_x else lhs_trial_x
+				arr_out = self.mix_tensors(
+					dict_arrs[cat_b0], 
+					dict_arrs[cat_b1], 
+					mixer, 
+					constraints_mix_tg
+				)
 
 				if self.xl_type == "L":
 					#
@@ -1594,7 +1622,11 @@ class SamplingUnit:
 				if max(vec_unif_scalar) > 0:
 					vec_max_scalar = self.ordered_by_ota_from_fid_dict(dict_var_info["max_scalar"], (vs, None))
 					vec_min_scalar = self.ordered_by_ota_from_fid_dict(dict_var_info["min_scalar"], (vs, None))
-					vec_unif_scalar = vec_unif_scalar*(vec_min_scalar + lhs_trial_x*(vec_max_scalar - vec_min_scalar)) if not baseline_future_q else np.ones(vec_unif_scalar.shape)
+					vec_unif_scalar = (
+						vec_unif_scalar*(vec_min_scalar + lhs_trial_x*(vec_max_scalar - vec_min_scalar)) 
+						if not no_vary_x 
+						else np.ones(vec_unif_scalar.shape)
+					)
 
 				vec_unif_scalar = np.array([vec_unif_scalar]).transpose()
 				vec_base = np.array([vec_base]).transpose()
@@ -1604,9 +1636,8 @@ class SamplingUnit:
 				delta_diff = delta_max - delta_min
 				delta_val = delta_min + lhs_trial_x*delta_diff
 
-				# delta and uniform scalar don't apply if operating under baseline future
-				delta_vec = 0.0 if baseline_future_q else (rv * np.array([delta_val]).transpose())
-
+				# delta and uniform scalar don't apply if operating under baseline future (which forces no_vary_x to be true)
+				delta_vec = 0.0 if no_vary_x else (rv * np.array([delta_val]).transpose())
 				arr_out = ordered_traj_array + delta_vec
 				arr_out = arr_out*vec_base + vec_unif_scalar*ordered_traj_array
 
@@ -1616,13 +1647,14 @@ class SamplingUnit:
 					w = np.where(np.array(series_strats) == strat_base)[0]
 					
 					# get strategy adjustments
-					lhs_mult_deltas = 1.0 if baseline_future_q else lhs_trial_l
+					lhs_mult_deltas = 1.0 if no_vary_l else lhs_trial_l
 					array_strat_deltas = np.concatenate(
 						series_strats.apply(
 							self.dict_strategy_info["difference_arrays_by_strategy"].get,
 							args = (np.zeros((1, len(self.time_periods))), )
 						)
-					)*lhs_mult_deltas
+					)
+					array_strat_deltas *= lhs_mult_deltas
 
 					arr_out = (array_strat_deltas + arr_out[w, :]) if (len(w) > 0) else arr_out
 
@@ -1818,6 +1850,345 @@ class FutureTrajectories:
 
 		self.dict_all_dimensional_values = dict_all_dims_out
 
+		return None
+	
+
+
+	def _initialize_input_database(self,
+		df_in: pd.DataFrame,
+		field_sample_unit_group: Union[str, None] = None,
+		field_variable: Union[str, None] = None,
+		field_variable_trajgroup: Union[str, None] = None,
+		field_variable_trajgroup_type: Union[str, None] = None,
+		missing_trajgroup_flag: Union[int, None] = None,
+		regex_trajgroup: Union[re.Pattern, None] = None,
+		regex_trajmax: Union[re.Pattern, None] = None,
+		regex_trajmin: Union[re.Pattern, None] = None,
+		regex_trajmix: Union[re.Pattern, None] = None,
+	) -> None:
+		"""
+		Prepare the input database for sampling by adding sample unit group,
+			cleaning up trajectory groups, etc. Sets the following properties:
+
+			* self.input_database
+
+		Function Arguments
+		------------------
+		- df_in: input database to use to generate SampleUnit objects
+
+		Keyword Arguments
+		-----------------
+		- field_sample_unit_group: field used to identify groupings of sample 
+			units
+		- field_variable: field in df_in used to denote the database
+		- field_variable_trajgroup: field denoting the variable trajectory group
+		- field_variable_trajgroup_type: field denoting the type of the variable 
+			within a variable trajectory group
+		- missing_trajgroup_flag: missing flag for trajectory group values
+		- regex_trajgroup: regular expression used to match trajectory group 
+			variable specifications
+		- regex_trajmax: regular expression used to match the maximum trajectory 
+			component of a trajectory group variable element
+		- regex_trajmin: regular expression used to match the minimum trajectory 
+			component of a trajectory group variable element
+		- regex_trajmix: regular expression used to match the mixing component 
+			of a trajectory group variable element
+		"""
+
+		# key fields
+		field_sample_unit_group = (
+			self.field_sample_unit_group 
+			if (field_sample_unit_group is None) 
+			else field_sample_unit_group
+		)
+		field_variable = (
+			self.field_variable 
+			if (field_variable is None) 
+			else field_variable
+		)
+		field_variable_trajgroup = (
+			self.field_variable_trajgroup 
+			if (field_variable_trajgroup is None) 
+			else field_variable_trajgroup
+		)
+		field_variable_trajgroup_type = (
+			self.field_variable_trajgroup_type 
+			if (field_variable_trajgroup_type is None) 
+			else field_variable_trajgroup_type
+		)
+
+		# set the missing flag
+		missing_flag = self.missing_flag_int if (missing_trajgroup_flag is None) else int(missing_trajgroup_flag)
+		
+		# regular expressions
+		regex_trajgroup = self.regex_trajgroup if (regex_trajgroup is None) else regex_trajgroup
+		regex_trajmax = self.regex_trajmax if (regex_trajmax is None) else regex_trajmax
+		regex_trajmin = self.regex_trajmin if (regex_trajmin is None) else regex_trajmin
+		regex_trajmix = self.regex_trajmix if (regex_trajmix is None) else regex_trajmix
+
+		##  split traj groups
+		new_col_tg = []
+		new_col_spec_type = []
+
+		# split out traj group and variable specificationa
+		df_add = (
+			df_in[[field_variable, field_variable_trajgroup]]
+			.apply(
+				self.get_trajgroup_and_variable_specification,
+				#kwargs = (
+				regex_trajgroup = regex_trajgroup,
+				regex_trajmax = regex_trajmax,
+				regex_trajmin = regex_trajmin,
+				regex_trajmix = regex_trajmix,
+				#),
+				axis = 1,
+				raw = True,
+			)
+		)
+
+		# add the variable trajectory group
+		df_add = (
+			[np.array(x) for x in df_add]
+			if not isinstance(df_add, pd.DataFrame)
+			else np.array(df_add)
+		)
+		df_add = pd.DataFrame(
+			df_add, 
+			columns = [field_variable_trajgroup, field_variable_trajgroup_type]
+		)
+		
+		df_add[field_variable_trajgroup] = (
+			df_add[field_variable_trajgroup]
+			.replace({None: missing_flag})
+			.astype(int)
+		)
+
+		df_in = pd.concat([
+				df_in.drop([field_variable_trajgroup, field_variable_trajgroup_type], axis = 1),
+				df_add
+			],
+			axis = 1
+		)
+
+		# update trajgroups to add dummies
+		new_tg = df_in[df_in[field_variable_trajgroup] >= 0][field_variable_trajgroup]
+		new_tg = 1 if (len(new_tg) == 0) else max(np.array(new_tg)) + 1
+		tgs = list(df_in[field_variable_trajgroup].copy())
+		tgspecs = list(df_in[field_variable_trajgroup_type].copy())
+
+		# initialization outside of the iteration
+		var_list = list(df_in[field_variable].copy())
+		dict_parameter_to_tg = {}
+		dict_repl_tgt = {
+			"max": self.specification_tgt_max, 
+			"min": self.specification_tgt_min,
+		}
+
+		for i in range(len(df_in)):
+
+			# get trajgroup, trajgroup type, and variable specification for current row
+			tg = int(df_in[field_variable_trajgroup].iloc[i])
+			tgspec = str(df_in[field_variable_trajgroup_type].iloc[i])
+			vs = str(df_in[field_variable].iloc[i])
+
+			# skip if the trajgroup type is unspecified
+			if (tgspec == "<NA>") | (tgspec == "None"):
+				continue
+			
+			new_tg_q = True
+
+			if tg > 0:
+				# drop the group/remove the trajmax/min/mix
+				vs = regex_trajgroup.match(vs).groups()[0]
+				new_tg_q = False
+
+			# check for current trajgroup type
+			for regex in [regex_trajmax, regex_trajmin, regex_trajmix]:
+				matchstr = regex.match(vs)
+				vs = matchstr.groups()[0] if (matchstr is not None) else vs
+
+			# update the variable list
+			var_list[i] = vs
+
+			# update indexing of trajectory groups
+			if not new_tg_q:
+				continue
+
+			if vs in dict_parameter_to_tg.keys():
+				tgs[i] = int(dict_parameter_to_tg.get(vs))
+			else:
+				dict_parameter_to_tg.update({vs: new_tg})
+				tgs[i] = new_tg
+				new_tg += 1
+
+		# update outputs
+		df_in[field_variable] = var_list
+		df_in[field_variable_trajgroup] = tgs
+		df_in = (
+			df_in[
+				~df_in[field_variable].isin([self.specification_tgt_lhs])
+			]
+			.reset_index(drop = True)
+		)
+		df_in[field_variable_trajgroup_type].replace(dict_repl_tgt, inplace = True)
+
+		# add sample_unit_group field
+		dict_var_to_su = sf.build_dict(
+			df_in[
+				df_in[field_variable_trajgroup] > 0
+			][
+				[field_variable, field_variable_trajgroup]
+			]
+			.drop_duplicates()
+		)
+		vec_vars_to_assign = sorted(list(set(df_in[df_in[field_variable_trajgroup] <= 0][field_variable])))
+		min_val = (max(dict_var_to_su.values()) + 1) if (len(dict_var_to_su) > 0) else 1
+		dict_var_to_su.update(
+			dict(zip(
+				vec_vars_to_assign,
+				list(range(min_val, min_val + len(vec_vars_to_assign)))
+			))
+		)
+		df_in[field_sample_unit_group] = df_in[field_variable].replace(dict_var_to_su)
+
+		self.input_database = df_in
+
+		return None
+
+
+
+	def _initialize_sampling_units(self,
+		check_duplicates_in_variable_definition: bool,
+		df_in: Union[pd.DataFrame, None] = None,
+		dict_all_dims: Union[Dict[str, List[int]], None] = None,
+		fan_function: Union[str, None] = None,
+		**kwargs
+	) -> None:
+		"""
+		Instantiate all defined SamplingUnits from input database. Sets the
+			following properties:
+
+			* self.n_su
+			* self.all_sampling_units
+			* self.dict_sampling_units
+
+		Behavioral Notes
+		----------------
+		- _initialize_sampling_units() will try to identify the availablity of
+			dimensions specified in dict_all_dims within df_in. If a dimension
+			specified in dict_all_dims is not found within df_in, the funciton
+			will replace the value with the baseline strategy.
+		- If a product specified within self.dict_baseline_ids is missing in
+			the dataframe, then an error will occur.
+
+		Keword Arguments
+		----------------
+		- df_in: input database used to identify sampling units. Must include
+			self.field_sample_unit_group
+		- dict_all_dims: optional dictionary to pass that contains dimensions.
+			This dictionary is used to determine which dimensions *should* be
+			present. If any of the dimension sets specified in dict_all_dims
+			are not found in df_in, their values are replaced with associated
+			baselines.
+		- fan_function: function specification to use for uncertainty fans
+		- **kwargs: passed to SamplingUnit initialization
+		"""
+
+		# get some defaults
+		df_in = self.input_database if (df_in is None) else df_in
+		fan_function = self.fan_function_specification if (fan_function is None) else fan_function
+		dict_all_dims = self.dict_all_dimensional_values if not isinstance(dict_all_dims, dict) else dict_all_dims
+
+		# get some key fields for defining sampling units
+		field_time_period = kwargs.get("field_time_period", self.field_time_period)
+		field_uniform_scaling_q = kwargs.get("field_uniform_scaling_q", self.field_uniform_scaling_q)
+		field_trajgroup_no_vary_q = kwargs.get("field_trajgroup_no_vary_q", self.field_trajgroup_no_vary_q)
+		field_variable_trajgroup = kwargs.get("field_variable_trajgroup", self.field_variable_trajgroup)
+		field_variable_trajgroup_type = kwargs.get("field_variable_trajgroup_type", self.field_variable_trajgroup_type)
+		field_variable = kwargs.get("field_variable", self.field_variable)
+		key_strategy = kwargs.get("key_strategy", self.key_strategy)
+
+		# retrieve regular expressions used in the input template
+		regex_id = kwargs.get("regex_id", self.regex_id)
+		regex_max = kwargs.get("regex_max", self.regex_max)
+		regex_min = kwargs.get("regex_min", self.regex_min)
+		regex_tp = kwargs.get("regex_tp", self.regex_tp)
+
+		dict_sampling_units = {}
+
+		dfgroup_sg = df_in.drop_duplicates().groupby(self.field_sample_unit_group)
+		all_sample_groups = sorted(list(set(df_in[self.field_sample_unit_group])))
+
+		n_sg = len(dfgroup_sg)
+		if isinstance(dict_all_dims, dict):
+			dict_all_dims = dict((k, v) for k, v in dict_all_dims.items() if k in self.dict_baseline_ids.keys())
+
+
+		##  GENERATE SamplingUnit FROM DATABASE
+
+		self._log(f"Instantiating {n_sg} sampling units.", type_log = "info")
+		t0 = time.time()
+
+		for iterate in enumerate(dfgroup_sg):
+
+			i, df_sg = iterate
+			df_sg = df_sg[1]
+			sg = int(df_sg[self.field_sample_unit_group].iloc[0])
+
+			# fill in missing values from baseline if dims are missing in input database
+			df_sg = (
+				self.clean_sampling_unit_input_df(
+					df_sg, 
+					dict_all_dims = dict_all_dims
+				) 
+				if (dict_all_dims is not None) 
+				else df_sg
+			)
+
+			samp = SamplingUnit(
+				df_sg.drop(self.field_sample_unit_group, axis = 1),
+				self.dict_baseline_ids,
+				self.time_period_u0,
+				check_duplicates_in_variable_definition = check_duplicates_in_variable_definition,
+				fan_function_specification = fan_function,
+				field_time_period = field_time_period,
+				field_uniform_scaling_q = field_uniform_scaling_q,
+				field_trajgroup_no_vary_q = field_trajgroup_no_vary_q,
+				field_variable_trajgroup = field_variable_trajgroup,
+				field_variable_trajgroup_type = field_variable_trajgroup_type,
+				field_variable = field_variable,
+				group = sg,
+				key_strategy = key_strategy,
+				missing_trajgroup_flag = self.missing_flag_int,
+				regex_id = regex_id,
+				regex_max = regex_max,
+				regex_min = regex_min,
+				regex_tp = regex_tp
+			)
+
+			
+			# update sampling unit dictionary
+			dict_sampling_units = (
+				dict(zip(all_sample_groups, [samp for x in range(n_sg)])) 
+				if (i == 0) 
+				else dict_sampling_units
+			)
+			dict_sampling_units.update({sg: samp})
+
+			self._log(f"Iteration {i} complete.", type_log = "info") if (i%250 == 0) else None
+
+		t_elapse = sf.get_time_elapsed(t0)
+		self._log(f"\t{n_sg} sampling units complete in {t_elapse} seconds.", type_log = "info")
+
+
+		##  SET PROPERTIES
+
+		self.n_su = n_sg
+		self.all_sampling_units = all_sample_groups
+		self.dict_sampling_units = dict_sampling_units
+
+		return None
+
 
 
 	def _log(self,
@@ -1826,7 +2197,8 @@ class FutureTrajectories:
 		**kwargs
 	):
 		"""
-		Clean implementation of sf._optional_log in-line using default logger. See ?sf._optional_log for more information
+		Clean implementation of sf._optional_log in-line using default logger. 
+			See ?sf._optional_log for more information
 
 		Function Arguments
 		------------------
@@ -1885,31 +2257,6 @@ class FutureTrajectories:
 		return None
 
 
-
-	def get_df_row_element(self,
-		row: Union[pd.Series, pd.DataFrame, None],
-		index: Union[int, float, str],
-		return_def: Union[int, float, str, None] = None
-	) -> float:
-		"""
-		Support for self.generate_future_from_lhs_vector. Read an element from a named series or DataFrame.
-
-		Function Arguments
-		------------------
-		- row: Series or DataFrame. If DataFrame, only reads the first row
-		- index: column index in input DataFrame to read (field)
-
-		Keyword Arguments
-		-----------------
-		- return_def: default return value if row is None
-		"""
-		out = return_def
-		if isinstance(row, pd.DataFrame):
-			out = float(row[index].iloc[0]) if (index in row.columns) else out
-		elif isinstance(row, pd.Series):
-			out = float(row[index]) if (index in row.index) else out
-
-		return out
 
 
 
@@ -2063,7 +2410,7 @@ class FutureTrajectories:
 				)
 
 			else:
-				# get LHC samples for X and L HEREHERE
+				# get LHC samples for X and L
 				lhs_x = self.get_df_row_element(df_row_lhc_sample_x, su)
 				lhs_l = self.get_df_row_element(df_row_lhc_sample_l, su, 1.0)
 
@@ -2092,18 +2439,49 @@ class FutureTrajectories:
 		df_out = sf.add_data_frame_fields_from_dict(df_out, dict_optional_dimensions) if isinstance(dict_optional_dimensions, dict) else df_out
 
 		return df_out
+	
+
+
+	def get_df_row_element(self,
+		row: Union[pd.Series, pd.DataFrame, None],
+		index: Union[int, float, str],
+		return_def: Union[int, float, str, None] = None,
+	) -> float:
+		"""
+		Support for self.generate_future_from_lhs_vector. Read an element from a 
+			named series or DataFrame.
+
+		Function Arguments
+		------------------
+		- row: Series or DataFrame. If DataFrame, only reads the first row
+		- index: column index in input DataFrame to read (field)
+
+		Keyword Arguments
+		-----------------
+		- return_def: default return value if row is None
+		"""
+		out = return_def
+		if isinstance(row, pd.DataFrame):
+			out = float(row[index].iloc[0]) if (index in row.columns) else out
+		elif isinstance(row, pd.Series):
+			out = float(row[index]) if (index in row.index) else out
+
+		return out
 
 
 
 	def get_trajgroup_and_variable_specification(self,
-		input_var_spec: str,
+		input_var_spec: np.ndarray,#str,
+		#trajgroup_pass: Union[int, None],
 		regex_trajgroup: Union[re.Pattern, None] = None,
 		regex_trajmax: Union[re.Pattern, None] = None,
 		regex_trajmin: Union[re.Pattern, None] = None,
-		regex_trajmix: Union[re.Pattern, None] = None
+		regex_trajmix: Union[re.Pattern, None] = None,
+		#trajgroup_pass: Union[int, None] = None,
 	) -> Tuple[str, str]:
 		"""
-		Derive a trajectory group and variable specification from variables in an input variable specification
+		Derive a trajectory group and variable specification from variables in 
+			an input variable specification
 
 		Function Arguments
 		------------------
@@ -2111,27 +2489,37 @@ class FutureTrajectories:
 
 		Keyword Arguments
 		-----------------
-		- regex_trajgroup: Regular expression used to identify trajectory group variables in `field_variable` of `df_input_database`
-		- regex_trajmax: Regular expression used to identify trajectory maxima in variables and trajgroups specified in `field_variable` of `df_input_database`
-		- regex_trajmin: Regular expression used to identify trajectory minima in variables and trajgroups specified in `field_variable` of `df_input_database`
-		- regex_trajmix: Regular expression used to identify trajectory baseline mix (fraction maxima) in variables and trajgroups specified in `field_variable` of `df_input_database`
+		- regex_trajgroup: Regular expression used to identify trajectory group 
+			variables in `field_variable` of `df_input_database`
+		- regex_trajmax: Regular expression used to identify trajectory maxima 
+			in variables and trajgroups specified in `field_variable` of 
+			`df_input_database`
+		- regex_trajmin: Regular expression used to identify trajectory minima 
+			in variables and trajgroups specified in `field_variable` of 
+			`df_input_database`
+		- regex_trajmix: Regular expression used to identify trajectory baseline 
+			mix (fraction maxima) in variables and trajgroups specified in `
+			field_variable` of `df_input_database`
 		"""
+		input_var_spec, trajgroup_pass = input_var_spec
+
 		input_var_spec = str(input_var_spec)
 		regex_trajgroup = self.regex_trajgroup if (regex_trajgroup is None) else regex_trajgroup
 		regex_trajmax = self.regex_trajmax if (regex_trajmax is None) else regex_trajmax
 		regex_trajmin = self.regex_trajmin if (regex_trajmin is None) else regex_trajmin
 		regex_trajmix = self.regex_trajmix if (regex_trajmix is None) else regex_trajmix
 
-		tg = None
+		trajgroup_pass_test = sf.isnumber(trajgroup_pass)
+		tg = None if not trajgroup_pass_test else int(trajgroup_pass)
 		var_spec = None
+		
 
 		# check trajgroup match
+		check_spec_string = input_var_spec
 		trajgroup_match = regex_trajgroup.match(input_var_spec)
 		if trajgroup_match is not None:
 			tg = int(trajgroup_match.groups()[0])
 			check_spec_string = str(trajgroup_match.groups()[1])
-		else:
-			check_spec_string = input_var_spec
 
 		# check trajectory max/min/mix
 		if regex_trajmax.match(check_spec_string) is not None:
@@ -2143,291 +2531,27 @@ class FutureTrajectories:
 		elif (check_spec_string == "lhs") and (tg is not None):
 			var_spec = "lhs"
 
-		return (tg, var_spec)
+		# set output
+		tup_out = (tg, var_spec)
+
+		return tup_out
+	
 
 
-
-	def _initialize_input_database(self,
-		df_in: pd.DataFrame,
-		field_sample_unit_group: Union[str, None] = None,
-		field_variable: Union[str, None] = None,
-		field_variable_trajgroup: Union[str, None] = None,
-		field_variable_trajgroup_type: Union[str, None] = None,
-		missing_trajgroup_flag: Union[int, None] = None,
-		regex_trajgroup: Union[re.Pattern, None] = None,
-		regex_trajmax: Union[re.Pattern, None] = None,
-		regex_trajmin: Union[re.Pattern, None] = None,
-		regex_trajmix: Union[re.Pattern, None] = None
-	) -> None:
+	def get_variable_specification_index(self,
+		varname: str,
+	) -> Union[int, None]:
 		"""
-		Prepare the input database for sampling by adding sample unit group,
-			cleaning up trajectory groups, etc. Sets the following properties:
-
-			* self.input_database
-
-		Function Arguments
-		------------------
-		- df_in: input database to use to generate SampleUnit objects
-
-		Keyword Arguments
-		-----------------
-		- field_sample_unit_group: field used to identify groupings of sample units
-		- field_variable: field in df_in used to denote the database
-		- field_variable_trajgroup: field denoting the variable trajectory group
-		- field_variable_trajgroup_type: field denoting the type of the variable within a variable trajectory group
-		- missing_trajgroup_flag: missing flag for trajectory group values
-		- regex_trajgroup: regular expression used to match trajectory group variable specifications
-		- regex_trajmax: regular expression used to match the maximum trajectory component of a trajectory group variable element
-		- regex_trajmin: regular expression used to match the minimum trajectory component of a trajectory group variable element
-		- regex_trajmix: regular expression used to match the mixing component of a trajectory group variable element
+		Return the key in self.dict_sampling_units of the sampling unit that 
+			controls variable `varname`. Returns None if not found.
 		"""
 
-		# key fields
-		field_sample_unit_group = (
-			self.field_sample_unit_group 
-			if (field_sample_unit_group is None) 
-			else field_sample_unit_group
-		)
-		field_variable = (
-			self.field_variable 
-			if (field_variable is None) 
-			else field_variable
-		)
-		field_variable_trajgroup = (
-			self.field_variable_trajgroup 
-			if (field_variable_trajgroup is None) 
-			else field_variable_trajgroup
-		)
-		field_variable_trajgroup_type = (
-			self.field_variable_trajgroup_type 
-			if (field_variable_trajgroup_type is None) 
-			else field_variable_trajgroup_type
-		)
+		ind = None
 
-		# set the missing flag
-		missing_flag = self.missing_flag_int if (missing_trajgroup_flag is None) else int(missing_trajgroup_flag)
+		for k, v in self.dict_sampling_units.items():
+			ind = k if (varname in v.variable_specifications) else ind
 		
-		# regular expressions
-		regex_trajgroup = self.regex_trajgroup if (regex_trajgroup is None) else regex_trajgroup
-		regex_trajmax = self.regex_trajmax if (regex_trajmax is None) else regex_trajmax
-		regex_trajmin = self.regex_trajmin if (regex_trajmin is None) else regex_trajmin
-		regex_trajmix = self.regex_trajmix if (regex_trajmix is None) else regex_trajmix
-
-		##  split traj groups
-		new_col_tg = []
-		new_col_spec_type = []
-
-		# split out traj group and variable specification
-		df_add = df_in[field_variable].apply(
-			self.get_trajgroup_and_variable_specification,
-			args = (regex_trajgroup,
-			regex_trajmax,
-			regex_trajmin,
-			regex_trajmix)
-		)
-
-		# add the variable trajectory group
-		df_add = pd.DataFrame([np.array(x) for x in df_add], columns = [field_variable_trajgroup, field_variable_trajgroup_type])
-		df_add[field_variable_trajgroup] = df_add[field_variable_trajgroup].replace({None: missing_flag})
-		df_add[field_variable_trajgroup] = df_add[field_variable_trajgroup].astype(int)
-		df_in = pd.concat([
-				df_in.drop([field_variable_trajgroup, field_variable_trajgroup_type], axis = 1),
-				df_add
-			],
-			axis = 1
-		)
-
-		##  update trajgroups to add dummies
-		new_tg = df_in[df_in[field_variable_trajgroup] >= 0][field_variable_trajgroup]
-		new_tg = 1 if (len(new_tg) == 0) else max(np.array(new_tg)) + 1
-		tgs = list(df_in[field_variable_trajgroup].copy())
-		tgspecs = list(df_in[field_variable_trajgroup_type].copy())
-
-		# initialization outside of the iteration
-		var_list = list(df_in[field_variable].copy())
-		dict_parameter_to_tg = {}
-		dict_repl_tgt = {"max": self.specification_tgt_max, "min": self.specification_tgt_min}
-
-		for i in range(len(df_in)):
-			# get trajgroup, trajgroup type, and variable specification for current row
-			tg = int(df_in[field_variable_trajgroup].iloc[i])
-			tgspec = str(df_in[field_variable_trajgroup_type].iloc[i])
-			vs = str(df_in[field_variable].iloc[i])
-
-			if (tgspec != "<NA>") & (tgspec != "None"):
-				new_tg_q = True
-
-				if tg > 0:
-					# drop the group/remove the trajmax/min/mix
-					vs = regex_trajgroup.match(vs).groups()[0]
-					new_tg_q = False
-
-				# check for current trajgroup type
-				for regex in [regex_trajmax, regex_trajmin, regex_trajmix]:
-					matchstr = regex.match(vs)
-					vs = matchstr.groups()[0] if (matchstr is not None) else vs
-
-				# update the variable list
-				var_list[i] = vs
-
-				# update indexing of trajectory groups
-				if new_tg_q:
-					if vs in dict_parameter_to_tg.keys():
-						tgs[i] = int(dict_parameter_to_tg.get(vs))
-					else:
-						dict_parameter_to_tg.update({vs: new_tg})
-						tgs[i] = new_tg
-						new_tg += 1
-
-		# update outputs
-		df_in[field_variable] = var_list
-		df_in[field_variable_trajgroup] = tgs
-		df_in = df_in[~df_in[field_variable].isin([self.specification_tgt_lhs])].reset_index(drop = True)
-		df_in[field_variable_trajgroup_type].replace(dict_repl_tgt, inplace = True)
-
-		# add sample_unit_group field
-		dict_var_to_su = sf.build_dict(df_in[df_in[field_variable_trajgroup] > 0][[field_variable, field_variable_trajgroup]].drop_duplicates())
-		vec_vars_to_assign = sorted(list(set(df_in[df_in[field_variable_trajgroup] <= 0][field_variable])))
-		min_val = (max(dict_var_to_su.values()) + 1) if (len(dict_var_to_su) > 0) else 1
-		dict_var_to_su.update(
-			dict(zip(
-				vec_vars_to_assign,
-				list(range(min_val, min_val + len(vec_vars_to_assign)))
-			))
-		)
-		df_in[field_sample_unit_group] = df_in[field_variable].replace(dict_var_to_su)
-
-		self.input_database = df_in
+		return ind
+		
 
 
-
-	def _initialize_sampling_units(self,
-		check_duplicates_in_variable_definition: bool,
-		df_in: Union[pd.DataFrame, None] = None,
-		dict_all_dims: Union[Dict[str, List[int]], None] = None,
-		fan_function: Union[str, None] = None,
-		**kwargs
-	) -> None:
-		"""
-		Instantiate all defined SamplingUnits from input database. Sets the
-			following properties:
-
-			* self.n_su
-			* self.all_sampling_units
-			* self.dict_sampling_units
-
-		Behavioral Notes
-		----------------
-		- _initialize_sampling_units() will try to identify the availablity of
-			dimensions specified in dict_all_dims within df_in. If a dimension
-			specified in dict_all_dims is not found within df_in, the funciton
-			will replace the value with the baseline strategy.
-		- If a product specified within self.dict_baseline_ids is missing in
-			the dataframe, then an error will occur.
-
-		Keword Arguments
-		----------------
-		- df_in: input database used to identify sampling units. Must include
-			self.field_sample_unit_group
-		- dict_all_dims: optional dictionary to pass that contains dimensions.
-			This dictionary is used to determine which dimensions *should* be
-			present. If any of the dimension sets specified in dict_all_dims
-			are not found in df_in, their values are replaced with associated
-			baselines.
-		- fan_function: function specification to use for uncertainty fans
-		- **kwargs: passed to SamplingUnit initialization
-		"""
-#HEREHERE
-		# get some defaults
-		df_in = self.input_database if (df_in is None) else df_in
-		fan_function = self.fan_function_specification if (fan_function is None) else fan_function
-		dict_all_dims = self.dict_all_dimensional_values if not isinstance(dict_all_dims, dict) else dict_all_dims
-
-		# setup inputs
-		kwarg_keys = list(kwargs.keys())
-		field_time_period = self.field_time_period if ("field_time_period" not in kwarg_keys) else kwargs.get("field_time_period")
-		field_uniform_scaling_q = self.field_uniform_scaling_q if ("field_uniform_scaling_q" not in kwarg_keys) else kwargs.get("field_uniform_scaling_q")
-		field_trajgroup_no_vary_q = self.field_trajgroup_no_vary_q if ("field_trajgroup_no_vary_q" not in kwarg_keys) else kwargs.get("field_trajgroup_no_vary_q")
-		field_variable_trajgroup = self.field_variable_trajgroup if ("field_variable_trajgroup" not in kwarg_keys) else kwargs.get("field_variable_trajgroup")
-		field_variable_trajgroup_type = self.field_variable_trajgroup_type if ("field_variable_trajgroup_type" not in kwarg_keys) else kwargs.get("field_variable_trajgroup_type")
-		field_variable = self.field_variable if ("field_variable" not in kwarg_keys) else kwargs.get("field_variable")
-		key_strategy = self.key_strategy if ("key_strategy" not in kwarg_keys) else kwargs.get("key_strategy")
-		regex_id = self.regex_id if ("regex_id" not in kwarg_keys) else kwargs.get("regex_id")
-		regex_max = self.regex_max if ("regex_max" not in kwarg_keys) else kwargs.get("regex_max")
-		regex_min = self.regex_min if ("regex_min" not in kwarg_keys) else kwargs.get("regex_min")
-		regex_tp = self.regex_tp if ("regex_tp" not in kwarg_keys) else kwargs.get("regex_tp")
-
-		dict_sampling_units = {}
-
-		dfgroup_sg = df_in.drop_duplicates().groupby(self.field_sample_unit_group)
-		all_sample_groups = sorted(list(set(df_in[self.field_sample_unit_group])))
-
-		n_sg = len(dfgroup_sg)
-		if isinstance(dict_all_dims, dict):
-			dict_all_dims = dict((k, v) for k, v in dict_all_dims.items() if k in self.dict_baseline_ids.keys())
-
-
-		##  GENERATE SamplingUnit FROM DATABASE
-
-		self._log(f"Instantiating {n_sg} sampling units.", type_log = "info")
-		t0 = time.time()
-
-		for iterate in enumerate(dfgroup_sg):
-
-			i, df_sg = iterate
-			df_sg = df_sg[1]
-			sg = int(df_sg[self.field_sample_unit_group].iloc[0])
-
-			# fill in missing values from baseline if dims are missing in input database
-			df_sg = (
-				self.clean_sampling_unit_input_df(
-					df_sg, 
-					dict_all_dims = dict_all_dims
-				) 
-				if (dict_all_dims is not None) 
-				else df_sg
-			)
-
-			samp = SamplingUnit(
-				df_sg.drop(self.field_sample_unit_group, axis = 1),
-				self.dict_baseline_ids,
-				self.time_period_u0,
-				check_duplicates_in_variable_definition = check_duplicates_in_variable_definition,
-				fan_function_specification = fan_function,
-				field_time_period = field_time_period,
-				field_uniform_scaling_q = field_uniform_scaling_q,
-				field_trajgroup_no_vary_q = field_trajgroup_no_vary_q,
-				field_variable_trajgroup = field_variable_trajgroup,
-				field_variable_trajgroup_type = field_variable_trajgroup_type,
-				field_variable = field_variable,
-				group = sg,
-				key_strategy = key_strategy,
-				missing_trajgroup_flag = self.missing_flag_int,
-				regex_id = regex_id,
-				regex_max = regex_max,
-				regex_min = regex_min,
-				regex_tp = regex_tp
-			)
-
-			
-			# update sampling unit dictionary
-			dict_sampling_units = (
-				dict(zip(all_sample_groups, [samp for x in range(n_sg)])) 
-				if (i == 0) 
-				else dict_sampling_units
-			)
-			dict_sampling_units.update({sg: samp})
-
-			self._log(f"Iteration {i} complete.", type_log = "info") if (i%250 == 0) else None
-
-		t_elapse = sf.get_time_elapsed(t0)
-		self._log(f"\t{n_sg} sampling units complete in {t_elapse} seconds.", type_log = "info")
-
-
-		##  SET PROPERTIES
-
-		self.n_su = n_sg
-		self.all_sampling_units = all_sample_groups
-		self.dict_sampling_units = dict_sampling_units
-
-		return None

@@ -27,16 +27,132 @@ from typing import *
 ########################
 
 
+def project_model_variable_using_growth_rate(
+    df_data: pd.DataFrame,
+    growth_rate_by_time_period: float,
+    time_periods_hist: List[int],
+    modvar: str,
+    model_attributes: ma.ModelAttributes,
+    add_region: bool = False,
+    field_iso: Union[str, None] = None,
+    field_region: Union[str, None] = None,
+    input_regions_only: bool = False,
+    regions: Union[sc.Regions, None] = None,
+    time_periods: Union[sc.TimePeriods, None] = None,
+    **kwargs,
+) -> Union[pd.DataFrame, None]:
+    """
+    Project a model variable
+    
+    Function Arguments
+    ------------------
+    - df_data: DataFrame containing input data 
+    - growth_rate_by_time_period: growth rate to apply to post-historical
+        time periods
+    - time_periods_hist: time periods containing historical data (not projected 
+        over)
+    - modvar: model variable to project
+    - model_attributes: ModelAttributes object spcifying 
+    
+    Keyword Arguments
+    -----------------
+    - add_region: add region field?
+    - field_iso: field to use as ISO string
+    - field_region: field storing regions/countries
+    - input_regions_only: only run for regions associated with input file?
+    - regions: optional support_classes.Regions object to pass
+    - time_periods: optional support_classes.TimePeriods object to pass
+    - **kwargs: passed to project_from_growth_rate()
+    """
+    
+    # do some checks
+    return_none = not isinstance(df_data, pd.DataFrame)
+    return_none |= not sf.islistlike(time_periods_hist)
+    return_none |= (model_attributes.check_modvar(modvar) is None)
+    if return_none:
+        return None
+
+    ##  INITIALIZATION
+
+    regions = (
+        sc.Regions(model_attributes)
+        if not isinstance(regions, sc.Regions)
+        else regions
+    )
+    time_periods = (
+        sc.TimePeriods(model_attributes)
+        if not isinstance(time_periods, sc.TimePeriods)
+        else time_periods
+    )
+
+    # how to deal with regions that are missing?
+    missing_regions_process = (
+        None
+        if input_regions_only
+        else "substitute_closest"
+    )
+
+
+    ##  GET FIELDS AND BUILD FROM GROWTH RATE
+
+    # initialize fields to project over
+    flds = [field_iso]
+    (
+        flds.extend([time_periods.field_time_period])
+        if (time_periods.field_time_period in df_data.columns)
+        else None
+    )
+    flds += sa.model_attributes.build_varlist(
+        None,
+        modvar
+    )
+    # return None if any required fields are not in the input dataframe
+    s1 = set(flds) - set([time_periods.field_time_period])
+    if not s1.issubset(set(df_data.columns)):
+        return None
+    
+    
+    # call project_from_growth_rate
+    df_return = project_from_growth_rate(
+        (
+            df_data[
+                df_data[time_periods.field_time_period].isin(time_periods_hist)
+            ][flds]
+            .reset_index(drop = True)
+        ), 
+        model_attributes,
+        modvar,
+        growth_rate_by_time_period,
+        field_iso = field_iso,
+        missing_regions_process = missing_regions_process,
+        **kwargs
+    )
+    
+    # add region to output
+    if add_region:
+        df_return = regions.add_region_or_iso_field(
+            df_return,
+            field_iso = field_iso,
+            field_region = field_region,
+        )
+    
+    return df_return
+
+
+
 def project_from_growth_rate(
     df_hist: pd.DataFrame,
     model_attributes: ma.ModelAttributes,
     modvar: str,# = model_afolu.modvar_agrc_yf,
     growth_rate_by_time_period: float,# = 0.016,
+    bounds: Union[Tuple, None] = None,
     field_iso: Union[str, None] = None,
     field_year: Union[str, None] = None,
     max_deviation_from_mean: float = 0.2,
     missing_regions_process: Union[str, None] = "substitute_closest",
-    n_tp_lookback_max: int = 5,
+    n_tp_lookback_max: Union[int, None] = None,
+    regions: Union[sc.Regions, None] = None,
+    time_periods: Union[sc.TimePeriods, None] = None,
 ) -> Union[pd.DataFrame, None]:
     """
     Apply an annual growth rate of growth_rate_by_time_period to historical 
@@ -51,6 +167,8 @@ def project_from_growth_rate(
 
     Keyword Arguments
     -----------------
+    - bounds: optional tuple specifying bounds for the projection. If None 
+        (default), no bounds are established
     - field_iso: field in df_hist containing the iso code
     - field_year: field in df_hist containing the year
     - max_deviation_from_mean: maximum deviation from observed historical mean 
@@ -60,12 +178,22 @@ def project_from_growth_rate(
         * None: ignore missing regions
         * "substitute_closest": using population centroids, substitute value 
             using closes region for which data are available
-    - n_tp_lookback_max: number of lookback time periods to use for mean in first 
-        projected time period
+    - n_tp_lookback_max: number of lookback time periods to use for mean in 
+        first projected time period
+    - regions: optional support_classes.Regions object to pass
+    - time_periods: optional support_classes.TimePeriods object to pass
     """
     
-    regions = sc.Regions(model_attributes)
-    time_periods = sc.TimePeriods(model_attributes)
+    regions = (
+        sc.Regions(model_attributes)
+        if not isinstance(regions, sc.Regions)
+        else regions
+    )
+    time_periods = (
+        sc.TimePeriods(model_attributes)
+        if not isinstance(time_periods, sc.TimePeriods)
+        else time_periods
+    )
 
     field_iso = (
         regions.field_iso
@@ -150,14 +278,22 @@ def project_from_growth_rate(
         vec_base_proj = sf.project_from_array(
             arr_cur, 
             max_deviation_from_mean = max_deviation_from_mean,
+            max_lookback = n_tp_lookback_max,
         )
         
         tp_hist_max = max(list(df[field_time_period]))
         tp_proj_max = max(time_periods_all)
         tp_proj = np.arange(tp_proj_max - tp_hist_max)
+
         vec_rates = (1 + growth_rate_by_time_period)**tp_proj
         vec_rates = np.outer(vec_rates, np.ones(arr_cur.shape[1]))
         vec_rates *= vec_base_proj
+
+        vec_rates = (
+            sf.vec_bounds(vec_rates, bounds)
+            if isinstance(bounds, tuple)
+            else vec_rates
+        )
         
         df_append = pd.DataFrame(vec_rates, columns = fields)
         df_append[field_time_period] = tp_hist_max + tp_proj + 1

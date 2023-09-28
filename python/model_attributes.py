@@ -4082,10 +4082,14 @@ class ModelAttributes:
 
             subsector = self.get_variable_subsector(variable_subsec)
 
+
         # get some subsector info
-        category = self.dict_attributes.get(self.table_name_attr_subsector).field_maps["abbreviation_subsector_to_primary_category"][self.get_subsector_attribute(subsector, "abv_subsector")].replace("`", "")
+        attr_subsec = self.dict_attributes.get(self.table_name_attr_subsector)
+        abv_subsec = self.get_subsector_attribute(subsector, "abv_subsector")
+        category = attr_subsec.field_maps.get(f"{attr_subsec.key}_to_primary_category").get(abv_subsec).replace("`", "")
+
         category_ij_tuple = self.format_category_for_direct(category, "-I", "-J")
-        attribute_table = self.dict_attributes[self.get_subsector_attribute(subsector, "pycategory_primary")]
+        attribute_table = self.get_attribute_table(subsector)
         valid_cats = self.check_category_restrictions(restrict_to_category_values, attribute_table)
 
         # get dictionary of variable to variable schema and id variables that are in the outer (Cartesian) product (i x j)
@@ -4129,6 +4133,7 @@ class ModelAttributes:
             variable = variable_subsec, 
             variable_type = variable_type
         )
+
         dict_vrp_vvs_cats, dict_vrp_vvs_cats_outer = self.get_partial_category_dictionaries(
             subsector, 
             category_ij_tuple, 
@@ -4137,14 +4142,19 @@ class ModelAttributes:
         )
 
         # check dict_force_override_vrp_vvs_cats - use w/caution if not none. Cannot use w/outer
-        if dict_force_override_vrp_vvs_cats != None:
+        if dict_force_override_vrp_vvs_cats is not None:
             # check categories
             for k in dict_force_override_vrp_vvs_cats.keys():
-                sf.check_set_values(dict_force_override_vrp_vvs_cats[k], attribute_table.key_values, f" in dict_force_override_vrp_vvs_cats at key {k} (subsector {subsector})")
+                sf.check_set_values(
+                    dict_force_override_vrp_vvs_cats[k], 
+                    attribute_table.key_values, 
+                    f" in dict_force_override_vrp_vvs_cats at key {k} (subsector {subsector})"
+                )
             dict_vrp_vvs_cats = dict_force_override_vrp_vvs_cats
 
         if len(dict_vrp_vvs) > 0:
             vars_out += self.build_vars_basic(dict_vrp_vvs, dict_vrp_vvs_cats, category)
+
         if len(dict_vrp_vvs_outer) > 0:
             vl = self.build_vars_outer(dict_vrp_vvs_outer, dict_vrp_vvs_cats_outer, category)
             vars_out += self.build_vars_outer(dict_vrp_vvs_outer, dict_vrp_vvs_cats_outer, category)

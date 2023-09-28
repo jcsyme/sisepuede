@@ -2958,8 +2958,9 @@ class ElectricEnergy:
         ##    return arr_entc_msp
         
         w_not_drop = np.where(arr_entc_maxprod_msp_increase != drop_flag)
-        if (len(w_not_drop[0]) == 0) or (np.max(arr_entc_msp.sum(axis = 1)) == 0):
-            return arr_entc_msp, None
+        if (len(w_not_drop[0]) == 0) | (np.max(arr_entc_msp.sum(axis = 1)) == 0):
+            tup_out = arr_entc_msp, None, None
+            return tup_out
 
         
         

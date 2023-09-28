@@ -120,6 +120,8 @@ class SISEPUEDEModels:
 		self.model_ippu = IPPU(self.model_attributes)
 		self.model_socioeconomic = Socioeconomic(self.model_attributes)
 
+		return None
+
 
 
 	def _initialize_path_julia(self,
@@ -142,6 +144,8 @@ class SISEPUEDEModels:
 			else:
 				self.allow_electricity_run = False
 				self._log(f"Invalid path '{fp_julia}' specified for Julia reference modules and environment: the path does not exist. Setting self.allow_electricity_run = False.", type_log = "error")
+
+		return None
 
 
 
@@ -171,6 +175,8 @@ class SISEPUEDEModels:
 			self.allow_electricity_run = allow_electricity_run
 		except Exception as e:
 			self._log(f"Path to NemoMod reference files '{fp_nemomod_reference_files}' not found. The Electricity model will be disallowed from running.", type_log = "warning")
+
+		return None
 
 
 

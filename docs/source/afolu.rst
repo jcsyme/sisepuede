@@ -2,8 +2,7 @@
 Agriculture, Forestry, and Land Use (AFOLU)
 ===========================================
 
-
-AFOLU includes six subsectors (* indicates non-emission subsector): 
+**Agriculture, Forestry, and Land Use (AFOLU)** includes six subsectors (* indicates non-emission subsector): 
 
 * Agriculture (AGRC)
 * Forestry (FRST)
