@@ -1611,7 +1611,6 @@ class NonElectricEnergy:
 
 
 
-    # get energy consumption using fuel categories (average over input subsector categories) instead of individualized efficiency variables -- use for Industrial Energy
     def project_energy_consumption_by_fuel_from_fuel_cats(self,
         df_neenergy_trajectories: pd.DataFrame,
         vec_consumption_intensity_initial: np.ndarray,
@@ -1619,9 +1618,8 @@ class NonElectricEnergy:
         modvar_demscalar: str,
         modvar_fuel_efficiency: str,
         dict_fuel_fracs: dict,
-        dict_fuel_frac_to_fuel_cat: dict
+        dict_fuel_frac_to_fuel_cat: dict,
     ) -> Union[np.ndarray, None]:
-
         """
         Project energy consumption--in terms of units of the input vector
             vec_consumption_initial--given changing demand fractions and
@@ -1650,7 +1648,7 @@ class NonElectricEnergy:
 
             (n_projection_time_periods, )
 
-        - modvar_demsacalar: string model variable giving the demand scalar for
+        - modvar_demscalar: string model variable giving the demand scalar for
             INEN energy demand
         - modvar_fuel_efficiency: string model variable for enfu fuel efficiency
         - dict_fuel_fracs: dictionary mapping each fuel fraction variable to its
@@ -1662,7 +1660,7 @@ class NonElectricEnergy:
 
         # initialize some model_attributes objects
         attr_enfu = self.model_attributes.get_attribute_table(self.subsec_name_enfu)
-        return_none = self.model_attributes.check_modvar(modvar_demsacalar) is None
+        return_none = self.model_attributes.check_modvar(modvar_demscalar) is None
         return_none |= self.model_attributes.check_modvar(modvar_fuel_efficiency) is None
 
         if return_none:
@@ -1672,7 +1670,7 @@ class NonElectricEnergy:
             )
 
             self._log(
-                f"Variable values:\n\tmodvar_demsacalar = {modvar_demsacalar}\n\tmodvar_fuel_efficiency = {modvar_fuel_efficiency}",
+                f"Variable values:\n\tmodvar_demscalar = {modvar_demscalar}\n\tmodvar_fuel_efficiency = {modvar_fuel_efficiency}",
                 type_log = "debug",
             )
 
