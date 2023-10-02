@@ -141,3 +141,4 @@
 5007,PFLO: All transformations without stopping deforestation and partial land use reallocation,PFLO:ALL_NO_STOPPING_DEFORESTATION_PLUR,0,All transformations and partial land use reallocation *except* for stopping deforestation.
 5008,PFLO: All transformations,PFLO:ALL,0,All transformations
 5009,PFLO: All transformations with partial land use reallocation,PFLO:ALL_PLUR,0,All transformations
+5010,"PFLO: All transformations with partial land use reallocation, no silvopasture",PFLO:ALL_PLUR_NO_SILVOPASTURE,0,All transformations except for silvopasture

@@ -1425,7 +1425,7 @@ class TransformationsAFOLU:
 
         df_out = tba.transformation_lndu_increase_silvopasture(
             df_input,
-            0.3, 
+            0.1, 
             self.vec_implementation_ramp,
             self.model_attributes,
             model_afolu = self.model_afolu,

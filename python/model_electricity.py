@@ -779,7 +779,11 @@ class ElectricEnergy:
         )[0]
 
         # set the runtime limit
-        solver_time_limit = max(solver_time_limit, 15) if isinstance(solver_time_limit, int) else solver_time_limit
+        solver_time_limit = (
+            max(solver_time_limit, 15) 
+            if isinstance(solver_time_limit, int) 
+            else solver_time_limit
+        )
         self.solver_time_limit = (
             self.model_attributes.configuration.get("nemomod_solver_time_limit_seconds")
             if not isinstance(solver_time_limit, int)
@@ -789,7 +793,11 @@ class ElectricEnergy:
         # other key variables
         self.drop_flag_tech_capacities = -999
         self.nemomod_time_period_as_year = True # use time periods as years in NemoMod?
-        self.direction_exchange_year_time_period = "time_period_as_year" if self.nemomod_time_period_as_year else "time_period_to_year"
+        self.direction_exchange_year_time_period = (
+            "time_period_as_year" 
+            if self.nemomod_time_period_as_year 
+            else "time_period_to_year"
+        )
         self.include_supply_techs_for_all_fuels = include_supply_techs_for_all_fuels
         self.units_energy_nemomod = self.model_attributes.configuration.get("energy_units_nemomod")
 
@@ -3133,7 +3141,7 @@ class ElectricEnergy:
             if x not in [self.model_attributes.dim_time_period, self.field_nemomod_technology]
         ][0]
 
-        # convert  HEREHERE
+        # convert  
         df_gnrl_ccf_hydropower[self.field_nemomod_year] = self.transform_field_year_nemomod(
         df_gnrl_ccf_hydropower[self.model_attributes.dim_time_period], 
             time_period_as_year = self.nemomod_time_period_as_year,
@@ -5440,10 +5448,24 @@ class ElectricEnergy:
             )
         """
         # do some initialization
-        attribute_fuel = self.model_attributes.get_attribute_table(self.subsec_name_enfu) if (attribute_fuel is None) else attribute_fuel
-        attribute_technology = self.model_attributes.get_attribute_table(self.subsec_name_entc) if (attribute_technology is None) else attribute_technology
-        dict_tech_info = self.get_tech_info_dict(attribute_technology = attribute_technology)
-        modvar_import_fraction = self.modvar_enfu_frac_fuel_demand_imported if (modvar_import_fraction is None) else modvar_import_fraction
+        attribute_fuel = (
+            self.model_attributes.get_attribute_table(self.subsec_name_enfu) 
+            if (attribute_fuel is None) 
+            else attribute_fuel
+        )
+        attribute_technology = (
+            self.model_attributes.get_attribute_table(self.subsec_name_entc) 
+            if (attribute_technology is None) 
+            else attribute_technology
+        )
+        dict_tech_info = self.get_tech_info_dict(
+            attribute_technology = attribute_technology
+        )
+        modvar_import_fraction = (
+            self.modvar_enfu_frac_fuel_demand_imported 
+            if (modvar_import_fraction is None) 
+            else modvar_import_fraction
+        )
 
         # get production, imports, exports, and demands to adjust import fractions
         if (tuple_enfu_production_and_demands is None) and (df_elec_trajectories is None):
