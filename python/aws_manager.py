@@ -2652,6 +2652,8 @@ class AWSManager:
 
         
         # initialize output and
+        out = None
+
         try:
             out = self.client_ec2.run_instances(
                 IamInstanceProfile = iam_instance_profile,
@@ -2705,6 +2707,7 @@ class AWSManager:
 
     def build_athena_sql_query_component_primary_keys_all(self,
         delim: str = ",",
+        n_regions: Union[int, None] = None,
         table_base: str = "output",
     ) -> Union[str, Dict[str, str]]:
         """
@@ -2716,6 +2719,8 @@ class AWSManager:
         Keyword Arguments
         -----------------
         - delim: delimiter used in fields_retrieve if specified as string
+        - n_regions: number of regions to require for identifying primary
+            keys. If None, defaults to len(self.get_regions()) from config
         - table_base: base table for primary key values; must be present in 
             AWSManager.dict_input_output_to_table_names().keys()
         """
@@ -2726,7 +2731,11 @@ class AWSManager:
         table_name_db = self.format_table_name_for_athena(table_name)
         table_name_db = table_name_db.replace("`", "\"")
 
-        n_regions = len(self.get_regions())
+        n_regions = (
+            len(self.get_regions())
+            if not isinstance(n_regions, int)
+            else n_regions
+        )
 
         
 
@@ -3005,6 +3014,7 @@ class AWSManager:
         key_model_inputs: str = "model_inputs",
         key_model_outputs: str = "model_outputs",
         key_model_primary_all: str = "primary_keys_all",
+        n_regions: Union[int, None] = None,
         order_by: bool = True,
         return_type: str = "composite",
         table_name_intermediate: str = "merge_1",
@@ -3023,9 +3033,14 @@ class AWSManager:
             Can be specified as delimited string (using delim) or file path
         - fields_retrieval_key: key used to read fields from `fields_retrieval`
             if specified as a file
-        - key_model_inputs: model inputs table key in output dictionary + temporary table name in SQL query
-        - key_model_outputs: model outputs table  key in output dictionary + temporary table name in SQL query
-        - key_model_primary_all: intersctinal primary keys key in output dictionary + temporary table name in SQL query
+        - key_model_inputs: model inputs table key in output dictionary + 
+            temporary table name in SQL query
+        - key_model_outputs: model outputs table  key in output dictionary + 
+            temporary table name in SQL query
+        - key_model_primary_all: intersctinal primary keys key in output 
+            dictionary + temporary table name in SQL query
+        - n_regions: number of regions to filter on when identifying primary
+            key values to keep
         - order_by: order table by indices? Can increase query execution time
         - return_type: 
             * "composite": return a composite query
@@ -3036,7 +3051,8 @@ class AWSManager:
                 - key_model_inputs
                 - key_model_outputs
                 - key_model_primary_all
-        - table_name_intermediate: intermediate table name for staged merge in query
+        - table_name_intermediate: intermediate table name for staged merge in 
+            query
         """
         
         ##  INITIALIZATION AND CHECKS
@@ -3092,7 +3108,9 @@ class AWSManager:
         
         
         # build primary filter and return if desired
-        query_primary_filter = self.build_athena_sql_query_component_primary_keys_all()
+        query_primary_filter = self.build_athena_sql_query_component_primary_keys_all(
+            n_regions = n_regions,
+        )
         if return_type == "primary_keys_all":
             return query_primary_filter
         
@@ -4156,7 +4174,7 @@ class AWSManager:
     #    PACKAGING FUNCTIONS    #
     #############################
 
-    def generate_presign_command(
+    def generate_presign_command(self,
         dict_response: Dict,
         table_type: str,
         expiration: int = 10800,
@@ -4180,7 +4198,7 @@ class AWSManager:
         return_none = not isinstance(dict_response, dict)
         return_none &= not isinstance(dict_response, str)
         
-        address_s3_query = aws_manager.get_s3_path_query_output(table_type)
+        address_s3_query = self.get_s3_path_query_output(table_type)
         return_none |= not isinstance(address_s3_query, str)
         return_none |= not isinstance(expiration, int)
         
@@ -4189,7 +4207,7 @@ class AWSManager:
         
         # try getting execution id
         exec_id = (
-            dict_response.get(aws_manager.athena_reponse_key_exec_id)
+            dict_response.get(self.athena_reponse_key_exec_id)
             if isinstance(dict_response, dict)
             else dict_response
         )
@@ -4198,7 +4216,7 @@ class AWSManager:
             return None
         
         
-        address_s3_query = aws_manager.get_s3_path_query_output(table_type)
+        address_s3_query = self.get_s3_path_query_output(table_type)
         address_s3_query = os.path.join(address_s3_query, f"{exec_id}.csv")
         comm = f"aws s3 presign \"{address_s3_query}\" --expires-in {expiration}"
         

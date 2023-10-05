@@ -1602,6 +1602,59 @@ def merge_output_df_list(
 
 
 
+def mix_tensors(
+    vec_b0: np.ndarray,
+    vec_b1: Union[np.ndarray, None],
+    vec_mix: Union[np.ndarray, None],
+    constraints_mix: Tuple[int, int] = (0, 1),
+) -> np.ndarray:
+    """
+    Mix abstract arrays of the same shape
+
+    Function Arguments
+    ------------------
+    - vec_b0: array bound zero
+    - vec_b1: array bound one
+    - vec_mix: float or array (of same shape as vec_b0, vec_b1) used to mix
+
+    Keyword Arguments
+    -----------------
+    - constraints_mix: constraints on mixing fractions
+    """
+    # check input of v_0
+    if not islistlike(vec_b0):
+        print(type(vec_b0))
+        return None
+    v_0 = np.array(vec_b0)
+
+    # if v_0 checks out, check that both are not None
+    if (vec_b1 is None) | (vec_mix is None):
+        return v_0
+    v_1 = np.array(vec_b1)
+    v_alpha = np.array(vec_mix)
+
+    # check constraints
+    if constraints_mix is not None:
+        if constraints_mix[0] >= constraints_mix[1]:
+            raise ValueError("Constraints to the mixing vector should be passed as (min, max)")
+        v_alpha = v_alpha.clip(*constraints_mix)
+
+    # check shape specifcations
+    if len(v_alpha.shape) == 0:
+        v_alpha = float(v_alpha)
+        check_val = len(set([v_0.shape, v_1.shape]))
+    else:
+        check_val = len(set([v_0.shape, v_1.shape, v_alpha.shape]))
+
+    if check_val > 1:
+        raise ValueError("Incongruent shapes in mix_tensors")
+
+    out = v_0*(1 - v_alpha) + v_1*v_alpha
+
+    return out
+
+
+
 def _optional_log(
     logger: Union[logging.Logger, None],
     msg: str,
