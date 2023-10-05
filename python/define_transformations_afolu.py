@@ -1842,7 +1842,7 @@ class TransformationsAFOLU:
         df_out = tba.transformation_soil_reduce_excess_fertilizer(
             df_input,
             {
-                "fertilizer_n": 0.05
+                "fertilizer_n": 0.2
             },
             self.vec_implementation_ramp,
             self.model_attributes,
@@ -1873,7 +1873,7 @@ class TransformationsAFOLU:
         df_out = tba.transformation_soil_reduce_excess_fertilizer(
             df_input,
             {
-                "lime": 0.05
+                "lime": 0.2
             },
             self.vec_implementation_ramp,
             self.model_attributes,

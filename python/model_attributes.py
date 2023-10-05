@@ -3960,6 +3960,7 @@ class ModelAttributes:
         if include_simplex_group_as_trajgroup:
             col_new = list(df_out[field_variable].apply(self.get_simplex_group))
             df_out[field_variable_trajectory_group] = col_new
+            df_out[field_variable_trajectory_group] = df_out[field_variable_trajectory_group].astype("float")
         
 
         if include_time_periods:

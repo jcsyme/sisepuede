@@ -1095,6 +1095,7 @@ class TransformationsIntegrated:
         return_q: bool = False,
         sectors: Union[List[str], str] = None,
         strategies: Union[List[str], List[int], None] = None,
+        **kwargs,
     ) -> pd.DataFrame:
         """
         Return a long (by model_attributes.dim_strategy_id) concatenated
@@ -1120,6 +1121,7 @@ class TransformationsIntegrated:
             all.
         - strategies: strategies to build for. Can be a mixture of strategy_ids
             and names. If None, runs all available. 
+        - **kwargs: passed to self.input_template.template_from_inputs()
         """
 
         # INITIALIZE STRATEGIES TO LOOP OVER
@@ -1269,7 +1271,8 @@ class TransformationsIntegrated:
                     dict_write_cur = self.input_template.template_from_inputs(
                         df_cur,
                         df_template,
-                        sector_abv
+                        sector_abv,
+                        **kwargs
                     )
                     
                     dict_cur[sector_abv].update(dict_write_cur)

@@ -156,6 +156,7 @@ class InputTemplate:
 		field_req_variable: Union[str, None] = None,
 		field_req_variable_trajectory_group: Union[str, None] = None,
 		field_req_variable_trajectory_group_trajectory_type: Union[str, None] = None,
+		include_simplex_group_as_trajgroup: bool = True,
 		regex_max: Union[re.Pattern, None] = None,
 		regex_min: Union[re.Pattern, None] = None,
 		regex_tp: Union[re.Pattern, None] = None,
@@ -202,6 +203,8 @@ class InputTemplate:
 			group (added after import)
 		- filter_invalid_strategies: filter strategies that aren't defined in an
 			attribute table
+		- include_simplex_group_as_trajgroup: default to include simplex group
+			from attributes as trajectory group?
 		- regex_max: re.Pattern (compiled regular expression) used to match the
 			field storing the maximum scalar values at the final time period
 		- regex_min: re.Pattern used to match the field storing the minimum
@@ -238,10 +241,10 @@ class InputTemplate:
 			sectors,
 			field_subsector = field_req_subsector,
 			field_variable = field_req_variable,
-			include_time_periods = True
+			field_variable_trajectory_group = field_req_variable_trajectory_group,
+			include_simplex_group_as_trajgroup = include_simplex_group_as_trajgroup,
+			include_time_periods = True,
 		)
-		#global dfb
-		#dfb = df_base
 
 		# melt input dataframe to long and filter
 		fields_id = [x for x in df_input.columns if x in [field_key_strategy, field_time_period]]
@@ -250,9 +253,13 @@ class InputTemplate:
 			id_vars = fields_id,
 			var_name = field_req_variable
 		)
-		df_input_merge = df_input_merge[
-			df_input_merge[field_req_variable].isin(list(df_base[field_req_variable]))
-		].reset_index(drop = True)
+		df_input_merge = (
+			df_input_merge[
+				df_input_merge[field_req_variable]
+				.isin(list(df_base[field_req_variable]))
+			]
+			.reset_index(drop = True)
+		)
 
 		# add baseline strategy
 		if (field_key_strategy not in df_input_merge.columns):
@@ -263,15 +270,23 @@ class InputTemplate:
 		dict_inputs_by_strat = {}
 		df_input_merge = df_input_merge.groupby([field_key_strategy])
 
-		#global dfi
-		#dfi = df_input_merge
+		global dfi
+		global dfb
 
-		for df in df_input_merge:
-			strat, df = df
+		dfi = df_input_merge
+		dfb = df_base.copy()
+
+		for strat, df in df_input_merge:
 
 			# keep all rows if baseline--otherwise, only keep those that are defined
 			merge_type = "left" if (strat == self.baseline_strategy) else "inner"
-			df = pd.merge(df_base, df, how = merge_type)
+			df_merge = (
+				df.drop([field_req_variable_trajectory_group], axis = 1)
+				if include_simplex_group_as_trajgroup & (field_req_variable_trajectory_group in df.columns)
+				else df
+			)
+
+			df = pd.merge(df_base, df_merge, how = merge_type)
 
 			# clean some integer fields
 			try:
@@ -297,7 +312,15 @@ class InputTemplate:
 
 		##  CHECK THE VARIABLE INFORMATION DATA FRAME AND ADD COLUMNS
 
-		df_var_info = df_base[[field_req_variable, field_time_period]].drop_duplicates()
+		fields_var_info = [field_req_variable, field_time_period]
+		fields_skip_merge = (
+			[field_req_variable_trajectory_group]
+			if include_simplex_group_as_trajgroup
+			else []
+		)
+		fields_var_info.extend(fields_skip_merge)
+		
+		df_var_info = df_base[fields_var_info].drop_duplicates()
 
 		# set max/min fields (based on input time periods)
 		max_time_period = max(attr_tp.key_values)
@@ -306,6 +329,7 @@ class InputTemplate:
 
 		# check validity of df_variable_information
 		if isinstance(df_variable_information, pd.DataFrame):
+
 			# get existing ield_max/field_min contained in df_variable_information (if exist)
 			field_max_nms = [x for x in df_variable_information.columns if (regex_max.match(str(x)) is not None)]
 			field_max_nms = field_max_nms[0] if (len(field_max_nms) > 0) else None
@@ -313,16 +337,24 @@ class InputTemplate:
 			field_min_nms = field_min_nms[0] if (len(field_min_nms) > 0) else None
 
 			# update extraction fields to pull from df_variable_information
-			nms = [x for x in df_variable_information.columns if (x in self.list_fields_required_base)]
+			nms = [
+				x for x in df_variable_information.columns 
+				if (x in self.list_fields_required_base)
+				and (x not in fields_skip_merge)
+			]
 			nms += [field_max_nms] if (field_max_nms is not None) else []
 			nms += [field_min_nms] if (field_min_nms is not None) else []
 
 			# merge in available fields from df_variable_information
-			df_var_info = pd.merge(
-				df_var_info,
-				df_variable_information[nms],
-				how = "left"
-			) if (len(nms) > 0) else df_var_info
+			df_var_info = (
+				pd.merge(
+					df_var_info,
+					df_variable_information[nms],
+					how = "left"
+				) 
+				if (len(nms) > 0) 
+				else df_var_info
+			)
 
 			# rename to ensure max/min defined properly
 			dict_rnm = {}
