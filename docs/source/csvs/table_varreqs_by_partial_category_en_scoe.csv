@@ -1,4 +1,4 @@
-﻿Variable Type,Variable,Information,Variable Schema,Dashboard,Categories,Notes,Data Link,Reference,Internal Model Variable,Default LHS Scalar Minimum at Final Time Period,Default LHS Scalar Maximum at Final Time Period,``$CAT-FUEL$``,Emissions Total by Gas Component,
+﻿Variable Type,Variable,Information,Variable Schema,Dashboard,Categories,Notes,Data Link,Reference,Internal Model Variable,Default LHS Scalar Minimum at Final Time Period,Default LHS Scalar Maximum at Final Time Period,``$CAT-FUEL$``,Emissions Total by Gas Component,Simplex Group
 Input,SCOE Elasticity of Per GDP Electrical Applicance Demand to GDP Per Capita,,``elasticity_scoe_enerdem_per_mmmgdp_$CAT-SCOE$_elec_appliances_to_gdppc``,,``commercial_municipal``|``other_se``,,,,0,1,1,none,0,
 Input,SCOE Elasticity of Per GDP Heat Energy Demand to GDP Per Capita,,``elasticity_scoe_enerdem_per_mmmgdp_$CAT-SCOE$_heat_energy_to_gdppc``,,``commercial_municipal``|``other_se``,,,,0,1,1,none,0,
 Input,SCOE Elasticity of Per Household Electrical Applicance Demand to GDP Per Capita,,``elasticity_scoe_enerdem_per_hh_$CAT-SCOE$_elec_appliances_to_gdppc``,,``residential``,,,,0,1,1,none,0,
@@ -9,5 +9,5 @@ Input,SCOE Initial Per GDP Heat Energy Consumption," | SCOE energy demands that 
  | **NOTE:** Demands by fuel type are specified under the *SCOE Fraction Heat Energy Demand $CAT-FUEL$* variables for this variable. Elecitrification can be specified as fraction of heat energy from electricity. ",``consumpinit_scoe_$UNIT-ENERGY$_per_mmmgdp_$CAT-SCOE$_heat_energy`` (``$UNIT-ENERGY$ = tj``),,``commercial_municipal``|``other_se``,,,,0,1,1,none,0,
 Input,SCOE Initial Per Household Electric Appliances Energy Consumption,,``consumpinit_scoe_$UNIT-ENERGY$_per_hh_$CAT-SCOE$_elec_appliances`` (``$UNIT-ENERGY$ = gj``),,``residential``,,,,0,1,1,none,0,
 Input,SCOE Initial Per Household Heat Energy Consumption,,``consumpinit_scoe_$UNIT-ENERGY$_per_hh_$CAT-SCOE$_heat_energy`` (``$UNIT-ENERGY$ = gj``),,``residential``,,,,0,1,1,none,0,
-Output,Total Electrical Energy Consumption from SCOE,,``energy_consumption_electricity_scoe_total``,,none,,,,1,1,1,none,0,0
-Output,Total Energy Consumption from SCOE,,``energy_consumption_scoe_total``,,none,,,,1,1,1,none,0,0
+Output,Total Electrical Energy Consumption from SCOE,,``energy_consumption_electricity_scoe_total``,,none,,,,1,1,1,none,0,
+Output,Total Energy Consumption from SCOE,,``energy_consumption_scoe_total``,,none,,,,1,1,1,none,0,

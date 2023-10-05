@@ -1,14 +1,14 @@
-﻿Variable Type,Variable,Information,Variable Schema,Dashboard,Notes,Data Link,Reference,Internal Model Variable,Default LHS Scalar Minimum at Final Time Period,Default LHS Scalar Maximum at Final Time Period,Emissions Total by Gas Component
+﻿Variable Type,Variable,Information,Variable Schema,Dashboard,Notes,Data Link,Reference,Internal Model Variable,Default LHS Scalar Minimum at Final Time Period,Default LHS Scalar Maximum at Final Time Period,Emissions Total by Gas Component,Simplex Group
 Input,:math:`\text{N}_2\text{O}` Manure Management Emission Factor," | Dimensionless emission factor for direct :math:`\text{N}_2\text{O}` emissions from each manure management system.
  | 
- | Corresponds with :math:`EF_{3_{(S)}}` in Equation 10.34A in V4,C10 IPCC GNGHGI 2019R.",``ef_lsmm_direct_management_$CAT-MANURE-MANAGEMENT$_$EMISSION-GAS$_per_n`` (``$EMISSION-GAS$ = n2o``),," | Derived from values in Table 10.21 (V4,C10 IPCC GNGHGI 2019R). ",,,0,1,1,0
+ | Corresponds with :math:`EF_{3_{(S)}}` in Equation 10.34A in V4,C10 IPCC GNGHGI 2019R.",``ef_lsmm_direct_management_$CAT-MANURE-MANAGEMENT$_$EMISSION-GAS$_per_n`` (``$EMISSION-GAS$ = n2o``),," | Derived from values in Table 10.21 (V4,C10 IPCC GNGHGI 2019R). ",,,0,1,1,0,
 Input,Fraction of Nitrogen Lost to Leaching,,``frac_lsmm_n_loss_leaching_$CAT-MANURE-MANAGEMENT$``,," | Derived from values in Table 10.22 (V4C10 IPCC GNGHGI 2019R). 
  | 
- | **NOTE**: SISEPUEDE treats these loss factors as a mean across animal types, then allows for exploration around ranges.",,,0,1,1,0
+ | **NOTE**: SISEPUEDE treats these loss factors as a mean across animal types, then allows for exploration around ranges.",,,0,1,1,0,
 Input,Fraction of Nitrogen Lost to Volatilisation,,``frac_lsmm_n_loss_volatilisation_$CAT-MANURE-MANAGEMENT$``,," | Derived from values in Table 10.22 (V4C10 IPCC GNGHGI 2019R). 
  | 
- | **NOTE**: SISEPUEDE treats these loss factors as a mean across animal types, then allows for exploration around ranges.",,,0,1,1,0
-Input,Manure Management Methane Correction Factor,,``mcf_lsmm_$CAT-MANURE-MANAGEMENT$``,,| Derived from values in Table 10.17 (V4C10 IPCC GNGHGI 2019R). ,,,0,1,1,0
-Output,:math:`\text{CH}_4` Emissions from Manure Management,Methane emissions from manure,``emission_co2e_$EMISSION-GAS$_lsmm_$CAT-MANURE-MANAGEMENT$`` (``$EMISSION-GAS$ = ch4``),,,,,1,1,1,1
-Output,:math:`\text{N}_2\text{O}` Emissions from Manure Management,Nitrus oxide emissions from manure,``emission_co2e_$EMISSION-GAS$_lsmm_$CAT-MANURE-MANAGEMENT$`` (``$EMISSION-GAS$ = n2o``),,,,,1,1,1,1
-Output,Nitrogen Available for Fertilizer,,``qty_lsmm_n_to_fertilizer_$CAT-MANURE-MANAGEMENT$_$UNIT-MASS$ (``$UNIT-MASS$ = kt``),,,,,0,1,1,0
+ | **NOTE**: SISEPUEDE treats these loss factors as a mean across animal types, then allows for exploration around ranges.",,,0,1,1,0,
+Input,Manure Management Methane Correction Factor,,``mcf_lsmm_$CAT-MANURE-MANAGEMENT$``,,| Derived from values in Table 10.17 (V4C10 IPCC GNGHGI 2019R). ,,,0,1,1,0,
+Output,:math:`\text{CH}_4` Emissions from Manure Management,Methane emissions from manure,``emission_co2e_$EMISSION-GAS$_lsmm_$CAT-MANURE-MANAGEMENT$`` (``$EMISSION-GAS$ = ch4``),,,,,1,1,1,1,
+Output,:math:`\text{N}_2\text{O}` Emissions from Manure Management,Nitrus oxide emissions from manure,``emission_co2e_$EMISSION-GAS$_lsmm_$CAT-MANURE-MANAGEMENT$`` (``$EMISSION-GAS$ = n2o``),,,,,1,1,1,1,
+Output,Nitrogen Available for Fertilizer,,``qty_lsmm_n_to_fertilizer_$CAT-MANURE-MANAGEMENT$_$UNIT-MASS$ (``$UNIT-MASS$ = kt``),,,,,0,1,1,0,

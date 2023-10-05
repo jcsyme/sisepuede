@@ -457,6 +457,7 @@ class ModelAttributes:
         self._initialize_all_primary_category_flags()
         self._initialize_emission_modvars_by_gas()
         self._initialize_gas_attributes()
+        self._initialize_other_dictionaries()
 
         self._check_attribute_tables()
 
@@ -1102,6 +1103,29 @@ class ModelAttributes:
         self.dict_gas_to_fc_designation = dict_gas_to_fc_designation
 
         return None
+    
+
+
+    def _initialize_other_dictionaries(self,
+    ) -> None:
+        """
+        Initialize some dictionaries that are dependent on global variable 
+            properties (must be initialized AFTER 
+            self._initialize_variables_by_subsector()). Sets the following
+            properties:
+
+            * self.dict_variable_to_simplex_group
+        """
+
+        # get simplex groups
+        dict_variable_to_simplex_group = self.get_variable_to_simplex_group_dictionary()
+        
+
+        ##  SET PROPERTIES
+        
+        self.dict_variable_to_simplex_group = dict_variable_to_simplex_group
+
+        return None
 
 
 
@@ -1166,6 +1190,7 @@ class ModelAttributes:
             * self.dict_model_variables_by_subsector
             * self.dict_model_variable_to_subsector
             * self.dict_model_variable_to_category_restriction
+            * self.dict_variable_to_simplex_group
             * self.dict_model_variables_to_variables
             * self.dict_variables_to_model_variables
 
@@ -1219,7 +1244,9 @@ class ModelAttributes:
         all_variables_output += self.get_all_subsector_emission_total_fields()
         all_variables_output.sort()
 
-        # set properties
+
+        ##  SET PROPERTIES
+
         self.all_model_variables = modvars_all
         self.all_variables = all_variables
         self.all_variables_input = all_variables_input
@@ -3835,19 +3862,41 @@ class ModelAttributes:
         field_min = f"min_{pd_max}"
 
         for sector in self.all_sectors:
-            subsectors_cur = list(sf.subset_df(self.dict_attributes[self.table_name_attr_subsector].table, {"sector": [sector]})["subsector"])
+            subsectors_cur = list(
+                sf.subset_df(
+                    self.dict_attributes[self.table_name_attr_subsector].table, 
+                    {"sector": [sector]}
+                )["subsector"]
+            )
 
             for subsector in subsectors_cur:
                 for variable in self.dict_model_variables_by_subsector[subsector]:
+
                     variable_type = self.get_variable_attribute(variable, "variable_type")
                     variable_calculation = self.get_variable_attribute(variable, "internal_model_variable")
+
                     # check that variables are input/not calculated internally
                     if (variable_type.lower() == "input") & (variable_calculation == 0):
-                        max_ftp_scalar = self.get_variable_attribute(variable, "default_lhs_scalar_maximum_at_final_time_period")
-                        min_ftp_scalar = self.get_variable_attribute(variable, "default_lhs_scalar_minimum_at_final_time_period")
+
+                        max_ftp_scalar = self.get_variable_attribute(
+                            variable, 
+                            "default_lhs_scalar_maximum_at_final_time_period"
+                        )
+                        min_ftp_scalar = self.get_variable_attribute(
+                            variable, 
+                            "default_lhs_scalar_minimum_at_final_time_period"
+                        )
                         mvs = self.dict_model_variables_to_variables[variable]
 
-                        df_out.append(pd.DataFrame({"variable": mvs, field_max: [max_ftp_scalar for x in mvs], field_min: [min_ftp_scalar for x in mvs]}))
+                        df_out.append(
+                            pd.DataFrame(
+                                {
+                                    "variable": mvs, 
+                                    field_max: [max_ftp_scalar for x in mvs], 
+                                    field_min: [min_ftp_scalar for x in mvs]
+                                }
+                            )
+                        )
 
         df_out = pd.concat(df_out, axis = 0).reset_index(drop = True)
 
@@ -3859,8 +3908,10 @@ class ModelAttributes:
         sectors_build: Union[List[str], str, None],
         field_subsector: str = "subsector",
         field_variable: str = "variable",
+        field_variable_trajectory_group: str = "variable_trajectory_group",
+        include_simplex_group_as_trajgroup: bool = False,
         include_time_periods: bool = True,
-        vartype: str = "input"
+        vartype: str = "input",
     ) -> pd.DataFrame:
         """
         Build a data frame of all variables long by subsector and variable.
@@ -3874,6 +3925,11 @@ class ModelAttributes:
         -----------------
         - field_subsector: subsector field for output data frame
         - field_variable: variable field for output data frame
+        - field_variable_trajectory_group: field giving the output variable
+            trajectory group (only included if
+            include_simplex_group_as_trajgroup == True)
+        - include_simplex_group_as_trajgroup: include variable trajectory group 
+            defined by Simplex Group in attribute tables?
         - include_time_periods: include time periods? If True, makes data frame
             long by time period
         - vartype: "input" or "output"
@@ -3895,11 +3951,16 @@ class ModelAttributes:
                 df_out += [(subsector, x) for x in vars_cur]
 
         # convert to data frame and return
+        fields_sort = [field_subsector, field_variable]
         df_out = pd.DataFrame(
             df_out,
             columns = [field_subsector, field_variable]
         )
-        fields_sort = [field_subsector, field_variable]
+
+        if include_simplex_group_as_trajgroup:
+            col_new = list(df_out[field_variable].apply(self.get_simplex_group))
+            df_out[field_variable_trajectory_group] = col_new
+        
 
         if include_time_periods:
             time_period = self.dim_time_period
@@ -3910,11 +3971,11 @@ class ModelAttributes:
 
             fields_sort += [time_period]
 
-        df_out.sort_values(
-            by = fields_sort
-        ).reset_index(
-            drop = True
-        );
+        df_out = (
+            df_out
+            .sort_values(by = fields_sort)
+            .reset_index(drop = True)
+        )
 
         return df_out
 
@@ -4045,7 +4106,7 @@ class ModelAttributes:
         variable_subsec: Union[str, None] = None,
         restrict_to_category_values: Union[List[str], None] = None,
         dict_force_override_vrp_vvs_cats: Union[Dict, None] = None,
-        variable_type: Union[str, None] = None
+        variable_type: Union[str, None] = None,
     ) -> List[str]:
         """
         Build a list of fields (complete variable schema from a data frame) 
@@ -4072,16 +4133,17 @@ class ModelAttributes:
 
         - restrict_to_category_values: default is None. If None, applies to all 
             categories specified in attribute tables. Otherwise, will restrict 
-            to specified categories. 
-        -- variable_type: input or output. If None, defaults to input.
+            to specified categories.
+        - variable_type: input or output. If None, defaults to input.
         """
+
+        ##  INITIALIZATION 
+
         # get subsector if None
         if subsector is None:
             if variable_subsec is None:
                 return None
-
             subsector = self.get_variable_subsector(variable_subsec)
-
 
         # get some subsector info
         attr_subsec = self.dict_attributes.get(self.table_name_attr_subsector)
@@ -4090,7 +4152,18 @@ class ModelAttributes:
 
         category_ij_tuple = self.format_category_for_direct(category, "-I", "-J")
         attribute_table = self.get_attribute_table(subsector)
+
+        # check categories
+        if restrict_to_category_values is not None:
+            restrict_to_category_values = (
+                [restrict_to_category_values] 
+                if isinstance(restrict_to_category_values, str)
+                else restrict_to_category_values
+            )
         valid_cats = self.check_category_restrictions(restrict_to_category_values, attribute_table)
+
+
+        ##  START BUILDING VARLIST
 
         # get dictionary of variable to variable schema and id variables that are in the outer (Cartesian) product (i x j)
         dict_vr_vvs, dict_vr_vvs_outer = self.separate_varreq_dict_for_outer(
@@ -4138,7 +4211,7 @@ class ModelAttributes:
             subsector, 
             category_ij_tuple, 
             variable_in = variable_subsec, 
-            restrict_to_category_values = restrict_to_category_values
+            restrict_to_category_values = restrict_to_category_values,
         )
 
         # check dict_force_override_vrp_vvs_cats - use w/caution if not none. Cannot use w/outer
@@ -4297,6 +4370,30 @@ class ModelAttributes:
             vars_out = pd.DataFrame({"subsector": subsectors_out, "variable": vars_out}).sort_values(by = ["subsector", "variable"]).reset_index(drop = True)
 
         return vars_in, vars_out
+    
+
+
+    def get_modvar_from_varspec(self,
+        variable_specification: str,
+    ) -> Union[str, None]:
+        """
+        Return a model variable from a model variable OR field. 
+
+        Function Arguments
+        ------------------
+        - variable_specification: model variable OR field. Hierarchically,
+            checks to see if variable_specification is a model variable; if not,
+            looks to fields.
+        """
+
+        check_val = self.check_modvar(variable_specification)
+        check_val = (
+            self.dict_model_variables_to_variables.get(variable_specification)
+            if check_val is None
+            else check_val
+        )
+
+        return check_val
 
 
 
@@ -4428,8 +4525,12 @@ class ModelAttributes:
             restrict_to_category_values, 
             self.dict_attributes[self.get_subsector_attribute(subsector, "pycategory_primary")]
         )
-    
-        if key_attribute != None:
+
+        # initialize
+        dict_vr_vvs_cats_ud = {}
+        dict_vr_vvs_cats_outer = {}
+
+        if key_attribute is not None:
             dict_vr_vvs_cats_ud, dict_vr_vvs_cats_outer = self.separate_varreq_dict_for_outer(
                 subsector, 
                 key_type, 
@@ -4449,9 +4550,9 @@ class ModelAttributes:
                 delim
             )
 
-            return dict_vr_vvs_cats_ud, dict_vr_vvs_cats_outer
-        else:
-            return {}, {}
+        tup_out = dict_vr_vvs_cats_ud, dict_vr_vvs_cats_outer
+
+        return tup_out
 
 
 
@@ -4487,8 +4588,147 @@ class ModelAttributes:
         list_out = [dict_map.get(x, x) for x in list_out if dict_map.get(x, x) in valid_sectors_project]
 
         return list_out
+    
 
 
+    def get_simplex_group(self,
+        variable: str,
+    ) -> Union[int, None]:
+        """
+        Return a simplex group from a variable.
+
+        Function Arguments
+        ------------------
+        - variable: field variable. Cannot be done from modvar since one modvar
+            may have components associated with different simplex groups
+        """
+
+        out = self.dict_variable_to_simplex_group.get(variable)
+        
+        return out
+    
+
+
+    def get_simplex_group_specification(self,
+        modvars_to_check: Union[str, List[str]],
+    ) -> Union[List[str], None]:
+        """
+        Check the specification of simplex groups. Ensures that variables
+            are in the same sector and either are all either (1) associated 
+            with categories or (b) unassociated with categories.
+
+        Function Arguments
+        ------------------
+        - modvars_to_check: a model variable or list of model variables to 
+            validate as
+
+        Keyword Arguments
+        -----------------
+        """
+
+        # check input specification - convert string to list and verify that there is at least one valid variable
+        modvars_to_check = [modvars_to_check] if isinstance(modvars_to_check, str) else modvars_to_check
+        modvars_to_check = (
+            [x for x in modvars_to_check if self.check_modvar(x) is not None]
+            if sf.islistlike(modvars_to_check) 
+            else None
+        )
+        modvars_to_check = (
+            (None if (len(modvars_to_check) == 0) else modvars_to_check)
+            if modvars_to_check is not None
+            else modvars_to_check
+        )
+
+        if modvars_to_check is None:
+            return None
+
+
+        # iterate over inputs to 
+        subsecs = set(
+            [
+                self.get_variable_subsector(x) for x in modvars_to_check
+            ]
+        )
+
+        category_specs = set(
+            [
+                (self.get_variable_categories(x) is None)
+                for x in modvars_to_check
+            ]
+        )
+
+        # valid if only one subsec and either all are categorized or none are categorized
+        valid_q = len(subsecs) == 1 
+        valid_q = (len(category_specs) == 1)
+        # don't allow one variable if it has no categories
+        valid_q &= not ((True in category_specs) & (len(modvars_to_check) == 1)) 
+
+        if not valid_q:
+            return None
+
+
+        ##  NEXT, SHIFT TO MAP VARIABLES TO GROUPINGS
+
+        ind_base = 1
+        dict_out = {}
+
+        if len(modvars_to_check) == 1:
+            dict_out.update(
+                dict(
+                    (x, ind_base) for x in self.build_varlist(None, modvars_to_check[0])
+                )
+            )
+
+        else:
+            # get attribute table and check categories
+            attr_subsec = self.get_attribute_table(list(subsecs)[0])
+
+            cats = [self.get_variable_categories(x) for x in modvars_to_check]
+            cats = set(sum(cats, [])) if (None not in cats) else None
+            cats = (
+                [x for x in attr_subsec.key_values if x in cats]
+                if cats is not None
+                else [None]
+            )
+
+            # iterate across categories to build fields that must stay in one group
+            for cat in cats:
+
+                fields_group = []
+
+                for modvar in modvars_to_check:
+
+                    field = None
+                    try:
+                        field = self.build_varlist(
+                            None,
+                            modvar,
+                            restrict_to_category_values = cat
+                        )
+                    except Exception as e:
+                        # skip on an error
+                        continue
+
+                    (
+                        fields_group.append(field) 
+                        if field is not None
+                        else None
+                    )
+                
+                fields_group = sum(fields_group, [])
+                (
+                    dict_out.update(
+                        dict((x, ind_base) for x in fields_group)
+                    )
+                    if len(fields_group) > 0
+                    else None
+                )
+
+                ind_base += 1
+
+        return dict_out
+                
+    
 
     def get_standard_variables(self,
         df_in: pd.DataFrame,
@@ -4625,6 +4865,7 @@ class ModelAttributes:
                 sec = self.get_variable_subsector(modvar)
                 flds = self.get_attribute_table(sec).key_values
 
+
         # convert back to data frame if necessary
         if (return_type == "data_frame"):
             flds = [flds] if (not type(flds) in [list, np.ndarray]) else flds
@@ -4634,6 +4875,7 @@ class ModelAttributes:
             if include_time_period & (self.dim_time_period in df_in.columns):
                 out[self.dim_time_period] = list(df_in[self.dim_time_period])
                 out = out[[self.dim_time_period] + flds]
+
 
         return out
 
@@ -4953,13 +5195,131 @@ class ModelAttributes:
             )
             
         return vars_out
+    
+
+
+    def get_variable_to_simplex_group_dictionary(self,
+        field_model_variable: str = "variable",
+        field_simplex_group: str = "simplex_group",
+        str_split_varreqs_key: str = "category_",
+        trajgroup_0: int = 1,
+    ) -> Dict[str, int]:
+        """
+        Map each model variable to a standard simplex group (meaning they sum
+            to 1). 
+
+        Used mainly for building templates; for example, if 
+            include_simplex_group_as_trajgroup = True in 
+            self.build_variable_dataframe_by_sector(), then simplex groups are
+            used as the default variable trajectory group in build templates.
+
+        NOTE: LATER INSTANTATION OF THIS CAN MAKE USE OF Variable CLASS
+
+        Function Arguments
+        ------------------
+
+        Keyword Arguments
+        -----------------
+        - field_model_variable: field containing the model variable
+        - field_simplex_group: field identifying the simplex group
+        - str_split_varreqs_key: string to split keys in 
+            model_attributes.dict_varreqs on; the second element is used for 
+            sorting tables to assign simplex groups for
+        - trajgroup_0: base trajectory group to start from when making 
+            assignments
+        """
+
+        # initialize output dict and first-stage group list
+        dict_variable_to_simplex_group = {}
+        simplex_groups = []
+
+        for key, attr in self.dict_varreqs.items():
+
+            # get sortable class for this table
+            sort_class = key.split(str_split_varreqs_key)
+            if len(sort_class) < 2:
+                continue
+            sort_class = sort_class[1]
+
+            # skip if unidentified
+            if field_simplex_group not in attr.table.columns:
+                continue
+
+
+            ##  iterate over groups that are identified
+
+            dfg = attr.table.groupby([field_simplex_group])
+
+            for i, df in dfg:
+
+                # skip if misspecified
+                if not sf.isnumber(i, skip_nan = True):
+                    continue
+
+                i = int(i)
+
+                # check groupings and skip if invalid
+                dict_vars_to_sg = self.get_simplex_group_specification(
+                    list(df[field_model_variable])
+                )
+                if dict_vars_to_sg is None:
+                    continue
+
+                # otherwise, add to output 
+                simplex_groups.append((sort_class, dict_vars_to_sg))
+
+
+        ##  NOW, SORT BY SECTOR/SUBSECTOR AND ASSIGN
+
+        # get sort classes and initialize simplex group
+        all_sort_class = sorted(list(set([x[0] for x in simplex_groups])))
+        simplex_group = trajgroup_0
+
+        for sort_class in all_sort_class:
+            
+            # get some groupings that are used to id
+            # `groups` is a list of dictionary mapping fields to internal groupings
+            # `dict_field_to_group_ind` maps each field to its index in groups
+            # `dict_group_ind_to_sg`, assigned below, is used to track assignments for (group_ind, inner_simplex_group) to outer simplex_groups
+            
+            groups = [x[1] for x in simplex_groups if x[0] == sort_class]
+            dict_field_to_group_ind = dict(
+                (field, i) for i, g in enumerate(groups)
+                for field in g.keys()
+            )
+            all_fields = sorted(list(dict_field_to_group_ind.keys()))
+            
+            # initialize the group/inner simplex group assignment dictionary, then iterate over ordered fields
+            dict_group_ind_to_sg = {}
+            
+            for field in all_fields:
+                
+                ind = dict_field_to_group_ind.get(field)
+                sg_cur = groups[ind].get(field)
+                tup_index = (ind, sg_cur)
+                
+                # check to see if grp/inner is already assigned; if not, assign it, then move to next iteration
+                simplex_group_assign = dict_group_ind_to_sg.get(tup_index)
+                if simplex_group_assign is None:
+                    
+                    simplex_group_assign = simplex_group
+                    dict_group_ind_to_sg.update({tup_index: simplex_group})
+                    
+                    # advance for next iteration
+                    simplex_group += 1
+                
+                # update field to outer simplex group dictionary
+                dict_variable_to_simplex_group.update({field: simplex_group_assign})
+
+
+        return dict_variable_to_simplex_group
 
 
 
     def instantiate_blank_modvar_df_by_categories(self,
         modvar: str,
         n: int,
-        blank_val: Union[int, float] = 0.0
+        blank_val: Union[int, float] = 0.0,
     ) -> pd.DataFrame:
         """
         Create a blank data frame, filled with blank_val, with properly ordered 
