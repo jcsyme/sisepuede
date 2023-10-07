@@ -2355,12 +2355,21 @@ def transformation_trns_fuel_shift_to_target(
                 """
                 vec_bounds = np.array(df_in[fields_target + fields_source]).astype(float).sum(axis = 1)
 
-                vec_magnitude_base = vec_target_baseline_total if magnitude_relative_to_baseline else np.zeros(len(vec_target_baseline_total))
+                vec_magnitude_base = (
+                    vec_target_baseline_total 
+                    if magnitude_relative_to_baseline 
+                    else np.zeros(len(vec_target_baseline_total))
+                )
                 val_initial_target = vec_magnitude_base[tp_baseline]
                 vec_target_with_ramp = sf.vec_bounds(magnitude_shift*vec_ramp + vec_magnitude_base, (0.0, 1.0))
-                scale_non_elec = np.nan_to_num((vec_bounds - vec_target_with_ramp)/(vec_bounds - vec_target_baseline_total), 0.0, posinf = 0.0)
+                scale_non_elec = np.nan_to_num(
+                    (vec_bounds - vec_target_with_ramp)/(vec_bounds - vec_target_baseline_total), 
+                    0.0, 
+                    posinf = 0.0
+                )
 
-                target_distribution = magnitude_shift*np.array([dict_modvar_specs.get(x) for x in modvars_target]) + val_initial_target*vec_initial_distribution
+                target_distribution = magnitude_shift*np.array([dict_modvar_specs.get(x) for x in modvars_target]) 
+                target_distribution += val_initial_target*vec_initial_distribution
                 target_distribution /= max(magnitude_shift + val_initial_target, 1.0) 
                 target_distribution = np.nan_to_num(target_distribution, 0.0, posinf = 0.0)
 

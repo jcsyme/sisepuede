@@ -962,7 +962,6 @@ class SamplingUnit:
 			tups_vvt = tups_vvt & set(tups_add)
 
 		t_elapse = sf.get_time_elapsed(t0, n_digits = 4)
-		#print(f"mark isv_1: {t_elapse}")
 
 		(
 			df_ans_key,
@@ -986,7 +985,7 @@ class SamplingUnit:
 		)
 
 		t_elapse = sf.get_time_elapsed(t0, n_digits = 4)
-		#print(f"mark isv_2: {t_elapse}")
+
 		df_in[field_ans_key] = df_in[fields_ans].apply(fun_ans_key, raw = True, axis = 1)
 		df_in[field_id_key] = df_in[fields_id].apply(fun_id_key, raw = True, axis = 1)
 		df_in[field_vvt_key] = df_in[fields_vvt].apply(fun_vvt_key, raw = True, axis = 1)
@@ -998,7 +997,7 @@ class SamplingUnit:
 		)
 
 		t_elapse = sf.get_time_elapsed(t0, n_digits = 4)
-		#print(f"mark isv_5: {t_elapse}")
+
 		# id values and baseline ids
 		dict_id_values, dict_baseline_ids = self.get_scenario_values(
 			dict_baseline_ids,
@@ -1114,7 +1113,7 @@ class SamplingUnit:
 		fields_vvt: Union[List, None] = None,
 		key_strategy: Union[str, None] = None,
 		thresh: float = (10**(-12)),
-		variable_specifications: Union[List, None] = None
+		variable_specifications: Union[List, None] = None,
 	) -> None:
 
 		"""
@@ -1164,10 +1163,12 @@ class SamplingUnit:
 		field_ans_key = self.primary_key_ans_coordinates if (field_ans_key is None) else field_ans_key
 		field_max = self.field_max_scalar if (field_max is None) else field_max
 		field_min = self.field_min_scalar if (field_min is None) else field_min
+
 		field_uniform_scaling = self.field_uniform_scaling_q if (field_uniform_scaling is None) else field_uniform_scaling
 		fields_ans = self.fields_ans_coordinates if (fields_ans is None) else fields_ans
 		fields_id = self.fields_id if (fields_id is None) else fields_id
 		fields_vvt = self.fields_vvt_coordinates if (fields_vvt is None) else fields_vvt
+
 		fields_time_periods = self.fields_time_periods if (fields_time_periods is None) else fields_time_periods
 		key_strategy = self.key_strategy if (key_strategy is None) else key_strategy
 		variable_specifications = self.variable_specifications if (variable_specifications is None) else variable_specifications
@@ -1593,8 +1594,8 @@ class SamplingUnit:
 
 
 	def generate_future(self,
-		lhc_trial_x: float,
-		lhc_trial_l: float = 1.0,
+		lhc_trial_x: Union[float, None],
+		lhc_trial_l: Union[float, None] = 1.0,
 		baseline_future_q: bool = False,
 		constraints_mix_tg: tuple = (0, 1),
 		flatten_output_array: bool = False,
@@ -1632,7 +1633,9 @@ class SamplingUnit:
 		)
 
 		# clean up some cases for None entries
-		baseline_future_q |= (lhc_trial_x is None)
+		baseline_comp = not sf.isnumber(lhc_trial_l)
+		baseline_comp |= (lhc_trial_l == 1) if not baseline_comp else False
+		baseline_future_q |= ((lhc_trial_x is None) & baseline_comp)
 		baseline_future_q |= (not vary_q)
 
 		lhc_trial_x = 1.0 if (lhc_trial_x is None) else lhc_trial_x
@@ -1652,7 +1655,7 @@ class SamplingUnit:
 		# index by variable_specification at keys
 		dict_out = {}
 		rv = self.uncertainty_ramp_vector
-	
+
 		if self.variable_trajectory_group is not None:
 
 			cat_mix = self.dict_required_tg_spec_fields.get("mixing_trajectory")
@@ -1884,6 +1887,7 @@ class SamplingUnit:
 				)
 
 				if self.xl_type == "L":
+
 					# get series of strategies
 					series_strats = self.df_coordinates_id[self.key_strategy]
 					w = np.where(np.array(series_strats) == strat_base)[0]
@@ -2232,7 +2236,7 @@ class FutureTrajectories:
 				~df_in[field_variable_trajgroup].isin([missing_flag])
 			][field_variable_trajgroup]
 		)
-		new_tg = max(new_tg)*int(len(new_tg) == 0) + 1
+		new_tg = (max(new_tg) + 1) if (len(new_tg) > 0) else 1
 		tgs = list(df_in[field_variable_trajgroup].copy())
 		tgspecs = list(df_in[field_variable_trajgroup_type].copy())
 
@@ -2785,7 +2789,7 @@ class FutureTrajectories:
 		df_row_lhc_sample_l: Union[pd.Series, pd.DataFrame, None] = None,
 		future_id: Union[int, None] = None,
 		baseline_future_q: bool = False,
-		dict_optional_dimensions: Dict[str, int] = {}
+		dict_optional_dimensions: Dict[str, int] = {},
 	) -> pd.DataFrame:
 		"""
 		Build a data frame of a single future for all sample units
@@ -2818,8 +2822,8 @@ class FutureTrajectories:
 		# initialize outputs and iterate
 		dict_df = {}
 		df_out = []
-		for k in enumerate(self.all_sampling_units):
-			k, su = k
+		for k, su in enumerate(self.all_sampling_units):
+
 			samp = self.dict_sampling_units.get(su)
 
 			# some skipping conditions

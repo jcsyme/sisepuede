@@ -1380,7 +1380,7 @@ class TransformationsAFOLU:
         w = np.where(vec_ramp == 1)[0][0]
         vec_ramp = np.array(
             [
-                float(sf.vec_bounds((x - (w - 1))/15, (0, 1))) # start in 2040
+                float(sf.vec_bounds((x - (w - 1))/5, (0, 1))) # start in 2040
                 for x in range(len(self.vec_implementation_ramp))
             ]
         )

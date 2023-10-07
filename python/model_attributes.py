@@ -4017,7 +4017,7 @@ class ModelAttributes:
         dict_vars_to_cats: dict, 
         category_to_replace: str, 
         appendstr_i: str = "-I", 
-        appendstr_j: str = "-J"
+        appendstr_j: str = "-J",
     ) -> list:
         """
         Build variables that rely on the direct product (e.g., transition 
@@ -4025,8 +4025,9 @@ class ModelAttributes:
 
         Function Arguments
         ------------------
-        - dict_vr_varschema:
-        - dict_vars_to_cats:
+        - dict_vr_varschema: dictionary mapping a model variable to its variable
+            schema
+        - dict_vars_to_cats: 
         - category_to_replace:
 
         Keyword Arguments
@@ -4037,13 +4038,19 @@ class ModelAttributes:
             second dimension
         """
         # build categories for I/J
-        cat_i, cat_j = self.format_category_for_direct(category_to_replace, appendstr_i, appendstr_j)
+        cat_i, cat_j = self.format_category_for_direct(
+            category_to_replace, 
+            appendstr_i, 
+            appendstr_j
+        )
 
         vars_out = []
+
         # run some checks and notify of any dropped variables
         set_vr_schema_vars = set(dict_vr_varschema.keys())
         set_vars_to_cats_vars = set(dict_vars_to_cats.keys())
         vars_to_loop = set_vr_schema_vars & set_vars_to_cats_vars
+
         # variables not in dict_vars_to_cats
         if len(set_vr_schema_vars - vars_to_loop) > 0:
             l_drop = list(set_vr_schema_vars - vars_to_loop)
@@ -4059,15 +4066,23 @@ class ModelAttributes:
             warnings.warn(f"\tVariables {l_drop} not found in set_vr_schema_vars.")
 
         vars_to_loop = list(vars_to_loop)
+        global v_to_l
+        v_to_l = vars_to_loop.copy()
 
         # loop over the variables available in both the variable schema dictionary and the dictionary mapping each variable to categories
         for var in vars_to_loop:
             var_schema = clean_schema(dict_vr_varschema[var])
+
             if (cat_i not in var_schema) or (cat_j not in var_schema):
                 raise ValueError(f"Error in {var} variable schema: one of the outer categories '{cat_i}' or '{cat_j}' was not found. Check the attribute file.")
+
             for catval_i in dict_vars_to_cats[var]:
                 for catval_j in dict_vars_to_cats[var]:
-                    vars_out.append(var_schema.replace(cat_i, catval_i).replace(cat_j, catval_j))
+                    vars_out.append(
+                        var_schema
+                        .replace(cat_i, catval_i)
+                        .replace(cat_j, catval_j)
+                    )
 
         return vars_out
 
@@ -4197,7 +4212,7 @@ class ModelAttributes:
                     )
                 ), 
                  category
-                )
+            )
 
         # build those that apply to partial categories
         dict_vrp_vvs, dict_vrp_vvs_outer = self.separate_varreq_dict_for_outer(
@@ -4628,7 +4643,11 @@ class ModelAttributes:
         """
 
         # check input specification - convert string to list and verify that there is at least one valid variable
-        modvars_to_check = [modvars_to_check] if isinstance(modvars_to_check, str) else modvars_to_check
+        modvars_to_check = (
+            [modvars_to_check] 
+            if isinstance(modvars_to_check, str) 
+            else modvars_to_check
+        )
         modvars_to_check = (
             [x for x in modvars_to_check if self.check_modvar(x) is not None]
             if sf.islistlike(modvars_to_check) 
@@ -4645,12 +4664,7 @@ class ModelAttributes:
 
 
         # iterate over inputs to 
-        subsecs = set(
-            [
-                self.get_variable_subsector(x) for x in modvars_to_check
-            ]
-        )
-
+        subsecs = set([self.get_variable_subsector(x) for x in modvars_to_check])
         category_specs = set(
             [
                 (self.get_variable_categories(x) is None)
@@ -5260,14 +5274,42 @@ class ModelAttributes:
                 i = int(i)
 
                 # check groupings and skip if invalid
-                dict_vars_to_sg = self.get_simplex_group_specification(
-                    list(df[field_model_variable])
-                )
+                simplex_modvars = list(df[field_model_variable])
+                dict_vars_to_sg = self.get_simplex_group_specification(simplex_modvars)
                 if dict_vars_to_sg is None:
                     continue
 
+                ##
+                ## TEMPORARY SINCE THIS IS NOT MISSION CRITICAL:
+                ##
+
+                var_transitions = "Unadjusted Land Use Transition Probability"
+                if var_transitions in simplex_modvars:
+                    print(
+                        f"MISSIONSEARCHNOTE: As of 2023-10-06, there is a temporary solution implemeted in ModelAttributes.get_variable_to_simplex_group_dictionary() to ensure that transition probability rows are enforced on a simplex.\n\nFIX THIS ASAP TO DERIVE PROPERLY."
+                    )
+
+                    fields_to_split = self.build_varlist(None, var_transitions)
+                    attr_lndu = self.get_attribute_table(self.subsec_name_lndu)
+                    dict_assigned = {}
+
+                    ind = 1
+                    for cat in attr_lndu.key_values:
+                        dict_assigned.update(
+                            dict((x, ind) for x in fields_to_split if f"{cat}_to" in x)
+                        )
+                        ind += 1
+                    
+                    dict_vars_to_sg = dict_assigned
+
+                ##
+                ##
+                ##
+
                 # otherwise, add to output 
                 simplex_groups.append((sort_class, dict_vars_to_sg))
+        
+        
 
 
         ##  NOW, SORT BY SECTOR/SUBSECTOR AND ASSIGN
@@ -5301,12 +5343,11 @@ class ModelAttributes:
                 
                 # check to see if grp/inner is already assigned; if not, assign it, then move to next iteration
                 simplex_group_assign = dict_group_ind_to_sg.get(tup_index)
+
                 if simplex_group_assign is None:
-                    
                     simplex_group_assign = simplex_group
                     dict_group_ind_to_sg.update({tup_index: simplex_group})
-                    
-                    # advance for next iteration
+
                     simplex_group += 1
                 
                 # update field to outer simplex group dictionary

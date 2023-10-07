@@ -4227,6 +4227,7 @@ class AWSManager:
     def _write_attribute_generic(self,
         dims: Union[str, List[str], None],
         dir_local_write: Union[str, None] = None,
+        strip_ids_from_table_names: bool = True,
         **kwargs,
     ) -> None:
         """
@@ -4244,6 +4245,8 @@ class AWSManager:
         -----------------
         - dir_local_write: output directory to write files to. If None, defaults
             to self.file_struct.fp_base_output_raw
+        - strip_ids_from_table_names: drop any string from the table name that 
+            matches "_ID"
         - **kwargs: passed to AWSManager.build_experiment()
         """
         
@@ -4279,11 +4282,19 @@ class AWSManager:
                     type_log = "warning",
                 )
                 continue
+            
+            # get the base dimension
+            table_dim = dim.upper()
+            table_dim = (
+                table_dim.replace("_ID", "")
+                if strip_ids_from_table_names
+                else table_dim
+            )
 
             attr.table.to_csv(
                 os.path.join(
                     dir_local_write,
-                    f"ATTRIBUTE_{dim.upper()}.csv"
+                    f"ATTRIBUTE_{table_dim}.csv"
                 ),
                 index = None,
                 encoding = "UTF-8",
@@ -4296,6 +4307,7 @@ class AWSManager:
     def _write_attribute_primary(self,
         dict_experimental_components: Union[Dict, None] = None,
         dir_local_write: Union[str, None] = None,
+        strip_ids_from_table_names: bool = True,
         **kwargs,
     ) -> None:
         """
@@ -4312,6 +4324,8 @@ class AWSManager:
             at ?AWSManager.build_experiment for more information)
         - dir_local_write: output directory to write files to. If None, defaults
             to self.file_struct.fp_base_output_raw
+        - strip_ids_from_table_names: drop any string from the table name that 
+            matches "_ID"
         - **kwargs: passed to AWSManager.build_experiment()
         """
         
@@ -4329,6 +4343,14 @@ class AWSManager:
             if not os.path.exists(dir_local_write)
             else None
         )
+
+        # get the base dimension
+        table_dim = self.sisepuede_database.table_name_attribute_primary.upper()
+        table_dim = (
+            table_dim.replace("_ID", "")
+            if strip_ids_from_table_names
+            else table_dim
+        )
         
         (
             self.build_experiment(
@@ -4338,7 +4360,7 @@ class AWSManager:
             .to_csv(
                 os.path.join(
                     dir_local_write,
-                    f"{self.sisepuede_database.table_name_attribute_primary}.csv"
+                    f"{table_dim}.csv"
                 ),
                 index = None,
                 encoding = "UTF-8",
