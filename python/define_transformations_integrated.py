@@ -1274,12 +1274,12 @@ class TransformationsIntegrated:
                 dfc = df_cur
 
                 # split the current transformation into 
-                dict_write_cur = self.build_templates_dictionary_from_current_transformation(
+                dict_cur = self.build_templates_dictionary_from_current_transformation(
                     df_cur,
                     attr_sector,
+                    dict_cur,
                     **kwargs
                 )
-                dict_cur[sector_abv].update(dict_write_cur)
 
             global dc
             dc = dict_cur
@@ -1326,22 +1326,22 @@ class TransformationsIntegrated:
 
                             continue
                     
-                    # drop unnecessary fields and prepare for templatization
-                    fields_drop = [x for x in df_cur.columns if x not in fields_var_all + fields_sort]
-                    df_cur = (
-                        df_cur
-                        .drop(fields_drop, axis = 1)
-                        .sort_values(by = fields_sort)
-                        .reset_index(drop = True)
-                    )
+                        # drop unnecessary fields and prepare for templatization
+                        fields_drop = [x for x in df_cur.columns if x not in fields_var_all + fields_sort]
+                        df_cur = (
+                            df_cur
+                            .drop(fields_drop, axis = 1)
+                            .sort_values(by = fields_sort)
+                            .reset_index(drop = True)
+                        )
 
-                    # split the current exogenous transformation up
-                    dict_write_cur = self.build_templates_dictionary_from_current_transformation(
-                        df_cur,
-                        attr_sector,
-                        **kwargs
-                    )
-                    dict_cur[sector_abv].update(dict_write_cur)
+                        # split the current exogenous transformation up
+                        dict_cur = self.build_templates_dictionary_from_current_transformation(
+                            df_cur,
+                            attr_sector,
+                            dict_cur,
+                            **kwargs
+                        )
 
             
             ##  EXPORT FILES?
@@ -1388,6 +1388,7 @@ class TransformationsIntegrated:
     def build_templates_dictionary_from_current_transformation(self,
         df_cur: pd.DataFrame,
         attr_sector: AttributeTable,
+        dict_update: dict,
         **kwargs
     ) -> Union[Dict, None]:
         """
@@ -1397,12 +1398,12 @@ class TransformationsIntegrated:
         ------------------
         - df_cur: data frame that represents a transformation
         - attr_sector: sector attribute table
+        - dict_update: dictionary to update
 
         Keyword Arguments
         -----------------
         **kwargs: passed to self.input_template.template_from_inputs()
         """
-        dict_write_cur = None
 
         for sector_abv in attr_sector.key_values:
 
@@ -1418,7 +1419,9 @@ class TransformationsIntegrated:
                 **kwargs
             )
 
-            return dict_write_cur
+            dict_update[sector_abv].update(dict_write_cur)
+
+        return dict_update
     
 
 
