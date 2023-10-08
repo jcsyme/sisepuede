@@ -1089,7 +1089,8 @@ class TransformationsIntegrated:
 
 
     def build_strategies_to_templates(self,
-        df_input: Union[pd.DataFrame, None] = None,
+        df_base_trajectories: Union[pd.DataFrame, None] = None,
+        df_exogenous_strategies: Union[pd.DataFrame, None] = None,
         regions: Union[List[str], None] = None,
         replace_template: bool = False,
         return_q: bool = False,
@@ -1106,10 +1107,13 @@ class TransformationsIntegrated:
 
         Keyword Arguments
         -----------------
-        - df_input: baseline (untransformed) data frame to use to build 
-            strategies. Must contain self.key_region and 
+        - df_base_trajectories: baseline (untransformed) data frame to use to 
+            build strategies. Must contain self.key_region and 
             self.model_attributes.dim_time_period in columns. If None, defaults
             to self.baseline_inputs
+        - df_exogenous_strategies: optional exogenous strategies to pass. Must 
+            contain self.key_region and self.model_attributes.dim_time_period in 
+            columns. If None, no action is taken. 
         - regions: optional list of regions to build strategies for. If None, 
             defaults to all defined.
         - replace_template: replace template if it exists? If False, tries to 
@@ -1138,8 +1142,8 @@ class TransformationsIntegrated:
         
         # initialize baseline dataframe
         df_out = (
-            self.transformation_pflo_baseline(df_input)
-            if df_input is not None
+            self.transformation_pflo_baseline(df_base_trajectories)
+            if df_base_trajectories is not None
             else self.baseline_inputs
         )
         return_none = df_out is None
@@ -1202,7 +1206,12 @@ class TransformationsIntegrated:
         dict_sectors = dict((s, {}) for s in attr_sector.key_values)
         dict_write = dict((r, dict_sectors) for r in regions)
         df_out_grouped = df_out.groupby([self.key_region])
-        
+
+        # try getting exogenous strategies grouped by region (as dict) -- if fails, will return None
+        dict_exogenous_grouped = self.check_exogenous_strategies(df_exogenous_strategies)
+    
+
+        # iterate over regions
         for r, df in df_out_grouped:
             
             if r not in regions:
@@ -1217,6 +1226,9 @@ class TransformationsIntegrated:
                 else dict_sectors.copy()
             )
                 
+
+            ##  ITERATE OVER FUNCTIONAL TRANSFORMATIONS
+
             for i, strat in enumerate(strategies):
                 t0_cur = time.time()
                 transformation = self.get_strategy(strat)
@@ -1261,26 +1273,79 @@ class TransformationsIntegrated:
                 global dfc
                 dfc = df_cur
 
-                for sector_abv in attr_sector.key_values:
+                # split the current transformation into 
+                dict_write_cur = self.build_templates_dictionary_from_current_transformation(
+                    df_cur,
+                    attr_sector,
+                    **kwargs
+                )
+                dict_cur[sector_abv].update(dict_write_cur)
 
-                    # get sector name
-                    sector = attr_sector.field_maps.get(f"{attr_sector.key}_to_sector").get(sector_abv)
-                    df_template = self.dict_sectoral_templates.get(sector)
-
-                    # build template
-                    dict_write_cur = self.input_template.template_from_inputs(
-                        df_cur,
-                        df_template,
-                        sector_abv,
-                        **kwargs
-                    )
-                    
-                    dict_cur[sector_abv].update(dict_write_cur)
-                
             global dc
             dc = dict_cur
+
+
+            ##  ADD ANY ADDITIONAL, EXOGENOUSLY DEFINED STRATEGIES?
+
+            if isinstance(dict_exogenous_grouped, dict):
+                
+                self._log(
+                    f"Starting integration of exogenous strategies in region '{r}",
+                    type_log = "info"
+                )
+
+                df_cur_grouped = dict_exogenous_grouped.get(r)
+                if df_cur_grouped is not None:
+                    # ignore strategies that are defined functionally
+                    df_cur_grouped = (
+                        df_cur_grouped[
+                            ~df_cur_grouped[self.key_strategy].isin(strategies)
+                        ]
+                        .groupby([self.key_strategy])
+                    )
+
+                    for strat, df_exog in df_cur_grouped:
+                        
+                        df_cur = None
+                        # try to concatenate current strategy
+                        try:
+                            df_out_list[1] = df_exog
+                            df_cur = pd.concat(df_out_list, axis = 0).reset_index(drop = True)
+                            self._log(
+                                f"\tSuccessfully integrated exogenous strategy {self.key_strategy} = {strat}.",
+                                type_log = "info"
+                            )
+                            
+                        except Exception as e: 
+                            df_out[i + 1] = None
+
+                            self._log(
+                                f"\tError trying to integrate exogenous strategy {self.key_strategy} = {strat}: {e}",
+                                type_log = "error"
+                            )
+
+                            continue
+                    
+                    # drop unnecessary fields and prepare for templatization
+                    fields_drop = [x for x in df_cur.columns if x not in fields_var_all + fields_sort]
+                    df_cur = (
+                        df_cur
+                        .drop(fields_drop, axis = 1)
+                        .sort_values(by = fields_sort)
+                        .reset_index(drop = True)
+                    )
+
+                    # split the current exogenous transformation up
+                    dict_write_cur = self.build_templates_dictionary_from_current_transformation(
+                        df_cur,
+                        attr_sector,
+                        **kwargs
+                    )
+                    dict_cur[sector_abv].update(dict_write_cur)
+
             
-            # export 
+            ##  EXPORT FILES?
+
             if not return_q:
                 for sector_abv in attr_sector.key_values:
                     
@@ -1288,7 +1353,7 @@ class TransformationsIntegrated:
                     if sector not in sectors:
                         continue
                         
-                        
+                     # get path and write output   
                     fp_write = self.base_input_database.get_template_path(
                         r, 
                         sector,
@@ -1317,6 +1382,96 @@ class TransformationsIntegrated:
         return_val = dict_write if return_q else 0
 
         return return_val
+    
+
+
+    def build_templates_dictionary_from_current_transformation(self,
+        df_cur: pd.DataFrame,
+        attr_sector: AttributeTable,
+        **kwargs
+    ) -> Union[Dict, None]:
+        """
+        Support function for build_strategies_to_templates(); 
+
+        Function Arguments
+        ------------------
+        - df_cur: data frame that represents a transformation
+        - attr_sector: sector attribute table
+
+        Keyword Arguments
+        -----------------
+        **kwargs: passed to self.input_template.template_from_inputs()
+        """
+        dict_write_cur = None
+
+        for sector_abv in attr_sector.key_values:
+
+            # get sector name
+            sector = attr_sector.field_maps.get(f"{attr_sector.key}_to_sector").get(sector_abv)
+            df_template = self.dict_sectoral_templates.get(sector)
+
+            # build template
+            dict_write_cur = self.input_template.template_from_inputs(
+                df_cur,
+                df_template,
+                sector_abv,
+                **kwargs
+            )
+
+            return dict_write_cur
+    
+
+
+    def check_exogenous_strategies(self,
+        df_exogenous_strategies: pd.DataFrame,
+    ) -> Union[Dict[str, pd.DataFrame], None]:
+        """
+        Check df_exogenous_strategies for build_strategies_to_templates(). If 
+            df_exogenous_strategies is valid, will return a dictionary mapping
+            a region (key) to a dataframe containing exogenous strategies.
+
+            Otherwise, returns None. 
+        """
+        # check if exogenous strategies are being passed
+        dict_exogenous_grouped = None
+        return_none = False
+
+        if isinstance(df_exogenous_strategies, pd.DataFrame):
+            
+            # check fields
+            if self.key_region not in df_exogenous_strategies.columns:
+                self._log(
+                    f"Region key '{self.key_region}' missing from df_exogenous_strategies. Strategies will not be read from df_exogenous_strategies.",
+                    type_log = "warning",
+                )
+                return_none = True
+            
+            if self.key_strategy not in df_exogenous_strategies.columns:
+                self._log(
+                    f"Strategy key '{self.key_strategy}' missing from df_exogenous_strategies. Strategies will not be read from df_exogenous_strategies.",
+                    type_log = "warning",
+                )
+                return_none = True
+
+            
+            if return_none:
+                return None
+
+            # next, try to group the dataframe
+            try:
+                dict_exogenous_grouped = sf.group_df_as_dict(
+                    df_exogenous_strategies,
+                    [self.key_region],
+                )
+
+            except Exception as e:
+                self._log(
+                    f"Error trying to group df_exogenous_strategies in check_exogenous_strategies(): {e}.",
+                    type_log = "error",
+                )
+
+        # return output
+        return dict_exogenous_grouped
 
         
 

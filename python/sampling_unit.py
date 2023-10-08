@@ -2871,6 +2871,48 @@ class FutureTrajectories:
 	
 
 
+	def generate_variable_specification_to_sample_group(self,
+		field_sample_group: str = "sample_group",
+		field_variable_specification: str = "variable_specification",
+		regions: Union[str, None] = None,
+	) -> pd.DataFrame:
+		"""
+		Generate a map of sample groups to variable specifications
+		
+		Keyword Arguments
+		-----------------
+		- field_sample_group: output field for the sample group
+		- field_variable_specification: output field containing the variable 
+			specification
+		- regions: optional list of regions to use
+		"""
+		
+		# initialize output columns
+		vec_sgs = []
+		vec_vs = []
+		
+		# iterate over sampling units
+		for k, v in self.dict_sampling_units.items():
+			vs = v.variable_specifications
+			vec_sgs.extend([k for x in vs])
+			vec_vs.extend(vs)
+		
+		# convert to data frame and return\
+		df_out = (
+			pd.DataFrame(
+				{
+					field_variable_specification: vec_vs,
+					field_sample_group: vec_sgs,
+				}
+			)
+			.sort_values(by = [field_variable_specification, field_sample_group])
+			.reset_index(drop = True)
+		)
+		
+		return df_out
+		
+
+
 	def get_df_row_element(self,
 		row: Union[pd.Series, pd.DataFrame, None],
 		index: Union[int, float, str],
