@@ -945,7 +945,6 @@ def transformation_support_lndu_get_adjusted_pasture_fraction(
         vec_lndu_transferred[ind_target]*frac_target_containing_shift
     )
 
-    print(f"vec_lndu_transferred: {vec_lndu_transferred}")
     prevalence_grass_cur = prevalence_vector_1[ind_grass]
     prevalence_grass_orig = prevalence_vector_0[ind_grass]
 
@@ -1543,12 +1542,14 @@ def transformation_support_lndu_transition_to_category_targets_single_region(
 
     for ind_row, i in enumerate(inds_iter):
 
-        
-
         # in first iteation, this is projected prevalence at ind_first_nz + 1
         x_next_unadj = np.dot(x, qs[i]) 
         ind_row = min(ind_row, arr_target_shares.shape[0] - 1)
-        scalars_to_adj = arr_target_shares[ind_row, :]/x_next_unadj[inds_to_modify]
+        scalars_to_adj = np.nan_to_num(
+            arr_target_shares[ind_row, :]/x_next_unadj[inds_to_modify],
+            0.0,
+            posinf = 0.0
+        )
 
         for j, z in enumerate(inds_to_modify):
 
@@ -1568,14 +1569,16 @@ def transformation_support_lndu_transition_to_category_targets_single_region(
                 cats_max_out = cats_inflow_restrict,
                 lmo_approach = lmo,
             )
+
             
             scalar_lndu_cur = model_afolu.get_matrix_column_scalar(
                 qs[i][:, z],
                 scalar,
                 x,
                 mask_max_out_states = mask_lndu_max_out_states,
-                max_iter = 100
+                max_iter = 100,
             )
+
 
             dict_adj.update(
                 dict(
@@ -1615,7 +1618,16 @@ def transformation_support_lndu_transition_to_category_targets_single_region(
     #  vector of previous land use outcome
     #  vector of current land use outcome
     #  original pasture land use fraction vector
-    return df_out, vec_lndu_final_frac_unadj, x, vec_lndu_pasture_frac, arr_land_use_prevalence_out_no_intervention, arr_land_use_prevalence_out_with_intervention
+    tup_out = (
+        df_out, 
+        vec_lndu_final_frac_unadj, 
+        x, 
+        vec_lndu_pasture_frac, 
+        arr_land_use_prevalence_out_no_intervention, 
+        arr_land_use_prevalence_out_with_intervention
+    )
+
+    return tup_out
 
 
 
@@ -1713,6 +1725,7 @@ def transformation_lndu_increase_silvopasture(
     global arr_land_use_prevalence_out_no_intervention
     global arr_land_use_prevalence_out_with_intervention
     global vec_lndu_pasture_frac
+
     for region, df in df_group:
         
         # PER-REGION MODS HERE 
@@ -1743,6 +1756,7 @@ def transformation_lndu_increase_silvopasture(
             return_type = "array_base",
         )
 
+
         (
             vec_lndu_pasture_frac_new, 
             vec_lndu_carrying_capacity_new
@@ -1753,6 +1767,8 @@ def transformation_lndu_increase_silvopasture(
             vec_lvst_carrying_capcity_scalar,
             model_afolu,
         )
+
+        
         """
         # get changes to pasture fraction and associated ratio of increase for lvst carrying capacity
         frac_past_new, scalar_carrying_capacity_inv = transformation_support_lndu_get_adjusted_pasture_fraction(

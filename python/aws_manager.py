@@ -4129,41 +4129,56 @@ class AWSManager:
             
             
             # try to run instance
-            dict_instance = self.launch_instance(user_data)
+            try:
+                dict_instance = self.launch_instance(user_data) if launch else None
+
+            except Exception as e:
+                self._log(
+                    f"Error trying to launch index {ind_launch}: {e}",
+                    type_log = "error"
+                )
             
+            
+            # initialize
+            instance_id = "UNASSIGNED"
+            ip_address = "00.00.00.00"
+
+            # overwrite if information is available from a successful launch
             if isinstance(dict_instance, dict):
-                
+
                 info = dict_instance.get("Instances")[0]
                 instance_id = info.get("InstanceId")
-
-                # add output roww
-                row = [
-                    ind_launch,
-                    instance_id,
-                    delim.join(spec_tuple[0]),
-                    delim.join([str(x) for x in spec_tuple[1]]),
-                    random_seed,
-                    info.get("PrivateIpAddress"),
-                    try_number
-                ]
-                
-                df_run_information.append(row)
+                ip_address = info.get("PrivateIpAddress")
 
                 self._log(
                     f"Launch index {ind_launch} successfully launched instance {instance_id}",
                     type_log = "info"
                 )
+  
+                
+
+            # add output roww
+            row = [
+                ind_launch,
+                instance_id,
+                delim.join(spec_tuple[0]),
+                delim.join([str(x) for x in spec_tuple[1]]),
+                random_seed,
+                ip_address,
+                try_number,
+            ]
+            
+            df_run_information.append(row)
+
                 
         df_run_information = pd.DataFrame(df_run_information, columns = fields_out)
         
 
         # then, build the queries to create the Athena database if specified
         dict_query_responses = (
-            self.execute_create_table_athena_query(
-                **kwargs
-            )
-         if setup_database
-         else None
+            self.execute_create_table_athena_query(**kwargs)
+            if (setup_database & launch)
+            else None
         )
 
         return dict_query_responses, dict_ud, df_run_information

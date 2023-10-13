@@ -1557,9 +1557,9 @@ class AFOLU:
         area_incoming_from_max_out_states_at_full = np.sum(mask_max_out_states*vec_x)
         area_incoming_from_max_out_states_at_current = np.sum(mask_max_out_states*vec_x*mat_column)
         
-        delta_area  = area_target - area
-
+        delta_area  = area_target - area    
         scalar_adj = (1 - mask_max_out_states)
+    
         if np.sum(mask_max_out_states) > 0:
             # if the max-out states can't absorb the required change, then max them out and allow the rest to continue
             max_scale = (
@@ -1567,8 +1567,11 @@ class AFOLU:
                 if area_incoming_from_max_out_states_at_current != 0
                 else 1.0
             )
-            scale_max_out_states = min(max(1 + delta_area/area_incoming_from_max_out_states_at_current, 0), max_scale)
+            
+            scale_max_out_states = np.nan_to_num(delta_area/area_incoming_from_max_out_states_at_current, 0.0, posinf = 0.0)
+            scale_max_out_states = min(max(1 + scale_max_out_states, 0), max_scale)
             scalar_adj += mask_max_out_states*scale_max_out_states
+
 
         q_j = sf.vec_bounds(mat_column*scalar_adj, (0, 1))
         area_target = target_scalar*np.dot(vec_x, mat_column)
