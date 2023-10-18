@@ -4010,7 +4010,7 @@ class ModelAttributes:
                     # get values to reindex and apply
                     dict_to_reindex = sorted(list(set(df_out_keep[field_variable_trajectory_group])))
                     dict_to_reindex = dict(
-                        (x, i + max(tgs_to_assign))
+                        (x, i + max(tgs_to_assign) + 1)
                         for i, x in enumerate(dict_to_reindex)
                         if not np.isnan(x)
                     )

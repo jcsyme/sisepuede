@@ -81,6 +81,13 @@ class TransformationsIntegrated:
 
     Optional Arguments
     ------------------
+    - baseline_with_plur: set to True to let the baseline include partial land
+        use reallocation in the baseline--passed to TransformationsAFOLU as
+        a keyword argument.
+        * NOTE: If True, then transformation_lndu_reallocate_land() 
+            has no effect.
+        * NOTE: this is set in both `self.transformation_af_baseline()` and
+            `self.transformation_lndu_reallocate_land()` separately
     - fp_nemomod_temp_sqlite_db: optional file path to use for SQLite database
         used in Julia NemoMod Electricity model
         * If None, defaults to a temporary path sql database
@@ -108,6 +115,7 @@ class TransformationsIntegrated:
     
     def __init__(self,
         dict_config: Dict,
+        baseline_with_plur: bool = False,
         df_input: Union[pd.DataFrame, None] = None,
         field_region: Union[str, None] = None,
         logger: Union[logging.Logger, None] = None,
@@ -127,6 +135,7 @@ class TransformationsIntegrated:
 
         # set transformations by sector, models (which come from sectoral transformations)
         self._initialize_sectoral_transformations(
+            baseline_with_plur = baseline_with_plur,
             df_input = df_input,
             **kwargs,
         )
@@ -536,6 +545,7 @@ class TransformationsIntegrated:
 
 
     def _initialize_sectoral_transformations(self,
+        baseline_with_plur: bool = False,
         df_input: Union[pd.DataFrame, None] = None,
         dict_config: Union[Dict, None] = None,
         **kwargs,
@@ -552,6 +562,12 @@ class TransformationsIntegrated:
 
         Function Arguments
         ------------------
+        - baseline_with_plur: set to True to let the baseline include partial 
+            land use reallocation. 
+        * NOTE: If True, then transformation_lndu_reallocate_land() 
+            has no effect.
+        * NOTE: this is set in both `self.transformation_af_baseline()` and
+            `self.transformation_lndu_reallocate_land()` separately
         - dir_jl: location of Julia directory containing Julia environment and 
         support modules
         - fp_nemomod_reference_files: directory housing reference files called 
@@ -578,6 +594,7 @@ class TransformationsIntegrated:
         self.transformations_afolu = dta.TransformationsAFOLU(
             self.model_attributes,
             dict_config,
+            baseline_with_plur = baseline_with_plur,
             df_input = df_input,
             field_region = self.key_region,
             logger = self.logger,

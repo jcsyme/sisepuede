@@ -77,6 +77,12 @@ class TransformationsAFOLU:
 
     Optional Arguments
     ------------------
+    - baseline_with_plur: set to True to let the baseline include partial land
+        use reallocation. 
+        * NOTE: If True, then transformation_lndu_reallocate_land() 
+            has no effect.
+        * NOTE: this is set in both `self.transformation_af_baseline()` and
+            `self.transformation_lndu_reallocate_land()` separately
 	- fp_nemomod_temp_sqlite_db: optional file path to use for SQLite database
 		used in Julia NemoMod Electricity model
         * If None, defaults to a temporary path sql database
@@ -91,6 +97,7 @@ class TransformationsAFOLU:
     def __init__(self,
         model_attributes: ma.ModelAttributes,
         dict_config: Dict,
+        baseline_with_plur: bool = False,
         field_region: Union[str, None] = None,
         df_input: Union[pd.DataFrame, None] = None,
 		logger: Union[logging.Logger, None] = None,
@@ -99,12 +106,24 @@ class TransformationsAFOLU:
 
         self.logger = logger
 
-        self._initialize_attributes(field_region, model_attributes)
-        self._initialize_config(dict_config = dict_config)
-        self._initialize_models(model_afolu = model_afolu)
-        self._initialize_parameters(dict_config = dict_config)
+        self._initialize_attributes(
+            field_region, 
+            model_attributes,
+            baseline_with_plur = baseline_with_plur,
+        )
+        self._initialize_config(
+            dict_config = dict_config,
+        )
+        self._initialize_models(
+            model_afolu = model_afolu,
+        )
+        self._initialize_parameters(
+            dict_config = dict_config,
+        )
         self._initialize_ramp()
-        self._initialize_baseline_inputs(df_input)
+        self._initialize_baseline_inputs(
+            df_input,
+        )
         self._initialize_transformations()
 
 
@@ -178,13 +197,17 @@ class TransformationsAFOLU:
     def _initialize_attributes(self,
         field_region: Union[str, None],
         model_attributes: ma.ModelAttributes,
+        baseline_with_plur: bool = False,
     ) -> None:
         """
         Initialize the model attributes object. Checks implementation and throws
             an error if issues arise. Sets the following properties
 
             * self.attribute_strategy
+            * self.baseline_strategy
+            * self.baseline_with_plur
             * self.key_region
+            * self.key_strategy
             * self.model_attributes
             * self.regions (support_classes.Regions object)
             * self.time_periods (support_classes.TimePeriods object)
@@ -209,16 +232,23 @@ class TransformationsAFOLU:
         time_periods = sc.TimePeriods(model_attributes)
         regions = sc.Regions(model_attributes)
 
+        # set baseline with plur
+        baseline_with_plur = (
+            False 
+            if not isinstance(baseline_with_plur, bool) 
+            else baseline_with_plur
+        )
 
         ##  SET PROPERTIES
         
         self.attribute_strategy = attribute_strategy
         self.baseline_strategy = baseline_strategy
+        self.baseline_with_plur = baseline_with_plur
         self.key_region = field_region
         self.key_strategy = attribute_strategy.key
         self.model_attributes = model_attributes
-        self.time_periods = time_periods
         self.regions = regions
+        self.time_periods = time_periods
 
         return None
     
@@ -233,10 +263,22 @@ class TransformationsAFOLU:
             following properties:
 
             * self.baseline_inputs
+
+        Keyword Arguments
+        -----------------
+        - baseline_with_plur: set to True to let the baseline include partial 
+            land use reallocation. 
+            * NOTE: If True, then transformation_lndu_reallocate_land() 
+                has no effect.
+            * NOTE: this is set in both `self.transformation_af_baseline()` and
+                `self.transformation_lndu_reallocate_land()` separately
         """
 
         baseline_inputs = (
-            self.transformation_af_baseline(df_inputs, strat = self.baseline_strategy) 
+            self.transformation_af_baseline(
+                df_inputs,
+                strat = self.baseline_strategy,
+            ) 
             if isinstance(df_inputs, pd.DataFrame) 
             else None
         )
@@ -1095,6 +1137,7 @@ class TransformationsAFOLU:
 
     def transformation_af_baseline(self,
         df_input: pd.DataFrame,
+        baseline_with_plur: Union[bool, None] = None,
         strat: Union[int, None] = None,
     ) -> pd.DataFrame:
         """
@@ -1102,20 +1145,42 @@ class TransformationsAFOLU:
             (pass through)
         """
 
+        # some initialization
+        
         df_out = df_input.copy()
         
+        baseline_with_plur = (
+            self.baseline_with_plur
+            if baseline_with_plur is None
+            else baseline_with_plur
+        )
 
         ##  SET LAND USE REALLOCATION FACTOR
+
 
         fields_lndu_reallocation = self.model_attributes.build_varlist(
             None,
             variable_subsec = self.model_afolu.modvar_lndu_reallocation_factor,
         )
         df_out[fields_lndu_reallocation] = 0.0
-        """
-        # add in partial land use reallocation 
-        df_out = self.transformation_lndu_reallocate_land(df_out)
-        """;
+
+        # determine if setting baseline with PLUR
+        if baseline_with_plur:
+            df_out = tbg.transformation_general(
+                df_out,
+                self.model_attributes,
+                {
+                    self.model_afolu.modvar_lndu_reallocation_factor: {
+                        "bounds": (0.0, 1),
+                        "magnitude": 0.5,
+                        "magnitude_type": "final_value",
+                        "vec_ramp": self.vec_implementation_ramp
+                    }
+                },
+                field_region = self.key_region,
+                strategy_id = strat,
+            )
+        
 
         if sf.isnumber(strat, integer = True):
             df_out = sf.add_data_frame_fields_from_dict(
@@ -1414,7 +1479,7 @@ class TransformationsAFOLU:
             
         NOTE: This transformation relies on modifying transition matrices, which 
             can compound some minor numerical errors in the crude implementation 
-            taken here. Final area prevalences may not reflect precise shifts.
+            taken here. Final area prevalences may not reflect get_matrix_column_scalarget_matrix_column_scalarprecise shifts.
         """
         # check input dataframe
         df_input = (
@@ -1513,34 +1578,43 @@ class TransformationsAFOLU:
     def transformation_lndu_reallocate_land(self,
         df_input: Union[pd.DataFrame, None] = None,
         strat: Union[int, None] = None,
+        baseline_with_plur: Union[bool, None] = None,
     ) -> pd.DataFrame:
         """
         Support land use reallocation in specification of multiple 
             transformations
         """
 
+        # check if baseline contains PLUR
+        baseline_with_plur = (
+            self.baseline_with_plur
+            if not isinstance(baseline_with_plur, bool)
+            else baseline_with_plur
+        )
+
         # check input dataframe
-        df_input = (
+        df_out = (
             self.baseline_inputs
             if not isinstance(df_input, pd.DataFrame) 
             else df_input
         )
 
-        # update the biogas recovery factor
-        df_out = tbg.transformation_general(
-            df_input,
-            self.model_attributes,
-            {
-                self.model_afolu.modvar_lndu_reallocation_factor: {
-                    "bounds": (0.0, 1),
-                    "magnitude": 0.5,
-                    "magnitude_type": "final_value",
-                    "vec_ramp": self.vec_implementation_ramp
-                }
-            },
-            field_region = self.key_region,
-            strategy_id = strat,
-        )
+        # if baseline includes PLUR, don't modify
+        if not baseline_with_plur:
+            df_out = tbg.transformation_general(
+                df_out,
+                self.model_attributes,
+                {
+                    self.model_afolu.modvar_lndu_reallocation_factor: {
+                        "bounds": (0.0, 1),
+                        "magnitude": 0.5,
+                        "magnitude_type": "final_value",
+                        "vec_ramp": self.vec_implementation_ramp
+                    }
+                },
+                field_region = self.key_region,
+                strategy_id = strat,
+            )
 
         return df_out
 

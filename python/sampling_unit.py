@@ -2494,7 +2494,6 @@ class FutureTrajectories:
 				else df_sg
 			)
 
-
 			# try to pass exogenous XL type
 			all_vs_specified = [
 				dict_variable_specification_to_xl_types.get(x)
@@ -2534,7 +2533,7 @@ class FutureTrajectories:
 			dict_sampling_units.update({sg: samp})
 
 			self._log(f"Iteration {i} complete.", type_log = "info") if (i%250 == 0) else None
-			i += 0
+			i += 1
 
 		t_elapse = sf.get_time_elapsed(t0)
 		self._log(f"\t{n_sg} sampling units complete in {t_elapse} seconds.", type_log = "info")
