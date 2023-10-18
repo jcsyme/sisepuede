@@ -389,6 +389,25 @@ def parse_arguments(
         help = msg_hlp_save_inputs,
     )
 
+    # optional attempt to read exogenous XL types
+    msg_hlp_try_exogenous_xl_types = f"""
+    Include the --try-exogenous-xl-types flag to try to read exogenous XL types 
+        for variable specifications (as fed to SamplingUnit). Reads from 
+        SISEPUEDE.file_struct.fp_variable_specification_xl_types. If None, 
+        infers XL types based on inputs. 
+
+        NOTE: "X" or "L" cannot be specified for any inferred XL types. 
+        * If a variable is inferred as an X, it can be exogenously specified as
+            either an "X" or an "L" (Xs can be treated as Ls)
+        * If a variable is inferred as an L, it can only be specified as an L;
+            this is because uncertainty exploration will fail otherwise.
+    """
+    parser.add_argument(
+        "--try-exogenous-xl-types",
+        action = "store_true",
+        help = msg_hlp_try_exogenous_xl_types,
+    )
+
     
 
     if False:
@@ -501,6 +520,7 @@ def main(
     n_trials = args.get("n_trials")
     random_seed = args.get("random_seed")
     save_inputs = args.get("save_inputs")
+    try_xl_types = args.get("try_exogenous_xl_types")
 
     # checks
     return_none = (regions_run is None)
@@ -521,6 +541,7 @@ def main(
         n_trials = n_trials,
         random_seed = random_seed,
         regions = regions_run,
+        try_exogenous_xl_types_in_variable_specification = try_xl_types,
     )
 
     dict_primaries_complete = sisepuede(

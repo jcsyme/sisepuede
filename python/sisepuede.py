@@ -154,6 +154,11 @@ class SISEPUEDE:
 		destroy exisiting output tables if an AnalysisID is specified.
 	- regex_template_prepend: string to prepend to output files tagged with the
 		analysis id
+	- try_exogenous_xl_types_in_variable_specification: 
+		* If True, attempts to read exogenous XL type specifcations for variable 
+			specifications (i.e., in SamplingUnit) from 
+			self.file_structure.fp_variable_specification_xl_types. 
+		* If False, infers on a region-by-region basis
 	"""
 
 	def __init__(self,
@@ -169,6 +174,7 @@ class SISEPUEDE:
 		regions: Union[List[str], None] = None,
 		regex_template_prepend: str = "sisepuede_run",
 		replace_output_dbs_on_init: bool = False,
+		try_exogenous_xl_types_in_variable_specification: bool = False,
 	):
 
 		# initialize the file structure and generic properties
@@ -191,6 +197,7 @@ class SISEPUEDE:
 		self._initialize_experimental_manager(
 			num_trials = n_trials,
 			regions = regions,
+			try_exogenous_xl_types_in_variable_specification = try_exogenous_xl_types_in_variable_specification,
 		)
 
 		# initialize models, aliases, and, finally, base tables
@@ -385,6 +392,7 @@ class SISEPUEDE:
 		random_seed: Union[int, None] = None,
 		regions: Union[List[str], None] = None,
 		time_t0_uncertainty: Union[int, None] = None,
+		try_exogenous_xl_types_in_variable_specification: bool = False,
 	) -> None:
 		"""
 		Initialize the Experimental Manager for SISEPUEDE. The SISEPUEDEExperimentalManager
@@ -419,24 +427,40 @@ class SISEPUEDE:
 		- regions: regions to initialize.
 			* If None, initialize using all regions
 		- time_t0_uncertainty: time where uncertainty starts
+		- try_exogenous_xl_types_in_variable_specification: 
+			* If True, attempts to read exogenous XL type specifcations for 
+				variable specifications (i.e., in SamplingUnit) from 
+				self.file_structure.fp_variable_specification_xl_types. 
+			* If False, infers on a region-by-region basis
 		"""
 
 		# initialize experimental manager
 		self.experimental_manager = None
 
-		# get some key parameters
+		# get some key parameters, including: 
+		#  - number of LHS trials
+		#  - random seed 
+		#  - initial time period for uncertainty
+		#  - file path to exogenous XL types for variable specifications
 		num_trials = (
 			int(np.round(max(num_trials, 0)))
 			if sf.isnumber(num_trials)
 			else self.get_config_parameter(key_config_n_lhs)
 		)
-
+		
 		random_seed = (
 			self.get_config_parameter(key_config_random_seed)
 			if not sf.isnumber(random_seed, integer = True)
 			else random_seed
 		)
+		
 		time_period_u0 = self.get_config_parameter(key_config_time_period_u0)
+		
+		fp_xl_types = (
+			self.file_struct.fp_variable_specification_xl_types
+			if try_exogenous_xl_types_in_variable_specification
+			else None
+		)
 
 
 		try:
@@ -448,8 +472,9 @@ class SISEPUEDE:
 				time_period_u0,
 				num_trials,
 				demo_database_q = self.demo_mode,
+				fp_exogenous_xl_type_for_variable_specifcations = fp_xl_types,
 				logger = self.logger,
-				random_seed = random_seed
+				random_seed = random_seed,
 			)
 
 			self._log(f"Successfully initialized SISEPUEDEExperimentalManager.", type_log = "info")

@@ -1602,6 +1602,10 @@ class TransformationsIntegrated:
         df_out = self.transformations_energy.transformation_en_baseline(df_out)
         df_out = self.transformations_ippu.transformation_ip_baseline(df_out)
 
+        # TEMP: for certain experiments, we want to treat PLUR as baseline. This implementation does that
+        df_out = self.transformations_afolu.transformation_lndu_reallocate_land(df_out)
+        
+
         if sf.isnumber(strat, integer = True):
             df_out = sf.add_data_frame_fields_from_dict(
                 df_out,

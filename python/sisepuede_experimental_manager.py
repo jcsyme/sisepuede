@@ -63,6 +63,12 @@ class SISEPUEDEExperimentalManager:
 	- demo_database_q: whether or not the input database is used as a demo
 		* If run as demo, then `fp_templates` does not need to include
 			subdirectories for each region specified
+	- fp_exogenous_xl_type_for_variable_specifcations: 
+		* If string, tries to read CSV at path containing variable 
+			specifications and exogenous XL types. Useful if coordinating across 
+			a number of regions.
+			(must have fields `field_variable` and `field_xl_type`)
+		* If None, instantiates XL types by inference alone.
 	- sectors: sectors to include
 		* If None, then try to initialize all input sectors
 	- random_seed: optional random seed to specify
@@ -90,6 +96,8 @@ class SISEPUEDEExperimentalManager:
 		field_variable_trajgroup: str = "variable_trajectory_group",
 		field_variable_trajgroup_type: str = "variable_trajectory_group_trajectory_type",
 		field_variable: str = "variable",
+		field_xl_stype: str = "xl_type",
+		fp_exogenous_xl_type_for_variable_specifcations: Union[str, None] = None,
 		logger: Union[logging.Logger, None] = None,
 		random_seed: Union[int, None] = None,
 	):
@@ -101,6 +109,7 @@ class SISEPUEDEExperimentalManager:
 			field_variable,
 			field_variable_trajgroup,
 			field_variable_trajgroup_type,
+			field_xl_stype,
 		)
 
 		self._initialize_other_properties(
@@ -132,6 +141,7 @@ class SISEPUEDEExperimentalManager:
 			field_variable = self.field_variable,
 			field_variable_trajgroup = self.field_variable_trajgroup,
 			field_variable_trajgroup_type = self.field_variable_trajgroup_type,
+			fp_exogenous_xl_type_for_variable_specifcations = fp_exogenous_xl_type_for_variable_specifcations,
 			key_future = self.key_future,
 			key_strategy = self.key_strategy,
 			logger = self.logger
@@ -316,6 +326,7 @@ class SISEPUEDEExperimentalManager:
 		field_variable: str,
 		field_variable_trajgroup: str,
 		field_variable_trajgroup_type: str,
+		field_xl_type: str,
 		field_year: str = "year",
 	) -> None:
 		"""
@@ -329,6 +340,7 @@ class SISEPUEDEExperimentalManager:
 			* self.field_variable
 			* self.field_variable_trajgroup
 			* self.field_variable_trajgroup_type
+			* self.field_xl_type
 			* self.field_year
 			* self.key_future
 			* self.key_primary
@@ -342,6 +354,7 @@ class SISEPUEDEExperimentalManager:
 		self.field_variable = field_variable
 		self.field_variable_trajgroup = field_variable_trajgroup
 		self.field_variable_trajgroup_type = field_variable_trajgroup_type
+		self.field_xl_type = field_xl_type
 		self.field_year = field_year
 
 		# initialize keys--note: key_design is assigned in self._initialize_attribute_design
@@ -354,6 +367,7 @@ class SISEPUEDEExperimentalManager:
 
 
 	def _initialize_future_trajectories(self,
+		fp_exogenous_xl_type_for_variable_specifcations: Union[str, None] = None,
 		**kwargs
 	) -> None:
 		"""
@@ -370,6 +384,16 @@ class SISEPUEDEExperimentalManager:
 			* self.regions
 
 			if any regions fail.
+
+		Keyword Arguements
+		------------------
+		- fp_exogenous_xl_type_for_variable_specifcations: 
+			* If string, tries to read CSV at path containing variable 
+				specifications and exogenous XL types. Useful if coordinating 
+				across a number of regions.
+				(must have fields `field_variable` and `field_xl_type`)
+			* If None, instantiates XL types by inference alone.
+		- **kwargs: passed to FutureTrajectories
 		"""
 
 		self._log("Initializing FutureTrajectories", type_log = "info")
@@ -397,6 +421,12 @@ class SISEPUEDEExperimentalManager:
 			.groupby([self.field_region])
 		)
 
+		# try retrieving any exogenous variable types - will be None if fails
+		dict_exogenous_xl_types = self.get_exogenous_xl_types(
+			fp_exogenous_xl_type_for_variable_specifcations,
+		)
+
+
 		for region, df in dfg:
 
 			region_print = self.get_output_region(region)
@@ -409,6 +439,7 @@ class SISEPUEDEExperimentalManager:
 					},
 					self.time_period_u0,
 					dict_all_dims = dict_all_dims,
+					dict_variable_specification_to_xl_types = dict_exogenous_xl_types,
 					**kwargs
 				)
 
@@ -576,6 +607,39 @@ class SISEPUEDEExperimentalManager:
 		self.random_seed = random_seed
 
 		return None
+	
+
+
+	def _initialize_primary_keys_index(self,
+	) -> None:
+		"""
+		Generate a data frame of primary scenario keys. Assigns the following
+			properties:
+
+			* self.primary_key_database
+		"""
+
+		self._log(f"Generating primary keys (values of {self.key_primary})...", type_log = "info")
+
+		# get all designs, strategies, and futures
+		all_designs = self.attribute_design.key_values
+		all_strategies = self.base_input_database.attribute_strategy.key_values
+		all_futures = [self.baseline_future]
+		all_futures += self.vector_lhs_key_values if (self.vector_lhs_key_values is not None) else []
+
+		odtp_database = OrderedDirectProductTable(
+		    {
+				self.key_design: all_designs,
+				self.key_future: all_futures,
+				self.key_strategy: all_strategies
+			},
+		    [self.key_design, self.key_strategy, self.key_future],
+		    key_primary = self.key_primary,
+		)
+
+		self.primary_key_database = odtp_database
+
+		return None
 
 
 
@@ -621,7 +685,7 @@ class SISEPUEDEExperimentalManager:
 
 
 	##############################
-	#	SUPPORTING FUNCTIONS	#
+	#    SUPPORTING FUNCTIONS    #
 	##############################
 
 	def generate_database(self,
@@ -636,40 +700,66 @@ class SISEPUEDEExperimentalManager:
 			* If None, uses
 		"""
 		return None
+	
 
 
-
-	def _initialize_primary_keys_index(self,
-	) -> None:
+	def get_exogenous_xl_types(self,
+		fp_exogenous_xl_type_for_variable_specifcations: Union[str, None],
+	) -> Union[Dict[str, str], None]:
 		"""
-		Generate a data frame of primary scenario keys. Assigns the following
-			properties:
+		Try reading in exogenous XL types from external file. If successful,
+			returns a dictionary mapping variable specifications to XL types
+			(does not have to be exhaustive).
 
-			* self.primary_key_database
+		Function Arguements
+		-------------------
+		- fp_exogenous_xl_type_for_variable_specifcations: 
+			* If string, tries to read CSV at path containing variable 
+				specifications and exogenous XL types. Useful if coordinating 
+				across a number of regions.
+				(must have fields `field_variable` and `field_xl_type`)
+			* If None, instantiates XL types by inference alone.
 		"""
 
-		self._log(f"Generating primary keys (values of {self.key_primary})...", type_log = "info")
-
-		# get all designs, strategies, and futures
-		all_designs = self.attribute_design.key_values
-		all_strategies = self.base_input_database.attribute_strategy.key_values
-		all_futures = [self.baseline_future]
-		all_futures += self.vector_lhs_key_values if (self.vector_lhs_key_values is not None) else []
-
-		odtp_database = OrderedDirectProductTable(
-		    {
-				self.key_design: all_designs,
-				self.key_future: all_futures,
-				self.key_strategy: all_strategies
-			},
-		    [self.key_design, self.key_strategy, self.key_future],
-		    key_primary = self.key_primary
+		# some basic checks on inputs; if fed None, will return None
+		return_none = not isinstance(fp_exogenous_xl_type_for_variable_specifcations, str)
+		return_none |= (
+			not os.path.exists(fp_exogenous_xl_type_for_variable_specifcations)
+			if not return_none
+			else return_none
 		)
+		
+		if return_none:
 
-		self.primary_key_database = odtp_database
+			return None
+		
+		# try reading the inputs
+		df_inputs = None
 
-		return None
+		try:
+			df_inputs = pd.read_csv(fp_exogenous_xl_type_for_variable_specifcations)
+		except Exception as e:
+			self._log(
+				"Error in try_retrieving_exogenous_xl_types: {e}. Exogenous XL types for variable specifications will be inferred.",
+				type_log = "error",
+			)
 
+			return None
+		
+		# check fields
+		if not set([self.field_variable, self.field_xl_type]).issubset(set(df_inputs.columns)):
+			self._log(
+				f"Error in try_retrieving_exogenous_xl_types: one or more of '{self.field_variable}', '{self.field_xl_type}' not found in the data frame. Exogenous XL types for variable specifications will be inferred.",
+				type_log = "error",
+			)
+			return None
+
+		
+		# otherwise, build dictionary and return
+		dict_out = sf.build_dict(df_inputs[[self.field_variable, self.field_xl_type]])
+
+		return dict_out
+	
 
 
 	def get_output_region(self,

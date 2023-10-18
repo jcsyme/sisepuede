@@ -110,6 +110,7 @@ class SamplingUnit:
 		values at the final time period
 	- regex_tp: re.Pattern used to match the field storing data values for each
 		time period
+	- xl_type: optional specification of XL type ("L" or "X"). If None, infers.
 	"""
 	def __init__(self,
 		df_variable_definition: pd.DataFrame,
@@ -130,10 +131,14 @@ class SamplingUnit:
 		regex_max: re.Pattern = re.compile("max_(\d*$)"),
 		regex_min: re.Pattern = re.compile("min_(\d*$)"),
 		regex_tp: re.Pattern = re.compile("(\d*$)"),
+		xl_type: Union[str, None] = None,
 	):
 
 		# perform initializations
-		self._initialize_parameters(missing_trajgroup_flag)
+		self._initialize_parameters(
+			missing_trajgroup_flag,
+		)
+
 		self._initialize_base_fields_and_keys(
 			field_time_period,
 			field_trajgroup_no_vary_q,
@@ -143,7 +148,11 @@ class SamplingUnit:
 			field_variable,
 			key_strategy,
 		)
-		self._initialize_time_start_uncertainty(time_period_u0)
+
+		self._initialize_time_start_uncertainty(
+			time_period_u0,
+		)
+
 		self._initialize_attributes_from_table(
 			df_variable_definition,
 			regex_id,
@@ -152,12 +161,22 @@ class SamplingUnit:
 			regex_tp,
 			check_duplicates = check_duplicates_in_variable_definition,
 		)
+
 		self._initialize_properties(
 			group = group,
 		)
-		self._initialize_uncertainty_functional_form(fan_function_specification)
-		self._initialize_scenario_variables(dict_baseline_ids)
-		self._initialize_variable_dictionaries()
+
+		self._initialize_uncertainty_functional_form(
+			fan_function_specification,
+		)
+
+		self._initialize_scenario_variables(
+			dict_baseline_ids,
+		)
+
+		self._initialize_variable_dictionaries(
+			xl_type = xl_type,
+		)
 
 
 
@@ -1114,6 +1133,7 @@ class SamplingUnit:
 		key_strategy: Union[str, None] = None,
 		thresh: float = (10**(-12)),
 		variable_specifications: Union[List, None] = None,
+		xl_type: Union[bool, None] = None,
 	) -> None:
 
 		"""
@@ -1155,6 +1175,11 @@ class SamplingUnit:
 			variable specification trajectories across strategies. If a
 			variable specification trajectory shows a difference of diff between
 			any strategy of diff > thresh, it is defined to be a strategy.
+		- variable_specifications: 
+		- xl_type: optional specification of strategy type. If None, infers. 
+			Otherwise, will set to type "X" or "L" depending on inference:
+			* if infered as "X", strategy_q can be "X" or "L"
+			* if infered as "L", strategy_q can only be "L"
 
 		"""
 
@@ -1304,10 +1329,20 @@ class SamplingUnit:
 			arr_diff = arr_cur - arr_base_strat
 			dict_diff_arrays_by_strat.update({k: arr_diff})
 
-			strategy_q = (max(np.abs(arr_diff.flatten())) > thresh) | strategy_q
+			strategy_q |= (max(np.abs(arr_diff.flatten())) > thresh)
 
-		dict_strategy_info.update({"difference_arrays_by_strategy": dict_diff_arrays_by_strat}) if strategy_q else None
+		# verify the type
 		type_out = "L" if strategy_q else "X"
+		if isinstance(xl_type, str):
+			if xl_type.upper() in ["L", "X"]:
+				type_out = "L" if (xl_type == "L") else type_out
+
+		(
+			dict_strategy_info.update({"difference_arrays_by_strategy": dict_diff_arrays_by_strat}) 
+			if (type_out == "L") 
+			else None
+		)
+
 
 		# assign output properties
 		self.dict_strategy_info = dict_strategy_info
@@ -1922,8 +1957,10 @@ class FutureTrajectories:
 
 	Initialization Arguments
 	------------------------
-	- df_input_database: DataFrame to use as database of baseline inputs (across strategies)
-	- dict_baseline_ids: dictionary mapping a string of a baseline id field to a baseline id value (integer)
+	- df_input_database: DataFrame to use as database of baseline inputs (across 
+		strategies)
+	- dict_baseline_ids: dictionary mapping a string of a baseline id field to a 
+		baseline id value (integer)
 	- time_period_u0: first time period with uncertainty
 
 	Keyword Arguments
@@ -1940,30 +1977,46 @@ class FutureTrajectories:
 			.
 			.
 		}
+	- dict_variable_specification_to_xl_types: optional dictionary mapping 
+		variable specifications (i.e., in SamplingUnit) to exogenously specified 
+		XL type. If False, infers. 
+		* Passes to `xl_type` keyword argument in SamplingUnit;
+			see ?SamplingUnit for more information on how `xl_type` is handled
 	- fan_function_specification: type of uncertainty approach to use
 		* linear: linear ramp to time time T - 1
 		* sigmoid: sigmoid function that ramps to time T - 1
-	- field_sample_unit_group: field used to identify sample unit groups. Sample unit groups are composed of:
+	- field_sample_unit_group: field used to identify sample unit groups. Sample 
+		unit groups are composed of:
 		* individual variable specifications
 		* trajectory groups
 	- field_time_period: field used to specify the time period
 	- field_uniform_scaling_q: field used to identify whether or not a variable
 	- field_variable: field used to specify variables
-	- field_variable_trajgroup: field used to identify the trajectory group (integer)
-	- field_variable_trajgroup_type: field used to identify the trajectory group type (max, min, mix, or lhs)
+	- field_variable_trajgroup: field used to identify the trajectory group 
+		(integer)
+	- field_variable_trajgroup_type: field used to identify the trajectory group 
+		type (max, min, mix, or lhs)
 	- fan_function_specification: type of uncertainty approach to use
 		* linear: linear ramp to time time T - 1
 		* sigmoid: sigmoid function that ramps to time T - 1
 	- key_future: field used to identify the future
 	- key_strategy: field used to identify the strategy (int)
-		* This field is important as uncertainty in strategies is assessed differently than uncetainty in other variables
+		* This field is important as uncertainty in strategies is assessed 
+			differently than uncetainty in other variables
 	- logger: optional logging.Logger object used to track generation of futures
-	- regex_id: regular expression used to identify id fields in the input template
-	- regex_trajgroup: Regular expression used to identify trajectory group variables in `field_variable` of `df_input_database`
-	- regex_trajmax: Regular expression used to identify trajectory maxima in variables and trajgroups specified in `field_variable` of `df_input_database`
-	- regex_trajmin: Regular expression used to identify trajectory minima in variables and trajgroups specified in `field_variable` of `df_input_database`
-	- regex_trajmix: Regular expression used to identify trajectory baseline mix (fraction maxima) in variables and trajgroups specified in `field_variable` of `df_input_database`
-
+	- regex_id: regular expression used to identify id fields in the input 
+		template
+	- regex_trajgroup: Regular expression used to identify trajectory group 
+		variables in `field_variable` of `df_input_database`
+	- regex_trajmax: Regular expression used to identify trajectory maxima in 
+		variables and trajgroups specified in `field_variable` of 
+		`df_input_database`
+	- regex_trajmin: Regular expression used to identify trajectory minima in 
+		variables and trajgroups specified in `field_variable` of 
+		`df_input_database`
+	- regex_trajmix: Regular expression used to identify trajectory baseline mix 
+		(fraction maxima) in variables and trajgroups specified in 
+		`field_variable` of `df_input_database`
 	"""
 	def __init__(self,
 		df_input_database: pd.DataFrame,
@@ -1971,6 +2024,7 @@ class FutureTrajectories:
 		time_period_u0: int,
 		check_duplicates_in_variable_definition: bool = False,
 		dict_all_dims: Union[Dict[str, List[int]], None] = None,
+		dict_variable_specification_to_xl_types: Union[dict, None] = None,
 		fan_function_specification: str = "linear",
 		field_sample_unit_group: str = "sample_unit_group",
 		field_time_period: str = "time_period",
@@ -1995,7 +2049,7 @@ class FutureTrajectories:
 		# some internal vars
 		specification_tgt_lhs: str = "lhs",
 		specification_tgt_max: str = "trajectory_boundary_1",
-		specification_tgt_min: str = "trajectory_boundary_0"
+		specification_tgt_min: str = "trajectory_boundary_0",
 	):
 
 		##  INITIALIZE PARAMETERS
@@ -2044,7 +2098,10 @@ class FutureTrajectories:
 
 		self._initialize_input_database(df_input_database)
 		self._initialize_dict_all_dims(dict_all_dims)
-		self._initialize_sampling_units(check_duplicates_in_variable_definition)
+		self._initialize_sampling_units(
+			check_duplicates_in_variable_definition, 
+			dict_variable_specification_to_xl_types = dict_variable_specification_to_xl_types,
+		)
 		self._set_xl_sampling_units()
 
 
@@ -2331,6 +2388,7 @@ class FutureTrajectories:
 		check_duplicates_in_variable_definition: bool,
 		df_in: Union[pd.DataFrame, None] = None,
 		dict_all_dims: Union[Dict[str, List[int]], None] = None,
+		dict_variable_specification_to_xl_types: Union[dict, None] = None,
 		fan_function: Union[str, None] = None,
 		**kwargs
 	) -> None:
@@ -2360,6 +2418,11 @@ class FutureTrajectories:
 			present. If any of the dimension sets specified in dict_all_dims
 			are not found in df_in, their values are replaced with associated
 			baselines.
+		- dict_variable_specification_to_xl_types: optional dictionary 
+			mapping variable specifications (i.e., in SamplingUnit) to 
+			exogenously specified XL type. If None, infers.
+			* Passes to `xl_type` keyword argument in SamplingUnit;
+			see ?SamplingUnit for more information on how `xl_type` is handled
 		- fan_function: function specification to use for uncertainty fans
 		- **kwargs: passed to SamplingUnit initialization
 		"""
@@ -2384,25 +2447,41 @@ class FutureTrajectories:
 		regex_min = kwargs.get("regex_min", self.regex_min)
 		regex_tp = kwargs.get("regex_tp", self.regex_tp)
 
-		dict_sampling_units = {}
-
-		dfgroup_sg = df_in.drop_duplicates().groupby(self.field_sample_unit_group)
+		# initialize all sample groups, the output dictionary of sampling units, and the iterative dictionary
 		all_sample_groups = sorted(list(set(df_in[self.field_sample_unit_group])))
-
-		n_sg = len(dfgroup_sg)
+		dict_sampling_units = {}
+		dict_dfgrouped_by_sg = sf.group_df_as_dict(
+			df_in.drop_duplicates(),
+			[self.field_sample_unit_group],
+		)
+		
+		n_sg = len(dict_dfgrouped_by_sg)
 		if isinstance(dict_all_dims, dict):
-			dict_all_dims = dict((k, v) for k, v in dict_all_dims.items() if k in self.dict_baseline_ids.keys())
+			dict_all_dims = dict(
+				(k, v) for k, v in dict_all_dims.items() 
+				if k in self.dict_baseline_ids.keys()
+			)
+
+		# try to read in exogenous XL types from file
+		dict_variable_specification_to_xl_types = (
+			{}
+			if not isinstance(dict_variable_specification_to_xl_types, dict)
+			else dict_variable_specification_to_xl_types
+		)
 
 
-		##  GENERATE SamplingUnit FROM DATABASE
+		##  GENERATE SamplingUnits FROM DATABASE
 
 		self._log(f"Instantiating {n_sg} sampling units.", type_log = "info")
 		t0 = time.time()
 
-		for iterate in enumerate(dfgroup_sg):
+		i = 0
+		for sg in all_sample_groups:
 
-			i, df_sg = iterate
-			df_sg = df_sg[1]
+			df_sg = dict_dfgrouped_by_sg.get(sg)
+			if df_sg is None:
+				continue
+
 			sg = int(df_sg[self.field_sample_unit_group].iloc[0])
 
 			# fill in missing values from baseline if dims are missing in input database
@@ -2414,6 +2493,14 @@ class FutureTrajectories:
 				if (dict_all_dims is not None) 
 				else df_sg
 			)
+
+
+			# try to pass exogenous XL type
+			all_vs_specified = [
+				dict_variable_specification_to_xl_types.get(x)
+				for x in df_sg[field_variable].unique()
+			]
+			xl_type = "L" if ("L" in all_vs_specified) else None
 
 			samp = SamplingUnit(
 				df_sg.drop(self.field_sample_unit_group, axis = 1),
@@ -2433,7 +2520,8 @@ class FutureTrajectories:
 				regex_id = regex_id,
 				regex_max = regex_max,
 				regex_min = regex_min,
-				regex_tp = regex_tp
+				regex_tp = regex_tp,
+				xl_type = xl_type,
 			)
 
 			
@@ -2446,6 +2534,7 @@ class FutureTrajectories:
 			dict_sampling_units.update({sg: samp})
 
 			self._log(f"Iteration {i} complete.", type_log = "info") if (i%250 == 0) else None
+			i += 0
 
 		t_elapse = sf.get_time_elapsed(t0)
 		self._log(f"\t{n_sg} sampling units complete in {t_elapse} seconds.", type_log = "info")

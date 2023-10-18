@@ -68,8 +68,12 @@ class SISEPUEDEFileStructure:
 		self._check_optional_directories()
 
 		# initialize model attributes, set runtime id, then check/instantiate downstream file paths
-		self._initialize_file_path_defaults(initialize_directories = initialize_directories)
-		self._initialize_model_attributes(initialize_directories = initialize_directories)
+		self._initialize_file_path_defaults(
+			initialize_directories = initialize_directories,
+		)
+		self._initialize_model_attributes(
+			initialize_directories = initialize_directories,
+		)
 		self._check_nemomod_reference_file_paths()
 
 
@@ -431,6 +435,7 @@ class SISEPUEDEFileStructure:
 			* self.fp_log_default
 			* self.fp_pkl_model_attributes_archive
 			* self.fp_sqlite_tmp_nemomod_intermediate
+			* self.fp_variable_specification_xl_types
 		"""
 
 		# initialize file base names
@@ -444,7 +449,7 @@ class SISEPUEDEFileStructure:
 		fp_log_default = None
 		fp_pkl_model_attributes_archive = None
 		fp_sqlite_tmp_nemomod_intermediate = None
-
+		fp_variable_specification_of_sampling_unit_types = None
 
 		##  BUILD SUBDIRECTORIES
 
@@ -475,6 +480,9 @@ class SISEPUEDEFileStructure:
 
 		# SQLite Database location for intermediate NemoMod calculations
 		fp_sqlite_tmp_nemomod_intermediate = os.path.join(self.dir_tmp, "nemomod_intermediate_database.sqlite")
+		
+		# file storing optional exogenous XL types for variable specifications
+		fp_variable_specification_xl_types = os.path.join(self.dir_ref, "variable_specification_xl_types.csv")
 
 
 		##  ASSIGN PROPERTIES
@@ -484,6 +492,7 @@ class SISEPUEDEFileStructure:
 		self.fp_log_default = fp_log_default
 		self.fp_pkl_model_attributes_archive = fp_pkl_model_attributes_archive
 		self.fp_sqlite_tmp_nemomod_intermediate = fp_sqlite_tmp_nemomod_intermediate
+		self.fp_variable_specification_xl_types = fp_variable_specification_xl_types
 
 		return None
 
