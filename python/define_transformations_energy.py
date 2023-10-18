@@ -1850,10 +1850,12 @@ class TransformationsEnergy:
     def transformation_en_baseline(self,
         df_input: pd.DataFrame,
         strat: Union[int, None] = None,
+        **kwargs,
     ) -> pd.DataFrame:
         """
         Implement the "Baseline" from which other transformations deviate 
-            (ENERGY only)
+            (ENERGY only). **kwargs are passed to 
+            transformations_base_energy.transformation_entc_renewable_target()
         """
         # NOTE: SET TO PULL FROM CONFIGURATION
         cats_to_cap = ["pp_hydropower"]
@@ -1872,7 +1874,7 @@ class TransformationsEnergy:
         target_renewables_value_min = 0.3
         target_renewables_value_base_specified = sum(self.dict_entc_renewable_target_msp.values())
         scalar_renewables_value_base = min(target_renewables_value_min/target_renewables_value_base_specified, 1.0)
-        
+
         # build the dictionary
         dict_entc_renewable_target_msp_baseline = dict(
             (k, v*scalar_renewables_value_base) 
@@ -1886,8 +1888,11 @@ class TransformationsEnergy:
             self.model_electricity,
             dict_cats_entc_max_investment = self.dict_entc_renewable_target_cats_max_investment,
             field_region = self.key_region,
+            magnitude_as_floor = True,
             magnitude_renewables = dict_entc_renewable_target_msp_baseline,
-            strategy_id = strat
+            scale_non_renewables_to_match_surplus_msp = True,
+            strategy_id = strat,
+            **kwargs,
         )
 
         return df_out

@@ -148,6 +148,7 @@ class InputTemplate:
 		df_input: pd.DataFrame,
 		df_variable_information: pd.DataFrame,
 		sectors: Union[str, List[str], None],
+		df_trajgroup: Union[pd.DataFrame, None] = None,
 		field_key_strategy: Union[str, None] = None,
 		field_req_normalize_group: Union[str, None] = None,
 		field_req_subsector: Union[str, None] = None,
@@ -174,6 +175,12 @@ class InputTemplate:
 
 		Keyword Arguments
 		-----------------
+		- df_trajgroup: optional dataframe mapping each field variable to 
+            trajectory groups. 
+            * Must contain field_subsector, field_variable, and 
+                field_variable_trajectory_group as fields
+            * Overrides include_simplex_group_as_trajgroup if specified and 
+                conflicts occur
 		- field_key_strategy: strategy key included in df_input--used to pivot
 			templates (template sheets are indexed by strategy key when defined)
 		- field_prepend_req_attr_baseline_scenario: prepandage applied to
@@ -217,14 +224,46 @@ class InputTemplate:
 		attr_tp = self.model_attributes.dict_attributes.get(pydim_time_period)
 		
 		# fields
-		field_key_strategy = self.attribute_strategy.key if (field_key_strategy is None) else field_key_strategy
-		field_req_normalize_group = self.field_req_normalize_group if (field_req_normalize_group is None) else field_req_normalize_group
-		field_req_subsector = self.field_req_subsector if (field_req_subsector is None) else field_req_subsector
-		field_req_trajgroup_no_vary_q = self.field_req_trajgroup_no_vary_q if (field_req_trajgroup_no_vary_q is None) else field_req_trajgroup_no_vary_q
-		field_req_uniform_scaling_q = self.field_req_uniform_scaling_q if (field_req_uniform_scaling_q is None) else field_req_uniform_scaling_q
-		field_req_variable = self.field_req_variable if (field_req_variable is None) else field_req_variable
-		field_req_variable_trajectory_group = self.field_req_variable_trajectory_group if (field_req_variable_trajectory_group is None) else field_req_variable_trajectory_group
-		field_req_variable_trajectory_group_trajectory_type = self.field_req_variable_trajectory_group_trajectory_type if (field_req_variable_trajectory_group_trajectory_type is None) else field_req_variable_trajectory_group_trajectory_type
+		field_key_strategy = (
+			self.attribute_strategy.key 
+			if (field_key_strategy is None) 
+			else field_key_strategy
+		)
+		field_req_normalize_group = (
+			self.field_req_normalize_group 
+			if (field_req_normalize_group is None) 
+			else field_req_normalize_group
+		)
+		field_req_subsector = (
+			self.field_req_subsector 
+			if (field_req_subsector is None) 
+			else field_req_subsector
+		)
+		field_req_trajgroup_no_vary_q = (
+			self.field_req_trajgroup_no_vary_q 
+			if (field_req_trajgroup_no_vary_q is None) 
+			else field_req_trajgroup_no_vary_q
+		)
+		field_req_uniform_scaling_q = (
+			self.field_req_uniform_scaling_q 
+			if (field_req_uniform_scaling_q is None) 
+			else field_req_uniform_scaling_q
+		)
+		field_req_variable = (
+			self.field_req_variable 
+			if (field_req_variable is None) 
+			else field_req_variable
+		)
+		field_req_variable_trajectory_group = (
+			self.field_req_variable_trajectory_group 
+			if (field_req_variable_trajectory_group is None) 
+			else field_req_variable_trajectory_group
+		)
+		field_req_variable_trajectory_group_trajectory_type = (
+			self.field_req_variable_trajectory_group_trajectory_type 
+			if (field_req_variable_trajectory_group_trajectory_type is None) 
+			else field_req_variable_trajectory_group_trajectory_type
+		)
 		field_time_period = self.model_attributes.dim_time_period
 		
 		# regular expressions
@@ -239,12 +278,14 @@ class InputTemplate:
 		field_melted_value = "value"
 		df_base = self.model_attributes.build_variable_dataframe_by_sector(
 			sectors,
+			df_trajgroup = df_trajgroup,
 			field_subsector = field_req_subsector,
 			field_variable = field_req_variable,
 			field_variable_trajectory_group = field_req_variable_trajectory_group,
 			include_simplex_group_as_trajgroup = include_simplex_group_as_trajgroup,
 			include_time_periods = True,
 		)
+		trajgroup_passed_to_base_q = (field_req_variable_trajectory_group in df_base.columns)
 
 		# melt input dataframe to long and filter
 		fields_id = [x for x in df_input.columns if x in [field_key_strategy, field_time_period]]
@@ -282,7 +323,7 @@ class InputTemplate:
 			merge_type = "left" if (strat == self.baseline_strategy) else "inner"
 			df_merge = (
 				df.drop([field_req_variable_trajectory_group], axis = 1)
-				if include_simplex_group_as_trajgroup & (field_req_variable_trajectory_group in df.columns)
+				if trajgroup_passed_to_base_q & (field_req_variable_trajectory_group in df.columns)
 				else df
 			)
 
@@ -315,7 +356,7 @@ class InputTemplate:
 		fields_var_info = [field_req_variable, field_time_period]
 		fields_skip_merge = (
 			[field_req_variable_trajectory_group]
-			if include_simplex_group_as_trajgroup
+			if trajgroup_passed_to_base_q
 			else []
 		)
 		fields_var_info.extend(fields_skip_merge)

@@ -1225,32 +1225,37 @@ class SISEPUEDE:
 				lhs_x,
 				df_row_lhc_sample_l = lhs_l,
 				future_id = future,
-				baseline_future_q = base_future_q
+				baseline_future_q = base_future_q,
 			)
 
 
 			##  FILTER BY STRATEGY
 
-			df_input = df_input[
-				(df_input[self.key_strategy] == strategy)
-			].sort_values(
-				by = [self.model_attributes.dim_time_period]
-			).drop(
-				[x for x in df_input.columns if x in self.keys_index], axis = 1
-			).reset_index(
-				drop = True
+			df_input = (
+				df_input[
+					df_input[self.key_strategy].isin([strategy])
+				]
+				.sort_values(by = [self.model_attributes.dim_time_period])
+				.drop(
+					[x for x in df_input.columns if x in self.keys_index], 
+					axis = 1
+				)
+				.reset_index(drop = True)
 			)
-
 
 			##  ADD IDS AND RETURN
 
-			sf.add_data_frame_fields_from_dict(
+			df_input = sf.add_data_frame_fields_from_dict(
 				df_input,
 				{
 					self.key_region: region_out,
-					self.key_primary: primary_key
+					self.key_primary: primary_key,
+					self.key_time_period: None,
 				},
-				prepend_q = True
+				field_hierarchy = self.model_attributes.sort_ordered_dimensions_of_analysis,
+				pass_none_to_shift_index = True,
+				prepend_q = True,
+				sort_input_fields = True,
 			)
 
 			dict_return.update({region_out: df_input})
@@ -1509,9 +1514,13 @@ class SISEPUEDE:
 								df_output,
 								{
 									self.key_region: region_out,
-									self.key_primary: id_primary
+									self.key_primary: id_primary,
+									self.key_time_period: None,
 								},
-								prepend_q = True
+								field_hierarchy = self.model_attributes.sort_ordered_dimensions_of_analysis,
+								pass_none_to_shift_index = True,
+								prepend_q = True,
+								sort_input_fields = True,
 							)
 							df_out.append(df_output)
 							
@@ -1537,16 +1546,20 @@ class SISEPUEDE:
 
 
 						##  APPEND NON-RESULT TABLES (INPUTS, PRIMARY ATTRIBUTE, ETC.)
-
+				
 						# append inputs if saving
 						if save_inputs:
 							df_input_cur = sf.add_data_frame_fields_from_dict(
 								df_input_cur,
 								{
 									self.key_region: region_out,
-									self.key_primary: id_primary
+									self.key_primary: id_primary,
+									self.key_time_period: None,
 								},
-								prepend_q = True
+								field_hierarchy = self.model_attributes.sort_ordered_dimensions_of_analysis,
+								pass_none_to_shift_index = True,
+								prepend_q = True,
+								sort_input_fields = True,
 							)
 							df_out_inputs.append(df_input_cur)
 

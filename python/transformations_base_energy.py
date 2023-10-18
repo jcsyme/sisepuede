@@ -710,7 +710,9 @@ def transformation_entc_renewable_target(
     field_region: str = "nation",
     fuel_elec: Union[str, None] = None,
     fuel_hydg: str = "fuel_hydrogen",
+    magnitude_as_floor: bool = False,
     magnitude_renewables: Union[Dict[str, float], float, None] = None,
+    scale_non_renewables_to_match_surplus_msp: bool = False,
     **kwargs
 ) -> pd.DataFrame:
     """
@@ -764,6 +766,9 @@ def transformation_entc_renewable_target(
     - field_region: field in df_input that specifies the region
     - fuel_elec: $CAT-TECHNOLOGY$ category specifying electricity. If None, 
         defaults to model_electricity.cat_enfu_fuel
+    - magnitude_as_floor: if True, will not allow any renewables to decline in 
+        magnitude unless the dictionary `magnitude_renewables` forces some 
+        renewables to make up a higher share
     - magnitude_renewables: Dict mapping renewable categories to target minimum
         shares of production by the final time period OR float giving a uniform 
         value to apply to all renewable categories (as defined in 
@@ -771,6 +776,14 @@ def transformation_entc_renewable_target(
         for each renewable category is kept stable as soon as vec_remp != 0.
     - regions_apply: optional set of regions to use to define strategy. If None,
         applies to all regions.
+    - scale_non_renewables_to_match_surplus_msp: if True, will scale MSP from
+        non-renewable sources to match the surplus, where surplus is calculated
+        as 
+            surplus = max(MSP_0 - T, 0)
+
+        where R is the original total of all MSPs and T is the total renewable
+        target. If False, MSPs are set to 0 for all non-renewable targets.
+
     - strategy_id: optional specification of strategy id to add to output
         dataframe (only added if integer)
     """
@@ -832,7 +845,11 @@ def transformation_entc_renewable_target(
 
     dfs = df_input.groupby(field_region)
     df_out = []
-    tmpi = None
+
+    # set some temporary fields used below
+    field_total_mass_drops = "TMPFIELD_TOTAL_MASS_DROPS"
+    field_total_mass_original = "TMPFIELD_TOTAL_MASS_ORIGINAL"
+    field_total_surplus = "TMPFIELD_SURPLUS"
 
     for tup, df in dfs:
 
@@ -873,6 +890,7 @@ def transformation_entc_renewable_target(
         # technologies to reduce MinShareProduction values to 0 and those to *avoid* reducing to 0
         cats_entc_drop = [x for x in dict_tech_info.get("all_techs_pp") if x not in cats_renewable]
         cats_entc_no_drop = [x for x in dict_tech_info.get("all_techs_pp") if x not in cats_entc_drop]
+        inds_entc_drop = [attr_entc.get_key_value_index(x) for x in cats_entc_drop]
         inds_entc_no_drop = [attr_entc.get_key_value_index(x) for x in cats_entc_no_drop]
 
         # first index where vec_ramp starts to deviate from zero
@@ -895,9 +913,9 @@ def transformation_entc_renewable_target(
             if var_names is not None:
                 if len(var_names) > 0:
                     df[var_names[0]] = int(cat in cats_renewable)
-        
 
-        # setup magnitude of change
+
+        # setup magnitude of change--first, check for VEC_FIRST_RAMP
         if magnitude == "VEC_FIRST_RAMP":
 
             arr_entc_residual_capacity = model_attributes.get_standard_variables(
@@ -909,6 +927,53 @@ def transformation_entc_renewable_target(
 
             magnitude = arr_entc_residual_capacity[ind_vec_ramp_first_zero_deviation, inds_renewable].sum()
             magnitude /= arr_entc_residual_capacity[ind_vec_ramp_first_zero_deviation, :].sum()
+
+        # get the current minimum share of production (does not change when df_transformed is assigned below, since that only modifies the renewable target)
+        arr_entc_min_share_production = model_attributes.get_standard_variables(
+            df,
+            model_electricity.modvar_entc_nemomod_min_share_production,
+            expand_to_all_cats = True,
+            return_type = "array_base"
+        )
+        vec_entc_msp_total_mass_original = (
+            arr_entc_min_share_production[:, inds_entc_drop + inds_entc_no_drop]
+            .sum(axis = 1)
+        )
+        vec_entc_msp_final_period = arr_entc_min_share_production[-1, :]
+
+        # add the total original mass to the dataframe so it can be accessed later (and dropped)
+        df[field_total_mass_original] = vec_entc_msp_total_mass_original
+
+
+        # next, if setting the magnitude as a floor, don't allow renewables to decline--set the total magnitude based categorically (note that MSP floors can override these in modeling)
+        if magnitude_as_floor:
+
+            mag_base = 0.0
+            magnitude_renewables = {} if not isinstance(magnitude_renewables, dict) else magnitude_renewables
+            
+            for i, cat in enumerate(cats_renewable):
+                ind = inds_renewable[i]
+
+                msp_min_specified = magnitude_renewables.get(cat, 0.0)
+                cat_target = max(msp_min_specified, vec_entc_msp_final_period[ind])
+                mag_base += cat_target
+
+                magnitude_renewables.update({cat: cat_target})
+
+            # get magnitude and scale
+            magnitude = max(mag_base, magnitude)
+
+            if (magnitude > 1):
+                magnitude_renewables = dict((k, v/magnitude) for k, v in magnitude_renewables.items())
+
+            if scale_non_renewables_to_match_surplus_msp:
+                v_total = sum(list(magnitude_renewables.values()))
+                magnitude_renewables = dict(
+                    (k, np.nan_to_num(magnitude*v/v_total, 0.0))
+                    for k, v in magnitude_renewables.items()
+                )
+
+
 
         # iterate over categories to modify output data frame -- will use to copy into new variables
         df_transformed = transformation_general(
@@ -955,14 +1020,7 @@ def transformation_entc_renewable_target(
                 apply to specified MSP to ensure does not exceed magnitude
         """;
 
-        arr_entc_min_share_production = model_attributes.get_standard_variables(
-            df_transformed,
-            model_electricity.modvar_entc_nemomod_min_share_production,
-            expand_to_all_cats = True,
-            return_type = "array_base"
-        )
-
-        # get the total magnitude of MSP of renewables that are specified
+        # get the total magnitude of MSP of renewables that are specified in the dictionary, not the target total
         total_magnitude_msp_renewables = (
             (
                 np.array(list(magnitude_renewables.values())).sum() 
@@ -973,7 +1031,6 @@ def transformation_entc_renewable_target(
             else arr_entc_min_share_production[ind_vec_ramp_first_zero_deviation, inds_renewable].sum()
         )
         scalar_renewables_div = min(magnitude/total_magnitude_msp_renewables, 1.0)
-        
 
         if isinstance(magnitude_renewables, dict):
             
@@ -1041,6 +1098,7 @@ def transformation_entc_renewable_target(
                 )
         
 
+
         #############################################################################################
         #    3. CHECK FOR SUM OF TOTAL RENEWABLES AND ADJUST NON-SPECIFIED DOWNWARD IF NECESSARY    #
         #############################################################################################
@@ -1050,6 +1108,11 @@ def transformation_entc_renewable_target(
             if isinstance(magnitude_renewables, dict)
             else None
         ) 
+        cats_renewable_unspecified = (
+            None 
+            if (len(cats_renewable_unspecified) == 0) 
+            else cats_renewable_unspecified
+        )
         inds_renewable_unspecified = (
             [attr_entc.get_key_value_index(x) for x in cats_renewable_unspecified]
             if cats_renewable_unspecified is not None
@@ -1081,7 +1144,7 @@ def transformation_entc_renewable_target(
         )
         vec_entc_total_msp_renewables_specified = vec_entc_total_msp_renewables - vec_entc_total_msp_renewables_unspecified
         vec_entc_total_msp_renewable_cap = sf.vec_bounds(vec_entc_total_msp_renewables, (0, 1.0))
-        
+
 
         if cats_renewable_unspecified is not None:
             
@@ -1120,7 +1183,7 @@ def transformation_entc_renewable_target(
             )
             vec_entc_total_msp_renewables_specified = vec_entc_total_msp_renewables - vec_entc_total_msp_renewables_unspecified
             vec_entc_total_msp_renewable_cap = sf.vec_bounds(vec_entc_total_msp_renewables, (0, magnitude))
-            
+
             # scale unspecfied categories downward
             vec_scale_match_unspecified = vec_entc_total_msp_renewable_cap - vec_entc_total_msp_renewables_specified
             vec_scale_unspecified = np.nan_to_num(
@@ -1197,36 +1260,146 @@ def transformation_entc_renewable_target(
 
         df_out.append(df_transformed)
 
-    
+
     df_out = pd.concat(df_out, axis = 0).reset_index(drop = True)
 
 
-    ##  MODIFY ANY SPECIFIED MINSHARE PRODUCTION SPECIFIED
+
+    ###############################################################
+    #    5. MODIFY ANY SPECIFIED MINSHARE PRODUCTION SPECIFIED    #
+    ###############################################################
 
     # very aggressive, turns off any MSP as soon as a target goes above 0
     # vec_implementation_ramp_short = sf.vec_bounds(vec_ramp/min(vec_ramp[vec_ramp != 0]), (0, 1))
-    factor_vec_ramp_msp = 1.25 if not (isinstance(factor_vec_ramp_msp, float) or isinstance(factor_vec_ramp_msp, int)) else max(1.0, factor_vec_ramp_msp)
+    factor_vec_ramp_msp = (
+        1.25 
+        if not (isinstance(factor_vec_ramp_msp, float) or isinstance(factor_vec_ramp_msp, int)) 
+        else max(1.0, factor_vec_ramp_msp)
+    )
     vec_implementation_ramp_short = sf.vec_bounds(vec_ramp*factor_vec_ramp_msp, (0.0, 1.0))
 
-    df_out = transformation_general(
-        df_out,
-        model_attributes,
-        {
-            model_electricity.modvar_entc_nemomod_min_share_production: {
-                "bounds": (0, 1),
-                "categories": cats_entc_drop,
-                "magnitude": 0.0,
-                "magnitude_type": "final_value",
-                "vec_ramp": vec_implementation_ramp_short,
-                "time_period_baseline": get_time_period(model_attributes, "max")
-            }
-        },
-        field_region = field_region,
-        **kwargs
-    )
+    # if scaling MSPs, calculate here
+    if scale_non_renewables_to_match_surplus_msp:
+
+        # get original total MSP accounted for 
+        total_msp_original_drops = vec_entc_msp_final_period[inds_entc_drop].sum()
+
+        # get current status of minimum share of production after transforming
+        arr_entc_min_share_production = model_attributes.get_standard_variables(
+            df_out,
+            model_electricity.modvar_entc_nemomod_min_share_production,
+            expand_to_all_cats = True,
+            return_type = "array_base"
+        )
+        
+
+        # get total for categories that were specified
+        vec_entc_msp_total_mass_drops = arr_entc_min_share_production[:, inds_entc_drop].sum(axis = 1)
+        vec_entc_msp_total_mass_no_drops = arr_entc_min_share_production[:, inds_entc_no_drop].sum(axis = 1)
+        vec_entc_msp_total_mass_original = np.array(df_out[field_total_mass_original])
+        vec_entc_msp_surplus = sf.vec_bounds(
+            vec_entc_msp_total_mass_original - vec_entc_msp_total_mass_no_drops, 
+            (0.0, 1.0)
+        )
+ 
+        
+        # add temporary fields (defined above)
+        df_out[field_total_mass_drops] = vec_entc_msp_total_mass_drops
+        df_out[field_total_surplus] = vec_entc_msp_surplus
+
+        # get the current totals of fields to drop, then and scale to match total surplus
+        fields_drop = model_attributes.build_varlist(
+            None,
+            model_electricity.modvar_entc_nemomod_min_share_production,
+            restrict_to_category_values = cats_entc_drop
+        )
+        vec_entc_fields_to_scale = np.array(df_out[fields_drop]).sum(axis = 1)
+        vec_entc_scalar_drops_to_surplus = np.nan_to_num(
+            vec_entc_msp_surplus/vec_entc_fields_to_scale,
+            0.0
+        )
+        for field in fields_drop:
+            df_out[field] = np.array(df_out[field])*vec_entc_scalar_drops_to_surplus
+        
+
+        # group by regions 
+        dfg = df_out.groupby([field_region])
+        df_new = []
+
+        for region, df in dfg:
+
+            # get vectors
+            vec_entc_msp_total_mass_cur = np.array(df[field_total_mass_original])
+            vec_entc_msp_total_mass_drops_cur = np.array(df[field_total_mass_drops])
+            vec_entc_msp_surplus_cur = np.array(df[field_total_surplus])
+
+            # scale the surplus -- mix between original vector and target vector, which will have same ceiling
+            tot_cur = 0
+            tot_target = 0
 
 
-    ##  5. BOUND EVERYTHING (CAN APPLY TO ALL REGIONS AT SAME TIME)
+            for i, cat in enumerate(cats_entc_drop):
+                ind = inds_entc_drop[i]
+                field_cat = model_attributes.build_varlist(
+                    None,
+                    model_electricity.modvar_entc_nemomod_min_share_production,
+                    restrict_to_category_values = [cat]
+                )[0]
+
+                
+                # get target for MSP + current 
+                vec_target = vec_entc_msp_surplus_cur*vec_entc_msp_final_period[ind]/total_msp_original_drops
+                vec_cur = np.array(df[field_cat])
+
+                vec_new = (1.0 - vec_implementation_ramp_short)*vec_cur
+                vec_new += vec_implementation_ramp_short*vec_target
+
+                tot_cur += vec_cur
+                tot_target += vec_target
+
+                df[field_cat] = vec_new
+
+            df_new.append(df)
+
+        # drop temporary fields
+        df_out = (
+            pd.concat(df_new, axis = 0)
+            .drop([field_total_mass_original, field_total_mass_drops, field_total_surplus], axis = 1)
+            .reset_index(drop = True)
+        )
+
+
+    else:
+
+        df_out = transformation_general(
+            df_out,
+            model_attributes,
+            {
+                model_electricity.modvar_entc_nemomod_min_share_production: {
+                    "bounds": (0, 1),
+                    "categories": cats_entc_drop,
+                    "magnitude": 0.0,
+                    "magnitude_type": "final_value",
+                    "vec_ramp": vec_implementation_ramp_short,
+                    "time_period_baseline": get_time_period(model_attributes, "max")
+                }
+            },
+            field_region = field_region,
+            **kwargs
+        )
+
+        # drop the total MSP mass column (unused)
+        (
+            df_out.drop([field_total_mass_original], axis = 1, inplace = True)
+            if field_total_mass_original in df_out.columns
+            else None
+        )
+
+
+
+    #####################################################################
+    #    6. BOUND EVERYTHING (CAN APPLY TO ALL REGIONS AT SAME TIME)    #
+    #####################################################################
 
     arr_entc_min_share_production = model_attributes.get_standard_variables(
         df_out,

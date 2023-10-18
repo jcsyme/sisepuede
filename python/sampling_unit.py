@@ -2865,7 +2865,15 @@ class FutureTrajectories:
 
 		df_out.append(pd.DataFrame(dict_df))
 		df_out = pd.concat(df_out, axis = 1).reset_index(drop = True)
-		df_out = sf.add_data_frame_fields_from_dict(df_out, dict_optional_dimensions) if isinstance(dict_optional_dimensions, dict) else df_out
+		df_out = (
+			sf.add_data_frame_fields_from_dict(
+				df_out, 
+				dict_optional_dimensions,
+				sort_input_fields = True,
+			) 
+			if isinstance(dict_optional_dimensions, dict) 
+			else df_out
+		)
 
 		return df_out
 	

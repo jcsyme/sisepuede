@@ -16,7 +16,9 @@ def add_data_frame_fields_from_dict(
     dict_field_vals: dict,
     field_hierarchy: Union[None, list, np.ndarray] = None,
     overwrite_fields: bool = False,
-    prepend_q: bool = True
+    pass_none_to_shift_index: bool = False,
+    prepend_q: bool = True,
+    sort_input_fields: bool = False,
 ) -> pd.DataFrame:
     """
     Inplace operator for adding fields to a dataframe.
@@ -36,37 +38,80 @@ def add_data_frame_fields_from_dict(
         `prepend_q` = True. If None, default to sorted()
     - overwrite_fields: for key in dict_field_vals.keys(), overwrite field `key`
         if present in `df`?
+    - pass_none_to_shift_index: if True, allows a field to be passed as a key in 
+        dict_field_vals with a map to None without overwriting values in the 
+        field. If False, the field is ignored.
     - prepend_q: prepend the new fields to the data frame (ordered fields)
+    - sort_input_fields: sort fields of df before adding new fields?
     """
 
-    nms = list(df.columns)
-    fields_add = []
 
-    for key in dict_field_vals.keys():
-        if (key not in nms) or overwrite_fields:
+    ##  INITIALIZATION
+
+    if not (isinstance(dict_field_vals, dict) | isinstance(dict_field_vals, pd.DataFrame)):
+        return df
+    
+    # get the input fields and initialize 
+    fields_input = list(df.columns)
+    fields_input.sort() if sort_input_fields else None
+    
+
+    # sort columns to try to add
+    fields_to_try = sorted(list(dict_field_vals.keys()))
+    fields_to_try = (
+        [x for x in field_hierarchy if x in fields_to_try]
+        if islistlike(field_hierarchy)
+        else fields_to_try
+    )
+    
+    # return original datafram if no valid new fields are found
+    if len(fields_to_try) == 0:
+        return df
+
+    # next, initialize fields that are added succesfully
+    fields_added_successfully = []
+
+    
+    ##  ADD FIELDS ASSOCIATED WITH SORTED KEYS
+
+    for key in fields_to_try:
+        if (key not in fields_input) or overwrite_fields:
+
             val = dict_field_vals.get(key)
-            if isinstance(val, list) or isinstance(val, np.ndarray):
+
+            if islistlike(val):
                 # chceck length
                 if len(val) == len(df):
                     df[key] = val
-                    fields_add.append(key)
+                    fields_added_successfully.append(key)
                 else:
                     warnings.warn(f"Unable to add key {key} to data from in add_data_frame_fields_from_dict() -- the vector associated with the value does not match the length of the data frame.")
             else:
-                df[key] = val
-                fields_add.append(key)
-        elif (key in nms):
+                if val is not None:
+                    df[key] = val
+                # allow a value of "None" to push the field `key` to index?
+                (
+                    fields_added_successfully.append(key) 
+                    if ((val is None) & pass_none_to_shift_index) | (val is not None)
+                    else None
+                )
+
+        elif (key in fields_input):
             warnings.warn(f"Field '{key}' found in dictionary in add_data_frame_fields_from_dict(). It will not be overwritten. ")
-            fields_add.append(key)
+            fields_added_successfully.append(key)
 
-    # order output fields
-    fields_out = list(df.columns)
+
+    ##  GENERATE FINAL COLUMN ORDERING
+
     if prepend_q:
-        ordering_prepend = [x for x in field_hierarchy if x in fields_add] if (field_hierarchy is not None) else sorted(fields_add)
-        ordering_append = [x for x in fields_out if x not in ordering_prepend]
-        fields_out = ordering_prepend + ordering_append
+        fields_input = [x for x in fields_input if x not in fields_added_successfully]
+        fields_ordered_out = fields_added_successfully + fields_input
+    else:
+        fields_new = [x for x in fields_added_successfully if x not in fields_input]
+        fields_ordered_out = fields_input + fields_new
 
-    return df[fields_out]
+
+    return df[fields_ordered_out]
 
 
 

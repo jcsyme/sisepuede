@@ -754,7 +754,7 @@ def transformation_general_shift_fractions_from_modvars(
                 field_cur = model_attributes.build_varlist(
                     subsec,
                     modvar,
-                    restrict_to_category_values = restriction
+                    restrict_to_category_values = restriction,
                 )[0]
 
                 vec_old = np.array(df_in[field_cur])

@@ -653,8 +653,14 @@ class TransformationsIntegrated:
 
             # extract key fields (do not need time periods)
             fields_ext = [x for x in input_template.list_fields_required_base]
-            fields_ext += [x for x in df_template.columns if input_template.regex_template_max.match(str(x)) is not None]
-            fields_ext += [x for x in df_template.columns if input_template.regex_template_min.match(str(x)) is not None]
+            fields_ext += [
+                x for x in df_template.columns 
+                if input_template.regex_template_max.match(str(x)) is not None
+            ]
+            fields_ext += [
+                x for x in df_template.columns 
+                if input_template.regex_template_min.match(str(x)) is not None
+            ]
             df_template = df_template[fields_ext].drop_duplicates()
 
             dict_sectoral_templates.update({sector: df_template})
