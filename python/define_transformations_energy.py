@@ -1858,7 +1858,7 @@ class TransformationsEnergy:
             transformations_base_energy.transformation_entc_renewable_target()
         """
         # NOTE: SET TO PULL FROM CONFIGURATION
-        cats_to_cap = ["pp_hydropower"]
+        cats_to_cap = ["pp_hydropower", "pp_nuclear"]
 
         df_out = self.transformation_support_entc_change_msp_max(
             df_input,
@@ -1871,7 +1871,7 @@ class TransformationsEnergy:
 
         # check the total minimum value shares in self.dict_entc_renewable_target_cats_max_investment;
         # if greater than the target for the baseline, scale them proportionally; otherwise, leave them
-        target_renewables_value_min = 0.3
+        target_renewables_value_min = 0.20
         target_renewables_value_base_specified = sum(self.dict_entc_renewable_target_msp.values())
         scalar_renewables_value_base = min(target_renewables_value_min/target_renewables_value_base_specified, 1.0)
 
@@ -1888,6 +1888,7 @@ class TransformationsEnergy:
             self.model_electricity,
             dict_cats_entc_max_investment = self.dict_entc_renewable_target_cats_max_investment,
             field_region = self.key_region,
+            include_target = False, # only want to adjust MSPs in line with this
             magnitude_as_floor = True,
             magnitude_renewables = dict_entc_renewable_target_msp_baseline,
             scale_non_renewables_to_match_surplus_msp = True,

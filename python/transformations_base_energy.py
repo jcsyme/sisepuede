@@ -710,6 +710,7 @@ def transformation_entc_renewable_target(
     field_region: str = "nation",
     fuel_elec: Union[str, None] = None,
     fuel_hydg: str = "fuel_hydrogen",
+    include_target: bool = True,
     magnitude_as_floor: bool = False,
     magnitude_renewables: Union[Dict[str, float], float, None] = None,
     scale_non_renewables_to_match_surplus_msp: bool = False,
@@ -766,6 +767,9 @@ def transformation_entc_renewable_target(
     - field_region: field in df_input that specifies the region
     - fuel_elec: $CAT-TECHNOLOGY$ category specifying electricity. If None, 
         defaults to model_electricity.cat_enfu_fuel
+    - include_target: if True, sets the renewable target (Default). If False, 
+        will only manipulate minimum shares of production. Should only be used
+        in conjunction with `scale_non_renewables_to_match_surplus_msp = True`
     - magnitude_as_floor: if True, will not allow any renewables to decline in 
         magnitude unless the dictionary `magnitude_renewables` forces some 
         renewables to make up a higher share
@@ -981,23 +985,27 @@ def transformation_entc_renewable_target(
                 )
 
 
-
+        
         # iterate over categories to modify output data frame -- will use to copy into new variables
-        df_transformed = transformation_general(
-            df,
-            model_attributes, 
-            {
-                model_electricity.modvar_enfu_nemomod_renewable_production_target: {
-                    "bounds": (0, 1),
-                    "categories": [model_electricity.cat_enfu_elec],
-                    "magnitude": magnitude,
-                    "magnitude_type": "final_value",
-                    "vec_ramp": vec_ramp,
-                    "time_period_baseline": get_time_period(model_attributes, "max")
-                }
-            },
-            field_region = field_region,
-            **kwargs
+        df_transformed = (
+            transformation_general(
+                df,
+                model_attributes, 
+                {
+                    model_electricity.modvar_enfu_nemomod_renewable_production_target: {
+                        "bounds": (0, 1),
+                        "categories": [model_electricity.cat_enfu_elec],
+                        "magnitude": magnitude,
+                        "magnitude_type": "final_value",
+                        "vec_ramp": vec_ramp,
+                        "time_period_baseline": get_time_period(model_attributes, "max")
+                    }
+                },
+                field_region = field_region,
+                **kwargs
+            )
+            if include_target
+            else df
         )
 
         
