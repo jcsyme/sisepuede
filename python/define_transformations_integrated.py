@@ -1606,7 +1606,7 @@ class TransformationsIntegrated:
             df_out = sf.add_data_frame_fields_from_dict(
                 df_out,
                 {
-                self.model_attributes.dim_strategy_id: int(strat)
+                    self.model_attributes.dim_strategy_id: int(strat)
                 },
                 overwrite_fields = True,
                 prepend_q = True,
