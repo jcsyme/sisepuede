@@ -565,6 +565,7 @@ class AWSManager:
             * self.flag_key_max_solve_attempts
             * self.flag_key_random_seed
             * self.flag_key_save_inputs
+            * self.flag_key_try_exogenous_xl_type
             * self.key_design
             * self.key_future
             * self.key_region
@@ -595,6 +596,7 @@ class AWSManager:
         flag_key_max_solve_attempts = "max_solve_attempts"
         flag_key_random_seed = "random_seed"
         flag_key_save_inputs = "save_inputs"
+        flag_key_try_exogenous_xl_type = "try_exogenous_xl_types"
 
         # map keys to flag values
         dict_dims_to_docker_flags = {
@@ -608,6 +610,7 @@ class AWSManager:
             flag_key_max_solve_attempts: "max-solve-attempts",
             flag_key_random_seed: "random-seed",
             flag_key_save_inputs: "save-inputs",
+            flag_key_try_exogenous_xl_type: "try-exogenous-xl-types",
         }
 
         regions = sc.Regions(model_attributes)
@@ -642,6 +645,7 @@ class AWSManager:
         self.flag_key_max_solve_attempts = flag_key_max_solve_attempts
         self.flag_key_random_seed = flag_key_random_seed
         self.flag_key_save_inputs = flag_key_save_inputs
+        self.flag_key_try_exogenous_xl_type = flag_key_try_exogenous_xl_type
         self.key_design = key_design
         self.key_future = key_future
         self.key_region = key_region
@@ -1243,11 +1247,21 @@ class AWSManager:
 
         # add in save inputs
         save_inputs = self.config.get("sisepuede_runtime.save_inputs")
-        save_inputs = True if (save_inputs is None) else save_inputs
+        save_inputs = True if not isinstance(save_inputs, bool) else save_inputs
         flag = self.dict_dims_to_docker_flags.get(self.flag_key_save_inputs)
         (
             flags.append(f"--{flag}") 
-            if isinstance(flag, str)
+            if isinstance(flag, str) & save_inputs
+            else None
+        )
+
+        # add in try exogenous xl types
+        try_exog_xl = self.config.get("sisepuede_runtime.try_exogenous_xl_types")
+        try_exog_xl = False if not isinstance(try_exog_xl, bool) else try_exog_xl
+        flag = self.dict_dims_to_docker_flags.get(self.flag_key_try_exogenous_xl_type)
+        (
+            flags.append(f"--{flag}") 
+            if isinstance(flag, str) & try_exog_xl
             else None
         )
 
@@ -1739,8 +1753,8 @@ class AWSManager:
         """
         # setup output path
         fp_out = self.fp_instance_shell_script
-
         str_docker_shell = self.build_docker_shell(dict_dimensional_subset)
+
         if False:
             # keep here unless it needs to come back
             str_docker_shell = sf.str_replace(
