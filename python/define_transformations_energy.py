@@ -1871,7 +1871,7 @@ class TransformationsEnergy:
 
         # check the total minimum value shares in self.dict_entc_renewable_target_cats_max_investment;
         # if greater than the target for the baseline, scale them proportionally; otherwise, leave them
-        target_renewables_value_min = 0.1
+        target_renewables_value_min = 0.15
         target_renewables_value_base_specified = sum(self.dict_entc_renewable_target_msp.values())
         scalar_renewables_value_base = min(target_renewables_value_min/target_renewables_value_base_specified, 1.0)
 
