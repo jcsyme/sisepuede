@@ -45,12 +45,13 @@ class SISEPUEDE:
 		and a quick start guide, can be found at the SISEPUEDE documentation,
 		located at
 
-		https://sisepuede.readthedocs.io
+		https://self.readthedocs.io
 
 
-	
+	LICENSE
+	-------
 
-    Copyright (C) 2023 James Syme
+	Copyright (C) 2023 James Syme
 
     This program is free software: you can redistribute it and/or modify
     it under the terms of the GNU General Public License as published by
@@ -64,6 +65,42 @@ class SISEPUEDE:
 
     You should have received a copy of the GNU General Public License
     along with this program.  If not, see <https://www.gnu.org/licenses/>.
+
+
+
+	Key Subclasses
+	--------------
+
+	SISEPUEDE organizes a number of subclasses under a shared umbrella, creating
+		an integrated framework for decarbonization modeling and uncertainty
+		exploration. The following classes are key to data organization and 
+		management, trajectory generation and uncertainty quantification, and
+		integrated decarboniation modeling. 
+
+		- SISEPUEDEExperimentalManager (SISEPUEDE.experimental_manager)
+			Includes the folliwing key data components:
+
+			* FutureTrajectories (.dict_future_trajectories(region)): for each
+				region, the FutureTrajectories is used to generate input
+				databases based on strategy, future, and design.
+			* LHSDesign (.dict_lhs_design(region)): for each region, the
+				LHSDesign object stores LHC samples for lever effects 
+				(arr_lhs_l) and exogenous uncertainties (arr_lhs_x)
+
+		- SISEPUEDEFileStructure (SISEPUEDE.file_struct)
+			Includes all default file names and the overarching organizational
+				structure of files and paths for SISEPUEDE.
+		
+		- SISEPUEDEModels (SISEPUEDE.models)
+			Includes all models and the implementation/organization of the
+				SISEPUEDE directed acyclic graph (DAG). 
+
+		- SISEPUEDEOutputDatabase (SISEPUEDE.database)
+			Includes all IterativeDatabaseTables for SISEPUEDE, allowing runs to
+				be saved to both CSV and SQLite databases.
+
+		More information on these classes can be obtained by querying their
+			docstrings directly (?class)
 
 
 	Initialization Arguments
@@ -214,7 +251,7 @@ class SISEPUEDE:
 		**kwargs,
 	):
 		"""
-		Call SISEPUEDE.project_scenarios()
+		Call self.project_scenarios()
 		"""
 		out = self.project_scenarios(
 			*args,
@@ -395,7 +432,7 @@ class SISEPUEDE:
 		try_exogenous_xl_types_in_variable_specification: bool = False,
 	) -> None:
 		"""
-		Initialize the Experimental Manager for SISEPUEDE. The SISEPUEDEExperimentalManager
+		Initialize the Experimental Manager for self. The SISEPUEDEExperimentalManager
 			class reads in input templates to generate input databases, controls deployment,
 			generation of multiple runs, writing output to applicable databases, and
 			post-processing of applicable metrics. Users should use SISEPUEDEExperimentalManager
@@ -678,7 +715,7 @@ class SISEPUEDE:
 		initialize_as_dummy: bool = False,
 	) -> None:
 		"""
-		Initialize models for SISEPUEDE. Sets the following properties:
+		Initialize models for self. Sets the following properties:
 
 			* self.dir_jl
 			* self.dir_nemomod_reference_files
@@ -881,6 +918,81 @@ class SISEPUEDE:
 			return None
 
 		self.database.db._destroy(table_name)
+
+
+
+	def get_lhs_trajectories(
+		key_specification: Union[dict, int],
+		region: str,
+	) -> Tuple[pd.Series, pd.Series, bool]:
+		"""
+		Get LHS trajectories for input to generator. Returns a tuple of the 
+			following form:
+
+			(lhs_l, lhs_x, base_future_q)
+
+		Function Arguments
+		------------------
+		- key_specification: dictionary to filter on containing SISEPUEDE keys 
+			that map to values (e.g., key_strategy, key_future, key_design OR 
+			key_primary) OR primary key. Should only map to a single primary key
+		- region: region to generate LHS trajectories for
+		"""
+		# retrieve objects
+		future_trajectories_cur = self.experimental_manager.dict_future_trajectories.get(region)
+		lhs_design_cur = self.experimental_manager.dict_lhs_design.get(region)
+		region_out = self.get_output_region(region)
+
+		# get primary keys info
+		dict_primary_keys = self.get_primary_keys(key_specification)
+		dict_primary_keys = dict_primary_keys[0] if sf.islistlike(dict_primary_keys) else dict_primary_keys
+		if dict_primary_keys is None:
+			return None
+
+		dict_primary_keys = self.odpt_primary.get_dims_from_key(
+			dict_primary_keys, 
+			return_type = "dict"
+		)
+
+
+		design = dict_primary_keys.get(self.key_design)
+		future = dict_primary_keys.get(self.key_future)
+		strategy = dict_primary_keys.get(self.key_strategy)
+
+		df_lhs_l, df_lhs_x = lhs_design_cur.retrieve_lhs_tables_by_design(design, return_type = pd.DataFrame)
+
+		# reduce lhs tables - LEs
+		df_lhs_l = (
+			df_lhs_l[df_lhs_l[self.key_future].isin([future])] 
+			if (df_lhs_l is not None) 
+			else df_lhs_l
+		)
+		# Xs
+		df_lhs_x = (
+			df_lhs_x[df_lhs_x[self.key_future].isin([future])] 
+			if (df_lhs_x is not None) 
+			else df_lhs_x
+		)
+
+
+		##  GET LHS SERIE BY FUTURE
+
+		# determine if baseline future and fetch lhs rows
+		base_future_q = (future == self.baseline_future)
+		lhs_l = (
+			df_lhs_l[df_lhs_l[self.key_future] == future].iloc[0] 
+			if ((df_lhs_l is not None) and not base_future_q) 
+			else None
+		)
+		lhs_x = (
+			df_lhs_x[df_lhs_x[self.key_future] == future].iloc[0] 
+			if ((df_lhs_x is not None) and not base_future_q) 
+			else None
+		)
+		
+		tup_out = lhs_l, lhs_x, base_future_q
+		
+		return tup_out
 
 
 
@@ -1150,8 +1262,6 @@ class SISEPUEDE:
 	#    CORE FUNCTIONALITY    #
 	############################
 
-
-	# ADD SQL RETURN TYUP
 	def generate_scenario_database_from_primary_key(self,
 		primary_key: Union[int, None],
 		regions: Union[List[str], str, None] = None,
@@ -1172,7 +1282,7 @@ class SISEPUEDE:
 				dictionary of input databases of the form
 				{region: df_input_region, ...}
 			* Invalid regions return None
-		- **kwargs: passed to SISEPUEDE.models.project(..., **kwargs)
+		- **kwargs: passed to self.models.project(..., **kwargs)
 		"""
 
 		# check primary keys to run
@@ -1339,7 +1449,7 @@ class SISEPUEDE:
 			defaults if None
 		- skip_nas_in_input: skip futures with NAs on input? If true, will 
 			skip any inputs that contain NAs
-		- **kwargs: passed to SISEPUEDE.models.project(..., **kwargs)
+		- **kwargs: passed to self.models.project(..., **kwargs)
 		"""
 
 		# maximum solve attempts

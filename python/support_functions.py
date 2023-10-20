@@ -636,7 +636,7 @@ def dict_to_excel(
     """
 
     (
-        os.path.remove(fp_out)
+        os.remove(fp_out)
         if os.path.exists(fp_out) & replace_file
         else None
     )

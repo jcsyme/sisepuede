@@ -1293,9 +1293,6 @@ class TransformationsIntegrated:
                     .reset_index(drop = True)
                 )
 
-                global dfc
-                dfc = df_cur
-
                 # split the current transformation into 
                 dict_cur = self.build_templates_dictionary_from_current_transformation(
                     df_cur,
@@ -1303,10 +1300,7 @@ class TransformationsIntegrated:
                     dict_cur,
                     **kwargs
                 )
-
-            global dc
-            dc = dict_cur
-
+                
 
             ##  ADD ANY ADDITIONAL, EXOGENOUSLY DEFINED STRATEGIES?
 
