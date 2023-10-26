@@ -4554,28 +4554,57 @@ class AFOLU:
         ###########################################################
 
         # get volatilisation vars
-        vec_soil_frac_gasf_non_urea = self.model_attributes.get_standard_variables(df_afolu_trajectories, self.modvar_soil_frac_n_lost_volatilisation_sn_non_urea, False, "array_base", var_bounds = (0, 1))
-        vec_soil_frac_gasf_urea = self.model_attributes.get_standard_variables(df_afolu_trajectories, self.modvar_soil_frac_n_lost_volatilisation_sn_urea, False, "array_base", var_bounds = (0, 1))
-        vec_soil_frac_gasm = self.model_attributes.get_standard_variables(df_afolu_trajectories, self.modvar_soil_frac_n_lost_volatilisation_on, False, "array_base", var_bounds = (0, 1))
-        arr_soil_ef4 = self.model_attributes.get_standard_variables(df_afolu_trajectories, self.modvar_soil_ef4_n_volatilisation, True, "array_base", expand_to_all_cats = True)
+        vec_soil_frac_gasf_non_urea = self.model_attributes.get_standard_variables(
+            df_afolu_trajectories, 
+            self.modvar_soil_frac_n_lost_volatilisation_sn_non_urea, 
+            override_vector_for_single_mv_q = False, 
+            return_type = "array_base", 
+            var_bounds = (0, 1),
+        )
+        vec_soil_frac_gasf_urea = self.model_attributes.get_standard_variables(
+            df_afolu_trajectories, 
+            self.modvar_soil_frac_n_lost_volatilisation_sn_urea,
+            override_vector_for_single_mv_q = False, 
+            return_type = "array_base", 
+            var_bounds = (0, 1),
+        )
+        vec_soil_frac_gasm = self.model_attributes.get_standard_variables(
+            df_afolu_trajectories, 
+            self.modvar_soil_frac_n_lost_volatilisation_on, 
+            override_vector_for_single_mv_q = False, 
+            return_type = "array_base", 
+            var_bounds = (0, 1),
+        )
+        arr_soil_ef4 = self.model_attributes.get_standard_variables(
+            df_afolu_trajectories, 
+            self.modvar_soil_ef4_n_volatilisation, 
+            expand_to_all_cats = True,
+            override_vector_for_single_mv_q = True, 
+            return_type = "array_base", 
+        )
+
         # loop over dry/wet
         vec_soil_n2on_indirect_volatilisation = 0.0
         vec_soil_n2on_indirect_volatilisation_gasf = 0.0
         vec_soil_n2on_indirect_volatilisation_gasm_on = 0.0
         vec_soil_n2on_indirect_volatilisation_gasm_ppr = 0.0
+
         for modvar in self.modvar_list_lndu_frac_drywet:
             # soil category
             cat_soil = clean_schema(self.model_attributes.get_variable_attribute(modvar, pycat_soil))
             ind_soil = attr_soil.get_key_value_index(cat_soil)
+
             # GASF component--synthetic by urea/non-urea
             vec_soil_fert_sn_cur_non_urea = dict_soil_fertilizer_application_by_climate_synthetic[cat_soil].copy()
             vec_soil_fert_sn_cur_urea = vec_soil_fert_sn_cur_non_urea*vec_soil_frac_synthetic_fertilizer_urea
             vec_soil_fert_sn_cur_non_urea -= vec_soil_fert_sn_cur_urea
             vec_soil_component_gasf_cur = vec_soil_fert_sn_cur_non_urea*vec_soil_frac_gasf_non_urea + vec_soil_fert_sn_cur_urea*vec_soil_frac_gasf_urea
             vec_soil_component_gasf_cur *= arr_soil_ef4[:, ind_soil]
+
             # GASM component--organic
             vec_soil_component_gasm_on_cur = dict_soil_fertilizer_application_by_climate_organic[cat_soil]*vec_soil_frac_gasm*arr_soil_ef4[:, ind_soil]
             vec_soil_component_gasm_ppr_cur = dict_soil_ppr_n_by_climate[cat_soil]*vec_soil_frac_gasm*arr_soil_ef4[:, ind_soil]
+
             # aggregates
             vec_soil_n2on_indirect_volatilisation_gasf += vec_soil_component_gasf_cur
             vec_soil_n2on_indirect_volatilisation_gasm_on += vec_soil_component_gasm_on_cur
