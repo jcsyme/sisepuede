@@ -335,7 +335,10 @@ class TransformationsIntegrated:
         """
 
         baseline_inputs = (
-            self.transformation_pflo_baseline(df_inputs, strat = self.baseline_strategy) 
+            self.transformation_pflo_baseline(
+                df_inputs, 
+                strat = self.baseline_strategy,
+            ) 
             if isinstance(df_inputs, pd.DataFrame) 
             else None
         )
@@ -633,7 +636,9 @@ class TransformationsIntegrated:
 
 
         ##  Finally -- initialize baseline using the data frame
-        self._initialize_baseline_inputs(df_input)
+        self._initialize_baseline_inputs(
+            df_input,
+        )
 
         return None
 
@@ -1614,8 +1619,7 @@ class TransformationsIntegrated:
         df_out = self.transformations_ippu.transformation_ip_baseline(df_out)
 
         # TEMP: for certain experiments, we want to treat PLUR as baseline. This implementation does that
-        df_out = self.transformations_afolu.transformation_lndu_reallocate_land(df_out)
-        
+        #df_out = self.transformations_afolu.transformation_lndu_reallocate_land(df_out)
 
         if sf.isnumber(strat, integer = True):
             df_out = sf.add_data_frame_fields_from_dict(
