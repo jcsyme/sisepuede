@@ -1396,10 +1396,11 @@ class AFOLU:
     def get_markov_matrices(self,
         df_ordered_trajectories: pd.DataFrame,
         correct_emission_units: bool = True,
+        get_emission_factors: bool = True,
         n_tp: Union[int, None] = None,
         target_units_area_modvar: Union[str, None] = None,
         thresh_correct: float = 0.0001,
-    ) -> Tuple[np.ndarray, np.ndarray]:
+    ) -> Union[np.ndarray, Tuple[np.ndarray, np.ndarray]]:
         """
         Get the transition and emission factors matrices from the data frame 
             df_ordered_trajectories. Assumes that the input data frame is 
@@ -1414,6 +1415,8 @@ class AFOLU:
         Keyword Arguments
         -----------------
         - correct_emission_units: correct emissions to configuration units?
+        - get_emission_factors: return emission factors as well?
+            * If False, returns ONLY the array of transition probabilities
         - target_units_area_modvar: modvar that will drive emissions, used to 
             identify target area units to which conversion emission factors are 
             applied. 
@@ -1437,15 +1440,25 @@ class AFOLU:
 
         fields_pij = self.model_attributes.dict_model_variables_to_variables.get(self.modvar_lndu_prob_transition)
         fields_efc = self.model_attributes.dict_model_variables_to_variables.get(self.modvar_lndu_ef_co2_conv)
-        if (fields_pij is None) or (fields_efc is None):
+        if (fields_pij is None) | ((fields_efc is None) & get_emission_factors):
             return None
 
-        sf.check_fields(df_ordered_trajectories, fields_pij + fields_efc)
+        fields_check = (
+            fields_pij + fields_efc
+            if get_emission_factors
+            else fields_pij
+        )
+        sf.check_fields(df_ordered_trajectories, fields_check)
 
         # fetch arrays of transition probabilities and co2 emission factors
         arr_pr = np.array(df_ordered_trajectories[fields_pij])
         arr_pr = arr_pr.reshape((n_tp, n_cats, n_cats))
-        #
+
+        # RETURN if not retrieving emission factors
+        if not get_emission_factors:
+            return arr_pr
+
+
         arr_ef = np.array(df_ordered_trajectories[fields_efc])
         arr_ef = arr_ef.reshape((n_tp, n_cats, n_cats))
 
@@ -1751,6 +1764,75 @@ class AFOLU:
         arrs_delta = arrs_delta_soc_target - arrs_delta_soc_source
 
         return arrs_delta, vec_soil_ef1_soc_est
+    
+
+
+    def get_transition_matrix_from_long_df(self,
+        df_transition: pd.DataFrame,
+        field_i: str,
+        field_j: str,
+        field_pij: str,
+    ) -> np.ndarray:
+        """
+        Convert a long data frame to a transition matrix
+        
+        Function Arguments
+        ------------------
+        - df_transition: data frame storing transition probabilities in long form
+        - field_i: field storing source class
+        - field_j: field sotring target class
+        - field_pij: field storing probabilities
+        """
+        
+        # get attribute table
+        attr_lndu = self.model_attributes.get_attribute_table(
+            self.model_attributes.subsec_name_lndu
+        )
+        
+        return_df = not isinstance(df_transition, pd.DataFrame)
+        return_df |= (
+            not set([field_i, field_j, field_pij]).issubset(set(df_transition.columns))
+            if not return_df
+            else return_df
+        )
+        
+        if return_df:
+            return df_transition
+        
+        
+        # filter out invalid rows
+        df_transition_out = (
+            df_transition[
+                df_transition[field_i].isin(attr_lndu.key_values)
+                & df_transition[field_j].isin(attr_lndu.key_values)
+            ]
+            .copy()
+            .reset_index(drop = True)
+        )
+        
+        # initialize output matrix and fill in
+        n = attr_lndu.n_key_values
+        mat_out = np.zeros(n**2)
+        
+        # indices
+        vec_i = np.array(
+            df_transition_out[field_i]
+            .apply(attr_lndu.get_key_value_index)
+        )
+        
+        vec_j = np.array(
+            df_transition_out[field_j]
+            .apply(attr_lndu.get_key_value_index)
+        )
+        
+        vec_inds = vec_i*n + vec_j
+        vec_probs = df_transition_out[field_pij].to_numpy()
+        
+        # overwrite values in the matrix and reshape
+        np.put(mat_out, vec_inds, vec_probs)
+        mat_out = mat_out.reshape((n, n))
+        
+        return mat_out
 
 
 

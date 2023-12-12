@@ -57,7 +57,10 @@ class SISEPUEDEModels:
 		)
 
 		# initialize sql path for electricity projection and path to electricity models
-		self._initialize_path_nemomod_reference(allow_electricity_run, fp_nemomod_reference_files)
+		self._initialize_path_nemomod_reference(
+			allow_electricity_run, 
+			fp_nemomod_reference_files,
+		)
 		self._initialize_path_nemomod_sql(fp_nemomod_temp_sqlite_db)
 		# initialize last--depends on self.allow_electricity_run
 		self._initialize_path_julia(fp_julia)

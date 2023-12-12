@@ -176,6 +176,29 @@ class AttributeTable:
     #    OPERATIONAL FUNCTIONS    #
     ###############################
 
+    def get_attribute(self,
+        key_value: Any,
+        attribute: str,
+    ) -> Union[Any, None]:
+        """
+        Get value of `attribute` associated with key value `key_value`
+        """
+
+        if attribute == self.key:
+            return key_value
+
+        key_try = f"{self.key}_to_{attribute}"
+        dict_attribute = self.field_maps.get(key_try)
+        output = (
+            dict_attribute.get(key_value)
+            if dict_attribute is not None
+            else None
+        )
+
+        return output
+
+
+        
     def get_key_value_index(self, 
         key_value: Any,
         throw_error: bool = True,

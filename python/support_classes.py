@@ -114,14 +114,19 @@ class Regions:
         Set the following properties:
 
             * self.all_isos
+            * self.all_isos_numeric
             * self.all_region
             * self.all_wb_regions
             * self.attributes
             * self.dict_iso_to_region
+            * self.dict_iso_numeric_to_region
             * self.dict_region_to_iso
+            * self.dict_region_to_iso_numeric
             * self.dict_region_to_wb_region
             * self.dict_wb_region_to_region
             * self.field_iso
+            * self.field_iso_two
+            * self.field_iso_numeric
             * self.field_lat
             * self.field_lon
             * self.field_wb_global_region
@@ -130,6 +135,8 @@ class Regions:
         """
         # some fields
         field_iso = "iso_alpha_3"
+        field_iso_two = "iso_alpha_2"
+        field_iso_numeric = "iso_numeric"
         field_lat = "latitude_population_centroid_2020"
         field_lon = "longitude_population_centroid_2020"
         field_un_global_region = "un_region"
@@ -139,9 +146,21 @@ class Regions:
         attributes = model_attributes.dict_attributes.get(f"{model_attributes.dim_region}")
 
         # initialize ISO dictionaries
-        dict_region_to_iso = attributes.field_maps.get(f"{attributes.key}_to_{field_iso}")
         dict_iso_to_region = attributes.field_maps.get(f"{field_iso}_to_{attributes.key}")
+        dict_iso_numeric_to_region = attributes.field_maps.get(f"{field_iso_numeric}_to_{attributes.key}")
+        dict_region_to_iso = attributes.field_maps.get(f"{attributes.key}_to_{field_iso}")
+        dict_region_to_iso_numeric = attributes.field_maps.get(f"{attributes.key}_to_{field_iso_numeric}")
+    
+        # check numeric codes
+        dict_iso_numeric_to_region = dict((int(k), v) for k, v in dict_iso_numeric_to_region.items())
+        dict_region_to_iso_numeric = dict((k, int(v)) for k, v in dict_region_to_iso_numeric.items())
+
+        # set up some sets
         all_isos = sorted(list(dict_iso_to_region.keys()))
+        all_isos_numeric = sorted(list(dict_iso_numeric_to_region.keys()))
+
+
+        ##  OTHER REGIONAL CODES
 
         # WorldBank region dictionaries
         dict_wb_region_to_region = sf.group_df_as_dict(
@@ -162,19 +181,25 @@ class Regions:
         all_un_regions = sorted(list(dict_region_to_un_region.keys()))
 
     
-        # assign as properties
+        ##  SET PROPERTIES
+
         self.all_isos = all_isos
+        self.all_isos_numeric = all_isos_numeric
         self.all_regions = attributes.key_values
         self.all_un_regions = all_un_regions
         self.all_wb_regions = all_wb_regions
         self.attributes = attributes
-        self.dict_region_to_iso = dict_region_to_iso
         self.dict_iso_to_region = dict_iso_to_region
+        self.dict_iso_numeric_to_region = dict_iso_numeric_to_region
+        self.dict_region_to_iso = dict_region_to_iso
+        self.dict_region_to_iso_numeric = dict_region_to_iso_numeric
         self.dict_region_to_un_region = dict_region_to_un_region
         self.dict_region_to_wb_region = dict_region_to_wb_region
         self.dict_un_region_to_region = dict_un_region_to_region
         self.dict_wb_region_to_region = dict_wb_region_to_region
         self.field_iso = field_iso
+        self.field_iso_two = field_iso_two
+        self.field_iso_numeric = field_iso_numeric
         self.field_lat = field_lat
         self.field_lon = field_lon
         self.field_wb_global_region = field_wb_global_region
@@ -484,28 +509,97 @@ class Regions:
 
 
     def return_region_or_iso(self,
-        region: Union[str, List[str]],
+        region: Union[int, str, List[str]],
         clean_inputs: bool = False,
+        return_none_on_missing: bool = False,
         return_type: str = "region",
+        try_iso_numeric_as_string: bool = True,
     ) -> Union[str, None]:
         """
-        Return region for region entered as region or ISO.
+        Return region for region entered as region or ISO. 
+        
+        * Returns None if `region` is specified improperly, or, if 
+            `return_none_on_missing = True`, the region is properly specified
+            but not found.
 
         Function Arguments
         ------------------
-        - region: region or iso code
+        - region: region, iso 3-digit alpha code, or iso numeric code
 
         Keyword Arguments
         -----------------
         - clean_inputs: try to clean the input region first
-        - return_type: "region" or "iso". Will return a region if set to 
-            "region" or ISO if set to "iso"
+        - return_none_on_missing: set to True to return None if input region 
+            `region` is not found
+        - return_type: "region" or "iso". Will return: 
+            * Region if set to "region" or 
+            * ISO Alpha 3 if set to "iso"
+            * ISO Numeric (integer) if set to "iso_numeric"
+        - try_iso_numeric_as_string: if a region is not found in any of the 
+            three inputs (region, iso, iso_numeris), will check to see if it is 
+            an iso_numeric code entered as a string.
         """
         return_type = (
             "region" 
-            if (return_type not in ["region", "iso"]) 
+            if (return_type not in ["region", "iso", "iso_numeric"]) 
             else return_type
         )
+      
+        # set up to allow for listlike or string
+        element_input = isinstance(region, str) | isinstance(region, int)
+        region = [region] if element_input else region
+        region = list(region) if sf.islistlike(region) else None
+        if region is None:
+            return None
+
+        # check for input type
+        for i, r in enumerate(region):
+            
+            # init and cleaning
+            input_type = None
+            r = self.clean_region(r) if clean_inputs else r
+
+            # check region against input type
+            if r in self.all_regions:
+                input_type = "region"
+            elif r in self.all_isos:
+                input_type = "iso"
+            elif try_iso_numeric_as_string & isinstance(r, str):
+                try:
+                    r = int(r)
+                except:
+                    None
+                
+            if (r in self.all_isos_numeric) & (input_type is None):
+                input_type = "iso_numeric"
+            
+            # if input not found, continue
+            if input_type is None:
+                region[i] = None if return_none_on_missing else r
+                continue
+
+            
+            # otherwise, retrieve in terms of key - if r is a region, then the dictionary will not contain it
+            region_full = (
+                self.dict_iso_to_region.get(r)
+                if input_type == "iso"
+                else self.dict_iso_numeric_to_region.get(r, r)
+            )
+
+            # based on return type, get output
+            out = region_full
+            if return_type == "iso":
+                out = self.dict_region_to_iso.get(region_full)
+            elif return_type == "iso_numeric":
+                out = self.dict_region_to_iso_numeric.get(region_full)
+        
+            region[i] = out
+            
+
+        """
+        if (return_type == "region"):
+            dict_retrieve = self.dict_iso_to_region 
+
         dict_retrieve = (
             self.dict_iso_to_region 
             if (return_type == "region") 
@@ -517,16 +611,12 @@ class Regions:
             else self.all_isos
         )
 
-        # set up to allow for listlike or string
-        str_input = isinstance(region, str)
-        region = [region] if str_input else region
-        region = region if sf.islistlike(region) else None
-        if region is None:
-            return None
 
         region = [
-            (self.clean_region(x) if clean_inputs else x) for x in region
+            (self.clean_region(x) if clean_inputs else x) 
+            for x in region
         ]
+        
         # check region
         region = [
             (
@@ -536,10 +626,12 @@ class Regions:
             )
             for x in region
         ]
+        """;
 
-        region = region[0] if str_input else region
+        region = region[0] if element_input else region
 
         return region
+
 
 
     def add_region_or_iso_field(self,
@@ -602,13 +694,19 @@ class Regions:
 
     def clean_region(self,
         region: str,
+        force_to_string: bool = False,
     ) -> str:
         """
-        Clean the region name
+        Clean the region name. Set `force_to_string` to True to force inputs
+            to take type str
         """
+
+        if not (isinstance(region, str) | force_to_string):
+            return region
+
         dict_repl = dict((x, "_") for x in ["-", " "])
 
-        out = region.strip().lower()
+        out = str(region).strip().lower()
         out = sf.str_replace(out, dict_repl)
 
         return out

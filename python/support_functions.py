@@ -1,3 +1,4 @@
+import inspect
 import logging
 import munch
 import numpy as np
@@ -47,7 +48,7 @@ def add_data_frame_fields_from_dict(
 
 
     ##  INITIALIZATION
-
+    
     if not (isinstance(dict_field_vals, dict) | isinstance(dict_field_vals, pd.DataFrame)):
         return df
     
@@ -63,14 +64,14 @@ def add_data_frame_fields_from_dict(
         if islistlike(field_hierarchy)
         else fields_to_try
     )
-    
+
     # return original datafram if no valid new fields are found
     if len(fields_to_try) == 0:
         return df
 
     # next, initialize fields that are added succesfully
     fields_added_successfully = []
-
+    
     
     ##  ADD FIELDS ASSOCIATED WITH SORTED KEYS
 
@@ -1000,6 +1001,61 @@ def format_print_list(
 
 
 
+def get_args(
+    func: callable,
+    include_defaults: bool = False,
+) -> Union[Tuple[List[str], Union[List[str], Dict[str, Any]]], None]:
+    """
+    Return the arguments (*args) and keyword arguments (**kwargs) of a function. 
+    
+    Returns a tuple of the form `(args, kwargs)`, where `args` and `kwargs` are 
+        lists of argument names. 
+        * If include_defaults is True, then `kwargs` is a dictionary mapping each
+            keyword argument to its default value.
+        * If `func` is not callable, returns None
+
+            
+    Function Arguments
+    ------------------
+    - func: callable with arguments and keyword arguments
+    
+    Keyword Arguments
+    -----------------
+    - include_defaults: If true, then `kwargs` is a dictionary mapping each keyword 
+        argument to its default value instead of a list.
+    """
+
+    if not callable(func):
+        return None
+    
+    # get arg spec 
+    (
+        args, 
+        varargs, 
+        varkw, 
+        defaults, 
+        kwonlyargs, 
+        kwonlydefaults, 
+        annotations
+    ) = inspect.getfullargspec(func)
+    
+    # defaults are called from backwards forwards
+    n = -len(defaults)
+    kwargs = args[n:]
+    args = args[0:n]
+    
+    kwargs = (
+        dict(zip(kwargs, defaults))
+        if include_defaults
+        else kwargs
+    ) 
+        
+    out = args, kwargs
+    
+    return out
+
+
+
 def get_csv_subset(
     fp_table: Union[str, None],
     dict_subset: Union[Dict[str, List], None],
@@ -1436,9 +1492,9 @@ def isnumber(
         checks. skip_nan = True will return False if x is np.nan
     """
     types_check = (
-        (int, float, np.int64, np.int32, np.int, np.float64, np.float32, np.float)
+        (int, float, np.int64, np.int32, np.float64, np.float32)
         if not integer
-        else (int, np.int64, np.int32, np.int)
+        else (int, np.int64, np.int32)
     )
 
     # check type and verify whether or not np.nan matters
@@ -2575,6 +2631,7 @@ def vector_limiter(
     if not any([isinstance(var_bounds, x) for x in types_valid]):
         str_types_valid = format_print_list([str(x) for x in types_valid])
         raise ValueError(f"Invalid variable bounds type '{var_bounds}' in vector_limiter: valid types are {str_types_valid}")
+    
     elif len(var_bounds) < 1:
         raise ValueError(f"Invalid bounds specification of length 0 found in vector_limiter. Enter at least a lower bound.")
 

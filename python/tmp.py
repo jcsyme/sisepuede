@@ -1,199 +1,122 @@
-def get_average_forest_factors_by_iso(
-    df_climate_by_iso: pd.DataFrame,
-    df_carbon_factors_forest: pd.DataFrame,
-    attr_kcc: AttributeTable,
-    regions: sc.Regions,
-    field_continent: str = field_continent,
-    field_count: str = "count",
-    field_ecological_zone: str = "ecological_zone1",
-    field_forest_cat: str = "ipcc_forest",
-    field_type_forest: str = field_type_forest,
-) -> pd.DataFrame:
-    """
-    Generate average storage and sequestration rate factors by iso code
-    
-    Function Arguments
-    ------------------
-    - df_climate_by_iso: data frame containing KCC climate counts by ISO
-        code
-    - df_carbon_factors_forest: data frame storing IPCC GHG default carbon 
-        biomass factors
-    - attr_kcc: attribute table characterizing Kopen Climate 
-        Classification 
-        
-    Keyword Arguments
-    -----------------
-    - field_continent: field storing continent
-    - field_count: field giving # of cells by country assocaited with 
-        each KCC category
-    - field_ecological_zone: field in df_carbon_factors_forest containing IPCC
-        forests
-    - field_forest_cat: field in df_climate_by_iso containing the IPCC 
-        forest category used to estimate factors
-    - field_type_forest: field in df_carbon_factors_forest storing forest type
-    """
-    
-    dict_un_region_to_continent = {"Americas": "North and South America"}
-    continents_global = [
-        "Asia\nEurope\nNorth and South America",
-        "Asia Europe North\nAmerica",
-        "Asia\nEurope\nNorth\nAmerica"
-    ]
-    
-    fields_keep = [
-        regions.field_iso,
-        attr_kcc.key,
-        field_count,
-        field_forest_cat
-    ]
-    dfg_climate = (
-        df_climate_by_iso[df_climate_by_iso[regions.field_iso].isin(["BRA"])][fields_keep]
-        .groupby([regions.field_iso])
-    )
-    df_out = []
+   # set some properties
+        cat_mangrove = self.model_afolu.cat_lndu_fstm
+        dict_copernicus_to_sisepuede = self.dict_copernicus_to_sisepuede
+        model_afolu = self.model_afolu
+        model_attrbutes = self.model_attributes
 
-    # clean carbon factors df
-    df_cf = (
-        df_carbon_factors_forest
-        .rename(
-            columns = {
-                field_ecological_zone: field_forest_cat
+        # fields
+        field_area = self.field_area
+        field_area_total_0 = self.field_area_total_0
+        field_array_0 = self.field_array_0
+        field_array_1 = self.field_array_1
+        field_category_i = self.field_category_i
+        field_category_i = self.field_category_j
+        field_probability_transition = self.field_probability_transition
+
+        # land use classes
+        luc_copernicus_herbaceous_wetland = self.luc_copernicus_herbaceous_wetland
+        luc_copernicus_herbaceous_wetland_new = self.luc_copernicus_herbaceous_wetland_new
+
+    def convert_herbaceous_vegetation_to_related_class(
+        df_transition: pd.DataFrame,
+    ) -> pd.DataFrame:
+        """
+        Herbaceous wetlands (HW) includes a number of categories that are 
+            included elsewhere in SISEPUEDE v1.0; in general, it likely 
+            corresponds best with grassland. Notably, transitions into wetlands 
+            tend to be the highest off-diagonal probabilities, which is likely 
+            unrealistic. 
+        
+        To account for this, we assume that HWs are best accounted for by the 
+            correspondence class, and we eliminate most dynamics. 
+            
+            
+        Function Arguments
+        ------------------
+        - df_transition: data frame containing aggregated transitions with 
+            Copernicus classes.
+        
+        Keyword Arguments
+        -----------------
+        """
+
+        # set some properties
+        cat_mangrove = self.model_afolu.cat_lndu_fstm
+        dict_copernicus_to_sisepuede = self.dict_copernicus_to_sisepuede
+        model_afolu = self.model_afolu
+        model_attrbutes = self.model_attributes
+
+        # fields
+        field_area = self.field_area
+        field_area_total_0 = self.field_area_total_0
+        field_array_0 = self.field_array_0
+        field_array_1 = self.field_array_1
+        
+        # land use classes
+        luc_copernicus_herbaceous_wetland = self.luc_copernicus_herbaceous_wetland
+        luc_copernicus_herbaceous_wetland_new = self.luc_copernicus_herbaceous_wetland_new
+
+        
+        # first, get dictionary mapping array_0 to area_luc_0
+        dict_state_0_to_area_total = sf.build_dict(
+            df_transition[[field_array_0, field_area_total_0]]
+        )
+        
+        # initialize new columns
+        vec_new_0 = list(df_transition[field_array_0])
+        vec_new_1 = list(df_transition[field_array_1])
+        vec_new_array_total = list(df_transition[field_area_total_0])
+        
+        # initialize list of output classes that wetlands have been converted to
+        output_edges_converted_to_wetlands = []
+        
+        for i, row in df_transition.iterrows():
+            
+            state_0 = int(row[field_array_0])
+            state_1 = int(row[field_array_1])
+            states = [state_0, state_1]
+            
+            add_area = True
+            area = float(row[field_area])
+            
+            if luc_copernicus_herbaceous_wetland not in states:
+                continue
+                
+                
+            # get new state 
+            state = (
+                luc_copernicus_herbaceous_wetland_new
+                if state_0 == state_1
+                else [x for x in states if x != luc_copernicus_herbaceous_wetland][0]
+            )
+                
+            # if new state was previously the inbound class, we have to add the area to total for outbound
+            dict_state_0_to_area_total[state] += (
+                area 
+                if ((state == state_1) | (state_0 == state_1)) 
+                else 0.0
+            )   
+                
+            vec_new_0[i] = state
+            vec_new_1[i] = state
+        
+
+        # update data frames
+        df_transition[field_array_0] = vec_new_0
+        df_transition[field_array_1] = vec_new_1
+        df_transition[field_area_total_0] = (
+            df_transition[field_array_0]
+            .replace(dict_state_0_to_area_total)
+        )
+        
+        # re-aggregate
+        df_transition = sf.simple_df_agg(
+            df_transition,
+            [field_array_0, field_array_1],
+            {
+                field_area_total_0: "first",
+                field_area: "sum",
             }
         )
-    )
-    fields_ind_cf = [field_forest_cat, field_continent, field_type_forest]
-    fields_dat_cf = [x for x in df_cf.columns if x not in fields_ind_cf]
-
-    # split into continent-specific and global
-    df_cf_by_continent = (
-        df_cf[
-            ~df_cf[field_continent].isin(continents_global)
-        ]
-        .reset_index(drop = True)
-    )
-    df_cf_global = (
-        df_cf[
-            df_cf[field_continent].isin(continents_global)
-        ]
-        .reset_index(drop = True)
-    )
-    
-    # get forest vals by split
-    all_forests_by_continent = set(df_cf_by_continent[field_forest_cat])
-    all_forests_global = set(df_cf_global[field_forest_cat])
-    
-  
-    for iso, df in dfg_climate:
         
-        # get un region
-        region_un = regions.get_un_region(iso)
-        region_ipcc_forests = dict_un_region_to_continent.get(region_un, region_un)
-        
-        all_forests_cur = set(df[field_forest_cat])
-        any_by_continent = len(all_forests_cur & all_forests_by_continent) > 0
-        any_global = len(all_forests_cur & all_forests_global) > 0
-        
-        # total number of cells
-        total_count = df[field_count].sum()
-        
-        # initialize splits
-        df_by_continent = None
-        df_global = None
-        
-        # deal with splits
-        if any_by_continent:
-            df[field_continent] = region_ipcc_forests
-
-            df_by_continent = (
-                pd.merge(
-                    df,
-                    df_cf_by_continent,
-                )
-                .drop(
-                    [
-                        field_continent, 
-                        #field_kcc, 
-                        #field_forest_cat,
-                        regions.field_iso
-                    ], 
-                    axis = 1
-                )
-            )
-            
-            df.drop([field_continent], axis = 1, inplace = True)
-            
-            
-        if any_global:
-            df_global = (
-                pd.merge(
-                    df,
-                    df_cf_global.drop([field_continent], axis = 1),
-                )
-                .drop(
-                    [
-                        #field_kcc, 
-                        #field_forest_cat,
-                        regions.field_iso
-                    ], 
-                    axis = 1
-                )
-            )
-
-        
-        # check that at least one was successfully merges
-        if (df_global is None) & (df_by_continent is None):
-            continue
-        
-        global df_cur
-        global df_means
-        global df_append
-        
-        df_means = pd.concat([df_by_continent, df_global], axis = 0)
-        
-        df_append = None
-        for field in fields_dat_cf:
-            
-            df_cur = (
-                df_means[
-                    [
-                        field_count,
-                        field_type_forest,
-                        field
-                    ]
-                ]
-                .fillna(0)
-            )
-            
-            df_cur[field] = np.array(df_cur[field])*np.array(df_cur[field_count])/total_count
-            df_cur = sf.simple_df_agg(
-                df_cur.drop([field_count], axis = 1),
-                [field_type_forest],
-                {
-                    field: "sum"
-                }
-            )
-            
-            df_append = (
-                df_cur
-                if df_append is None
-                else pd.merge(df_append, df_cur)
-            )
-            
-            df_append[regions.field_iso] = iso
-            
-        df_out.append(df_append)
-        
-    df_out = pd.concat(df_out, axis = 0)
-        
-    return df_out
-        
-
-
-df_carbon_factors_forest_mod = get_average_forest_factors_by_iso(
-    df_climate,
-    df_carbon_factors_forest.drop([field_domain], axis = 1),
-    attr_kcc,
-    regions
-);
-
-
+        return df_transition
