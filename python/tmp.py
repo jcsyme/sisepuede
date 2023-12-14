@@ -1,122 +1,87 @@
-   # set some properties
-        cat_mangrove = self.model_afolu.cat_lndu_fstm
-        dict_copernicus_to_sisepuede = self.dict_copernicus_to_sisepuede
-        model_afolu = self.model_afolu
-        model_attrbutes = self.model_attributes
-
-        # fields
-        field_area = self.field_area
-        field_area_total_0 = self.field_area_total_0
-        field_array_0 = self.field_array_0
-        field_array_1 = self.field_array_1
-        field_category_i = self.field_category_i
-        field_category_i = self.field_category_j
-        field_probability_transition = self.field_probability_transition
-
-        # land use classes
-        luc_copernicus_herbaceous_wetland = self.luc_copernicus_herbaceous_wetland
-        luc_copernicus_herbaceous_wetland_new = self.luc_copernicus_herbaceous_wetland_new
-
-    def convert_herbaceous_vegetation_to_related_class(
-        df_transition: pd.DataFrame,
-    ) -> pd.DataFrame:
+def build_transition_df_for_year(self,
+        transition_matrix: rgd.RegionalGriddedData,
+        year: int,
+        dataset_prepend: str = "array_luc",
+        df_areas_base: Union[pd.DataFrame, None] = None,
+        dict_fields_add: Union[dict, None] = None,
+        **kwargs
+    ) -> Union[pd.DataFrame, None]:
         """
-        Herbaceous wetlands (HW) includes a number of categories that are 
-            included elsewhere in SISEPUEDE v1.0; in general, it likely 
-            corresponds best with grassland. Notably, transitions into wetlands 
-            tend to be the highest off-diagonal probabilities, which is likely 
-            unrealistic. 
+        Construct a dataframe from the land use change datasets from year `year` to
+            `year + 1`
+            
+        Returns None on errors or misspecification of input data (e.g., invalid year
+            or type)
         
-        To account for this, we assume that HWs are best accounted for by the 
-            correspondence class, and we eliminate most dynamics. 
-            
-            
+        
         Function Arguments
         ------------------
-        - df_transition: data frame containing aggregated transitions with 
-            Copernicus classes.
+        - transition_matrix: RegionalTransitionMatrix containing GriddedData divided
+            into land use arrays. The arrays must be accessile using
+            transition_matrix.get_regional_array(f"{dataset_prepend}_{year}")
+        - year: base year (output transition)
+        
         
         Keyword Arguments
         -----------------
+        - dataset_prepend: dataset prependage in RegionalTransitionMatrix used to 
+            access land use classification data
+        - df_areas_base: areas of land use type; used for splitting mangroves from 
+            wetlands (if specified). Should be a single row or series
+        - dict_fields_add: optional fields to add to output dataframe. Dictionary maps new
+            column to value
+        **kwargs: passed to self.add_data_frame_fields_from_dict
         """
+        
+        ##  INITIALIZE SOME INTERNAL VARIABLES
 
-        # set some properties
-        cat_mangrove = self.model_afolu.cat_lndu_fstm
-        dict_copernicus_to_sisepuede = self.dict_copernicus_to_sisepuede
         model_afolu = self.model_afolu
-        model_attrbutes = self.model_attributes
-
-        # fields
-        field_area = self.field_area
-        field_area_total_0 = self.field_area_total_0
-        field_array_0 = self.field_array_0
-        field_array_1 = self.field_array_1
         
-        # land use classes
-        luc_copernicus_herbaceous_wetland = self.luc_copernicus_herbaceous_wetland
-        luc_copernicus_herbaceous_wetland_new = self.luc_copernicus_herbaceous_wetland_new
-
+        # check input types
+        if not isinstance(transition_matrix, rgd.RegionalGriddedData):
+            return None
         
-        # first, get dictionary mapping array_0 to area_luc_0
-        dict_state_0_to_area_total = sf.build_dict(
-            df_transition[[field_array_0, field_area_total_0]]
+        arr_0 = transition_matrix.get_regional_array(f"{dataset_prepend}_{year}")
+        arr_1 = transition_matrix.get_regional_array(f"{dataset_prepend}_{year + 1}")
+        vec_areas = transition_matrix.get_regional_array("cell_areas")
+        if (arr_0 is None) | (arr_1 is None) | (vec_areas is None):
+            return None
+        
+        
+        ##  GET DATAFRAME AND MODIFY
+        
+        df = transition_matrix.get_transition_data_frame(
+            arr_0,
+            arr_1,
+            vec_areas,
+            include_pij = False,
         )
         
-        # initialize new columns
-        vec_new_0 = list(df_transition[field_array_0])
-        vec_new_1 = list(df_transition[field_array_1])
-        vec_new_array_total = list(df_transition[field_area_total_0])
         
-        # initialize list of output classes that wetlands have been converted to
-        output_edges_converted_to_wetlands = []
+        # call transition matrix
+        df_transition = self.convert_transition_classes_to_sisepuede(
+            df,
+            df_areas_base = df_areas_base,
+        )
         
-        for i, row in df_transition.iterrows():
-            
-            state_0 = int(row[field_array_0])
-            state_1 = int(row[field_array_1])
-            states = [state_0, state_1]
-            
-            add_area = True
-            area = float(row[field_area])
-            
-            if luc_copernicus_herbaceous_wetland not in states:
-                continue
-                
-                
-            # get new state 
-            state = (
-                luc_copernicus_herbaceous_wetland_new
-                if state_0 == state_1
-                else [x for x in states if x != luc_copernicus_herbaceous_wetland][0]
+        mat = model_afolu.get_transition_matrix_from_long_df(
+            df_transition, 
+            self.field_category_i,
+            self.field_category_j,
+            self.field_probability_transition,
+        ) 
+
+        df_out = model_afolu.format_transition_matrix_as_input_dataframe(
+            mat,
+        )
+        
+        if isinstance(dict_fields_add, dict):
+
+            df_out = sf.add_data_frame_fields_from_dict(
+                df_out,
+                dict_fields_add,
+                **kwargs
             )
-                
-            # if new state was previously the inbound class, we have to add the area to total for outbound
-            dict_state_0_to_area_total[state] += (
-                area 
-                if ((state == state_1) | (state_0 == state_1)) 
-                else 0.0
-            )   
-                
-            vec_new_0[i] = state
-            vec_new_1[i] = state
+            
         
-
-        # update data frames
-        df_transition[field_array_0] = vec_new_0
-        df_transition[field_array_1] = vec_new_1
-        df_transition[field_area_total_0] = (
-            df_transition[field_array_0]
-            .replace(dict_state_0_to_area_total)
-        )
-        
-        # re-aggregate
-        df_transition = sf.simple_df_agg(
-            df_transition,
-            [field_array_0, field_array_1],
-            {
-                field_area_total_0: "first",
-                field_area: "sum",
-            }
-        )
-        
-        return df_transition
+        return df_out

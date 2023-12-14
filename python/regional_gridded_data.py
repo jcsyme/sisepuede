@@ -47,6 +47,13 @@ class RegionalGriddedData:
     
     Optional Arguments
     ------------------
+    - region_identifier: region identifier used in indexing_geo_array. Options
+        are:
+        * "iso" (3 digit ISO Alpha code)
+        * "iso_numeric" (integer specifiying ISO code)
+        * "region" (name)
+
+        * NOTE: iso & iso_numeric should only be used for country-level data
 
     """
     
@@ -55,8 +62,10 @@ class RegionalGriddedData:
         region: Union[int, str],
         indexing_geo_array: Union['xarray.DataArray', np.ndarray, gc.GriddedDataset],
         regions: sc.Regions,
+        region_identifier: str = "iso_numeric",
     ):
         
+        self._initialize_properties()
         self._initialize_region(
             region,
             regions,
@@ -64,6 +73,7 @@ class RegionalGriddedData:
         
         self._initialize_grid_indexing_array(
             indexing_geo_array,
+            region_identifier = region_identifier,
         )
         
         
@@ -76,6 +86,7 @@ class RegionalGriddedData:
     
     def _initialize_grid_indexing_array(self,
         indexing_geo_array: Union['xarray.DataArray', np.ndarray],
+        region_identifier: str = "iso_numeric",
     ) -> None:
         """
         Initialize grid index. Sets the following properties
@@ -91,6 +102,12 @@ class RegionalGriddedData:
         - indexing_geo_array: indexing array with grid entries storing country
             isos (numeric). Used to extract data from other entries on the same
             grid
+        - region_identifier: attribute to use to match to array. Options are:
+            * "iso" (3 digit ISO Alpha code)
+            * "iso_numeric" (integer specifiying ISO code)
+            * "region" (name)
+
+            * NOTE: iso & iso_numeric should only be used for country-level data
         """
         
         gridded_dataset = None
@@ -115,10 +132,11 @@ class RegionalGriddedData:
             """
             
             raise ValueError(msg)
-            
-        
+
+        # get the regional identifer and identify grids
+        region_id = getattr(self, region_identifier)
         dims = indexing_geo_array.shape
-        w = np.where(indexing_geo_array == self.iso_numeric);
+        w = np.where(indexing_geo_array == region_id);
         
         if len(w[0]) == 0:
             msg = f"""
@@ -137,7 +155,29 @@ class RegionalGriddedData:
         
         return None
     
+
+
+    def _initialize_properties(self,
+        dataset_cell_areas: str = "cell_areas",
+    ) -> None:
+        """
+        Initialize key shared properties, including
         
+            * self.dataset_cell_areas
+
+        Keyword Arguments
+        -----------------
+        - dataset_cell_areas: name of dataset storing cell areas in indexing geo 
+            array
+        """
+
+        ##  SET PROPERTIES
+
+        self.dataset_cell_areas = dataset_cell_areas
+
+        return None
+
+
         
     def _initialize_region(self,
         region: Union[int, str],
@@ -199,6 +239,18 @@ class RegionalGriddedData:
     #    BASE FUNCTIONS    #
     ########################
     
+    def get_cell_areas(self,
+    ) -> Union[np.ndarray, None]:
+        """
+        Try to retrieve cell areas 
+        """
+        attr = self.dataset_cell_areas
+        out = self.get_regional_array(attr)
+
+        return out
+
+
+
     def get_regional_array_subset(self,
         array: np.ndarray,
     ) -> Union[np.ndarray, None]:
@@ -230,7 +282,7 @@ class RegionalGriddedData:
         # if cell_areas, retrieve only one dimension
         inds = (
             self.region_grid_indices[0]
-            if attr == "cell_areas"
+            if attr == self.dataset_cell_areas
             else self.region_grid_indices
         )
         
@@ -292,7 +344,7 @@ class RegionalGriddedData:
         )
         
         array_areas = (
-            self.get_regional_array("cell_areas")
+            self.get_cell_areas()
             if array_areas is None
             else array_areas
         )

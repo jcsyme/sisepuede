@@ -1737,11 +1737,14 @@ class AFOLU:
             # soil category
             cat_soil = clean_schema(self.model_attributes.get_variable_attribute(modvar, attr_soil.key))
             ind_soil = attr_soil.get_key_value_index(cat_soil)
+
             # get soil management factor for grasslands
             arr_lndu_soil_management_factor_cur = (1 - vec_lndu_frac_grassland_pasture) + vec_lndu_frac_grassland_pasture*arr_lndu_factor_soil_management[:, inds_lndu].transpose()
+
             #
             arr_lndu_avg_soc_cur = arr_lndu_area[:, inds_lndu]*dict_soil_fracs_to_use_lndu[modvar][:, inds_lndu]
             vec_soil_ef1_soc_est += arr_lndu_avg_soc_cur[:, ind_grass]*arr_soil_ef1_organic[:, ind_soil]*vec_lndu_frac_grassland_pasture/vec_soil_area_crop_pasture
+
             arr_lndu_avg_soc_cur = np.nan_to_num(arr_lndu_avg_soc_cur/arr_lndu_area[:, inds_lndu], 0.0, posinf = 0.0).transpose()
             arr_lndu_avg_soc_cur *= arr_soil_soc_stock[:, ind_soil]*arr_lndu_factor_soil_carbon[:, inds_lndu].transpose()*arr_lndu_soil_management_factor_cur
             arr_lndu_avg_soc += arr_lndu_avg_soc_cur.transpose()*arr_lndu_frac_mineral_soils[:, inds_lndu]
@@ -2950,6 +2953,7 @@ class AFOLU:
             current_stock_paper = vec_frst_c_from_hwp_paper[0] if (i == 0) else vec_frst_c_from_hwp_paper[i]
             exp_k_paper = np.exp(-vec_frst_k_hwp_paper[i])
             vec_frst_c_from_hwp_paper[i + 1] = current_stock_paper*exp_k_paper + ((1 - exp_k_paper)/vec_frst_k_hwp_paper[i])*vec_frst_c_paper[i]
+
             # wood
             current_stock_wood = vec_frst_c_from_hwp_wood[0] if (i == 0) else vec_frst_c_from_hwp_wood[i]
             exp_k_wood = np.exp(-vec_frst_k_hwp_wood[i])
@@ -2959,10 +2963,15 @@ class AFOLU:
         if n_years_lookback > 0:
             vec_frst_c_from_hwp_paper = vec_frst_c_from_hwp_paper[(n_years_lookback - 1):]
             vec_frst_c_from_hwp_wood = vec_frst_c_from_hwp_wood[(n_years_lookback - 1):]
+            
         vec_frst_c_from_hwp_paper_delta = vec_frst_c_from_hwp_paper[1:] - vec_frst_c_from_hwp_paper[0:-1]
         vec_frst_c_from_hwp_wood_delta = vec_frst_c_from_hwp_wood[1:] - vec_frst_c_from_hwp_wood[0:-1]
 
-        v_print = self.factor_c_to_co2*vec_frst_c_wood*self.model_attributes.get_scalar(self.model_ippu.modvar_ippu_demand_for_harvested_wood, "mass")
+        v_print = self.factor_c_to_co2*vec_frst_c_wood
+        v_print *= self.model_attributes.get_scalar(
+            self.model_ippu.modvar_ippu_demand_for_harvested_wood, 
+            "mass"
+        )
         v_mult = (1 - np.exp(-vec_frst_k_hwp_wood))/vec_frst_k_hwp_wood
 
         # get emissions from co2

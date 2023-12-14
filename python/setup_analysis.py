@@ -112,6 +112,7 @@ fp_csv_frac_no_till = os.path.join(dir_rbd_tillage, "agrc_frac_no_till.csv")
 
 # files for afolu transition probabilities
 fp_csv_transition_probability_estimation_annual = os.path.join(dir_rbd_baseline_transition_probs, "transition_probs_by_region_and_year.csv")
+fp_csv_transition_probability_estimation_annual_copernicus = os.path.join(dir_rbd_baseline_transition_probs, "transition_probs_by_region_and_year_copernicus.csv")
 fp_csv_transition_probability_estimation_mean = os.path.join(dir_rbd_baseline_transition_probs, "transition_probs_by_region_mean.csv")
 fp_csv_transition_probability_estimation_mean_recent = os.path.join(dir_rbd_baseline_transition_probs, "transition_probs_by_region_mean_recent_only.csv")
 fpt_csv_transition_probability_estimation_mean_with_growth = os.path.join(dir_rbd_baseline_transition_probs, "transition_probs_by_region_mean_with_target_growth-%s.csv")
@@ -145,49 +146,3 @@ fp_csv_ippu_net_imports_cement_clinker = os.path.join(dir_rbd_ind_cement_clinker
 
 
 
-
-##  FILE-PATH DEPENDENT FUNCTIONS
-
-def excel_template_path(sector: str, region: str, type_db: str, create_export_dir: bool = True) -> str:
-    """
-        sector: the emissions sector (e.g., AFOLU, Circular Economy, etc.)
-        region: three-character region code
-        type_db: one of "calibrated", "demo", "uncalibrated"
-    """
-
-    # check type specification
-    dict_valid_types = {
-        "calibrated": dir_parameters_calibrated,
-        "demo": dir_parameters_demo,
-        "uncalibrated": dir_parameters_uncalibrated
-    }
-
-    if type_db not in dict_valid_types.keys():
-        valid_types = sf.format_print_list(list(dict_valid_types.keys()))
-        raise ValueError(f"Invalid parameter db type '{type_db}' specified: valid types are {valid_types}.")
-
-    # check sector
-    if sector in model_attributes.all_sectors:
-        abv_sector = model_attributes.get_sector_attribute(sector, "abbreviation_sector")
-    else:
-        valid_sectors = sf.format_print_list(model_attributes.all_sectors)
-        raise ValueError(f"Invalid sector '{sector}' specified: valid sectors are {valid_sectors}.")
-
-    if type_db != "demo":
-        # check region and create export directory if necessary
-        if region.lower() in model_attributes.dict_attributes["region"].key_values:
-            abv_region = region.lower()
-            if (type_db != "demo"):
-                dir_exp = sf.check_path(os.path.join(dict_valid_types[type_db], abv_region), create_export_dir)
-                print(dir_exp)
-                dict_valid_types.update({type_db: dir_exp})
-        else:
-            valid_regions = sf.format_print_list(model_attributes.dict_attributes["region"].key_values)
-            raise ValueError(f"Invalid region '{region}' specified: valid regions are {valid_regions}.")
-
-        fn_out = f"model_input_variables_{abv_region}_{abv_sector}_{type_db}.xlsx"
-
-    else:
-        fn_out = f"model_input_variables_{abv_sector}_{type_db}.xlsx"
-
-    return os.path.join(dict_valid_types[type_db], fn_out)

@@ -308,19 +308,22 @@ class GriddedDataset:
     ------------------------
     - dict_datasets: dictionary mapping a string (name) to RioXArray containing
         gridded data
-    - key_indexing_grid: string giving the key in dict_datasets to use for indexing
-        regions. This grid is used to calculate dimensions, coordinates, and areas
-        of cells.
+    - key_indexing_grid: string giving the key in dict_datasets to use for 
+        indexing regions. This grid is used to calculate dimensions, 
+        coordinates, and areas of cells.
         
     Optional Arguments
     ------------------
-    
+    - logger: optional logging.Logger object to used for logging
+    - str_prepend_array_dataset: string to prepend to array datasets that are 
+        added
     """
     
     def __init__(self,
         dict_datasets: Dict[str, 'xarray.DataArray'],
         key_indexing_grid: str,
         logger: Union[logging.Logger, None] = None,
+        str_prepend_array_dataset: str = "array",
     ):
         
         self.logger = logger
@@ -328,6 +331,7 @@ class GriddedDataset:
         self._initialize_datasets(
             dict_datasets,
             key_indexing_grid,
+            str_prepend_array_dataset = str_prepend_array_dataset,
         )
     
     
@@ -340,15 +344,18 @@ class GriddedDataset:
     def _initialize_datasets(self,
         dict_datasets: Dict[str, 'xarray.DataArray'],    
         key_indexing_grid: str,
+        str_prepend_array_dataset: str = "array",
     ) -> None:
         """
         Initialize grid index. Sets the following properties
         
+            * self.all_datasets
             * self.array_index
             * self.cell_areas
             * self.coords_x
             * self.coords_y
             * self.shape
+            * self.str_prepend_array_dataset
             * Also assigns elements dict_datasets to properties
             
         NOTE: it is much faster to specify a numpy array here that is
@@ -356,8 +363,16 @@ class GriddedDataset:
             
         Function Arguments
         ------------------
-        - dict_datasets: dictionary mapping a string (name) to RioXArray containing
-            gridded data
+        - dict_datasets: dictionary mapping a string (name) to RioXArray 
+            containing gridded data
+
+        Keyword Arguments
+        -----------------
+        - key_indexing_grid: string giving the key in dict_datasets to use for 
+            indexing regions. This grid is used to calculate dimensions, 
+            coordinates, and areas of cells.
+        - str_prepend_array_dataset: string to prepend to array datasets that
+            are added
         """
         
         ##  DATA VERIFICATION
@@ -405,7 +420,6 @@ class GriddedDataset:
             Error instantiating indexing GriddedDataset: invalid type '{tp}' entered 
             for dict_datasets. dict_datasets must be of type 'dict'
             """
-            
             self._log(msg, type_log = "error")
             
             raise ValueError(msg)
@@ -413,6 +427,7 @@ class GriddedDataset:
         
         ##  GET PROPERTIES
         
+        all_datasets = []
         grid_base = dict_datasets.get(key_indexing_grid)
         shape = grid_base.shape
         
@@ -430,6 +445,7 @@ class GriddedDataset:
         self.coords_x = coords_x
         self.coords_y = coords_y
         self.shape = shape
+        self.str_prepend_array_dataset = str_prepend_array_dataset
         
         # set from data
         for k, v in dict_datasets.items():
@@ -439,10 +455,15 @@ class GriddedDataset:
             
             if k == key_indexing_grid:
                 continue
-                
-            # set array
-            setattr(self, f"array_{k}", v[0].to_numpy())
             
+            # set array
+            name = f"{str_prepend_array_dataset}_{k}"
+            setattr(self, name, v[0].to_numpy())
+
+            all_datasets.append(name)
+        
+        self.all_datasets = all_datasets
+
         return None
         
     

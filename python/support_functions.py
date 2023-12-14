@@ -408,6 +408,7 @@ def check_row_sums(
     return arr_out
 
 
+
 def check_set_values(
     subset: set,
     superset: set,
@@ -494,6 +495,31 @@ def clean_field_names(
         nms = df.rename(columns = dict(zip(list(df.columns), nms)))
 
     return nms
+
+
+
+def clean_row_stochastic_matrix(
+    mat: np.ndarray,
+    fill_diag: bool = True,
+) -> Union[np.ndarray, None]:
+    """
+    Ensure that rows sum to 1 and fill ones on diagonal if sum is 1
+    """
+    
+    if not isinstance(mat, np.ndarray):
+        return None
+    
+    sums_row = mat.sum(axis = 1)
+    dims = mat.shape
+    
+    for i in range(dims[0]):
+        if sums_row[i] == 0.0:
+            mat[i, i] = 1.0
+        else:
+            mat[i, :] /= sums_row[i]
+    
+    return mat
+
 
 
 
@@ -1505,7 +1531,7 @@ def isnumber(
 
 
 
-def list_dict_keys_with_same_values(self,
+def list_dict_keys_with_same_values(
     dict_in: dict,
     delim: str = "; "
 ) -> str:
@@ -2347,6 +2373,62 @@ def scalar_bounds(
     val_out = min([max([scalar, min(bounds)]), max(bounds)])
 
     return val_out
+
+
+
+def setup_logger(
+    fn_out: Union[str, None] = None,
+    format_str: Union[str, None] = None,
+    namespace: Union[str, None] = None,
+) -> None:
+    """
+    Setup a logger object 
+
+    Function Arguments
+    ------------------
+
+
+    Keyword Arguments
+    -----------------
+    - fn_out: optional path for logging
+    - format_str: optional string for formatting entries
+        * defaults to "%(asctime)s - %(levelname)s - %(message)s"
+    - namespace: optional namespace for the logger
+    """
+
+    format_str = (
+        "%(asctime)s - %(levelname)s - %(message)s"
+        if not isinstance(format_str, str)
+        else format_str
+    )
+
+    # configure
+    if isinstance(fn_out, str):
+        logging.basicConfig(
+            filename = fn_out,
+            filemode = "w",
+            format = format_str,
+            level = logging.DEBUG
+        )
+        
+    else:
+        logging.basicConfig(
+            format = format_str,
+            level = logging.DEBUG
+        )
+
+    logger = logging.getLogger(namespace)
+
+    # create console handler and set level to debug
+    ch = logging.StreamHandler()
+    ch.setLevel(logging.DEBUG)
+
+    # create formatter, add to channel, and the channel to the logger
+    formatter = logging.Formatter(format_str)
+    ch.setFormatter(formatter)
+    logger.addHandler(ch)
+
+    return logger
 
 
 
