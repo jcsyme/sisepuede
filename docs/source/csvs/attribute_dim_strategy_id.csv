@@ -142,3 +142,18 @@
 5008,PFLO: All transformations,PFLO:ALL,0,All transformations
 5009,PFLO: All transformations with partial land use reallocation,PFLO:ALL_PLUR,0,All transformations
 5010,"PFLO: All transformations with partial land use reallocation, no silvopasture",PFLO:ALL_PLUR_NO_SILVOPASTURE,0,All transformations except for silvopasture
+5011,PFLO: Acceptable net zero acheivement from lever uncertainty exploration 1,PFLO:NET_ZERO_FROM_LE_EXPLORATION_1,0,Strategy 5011 is converted from ID sisepuede_run_2023-10-06T20:10:09.932282 primary_id = 514914 (design_id: 3;  strategy_id: 5009;  future_id: 400;)
+5012,PFLO: Acceptable net zero acheivement from lever uncertainty exploration 2,PFLO:NET_ZERO_FROM_LE_EXPLORATION_2,0,Strategy 5012 is converted from ID sisepuede_run_2023-10-06T20:10:09.932282 primary_id = 514926 (design_id: 3;  strategy_id: 5009;  future_id: 412;)
+5013,PFLO: Acceptable net zero acheivement from lever uncertainty exploration 3,PFLO:NET_ZERO_FROM_LE_EXPLORATION_3,0,Strategy 5013 is converted from ID sisepuede_run_2023-10-06T20:10:09.932282 primary_id = 514978 (design_id: 3;  strategy_id: 5009;  future_id: 464;)
+5014,PFLO: Acceptable net zero acheivement from lever uncertainty exploration 4,PFLO:NET_ZERO_FROM_LE_EXPLORATION_4,0,Strategy 5014 is converted from ID sisepuede_run_2023-10-06T20:10:09.932282 primary_id = 515112 (design_id: 3;  strategy_id: 5009;  future_id: 598;)
+5015,PFLO: Acceptable net zero acheivement from lever uncertainty exploration 5,PFLO:NET_ZERO_FROM_LE_EXPLORATION_5,0,Strategy 5015 is converted from ID sisepuede_run_2023-10-06T20:10:09.932282 primary_id = 515483 (design_id: 3;  strategy_id: 5009;  future_id: 969;)
+5016,PFLO:Placeholder 1,PFLO:PLACEHOLDER_1,0,placeholder
+5017,PFLO:Placeholder 2,PFLO:PLACEHOLDER_2,0,placeholder
+5018,PFLO:Placeholder 3,PFLO:PLACEHOLDER_3,0,placeholder
+5019,PFLO:Placeholder 4,PFLO:PLACEHOLDER_4,0,placeholder
+5020,PFLO:Placeholder 5,PFLO:PLACEHOLDER_5,0,placeholder
+5021,PFLO:Placeholder 6,PFLO:PLACEHOLDER_6,0,placeholder
+5022,PFLO:Placeholder 7,PFLO:PLACEHOLDER_7,0,placeholder
+5023,PFLO:Placeholder 8,PFLO:PLACEHOLDER_8,0,placeholder
+5024,PFLO:Placeholder 9,PFLO:PLACEHOLDER_9,0,placeholder
+5025,PFLO:Placeholder 10,PFLO:PLACEHOLDER_10,0,placeholder

@@ -42,6 +42,7 @@ dir_parameters_uncalibrated = sf.check_path(os.path.join(dir_ingestion, "uncalib
 
 # key outputs for analysis run
 fp_csv_default_single_run_out = os.path.join(dir_out, "single_run_output.csv")
+fp_csv_tmp_inputs = os.path.join(dir_tmp, "temporary_full_inputs.csv")
 # nemo mod input files - specify required, run checks
 required_tables_nemomod = [
     model_attributes.table_nemomod_capacity_factor,

@@ -53,6 +53,7 @@ Contents
    :caption: Getting Started
    :hidden:
 
+   installation
    quick_start
    sisepuede_concept
    analytical_parameters
@@ -87,3 +88,9 @@ Contents
    mathdoc_economic_impact
    mathdoc_energy
    mathdoc_ippu
+
+.. toctree::
+   :caption: Community
+   :hidden:
+
+   contribute

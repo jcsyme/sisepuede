@@ -1229,7 +1229,7 @@ class TransformationsIntegrated:
             type_log = "info"
         )
         
-
+        
         # initialize to overwrite dataframes
         dict_sectors = dict((s, {}) for s in attr_sector.key_values)
         dict_write = dict((r, dict_sectors) for r in regions)
@@ -1298,6 +1298,9 @@ class TransformationsIntegrated:
                     .reset_index(drop = True)
                 )
 
+                global dc
+                dc = df_cur.copy()
+        
                 # split the current transformation into 
                 dict_cur = self.build_templates_dictionary_from_current_transformation(
                     df_cur,

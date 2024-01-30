@@ -463,7 +463,8 @@ class InputTemplate:
 		attribute_strategy: Union[AttributeTable, str, None]
 	) -> None:
 		"""
-		Initialize the strategy attribute table based on one of two potential inputs. Sets two InputTemplate parameters:
+		Initialize the strategy attribute table based on one of two potential 
+			inputs. Sets two InputTemplate parameters:
 
 		self.attribute_strategy
 		self.baseline_strategy
@@ -471,11 +472,16 @@ class InputTemplate:
 		Function Arguments
 		------------------
 		- attribute_strategy: One of the following:
-			* None: no strategy table is passed, and templates are read without consideration of defined strategies
+			* None: no strategy table is passed, and templates are read without 
+				consideration of defined strategies
 			* AttributeTable: any attribute table with a key that matches
-			self.model_attributes.dict_attributes(f"dim_{self.model_attributes.dim_strategy_id}"). The AttributeTable
-			should also include the following fields:
-				* baseline_scenario: binary field denoting the baseline scenario. Only one should exist per
+			self.model_attributes.dict_attributes(
+				f"dim_{self.model_attributes.dim_strategy_id}"
+			). 
+
+			The AttributeTable should also include the following fields:
+				* baseline_scenario: binary field denoting the baseline 
+					scenario. Only one should exist per
 
 		"""
 		# default to model attributes designation
@@ -487,29 +493,64 @@ class InputTemplate:
 
 			# verify key match - if matched, check for baseline strategy id
 			if attribute_strategy.key != self.model_attributes.dim_strategy_id:
-				self._log(f"Invalid attribute_strategy passed to InputTemplate: strategy key '{attribute_strategy.key}' does not match the ModelAttributes strategy key '{self.model_attributes.dim_strategy_id}'. Check the file at '{attribute_strategy.fp_table}'. Setting self.attribute_strategy = None.", type_log = "warning")
+
+				msg = f"""Invalid attribute_strategy passed to InputTemplate: 
+					strategy key '{attribute_strategy.key}' does not match the 
+					ModelAttributes strategy key 
+					'{self.model_attributes.dim_strategy_id}'. Check the file at 
+					'{attribute_strategy.fp_table}'. Setting 
+					self.attribute_strategy = None.
+					"""
+
+				self._log(msg, type_log = "warning")
 				out = None
+
 			elif (field_check in out.table.columns) and (len(out.table) > 0):
 				tab_filt = out.table[out.table[field_check] == 1][out.key]
 				if len(tab_filt) > 0:
+					msg = f"""Multiple specifications of baseline {out.key} 
+						found in field '{field_check}' in attribute_strategy. 
+						Check the file at '{out.fp_table}'. Inferring baseline 
+						{out.key} = {self.baseline_strategy}.
+						"""
+
 					self.baseline_strategy = min(tab_filt)
-					self._log(f"Multiple specifications of baseline {out.key} found in field '{field_check}' in attribute_strategy. Check the file at '{out.fp_table}'. Inferring baseline {out.key} = {self.baseline_strategy}.") if (len(tab_filt) > 1) else None
+					self._log(msg, type_log = "info") if (len(tab_filt) > 1) else None
+
 				else:
+					msg = f"""No specifications of baseline {out.key} found in 
+						field '{field_check}' in attribute_strategy. Check the 
+						file at '{out.fp_table}'. Inferring baseline 
+						{out.key} = {self.baseline_strategy}.
+						"""
+
 					self.baseline_strategy = min(out.table[out.key])
-					self._log(f"No specifications of baseline {out.key} found in field '{field_check}' in attribute_strategy. Check the file at '{out.fp_table}'. Inferring baseline {out.key} = {self.baseline_strategy}.")
+					self._log(msg, type_log = "info")
 
 		elif (attribute_strategy is None) and (self.filter_invalid_strategies):
 			key_try = f"dim_{self.model_attributes.dim_strategy_id}"
 			out = self.model_attributes.dict_attributes.get(key_try)
 			if out is None:
-				self._log(f"No strategy attribute found in ModelAttributes using dict_attributes key '{key_try}'. Setting self.attribute_strategy = None and self.baseline_strategy = {self.baseline_strategy}.", type_log = "warning")
+				msg = f"""No strategy attribute found in ModelAttributes using 
+					dict_attributes key '{key_try}'. Setting 
+					self.attribute_strategy = None and self.baseline_strategy = 
+					{self.baseline_strategy}.
+					"""
+
+				self._log(msg, type_log = "warning")
 
 		else:
 			tp = str(type(attribute_strategy))
-			self._log(f"Invalid type '{tp}' of attribute_strategy passed to InputTemplate. Setting self.attribute_strategy = None and self.baseline_strategy = {self.baseline_strategy}.", type_log)
+			msg = f"""Invalid type '{tp}' of attribute_strategy passed to 
+				InputTemplate. Setting self.attribute_strategy = None and 
+				self.baseline_strategy = {self.baseline_strategy}.
+				"""
+			self._log(msg, type_log)
 			out = None
 
 		self.attribute_strategy = out
+
+		return None
 
 
 

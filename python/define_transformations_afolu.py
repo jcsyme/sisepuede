@@ -256,6 +256,7 @@ class TransformationsAFOLU:
 
     def _initialize_baseline_inputs(self,
         df_inputs: Union[pd.DataFrame, None],
+        baseline_with_plur: bool = False,
     ) -> None:
         """
         Initialize the baseline inputs dataframe based on the initialization 
@@ -1270,8 +1271,8 @@ class TransformationsAFOLU:
             },
             self.vec_implementation_ramp,
             self.model_attributes,
-            model_afolu = self.model_afolu,
             field_region = self.key_region,
+            model_afolu = self.model_afolu,
             strategy_id = strat,
         )
 
@@ -1456,8 +1457,8 @@ class TransformationsAFOLU:
             0.99999,
             vec_ramp,#self.vec_implementation_ramp,
             self.model_attributes,
-            model_afolu = self.model_afolu,
             field_region = self.key_region,
+            model_afolu = self.model_afolu,
             strategy_id = strat,
         )
         
@@ -1493,8 +1494,8 @@ class TransformationsAFOLU:
             0.1, 
             self.vec_implementation_ramp,
             self.model_attributes,
-            model_afolu = self.model_afolu,
             field_region = self.key_region,
+            model_afolu = self.model_afolu,
             strategy_id = strat,
         )
         
@@ -1850,8 +1851,8 @@ class TransformationsAFOLU:
             0.2,
             self.vec_implementation_ramp,
             self.model_attributes,
-            model_afolu = self.model_afolu,
             field_region = self.key_region,
+            model_afolu = self.model_afolu,
             strategy_id = strat,
         )
         
@@ -1885,8 +1886,8 @@ class TransformationsAFOLU:
             },
             self.vec_implementation_ramp,
             self.model_attributes,
-            model_afolu = self.model_afolu,
             field_region = self.key_region,
+            model_afolu = self.model_afolu,
             strategy_id = strat,
         )
         
@@ -1920,8 +1921,8 @@ class TransformationsAFOLU:
             },
             self.vec_implementation_ramp,
             self.model_attributes,
-            model_afolu = self.model_afolu,
             field_region = self.key_region,
+            model_afolu = self.model_afolu,
             strategy_id = strat,
         )
         
@@ -1951,8 +1952,8 @@ class TransformationsAFOLU:
             },
             self.vec_implementation_ramp,
             self.model_attributes,
-            model_afolu = self.model_afolu,
             field_region = self.key_region,
+            model_afolu = self.model_afolu,
             strategy_id = strat,
         )
         

@@ -1495,6 +1495,7 @@ def transformation_entc_specify_transmission_losses(
                     "vec_ramp": vec_ramp
                 }
             },
+            field_region = field_region,
             **kwargs
         )
 
@@ -1525,6 +1526,7 @@ def transformation_entc_specify_transmission_losses(
                         "vec_ramp": vec_ramp
                     }
                 },
+                field_region = field_region,
                 **kwargs
             )
 

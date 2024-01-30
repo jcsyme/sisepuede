@@ -512,12 +512,15 @@ def transformation_frst_reduce_deforestation(
     # get region
     field_region_def = "nation"
     region_default = "DEFAULT"
-    if "field_region" not in kwargs.keys():
-        field_region = field_region_def
-    else:
-        field_region = kwargs.get("field_region")
+    field_region = kwargs.get("field_region", field_region_def)
     field_region = field_region_def if (field_region is None) else field_region
-    
+    #(
+    #    field_region_def
+    #    if "field_region" not in kwargs.keys()
+    #    else kwargs.get("field_region")
+    #)
+
+
     # organize and group
     df_group = df_input.copy()
     use_fake_region = (field_region not in df_group.columns)
@@ -1706,11 +1709,13 @@ def transformation_lndu_increase_silvopasture(
     # get region
     field_region_def = "nation"
     region_default = "DEFAULT"
-    if "field_region" not in kwargs.keys():
-        field_region = field_region_def
-    else:
-        field_region = kwargs.get("field_region")
+    field_region = kwargs.get("field_region", field_region_def)
     field_region = field_region_def if (field_region is None) else field_region
+    #(
+    #    field_region_def
+    #    if "field_region" not in kwargs.keys()
+    #    else kwargs.get("field_region")
+    #)
     
     # organize and group
     df_group = df_input.copy()

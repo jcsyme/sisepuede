@@ -1863,7 +1863,7 @@ class TransformationsEnergy:
         df_out = self.transformation_support_entc_change_msp_max(
             df_input,
             cats_to_cap,
-            strat = strat
+            strat = strat,
         )
 
 
@@ -2115,6 +2115,7 @@ class TransformationsEnergy:
             dict_cat_to_vector,
             self.model_electricity,
             drop_flag = self.model_electricity.drop_flag_tech_capacities,
+            field_region = self.key_region,
             vec_ramp = self.vec_implementation_ramp,
             strategy_id = strat,
             **kwargs

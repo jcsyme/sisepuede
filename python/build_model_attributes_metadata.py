@@ -3,7 +3,7 @@ Use this file to build functions and methods that can generate metadata and/or
     tables/other information (including figures) based on the Model Attributes
     module.
 """
-
+import itertools
 import model_attributes as ma
 import numpy as np
 import os, os.path
@@ -47,7 +47,7 @@ class InformationTableProperties:
         self.field_field_emission = "field"
         self.field_field_subsector_total = "subsector_total_field"
         self.field_gas = "gas"
-        self.field_gas_name = "gas_name",
+        self.field_gas_name = "gas_name"
         self.field_info = "model_variable_information"
         self.field_model_variable = "model_variable"
         self.field_sector = "sector"
@@ -172,7 +172,8 @@ def build_variable_information_table(
     ------------------
     - model_attributes: model_attributes.ModelAttributes object used to generate
         and manage variables
-    - modvars: model variables to build information for. If None, returns None.
+    - modvars: model variables to build information for. If None, returns all
+        model variables.
     """
     attr_gas = model_attributes.dict_attributes.get("emission_gas")
     dict_gas_to_name = attr_gas.field_maps.get(f"{attr_gas.key}_to_name")
@@ -192,6 +193,12 @@ def build_variable_information_table(
     field_out_sector = table_properties.field_sector
     field_out_subsector = table_properties.field_subsector
     
+    modvars = (
+        model_attributes.all_model_variables
+        if not sf.islistlike(modvars)
+        else list(modvars)
+    )
+
 
     df_out = []
     
@@ -212,6 +219,12 @@ def build_variable_information_table(
         fields = model_attributes.build_varlist(None, modvar)
         cats = model_attributes.get_variable_categories(modvar)
         cats = [""] if (cats is None) else cats
+        cats = (
+            [str(x) for x in itertools.product(cats, cats)]
+            if (len(cats)**2 == len(fields)) 
+            else cats
+        )
+
         pycats_primary = [
             ("" if (x == "") else pycat_primary)
             for x in cats
@@ -219,6 +232,16 @@ def build_variable_information_table(
         # attempt a description 
         info = model_attributes.get_variable_attribute(modvar, "information")
         info = "" if not isinstance(info, str) else info
+
+        lf = len(fields)
+        lc = len(cats)
+        lp = len(pycats_primary)
+        if len(set({lf, lc, lp})) != 1:
+            print(modvar)
+            print(f"cats:\t{lc}")
+            print(f"fields:\t{lf}")
+            print(f"pycats_primary:\t{lp}")
+            print("\n")
 
         # build current component
         df_cur = pd.DataFrame({

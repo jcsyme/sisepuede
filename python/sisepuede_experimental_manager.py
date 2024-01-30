@@ -144,7 +144,7 @@ class SISEPUEDEExperimentalManager:
 			fp_exogenous_xl_type_for_variable_specifcations = fp_exogenous_xl_type_for_variable_specifcations,
 			key_future = self.key_future,
 			key_strategy = self.key_strategy,
-			logger = self.logger
+			logger = self.logger,
 		)
 		self._initialize_lhs_design()
 

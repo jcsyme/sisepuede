@@ -428,6 +428,61 @@ def check_set_values(
 
 
 
+def check_type(
+    elem: Any, 
+    elem_type: Union[List[type], type],
+    write_message: bool = False,
+) -> Tuple[bool, Union[str, None]]:
+    """
+    Check if `elem` fits any of the types specified. Returns a bool and optional
+        message (if write_message == True). If no message is written, the second
+        element of the tuple is None.
+    """
+    elem_type = [elem_type] if isinstance(elem_type, type) else elem_type
+
+    # verify input type
+    is_valid = False
+    for tp in elem_type:
+        is_valid |= isinstance(elem, tp)
+
+    # build message
+    msg = None
+    if write_message and not is_valid:
+        ts = str(type(elem))
+        tps_valid = [str(x) for x in elem_type]
+        tps_valid = ", ".join([f"'{x}'" for x in tps_valid]
+        )
+        msg = f"Invalid type '{ts}' specified; valid types are {tps_valid}"
+    
+    out = (is_valid, msg)
+
+    return out
+
+
+
+def _check_type(
+    elem: Any, 
+    elem_type: Union[List[type], type],
+    prependage: str = ""
+) -> None:
+    """
+    Error-raising wrapper for `check_type`. Check if `elem` fits any of the 
+        types specified and throw an error if not. 
+        
+    `prependage` is an optional string prepend to the generic type message 
+        passed from check_type()
+    """
+    
+    is_valid, msg = check_type(elem, elem_type)
+
+    if not is_valid:
+        msg = f"{prependage}{msg}"
+        raise RuntimeError(msg)
+
+    return None
+
+
+
 def clean_field_names(
     nms: Union[list, pd.DataFrame],
     dict_repl: Union[dict, None] = None,
@@ -1036,8 +1091,8 @@ def get_args(
     
     Returns a tuple of the form `(args, kwargs)`, where `args` and `kwargs` are 
         lists of argument names. 
-        * If include_defaults is True, then `kwargs` is a dictionary mapping each
-            keyword argument to its default value.
+        * If include_defaults is True, then `kwargs` is a dictionary mapping 
+            each keyword argument to its default value.
         * If `func` is not callable, returns None
 
             
@@ -1047,8 +1102,8 @@ def get_args(
     
     Keyword Arguments
     -----------------
-    - include_defaults: If true, then `kwargs` is a dictionary mapping each keyword 
-        argument to its default value instead of a list.
+    - include_defaults: If true, then `kwargs` is a dictionary mapping each 
+        keyword argument to its default value instead of a list.
     """
 
     if not callable(func):
@@ -1559,7 +1614,8 @@ def match_df_to_target_df(
     fields_index: list,
     fields_to_replace: str = None,
     fillna_value: Union[int, float, str] = 0.0,
-    overwrite_only: bool = True
+    overwrite_only: bool = True,
+    try_interpolate: bool = False,
 ) -> pd.DataFrame:
     """
     Merge df_source to df_target, overwriting data fields in df_target with 
@@ -1579,6 +1635,8 @@ def match_df_to_target_df(
     - fillna_value: value to use to fill nas in data frame
     - overwrite_only: only overwrite columns in df_target with those in 
         df_source. If False, will merge in fields that are not in df_target.
+    - try_interpolate: if True, will try to fill downward any missing pieces
+        before filling nas
     """
 
     # get some fields
@@ -1612,6 +1670,16 @@ def match_df_to_target_df(
         how = "left",
         on = fields_index
     )
+
+    # interpolate?
+    if try_interpolate:
+        df_out[fields_dat_source] = (
+            df_out[fields_dat_source]
+            .interpolate(method = "linear")
+            .interpolate(method = "bfill")
+            .interpolate(method = "ffill")
+        )
+        
     
     df_out.fillna(fillna_value, inplace = True)
     df_out = (
@@ -1932,13 +2000,20 @@ def pivot_df_clean(
 
 def print_setdiff(
     set_required: set,
-    set_check: set
+    set_check: set,
 ) -> str:
     """
     Print a set difference; sorts to ensure easy reading for user.
+
+    Function Arguments
+    ------------------
+    - set_required: space of required elements
+    - set_check: set to check against the space
     """
     missing_vals = sorted(list(set_required - set_check))
-    return format_print_list(missing_vals)
+    out = format_print_list(missing_vals)
+
+    return out
 
 
 
@@ -2376,6 +2451,53 @@ def scalar_bounds(
 
 
 
+def set_properties_from_dict(
+    obj: Any,
+    dict_info: Dict[str, Any],
+    override_existing: bool = False,
+    stop_on_error: bool = False,
+) -> Union[str, None]:
+    """
+    Using dict_info, try to set properties on obj (USE WITH CAUTION)
+
+    Function Arguments
+    ------------------
+    - obj: object to which properties should be added
+    - dict_info: if successful, object obj will take on property key with value
+        value
+
+    Keyword Arguments
+    -----------------
+    - override_existing: if True, will override existing properties in an 
+        object
+    - stop_on_error: stop on an error?
+    """
+
+    errors = []
+    warns = []
+    num_errors = 0
+
+    for k, v in dict_info.items():
+        if hasattr(obj, k) and not override_existing:
+            msg = f"Object already has attribute {k}. Skipping..."
+            warns.append(msg)
+            continue
+
+        try:
+            setattr(obj, k, v)
+        
+        except Exception as e:
+            msg = f"Error trying to set property {k}: {e}"
+            num_errors += 1
+            errors.append(msg)
+
+    errors = None if (num_errors == 0) else errors
+    out = (errors, num_errors, warns)
+
+    return out
+
+
+
 def setup_logger(
     fn_out: Union[str, None] = None,
     format_str: Union[str, None] = None,
@@ -2386,7 +2508,6 @@ def setup_logger(
 
     Function Arguments
     ------------------
-
 
     Keyword Arguments
     -----------------

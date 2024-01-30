@@ -49,6 +49,17 @@ These components are referred to as *metavariables*--they characterize and descr
 .. note::
    Example: the :math:`\text{CO}_2` emission factor for maize crop production, which captures crop burning, decomposition, and other factors, would be entered as ``ef_agactivity_maize_kg_co2_ha`` since, in this case, ``$CAT-AGRICULTURE$ = maize``, ``$EMISSION-GAS$ = co2``, ``$UNIT-AREA$ = ha``, and ``$UNIT-MASS$ = kg``. Similarly, the :math:`\text{N}_2\text{O}` factor, which includes crop liming and fertilization, would be captured as ``ef_agactivity_maize_kg_n2o_ha``.
 
+.. Variable ranges can be set for individual dimensions and for the space of any dimensions ``$CAT-INDUSTRY$ = paper|cement|plastic``, ``$CAT-INDUSTRY-DIM1$ = product_use_lubricants|product_use_paraffin_wax|cement|plastic``, ``$CAT-TRANSPORTATION$ = aviation|rail_freight|dymm` `since elements_iter applies roots first, if categories for roots are
+                specified in the presence of multiple dimensions, it will 
+                initialize those restrictions for the children. If children are
+                also specified, then they will overwrite the root's 
+                specification.
+
+                E.g., X -> R will set X-DIM1, X-DIM2, and X-DIM3 to R; then, 
+                additionally specifying X-DIM2 as s will overwrite X-DIM2 (only)
+                as S.
+
+
 Simplex Group
 -------------
 
