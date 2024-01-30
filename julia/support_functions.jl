@@ -22,9 +22,12 @@ function build_dict(df_in::DataFrame)
 end
 
 
+
 ##  function to clean table names
 
-function clean_field_names(nms::Array{String, 1})
+function clean_field_names(
+        nms::Array{String, 1}
+)
     nms = replace.(lowercase.(nms), "  " => " ")
     nms = replace.(nms, " " => "_")
     nms = replace.(nms, "\$" => "")
@@ -42,7 +45,10 @@ function clean_field_names(nms::Array{String, 1})
     
     return nms
 end
-function clean_field_names(nms::Array{Symbol, 1})
+
+function clean_field_names(
+    nms::Array{Symbol, 1}
+)
     nms = replace.(lowercase.(String.(nms)), "  " => " ")
     nms = replace.(nms, " " => "_")
     nms = replace.(nms, "\$" => "")
@@ -62,14 +68,20 @@ function clean_field_names(nms::Array{Symbol, 1})
 end
 
 
-function clean_field_names!(df_in::DataFrame)
+
+function clean_field_names!(
+    df_in::DataFrame
+)
     nms0 = names(df_in)
     nms = clean_field_names(nms0)
     rename!(df_in, Dict(zip(Symbol.(nms0), Symbol.(nms))))
 end
 
 ##  functions for checking fields/keys
-function check_fields!(data_frame::DataFrame, fields_check::Array{Symbol, 1})
+function check_fields!(
+    data_frame::DataFrame, 
+    fields_check::Array{Symbol, 1}
+)
     # verify fields
     fields_req = Set(String.(fields_check))
 
@@ -80,8 +92,14 @@ function check_fields!(data_frame::DataFrame, fields_check::Array{Symbol, 1})
     end
 end
 
-##  check to ensure keys are present in the dictionary
-function check_keys!(dict::Dict, keys_check::Array{String, 1})
+
+"""
+check to ensure keys are present in the dictionary
+"""
+function check_keys!(
+    dict::Dict, 
+    keys_check::Array{String, 1}
+)
     # verify fields
     keys_req = Set(String.(keys_check))
     keys_avail = Set(String.(collect(keys(dict))))
@@ -92,7 +110,11 @@ function check_keys!(dict::Dict, keys_check::Array{String, 1})
         error("Keys $(str_missing_keys) not found. Check the dictionary.")
     end
 end
-function check_keys!(dict::Dict, keys_check::Array{Symbol, 1})
+
+function check_keys!(
+    dict::Dict, 
+    keys_check::Array{Symbol, 1}
+)
     # verify fields
     keys_req = Set(String.(keys_check))
     keys_avail = Set(String.(collect(keys(dict))))
@@ -104,8 +126,15 @@ function check_keys!(dict::Dict, keys_check::Array{Symbol, 1})
     end
 end
 
-##  use check_path to return a path if it exists and throw an error otherwise; optional 'create_directory_q' can be used to create a directory
-function check_path(path::String, create_directory_q::Bool)
+
+
+"""
+use check_path to return a path if it exists and throw an error otherwise; optional 'create_directory_q' can be used to create a directory
+"""
+function check_path(
+    path::String, 
+    create_directory_q::Bool
+)
     if ispath(path)
         return path
     else
@@ -120,16 +149,22 @@ function check_path(path::String, create_directory_q::Bool)
 end
 
 
-##  FUNCTION check_trailing_num_field checks if the end of a field (split by "_") is numeric; allows for the return of that number
-function check_trailing_num_field(field::String, return_val::String = "query", field_delim::String = "_")
+"""
+FUNCTION check_trailing_num_field checks if the end of a field (split by "_") is 
+    numeric; allows for the return of that number
+""" 
+function check_trailing_num_field(
+    field::String, 
+    return_val::String = "query", 
+    field_delim::String = "_"
+ )
     nv = split(field, field_delim)
+    rv_bool = false
+    tp = nothing
 
-        tp = nothing
     if length(nv) > 1
         tp = tryparse(Int64, nv[length(nv)])
-        rv_bool = (tp !== nothing)
-    else
-        rv_bool = false
+        rv_bool = !isa(tp, Nothing)
     end
 
     if return_val == "query"
@@ -141,8 +176,16 @@ end
 
 
 
-##  FUNCTION FOR EXPORTING A SUBSET OF A DATAFRAME AND CONVERTING IT TO A TAR GZ
-function export_sub_file_csv(df_in::DataFrame, fields_save::Array{String, 1}, fp_csv_exp::String, conv_gz_q::Bool = true, rm_csv_q::Bool = false)
+"""
+FUNCTION FOR EXPORTING A SUBSET OF A DATAFRAME AND CONVERTING IT TO A TAR GZ
+"""
+function export_sub_file_csv(
+    df_in::DataFrame, 
+    fields_save::Array{String, 1}, 
+    fp_csv_exp::String, 
+    conv_gz_q::Bool = true, 
+    rm_csv_q::Bool = false
+)
 
     print("\n\n###    Exporting drop fields to '$(fp_csv_exp)'... \n")
 
