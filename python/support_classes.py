@@ -1320,6 +1320,8 @@ class YAMLConfiguration:
     ):
         
         self._initialize_data(fp)
+
+        return None
         
     
         
@@ -1330,18 +1332,23 @@ class YAMLConfiguration:
         Read the yaml dictionary. Sets the following properties:
         
             * self.dict_yaml
+            * self.path
         """
         
         try:
             dict_yaml = sf.read_yaml(fp, munchify_dict = False)
         except Exception as e:
             raise RuntimeError(f"Error initializing YAML dictionary in yaml_config: {e}")
-            
+        
+
+        ##  SET PROPERTIES
+
         self.dict_yaml = dict_yaml
+        self.path = fp
         
         return None
             
-        
+
 
     def get(self,
         key: str,

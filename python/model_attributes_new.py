@@ -1,5 +1,4 @@
 from attribute_table import *
-#from configuaration import *
 import itertools
 import model_variable as mv
 import numpy as np

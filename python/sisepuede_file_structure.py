@@ -90,7 +90,8 @@ class SISEPUEDEFileStructure:
 		**kwargs
 	) -> None:
 		"""
-		Clean implementation of sf._optional_log in-line using default logger. See ?sf._optional_log for more information
+		Clean implementation of sf._optional_log in-line using default logger. 
+			See ?sf._optional_log for more information
 
 		Function Arguments
 		------------------

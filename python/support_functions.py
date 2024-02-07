@@ -272,6 +272,46 @@ def build_repeating_vec(
 
 
 
+def call_with_varkwargs(
+    func: callable,
+    *args,
+    dict_kwargs: Union[dict, None] = None,
+    verify_function: Union[callable, None] = None,
+) -> Any:
+    """
+    Call function with keyword arguments specified in a dictionary. Only reads
+        keyword arguments associated with func; useful for passing keyword
+        arguments through a configuration/dictionary
+
+    Function Arguments
+    ------------------
+    - func: function to call
+    - *args: arguments to function
+
+    Keyword Arguments
+    -----------------
+    - dict_kwargs: dictionary containing keyword aruguments. If not a 
+        dictionary, returns func(*args)
+    - verify_function: function to used for verifying keyword arguments. In
+        general, should be None (defaults to func) unless func is a known
+        wrapper for verify_function
+    """
+    
+    if not callable(func):
+        return None
+
+    # get available function arguments/kwargs
+    verify_function = func if not callable(verify_function) else verify_function
+    args_list, kwargs = get_args(verify_function, include_defaults = False)
+
+    # get keyword arguments
+    dict_kwargs = {} if not isinstance(dict_kwargs, dict) else dict_kwargs
+    kwargs = dict((k, v) for k, v in dict_kwargs.items() if k in kwargs)
+    
+    return func(*args, **kwargs)
+
+
+
 def check_binary_fields(
     df_in: pd.DataFrame,
     field: str
@@ -1121,16 +1161,22 @@ def get_args(
     ) = inspect.getfullargspec(func)
     
     # defaults are called from backwards forwards
+    defaults = [] if defaults is None else defaults
     n = -len(defaults)
-    kwargs = args[n:]
+    default_args = args[n:]
     args = args[0:n]
     
     kwargs = (
-        dict(zip(kwargs, defaults))
-        if include_defaults
-        else kwargs
-    ) 
-        
+        kwonlydefaults.copy()
+        if isinstance(kwonlydefaults, dict)
+        else {}
+    )
+    (
+        kwargs.update(dict(zip(default_args, defaults))) 
+        if include_defaults 
+        else None
+    )
+
     out = args, kwargs
     
     return out
