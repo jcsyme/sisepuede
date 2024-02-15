@@ -1376,7 +1376,7 @@ class ModelAttributes:
         type_primary: str = "categories",
         type_target: str = "categories",
         injection_q: bool = True,
-        allow_multiple_cats_q: bool = False
+        allow_multiple_cats_q: bool = False,
     ):
         """
         Check the validity of categories specified as an attribute 
@@ -2338,6 +2338,32 @@ class ModelAttributes:
     
 
 
+    def get_category_replacement_field_dict(self,
+        modvar: str,
+    ) -> Union[dict, None]:
+        """
+        Replace SISEPUEDE categories with the target field associated with the
+            model variable `modvar`
+        """
+        
+        cats = self.get_variable_categories(modvar)
+        if cats is None:
+            return {}
+
+        dict_repl_categories_with_fields = {}
+        for cat in cats:
+            fields = self.build_varlist(
+                None,
+                modvar,
+                restrict_to_category_values = cat,
+            )
+            
+            dict_repl_categories_with_fields.update({cat: fields[0]})
+            
+        return dict_repl_categories_with_fields
+    
+
+
     def get_df_dimensions_of_analysis(self, 
         df_in: pd.DataFrame, 
         df_in_shared: pd.DataFrame = None
@@ -2502,6 +2528,27 @@ class ModelAttributes:
         )
         
         return return_val
+    
+
+
+    def get_primary_category_schema_element(self,
+        subsector: str,
+    ) -> Union[str, None]:
+        """
+        Return the full primary category element associated with the primary 
+            category for subsector
+        """
+
+        attr = self.dict_attributes.get("abbreviation_subsector")
+
+        dict_subsec_to_key = attr.field_maps.get(f"subsector_to_{attr.key}")
+        dict_key_to_primary_cat = attr.field_maps.get(f"{attr.key}_to_primary_category")
+        
+        key = dict_subsec_to_key.get(subsector)
+        pc_element = dict_key_to_primary_cat.get(key)
+        
+        return pc_element
+
             
 
 

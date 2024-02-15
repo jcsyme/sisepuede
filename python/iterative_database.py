@@ -13,11 +13,11 @@ import sql_utilities as sqlutil
 
 class IterativeDatabaseTable:
 	"""
-	Create a data table to use for storing output results. Includes functionality
-		for reading, writing, verifying keys, and more.
+	Create a data table to use for storing output results. Includes 
+		functionality for reading, writing, verifying keys, and more.
 
-		* Includes a potential "stash" (IterativeDatabaseTable.stash), which stores
-			rows that failed to successfully write to the table.
+		* Includes a potential "stash" (IterativeDatabaseTable.stash), which 
+			stores rows that failed to successfully write to the table.
 
 
 	Initialization Arguments
@@ -31,8 +31,8 @@ class IterativeDatabaseTable:
 			* Note: Ensure `create_directory = True` to force the creation of
 				the output directory.
 		* sqlalchemy.engine.Engine: sqlalchemy engine that specifies a database
-			and schema to write output tables to. This engine can be used to write
-			to a remote database service.
+			and schema to write output tables to. This engine can be used to 
+			write to a remote database service.
 
 	Optional Arguments
 	------------------
@@ -1172,24 +1172,26 @@ class IterativeDatabase:
 		# IterativeDatabaseTable Keywords
 		keep_stash: bool = False,
 		index_conflict_resolution: Union[str, None] = "write_skip",
-		replace_on_init = False
-	):
-		# initiqlize some simple properties
+		replace_on_init = False,
+	) -> None:
+		# initialize some simple properties
 		self.keep_stash = keep_stash
 		self.logger = logger
 		self.replace_on_init = replace_on_init
 
-		self._initialize_analysis_id(analysis_id)
+		self._initialize_analysis_id(analysis_id, )
 		self._initialize_engine(
 			engine,
 			fp_base_output,
-			create_dir_output = create_dir_output
+			create_dir_output = create_dir_output,
 		)
 		self._initialize_tables(
 			dict_all_tables,
 			fields_index_default,
-			index_conflict_resolution
+			index_conflict_resolution,
 		)
+
+		return None
 
 
 
@@ -1215,23 +1217,45 @@ class IterativeDatabase:
 
 			* self.analysis_id (AnalysisID object)
 			* self.id (shortcurt to self.analysis_id.id)
+			* self.id_fs_safe
 		"""
+
+		# initialize
+		aid = None
+		id_shortcut = None
+		id_fs_safe = None
+
 		if isinstance(analysis_id, AnalysisID):
-			self.analysis_id = analysis_id
+			aid = analysis_id
+
 		elif isinstance(analysis_id, str):
 
 			try:
-				self.analysis_id = AnalysisID(
+				aid = AnalysisID(
 					id_str = analysis_id,
 					logger = self.logger
 				)
 
 			except Exception as e:
-				self._log(f"Invalid ", type_log = "warning")
+
+				self._log(
+					f"Invalid analysis_id string {analysis_id}: {e}", 
+					type_log = "warning"
+				)
+
 				raise RuntimeError(e)
 
-		self.id = self.analysis_id.id
-		self.id_fs_safe = self.analysis_id.id_fs_safe
+		id_shortcut = aid.id if (aid is not None) else None
+		id_fs_safe = aid.id_fs_safe if (aid is not None) else None
+
+
+		##  SET PROPERTIES
+
+		self.analysis_id = aid
+		self.id = id_shortcut
+		self.id_fs_safe = id_fs_safe
+
+		return None
 
 
 
@@ -1255,11 +1279,12 @@ class IterativeDatabase:
 		engine connected to a database/schema used to output data. Options for
 		export are:
 			* string:
-				* "csv": exports CSVs to subdirectory (associated with analysis run id)
-					located in output directory
-				* "sqlite": exports all tables to a SQL lite database located in the
-					output directory
-			* sqlalchemy.engine.Engine: sqlalchemy engine that specifies a database
+				* "csv": exports CSVs to subdirectory (associated with analysis 
+					run id) located in output directory
+				* "sqlite": exports all tables to a SQL lite database located in 
+					the output directory
+			* sqlalchemy.engine.Engine: sqlalchemy engine that specifies a 
+				database
 				and schema to write output tables to. This engine can be used to write
 				to a remote database service.
 			* None:
@@ -1295,7 +1320,9 @@ class IterativeDatabase:
 			self._log(f"\tSetting export engine to '{self.interaction_type}'.", type_log = "info")
 
 			# initialize a default
-			fbn_outputs = f"{self.id_fs_safe}_outputs_raw"
+			fbn_outputs = f"{self.id_fs_safe}_" if (self.id_fs_safe is not None) else ""
+			fbn_outputs = f"{fbn_outputs}outputs_raw"
+
 			self.fp_base_output = os.path.join(
 				os.getcwd(),
 				fbn_outputs
@@ -1311,9 +1338,10 @@ class IterativeDatabase:
 					dict([(f".{x}", "") for x in (self.valid_engine_strs)])
 				)
 				dir_output = fp_base_output if (self.interaction_type == "csv") else os.path.dirname(fp_base_output)
-				#
+				
 				if create_dir_output:
 					dir_output = sf.check_path(dir_output, True)
+
 				elif not os.path.exists(dir_output):
 					msg = f"FATAL ERROR: specified output directory '{dir_output}' does not exist. To avoid this error, do not set create_dir_output = False"
 					self._log(msg, type_log = "error")
@@ -1328,14 +1356,20 @@ class IterativeDatabase:
 			##  CREATE SQLITE ENGINE IF NEEDED
 
 			str_prepend_sqlite = "sqlite:///"
-			self.engine = sqlalchemy.create_engine(
-				f"{str_prepend_sqlite}{self.fp_base_output}"
-			) if (self.interaction_type == "sqlite") else self.interaction_type
+			self.engine = (
+				sqlalchemy.create_engine(f"{str_prepend_sqlite}{self.fp_base_output}") 
+				if (self.interaction_type == "sqlite") 
+				else self.interaction_type
+			)
 
 		elif isinstance(engine, sqlalchemy.engine.Engine):
+
 			self.engine = engine
 			self.interaction_type = "sql"
 			self._log(f"\tSetting export engine to SQLAlchemy engine.", type_log = "info")
+
+
+		return None
 
 
 
@@ -1359,11 +1393,11 @@ class IterativeDatabase:
 		Function Arguments
 		------------------
 		- dict_all_tables: dictionary mapping a list of tables to initialize and
-			store OR list of table names (converted to dictionary of keys to None).
-			The dictionary maps keys (table names) to dictionaries that define
-			properties of the table to pass to the IterativeDatabase. If there are
-			no properties to pass, the value of the entry should be associated with
-			`None`. An example of the input dictionary is:
+			store OR list of table names (converted to dictionary of keys to 
+			None). The dictionary maps keys (table names) to dictionaries that 
+			define properties of the table to pass to the IterativeDatabase. If 
+			there are no properties to pass, the value of the entry should be 
+			associated with `None`. An example of the input dictionary is:
 
 				dict_all_tables = {
 					TABLE_1: {
@@ -1376,10 +1410,12 @@ class IterativeDatabase:
 					}
 				}
 
-			* If tables are not initialized with a property, they revert to using the
-				IterativeDatabaseTable default associated with that property.
+			* If tables are not initialized with a property, they revert to 
+				using the IterativeDatabaseTable default associated with that 
+				property.
 			* Once tables are initialized, the can be modified using the
-				IterativeDatabaseTable `read_table` and `_write_to_table` methods.
+				IterativeDatabaseTable `read_table` and `_write_to_table` 
+				methods.
 		- fields_index_default: default fields_index_default to use if none are
 			specified in dict_all_tables.
 		- index_conflict_resolution: conflict resolution approach to take (see
@@ -1396,7 +1432,12 @@ class IterativeDatabase:
 		"""
 
 		# set table information
-		dict_all_tables = dict([(str(x), None) for x in dict_all_tables]) if isinstance(dict_all_tables, list) else dict_all_tables
+		dict_all_tables = (
+			dict([(str(x), None) for x in dict_all_tables]) 
+			if isinstance(dict_all_tables, list) 
+			else dict_all_tables
+		)
+
 		self.dict_all_tables = {} if not isinstance(dict_all_tables, dict) else dict_all_tables
 		self.all_tables = sorted(list(self.dict_all_tables.keys()))
 
@@ -1407,6 +1448,7 @@ class IterativeDatabase:
 
 		# initialize existing tables to pass (if specified) -- must be first defined in self.all_tables to properly update
 		self.dict_iterative_database_tables = {}
+
 
 		for table_name in enumerate(self.all_tables):
 			i, table_name = table_name
@@ -1419,7 +1461,12 @@ class IterativeDatabase:
 
 			# this setup allows for None to be passed in the dictionary
 			if dict_params is not None:
-				fields_index = dict_params.get("fields_index") if ("fields_index" in dict_params.keys()) else self.fields_index_default
+
+				fields_index = (
+					dict_params.get("fields_index") 
+					if ("fields_index" in dict_params.keys()) 
+					else self.fields_index_default
+				)
 				keep_stash = dict_params.get("keep_stash")
 				keep_stash = keep_stash if isinstance(keep_stash, bool) else False
 
@@ -1434,13 +1481,28 @@ class IterativeDatabase:
 					index_conflict_resolution = index_conflict_resolution
 				)
 
-				self.index_conflict_resolution = table_idb.index_conflict_resolution if (self.index_conflict_resolution is None) else self.index_conflict_resolution
-				self._log(f"Successfully instantiated table {table_name}", type_log = "info")
+				self.index_conflict_resolution = (
+					table_idb.index_conflict_resolution 
+					if (self.index_conflict_resolution is None) else 
+					self.index_conflict_resolution
+				)
+
+				self._log(
+					f"Successfully instantiated table {table_name}", 
+					type_log = "info",
+				)
 
 			except Exception as e:
-				self._log(f"Error in _initialize_tables() trying to instantiate table {table_name}: {e}", type_log = "error")
+				self._log(
+					f"Error in _initialize_tables() trying to instantiate table {table_name}: {e}", 
+					type_log = "error"
+				)
 
-			self.dict_iterative_database_tables.update({table_name: table_idb}) if (table_idb is not None) else None
+			if (table_idb is not None):
+				self.dict_iterative_database_tables.update({table_name: table_idb}) 
+
+		
+		return None
 
 
 
@@ -1617,7 +1679,7 @@ class IterativeDatabase:
 
 	def _add_tables(self,
 		dict_new_tables: Union[Dict[str, IterativeDatabaseTable], None],
-		overwrite_existing_if_in_dict_idt: bool = False
+		overwrite_existing_if_in_dict_idt: bool = False,
 	) -> None:
 		"""
 		Initialize the output database based on the engine. Modifies the
@@ -1644,7 +1706,11 @@ class IterativeDatabase:
 		"""
 
 		# check new table names against exisitng; if overwriting, delete the existing table
-		dict_new_tables = dict([(str(x), None) for x in dict_new_tables]) if isinstance(dict_new_tables, list) else dict_new_tables
+		dict_new_tables = (
+			dict([(str(x), None) for x in dict_new_tables]) 
+			if isinstance(dict_new_tables, list) 
+			else dict_new_tables
+		)
 		dict_new_tables = {} if not isinstance(dict_new_tables, dict) else dict_new_tables
 		dict_tables_merge = {}
 
@@ -1652,9 +1718,17 @@ class IterativeDatabase:
 		tables_new_eval = list(dict_new_tables.keys())
 		tables_all_drop = []
 		tables_new_drop = []
+
 		for k in tables_new_eval:
-			if k in self.dict_all_tables.keys():
-				tables_all_drop.append(k) if overwrite_existing_if_in_dict_idt else tables_new_drop.append(k)
+			if k not in self.dict_all_tables.keys():
+				continue
+
+			(
+				tables_all_drop.append(k) 
+				if overwrite_existing_if_in_dict_idt 
+				else tables_new_drop.append(k)
+			)
+
 		tables_new_eval = [x for x in tables_new_eval if (x not in tables_new_drop)]
 
 		# get the engine
@@ -1662,6 +1736,7 @@ class IterativeDatabase:
 
 		# loops over tables that are to be merged (accounts for overwriting)
 		for table_name in tables_new_eval:
+
 			table_name = table_name
 			table_idb = None
 
@@ -1672,7 +1747,7 @@ class IterativeDatabase:
 
 			# this setup allows for None to be passed in the dictionary
 			if dict_params is not None:
-				fields_index = dict_params.get("fields_index") if ("fields_index" in dict_params.keys()) else self.fields_index_default
+				fields_index = dict_params.get("fields_index", self.fields_index_default) 
 				keep_stash = dict_params.get("keep_stash")
 				keep_stash = keep_stash if isinstance(keep_stash, bool) else False
 
@@ -1684,15 +1759,23 @@ class IterativeDatabase:
 					keep_stash = keep_stash,
 					logger = self.logger,
 					replace_on_init = self.replace_on_init,
-					index_conflict_resolution = self.index_conflict_resolution
+					index_conflict_resolution = self.index_conflict_resolution,
 				)
 
-				self._log(f"Successfully added table {table_name}", type_log = "info")
+				self._log(
+					f"Successfully added table {table_name}", 
+					type_log = "info",
+				)
 
 			except Exception as e:
-				self._log(f"Error in _add_table() trying to add table {table_name}: {e}", type_log = "error")
+				self._log(
+					f"Error in _add_table() trying to add table {table_name}: {e}", 
+					type_log = "error",
+				)
 
-			dict_tables_merge.update({table_name: table_idb}) if (table_idb is not None) else None
+			if (table_idb is not None):
+				dict_tables_merge.update({table_name: table_idb})
+				
 
 		# update properties
 		self.all_tables = sorted(list(set(self.all_tables) | set(tables_new_eval)))

@@ -430,7 +430,7 @@ class TransformationsCircularEconomy:
             "CE:ALL", 
             [
                 self.transformation_trww_increase_biogas_capture,
-                #self.transformation_trww_increase_septic_compliance,
+                self.transformation_trww_increase_septic_compliance, #CHANGEDFORINDIA, SHOULD BE COMMENTED OUT
                 self.transformation_wali_improve_sanitation_industrial,
                 self.transformation_wali_improve_sanitation_rural,
                 self.transformation_wali_improve_sanitation_urban,
@@ -906,7 +906,7 @@ class TransformationsCircularEconomy:
             df_input,
             # as float, applies to both landfill and biogas; specify as dict to break out; 
             # e.g., {"treated_advanced_anaerobic": 0.85, "treated_secondary_anaerobic": 0.5}
-            0.85, 
+            0.95, # CHANGEDFORINDIA 0.85
             self.vec_implementation_ramp,
             self.model_attributes,
             field_region = self.key_region,
@@ -1007,7 +1007,7 @@ class TransformationsCircularEconomy:
             df_input,
             "ww_domestic_rural",
             {
-                "treated_septic": 1.0,
+                "treated_septic": 1.0, 
             },
             self.vec_implementation_ramp,
             self.model_attributes,
@@ -1143,7 +1143,7 @@ class TransformationsCircularEconomy:
 
         df_out = tbc.transformation_waso_increase_gas_capture(
             df_input,
-            0.85, # as float, applies to both landfill and biogas; specify as dict to break out
+            0.95, # as float, applies to both landfill and biogas; specify as dict to break out # CHANGEDFORINDIA 0.85
             self.vec_implementation_ramp,
             self.model_attributes,
             field_region = self.key_region,

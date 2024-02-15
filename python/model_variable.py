@@ -369,6 +369,12 @@ class ModelVariable:
                 is not associated with any categories (0 dimension)
             * self.name:
                 Name of the variable (passed in var_init via self.key_name)
+            * self.name_clean:
+                Name of the variable that is cleaned to remove LaTeX, RST, and
+                markdown special characters
+            * self.name_fs_safe:
+                Name of the variable that excludes spaces and sets all 
+                characters to lower case
             * self.regex_expression_bounds:
                 Regular expression used to parse expressions (e.g., mutable 
                 element dictionaries) from initialization strings
@@ -407,6 +413,8 @@ class ModelVariable:
         # get the variable information dictionary
         dict_varinfo = self.get_variable_init_dictionary(variable_init)
         name = dict_varinfo.get(self.key_name)
+        name_clean = self.get_clean_name(name)
+        name_fs_safe = self.get_clean_name(name, fs_safe = True)
 
         # set the schema
         try:
@@ -460,6 +468,8 @@ class ModelVariable:
         self.flag_all_cats = flag_all_cats
         self.flag_no_dims = flag_no_dims
         self.name = name
+        self.name_clean = name_clean
+        self.name_fs_safe = name_fs_safe
         self.regex_expression_bounds = regex_expression_bounds
         self.schema = schema
         self.space_char = schema.space_char
@@ -490,7 +500,10 @@ class ModelVariable:
 
         return None
 
-
+    
+    ############################
+    #    NON-INIT FUNCTIONS    #
+    ############################
 
     def build_init_me_to_cat_dictionary(self,
         dict_category_space: Union[Dict[str, List[str]], None],
@@ -754,6 +767,31 @@ class ModelVariable:
     
 
 
+    def get_clean_name(self,
+        name: str,
+        fs_safe: bool = False,
+    ) -> str:
+        """
+        Return the cleaned version of the name, which excludes LaTeX, Markdown,
+            and RST special characters that are part of the full name. Set 
+            fs_safe = True to generate file system safe version (no spaces, all 
+            lower case)
+        """
+        chars_repl = [":math:\\text", "{", "}_", "}"]
+
+        name_clean = sf.str_replace(name, dict((x, "") for x in chars_repl))
+        if fs_safe:
+            name_clean = (
+                name_clean
+                .lower()
+                .strip()
+                .replace(" ", "_")
+            )
+
+        return name_clean
+
+
+
     def get_default_value(self,
         dict_varinfo: dict,
         default_if_missing: Any = np.nan,
@@ -795,13 +833,10 @@ class ModelVariable:
 
     def get_variable_init_dictionary(self,
         variable_init: Union[dict, pd.DataFrame, pd.Series],
-    ) -> None:
+    ) -> dict:
         """
-        Initialize key archival settings used to store necessary experimental
-            parameters, Latin Hypercube Samples, ModelAttribute tables, and
-            more. Sets the following properties:
-
-            * self.
+        Verify the variable initialization dictionary, pd.Series, or 
+            pd.DataFrame and convert to a dictionary.
 
         Function Arguments
         ------------------

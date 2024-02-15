@@ -1156,8 +1156,8 @@ class TransformationsAFOLU:
             else baseline_with_plur
         )
 
-        ##  SET LAND USE REALLOCATION FACTOR
 
+        ##  SET LAND USE REALLOCATION FACTOR
 
         fields_lndu_reallocation = self.model_attributes.build_varlist(
             None,
@@ -1350,7 +1350,7 @@ class TransformationsAFOLU:
         
         df_out = tba.transformation_agrc_improve_rice_management(
             df_input,
-            0.45,
+            0.6, # CHANGEDFORINDIA 0.45
             self.vec_implementation_ramp,
             self.model_attributes,
             model_afolu = self.model_afolu,
@@ -1379,7 +1379,8 @@ class TransformationsAFOLU:
         
         df_out = tba.transformation_agrc_increase_crop_productivity(
             df_input,
-            0.2, # can be specified as dictionary to affect different crops differently
+            # CHANGEDFORINDIA - ORIG 0.2
+            0.4, # can be specified as dictionary to affect different crops differently HEREHERE
             self.vec_implementation_ramp,
             self.model_attributes,
             model_afolu = self.model_afolu,
@@ -1480,7 +1481,8 @@ class TransformationsAFOLU:
             
         NOTE: This transformation relies on modifying transition matrices, which 
             can compound some minor numerical errors in the crude implementation 
-            taken here. Final area prevalences may not reflect get_matrix_column_scalarget_matrix_column_scalarprecise shifts.
+            taken here. Final area prevalences may not reflect 
+            get_matrix_column_scalarget_matrix_column_scalarprecise shifts.
         """
         # check input dataframe
         df_input = (
@@ -1491,7 +1493,7 @@ class TransformationsAFOLU:
 
         df_out = tba.transformation_lndu_increase_silvopasture(
             df_input,
-            0.1, 
+            0.25, # CHANGEDFORINDIA - ORIG 0.1
             self.vec_implementation_ramp,
             self.model_attributes,
             field_region = self.key_region,
@@ -1780,7 +1782,7 @@ class TransformationsAFOLU:
             {
                 self.model_afolu.modvar_lsmm_rf_biogas: {
                     "bounds": (0.0, 1),
-                    "magnitude": 0.9,
+                    "magnitude": 0.95, # CHANGEDFORINDIA 0.9
                     "magnitude_type": "final_value_floor",
                     "vec_ramp": self.vec_implementation_ramp
                 }
@@ -1848,7 +1850,7 @@ class TransformationsAFOLU:
         
         df_out = tba.transformation_lvst_increase_productivity(
             df_input,
-            0.2,
+            0.3, # CHANGEDFORINDIA 0.2
             self.vec_implementation_ramp,
             self.model_attributes,
             field_region = self.key_region,
@@ -1878,9 +1880,9 @@ class TransformationsAFOLU:
         df_out = tba.transformation_lvst_reduce_enteric_fermentation(
             df_input,
             {
-                "buffalo": 0.4,
-                "cattle_dairy": 0.4,
-                "cattle_nondairy": 0.4,
+                "buffalo": 0.5, # CHANGEDFORINDIA 0.4
+                "cattle_dairy": 0.5, # CHANGEDFORINDIA 0.4
+                "cattle_nondairy": 0.5, # CHANGEDFORINDIA 0.4
                 "goats": 0.56,
                 "sheep": 0.56
             },

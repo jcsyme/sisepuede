@@ -61,6 +61,7 @@ fp_sqlite_nemomod_db_tmp = os.path.join(dir_tmp, "nemomod_intermediate_database.
 ##  DIRECTORIES
 dir_rbd_afolu_exports_imports = sf.check_path(os.path.join(dir_ref_batch_data, "afolu_imports_exports"), True)
 dir_rbd_afolu_land_use_efs = sf.check_path(os.path.join(dir_ref_batch_data, "afolu_land_use_emission_factors"), True)
+dir_rbd_agrc_initial_cropland_fracs = sf.check_path(os.path.join(dir_ref_batch_data, "agrc_initial_cropland_fracs"), True)
 dir_rbd_baseline_transition_probs = sf.check_path(os.path.join(dir_ref_batch_data, "baseline_transition_probability_estimates"), True)
 dir_rbd_energy = sf.check_path(os.path.join(dir_ref_batch_data, "non_electric_energy_inputs"), True)
 dir_rbd_generic = sf.check_path(os.path.join(dir_ref_batch_data, "generic"), True)
@@ -88,6 +89,9 @@ fp_csv_population_centroids_by_iso = os.path.join(dir_rbd_generic, "population_c
 
 
 ##  AFOLU
+
+# files for initial cropland fractions
+fp_csv_agrc_initial_cropland_fracs = os.path.join(dir_rbd_agrc_initial_cropland_fracs, "initial_cropland_fractions.csv")
 
 # files for afolu imports/exports
 fp_csv_afolu_import_exports = os.path.join(dir_rbd_afolu_exports_imports, "afolu_import_(ofdem)_export_(ofprod)_fractions.csv")

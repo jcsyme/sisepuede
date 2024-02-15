@@ -4,423 +4,11 @@ import model_variable as mv
 import numpy as np
 import os, os.path
 import pandas as pd
+import re
 import support_functions as sf
 from typing import *
 import warnings
 
-
-##  CONFIGURATION file
-class Configuration:
-
-    def __init__(self,
-        fp_config: str,
-        attr_area: AttributeTable,
-        attr_energy: AttributeTable,
-        attr_gas: AttributeTable,
-        attr_length: AttributeTable,
-        attr_mass: AttributeTable,
-        attr_monetary: AttributeTable,
-        attr_power: AttributeTable,
-        attr_region: AttributeTable,
-        attr_time_period: AttributeTable,
-        attr_volume: AttributeTable,
-        attr_required_parameters: AttributeTable = None
-    ):
-        self.fp_config = fp_config
-        self.attr_required_parameters = attr_required_parameters
-
-        # set tables
-        self.attr_area = attr_area
-        self.attr_energy = attr_energy
-        self.attr_gas = attr_gas
-        self.attr_length = attr_length
-        self.attr_mass = attr_mass
-        self.attr_monetary = attr_monetary
-        self.attr_power = attr_power
-        self.attr_region = attr_region
-        self.attr_volume = attr_volume
-
-        # set required parametrs by type
-        self.params_bool = [
-            "save_inputs"
-        ]
-        self.params_string = [
-            "area_units",
-            "energy_units",
-            "energy_units_nemomod",
-            "emissions_mass",
-            "historical_solid_waste_method",
-            "land_use_reallocation_max_out_directionality",
-            "length_units",
-            "monetary_units",
-            "nemomod_solver",
-            "output_method",
-            "power_units",
-            "region",
-            "volume_units"
-        ]
-        self.params_float = [
-            "days_per_year"
-        ]
-        self.params_float_fracs = [
-            "discount_rate"
-        ]
-        self.params_int = [
-            "global_warming_potential",
-            "historical_back_proj_n_periods",
-            "nemomod_solver_time_limit_seconds",
-            "nemomod_time_periods",
-            "num_lhc_samples",
-            "random_seed",
-            "time_period_u0"
-        ]
-
-        self.dict_config = self.get_config_information(
-            attr_area,
-            attr_energy,
-            attr_gas,
-            attr_length,
-            attr_mass,
-            attr_monetary,
-            attr_power,
-            attr_region,
-            attr_time_period,
-            attr_volume,
-            attr_required_parameters,
-            delim = "|"
-        )
-
-
-
-    def check_config_defaults(self,
-        param,
-        vals,
-        dict_valid_values: dict = dict({}),
-        set_as_literal_q: bool = False,
-    ) -> List[Any]:
-        """
-        some restrictions on the config values
-        """
-
-        val_list = (
-            [vals] 
-            if ((not isinstance(vals, list)) or set_as_literal_q) 
-            else vals
-        )
-
-        # loop over all values to check
-        for val in val_list:
-            if param in self.params_bool:
-                val = bool(str(val) == "True")
-            elif param in self.params_int:
-                val = int(val)
-            elif param in self.params_float:
-                val = float(val)
-            elif param in self.params_float_fracs:
-                val = min(max(float(val), 0), 1)
-            elif param in self.params_string:
-                val = str(val)
-
-            if param in dict_valid_values.keys():
-                if val not in dict_valid_values[param]:
-                    valid_vals = sf.format_print_list(dict_valid_values[param])
-                    raise ValueError(f"Invalid specification of configuration parameter '{param}': {param} '{val}' not found. Valid values are {valid_vals}")
-
-        return vals
-
-
-
-    def get(self, 
-        key: str, 
-        raise_error_q: bool = False
-    ) -> Any:
-        """
-        Retrieve a configuration value associated with key
-        """
-        out = self.dict_config.get(key)
-        if (out is None) and raise_error_q:
-            raise KeyError(f"Configuration parameter '{key}' not found.")
-
-        return out
-
-
-
-    def get_config_information(self,
-        attr_area: AttributeTable = None,
-        attr_energy: AttributeTable = None,
-        attr_gas: AttributeTable = None,
-        attr_length: AttributeTable = None,
-        attr_mass: AttributeTable = None,
-        attr_monetary: AttributeTable = None,
-        attr_power: AttributeTable = None,
-        attr_region: AttributeTable = None,
-        attr_time_period: AttributeTable = None,
-        attr_volume: AttributeTable = None,
-        attr_parameters_required: AttributeTable = None,
-        field_req_param: str = "configuration_file_parameter",
-        field_default_val: str = "default_value",
-        delim: str = ","
-    ) -> dict: 
-        """
-        Retrieve a configuration file and population missing values with 
-            defaults
-        """
-
-        # set some variables from defaults
-        attr_area = attr_area if (attr_area is not None) else self.attr_area
-        attr_energy = attr_energy if (attr_energy is not None) else self.attr_energy
-        attr_gas = attr_gas if (attr_gas is not None) else self.attr_gas
-        attr_length = attr_length if (attr_length is not None) else self.attr_length
-        attr_mass = attr_mass if (attr_mass is not None) else self.attr_mass
-        attr_monetary = attr_monetary if (attr_monetary is not None) else self.attr_monetary
-        attr_power = attr_power if (attr_power is not None) else self.attr_power
-        attr_region = attr_region if (attr_region is not None) else self.attr_region
-        attr_time_period = attr_time_period if (attr_time_period is not None) else self.attr_time_period
-        attr_volume = attr_volume if (attr_volume is not None) else self.attr_volume
-
-        # check path and parse the config if it exists
-        dict_conf = {}
-        if self.fp_config != None:
-            if os.path.exists(self.fp_config):
-                dict_conf = self.parse_config(self.fp_config, delim = delim)
-
-        # update with defaults if a value is missing in the specified configuration
-        if attr_parameters_required is not None:
-
-            dict_key_to_required_param = attr_parameters_required.field_maps.get(f"{attr_parameters_required.key}_to_{field_req_param}")
-            dict_key_to_default_value = attr_parameters_required.field_maps.get(f"{attr_parameters_required.key}_to_{field_default_val}")
-
-            if (
-                attr_parameters_required.key != field_req_param
-            ) and (
-                dict_key_to_required_param is not None
-            ) and (
-                dict_key_to_default_value is not None
-            ):
-                # add defaults
-                for k in attr_parameters_required.key_values:
-                    param_config = dict_key_to_required_param.get(k) if (attr_parameters_required.key != field_req_param) else k
-                    if param_config not in dict_conf.keys():
-                        val_default = self.infer_types(dict_key_to_default_value.get(k))
-                        dict_conf.update({param_config: val_default})
-
-
-        ##  MODIFY SOME PARAMETERS BEFORE CHECKING
-
-        # set parameters to return as a list and ensure type return is list
-        params_list = ["region", "nemomod_time_periods"]
-        for p in params_list:
-            if not isinstance(dict_conf[p], list):
-                dict_conf.update({p: [dict_conf[p]]})
-
-        # set some to lower case
-        params_list = ["nemomod_solver", "output_method"]
-        for p in params_list:
-            dict_conf.update({p: str(dict_conf.get(p)).lower()})
-
-
-        ##  CHECK VALID CONFIGURATION VALUES AND UPDATE IF APPROPRIATE
-
-        valid_area = self.get_valid_values_from_attribute_column(attr_area, "area_equivalent_", str, "unit_area_to_area")
-        valid_bool = [True, False]
-        valid_energy = self.get_valid_values_from_attribute_column(attr_energy, "energy_equivalent_", str, "unit_energy_to_energy")
-        valid_gwp = self.get_valid_values_from_attribute_column(attr_gas, "global_warming_potential_", int)
-        valid_historical_hwp_method = ["back_project", "historical"]
-        valid_historical_solid_waste_method = ["back_project", "historical"]
-        valid_lurmod = ["decrease_only", "increase_only", "decrease_and_increase"]
-        valid_length = self.get_valid_values_from_attribute_column(attr_length, "length_equivalent_", str, "unit_length_to_length")
-        valid_mass = self.get_valid_values_from_attribute_column(attr_mass, "mass_equivalent_", str, "unit_mass_to_mass")
-        valid_monetary = self.get_valid_values_from_attribute_column(attr_monetary, "monetary_equivalent_", str, "unit_monetary_to_monetary")
-        valid_output_method = ["csv", "sqlite"]
-        valid_power = self.get_valid_values_from_attribute_column(attr_power, "power_equivalent_", str, "unit_power_to_power")
-        valid_region = attr_region.key_values
-        valid_solvers = ["cbc", "clp", "cplex", "gams_cplex", "glpk", "gurobi", "highs"]
-        valid_time_period = attr_time_period.key_values
-        valid_volume = self.get_valid_values_from_attribute_column(attr_volume, "volume_equivalent_", str)
-        
-        # map parameters to valid values
-        dict_checks = {
-            "area_units": valid_area,
-            "energy_units": valid_energy,
-            "energy_units_nemomod": valid_energy,
-            "emissions_mass": valid_mass,
-            "global_warming_potential": valid_gwp,
-            "historicall_harvested_wood_products_method": valid_historical_hwp_method,
-            "historical_solid_waste_method": valid_historical_solid_waste_method,
-            "land_use_reallocation_max_out_directionality": valid_lurmod,
-            "length_units": valid_length,
-            "monetary_units": valid_monetary,
-            "nemomod_solver": valid_solvers,
-            "nemomod_time_periods": valid_time_period,
-            "output_method": valid_output_method,
-            "power_units": valid_power,
-            "region": valid_region,
-            "save_inputs": valid_bool,
-            "time_period_u0": valid_time_period,
-            "volume_units": valid_volume
-        }
-
-        # allow some parameter switch values to valid values
-        dict_params_switch = {"region": ["all"], "nemomod_time_periods": ["all"]}
-        for p in dict_params_switch.keys():
-            if dict_conf[p] == dict_params_switch[p]:
-                dict_conf.update({p: dict_checks[p].copy()})
-
-        dict_conf = dict(
-            (k, self.check_config_defaults(k, v, dict_checks))
-            for k, v in dict_conf.items()
-        )
-
-        ###   CHECK SOME PARAMETER RESITRICTIONS
-
-        # positive integer restriction
-        dict_conf.update({
-            "historical_back_proj_n_periods": max(dict_conf.get("historical_back_proj_n_periods"), 1),
-            "nemomod_solver_time_limit_seconds": max(dict_conf.get("nemomod_solver_time_limit_seconds"), 60), # set minimum solver limit to 60 seconds
-            "num_lhc_samples": max(dict_conf.get("num_lhc_samples", 0), 0),
-            "save_inputs": bool(str(dict_conf.get("save_inputs")).lower() == "true"),
-            "random_seed": max(dict_conf.get("random_seed"), 1)
-        })
-
-        # set some attributes
-        self.valid_area = valid_area
-        self.valid_energy = valid_energy
-        self.valid_gwp = valid_gwp
-        self.valid_historical_solid_waste_method = valid_historical_solid_waste_method
-        self.valid_land_use_reallocation_max_out_directionality = valid_lurmod
-        self.valid_length = valid_length
-        self.valid_mass = valid_mass
-        self.valid_monetary = valid_monetary
-        self.valid_power = valid_power
-        self.valid_region = valid_region
-        self.valid_save_inputs = valid_bool
-        self.valid_solver = valid_solvers
-        self.valid_time_period = valid_time_period
-        self.valid_volume = valid_volume
-
-        return dict_conf
-
-
-
-    def get_valid_values_from_attribute_column(self,
-        attribute_table: AttributeTable,
-        column_match_str: str,
-        return_type: type = None,
-        field_map_to_val: str = None
-    ) -> List[str]:
-        """
-        Retrieve valid key values from an attribute column
-        """
-        cols = [
-            x.replace(column_match_str, "") 
-            for x in attribute_table.table.columns 
-            if (x[0:min(len(column_match_str), len(x))] == column_match_str)
-        ]
-        if return_type != None:
-            cols = [return_type(x) for x in cols]
-        # if a dictionary is specified, map the values to a name
-        if field_map_to_val != None:
-            if field_map_to_val in attribute_table.field_maps.keys():
-                cols = [attribute_table.field_maps[field_map_to_val][x] for x in cols]
-            else:
-                raise KeyError(f"Error in get_valid_values_from_attribute_column: the field map '{field_map_to_val}' is not defined.")
-
-        return cols
-
-
-
-    def infer_type(self,
-        val: Union[int, float, str, None]
-    ) -> Union[int, float, str, None]:
-        """
-        Guess the input type for a configuration file.
-        """
-        if val is not None:
-            val = str(val)
-            if val.replace(".", "").replace(",", "").isnumeric():
-                num = float(val)
-                val = int(num) if (num == int(num)) else float(num)
-
-        return val
-
-
-
-    def infer_types(self,
-        val_in: Union[float, int, str, None],
-        delim = ","
-    ) -> Union[type, List[type], None]:
-        """
-        Guess the type of input value val_in
-        """
-        rv = None
-        if val_in is not None:
-            rv = (
-                [self.infer_type(x) for x in val_in.split(delim)] 
-                if (delim in val_in) 
-                else self.infer_type(val_in)
-            )
-
-        return rv
-
-
-
-    def parse_config(self,
-        fp_config: str,
-        delim: str = ","
-    ) -> dict:
-        """
-            parse_config returns a dictionary of configuration values found in the
-                configuration file (of form key: value) found at file path
-                `fp_config`.
-
-            Keyword Arguments
-            -----------------
-            delim: delimiter used to split input lists specified in the configuration file
-        """
-
-        #read in aws initialization
-        if os.path.exists(fp_config):
-        	with open(fp_config) as fl:
-        		lines_config = fl.readlines()
-        else:
-            raise ValueError(f"Invalid configuation file {fp_config} specified: file not found.")
-
-        dict_out = {}
-        #remove unwanted blank characters
-        for ln in lines_config:
-            ln_new = sf.str_replace(ln.split("#")[0], {"\n": "", "\t": ""})
-            if (":" in ln_new):
-                ln_new = ln_new.split(":")
-                key = str(ln_new[0])
-                val = self.infer_types(str(ln_new[1]).strip(), delim = delim)
-                dict_out.update({key: val})
-
-        return dict_out
-
-
-
-    def to_data_frame(self,
-        list_delim: str = "|"
-    ) -> pd.DataFrame:
-        """
-        List all configuration parameters as a single-rows dataframe. Converts
-            lists to concatenated strings separated by the delimiter
-            `list_delim`.
-
-        Keyword Arguments
-        -----------------
-        - list_delim: delimiter to use to convert lists to concatenated strings
-            as elements in the data frame.
-        """
-        dict_df = {}
-        for key in self.dict_config.keys():
-            val = self.dict_config.get(key)
-            if isinstance(val, list):
-                val = list_delim.join([str(x) for x in val])
-
-            dict_df.update({key: [val]})
-
-        return pd.DataFrame(dict_df)
 
 
 
@@ -430,7 +18,7 @@ class ModelAttributes:
     Create a centralized object for managing inter-sectoral objects, dimensions,
         attributes, and variables.
 
-    INFO HERE
+    
     """
     def __init__(self,
         dir_attributes: str,
@@ -491,11 +79,139 @@ class ModelAttributes:
         self._check_attribute_tables_waso()
 
         return None
+    
+
+
+    # HEREHERE: MOVE DOWN LATER
+    def iat_support_get_attribute_group(self,
+        fn_attribute: str,
+        attribute_groups_ordered: List[str],
+        dict_attribute_group_to_regex: Dict[str, re.Pattern],
+    ) -> Union[str, None]:
+        """
+        Get the attribute group associated with fn_attribute
+
+        Function Arguments
+        ------------------
+        - fn_attribute: attribute file name
+        - attribute_groups_ordered: ordered search list of attribtue 
+            groups
+        - dict_attribute_group_to_regex: dictionary mapping attribute
+            groups to regular expressions
+
+        Keyword Arguments
+        -----------------
+        """
+        # get group 
+        keep_going = True
+        i = 0
+
+        while keep_going & i < len(attribute_groups_ordered)
+
+            group = attribute_groups_ordered[i]
+            regex = dict_attribute_group_to_regex.get(group)
+
+            if regex.match(fn_attribute) is not None:
+                keep_going = False
+            
+            i += 0
+
+        out = group if not keep_going else None
+
+        return out
+    
+
+
+    def _iat_support_update_grouped_attributes(self,
+        fp_attribute: str,
+        attribute_groups_ordered: List[str],
+        dict_attribute_group_to_regex: Dict[str, re.Pattern],
+        dict_to_update: Dict[str, Dict[str, AttributeTable]],
+    ) -> None:
+        """
+        Format the attribute tables for assignment in dictionaries
+
+        Function Arguments
+        ------------------
+        - fp_attribute: attribute file path
+        - attribute_groups_ordered: ordered search list of attribtue 
+            groups
+        - dict_attribute_group_to_regex: dictionary mapping attribute
+            groups to regular expressions
+        - dict_to_update: dictionary to update. Keys are groups and 
+            values are dictionaries mapping keys to attribute tables
+
+        Keyword Arguments
+        -----------------
+        """
+        ##  INITIALIZATION
+
+        # get group and regular expression; return None if not found
+
+        fn = os.path.basename(fp_attribute)
+
+        group = self.iat_support_get_attribute_group(
+            fn,
+            attribute_groups_ordered,
+            dict_attribute_group_to_regex,
+        )
+
+        regex = (
+            dict_attribute_group_to_regex.get(group)
+            if (group is not None)
+            else None
+        )
+
+        if regex is None:
+            return None
+
+
+        ##  CHECK GROUP MEMBERSHIP AND UPDATE DICTIONARY IF NECESSARY
+
+        if group not in dict_to_update.keys():
+            dict_to_update.update({group: {}})
+
+        if group == "dim":
+
+            nm = regex.match(fn).groups()[0]
+            att_table = AttributeTable(fp, nm)
+            dict_to_update[group].update({k: att_table})
+
+
+        elif group in ["cat", "unit", "other"]:
+            #
+            df_cols = pd.read_csv(fp, nrows = 0).columns 
+            
+            # try to set key
+            nm = sf.clean_field_names([x for x in df_cols if ("$" in x) and (" " not in x.strip())])
+            nm = nm[0] if (len(nm) > 0) else None
+            if nm is None:
+                nm = regex.match(fn).groups()[0]
+                nm = nm if (nm in df_cols) else None
+
+            # skip if impossible
+            if nm is None:
+                return None
+
+            att_table = AttributeTable(fp, nm)
+            key = nm.replace(f"{group}_", "")
+            dict_to_update[group].update({key: att_table})
+
+
+        else:
+            msg = f"""
+            Invalid attribute '{att}': No attribute group or expression 
+            was found to support its addition.
+            """
+            raise ValueError(msg)
+        
+        
+        return None
 
 
 
     def _initialize_all_primary_category_flags(self,
-    ) -> list:
+    ) -> None:
         """
         Sets all primary category flags, e.g., $CAT-CCSQ$ or $CAT-AGRICULTURE$.
             Sets the following properties:
@@ -511,12 +227,18 @@ class ModelAttributes:
 
         self.all_primary_category_flags = all_pcflags
 
+        return None
 
 
+            
     def _initialize_attribute_tables(self,
         dir_att: str,
+        attribute_group_protected_other: str = "other",
+        attribute_groups: Union[List[str], None] = ["cat", "dim", "unit"],
+        stop_on_error: bool = True,
         table_name_attr_sector: str = "abbreviation_sector",
-        table_name_attr_subsector: str = "abbreviation_subsector"
+        table_name_attr_subsector: str = "abbreviation_subsector",
+        variable_definition_key: str = "variable_definitions",
     ) -> None:
         """
         Load all attribute tables and set the following parameters:
@@ -528,7 +250,9 @@ class ModelAttributes:
             self.attribute_directory
             self.attribute_experimental_parameters
             self.dict_attributes
-            self.dict_varreqs
+            self.dict_variable_definitions
+            self.regex_attribute_*:
+                regular expressions used to read in attribute tables 
             self.table_name_attr_sector
             self.table_name_attr_subsector
 
@@ -538,83 +262,161 @@ class ModelAttributes:
 
         Keyword Arguments
         -----------------
+        - attribute_group_protected_other: protected group used to identify 
+            attribute tables that don't fit elsewhere.
+        - attribute_groups: optional list of attribute table types to specify;
+            types will be identified as "attribute_YYY_MATCH" for YYY in 
+            attribute_groups; all others that do not match will be defined as 
+            other.
+            NOTE: cannot contain `attribute_group_protected_other`
+        - stop_on_error: stop if there's an error?
         - table_name_attr_sector: table name used to assign sector table
         - table_name_attr_subsector: table name used to assign subsector table
-
+        - variable_definition_key: prependage used to identify variable
+            definition tables
         """
+
         self.attribute_directory = sf.check_path(dir_att, False)
 
+
+        ##  INITIALIZATION
+
+        # initialize attribute groups, which are used to group attributes; 
+        #   Use `attribute_groups_ordered` to ensure `other` tables are identified last
+        attribute_groups = [] if not sf.islistlike(attribute_groups) else list(attribute_groups)
+        attribute_groups_ordered = sorted(attribute_groups) + [attribute_group_protected_other]
+
+        # build dictionary mappinug groups to regular expression
+        dict_attribute_group_to_regex = dict(
+            (x, re.compile(f"attribute_{x}_(.*).csv"))
+            for x in attribute_groups if (x != "other")
+        )
+        dict_attribute_group_to_regex.update(
+            {attribute_group_protected_other: re.compile(f"attribute_(.*).csv")}
+        )
+        
+        regex_vardef = re.compile(f"{variable_definition_key}_(.*).csv")
+
+
         # get available types
-        all_types = [x for x in os.listdir(dir_att) if (self.attribute_file_extension in x) and ((self.substr_categories in x) or (self.substr_varreqs_allcats in x) or (self.substr_varreqs_partialcats in x) or (self.substr_analytical_parameters in x))]
+        all_types = [
+            x for x in os.listdir(dir_att) 
+            if (self.attribute_file_extension in x) and (
+                any([(v.match(x) is not None) for v in dict_attribute_group_to_regex.values()])
+                or (regex_vardef.match(x) is not None)
+                or (self.substr_analytical_parameters in x)
+                or (self.substr_experimental_parameters in x)
+            )
+        ]
         all_pycategories = []
         all_dims = []
 
-        ##  batch load attributes/variable requirements and turn them into AttributeTable objects
-        dict_attributes = {}
-        dict_varreqs = {}
+
+        ##  LOAD AttributeTables IN BATCH
+
+        dict_attributes = dict((x, {}) for x in dict_attribute_group_to_regex.keys())
+        dict_variable_definitions = {}
         attribute_analytical_parameters = None
         attribute_experimental_parameters = None
 
         for att in all_types:
             fp = os.path.join(dir_att, att)
-            if self.substr_dimensions in att:
-                nm = att.replace(self.substr_dimensions, "").replace(self.attribute_file_extension, "")
-                k = f"dim_{nm}"
-                att_table = AttributeTable(fp, nm)
-                dict_attributes.update({k: att_table})
-                all_dims.append(nm)
 
-            elif self.substr_categories in att:
-                df_cols = pd.read_csv(fp, nrows = 0).columns 
-                
-                # try to set key
-                nm = sf.clean_field_names([x for x in df_cols if ("$" in x) and (" " not in x.strip())])
-                nm = nm[0] if (len(nm) > 0) else None
-                if nm is None:
-                    nm = sf.clean_field_names([att.replace("attribute_", "").replace(".csv", "")])[0]
-                    nm = nm if (nm in df_cols) else None
+            # check variable specification first
+            if regex_vardef.match(att) is not None:
+                nm = regex_vardef.match(att).groups()[0]
+                dict_variable_definitions.update({nm: AttributeTable(fp, "variable")})
+                continue
 
-                # skip if it is impossible
-                if nm is None:
-                    continue
-
-                att_table = AttributeTable(fp, nm)
-                dict_attributes.update({nm: att_table})
-                all_pycategories.append(nm)
-
-            elif (self.substr_varreqs_allcats in att) or (self.substr_varreqs_partialcats in att):
-                nm = att.replace(self.substr_varreqs, "").replace(self.attribute_file_extension, "")
-                att_table = AttributeTable(fp, "variable")
-                dict_varreqs.update({nm: att_table})
-
-            elif (att == f"{self.substr_analytical_parameters}{self.attribute_file_extension}"):
+            elif (self.substr_analytical_parameters in att):
                 attribute_analytical_parameters = AttributeTable(fp, "analytical_parameter")
+                continue
 
-            elif (att == f"{self.substr_experimental_parameters}{self.attribute_file_extension}"):
+            elif (self.substr_experimental_parameters in att):
                 attribute_experimental_parameters = AttributeTable(fp, "experimental_parameter")
+                continue
 
-            else:
-                raise ValueError(f"Invalid attribute '{att}': ensure '{self.substr_categories}', '{self.substr_varreqs_allcats}', or '{self.substr_varreqs_partialcats}' is contained in the attribute file.")
+
+            ##  CASE WHERE ATTRIBUTE TABLES BELONG TO ONE OF THE GROUPS
+
+            try:
+               self._iat_support_update_grouped_attributes(
+                    fp,
+                    attribute_groups_ordered,
+                    dict_attribute_group_to_regex,
+                    dict_attributes,
+                )
+
+            except Exception as e:
+                msg = f"Error trying to initialize attribute {att}: {e}"
+                self._log(msg, type_log = "error")
+                if stop_on_error:
+                    raise RuntimeError(msg)
+            
 
         # add some subsector/python specific information into the subsector table
         field_category = "primary_category"
         field_category_py = field_category + "_py"
 
         # check sector and subsector specifications
-        if not set({table_name_attr_sector, table_name_attr_subsector}).issubset(set(dict_attributes.keys())):
-            missing_vals = sf.print_setdiff(
-                set({table_name_attr_sector, table_name_attr_subsector}),
-                set(dict_attributes.keys())
-            )
+        set_sector_tables = set({table_name_attr_sector, table_name_attr_subsector})
+        set_avail_others = set(dict_attributes.get("other").keys())
+        if not set_sector_tables.issubset(set_avail_others):
+            missing_vals = sf.print_setdiff(set_sector_tables, set_avail_others)
             raise RuntimeError(f"Error initializing attribute tables: table names {missing_vals} not found.")
 
 
         ##  UPDATE THE SUBSECTOR ATTRIBUTE TABLE
 
+        dict_other = dict_attributes["other"]
+        self._iat_support_clean_subsector_table(
+            dict_attributes,
+            table_name_attr_subsector,
+            field_category,
+            field_category_py,
+        )
+
+
+    def _iat_support_clean_subsector_table(self,
+        dict_to_update: Dict[str, Dict[str, AttributeTable]],
+        table_name_attr_subsector: str,
+        field_category: str,
+        field_category_py: str,
+        key: str = "other",
+        key_cat: str = "cat",
+    ) -> None:
+        """
+        Update the subsector attribute table to include clean categories
+
+        Function Arguments
+        ------------------
+        - dict_to_update: dictionary containing attribute groups that map to 
+            individual dictionaries
+        - table_name_attr_subsector: attribute name for the subsector table
+        - field_category_py: new field to add to the attribute table
+
+        Keyword Arguments
+        -----------------
+        - key_cat: attribute group key for categories
+        - key_other: attribute group key containing subsector attribute
+        """
+
+        dict_attr = dict_to_update.get(key_other)
+        if dict_attr is None:
+            return None
+
         # add a new field
-        df_tmp = dict_attributes[table_name_attr_subsector].table
-        df_tmp[field_category_py] = sf.clean_field_names(df_tmp[field_category])
-        df_tmp = df_tmp[df_tmp[field_category_py] != "none"].reset_index(drop = True)
+        df_tmp = dict_attr[table_name_attr_subsector].table
+
+        vec = sf.clean_field_names(df_tmp[field_category])
+        df_tmp[field_category_py] = [x.replace(f"{key_cat}_", "") for x in vec]
+
+        df_tmp = (
+            df_tmp[
+                df_tmp[field_category_py] != "none"
+            ]
+            .reset_index(drop = True)
+        )
 
         # set a key and prepare new fields
         key = field_category_py
@@ -626,12 +428,15 @@ class ModelAttributes:
             field_fwd = f"{key}_to_{fld}"
             field_rev = f"{fld}_to_{key}"
             field_maps.update({field_fwd: sf.build_dict(df_tmp[[key, fld]])})
+
             # check for 1:1 correspondence before adding reverse
             vals_unique = set(df_tmp[fld])
             if (len(vals_unique) == len(df_tmp)):
                 field_maps.update({field_rev: sf.build_dict(df_tmp[[fld, key]])})
+#HEREHERE
+        dict_attr[table_name_attr_subsector].field_maps.update(field_maps)
 
-        dict_attributes[table_name_attr_subsector].field_maps.update(field_maps)
+        return None
 
 
         ##  SET PROPERTIES
@@ -642,8 +447,8 @@ class ModelAttributes:
         self.attribute_analytical_parameters = attribute_analytical_parameters
         self.attribute_experimental_parameters = attribute_experimental_parameters
         self.dict_attributes = dict_attributes
-        self.dict_varreqs = dict_varreqs
-        self.table_name_attr_sector = table_name_attr_sector
+        self.dict_variable_definitions = dict_variable_definitions
+        self.table_name_attr_sector = table_name_attr_sector``
         self.table_name_attr_subsector = table_name_attr_subsector
 
         return None
@@ -1039,11 +844,11 @@ class ModelAttributes:
             multiple gasses (if applicable)
         """
         # get tables and initialize dictionary out
-        all_tabs = self.dict_varreqs.keys()
+        all_tabs = self.dict_variable_definitions.keys()
         dict_fields_by_gas = {}
         dict_modvar_by_gas = {}
         for tab in all_tabs:
-            tab = self.dict_varreqs.get(tab).table
+            tab = self.dict_variable_definitions.get(tab).table
             modvars = list(
                 tab[
                     tab[self.field_emissions_total_flag] == 1
@@ -1438,14 +1243,14 @@ class ModelAttributes:
         self.check_subsector(subsector_target)
 
         # check primary table type and fetch attribute
-        dict_tables_primary = self.dict_attributes if (type_primary == "categories") else self.dict_varreqs
+        dict_tables_primary = self.dict_attributes if (type_primary == "categories") else self.dict_variable_definitions
         key_primary = self.get_subsector_attribute(subsector_primary, dict_valid_types_to_attribute_keys[type_primary])
         if not key_primary:
             raise ValueError(f"Invalid type_primary '{type_primary}' specified for primary subsector '{subsector_primary}': type not found.")
         attr_prim = dict_tables_primary[key_primary]
 
         # check target table type and fetch attribute
-        dict_tables_primary = self.dict_attributes if (type_target == "categories") else self.dict_varreqs
+        dict_tables_primary = self.dict_attributes if (type_target == "categories") else self.dict_variable_definitions
         key_target = self.get_subsector_attribute(subsector_target, dict_valid_types_to_attribute_keys[type_target])
         key_target_pycat = self.get_subsector_attribute(subsector_target, "pycategory_primary")
         if not key_primary:
@@ -2239,7 +2044,7 @@ class ModelAttributes:
             return self.dict_attributes.get(key_dict)
         elif table_type in ["key_varreqs_all", "key_varreqs_partial"]:
             key_dict = self.get_subsector_attribute(subsector, table_type)
-            return self.dict_varreqs.get(key_dict)
+            return self.dict_variable_definitions.get(key_dict)
         else:
             raise ValueError(f"Invalid table_type '{table_type}': valid options are 'pycategory_primary', 'key_varreqs_all', 'key_varreqs_partial'.")
 
@@ -2313,7 +2118,7 @@ class ModelAttributes:
             attr = (
                 self.dict_attributes.get(pycat) 
                 if (attribute_type == "pycategory_primary") 
-                else self.dict_varreqs.get(pycat)
+                else self.dict_variable_definitions.get(pycat)
             )
         else:
             attr = self.dict_attributes.get(subsector)
@@ -2334,6 +2139,32 @@ class ModelAttributes:
             )
 
         return return_val
+    
+
+
+    def get_category_replacement_field_dict(self,
+        modvar: str,
+    ) -> Union[dict, None]:
+        """
+        Replace SISEPUEDE categories with the target field associated with the
+            model variable `modvar`
+        """
+        
+        cats = self.get_variable_categories(modvar)
+        if cats is None:
+            return {}
+
+        dict_repl_categories_with_fields = {}
+        for cat in cats:
+            fields = self.build_varlist(
+                None,
+                modvar,
+                restrict_to_category_values = cat,
+            )
+            
+            dict_repl_categories_with_fields.update({cat: fields[0]})
+            
+        return dict_repl_categories_with_fields
     
 
 
@@ -2445,7 +2276,7 @@ class ModelAttributes:
         if attr_type == "pycategory_primary":
             attr_cur = self.dict_attributes[pycat]
         elif attr_type in ["key_varreqs_all", "key_varreqs_partial"]:
-            attr_cur = self.dict_varreqs[pycat]
+            attr_cur = self.dict_variable_definitions[pycat]
         else:
             raise ValueError(f"Invalid attribute type '{attr_type}': select 'pycategory_primary', 'key_varreqs_all', or 'key_varreqs_partial'.")
 
@@ -2481,7 +2312,7 @@ class ModelAttributes:
         # get var requirements for the variable subsector + the attribute for the target categories
         varreq_var = self.get_subsector_attribute(subsector_var, varreq_type)
         pycat_targ = self.get_subsector_attribute(subsector_targ, "pycategory_primary")
-        attr_vr_var = self.dict_varreqs[varreq_var]
+        attr_vr_var = self.dict_variable_definitions[varreq_var]
         attr_targ = self.dict_attributes[pycat_targ]
 
         # use the attribute table to map the category to the original variable
@@ -2501,6 +2332,27 @@ class ModelAttributes:
         )
         
         return return_val
+    
+
+
+    def get_primary_category_schema_element(self,
+        subsector: str,
+    ) -> Union[str, None]:
+        """
+        Return the full primary category element associated with the primary 
+            category for subsector
+        """
+
+        attr = self.dict_attributes.get("abbreviation_subsector")
+
+        dict_subsec_to_key = attr.field_maps.get(f"subsector_to_{attr.key}")
+        dict_key_to_primary_cat = attr.field_maps.get(f"{attr.key}_to_primary_category")
+        
+        key = dict_subsec_to_key.get(subsector)
+        pc_element = dict_key_to_primary_cat.get(key)
+        
+        return pc_element
+
             
 
 
@@ -2649,9 +2501,9 @@ class ModelAttributes:
         key_partialvarreqs = self.substr_varreqs_partialcats.replace(self.substr_varreqs, "") + dict_out["abv_sector"] + "_" + dict_out["abv_subsector"]
 
 
-        if key_allvarreqs in self.dict_varreqs.keys():
+        if key_allvarreqs in self.dict_variable_definitions.keys():
             dict_out.update({"key_varreqs_all": key_allvarreqs})
-        if key_partialvarreqs in self.dict_varreqs.keys():
+        if key_partialvarreqs in self.dict_variable_definitions.keys():
             dict_out.update({"key_varreqs_partial": key_partialvarreqs})
 
         if return_type in dict_out.keys():
@@ -3871,32 +3723,31 @@ class ModelAttributes:
 
             for subsector in subsectors_cur:
                 for variable in self.dict_model_variables_by_subsector[subsector]:
-
+                    
+                    # skip non-input variables
                     variable_type = self.get_variable_attribute(variable, "variable_type")
-                    variable_calculation = self.get_variable_attribute(variable, "internal_model_variable")
+                    if (variable_type.lower() != "input"):
+                        continue
 
-                    # check that variables are input/not calculated internally
-                    if (variable_type.lower() == "input") & (variable_calculation == 0):
+                    max_ftp_scalar = self.get_variable_attribute(
+                        variable, 
+                        "default_lhs_scalar_maximum_at_final_time_period"
+                    )
+                    min_ftp_scalar = self.get_variable_attribute(
+                        variable, 
+                        "default_lhs_scalar_minimum_at_final_time_period"
+                    )
+                    mvs = self.dict_model_variables_to_variables[variable]
 
-                        max_ftp_scalar = self.get_variable_attribute(
-                            variable, 
-                            "default_lhs_scalar_maximum_at_final_time_period"
+                    df_out.append(
+                        pd.DataFrame(
+                            {
+                                "variable": mvs, 
+                                field_max: [max_ftp_scalar for x in mvs], 
+                                field_min: [min_ftp_scalar for x in mvs]
+                            }
                         )
-                        min_ftp_scalar = self.get_variable_attribute(
-                            variable, 
-                            "default_lhs_scalar_minimum_at_final_time_period"
-                        )
-                        mvs = self.dict_model_variables_to_variables[variable]
-
-                        df_out.append(
-                            pd.DataFrame(
-                                {
-                                    "variable": mvs, 
-                                    field_max: [max_ftp_scalar for x in mvs], 
-                                    field_min: [min_ftp_scalar for x in mvs]
-                                }
-                            )
-                        )
+                    )
 
         df_out = pd.concat(df_out, axis = 0).reset_index(drop = True)
 
@@ -5055,8 +4906,8 @@ class ModelAttributes:
         key_varreqs = self.get_subsector_attribute(subsector, f"key_varreqs_{cat_restriction_type}")
         key_fm = f"variable_to_{attribute}"
 
-        sf.check_keys(self.dict_varreqs[key_varreqs].field_maps, [key_fm])
-        var_attr = self.dict_varreqs[key_varreqs].field_maps[key_fm][variable]
+        sf.check_keys(self.dict_variable_definitions[key_varreqs].field_maps, [key_fm])
+        var_attr = self.dict_variable_definitions[key_varreqs].field_maps[key_fm][variable]
 
         return var_attr
 
@@ -5327,7 +5178,7 @@ class ModelAttributes:
         - field_model_variable: field containing the model variable
         - field_simplex_group: field identifying the simplex group
         - str_split_varreqs_key: string to split keys in 
-            model_attributes.dict_varreqs on; the second element is used for 
+            model_attributes.dict_variable_definitions on; the second element is used for 
             sorting tables to assign simplex groups for
         - trajgroup_0: base trajectory group to start from when making 
             assignments
@@ -5337,7 +5188,7 @@ class ModelAttributes:
         dict_variable_to_simplex_group = {}
         simplex_groups = []
 
-        for key, attr in self.dict_varreqs.items():
+        for key, attr in self.dict_variable_definitions.items():
 
             # get sortable class for this table
             sort_class = key.split(str_split_varreqs_key)
@@ -5499,15 +5350,15 @@ class ModelAttributes:
         """
         key_attribute = self.get_subsector_attribute(subsector, key_type)
         if key_attribute is not None:
-            dict_vr_vvs = self.dict_varreqs[self.get_subsector_attribute(subsector, key_type)].field_maps[f"variable_to_{field_to_split_on}"].copy()
-            dict_vr_vtf = self.dict_varreqs[self.get_subsector_attribute(subsector, key_type)].field_maps[f"variable_to_{target_field}"].copy()
+            dict_vr_vvs = self.dict_variable_definitions[self.get_subsector_attribute(subsector, key_type)].field_maps[f"variable_to_{field_to_split_on}"].copy()
+            dict_vr_vtf = self.dict_variable_definitions[self.get_subsector_attribute(subsector, key_type)].field_maps[f"variable_to_{target_field}"].copy()
 
             # filter on variable type if specified
             if variable_type is not None:
                 if variable is not None:
                     warnings.warn(f"variable and variable_type both specified in separate_varreq_dict_for_outer: the variable assignment is higher priority, and variable_type will be ignored.")
                 else:
-                    dict_var_types = self.dict_varreqs[self.get_subsector_attribute(subsector, key_type)].field_maps[f"variable_to_variable_type"]
+                    dict_var_types = self.dict_variable_definitions[self.get_subsector_attribute(subsector, key_type)].field_maps[f"variable_to_variable_type"]
                     drop_vars = [x for x in dict_var_types.keys() if dict_var_types[x].lower() != variable_type.lower()]
                     [dict_vr_vvs.pop(x) for x in drop_vars]
                     [dict_vr_vtf.pop(x) for x in drop_vars]

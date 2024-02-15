@@ -296,19 +296,25 @@ def call_with_varkwargs(
         general, should be None (defaults to func) unless func is a known
         wrapper for verify_function
     """
-    
+
     if not callable(func):
         return None
 
     # get available function arguments/kwargs
     verify_function = func if not callable(verify_function) else verify_function
-    args_list, kwargs = get_args(verify_function, include_defaults = False)
+    args_list, kwargs_pass = get_args(verify_function, include_defaults = False)
+    
+    # add arguments from original function if necessary
+    if func != verify_function:
+        args_list_func, kwargs_pass_func = get_args(func, include_defaults = False)
+        kwargs_pass.update(kwargs_pass_func) if isinstance(kwargs_pass_func, dict) else None
 
     # get keyword arguments
     dict_kwargs = {} if not isinstance(dict_kwargs, dict) else dict_kwargs
-    kwargs = dict((k, v) for k, v in dict_kwargs.items() if k in kwargs)
+    kwargs_pass = dict((k, v) for k, v in dict_kwargs.items() if k in kwargs_pass.keys())
     
-    return func(*args, **kwargs)
+    
+    return func(*args, **kwargs_pass)
 
 
 
@@ -946,6 +952,56 @@ def fill_df_rows_from_df(
 
 
 
+def fill_nas_for_simplex(
+    df: pd.DataFrame,
+    chop_val: float = 10.0**(-12),
+    default_val: Union[float, int, None] = None,
+    sum_val: Union[float, int] = 1,
+) -> pd.DataFrame:
+    """
+    Split and re-combine a dataframe. If all rows are NA, fills with default_val
+        (if None, this is 1/n for an m x n data frame). Otherwise, fills with 
+        1 - row_total.
+        
+    Function Arguments
+    ------------------
+    - df: data frame to fill on. Columns should only include fields on the 
+        simplex
+    
+    Keyword Arguments
+    -----------------
+    - chop_val: acceptable rounding error. Errors < chop_val are set to 0
+    - default_val: optional default value to specify. If None, defaults to 1/n
+    - sum_val: total that the simplex should sum to
+    """
+    
+    for i, row in df.iterrows():
+        
+        vec = row.to_numpy()
+        w = np.where(np.isnan(vec))[0]
+        
+        if len(w) == 0:
+            continue
+        
+        total = vec[~np.isnan(vec)].sum()
+        if total > sum_val + chop_val:
+            warnings.warn(f"Warning at row {i}: invalid sum {total} found in fill_nas_for_simplex for simplex total {sum_val}. ")
+            continue
+            
+        missing = sum_val - total
+        val_fill = (
+            missing/len(w)
+            if default_val is None
+            else default_val
+        )
+        val_fill = 0.0 if (missing < chop_val) else val_fill
+        vec[w] = val_fill
+        df.iloc[i] = vec
+    
+    return df
+
+
+
 def filter_data_frame_by_group(
     df_in: pd.DataFrame,
     fields_group: List[Any],
@@ -1162,9 +1218,10 @@ def get_args(
     
     # defaults are called from backwards forwards
     defaults = [] if defaults is None else defaults
+
     n = -len(defaults)
-    default_args = args[n:]
-    args = args[0:n]
+    default_args = args[n:] if (n != 0) else defaults
+    args = args[0:n] if (n != 0) else args
     
     kwargs = (
         kwonlydefaults.copy()
@@ -1864,8 +1921,8 @@ def mix_tensors(
     """
     # check input of v_0
     if not islistlike(vec_b0):
-        print(type(vec_b0))
         return None
+        
     v_0 = np.array(vec_b0)
 
     # if v_0 checks out, check that both are not None

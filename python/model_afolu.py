@@ -2864,6 +2864,7 @@ class AFOLU:
                 "array_base"
             )
             vec_scoe_biomass_fuel_demand = vec_scoe_biomass_fuel_demand[:, ind_biomass]
+
             # calculate the change and growth rate
             vec_scoe_biomass_fuel_demand_change = np.nan_to_num(vec_scoe_biomass_fuel_demand[1:]/vec_scoe_biomass_fuel_demand[0:-1], 1.0, posinf = 1.0)
             vec_scoe_biomass_fuel_demand_growth_rate = np.cumprod(np.insert(vec_scoe_biomass_fuel_demand_change, 0, 1.0))
@@ -2977,7 +2978,10 @@ class AFOLU:
         # get emissions from co2
         vec_frst_emissions_co2_hwp = vec_frst_c_from_hwp_paper_delta + vec_frst_c_from_hwp_wood_delta
         vec_frst_emissions_co2_hwp *= self.factor_c_to_co2
-        vec_frst_emissions_co2_hwp *= -1*self.model_attributes.get_scalar(self.model_ippu.modvar_ippu_demand_for_harvested_wood, "mass")
+        vec_frst_emissions_co2_hwp *= -1*self.model_attributes.get_scalar(
+            self.model_ippu.modvar_ippu_demand_for_harvested_wood, 
+            "mass"
+        )
 
         list_dfs_out = [
             self.model_attributes.array_to_df(vec_frst_emissions_co2_hwp, self.modvar_frst_emissions_co2_hwp)
