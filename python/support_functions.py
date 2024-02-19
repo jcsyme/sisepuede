@@ -4,6 +4,7 @@ import munch
 import numpy as np
 import os, os.path
 import pandas as pd
+import pathlib
 import re
 import time
 from typing import *
@@ -399,7 +400,7 @@ def check_keys(
 
 
 def check_path(
-    fp: str,
+    fp: Union[str, pathlib.Path],
     create_q: bool = False,
     throw_error_q: bool = True
 ) -> str:
@@ -418,6 +419,10 @@ def check_path(
         * If `throw_error_q == False`, returns False if required keys are
             not found
     """
+    # convert to string if necessary
+    fp = str(fp) if isinstance(fp, pathlib.Path) else fp
+    if not isinstance(fp, str):
+        return fp
 
     if os.path.exists(fp):
         return fp
@@ -530,7 +535,7 @@ def _check_type(
 
 
 def clean_field_names(
-    nms: Union[list, pd.DataFrame],
+    nms: Union[list, pd.DataFrame, str],
     dict_repl: Union[dict, None] = None,
     dict_repl_update: Union[dict, None] = None,
 ) -> list:
@@ -539,7 +544,7 @@ def clean_field_names(
 
     Function Arguments
     ------------------
-    - nms: vector of names to clean
+    - nms: vector of names to clean or string
     
     Keyword Arguments
     -----------------
@@ -573,11 +578,16 @@ def clean_field_names(
     )
 
     # check return type
-    return_df_q =  False
+    return_type = "list"
     if isinstance(nms, pd.DataFrame):
         df = nms
         nms = list(df.columns)
-        return_df_q = True
+        return_type = "df"
+
+    if isinstance(nms, str):
+        return_type = "str"
+        nms = [nms]
+
 
     # get namses to clean, then loop
     nms = [str_replace(nm.lower(), dict_repl) for nm in nms]
@@ -592,8 +602,11 @@ def clean_field_names(
             nm = nm[0:-1]
         nms[i] = nm
 
-    if return_df_q:
+    # output type
+    if return_type == "df":
         nms = df.rename(columns = dict(zip(list(df.columns), nms)))
+    elif return_type == "str":
+        nms = nms[0]
 
     return nms
 

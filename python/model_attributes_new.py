@@ -4,16 +4,18 @@ import model_variable as mv
 import numpy as np
 import os, os.path
 import pandas as pd
+import pathlib
 import re
 import support_functions as sf
 from typing import *
+import units_manager as um
 import warnings
 
 
 
 
 
-class ModelAttributes:
+class ModelAttributesNew:
     """
     Create a centralized object for managing inter-sectoral objects, dimensions,
         attributes, and variables.
@@ -21,9 +23,9 @@ class ModelAttributes:
     
     """
     def __init__(self,
-        dir_attributes: str,
-        fp_config: str = None
-    ):
+        dir_attributes: Union[pathlib.Path, str],
+        fp_config: str = None,
+    ) -> None:
 
         ############################################
         #    INITIALIZE SHARED CLASS PROPERTIES    #
@@ -39,16 +41,21 @@ class ModelAttributes:
 
         # initialize some properties and elements (ordered)
         self._initialize_attribute_tables(dir_attributes)
-        self._initialize_config(fp_config)
-        self._initialize_sector_sets()
-        self._initialize_variables_by_subsector()
-        self._initialize_all_primary_category_flags()
-        self._initialize_emission_modvars_by_gas()
-        self._initialize_gas_attributes()
-        self._initialize_other_dictionaries()
+        #self._initialize_dims()
+        self._initialize_units()
+        #self._initialize_variables()
 
-        self._check_attribute_tables()
+        #self._initialize_config(fp_config)
+        #self._initialize_sector_sets()
+        #self._initialize_variables_by_subsector()
+        #self._initialize_all_primary_category_flags()
+        #self._initialize_emission_modvars_by_gas()
+        #self._initialize_gas_attributes()
+        #self._initialize_other_dictionaries()
 
+        #self._check_attribute_tables()
+
+        return None
 
 
 
@@ -106,7 +113,7 @@ class ModelAttributes:
         keep_going = True
         i = 0
 
-        while keep_going & i < len(attribute_groups_ordered)
+        while keep_going & (i < len(attribute_groups_ordered)):
 
             group = attribute_groups_ordered[i]
             regex = dict_attribute_group_to_regex.get(group)
@@ -114,7 +121,7 @@ class ModelAttributes:
             if regex.match(fn_attribute) is not None:
                 keep_going = False
             
-            i += 0
+            i += 1
 
         out = group if not keep_going else None
 
@@ -122,268 +129,13 @@ class ModelAttributes:
     
 
 
-    def _iat_support_update_grouped_attributes(self,
-        fp_attribute: str,
-        attribute_groups_ordered: List[str],
-        dict_attribute_group_to_regex: Dict[str, re.Pattern],
-        dict_to_update: Dict[str, Dict[str, AttributeTable]],
-    ) -> None:
-        """
-        Format the attribute tables for assignment in dictionaries
-
-        Function Arguments
-        ------------------
-        - fp_attribute: attribute file path
-        - attribute_groups_ordered: ordered search list of attribtue 
-            groups
-        - dict_attribute_group_to_regex: dictionary mapping attribute
-            groups to regular expressions
-        - dict_to_update: dictionary to update. Keys are groups and 
-            values are dictionaries mapping keys to attribute tables
-
-        Keyword Arguments
-        -----------------
-        """
-        ##  INITIALIZATION
-
-        # get group and regular expression; return None if not found
-
-        fn = os.path.basename(fp_attribute)
-
-        group = self.iat_support_get_attribute_group(
-            fn,
-            attribute_groups_ordered,
-            dict_attribute_group_to_regex,
-        )
-
-        regex = (
-            dict_attribute_group_to_regex.get(group)
-            if (group is not None)
-            else None
-        )
-
-        if regex is None:
-            return None
-
-
-        ##  CHECK GROUP MEMBERSHIP AND UPDATE DICTIONARY IF NECESSARY
-
-        if group not in dict_to_update.keys():
-            dict_to_update.update({group: {}})
-
-        if group == "dim":
-
-            nm = regex.match(fn).groups()[0]
-            att_table = AttributeTable(fp, nm)
-            dict_to_update[group].update({k: att_table})
-
-
-        elif group in ["cat", "unit", "other"]:
-            #
-            df_cols = pd.read_csv(fp, nrows = 0).columns 
-            
-            # try to set key
-            nm = sf.clean_field_names([x for x in df_cols if ("$" in x) and (" " not in x.strip())])
-            nm = nm[0] if (len(nm) > 0) else None
-            if nm is None:
-                nm = regex.match(fn).groups()[0]
-                nm = nm if (nm in df_cols) else None
-
-            # skip if impossible
-            if nm is None:
-                return None
-
-            att_table = AttributeTable(fp, nm)
-            key = nm.replace(f"{group}_", "")
-            dict_to_update[group].update({key: att_table})
-
-
-        else:
-            msg = f"""
-            Invalid attribute '{att}': No attribute group or expression 
-            was found to support its addition.
-            """
-            raise ValueError(msg)
-        
-        
-        return None
-
-
-
-    def _initialize_all_primary_category_flags(self,
-    ) -> None:
-        """
-        Sets all primary category flags, e.g., $CAT-CCSQ$ or $CAT-AGRICULTURE$.
-            Sets the following properties:
-
-            * all_primary_category_flags
-        """
-        attr_subsec = self.dict_attributes.get(self.table_name_attr_subsector)
-        all_pcflags = None
-
-        if attr_subsec is not None:
-            all_pcflags = sorted(list(set(attr_subsec.table["primary_category"])))
-            all_pcflags = [x.replace("`", "") for x in all_pcflags if sf.clean_field_names([x])[0] in self.all_pycategories]
-
-        self.all_primary_category_flags = all_pcflags
-
-        return None
-
-
-            
-    def _initialize_attribute_tables(self,
-        dir_att: str,
-        attribute_group_protected_other: str = "other",
-        attribute_groups: Union[List[str], None] = ["cat", "dim", "unit"],
-        stop_on_error: bool = True,
-        table_name_attr_sector: str = "abbreviation_sector",
-        table_name_attr_subsector: str = "abbreviation_subsector",
-        variable_definition_key: str = "variable_definitions",
-    ) -> None:
-        """
-        Load all attribute tables and set the following parameters:
-
-            self.all_attributes
-            self.all_dims
-            self.all_pycategories
-            self.attribute_analytical_parameters
-            self.attribute_directory
-            self.attribute_experimental_parameters
-            self.dict_attributes
-            self.dict_variable_definitions
-            self.regex_attribute_*:
-                regular expressions used to read in attribute tables 
-            self.table_name_attr_sector
-            self.table_name_attr_subsector
-
-        Function Arguments
-        ------------------
-        - dir_att: directory containing attribute tables
-
-        Keyword Arguments
-        -----------------
-        - attribute_group_protected_other: protected group used to identify 
-            attribute tables that don't fit elsewhere.
-        - attribute_groups: optional list of attribute table types to specify;
-            types will be identified as "attribute_YYY_MATCH" for YYY in 
-            attribute_groups; all others that do not match will be defined as 
-            other.
-            NOTE: cannot contain `attribute_group_protected_other`
-        - stop_on_error: stop if there's an error?
-        - table_name_attr_sector: table name used to assign sector table
-        - table_name_attr_subsector: table name used to assign subsector table
-        - variable_definition_key: prependage used to identify variable
-            definition tables
-        """
-
-        self.attribute_directory = sf.check_path(dir_att, False)
-
-
-        ##  INITIALIZATION
-
-        # initialize attribute groups, which are used to group attributes; 
-        #   Use `attribute_groups_ordered` to ensure `other` tables are identified last
-        attribute_groups = [] if not sf.islistlike(attribute_groups) else list(attribute_groups)
-        attribute_groups_ordered = sorted(attribute_groups) + [attribute_group_protected_other]
-
-        # build dictionary mappinug groups to regular expression
-        dict_attribute_group_to_regex = dict(
-            (x, re.compile(f"attribute_{x}_(.*).csv"))
-            for x in attribute_groups if (x != "other")
-        )
-        dict_attribute_group_to_regex.update(
-            {attribute_group_protected_other: re.compile(f"attribute_(.*).csv")}
-        )
-        
-        regex_vardef = re.compile(f"{variable_definition_key}_(.*).csv")
-
-
-        # get available types
-        all_types = [
-            x for x in os.listdir(dir_att) 
-            if (self.attribute_file_extension in x) and (
-                any([(v.match(x) is not None) for v in dict_attribute_group_to_regex.values()])
-                or (regex_vardef.match(x) is not None)
-                or (self.substr_analytical_parameters in x)
-                or (self.substr_experimental_parameters in x)
-            )
-        ]
-        all_pycategories = []
-        all_dims = []
-
-
-        ##  LOAD AttributeTables IN BATCH
-
-        dict_attributes = dict((x, {}) for x in dict_attribute_group_to_regex.keys())
-        dict_variable_definitions = {}
-        attribute_analytical_parameters = None
-        attribute_experimental_parameters = None
-
-        for att in all_types:
-            fp = os.path.join(dir_att, att)
-
-            # check variable specification first
-            if regex_vardef.match(att) is not None:
-                nm = regex_vardef.match(att).groups()[0]
-                dict_variable_definitions.update({nm: AttributeTable(fp, "variable")})
-                continue
-
-            elif (self.substr_analytical_parameters in att):
-                attribute_analytical_parameters = AttributeTable(fp, "analytical_parameter")
-                continue
-
-            elif (self.substr_experimental_parameters in att):
-                attribute_experimental_parameters = AttributeTable(fp, "experimental_parameter")
-                continue
-
-
-            ##  CASE WHERE ATTRIBUTE TABLES BELONG TO ONE OF THE GROUPS
-
-            try:
-               self._iat_support_update_grouped_attributes(
-                    fp,
-                    attribute_groups_ordered,
-                    dict_attribute_group_to_regex,
-                    dict_attributes,
-                )
-
-            except Exception as e:
-                msg = f"Error trying to initialize attribute {att}: {e}"
-                self._log(msg, type_log = "error")
-                if stop_on_error:
-                    raise RuntimeError(msg)
-            
-
-        # add some subsector/python specific information into the subsector table
-        field_category = "primary_category"
-        field_category_py = field_category + "_py"
-
-        # check sector and subsector specifications
-        set_sector_tables = set({table_name_attr_sector, table_name_attr_subsector})
-        set_avail_others = set(dict_attributes.get("other").keys())
-        if not set_sector_tables.issubset(set_avail_others):
-            missing_vals = sf.print_setdiff(set_sector_tables, set_avail_others)
-            raise RuntimeError(f"Error initializing attribute tables: table names {missing_vals} not found.")
-
-
-        ##  UPDATE THE SUBSECTOR ATTRIBUTE TABLE
-
-        dict_other = dict_attributes["other"]
-        self._iat_support_clean_subsector_table(
-            dict_attributes,
-            table_name_attr_subsector,
-            field_category,
-            field_category_py,
-        )
-
-
     def _iat_support_clean_subsector_table(self,
         dict_to_update: Dict[str, Dict[str, AttributeTable]],
         table_name_attr_subsector: str,
         field_category: str,
         field_category_py: str,
-        key: str = "other",
         key_cat: str = "cat",
+        key_other: str = "other",
     ) -> None:
         """
         Update the subsector attribute table to include clean categories
@@ -433,22 +185,339 @@ class ModelAttributes:
             vals_unique = set(df_tmp[fld])
             if (len(vals_unique) == len(df_tmp)):
                 field_maps.update({field_rev: sf.build_dict(df_tmp[[fld, key]])})
-#HEREHERE
+
         dict_attr[table_name_attr_subsector].field_maps.update(field_maps)
+
+        return None
+    
+
+
+    def iat_support_get_all_keys(self,
+        dict_attributes: Dict[str, Dict[str, AttributeTable]],
+    ) -> None:
+        """
+        Get all values associated with each key
+
+        Function Arguments
+        ------------------
+        - dict_attributes: dictionary of items to return all keys for
+    
+        Keyword Arguments
+        -----------------
+        """
+        dict_out = {}
+
+        for k, v in dict_attributes.items():
+            if not isinstance(v, dict):
+                continue
+
+            all_items = sorted(list(v.keys()))
+            dict_out.update({k: all_items})
+
+        return dict_out
+    
+
+
+    def _iat_support_update_grouped_attributes(self,
+        fp_attribute: str,
+        attribute_groups_ordered: List[str],
+        dict_attribute_group_to_regex: Dict[str, re.Pattern],
+        dict_to_update: Dict[str, Dict[str, AttributeTable]],
+        key_cat: str,
+        key_dim: str,
+        key_other: str,
+        key_unit: str,
+    ) -> None:
+        """
+        Format the attribute tables for assignment in dictionaries
+
+        Function Arguments
+        ------------------
+        - fp_attribute: attribute file path
+        - attribute_groups_ordered: ordered search list of attribtue 
+            groups
+        - dict_attribute_group_to_regex: dictionary mapping attribute
+            groups to regular expressions
+        - dict_to_update: dictionary to update. Keys are groups and 
+            values are dictionaries mapping keys to attribute tables
+        - key_cat: attribute group key for categories
+        - key_dim: attribute group key for dimensions
+        - key_other: attribute group key for others (not assigned elsewhere)
+        - key_unit: attribute group key for units
+    
+        Keyword Arguments
+        -----------------
+        """
+        ##  INITIALIZATION
+
+        # get group and regular expression; return None if not found
+
+        fn = os.path.basename(fp_attribute)
+
+        group = self.iat_support_get_attribute_group(
+            fn,
+            attribute_groups_ordered,
+            dict_attribute_group_to_regex,
+        )
+
+        regex = (
+            dict_attribute_group_to_regex.get(group)
+            if (group is not None)
+            else None
+        )
+
+        if regex is None:
+            return None
+
+
+        ##  CHECK GROUP MEMBERSHIP AND UPDATE DICTIONARY IF NECESSARY
+
+        if group not in dict_to_update.keys():
+            dict_to_update.update({group: {}})
+
+        if group == key_dim:
+
+            nm = regex.match(fn).groups()[0]
+            nm = sf.clean_field_names(nm)
+            att_table = AttributeTable(fp_attribute, nm)
+            dict_to_update[group].update({nm: att_table})
+
+
+        elif group in [key_cat, key_other, key_unit]:
+            #
+            df_cols = pd.read_csv(fp_attribute, nrows = 0).columns 
+            
+            # try to set key
+            nm = sf.clean_field_names([x for x in df_cols if ("$" in x) and (" " not in x.strip())])
+            nm = nm[0] if (len(nm) > 0) else None
+            if nm is None:
+                nm = regex.match(fn).groups()[0]
+                nm = nm if (nm in df_cols) else None
+
+            # skip if impossible
+            if nm is None:
+                return None
+
+            att_table = AttributeTable(fp_attribute, nm)
+            key = nm.replace(f"{group}_", "")
+            dict_to_update[group].update({key: att_table})
+
+
+        else:
+            msg = f"""
+            Invalid attribute '{att}': No attribute group or expression 
+            was found to support its addition.
+            """
+            raise ValueError(msg)
+        
+        
+        return None
+
+
+
+    def _initialize_all_primary_category_flags(self,
+    ) -> None:
+        """
+        Sets all primary category flags, e.g., $CAT-CCSQ$ or $CAT-AGRICULTURE$.
+            Sets the following properties:
+
+            * all_primary_category_flags
+        """
+        attr_subsec = self.dict_attributes.get(self.table_name_attr_subsector)
+        all_pcflags = None
+
+        if attr_subsec is not None:
+            all_pcflags = sorted(list(set(attr_subsec.table["primary_category"])))
+            all_pcflags = [x.replace("`", "") for x in all_pcflags if sf.clean_field_names([x])[0] in self.all_pycategories]
+
+        self.all_primary_category_flags = all_pcflags
 
         return None
 
 
+            
+    def _initialize_attribute_tables(self,
+        dir_att: str,
+        attribute_group_protected_other: str = "other",
+        attribute_groups: Union[List[str], None] = None,
+        stop_on_error: bool = True,
+        table_name_attr_sector: str = "abbreviation_sector",
+        table_name_attr_subsector: str = "abbreviation_subsector",
+        variable_definition_key: str = "variable_definitions",
+    ) -> None:
+        """
+        Load all attribute tables and set the following parameters:
+
+            * self.all_attributes
+            * self.all_dims
+            * self.all_pycategories
+            * self.attribute_analytical_parameters
+            * self.attribute_directory
+            * self.attribute_experimental_parameters
+            * self.attribute_group_key_cat
+            * self.attribute_group_key_dim
+            * self.attribute_group_key_other
+            * self.attribute_group_key_unit
+            * self.dict_attributes
+            * self.dict_variable_definitions
+            * self.regex_attribute_*:
+                regular expressions used to read in attribute tables 
+            * self.table_name_attr_sector
+            * self.table_name_attr_subsector
+
+        Function Arguments
+        ------------------
+        - dir_att: directory containing attribute tables
+
+        Keyword Arguments
+        -----------------
+        - attribute_group_protected_other: protected group used to identify 
+            attribute tables that don't fit elsewhere.
+        - attribute_groups: optional list of attribute table types to specify;
+            types will be identified as "attribute_YYY_MATCH" for YYY in 
+            attribute_groups; all others that do not match will be defined as 
+            other. If None, defaults to ["cat", "dim", "unit"]
+            NOTE: cannot contain `attribute_group_protected_other`
+        - stop_on_error: stop if there's an error?
+        - table_name_attr_sector: table name used to assign sector table
+        - table_name_attr_subsector: table name used to assign subsector table
+        - variable_definition_key: prependage used to identify variable
+            definition tables
+        """
+
+        self.attribute_directory = sf.check_path(dir_att, False)
+
+
+        ##  INITIALIZATION
+
+        # initialize attribute groups, which are used to group attributes; 
+        #   Use `attribute_groups_ordered` to ensure `other` tables are identified last
+        key_cat = "cat"
+        key_dim = "dim"
+        key_unit = "unit"
+
+        attribute_groups = (
+            [key_cat, key_dim, key_unit] 
+            if not sf.islistlike(attribute_groups) 
+            else list(attribute_groups)
+        )
+        attribute_groups_ordered = sorted(attribute_groups) + [attribute_group_protected_other]
+
+        # build dictionary mappinug groups to regular expression
+        dict_attribute_group_to_regex = dict(
+            (x, re.compile(f"attribute_{x}_(.*).csv"))
+            for x in attribute_groups if (x != "other")
+        )
+        dict_attribute_group_to_regex.update(
+            {attribute_group_protected_other: re.compile(f"attribute_(.*).csv")}
+        )
+        
+        regex_vardef = re.compile(f"{variable_definition_key}_(.*).csv")
+
+
+        # get available types
+        all_types = [
+            x for x in os.listdir(dir_att) 
+            if (self.attribute_file_extension in x) and (
+                any([(v.match(x) is not None) for v in dict_attribute_group_to_regex.values()])
+                or (regex_vardef.match(x) is not None)
+                or (self.substr_analytical_parameters in x)
+                or (self.substr_experimental_parameters in x)
+            )
+        ]
+
+
+        ##  LOAD AttributeTables IN BATCH
+
+        dict_attributes = dict((x, {}) for x in dict_attribute_group_to_regex.keys())
+        dict_variable_definitions = {}
+        attribute_analytical_parameters = None
+        attribute_experimental_parameters = None
+
+        for att in all_types:
+            fp = os.path.join(dir_att, att)
+
+            # check variable specification first
+            if regex_vardef.match(att) is not None:
+                nm = regex_vardef.match(att).groups()[0]
+                dict_variable_definitions.update({nm: AttributeTable(fp, "variable")})
+                continue
+
+            elif (self.substr_analytical_parameters in att):
+                attribute_analytical_parameters = AttributeTable(fp, "analytical_parameter")
+                continue
+
+            elif (self.substr_experimental_parameters in att):
+                attribute_experimental_parameters = AttributeTable(fp, "experimental_parameter")
+                continue
+
+
+            ##  CASE WHERE ATTRIBUTE TABLES BELONG TO ONE OF THE GROUPS
+
+            try:
+               self._iat_support_update_grouped_attributes(
+                    fp,
+                    attribute_groups_ordered,
+                    dict_attribute_group_to_regex,
+                    dict_attributes,
+                    key_cat,
+                    key_dim,
+                    attribute_group_protected_other,
+                    key_unit,
+                )
+
+            except Exception as e:
+                msg = f"Error trying to initialize attribute {att}: {e}"
+                # self._log(msg, type_log = "error") # ADD LOGGER!
+                if stop_on_error:
+                    raise RuntimeError(msg)
+            
+
+        # add some subsector/python specific information into the subsector table
+        field_category = "primary_category"
+        field_category_py = field_category + "_py"
+
+        # check sector and subsector specifications
+        set_sector_tables = set({table_name_attr_sector, table_name_attr_subsector})
+        set_avail_others = set(dict_attributes.get("other").keys())
+        if not set_sector_tables.issubset(set_avail_others):
+            missing_vals = sf.print_setdiff(set_sector_tables, set_avail_others)
+            raise RuntimeError(f"Error initializing attribute tables: table names {missing_vals} not found.")
+
+
+        ##  UPDATE THE SUBSECTOR ATTRIBUTE TABLE
+
+        self._iat_support_clean_subsector_table(
+            dict_attributes,
+            table_name_attr_subsector,
+            field_category,
+            field_category_py,
+            key_cat = key_cat,
+            key_other = attribute_group_protected_other,
+        )
+
+        # get sets of all available values
+        dict_all_attribute_values = self.iat_support_get_all_keys(dict_attributes)
+        all_dims = dict_all_attribute_values.get(key_cat)
+        all_pycategories = dict_all_attribute_values.get(key_dim)
+        all_units = dict_all_attribute_values.get(key_unit)
+ 
+   
         ##  SET PROPERTIES
 
-        self.all_pycategories = all_pycategories
         self.all_dims = all_dims
+        self.all_pycategories = all_pycategories
+        self.all_units = all_units
         self.all_attributes = all_types
         self.attribute_analytical_parameters = attribute_analytical_parameters
         self.attribute_experimental_parameters = attribute_experimental_parameters
+        self.attribute_group_key_cat = key_cat
+        self.attribute_group_key_dim = key_dim
+        self.attribute_group_key_other = attribute_group_protected_other
+        self.attribute_group_key_unit = key_unit
         self.dict_attributes = dict_attributes
         self.dict_variable_definitions = dict_variable_definitions
-        self.table_name_attr_sector = table_name_attr_sector``
+        self.table_name_attr_sector = table_name_attr_sector
         self.table_name_attr_subsector = table_name_attr_subsector
 
         return None
@@ -981,7 +1050,51 @@ class ModelAttributes:
         self.emission_subsectors = emission_subsectors
 
         return None
+    
 
+
+    def _initialize_units(self,           
+    ) -> None:
+        """
+        Initialize the units defined in the input attribute unit tables. Sets
+            the following properties:
+            
+            * self.units
+            
+            NOTE: Units can be accessed using the `get_unit()` method of the
+            ModelAttributes class.
+        
+        Function Arguments
+        ------------------
+        - attribute_table: attribute table to search over
+        - unit_key: unit key value. Used to verify if same as attribute table
+            key
+
+        Keyword Arguments
+        -----------------
+        """
+        
+        dict_units = self.dict_attributes.get(self.attribute_group_key_unit)
+        if dict_units is None:
+            return None
+        
+        # update the entries in dict_attributes self.attribute_group_key_unit subdict
+        key_prependage = f"{self.attribute_group_key_unit}_"
+
+        for k, v in dict_units.items():
+            
+            try:
+                unit = um.Units(v, key_prependage = key_prependage, )
+
+            except Exception as e:
+                msg = f"Error trying to set unit {k}: {e}"
+                #LOG self._log(msg, type_log = "error")
+                continue
+            
+            dict_units.update({k: unit})
+            
+        return None
+            
 
 
     def _initialize_variables_by_subsector(self,
@@ -1146,29 +1259,58 @@ class ModelAttributes:
         fields: str,
         integer_q: bool = False,
         nonnegative_q: bool = True,
-        check_bounds: tuple = None
-    ):
+        check_bounds: tuple = None,
+    ) -> None:
+        """
+        Verify numeric fields in attr
+        """
         # loop over fields to do checks
         for fld in fields:
             if fld not in attr.table.columns:
-                raise ValueError(f"Error in subsector {subsec}: required field '{fld}' not found in the table at '{attr.fp_table}'.")
+                msg = f"""
+                Error in subsector {subsec}: required field '{fld}' not found in 
+                the table at '{attr.fp_table}'.
+                """
+                raise ValueError(msg)
             else:
                 try:
                     vals = list(attr.table[fld].astype(float))
                 except:
-                    raise ValueError(f"Error in subsector {subsec}: Non-numeric values found in field '{fld}'. Check the table at '{attr.fp_table}'.")
+                    msg = f"""
+                    Error in subsector {subsec}: Non-numeric values found in 
+                    field '{fld}'. Check the table at '{attr.fp_table}'.
+                    """
+                    raise ValueError(msg)
 
                 # check additional restrictions
                 if check_bounds is not None:
                     if (min(vals) < check_bounds[0]) or (max(vals) > check_bounds[1]):
-                        raise ValueError(f"Error in subsector {subsec}: values in field '{fld}' outside of bounds ({check_bounds[0]}, {check_bounds[1]}) specified. Check the attribute table at '{attr.fp_table}'.")
+                        msg = f"""
+                        Error in subsector {subsec}: values in field '{fld}' 
+                        outside of bounds ({check_bounds[0]}, {check_bounds[1]}) 
+                        specified. Check the attribute table at 
+                        '{attr.fp_table}'.
+                        """
+                        raise ValueError(msg)
+
                 elif nonnegative_q and (min(vals) < 0):
-                        raise ValueError(f"Error in subsector {subsec}: Negative values found in field '{fld}'. The field should only have non-negative numbers. Check the table at '{attr.fp_table}'.")
+                        msg = f"""
+                        Error in subsector {subsec}: Negative values found in 
+                        field '{fld}'. The field should only have non-negative 
+                        numbers. Check the table at '{attr.fp_table}'.
+                        """
+                        raise ValueError(msg)
 
                 if integer_q:
                     vals_check = [int(x) == x for x in vals]
                     if not all(vals_check):
-                        raise ValueError(f"Error in subsector {subsec}: Non-integer equivalent values found in the field {fld}. Entries in '{fld}' should be integers or float equivalents. Check the table at '{attr.fp_table}'.")
+                        msg = f"""
+                        Error in subsector {subsec}: Non-integer equivalent 
+                        values found in the field {fld}. Entries in '{fld}' 
+                        should be integers or float equivalents. Check the table 
+                        at '{attr.fp_table}'.
+                        """
+                        raise ValueError(msg)
 
         return None
 
@@ -1180,7 +1322,7 @@ class ModelAttributes:
         type_primary: str = "categories",
         type_target: str = "categories",
         injection_q: bool = True,
-        allow_multiple_cats_q: bool = False
+        allow_multiple_cats_q: bool = False,
     ):
         """
         Check the validity of categories specified as an attribute 
@@ -1223,44 +1365,91 @@ class ModelAttributes:
         }
         valid_types = list(dict_valid_types_to_attribute_keys.keys())
         str_valid_types = sf.format_print_list(valid_types)
+
         if type_primary not in valid_types:
             raise ValueError(f"Invalid type_primary '{type_primary}' specified. Valid values are '{str_valid_types}'.")
+
         if type_target not in valid_types:
             raise ValueError(f"Invalid type_target '{type_target}' specified. Valid values are '{str_valid_types}'.")
 
         # get the primary subsector + field, then run checks
-        if type(dict_subsector_primary) == dict:
+        if isinstance(dict_subsector_primary, dict):
             if len(dict_subsector_primary) != 1:
                 raise KeyError(f"Error in dictionary dict_subsector_primary: only one key (subsector_primary) should be specified.")
             subsector_primary = list(dict_subsector_primary.keys())[0]
-        elif type(dict_subsector_primary) == str:
+
+        elif isinstance(dict_subsector_primary, str):
             subsector_primary = dict_subsector_primary
+
         else:
             t_str = str(type(dict_subsector_primary))
             raise ValueError(f"Invalid type '{t_str}' of dict_subsector_primary: 'dict' and 'str' are acceptable values.")
+
+
         # check that the subsectors are valid
         self.check_subsector(subsector_primary)
         self.check_subsector(subsector_target)
 
         # check primary table type and fetch attribute
-        dict_tables_primary = self.dict_attributes if (type_primary == "categories") else self.dict_variable_definitions
-        key_primary = self.get_subsector_attribute(subsector_primary, dict_valid_types_to_attribute_keys[type_primary])
+        dict_tables_primary = (
+            self.dict_attributes 
+            if (type_primary == "categories") 
+            else self.dict_variable_definitions
+        )
+
+        key_primary = self.get_subsector_attribute(
+            subsector_primary, 
+            dict_valid_types_to_attribute_keys[type_primary]
+        )
+
         if not key_primary:
-            raise ValueError(f"Invalid type_primary '{type_primary}' specified for primary subsector '{subsector_primary}': type not found.")
+            msg = f"""
+            Invalid type_primary '{type_primary}' specified for primary 
+            subsector '{subsector_primary}': type not found.
+            """
+            raise ValueError(msg)
+
         attr_prim = dict_tables_primary[key_primary]
 
+
         # check target table type and fetch attribute
-        dict_tables_primary = self.dict_attributes if (type_target == "categories") else self.dict_variable_definitions
-        key_target = self.get_subsector_attribute(subsector_target, dict_valid_types_to_attribute_keys[type_target])
+        dict_tables_primary = (
+            self.dict_attributes 
+            if (type_target == "categories") 
+            else self.dict_variable_definitions
+        )
+
+        key_target = self.get_subsector_attribute(
+            subsector_target, 
+            dict_valid_types_to_attribute_keys[type_target]
+        )
+
         key_target_pycat = self.get_subsector_attribute(subsector_target, "pycategory_primary")
+
         if not key_primary:
-            raise ValueError(f"Invalid type_primary '{type_target}' specified for primary subsector '{subsector_target}': type not found.")
+            msg = f"""
+            Invalid type_primary '{type_target}' specified for primary subsector 
+            '{subsector_target}': type not found.
+            """
+            raise ValueError(msg)
+
         attr_targ = dict_tables_primary[key_target]
 
+
         # check that the field is properly specified in the primary table
-        field_subsector_primary = str(dict_subsector_primary[subsector_primary]) if (type(dict_subsector_primary) == dict) else key_target
+        field_subsector_primary = (
+            str(dict_subsector_primary[subsector_primary]) 
+            if (type(dict_subsector_primary) == dict) 
+            else key_target
+        )
+
         if field_subsector_primary not in attr_prim.table.columns:
-            raise ValueError(f"Error in _check_subsector_attribute_table_crosswalk: field '{field_subsector_primary}' not found in the '{subsector_primary}' attribute table. Check the file at '{attr_prim.fp_table}'.")
+            msg = f"""
+            Error in _check_subsector_attribute_table_crosswalk: field 
+            '{field_subsector_primary}' not found in the '{subsector_primary}' 
+            attribute table. Check the file at '{attr_prim.fp_table}'.
+            """
+            raise ValueError(msg)
 
 
         ##  CHECK ATTRIBUTE TABLE CROSSWALKS
@@ -1269,20 +1458,48 @@ class ModelAttributes:
         primary_cats_defined = list(attr_prim.table[field_subsector_primary])
         if allow_multiple_cats_q:
             primary_cats_defined = sum([[clean_schema(y) for y in x.split(self.delim_multicats)] for x in primary_cats_defined if (x != "none")], []) if (key_target == key_target_pycat) else [x for x in primary_cats_defined if (x != "none")]
+
         else:
-            primary_cats_defined = [clean_schema(x) for x in primary_cats_defined if (x != "none")] if (key_target == key_target_pycat) else [x for x in primary_cats_defined if (x != "none")]
+            primary_cats_defined = (
+                [clean_schema(x) for x in primary_cats_defined if (x != "none")] 
+                if (key_target == key_target_pycat) 
+                else [x for x in primary_cats_defined if (x != "none")]
+            )
 
         # ensure that all population categories properly specified
         if not set(primary_cats_defined).issubset(set(attr_targ.key_values)):
             valid_vals = sf.format_print_list(set(attr_targ.key_values))
             invalid_vals = sf.format_print_list(list(set(primary_cats_defined) - set(attr_targ.key_values)))
-            raise ValueError(f"Invalid categories {invalid_vals} specified in field '{field_subsector_primary}' of the {subsector_primary} attribute table at '{attr_prim.fp_table}'.\n\nValid categories from {subsector_target} are: {valid_vals}")
+
+            msg = f"""
+            Invalid categories {invalid_vals} specified in field 
+            '{field_subsector_primary}' of the {subsector_primary} attribute 
+            table at '{attr_prim.fp_table}'.
+            
+            Valid categories from {subsector_target} are: {valid_vals}
+            """
+
+            raise ValueError(msg)
+
 
         if injection_q:
-            # check that domestic wastewater categories are mapped 1:1 to a population category
+            # check that categories are mapped 1:1 to a category
             if len(set(primary_cats_defined)) != len(primary_cats_defined):
-                duplicate_vals = sf.format_print_list(set([x for x in primary_cats_defined if primary_cats_defined.count(x) > 1]))
-                raise ValueError(f"Error in {subsector_primary} attribute table at '{attr_prim.fp_table}': duplicate specifications of target categories {duplicate_vals}. There map of {subsector_primary} categories to {subsector_target} categories should be an injection map.")
+                duplicate_vals = sf.format_print_list(
+                    set([
+                        x for x in primary_cats_defined 
+                        if primary_cats_defined.count(x) > 1
+                    ])
+                )
+
+                msg = f"""
+                Error in {subsector_primary} attribute table at 
+                '{attr_prim.fp_table}': duplicate specifications of target 
+                categories {duplicate_vals}. There map of {subsector_primary} 
+                categories to {subsector_target} categories should be an 
+                injection map.
+                """
+                raise ValueError(msg)
 
         return None
 
@@ -1842,8 +2059,17 @@ class ModelAttributes:
         Ensure dimensions of analysis are properly specified
         """
         if not set(self.sort_ordered_dimensions_of_analysis).issubset(set(self.all_dims)):
+
             missing_vals = sf.print_setdiff(set(self.sort_ordered_dimensions_of_analysis), set(self.all_dims))
-            raise ValueError(f"Missing specification of required dimensions of analysis: no attribute tables for dimensions {missing_vals} found in directory '{self.attribute_directory}'.")
+
+            msg = f"""
+            f"Missing specification of required dimensions of analysis: no 
+            attribute tables for dimensions {missing_vals} found in directory 
+            '{self.attribute_directory}'."
+            """
+            raise ValueError(msg)
+        
+        return None
 
 
 
@@ -1980,19 +2206,6 @@ class ModelAttributes:
             raise ValueError(f"Invalid {func_arg} in {func_name}: valid values are {vrts}.")
 
         return None
-
-
-
-    def clean_dimension_fields(self,
-        df_in: pd.DataFrame
-    ):
-        """
-        Simple inline function to dimensions in a data frame (if they are 
-            converted to floats)
-        """
-        fields_clean = [x for x in self.sort_ordered_dimensions_of_analysis if x in df_in.columns]
-        for fld in fields_clean:
-            df_in[fld] = np.array(df_in[fld]).astype(int)
 
 
 

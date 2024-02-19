@@ -1,16 +1,355 @@
 from attribute_table import *
+import logging
 import model_variable as mv
 import numpy as np
 import os, os.path
 import pandas as pd
+import re
 import support_functions as sf
 from typing import *
 import warnings
 
 
+
+class Units:
+    """
+    Create a class for converting between units of a given dimension
+
+    Initialization Arguments
+    ------------------------
+    - attributes: file path to attribute table OR attribute table to 
+        initialize from
+
+    Optional Arguments
+    ------------------
+    - key_prependage: optional prepandage that is in the attribute key. If
+        specified, then the unit key will drop this prependage
+    """
+    def __init__(self,
+        attributes: Union[AttributeTable, str],
+        key_prependage: Union[str, None] = None,
+    ) -> None:
+
+        self._initialize_properties()
+        self._initialize_attribute_table(
+            attributes, 
+            key_prependage = key_prependage,
+        )
+
+        return None
+
+
+    
+
+    ############################
+    ###                      ###   
+    ###    INITIALIZATION    ###
+    ###                      ### 
+    ############################
+
+    def _initialize_attribute_table(self,
+        attributes: Union[AttributeTable, str],
+        key_prependage: Union[str, None] = None,
+    ) -> None:
+        """
+        Load all attribute tables and set the following parameters:
+
+            * self.attribute_table
+            * self.key
+
+        Function Arguments
+        ------------------
+        - attributes: file path to attribute table OR attribute table to 
+            initialize from
+
+        Keyword Arguments
+        -----------------
+        - key_prependage: optional prepandage that is in the attribute key. If
+            specified, then the unit key will drop this prependage
+        """
+
+        # try getting attributes if a string
+        if isinstance(attributes, str):
+            try:
+                obj = self.read_attributes(attributes)
+            except Exception as e:
+                raise RuntimeError(f"Error reading units attributes: {e}")
+
+        if not isinstance(attributes, AttributeTable):
+            tp = str(type(attributes))
+            raise RuntimeError(f"Invalid type '{tp}' for attributes found in Units initialization.")
+        
+        key = attributes.key
+        key = (
+            key.replace(key_prependage, "")
+            if key.startswith(key_prependage)
+            else key
+        )
+
+        # get ordered search fields
+        attributes_search_ordered = self.get_attribute_fields(
+            attributes,
+            key
+        )
+
+        ##  SET PROPERTIES
+
+        self.attributes_search_ordered = attributes_search_ordered
+        self.attribute_table = attributes
+        self.key = key
+
+        return None
+
+
+
+    def _initialize_properties(self,
+    ) -> None:
+        """
+        Set properties required throughout. Sets the following properties:
+
+            * self.
+
+        Function Arguments
+        ------------------
+        - 
+        
+        Keyword Arguments
+
+        """
+    
+
+        return None
+    
+
+
+    def read_attributes(self,
+        dir_attributes: str,
+        stop_on_error: bool = True,
+    ) -> None:
+        """
+        Read unit attribute tables from a directory
+
+        Function Arguments
+        ------------------
+        - dir_attributes: directory containing attribute tables
+        
+        Keyword Arguments
+        -----------------
+        - stop_on_error: if False, returns None instad of raising an error
+        """ 
+
+        if not isinstance(dir_attributes, str):
+            return None
+
+        # check directory if string is passed
+        try:
+            sf.check_path(dir_attributes, False)
+        except Exception as e:
+            if stop_on_error:
+                raise RuntimeError(e)
+            else:
+                return None
+
+
+        # try to read tables
+        dict_read = dict(
+            (x, self.regex_attribute_match(x))
+            for x in os.listdir(dir_attributes)
+            if self.regex_attribute_match(x) is not None
+        )
+        if len(dict_read) == 0:
+            return None
+        
+        # iterate over tables to load
+        dict_tables = {}
+
+        for k, v in dict_read.items():
+            
+            fp = os.path.join(dir_attributes, k)
+            key = v.groups()[0]
+
+            try:
+                attr = AttributeTable(fp, key, clean_table_fields = True, )
+
+            except Exception as e:
+                self._log(
+                    f"Error trying to initialize attribute {key}: {e}.\nSkipping...", 
+                    type_log = "error"
+                )
+
+                continue
+
+            dict_tables.update({key: attr})
+
+        
+        return dict_tables
+
+
+
+    ############################
+    #    CORE FUNCTIONALITY    #
+    ############################
+
+    def build_conversion_target_field(self,
+        unit_target: str,
+    ) -> Union[str, None]:
+        """
+        For a conversion target unit, build the field needed
+        """
+        out = f"{self.key}_equivalent_{unit_target}"
+        return out
+
+
+
+    def convert(self,
+        units_in: str,
+        units_out: str,
+        missing_return_val: Union[float, int, None] = 1,
+    ) -> Union[float, int, None]:
+        """
+        Get a conversion factor x to write units_in in terms of units_out; i.e.,
+
+            units_in * x = units_out
+
+        Returns `missing_return_val` by default if no conversion is found
+        """
+        # verify input units
+        units_in = self.get_unit_key(units_in)
+        units_out = self.get_unit_key(units_out)
+        if (units_in is None) | (units_out is None):
+            return missing_return_val
+
+        # get the field and extract from the table
+        field_units_out = self.build_conversion_target_field(units_out)
+        factor = self.get_attribute(units_in, field_units_out)
+
+        factor = float(factor) if sf.isnumber(factor) else missing_return_val
+
+        return factor
+
+
+
+    def get_attribute(self,
+        unit_specification: str,
+        attribute: str,
+        clean: bool = False,
+        none_flag: Any = None,
+    ) -> Union[Any, None]:
+        """
+        Retrieve `attribute` associated with unit specification 
+            `unit_specification`. 
+
+        Function Arguments
+        ------------------
+        - attribute_table: attribute table to search over
+        - unit_key: unit key value. Used to verify if same as attribute table
+            key
+        
+        Keyword Arguments
+        -----------------
+        - clean: Set clean to True to apply model_variable.clean_element() to 
+            the output
+        - none_flag: If not None, return None if this flag is specified.
+            NOTE: This is applied *after* cleaning the variable if 
+                `clean == True`
+        """
+        unit = self.get_unit_key(unit_specification)
+        if unit is None:
+            return None
+        
+        out = self.attribute_table.get_attribute(unit, attribute)
+        out = mv.clean_element(out) if clean else out
+        if none_flag is not None:
+            out = None if (out == none_flag) else out
+
+        return out
+        
+
+
+    def get_attribute_fields(self,
+        attribute_table: AttributeTable,
+        unit_key: str,
+        field_name: str = "name",
+    ) -> Union[List[str], None]:
+        """
+        Retrieve a list of attribute fields that can be used acceptably 
+
+        Function Arguments
+        ------------------
+        - attribute_table: attribute table to search over
+        - unit_key: unit key value. Used to verify if same as attribute table
+            key
+        
+        Keyword Arguments
+        -----------------
+        - field_name: optional name field to check for
+        """
+
+        fields_avail = [
+            x for x in attribute_table.table.columns
+            if attribute_table.table[x].dtype not in ["float64", "int64"]
+        ]
+
+        # order the output fields
+        fields_ord = [attribute_table.key] 
+        fields_ord.append(unit_key) if (unit_key != attribute_table.key) else None
+        fields_ord.append(field_name) if (field_name in fields_avail) else None
+        fields_ord += [x for x in fields_avail if x not in fields_ord]
+        
+
+        return fields_ord
+
+
+
+    def get_unit_key(self,
+        unit_specification: str,
+    ) -> Union[str, None]:
+        """
+        Based on an input unit value, try to get the unit key from the attribute
+            table. If not found, returns None
+
+        Function Arguments
+        ------------------
+        - unit_specification: input unit specification to attempt to retrieve 
+            key for
+        """
+
+        attr = self.attribute_table
+        i = -1
+        out = None
+
+        while (out is None) and (i < len(self.attributes_search_ordered) - 1):
+            
+            i += 1
+            prop = self.attributes_search_ordered[i]
+
+            # check if in key values
+            if prop == attr.key:
+                out = (
+                    unit_specification 
+                    if unit_specification in attr.key_values
+                    else None
+                )
+
+            # otherwise, try the field maps
+            field_map = f"{prop}_to_{attr.key}"
+            dict_map = attr.field_maps.get(field_map)
+            if dict_map is None:
+                continue
+            
+            out = dict_map.get(unit_specification)
+
+        return out
+
+
+
+
+
 """
 Using attributes, setup units conversion mechanisms that can be used to ensure
     variables are converted properly. 
+
+NOTE: INCOMPLETE
 
 Initialization Arguments
 ------------------------
@@ -23,7 +362,7 @@ Optional Arguments
 """
 class UnitsManager:
 
-     def __init__(self,
+    def __init__(self,
         attributes: Union[AttributeTable, str, List[AttributeTable]],
         logger: Union[logging.Logger, None] = None,
     ) -> None:
@@ -50,16 +389,7 @@ class UnitsManager:
         """
         Load all attribute tables and set the following parameters:
 
-            self.all_attributes
-            self.all_dims
-            self.all_pycategories
-            self.attribute_analytical_parameters
-            self.attribute_directory
-            self.attribute_experimental_parameters
-            self.dict_attributes
-            self.dict_varreqs
-            self.table_name_attr_sector
-            self.table_name_attr_subsector
+            * self.
 
         Function Arguments
         ------------------
@@ -88,110 +418,13 @@ class UnitsManager:
         )
 
 
-        ##  batch load attributes/variable requirements and turn them into AttributeTable objects
-        dict_attributes = {}
-        dict_varreqs = {}
-        attribute_analytical_parameters = None
-        attribute_experimental_parameters = None
-
-        for att in all_types:
-            fp = os.path.join(dir_att, att)
-            if self.substr_dimensions in att:
-                nm = att.replace(self.substr_dimensions, "").replace(self.attribute_file_extension, "")
-                k = f"dim_{nm}"
-                att_table = AttributeTable(fp, nm)
-                dict_attributes.update({k: att_table})
-                all_dims.append(nm)
-
-            elif self.substr_categories in att:
-                df_cols = pd.read_csv(fp, nrows = 0).columns 
-                
-                # try to set key
-                nm = sf.clean_field_names([x for x in df_cols if ("$" in x) and (" " not in x.strip())])
-                nm = nm[0] if (len(nm) > 0) else None
-                if nm is None:
-                    nm = sf.clean_field_names([att.replace("attribute_", "").replace(".csv", "")])[0]
-                    nm = nm if (nm in df_cols) else None
-
-                # skip if it is impossible
-                if nm is None:
-                    continue
-
-                att_table = AttributeTable(fp, nm)
-                dict_attributes.update({nm: att_table})
-                all_pycategories.append(nm)
-
-            elif (self.substr_varreqs_allcats in att) or (self.substr_varreqs_partialcats in att):
-                nm = att.replace(self.substr_varreqs, "").replace(self.attribute_file_extension, "")
-                att_table = AttributeTable(fp, "variable")
-                dict_varreqs.update({nm: att_table})
-
-            elif (att == f"{self.substr_analytical_parameters}{self.attribute_file_extension}"):
-                attribute_analytical_parameters = AttributeTable(fp, "analytical_parameter")
-
-            elif (att == f"{self.substr_experimental_parameters}{self.attribute_file_extension}"):
-                attribute_experimental_parameters = AttributeTable(fp, "experimental_parameter")
-
-            else:
-                raise ValueError(f"Invalid attribute '{att}': ensure '{self.substr_categories}', '{self.substr_varreqs_allcats}', or '{self.substr_varreqs_partialcats}' is contained in the attribute file.")
-
-        # add some subsector/python specific information into the subsector table
-        field_category = "primary_category"
-        field_category_py = field_category + "_py"
-
-        # check sector and subsector specifications
-        if not set({table_name_attr_sector, table_name_attr_subsector}).issubset(set(dict_attributes.keys())):
-            missing_vals = sf.print_setdiff(
-                set({table_name_attr_sector, table_name_attr_subsector}),
-                set(dict_attributes.keys())
-            )
-            raise RuntimeError(f"Error initializing attribute tables: table names {missing_vals} not found.")
-
-
-        ##  UPDATE THE SUBSECTOR ATTRIBUTE TABLE
-
-        # add a new field
-        df_tmp = dict_attributes[table_name_attr_subsector].table
-        df_tmp[field_category_py] = sf.clean_field_names(df_tmp[field_category])
-        df_tmp = df_tmp[df_tmp[field_category_py] != "none"].reset_index(drop = True)
-
-        # set a key and prepare new fields
-        key = field_category_py
-        fields_to_dict = [x for x in df_tmp.columns if x != key]
-
-        # next, create dict maps to add to the table
-        field_maps = {}
-        for fld in fields_to_dict:
-            field_fwd = f"{key}_to_{fld}"
-            field_rev = f"{fld}_to_{key}"
-            field_maps.update({field_fwd: sf.build_dict(df_tmp[[key, fld]])})
-            # check for 1:1 correspondence before adding reverse
-            vals_unique = set(df_tmp[fld])
-            if (len(vals_unique) == len(df_tmp)):
-                field_maps.update({field_rev: sf.build_dict(df_tmp[[fld, key]])})
-
-        dict_attributes[table_name_attr_subsector].field_maps.update(field_maps)
-
-
-        ##  SET PROPERTIES
-
-        self.attribute_directory = attribute_directory
-        self.all_pycategories = all_pycategories
-        self.all_dims = all_dims
-        self.all_attributes = all_types
-        self.attribute_analytical_parameters = attribute_analytical_parameters
-        self.attribute_experimental_parameters = attribute_experimental_parameters
-        self.dict_attributes = dict_attributes
-        self.dict_varreqs = dict_varreqs
-        self.table_name_attr_sector = table_name_attr_sector
-        self.table_name_attr_subsector = table_name_attr_subsector
 
         return None
     
 
 
     def _initialize_logger(self,
-       logger: Union[logging.Logger, None] = None,
+    logger: Union[logging.Logger, None] = None,
     ) -> None:
         """
         Initialize a logger object?
@@ -221,7 +454,7 @@ class UnitsManager:
             * self.regex_attribute_match:
                 Regular expression used to parse expressions (e.g., mutable 
                 element dictionaries) from initialization strings
-           
+        
 
 
         Function Arguments

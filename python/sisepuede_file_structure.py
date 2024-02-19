@@ -405,8 +405,14 @@ class SISEPUEDEFileStructure:
 			the analysis id.
 		"""
 		# set the template
-		regex_template_prepend = "sisepuede_run" if not isinstance(regex_template_prepend, str) else (
-			"sisepuede_run" if (len(regex_template_prepend) == 0) else regex_template_prepend
+		regex_template_prepend = (
+			"sisepuede_run" 
+			if not isinstance(regex_template_prepend, str) 
+			else (
+				"sisepuede_run" 
+				if (len(regex_template_prepend) == 0) 
+				else regex_template_prepend
+			)
 		)
 
 		self.regex_template_analysis_id = re.compile(f"{regex_template_prepend}_(.+$)")
