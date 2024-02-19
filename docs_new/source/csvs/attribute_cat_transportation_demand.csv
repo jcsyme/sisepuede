@@ -1,0 +1,4 @@
+﻿Category Name,``$CAT-TRANSPORTATION-DEMAND$``,Description,Data Source,Hyperlink,Notes,Partial Category EN TRDE,Freight Category
+Regional Transportation Demand,``regional``,International and domestic civil (passenger and freight) and military aviation. Driven by demand for regional travel. ,,,,Passenger-Kilometer Demand,0
+Freight Transportation Demand,``freight``,Demand for freight transportation. Driven primarily by growth in GDP.,,,,Megatonne-Kilometer Demand,1
+Private and Public Transportation,``private_and_public``,Transportation for private and public transportation--driven by people's day-to-day commutes and transportation behavior.,,,,Passenger-Kilometer Demand,0

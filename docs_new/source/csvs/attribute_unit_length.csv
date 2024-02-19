@@ -1,0 +1,6 @@
+﻿Length,``$UNIT-LENGTH$`` ,Name ,Length Equivalent m,Length Equivalent km,Length Equivalent Mile,Length Equivalent Mgm,Length Equivalent Gm
+m,``m``,Meters,1,0.001,0.000621373,0.000001,0.000000001
+km,``km``,Kilometers,1000,1,0.62137,0.001,0.000001
+Mile,``mile``,Miles,1609.34,1.60934,1,0.00160934,1.60934E-06
+Mm,``mgm``,Megameters,1000000,1000,0.00062137,1,0.001
+Gm,``gm``,Gigameters,1000000000,1000000,6.2137E-07,1000,1

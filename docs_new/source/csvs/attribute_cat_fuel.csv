@@ -1,0 +1,26 @@
+﻿Category Name,``$CAT-FUEL$``,Description,Data Source,Hyperlink,Notes,Biogas Fuel Category,Biomass Demand Category ,Electricity Demand Category,Hydrogen Fuel Category,Hydropower Fuel Category,Upstream to Fuel Category,Waste Fuel Category
+Biogas,``fuel_biogas``,"Includes landfill gas, sludge gas, and other biomass gasses (integrated from the waste sector and as definined in Table 2.2, V2, C2)",,,,1,0,0,0,0,none,0
+Biomass,``fuel_biomass``,"Solid biomass, includiing wood, sulphite lyes, charcoal, and other primary solid biomass (as definined in Table 2.2, V2, C2 2006/2019R IPCC GNGHGI)",,,,0,1,0,0,0,none,0
+Coal,``fuel_coal``,"Coal, including anthracite, coking coal, sub-bituminous coal, and other coals (as definined in Table 2.2, V2, C2)",,,,0,0,0,0,0,none,0
+Coal Deposits,``fuel_coal_deposits``,Coal deposits. Used in NemoMod as a dummy fuel to support coal electrification. ,,,,0,0,0,0,0,``fuel_coal``,0
+Coke,``fuel_coke``,"Lignite coke, and gas coke (as definined in Table 2.2, V2, C2--does not include petroleum coke)",,,,0,0,0,0,0,none,0
+Crude Oil,``fuel_crude``,Crude oil. Included for accounting purposes.,,,,0,0,0,0,0,none,0
+Diesel,``fuel_diesel``,"Gas and diesel oil (see fuel ""Gas/Diesel Oil"" in Table 2.2, V2, C2)",,,,0,0,0,0,0,none,0
+Electricity,``fuel_electricity``,"Electricity--this category represents demands and production of electricity as a fuel. All electricity demands associated with ``fuel_electricity`` from the Industrial Energy, Transportation, and Other Energy: Stationary Emissions and Carbon Capture and Sequestration subsectors are passed to the electricity model. ",,,,0,0,1,0,0,none,0
+Furnace Gases,``fuel_furnace_gas``,Blast furnace and oxygen steel furnace gas,,,,0,0,0,0,0,none,0
+Gasoline,``fuel_gasoline``,"Gasoline (including motor, aviation, and jet gasoline as definined in Table 2.2, V2, C2)",,,,0,0,0,0,0,none,0
+Geothermal,``fuel_geothermal``,Geothermal energy production,,,,0,0,0,0,0,none,0
+Hydrocarbon Gas Liquids,``fuel_hydrocarbon_gas_liquids``,"Liquified petroleoum gases, including propane, butane, and ethane. Produced in petroleum refinement and natural gas processing.",,,,0,0,0,0,0,none,0
+Hydrogen,``fuel_hydrogen``,Hydrogen energy,,,,0,0,0,1,0,none,0
+Hydropower,``fuel_hydropower``,Power available from hydropower,,,,0,0,0,0,1,none,0
+Kerosene,``fuel_kerosene``,"Kerosene, including jet and other (as definined in Table 2.2, V2, C2)",,,,0,0,0,0,0,none,0
+Liquid Biofuels,``fuel_biofuels``,"Biodiesel, ethanol, and biogasoline",,,,0,0,0,0,0,none,0
+Natural Gas,``fuel_natural_gas``,Natural gas,,,,0,0,0,0,0,none,0
+Nuclear,``fuel_nuclear``,Nuclear fuel,,,,0,0,0,0,0,none,0
+Ocean,``fuel_ocean``,Ocean energy,,,,0,0,0,0,0,none,0
+Oil,``fuel_oil``,"Other refined oil products, including fuel oil",,,,0,0,0,0,0,none,0
+Other,``fuel_other``,Other fuel sources,,,,0,0,0,0,0,none,0
+Solar,``fuel_solar``,Solar energy,,,,0,0,0,0,0,none,0
+Unprocessed Natural Gas,``fuel_natural_gas_unprocessed``,Unprocessed natural gas. Used in NemoMod as a dummy fuel to support natural gas electrification. ,,,,0,0,0,0,0,``fuel_natural_gas``,0
+Waste,``fuel_waste``,Waste burned,,,,0,0,0,0,0,none,1
+Wind,``fuel_wind``,Wind energy,,,,0,0,0,0,0,none,0
