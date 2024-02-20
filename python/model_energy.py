@@ -661,7 +661,10 @@ class NonElectricEnergy:
         self.modvar_scoe_frac_heat_en_kerosene = "SCOE Fraction Heat Energy Demand Kerosene"
         self.modvar_scoe_frac_heat_en_natural_gas = "SCOE Fraction Heat Energy Demand Natural Gas"
         self.modvar_scoe_frac_heat_en_solid_biomass = "SCOE Fraction Heat Energy Demand Solid Biomass"
+
         # get some dictionaries implied by the SCOE attribute tables
+        cat = self.model_attributes.get_subsector_attribute(self.subsec_name_enfu, "pycategory_primary")
+        cat = f"cat_{cat}"
         self.modvar_dicts_scoe_fuel_vars = self.model_attributes.get_var_dicts_by_shared_category(
             self.subsec_name_scoe,
             self.model_attributes.get_subsector_attribute(self.subsec_name_enfu, "pycategory_primary"),

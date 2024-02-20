@@ -1,4 +1,5 @@
 from attribute_table import *
+from configuration import *
 import itertools
 import model_variable as mv
 import numpy as np
@@ -43,10 +44,10 @@ class ModelAttributesNew:
         self._initialize_attribute_tables(dir_attributes)
         #self._initialize_dims()
         self._initialize_units()
-        #self._initialize_variables()
+        self._initialize_variables()
 
-        #self._initialize_config(fp_config)
-        #self._initialize_sector_sets()
+        self._initialize_config(fp_config)
+        self._initialize_sector_sets()
         #self._initialize_variables_by_subsector()
         #self._initialize_all_primary_category_flags()
         #self._initialize_emission_modvars_by_gas()
@@ -362,6 +363,9 @@ class ModelAttributesNew:
             * self.dict_variable_definitions
             * self.regex_attribute_*:
                 regular expressions used to read in attribute tables 
+            * self.subsector_field_category_py:
+                field in subsector attribute table used to identify the 
+                python name for a category
             * self.table_name_attr_sector
             * self.table_name_attr_subsector
 
@@ -498,8 +502,8 @@ class ModelAttributesNew:
 
         # get sets of all available values
         dict_all_attribute_values = self.iat_support_get_all_keys(dict_attributes)
-        all_dims = dict_all_attribute_values.get(key_cat)
-        all_pycategories = dict_all_attribute_values.get(key_dim)
+        all_dims = dict_all_attribute_values.get(key_dim)
+        all_pycategories = dict_all_attribute_values.get(key_cat)
         all_units = dict_all_attribute_values.get(key_unit)
  
    
@@ -517,6 +521,7 @@ class ModelAttributesNew:
         self.attribute_group_key_unit = key_unit
         self.dict_attributes = dict_attributes
         self.dict_variable_definitions = dict_variable_definitions
+        self.subsector_field_category_py = field_category_py
         self.table_name_attr_sector = table_name_attr_sector
         self.table_name_attr_subsector = table_name_attr_subsector
 
@@ -880,17 +885,17 @@ class ModelAttributesNew:
         # get configuration
         self.configuration = Configuration(
             fp_config,
-            self.dict_attributes["unit_area"],
-            self.dict_attributes["unit_energy"],
-            self.dict_attributes["emission_gas"],
-            self.dict_attributes["unit_length"],
-            self.dict_attributes["unit_mass"],
-            self.dict_attributes["unit_monetary"],
-            self.dict_attributes["unit_power"],
-            self.dict_attributes["region"],
-            self.dict_attributes["dim_time_period"],
-            self.dict_attributes["unit_volume"],
-            self.attribute_configuration_parameters
+            self.get_unit_attribute("area"),
+            self.get_unit_attribute("energy"),
+            self.get_other_attribute("emission_gas"),
+            self.get_unit_attribute("length"),
+            self.get_unit_attribute("mass"),
+            self.get_unit_attribute("monetary"),
+            self.get_unit_attribute("power"),
+            self.get_other_attribute("region"),
+            self.get_dimensional_attribute_table(self.dim_time_period),
+            self.get_unit_attribute("volume"),
+            attr_required_parameters = self.attribute_configuration_parameters,
         )
 
         return None
@@ -1004,8 +1009,6 @@ class ModelAttributesNew:
 
 
     def _initialize_sector_sets(self,
-        table_key_sector: Union[str, None] = None,
-        table_key_subsector: Union[str, None] = None
     ) -> None:
         """
         Initialize properties around subsectors. Sets the following properties:
@@ -1018,28 +1021,23 @@ class ModelAttributesNew:
             * self.all_subsectors_without_primary_category
             * self.emission_subsectors
         """
+        attr_sec = self.get_sector_attribute_table()
+        attr_subsec = self.get_subsector_attribute_table()
 
-        table_key_sector = (
-            self.table_name_attr_subsector 
-            if (table_key_sector is None) 
-            else table_key_sector
-        )
-        table_key_subsector = (
-            self.table_name_attr_subsector 
-            if (table_key_subsector is None) 
-            else table_key_subsector
-        )
-        attr_sec = self.dict_attributes.get(table_key_sector)
-        attr_subsec = self.dict_attributes.get(table_key_subsector)
-
-        # all sectors and subsectors +  emission subsectors
+        # all sectors and subsectors + emission subsectors
         all_sectors = sorted(list(attr_sec.table["sector"].unique()))
         all_subsectors = sorted(list(attr_subsec.table["subsector"].unique()))
         emission_subsectors = self.get_emission_subsectors()
 
         # some subsector splits based on w+w/o primary categories
-        l_with = sorted(list(attr_subsec.field_maps["subsector_to_primary_category_py"].keys()))
+        l_with = attr_subsec.field_maps.get(
+            f"subsector_to_{self.subsector_field_category_py}"
+        )
+        l_with = sorted(list(l_with.keys())) if isinstance(l_with, dict) else []
         l_without = sorted(list(set(all_subsectors) - set(l_with)))
+
+
+        ##  SET PROPERTIES
 
         self.all_sectors = all_sectors
         self.all_sectors_abvs = attr_sec.key_values
@@ -1056,19 +1054,19 @@ class ModelAttributesNew:
     def _initialize_units(self,           
     ) -> None:
         """
-        Initialize the units defined in the input attribute unit tables. Sets
-            the following properties:
-            
-            * self.units
-            
+        Initialize the units defined in the input attribute unit tables. 
+            Modifies entries in 
+
+                self.dict_attributes.get(self.attribute_group_key_unit,
+
+            converting these to um.Units objects that invlude conversion 
+            mechanisms.
+
             NOTE: Units can be accessed using the `get_unit()` method of the
             ModelAttributes class.
         
         Function Arguments
         ------------------
-        - attribute_table: attribute table to search over
-        - unit_key: unit key value. Used to verify if same as attribute table
-            key
 
         Keyword Arguments
         -----------------
@@ -1094,6 +1092,37 @@ class ModelAttributesNew:
             dict_units.update({k: unit})
             
         return None
+    
+
+
+    def _initialize_variables(self,           
+    ) -> None:
+        """
+        Initialize variables as model_variable.ModelVariable objects. Sets the 
+            following properties:
+
+                * self.dict_variables
+
+        
+        Function Arguments
+        ------------------
+
+        Keyword Arguments
+        -----------------
+        """
+
+        dict_variables = self.get_variable_dict()
+
+        # get some derivative values
+        all_model_variables = sorted(list(dict_variables.keys()))
+
+
+        ##  SET PROPERTIES
+
+        self.all_model_variables = all_model_variables
+        self.dict_variables = dict_variables
+
+        return None
             
 
 
@@ -1117,61 +1146,60 @@ class ModelAttributesNew:
         all_variables_input = []
         all_variables_output = []
         dict_fields_to_vars = {}
-        dict_vars_by_subsector = {}
-        dict_vars_to_subsector = {}
-        dict_vars_to_fields = {}
-        dict_vartypes_out = {}
+        dict_vars_by_subsector = {} #
+        dict_vars_to_subsector = {} #
+        dict_vars_to_fields = {} #
 
         modvars_all = []
 
         for subsector in self.all_subsectors_with_primary_category:
+            
+            # get model variable lists
+            subsector_modvars = self.get_subsector_variables(subsector)
 
-            # get model variables
-            dict_var_type, vars_by_subsector = self.get_subsector_variables(subsector)
-            dict_var_type_tmp, vars_by_subsector_input = self.get_subsector_variables(subsector, var_type = "input")
-            dict_var_type_tmp, vars_by_subsector_output = self.get_subsector_variables(subsector, var_type = "output")
-            dict_vars_by_subsector.update({subsector: vars_by_subsector})
-            dict_vars_to_subsector.update(
-                dict((x, subsector) for x in vars_by_subsector)
+            """
+            self.get_subsector_variables(
+                subsector, 
+                var_type = "output",
             )
+            """
 
-            dict_vartypes_out.update(dict_var_type)
-            modvars_all += sorted(vars_by_subsector)
+            for modvar_name in subsector_modvars:
+                
+                modvar = self.dict_variables.get(modvar_name)
+                if modvar is None:
+                    continue
+                
+                # update output lists
+                all_variables.extend(modvar.fields)
+                if modvar.get_property("variable_type") == "input":
+                    all_variables_input.extend(modvar.fields)
+                elif modvar.get_property("variable_type") == "output":
+                    all_variables_output.extend(modvar.fields)
 
-            # get mappings for individual model variables (to/from fields)
-            for var in vars_by_subsector:
-                var_lists = self.build_varlist(subsector, variable_subsec = var)
-                dict_vars_to_fields.update({var: var_lists})
-                dict_fields_to_vars.update(
-                    dict(zip(var_lists, [var for x in var_lists]))
-                )
+                # update relavent dictionaries
+                dict_vars_to_fields.update({modvar_name: modvar.fields})
+                dict_fields_to_vars.update(dict((x, modvar_name) for x in modvar.fields))
 
-                all_variables_input += (
-                    var_lists
-                    if var in vars_by_subsector_input
-                    else []
-                )
-                all_variables_output += (
-                    var_lists
-                    if var in vars_by_subsector_output
-                    else []
-                )
+            # extend other dictionaries
+            dict_vars_by_subsector.update({subsector: subsector_modvars})
+            dict_vars_to_subsector.update(dict((x, subsector) for x in subsector_modvars))
+
 
         # get all variables as a list
-        all_variables = sorted(list(dict_fields_to_vars.keys()))
+        all_variables.sort()
+        all_variables_input.sort()
         all_variables_output += self.get_all_subsector_emission_total_fields()
         all_variables_output.sort()
 
 
-        ##  SET PROPERTIES
+        ##  SET PROPERTIES HEREHERE
 
-        self.all_model_variables = modvars_all
         self.all_variables = all_variables
         self.all_variables_input = all_variables_input
         self.all_variables_output = all_variables_output
         self.dict_model_variables_by_subsector = dict_vars_by_subsector
         self.dict_model_variable_to_subsector = dict_vars_to_subsector
-        self.dict_model_variable_to_category_restriction = dict_vartypes_out
         self.dict_model_variables_to_variables = dict_vars_to_fields
         self.dict_variables_to_model_variables = dict_fields_to_vars
 
@@ -2215,7 +2243,9 @@ class ModelAttributesNew:
         """
         inline function to clean regions (commonly called)
         """
-        return region.strip().lower().replace(" ", "_")
+        out = region.strip().lower().replace(" ", "_")
+
+        return out
 
 
 
@@ -2245,27 +2275,37 @@ class ModelAttributesNew:
     
 
 
-    def get_attribute_table(self,
+    def get_attribute_table(self, #FIXED
         subsector: str,
-        table_type = "pycategory_primary"
-    ) -> AttributeTable:
+        table_type = "pycategory_primary",
+    ) -> Union[AttributeTable, None]:
         """
         Simplify retrieval of attribute tables within functions
         """
+
+        # check input type
+        valid_types = ["pycategory_primary", "key_variable_definitions"]
+        if table_type not in valid_types:
+            tps = sf.format_print_list(valid_types)
+            msg = f"Invalid table_type '{table_type}': valid options are {tps}."
+            raise ValueError(msg)
+
+        # get different table by different type
+        key_dict = self.get_subsector_attribute(subsector, table_type)
         if table_type == "pycategory_primary":
-            key_dict = self.get_subsector_attribute(subsector, table_type)
-            return self.dict_attributes.get(key_dict)
-        elif table_type in ["key_varreqs_all", "key_varreqs_partial"]:
-            key_dict = self.get_subsector_attribute(subsector, table_type)
-            return self.dict_variable_definitions.get(key_dict)
-        else:
-            raise ValueError(f"Invalid table_type '{table_type}': valid options are 'pycategory_primary', 'key_varreqs_all', 'key_varreqs_partial'.")
+            dict_retrieve = self.dict_attributes.get(self.attribute_group_key_cat)
+            out = dict_retrieve.get(key_dict)
+
+        elif table_type == "key_variable_definitions":
+            out = self.dict_variable_definitions.get(key_dict)
+
+        return out
 
 
 
-    def get_baseline_scenario_id(self,
+    def get_baseline_scenario_id(self, #FIXED
         dim: str,
-        infer_baseline_as_minimum: bool = True
+        infer_baseline_as_minimum: bool = True,
     ) -> int:
 
         """
@@ -2283,26 +2323,38 @@ class ModelAttributesNew:
             fpl = sf.format_print_list(self.all_dims)
             raise ValueError(f"Invalid dimension '{dim}': valid dimensions are {fpl}.")
 
-        attr = self.dict_attributes.get(f"dim_{dim}")
+        attr = self.get_dimensional_attribute_table(dim)
         min_val = min(attr.key_values)
 
         # get field to check
         field_check = f"baseline_{dim}"
-        if field_check not in attr.table:
-            str_append = f" Inferring minimum key value {min_val} as baseline." if infer_baseline_as_minimum else " Returning None."
+        if field_check not in attr.table.columns:
+            str_append = (
+                f" Inferring minimum key value {min_val} as baseline." 
+                if infer_baseline_as_minimum 
+                else " Returning None."
+            )
             warnings.warn(f"No baseline specified for dimension '{dim}'.{str_append}")
             ret = min_val if infer_baseline_as_minimum else None
 
         else:
-            tab = self.dict_attributes.get(f"dim_{dim}")
-            tab_red = sorted(list(tab.table[tab.table[field_check] == 1][dim]))
+            tab_red = sorted(list(attr.table[attr.table[field_check] == 1][dim]))
 
             if len(tab_red) > 1:
                 ret = tab_red[0]
-                warnings.warn(f"Multiple baselines specified for dimension {dim}. Ensure that only baseline is set in the attribute table at '{tab.fp_table}'. Defaulting to minimum value of {ret}.")
+                msg = f"""
+                Multiple baselines specified for dimension {dim}. Ensure that 
+                only one baseline is set in the attribute table at 
+                '{tab.fp_table}'. Defaulting to minimum value of {ret}.
+                """
+                warnings.warn(msg)
 
             elif len(tab_red) == 0:
-                str_append = f" Inferring minimum key value {min_val} as baseline." if infer_baseline_as_minimum else " Returning None."
+                str_append = (
+                    f" Inferring minimum key value {min_val} as baseline." 
+                    if infer_baseline_as_minimum 
+                    else " Returning None."
+                )
                 warnings.warn(f"No baseline specified for dimension '{dim}'.{str_append}")
                 ret = min_val if infer_baseline_as_minimum else None
 
@@ -2313,7 +2365,7 @@ class ModelAttributesNew:
 
 
 
-    def get_categories_from_attribute_characteristic(self,
+    def get_categories_from_attribute_characteristic(self, 
         subsector: str,
         dict_subset: dict,
         attribute_type: str = "pycategory_primary",
@@ -2355,79 +2407,56 @@ class ModelAttributesNew:
     
 
 
-    def get_category_replacement_field_dict(self,
-        modvar: str,
-    ) -> Union[dict, None]:
-        """
-        Replace SISEPUEDE categories with the target field associated with the
-            model variable `modvar`
-        """
-        
-        cats = self.get_variable_categories(modvar)
-        if cats is None:
-            return {}
-
-        dict_repl_categories_with_fields = {}
-        for cat in cats:
-            fields = self.build_varlist(
-                None,
-                modvar,
-                restrict_to_category_values = cat,
-            )
-            
-            dict_repl_categories_with_fields.update({cat: fields[0]})
-            
-        return dict_repl_categories_with_fields
-    
-
-
-    def get_df_dimensions_of_analysis(self, 
+    def get_df_dimensions_of_analysis(self, #FIXED
         df_in: pd.DataFrame, 
-        df_in_shared: pd.DataFrame = None
+        df_in_shared: pd.DataFrame = None,
     ) -> list:
         """
         Get all dimensions of analysis in a data frame - can be used on two 
             data frames for merges
         """
-        if type(df_in_shared) == pd.DataFrame:
-            cols = [x for x in self.sort_ordered_dimensions_of_analysis if (x in df_in.columns) and (x in df_in_shared.columns)]
-        else:
-            cols = [x for x in self.sort_ordered_dimensions_of_analysis if x in df_in.columns]
-        return cols
-
-
-
-    def get_dimensional_attribute(self, 
-        dimension: str, 
-        return_type: Any
-    ) -> Any:
-        """
-        NEED INFO
-        """
-
-        if dimension not in self.all_dims:
-            valid_dims = sf.format_print_list(self.all_dims)
-            raise ValueError(f"Invalid dimension '{dimension}'. Valid dimensions are {valid_dims}.")
-
-        # add attributes here
-        dict_out = {"pydim": ("dim_" + dimension)}
-
-        out_val = dict_out.get(return_type)
-        if out_val is None:
-            # warn user, but still allow a return
-            valid_rts = sf.format_print_list(list(dict_out.keys()))
-            warnings.warn(f"Invalid dimensional attribute '{return_type}'. Valid return type values are:{valid_rts}")
+        domain = set(df_in.columns)
+        if isinstance(df_in_shared, pd.DataFrame):
+            domain &= set(df_in_shared.columns)
         
-        return out_val
+        cols = [x for x in self.sort_ordered_dimensions_of_analysis if x in domain]
+
+        return cols
     
 
 
-    def get_emission_subsectors(self,
+    def get_dimensional_attribute_table(self, #FIXED
+        dimension: str,
+        stop_on_error: bool = False,
+    ) -> Union[AttributeTable, None]:
+        """
+        Retrieve a dimension of analysis attribute table.
+        """
+
+        if dimension not in self.all_dims:
+            if stop_on_error:
+                valid_dims = sf.format_print_list(self.all_dims)
+                raise ValueError(f"Invalid dimension '{dimension}'. Valid dimensions are {valid_dims}.")
+
+            return None
+
+        # add attributes here
+        out = self.dict_attributes.get(self.attribute_group_key_dim)
+        if out is None:
+            return None
+
+        out = out.get(dimension)
+        
+        return out
+    
+
+
+    def get_emission_subsectors(self, #FIXED
     ) -> List[str]:
         """
         Get subsectors that generate emissions
         """
-        attr = self.dict_attributes.get("abbreviation_subsector")
+        attr = self.get_subsector_attribute_table()
         subsectors_emission = list(
             attr.table[
                 attr.table["emission_subsector"] == 1
@@ -2438,7 +2467,32 @@ class ModelAttributesNew:
     
 
 
-    def get_fluorinated_compound_dictionaries(self,
+    def get_fields_from_variables(self, #FIXED
+        modvars: Union[str, List[str]],
+        sort: bool = False,
+    ) -> Union[List[str], None]:
+        """
+        Using a list of model variables (or individual), return list of fields.
+            Option to sort using sort = True
+        """
+        
+        modvars = [modvars] if isinstance(modvars, str) else list(modvars)
+        out = []
+        
+        for modvar_name in modvars:
+            modvar = self.dict_variables.get(modvar_name)
+            if modvar is None:
+                continue
+            
+            out += modvar.fields
+        
+        out.sort() if sort else None
+        
+        return out
+    
+
+
+    def get_fluorinated_compound_dictionaries(self, #FIXED
         field_fc_designation: str = "flourinated_compound_designation",
     ) -> Dict[str, List[str]]:
         """
@@ -2456,7 +2510,7 @@ class ModelAttributesNew:
             the fluorinated compound designation of the gas 
         """
         
-        attr_gas = self.dict_attributes.get("emission_gas")
+        attr_gas = self.get_other_attribute("emission_gas")
         dict_out = {}
         df_by_designation = attr_gas.table.groupby([field_fc_designation])
         
@@ -2548,30 +2602,24 @@ class ModelAttributesNew:
     
 
 
-    def get_primary_category_schema_element(self,
-        subsector: str,
-    ) -> Union[str, None]:
+    def get_other_attribute(self, #FIXED
+        attribute: str,
+    ) -> AttributeTable:
         """
-        Return the full primary category element associated with the primary 
-            category for subsector
+        Simplify retrieval of an `other` attribute object.
         """
 
-        attr = self.dict_attributes.get("abbreviation_subsector")
+        # get different table by different type
+        dict_retrieve = self.dict_attributes.get(self.attribute_group_key_other)
+        out = dict_retrieve.get(attribute)
 
-        dict_subsec_to_key = attr.field_maps.get(f"subsector_to_{attr.key}")
-        dict_key_to_primary_cat = attr.field_maps.get(f"{attr.key}_to_primary_category")
-        
-        key = dict_subsec_to_key.get(subsector)
-        pc_element = dict_key_to_primary_cat.get(key)
-        
-        return pc_element
-
-            
+        return out
+    
 
 
     def get_region_list_filtered(self,
         regions: Union[List[str], str, None], 
-        attribute_region: Union[AttributeTable, None] = None
+        attribute_region: Union[AttributeTable, None] = None,
     ) -> List[str]:
         """
         Return a list of regions validly defined within Model Attributes.
@@ -2586,22 +2634,27 @@ class ModelAttributesNew:
         - attribute_region: optional regional attribute to specify
         """
 
-        attribute_region = self.dict_attributes.get("region") if (attribute_region is None) else attribute_region
+        attribute_region = (
+            self.get_other_attribute("region")
+            if (attribute_region is None) 
+            else attribute_region
+        )
 
         # format regions
         regions = [regions] if isinstance(regions, str) else regions
         regions = [x for x in regions if x in attribute_region.key_values] if isinstance(regions, List) else None
         if isinstance(regions, List):
             regions = None if (len(regions) == 0) else regions
+
         regions = self.configuration.get("region") if (regions is None) else regions
 
         return regions
 
 
 
-    def get_sector_attribute(self,
+    def get_sector_attribute(self, #FIXED
         sector: str,
-        return_type: str
+        return_type: str,
     ) -> Union[float, int, str, None]:
         """
         Retrieve different attributes associated with a sector
@@ -2609,27 +2662,60 @@ class ModelAttributesNew:
 
         # check sector specification
         self.check_sector(sector)
+        attr_sec = self.get_sector_attribute_table()
 
         # initialize some key vars
-        match_str_to = "sector_to_" if (return_type == self.table_name_attr_sector) else "abbreviation_sector_to_"
-        attr_sec = self.dict_attributes[self.table_name_attr_sector]
+        match_str_to = (
+            "sector_to_" if 
+            (return_type == self.table_name_attr_sector) 
+            else "abbreviation_sector_to_"
+        )
+        
         maps = [x for x in attr_sec.field_maps.keys() if (match_str_to in x)]
         map_retrieve = f"{match_str_to}{return_type}"
 
         if not map_retrieve in maps:
-            valid_rts = sf.format_print_list([x.replace(match_str_to, "") for x in maps])
             # warn user, but still allow a return
+            valid_rts = sf.format_print_list([x.replace(match_str_to, "") for x in maps])
             warnings.warn(f"Invalid sector attribute '{return_type}'. Valid return type values are:{valid_rts}")
+            
             return None
-        else:
-            # set the key
-            key = sector if (return_type == self.table_name_attr_sector) else attr_sec.field_maps["sector_to_abbreviation_sector"][sector]
-            sf.check_keys(attr_sec.field_maps[map_retrieve], [key])
-            return attr_sec.field_maps[map_retrieve][key]
+
+
+        dict_map = attr_sec.field_maps.get("sector_to_abbreviation_sector")
+
+        # set the key
+        key = (
+            sector 
+            if (return_type == self.table_name_attr_sector) 
+            else dict_map.get(sector)
+        )
+        
+        sf.check_keys(attr_sec.field_maps[map_retrieve], [key])
+        out = attr_sec.field_maps.get(map_retrieve)
+        out = out.get(key) if out is not None else out
+
+        return out
+    
+
+
+    def get_sector_attribute_table(self, #FIXED
+    ) -> Union[AttributeTable, None]:
+        """
+        Retrieve the sector attribute table.
+        """
+        # retrieve some dictionaries
+        dict_other = self.dict_attributes.get(self.attribute_group_key_other)
+        if dict_other is None:
+            return None
+
+        attr_sector = dict_other.get(self.table_name_attr_sector)
+        
+        return attr_sector
 
 
 
-    def get_sector_subsectors(self, 
+    def get_sector_subsectors(self, #FIXED
         sector: str,
         return_type: str = "name",
     ) -> List[str]:
@@ -2641,7 +2727,7 @@ class ModelAttributesNew:
         """
 
         self.check_sector(sector)
-        attr = self.dict_attributes.get(self.table_name_attr_subsector)
+        attr = self.get_subsector_attribute_table()
 
         field_ext = (
             "subsector"
@@ -2662,7 +2748,7 @@ class ModelAttributesNew:
 
 
 
-    def get_sector_variables(self,
+    def get_sector_variables(self, #FIXED
         sector: str,
         **kwargs,
     ) -> Union[List[str], None]:
@@ -2679,58 +2765,145 @@ class ModelAttributesNew:
         subsecs = self.get_sector_subsectors(sector)
         modvars = []
         for subsec in subsecs:
-            modvars += self.get_subsector_variables(subsec, **kwargs)[1]
+            modvars += self.get_subsector_variables(subsec, **kwargs)
 
         return modvars
 
 
 
-    def get_subsector_attribute(self,
+    def get_subsector_attribute(self, #FIXED
         subsector: str,
         return_type: str
     ) -> Union[float, int, str, None]:
         """
-        Retrieve different attributes associated with a subsector
+        Retrieve different attributes associated with a subsector. Valid values 
+            of return_type are:
+
+            * abv_subsector
+            * key_variable_definitions
+            * pycategory_primary
+            * sector
+            * subsector
         """
 
-        dict_out = {
-            "pycategory_primary": self.dict_attributes[self.table_name_attr_subsector].field_maps["subsector_to_primary_category_py"][subsector],
-            "abv_subsector": self.dict_attributes[self.table_name_attr_subsector].field_maps["subsector_to_abbreviation_subsector"][subsector]
-        }
+        # retrieve attribute tables
+        attr_sector = self.get_sector_attribute_table()
+        attr_subsector = self.get_subsector_attribute_table()
+        if (attr_subsector is None) | (attr_sector is None):
+            return None
 
-        dict_out.update(
-            {
-                "sector": self.dict_attributes[self.table_name_attr_subsector].field_maps["abbreviation_subsector_to_sector"][dict_out["abv_subsector"]]
-            }
-        )
-        dict_out.update(
-            {
-                "abv_sector": self.dict_attributes[self.table_name_attr_sector].field_maps["sector_to_abbreviation_sector"][dict_out["sector"]]
-            }
-        )
+        # if the primary category, simply get it and return it
+        if return_type == "pycategory_primary":
+            dict_map = attr_subsector.field_maps.get(f"subsector_to_{self.subsector_field_category_py}")
+            out = dict_map.get(subsector) if isinstance(dict_map, dict) else None
+            return out
 
-        # format some strings
-        key_allvarreqs = self.substr_varreqs_allcats.replace(self.substr_varreqs, "") + dict_out["abv_sector"] + "_" + dict_out["abv_subsector"]
-        key_partialvarreqs = self.substr_varreqs_partialcats.replace(self.substr_varreqs, "") + dict_out["abv_sector"] + "_" + dict_out["abv_subsector"]
+    
+        # otherwise, get abbreviation
+        dict_subsec_to_abv = attr_subsector.field_maps.get(f"subsector_to_abbreviation_subsector")
+        if not isinstance(dict_subsec_to_abv, dict):
+            return None
 
+        # return the subsector abbreviation?
+        abv_subsector = dict_subsec_to_abv.get(subsector)
+        if return_type == "abv_subsector":
+            return abv_subsector
+        
+        # return the sector?
+        dict_map_abv_to_sector = attr_subsector.field_maps.get(f"{attr_subsector.key}_to_sector") 
+        sector = dict_map_abv_to_sector.get(dict_subsec_to_abv.get(subsector))
+        if return_type == "sector":
+            return sector
 
-        if key_allvarreqs in self.dict_variable_definitions.keys():
-            dict_out.update({"key_varreqs_all": key_allvarreqs})
-        if key_partialvarreqs in self.dict_variable_definitions.keys():
-            dict_out.update({"key_varreqs_partial": key_partialvarreqs})
+        # return the sector abbreviation?
+        dict_sector_to_abv_sector = attr_sector.field_maps.get(f"sector_to_{attr_sector.key}")
+        abv_sector = dict_sector_to_abv_sector.get(sector)
+        if return_type == "abv_sector":
+            return abv_sector
 
-        if return_type in dict_out.keys():
-            return dict_out[return_type]
+        # return the variable definition key?
+        key_variable_definition = f"{abv_sector}_{abv_subsector}"
+        if return_type == "key_variable_definitions":
+            return key_variable_definition
+
+        # temporary to support debugging
+        if return_type in ["key_varreqs_all", "key_varreqs_partial"]:
+            raise RuntimeError(f"ERROR in get_subector_attribute: invalid key {return_type}--this key type is not supported. Check source code and modify.")
         
         # warn user, but still allow a return
         valid_rts = sf.format_print_list(list(dict_out.keys()))
         warnings.warn(f"Invalid subsector attribute '{return_type}'. Valid return type values are:{valid_rts}")
 
         return None
+    
+
+
+    def get_subsector_attribute_table(self, #FIXED
+    ) -> Union[AttributeTable, None]:
+        """
+        Retrieve the subsector attribute table.
+        """
+        # retrieve some dictionaries
+        dict_other = self.dict_attributes.get(self.attribute_group_key_other)
+        if dict_other is None:
+            return None
+
+        attr_subsector = dict_other.get(self.table_name_attr_subsector)
+        
+        return attr_subsector
+    
+
+
+    def get_subsector_emission_total_field(self, #FIXED
+        subsector: str,
+        emission_total_schema_prepend: str = "emission_co2e_subsector_total",
+    ) -> str:
+        """
+        Specify the aggregate emission field added to each subsector output 
+            data frame
+        """
+        # add subsector abbreviation
+        fld_nam = self.get_subsector_attribute(subsector, "abv_subsector")
+        fld_nam = f"{emission_total_schema_prepend}_{fld_nam}"
+        
+        return fld_nam
 
 
 
-    def get_time_periods(self
+    def get_subsector_variables(self, #FIXED
+        subsector: str,
+        var_type = None,
+    ) -> list:
+        """
+        Get all variables associated with a subsector (will not function if
+            there is no primary category)
+        """
+
+        # initialize output list, dictionary of variable to categorization (all or partial), and loop
+        vars_by_subsector = []
+
+        for k, v in self.dict_variables.items():
+            
+            if v.get_property("subsector") != subsector:
+                continue
+            
+            # get type
+            v_type = v.get_property("variable_type")
+            v_type = v_type.lower() if isinstance(v_type, str) else ""
+
+            append_q = (
+                (v_type == var_type.lower()) 
+                if isinstance(var_type, str) 
+                else True
+            )
+
+            vars_by_subsector.append(k) if append_q else None
+
+        return vars_by_subsector
+
+
+
+    def get_time_periods(self, #FIXED
     ) -> tuple:
         """
         Get all time periods defined in SISEPUEDE. Returns a tuple of the form 
@@ -2739,22 +2912,22 @@ class ModelAttributesNew:
             * time_periods is a list of all time periods
             * n is the number of defined time periods
         """
-        pydim_time_period = self.get_dimensional_attribute(self.dim_time_period, "pydim")
-        time_periods = self.dict_attributes[pydim_time_period].key_values
+        attr_tp = self.get_dimensional_attribute_table(self.dim_time_period)
+        time_periods = attr_tp.key_values
+        n_time_periods = attr_tp.n_key_values
 
-        return time_periods, len(time_periods)
+        return time_periods, n_time_periods
 
 
 
-    def get_time_period_years(self,
-        field_year: str = "year"
+    def get_time_period_years(self, #FIXED
+        field_year: str = "year",
     ) -> list:
         """
         Get a list of all years (as integers) associated with time periods in 
             SISEPUEDE. Returns None if no years are defined.
         """
-        pydim_time_period = self.get_dimensional_attribute(self.dim_time_period, "pydim")
-        attr_tp = self.dict_attributes[pydim_time_period]
+        attr_tp = self.get_dimensional_attribute_table(self.dim_time_period)
 
         # initialize output years
         all_years = None
@@ -2763,10 +2936,48 @@ class ModelAttributesNew:
             all_years = [int(x) for x in all_years]
 
         return all_years
+    
+
+
+    def get_unit(self, #FIXED
+        unit: str,
+        return_type: str = "unit",
+    ) -> AttributeTable:
+        """
+        Simplify retrieval of a unit object. Set return_type to "unit" or
+            "attribute_table"
+        """
+
+        # check input type
+        valid_types = ["unit", "attribute_table"]
+        return_type = "unit" if return_type not in valid_types else return_type
+
+        # get different table by different type
+        dict_retrieve = self.dict_attributes.get(self.attribute_group_key_unit)
+        out = dict_retrieve.get(unit)
+        
+        out = (
+            out.attribute_table 
+            if ((return_type == "attribute_table") & (out is not None))
+            else out
+        )
+
+        return out
+    
+
+
+    def get_unit_attribute(self, #FIXED
+        unit: str,
+    ) -> AttributeTable:
+        """
+        Simplify retrieval of a unit attribute table. 
+        """
+        out = self.get_unit(unit, return_type = "attribute_table")
+        return out
 
 
     
-    def get_valid_categories(self,
+    def get_valid_categories(self, 
         categories: Union[List[str], str],
         subsector: str,
     ) -> Union[List[str], None]:
@@ -2775,7 +2986,6 @@ class ModelAttributesNew:
             categories specified within subsector `subsector`. 
         
             * If none are found, returns None
-            * 
 
         Function Arguments
         ------------------
@@ -2785,7 +2995,8 @@ class ModelAttributesNew:
             a valid subsector, returns None. 
         """
 
-        if subsector != self.check_subsector(subsector, throw_error_q = False):
+        subsec_check = self.check_subsector(subsector, throw_error_q = False, )
+        if subsector != subsec_check:
             return None
 
         attr = self.get_attribute_table(subsector)
@@ -2801,13 +3012,92 @@ class ModelAttributesNew:
         categories = None if (len(categories) == 0) else categories
 
         return categories
+    
+
+
+    def get_variable_dict(self, #FIXED 
+    ) -> None:
+        """
+        Initialize the units defined in the input attribute unit tables. Sets
+            the following properties:
+
+            * self.dict_variables
+
+            NOTE: Variables can be accessed using the `get_variable()` 
+
+        Function Arguments
+        ------------------
+
+        Keyword Arguments
+        -----------------
+        """
+        
+        ##  INITIALIZATION
+        
+        dict_vardefs = self.dict_variable_definitions
+        dict_variables = {}
+        
+        # get subsector
+        attr_subsector = (
+            self.dict_attributes
+            .get(self.attribute_group_key_other)
+            .get(self.table_name_attr_subsector)
+        )
+        
+        # get dicts
+        dict_subsector_abv_to_subsector = attr_subsector.field_maps.get(
+            f"{attr_subsector.key}_to_subsector"
+        )
+        dict_subsector_abv_to_sector = attr_subsector.field_maps.get(
+            f"{attr_subsector.key}_to_sector"
+        )
+        dict_subsector_abv_to_pycat = attr_subsector.field_maps.get(
+            f"{attr_subsector.key}_to_{self.subsector_field_category_py}"
+        )
+        
+
+        
+        for k, v in dict_vardefs.items():
+            
+            # initialize table
+            tab = v.table
+            
+            # get sector/subsector specs
+            sector_abv, subsector_abv = k.split("_")
+            sector = dict_subsector_abv_to_sector.get(subsector_abv)
+            subsector = dict_subsector_abv_to_subsector.get(subsector_abv)
+            
+            attr_cats = self.get_attribute_table(subsector)
+            
+            # dictionary to pass to each variable
+            dict_sector_info = {
+                "sector": sector,
+                "sector_abv": sector_abv,
+                "subsector": subsector,
+                "subsector_abv": subsector_abv,
+            }
+
+            # iterate to build variable objects
+            for i, row in tab.iterrows():
+                
+                dict_row = row.to_dict()
+                dict_row.update(dict_sector_info)
+                
+                modvar = mv.ModelVariable(
+                    dict_row,
+                    attr_cats,
+                )
+                
+                dict_variables.update({modvar.name: modvar})
+        
+        return dict_variables
 
 
 
-    def get_var_dicts_by_shared_category(self,
-        subsector:str,
-        category_pivot:str,
-        fields_to_filter_on:list
+    def get_var_dicts_by_shared_category(self, #fixed
+        subsector: str,
+        category_pivot: str,
+        fields_to_filter_on: list,
     ) -> dict:
         """
         Retrieve a dictionary that maps variables to each other based on shared 
@@ -2815,23 +3105,29 @@ class ModelAttributesNew:
         """
         dict_out = {}
 
-        # get available dictionaries
-        for table_type in ["key_varreqs_all", "key_varreqs_partial"]:
+        # check attribute table
+        attr_table = self.get_attribute_table(subsector, "key_variable_definitions")
+        if attr_table is None:
+            return None
 
-            # check attribute table
-            attr_table = self.get_attribute_table(subsector, table_type)
-            if attr_table is None:
-                continue
-
-            # get columns available in the data
-            cols = list(set(attr_table.table.columns) & set(fields_to_filter_on))
-            if not (len(cols) > 0 & (category_pivot in attr_table.table.columns)):
-                continue
-        
+        # get columns available in the data
+        cols = list(set(attr_table.table.columns) & set(fields_to_filter_on))
+        if (len(cols) > 0 & (category_pivot in attr_table.table.columns)):
             for field in cols:
-                df_tmp = attr_table.table[attr_table.table[field] == 1][[category_pivot, "variable"]].copy()
+                df_tmp = (
+                    attr_table.table[
+                        attr_table.table[field] == 1
+                    ][
+                        [category_pivot, "variable"]
+                    ]
+                    .copy()
+                )
+
+                # clean and build dictionary
                 df_tmp[category_pivot] = df_tmp[category_pivot].apply(clean_schema)
-                dict_out.update({field: sf.build_dict(df_tmp[[category_pivot, "variable"]])})
+                dict_map = sf.build_dict(df_tmp[[category_pivot, "variable"]])
+
+                dict_out.update({field: dict_map})
 
 
         # next, loop over available combinations to build cross dictionaries
@@ -2839,6 +3135,7 @@ class ModelAttributesNew:
         keys_to_pair = list(dict_out.keys())
 
         for pair in list(itertools.combinations(keys_to_pair, 2)):
+
             # get keys from dict and set keys for dict_mapping
             key_1 = pair[0]
             key_2 = pair[1]
@@ -2969,14 +3266,12 @@ class ModelAttributesNew:
     #    QUICK RETRIEVAL OF FUNDAMENTAL TRANSFORMATIONS (GWP, MASS, ETC)    #
     #########################################################################
 
-    def get_unit_equivalent(self,
+    def get_unit_equivalent(self, #FIXED
+        unit_type: str,
         unit: str,
+        unit_to_match: Union[str, None],
         config_str: str,
-        unit_dim_str: str,
-        unit_type_str: str,
-        valid_units: list,
-        throw_error_q: bool = True,
-        unit_to_match: Union[str, None] = None
+        stop_on_error: bool = True,
     ) -> Union[float, None]:
         """
         For a given unit, get the scalar to convert to units unit_to_match. 
@@ -2985,61 +3280,55 @@ class ModelAttributesNew:
 
         Function Arguments
         ------------------
-        - unit: a unit from a specified unit dimension (e.g., mass)
+        - unit_type: the unit name, passed to self.get_unit() (e.g., "area")
+        - unit: a unit from a specified unit dimension (e.g., "km")
+        - unit_to_match: A unit value to match unit to. The scalar `a` that is 
+            returned is multiplied by unit, i.e., 
+                unit*a = unit_to_match
+            If None (default), uses the configuration value
         - config_str: the configuration parameter associated with the defualt 
             unit
-        - unit_dim_str: name of the dimensional id, either cleaned (e.g., 
-            "unit_mass") or uncleaned ("``$UNIT-MASS$``")
-        - unit_type_str: type of unit (e.g., mass)--used in attribute lookup
-        - valid_units: valid values for the unit. Generally available in 
-            self.configuration
         
         Keyword Arguments
         -----------------
-        - throw_error_q: throw an error on bad unit? If False and a unit is 
+        - stop_on_error: throw an error on bad unit? If False and a unit is 
             invalid, returns None
-        - unit_to_match: Default is None. A unit value to match unit to. The 
-            scalar `a` that is returned is multiplied by unit, i.e., 
-            unit*a = unit_to_match. If None (default), return the configuration 
-            default.
         """
 
-        # get the attribute table
-        unit_dim_str_clean = sf.clean_field_names([unit_dim_str])[0]
-        attr_cur = self.dict_attributes.get(unit_dim_str_clean)
-        unit_to_match = self.configuration.get(config_str) if (unit_to_match is None) else unit_to_match
-        unit_to_match = sf.clean_field_names([unit_to_match])[0]
-        key_dict = f"{unit_dim_str_clean}_to_{unit_type_str}_equivalent_{unit_to_match}"
-
-        # check units specification
-        if unit not in attr_cur.key_values:
-            # attempt conversion (e.g., PJ to pj)
-            if unit_type_str in attr_cur.table.columns:
-                attr_key_check = f"{unit_type_str}_to_{attr_cur.key}"
-                dict_convert_unit = attr_cur.field_maps.get(attr_key_check)
-                unit = dict_convert_unit.get(unit) if (dict_convert_unit is not None) else None
-
-        if unit is None:
+        unit_to_match = (
+            self.configuration.get(config_str) 
+            if (unit_to_match is None) 
+            else unit_to_match
+        )
+        if unit_to_match is None:
+            if stop_on_error:
+                raise KeyError(f"Invalid configuration string '{config_str}' specified in get_unit_equivalent.")
             return None
 
-        # check that the target unit is defined
-        if not key_dict in attr_cur.field_maps.keys():
-            valid_units_to_match = sf.format_print_list(valid_units).lower()
-            raise KeyError(f"Invalid {unit_type_str} to match '{unit_to_match}': defined {unit_type_str} units to match are {valid_units_to_match}.")
 
-        # check unit and return if valid
-        out = attr_cur.field_maps[key_dict].get(unit)
-        if out is None:
-            valid_vals = sf.format_print_list(attr_cur.key_values)
-            raise KeyError(f"Invalid {unit_type_str} '{unit}': defined {unit_type_str} units are {valid_vals}.")
+        # get the units object
+        units_obj = self.get_unit(unit_type)
+        if units_obj is None:
+            if stop_on_error:
+                valid_dims = sf.format_print_list(self.all_units)
+                msg = f"""
+                Invalid unit_type '{unit_type}' specified in 
+                get_unit_equivalent. Valid dimensions are: {valid_dims}"
+                """
+                raise KeyError(msg)
+
+            return None
+
+        # convert
+        out = units_obj.convert(unit, unit_to_match)
 
         return out
 
 
 
-    def get_area_equivalent(self, 
+    def get_area_equivalent(self, #FIXED
         area: str, 
-        area_to_match: str = None
+        area_to_match: str = None,
     ) -> float:
         """
         For a given area unit *area*, get the scalar to convert to units 
@@ -3057,21 +3346,19 @@ class ModelAttributesNew:
             default.
         """
         out = self.get_unit_equivalent(
-            area,
-            "area_units",
-            self.varchar_str_unit_area,
             "area",
-            self.configuration.valid_area,
-            unit_to_match = area_to_match
+            area,
+            area_to_match,
+            "area_units",
         )
 
         return out
 
 
 
-    def get_energy_equivalent(self,
+    def get_energy_equivalent(self, #FIXED
         energy: str, 
-        energy_to_match: str = None
+        energy_to_match: str = None,
     ) -> float:
 
         """
@@ -3089,82 +3376,67 @@ class ModelAttributesNew:
             energy*a = energy_to_match. If None (default), return the 
             configuration default.
         """
+
         out = self.get_unit_equivalent(
-            energy,
-            "energy_units",
-            self.varchar_str_unit_energy,
             "energy",
-            self.configuration.valid_energy,
-            unit_to_match = energy_to_match
+            energy,
+            energy_to_match,
+            "energy_units",
         )
 
         return out
 
 
 
-    def get_energy_power_swap(self, 
-        input_unit: str
+    def get_energy_power_swap(self, #FIXED
+        input_unit: str,
+        time_period: str = "annualized",
     ) -> str:
-
         """
         Enter an energy unit E to retrieve the equivalent unit of power P so 
-            that P*year = E OR enter a power unit P to retrieve the equivalent 
-            energy unit E so that E/year = P
+            that P*T = E OR enter a power unit P to retrieve the equivalent 
+            energy unit E so that E/T = P, where
+
+            T = one year if time_period == "annualized"
+            T = one hour if time_period == "hourly"
 
         Function Arguments
         ------------------
         - input_unit: input unit to enter. Must be a valid power or energy unit
+        - time_period: "annual" or "hourly"
         """
-        if input_unit is None:
+        # check time period and initialize units
+        time_period = "annualized" if (time_period not in ["annualized", "hourly"]) else time_period
+        unit_energy = self.get_unit("energy")
+        unit_power = self.get_unit("power")
+
+        # check energy, then power and specify which it is
+        units = unit_energy.get_unit_key(input_unit)
+        input_type = "energy" if (units is not None) else None
+
+        if input_type is None:
+            units = unit_power.get_unit_key(input_unit) 
+            input_type = "power" if (units is not None) else None
+
+        if units is None:
             return None
 
-        ##  setup some strings
 
-        # get energy strings and retrieve secondary key set to check against
-        unit_energy_str_clean = sf.clean_field_names([self.varchar_str_unit_energy])[0]
-        attr_ener = self.dict_attributes.get(unit_energy_str_clean)
-        name_energy_str_clean = unit_energy_str_clean.replace("unit_", "")
-        secondary_key_values_energy = attr_ener.field_maps.get(f"{attr_ener.key}_to_{name_energy_str_clean}")
-        secondary_key_values_energy = list(secondary_key_values_energy.values()) if (secondary_key_values_energy is not None) else secondary_key_values_energy
-        # get power strings and retrieve secondary key set to check against
-        unit_power_str_clean = sf.clean_field_names([self.varchar_str_unit_power])[0]
-        attr_powr = self.dict_attributes.get(unit_power_str_clean)
-        name_power_str_clean = unit_power_str_clean.replace("unit_", "")
-        secondary_key_values_power = attr_powr.field_maps.get(f"{attr_powr.key}_to_{name_power_str_clean}")
-        secondary_key_values_power = list(secondary_key_values_power.values()) if (secondary_key_values_power is not None) else secondary_key_values_power
-        # setup the target fields
-        field_retrieve_energy = f"annualized_{unit_power_str_clean}_equivalent"
-        field_retrieve_power = f"annualized_{unit_energy_str_clean}_equivalent"
+        ##  CONTINUE WITH SWAP
 
-        # check units
-        if input_unit in (set(attr_ener.key_values) | set(secondary_key_values_energy)):
-            # convert to the key specification
-            if input_unit not in attr_ener.key_values:
-                key_dict = f"{name_energy_str_clean}_to_{unit_energy_str_clean}"
-                input_unit = attr_ener.field_maps[key_dict].get(input_unit)
-            #
-            key_dict = f"{unit_energy_str_clean}_to_{field_retrieve_energy}"
-            output_unit = attr_ener.field_maps[key_dict].get(input_unit)
-            output_unit = clean_schema(output_unit)
+        input_unit = units
 
-        elif input_unit in (set(attr_powr.key_values) | set(secondary_key_values_power)):
-            # convert to the key specification
-            if input_unit not in attr_powr.key_values:
-                key_dict = f"{name_power_str_clean}_to_{unit_power_str_clean}"
-                input_unit = attr_powr.field_maps[key_dict].get(input_unit)
-            #
-            key_dict = f"{unit_power_str_clean}_to_{field_retrieve_power}"
-            output_unit = attr_powr.field_maps[key_dict].get(input_unit)
-            output_unit = clean_schema(output_unit)
+        if input_type == "energy":
+            field_equivalent = f"{time_period}_unit_power_equivalent"
+            out = unit_energy.get_attribute(input_unit, field_equivalent)
+            out = unit_power.get_unit_key(mv.clean_element(out)) # makes sure output is specified in power
 
-        else:
-            valid_energy = sf.format_print_list(self.configuration.valid_energy).lower()
-            valid_power = sf.format_print_list(self.configuration.valid_power).lower()
-            raise KeyError(f"Invalid input unit '{input_unit}' entered in get_energy_power_swap:\n\tDefined energy units include {valid_energy}\n\tDefined power units include {valid_power}")
+        elif input_type == "power":
+            field_equivalent = f"{time_period}_unit_energy_equivalent"
+            out = unit_power.get_attribute(input_unit, field_equivalent)
+            out = unit_energy.get_unit_key(mv.clean_element(out)) # makes sure output is specified in energy
 
-        output_unit = None if (output_unit == "none") else output_unit
-
-        return output_unit
+        return out
 
 
 
@@ -3206,9 +3478,9 @@ class ModelAttributesNew:
 
 
 
-    def get_length_equivalent(self, 
+    def get_length_equivalent(self, #FIXED
         length: str, 
-        length_to_match: Union[str, None] = None
+        length_to_match: Union[str, None] = None,
     ) -> float:
         """
         for a given length unit *length*, get the scalar to convert to units 
@@ -3226,21 +3498,19 @@ class ModelAttributesNew:
             configuration default.
         """
         out = self.get_unit_equivalent(
-            length,
-            "length_units",
-            self.varchar_str_unit_length,
             "length",
-            self.configuration.valid_length,
-            unit_to_match = length_to_match
+            length,
+            length_to_match,
+            "length_units",
         )
 
         return out
 
 
 
-    def get_mass_equivalent(self, 
+    def get_mass_equivalent(self, #FIXED
         mass: str, 
-        mass_to_match: Union[str, None] = None
+        mass_to_match: Union[str, None] = None,
     ) -> float:
         """
         For a given mass unit *mass*, get the scalar to convert to units 
@@ -3258,19 +3528,17 @@ class ModelAttributesNew:
             default.
         """
         out = self.get_unit_equivalent(
-            mass,
-            "emissions_mass",
-            self.varchar_str_unit_mass,
             "mass",
-            self.configuration.valid_mass,
-            unit_to_match = mass_to_match
+            mass,
+            mass_to_match,
+            "emissions_mass",
         )
 
         return out
 
 
 
-    def get_monetary_equivalent(self, 
+    def get_monetary_equivalent(self, #FIXED
         monetary: str, 
         monetary_to_match: str = None
     ) -> float:
@@ -3291,19 +3559,17 @@ class ModelAttributesNew:
             configuration default.
         """
         out = self.get_unit_equivalent(
-            monetary,
-            "monetary_units",
-            self.varchar_str_unit_monetary,
             "monetary",
-            self.configuration.valid_monetary,
-            unit_to_match = monetary_to_match
+            monetary,
+            monetary_to_match,
+            "monetary_units",
         )
 
         return out
 
 
 
-    def get_power_equivalent(self, 
+    def get_power_equivalent(self, #FIXED
         power: str, 
         power_to_match: str = None
     ) -> float:
@@ -3323,19 +3589,17 @@ class ModelAttributesNew:
             configuration default.
         """
         out = self.get_unit_equivalent(
-            power,
-            "power_units",
-            self.varchar_str_unit_power,
             "power",
-            self.configuration.valid_power,
-            unit_to_match = power_to_match
+            power,
+            power_to_match,
+            "power_units",
         )
 
         return out
 
 
 
-    def get_volume_equivalent(self, 
+    def get_volume_equivalent(self, #FIXED
         volume: str, 
         volume_to_match: str = None
     ) -> float:
@@ -3355,12 +3619,10 @@ class ModelAttributesNew:
             configuration default.
         """
         out = self.get_unit_equivalent(
-            volume,
-            "volume_units",
-            self.varchar_str_unit_volume,
             "volume",
-            self.configuration.valid_volume,
-            unit_to_match = volume_to_match
+            volume,
+            volume_to_match,
+            "volume_units",
         )
 
         return out
@@ -3443,7 +3705,7 @@ class ModelAttributesNew:
     ) -> tuple:
         """
         Check the projection input dataframe and (1) return time periods 
-            available, (2) a dicitonary of scenario dimenions, and (3) an 
+            available, (2) a dictionary of scenario dimenions, and (3) an 
             interpolated data frame if there are missing values.
         """
         # check for required fields
@@ -3558,14 +3820,21 @@ class ModelAttributesNew:
             df_ext = None
             try:
                 df_ext = self.get_optional_or_integrated_standard_variable(df_source, var_int, None)
+
             except Exception as e:
                 if stop_on_error:
-                    raise RuntimeError(f"Error in transfer_df_variables: get_optional_or_integrated_standard_variable returned {e}.")
+                    msg = f"""
+                    Error in transfer_df_variables: 
+                    get_optional_or_integrated_standard_variable returned '{e}'.
+                    """
+                    raise RuntimeError(msg)
+
 
             if type(df_ext) != type(None):
                 #
                 subsec = self.get_variable_subsector(var_int)
                 varlist = self.build_varlist(subsec, var_int)
+                
                 # drop variables that are already in the target df
                 vars_to_drop = list(set(df_ext[1].columns) & set(dfs_extract[0].columns) & set(varlist))
                 if len(vars_to_drop) > 0:
@@ -3573,9 +3842,13 @@ class ModelAttributesNew:
                         dfs_extract[0].drop(vars_to_drop, axis = 1, inplace = True)
                     else:
                         df_ext[1].drop(vars_to_drop, axis = 1, inplace = True)
+
                 dfs_extract.append(df_ext[1])
 
-        return sf.merge_output_df_list(dfs_extract, self, merge_type = join_type)
+        out = sf.merge_output_df_list(dfs_extract, self, merge_type = join_type)
+
+        return out
+
 
 
 
@@ -3625,6 +3898,8 @@ class ModelAttributesNew:
             field_total = dict_fields[subsec]
             cur_emissions = np.array(df_in[field_total]) if (field_total in df_in.columns) else 0
             df_in[field_total] = cur_emissions + array_totals
+
+        return None
 
 
 
@@ -3688,7 +3963,8 @@ class ModelAttributesNew:
                     raise ValueError(str_mf%(" Subsector emission totals will not be added."))
 
                 warnings.warn(str_mf%(" Subsector emission totals will exclude these fields."))
-
+            
+            # update output fields
             keep_fields = [x for x in flds_add if x in df_in.columns]
             df_in[fld_nam] = df_in[keep_fields].sum(axis = 1)
 
@@ -3696,14 +3972,14 @@ class ModelAttributesNew:
 
 
 
-    def exchange_year_time_period(self,
+    def exchange_year_time_period(self, #REVIEW: CALLS SHOULD BE SWAPPED TO USE sc.TimePeriods
         df_in: pd.DataFrame,
         field_year_new: str,
         series_time_domain: pd.core.series.Series,
         attribute_time_period: Union[AttributeTable, None] = None,
         field_year_in_attribute: str = "year",
-        direction: str = "time_period_to_year"
-    ):
+        direction: str = "time_period_to_year",
+    ) -> pd.DataFrame:
         """
         Add year field to a data frame if missing
 
@@ -3728,22 +4004,37 @@ class ModelAttributesNew:
                 is an injection
         """
 
-        sf.check_set_values([direction], ["time_period_as_year", "time_period_to_year", "year_to_time_period"], " in exchange_year_time_period.")
+        # check direction specification
+        sf.check_set_values(
+            [direction], 
+            ["time_period_as_year", "time_period_to_year", "year_to_time_period"], 
+            " in exchange_year_time_period."
+        )
 
-        key_attr = self.get_dimensional_attribute(self.dim_time_period, return_type = "pydim")
-        attribute_time_period = self.dict_attributes[key_attr]
-
+        # get time period attribute and initialize the output data frame
+        attribute_time_period = self.get_dimensional_attribute_table(self.dim_time_period)
         df_out = df_in.copy()
+
         if (direction in ["time_period_as_year"]):
             df_out[field_year_new] = np.array(series_time_domain.copy())
+
         elif (direction in ["time_period_to_year", "year_to_time_period"]):
-            key_fm = f"{attribute_time_period.key}_to_{field_year_in_attribute}" if (direction == "time_period_to_year") else f"{field_year_in_attribute}_to_{attribute_time_period.key}"
+            key_fm = (
+                f"{attribute_time_period.key}_to_{field_year_in_attribute}" 
+                if (direction == "time_period_to_year") 
+                else f"{field_year_in_attribute}_to_{attribute_time_period.key}"
+            )
+
             dict_repl = attribute_time_period.field_maps.get(key_fm)
             if dict_repl is not None:
                 df_out[field_year_new] = series_time_domain.replace(dict_repl)
 
         else:
-            raise ValueError(f"Invalid direction '{direction}' in exchange_year_time_period: specify 'time_period_to_year' or 'year_to_time_period'.")
+            msg = f"""
+            Invalid direction '{direction}' in exchange_year_time_period: 
+            specify 'time_period_to_year' or 'year_to_time_period'.
+            """
+            raise ValueError(msg)
 
         return df_out
 
@@ -3804,7 +4095,13 @@ class ModelAttributesNew:
         # raise error if there's a shape mismatch
         if len(fields) != arr_in.shape[1]:
             flds_print = sf.format_print_list(fields)
-            raise ValueError(f"Array shape mismatch for fields {flds_print}: the array only has {arr_in.shape[1]} columns.")
+
+            msg = f"""
+            f"Array shape mismatch for fields {flds_print}: the array only has 
+            {arr_in.shape[1]} columns."
+            """
+
+            raise ValueError(msg)
 
         return pd.DataFrame(arr_in*scalar_em*scalar_me, columns = fields)
 
@@ -3910,7 +4207,12 @@ class ModelAttributesNew:
         """
         Support function for assign_keys_from_attribute_fields (akaf)
         """
-        return [x.get(var_class) for x in dict_in.values() if (x.get(var_class) is not None)]
+        out = [
+            x.get(var_class) for x in dict_in.values() 
+            if (x.get(var_class) is not None)
+        ]
+
+        return out
 
 
 
@@ -4016,7 +4318,7 @@ class ModelAttributesNew:
                 modvars_cur = self.get_subsector_variables(
                     subsector,
                     var_type = vartype
-                )[1]
+                )
 
                 vars_cur = sum([self.dict_model_variables_to_variables.get(x) for x in modvars_cur], [])
                 df_out += [(subsector, x) for x in vars_cur]
@@ -5046,58 +5348,6 @@ class ModelAttributesNew:
 
 
         return out
-
-
-
-    def get_subsector_emission_total_field(self, 
-        subsector: str,
-        emission_total_schema_prepend: str = "emission_co2e_subsector_total",
-    ) -> str:
-        """
-        Specify the aggregate emission field added to each subsector output 
-            data frame
-        """
-        # add subsector abbreviation
-        fld_nam = self.get_subsector_attribute(subsector, "abv_subsector")
-        fld_nam = f"{emission_total_schema_prepend}_{fld_nam}"
-        
-        return fld_nam
-
-
-
-    def get_subsector_variables(self,
-        subsector: str,
-        var_type = None
-    ) -> list:
-        """
-        Get all variables associated with a subsector (will not function if
-            there is no primary category)
-        """
-
-        # get some information used
-        category = self.dict_attributes[self.table_name_attr_subsector].field_maps["abbreviation_subsector_to_primary_category"][self.get_subsector_attribute(subsector, "abv_subsector")].replace("`", "")
-        category_ij_tuple = self.format_category_for_direct(category, "-I", "-J")
-
-        # initialize output list, dictionary of variable to categorization (all or partial), and loop
-        vars_by_subsector = []
-        dict_var_type = {}
-
-        for key_type in ["key_varreqs_all", "key_varreqs_partial"]:
-            dicts = self.separate_varreq_dict_for_outer(
-                subsector,
-                key_type,
-                category_ij_tuple,
-                variable_type = var_type
-            )
-
-            for x in dicts:
-                l_vars = list(x.keys())
-                vars_by_subsector += l_vars
-                dict_var_type.update(
-                    dict(zip(l_vars, [key_type.replace("key_varreqs_", "") for x in l_vars]))
-                )
-
-        return dict_var_type, vars_by_subsector
 
 
 

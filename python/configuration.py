@@ -24,7 +24,7 @@ class Configuration:
         attr_region: AttributeTable,
         attr_time_period: AttributeTable,
         attr_volume: AttributeTable,
-        attr_required_parameters: AttributeTable = None
+        attr_required_parameters: AttributeTable = None,
     ):
         self.fp_config = fp_config
         self.attr_required_parameters = attr_required_parameters
@@ -180,15 +180,23 @@ class Configuration:
 
         # check path and parse the config if it exists
         dict_conf = {}
-        if self.fp_config != None:
+        if self.fp_config is not None:
             if os.path.exists(self.fp_config):
                 dict_conf = self.parse_config(self.fp_config, delim = delim)
 
         # update with defaults if a value is missing in the specified configuration
         if attr_parameters_required is not None:
 
-            dict_key_to_required_param = attr_parameters_required.field_maps.get(f"{attr_parameters_required.key}_to_{field_req_param}")
-            dict_key_to_default_value = attr_parameters_required.field_maps.get(f"{attr_parameters_required.key}_to_{field_default_val}")
+            dict_key_to_required_param = (
+                attr_parameters_required
+                .field_maps
+                .get(f"{attr_parameters_required.key}_to_{field_req_param}")
+            )
+            dict_key_to_default_value = (
+                attr_parameters_required
+                .field_maps
+                .get(f"{attr_parameters_required.key}_to_{field_default_val}")
+            )
 
             if (
                 attr_parameters_required.key != field_req_param

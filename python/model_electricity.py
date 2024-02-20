@@ -3320,8 +3320,17 @@ class ElectricEnergy:
             divide techs. If None, uses ModelAttributes default.
         """
         # set some defaults
-        attribute_fuel = self.model_attributes.get_attribute_table(self.subsec_name_enfu) if (attribute_fuel is None) else attribute_fuel
-        attribute_technology = self.model_attributes.get_attribute_table(self.subsec_name_entc) if (attribute_technology is None) else attribute_technology
+        attribute_fuel = (
+            self.model_attributes.get_attribute_table(self.subsec_name_enfu) 
+            if (attribute_fuel is None) 
+            else attribute_fuel
+        )
+        attribute_technology = (
+            self.model_attributes.get_attribute_table(self.subsec_name_entc) 
+            if (attribute_technology is None) 
+            else attribute_technology
+        )
+
         pycat_enfu = self.model_attributes.get_subsector_attribute(self.subsec_name_enfu, "pycategory_primary")
         pychat_entc = self.model_attributes.get_subsector_attribute(self.subsec_name_entc, "pycategory_primary")
         pycat_strg = self.model_attributes.get_subsector_attribute(self.subsec_name_enst, "pycategory_primary")
@@ -7564,7 +7573,10 @@ class ElectricEnergy:
             units_energy_config = self.model_attributes.configuration.get("energy_units")
             units_power_config = self.model_attributes.configuration.get("power_units")
             units_energy_power_equivalent = self.model_attributes.get_energy_power_swap(units_power_config)
-            scalar_energy_to_power_cur = self.model_attributes.get_energy_equivalent(units_energy_config, units_energy_power_equivalent)
+            scalar_energy_to_power_cur = self.model_attributes.get_energy_equivalent(
+                units_energy_config, 
+                units_energy_power_equivalent
+            )
 
 
         ##  GET SUPPLY TO USE (MIN) AND TECH EFFICIENCIES

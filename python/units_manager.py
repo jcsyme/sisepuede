@@ -303,6 +303,7 @@ class Units:
 
     def get_unit_key(self,
         unit_specification: str,
+        flags_missing: Union[Any, List[Any]] = "none",
     ) -> Union[str, None]:
         """
         Based on an input unit value, try to get the unit key from the attribute
@@ -312,11 +313,21 @@ class Units:
         ------------------
         - unit_specification: input unit specification to attempt to retrieve 
             key for
+        - flags_missing: optional flag or list of flags to signify as missing
         """
-
+        # initialize and check for missing flags
         attr = self.attribute_table
+        flags_missing = (
+            [flags_missing] 
+            if not sf.islistlike(flags_missing) 
+            else list(flags_missing)
+        )
+        if unit_specification in flags_missing:
+            return None
+
         i = -1
         out = None
+
 
         while (out is None) and (i < len(self.attributes_search_ordered) - 1):
             
@@ -338,6 +349,7 @@ class Units:
                 continue
             
             out = dict_map.get(unit_specification)
+            out = None if (out in flags_missing) else out
 
         return out
 

@@ -220,8 +220,9 @@ class InputTemplate:
 			each time period
 		"""
 		# attributes
-		pydim_time_period = self.model_attributes.get_dimensional_attribute(self.model_attributes.dim_time_period, "pydim")
-		attr_tp = self.model_attributes.dict_attributes.get(pydim_time_period)
+		attr_tp = self.model_attributes.get_dimensional_attribute_table(
+			self.model_attributes.dim_time_period
+		)
 		
 		# fields
 		field_key_strategy = (
@@ -1126,10 +1127,11 @@ class InputTemplate:
 		dict_field_tp_to_tp = dict([(x.string, int(x.groups()[0])) for x in fields_tp])
 
 		# check fields for definition in attribute_time_period
-		pydim_time_period = self.model_attributes.get_dimensional_attribute(self.model_attributes.dim_time_period, "pydim")
-		attr_tp = self.model_attributes.dict_attributes.get(pydim_time_period)
-		# fields to keep/drop
+		attr_tp = self.model_attributes.get_dimensional_attribute_table(
+			self.model_attributes.dim_time_period
+		)
 
+		# fields to keep/drop
 		fields_valid = [x.string for x in fields_tp if (dict_field_tp_to_tp.get(x.string) in attr_tp.key_values)]
 		fields_invalid = [x.string for x in fields_tp if (x.string not in fields_valid)]
 		defined_tp = [dict_field_tp_to_tp.get(x) for x in fields_valid]

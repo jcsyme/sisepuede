@@ -828,6 +828,18 @@ class ModelVariable:
             out = default_if_missing
 
         return out
+    
+
+
+    def get_property(self,
+        prop: str,
+    ) -> Any:
+        """
+        Try to retrieve the variable prop--associated with dict_varinfo--
+            for the variable.
+        """
+        out = self.dict_varinfo.get(prop)
+        return out
 
 
 
