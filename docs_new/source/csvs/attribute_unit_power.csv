@@ -1,3 +1,4 @@
-﻿Power,``$UNIT-POWER$``,Annualized ``$UNIT-ENERGY$`` Equivalent,Name ,Power Equivalent MW,Power Equivalent GW,,
-MW,``mw``,``mwy``,Megawatt,1,0.001,,
-GW,``gw``,``gwy``,Gigawatt,1000,1,,
+﻿Power,``$UNIT-POWER$``,Annualized ``$UNIT-ENERGY$`` Equivalent,Name ,Power Equivalent kW,Power Equivalent MW,Power Equivalent GW
+kW,``kw``,none,Kilowatt,1,0.001,0.000001
+MW,``mw``,``mwy``,Megawatt,1000,1,0.001
+GW,``gw``,``gwy``,Gigawatt,1000000,1000,1
