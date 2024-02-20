@@ -80,11 +80,12 @@ class Units:
             raise RuntimeError(f"Invalid type '{tp}' for attributes found in Units initialization.")
         
         key = attributes.key
-        key = (
-            key.replace(key_prependage, "")
-            if key.startswith(key_prependage)
-            else key
-        )
+        if isinstance(key_prependage, str):
+            key = (
+                key.replace(key_prependage, "")
+                if key.startswith(key_prependage)
+                else key
+            )
 
         # get ordered search fields
         attributes_search_ordered = self.get_attribute_fields(

@@ -43,12 +43,13 @@ class ModelAttributesNew:
         # initialize some properties and elements (ordered)
         self._initialize_attribute_tables(dir_attributes)
         #self._initialize_dims()
+        self._initialize_other_attributes()
         self._initialize_units()
         self._initialize_variables()
 
         self._initialize_config(fp_config)
         self._initialize_sector_sets()
-        #self._initialize_variables_by_subsector()
+        self._initialize_variables_by_subsector()
         #self._initialize_all_primary_category_flags()
         #self._initialize_emission_modvars_by_gas()
         #self._initialize_gas_attributes()
@@ -887,7 +888,7 @@ class ModelAttributesNew:
             fp_config,
             self.get_unit_attribute("area"),
             self.get_unit_attribute("energy"),
-            self.get_other_attribute("emission_gas"),
+            self.get_other_attribute("emission_gas").attribute_table, # the emission_gas table is stored as a um.Unit
             self.get_unit_attribute("length"),
             self.get_unit_attribute("mass"),
             self.get_unit_attribute("monetary"),
@@ -981,6 +982,50 @@ class ModelAttributesNew:
         self.dict_fc_designation_to_gasses = dict_fc_designation_to_gas
         self.dict_gas_to_fc_designation = dict_gas_to_fc_designation
 
+        return None
+    
+
+
+    def _initialize_other_attributes(self,           
+    ) -> None:
+        """
+        Initialize other attributes defined in the input attribute unit tables. 
+            Modifies entries in 
+
+                self.dict_attributes.get(self.attribute_group_key_other)
+
+            Some of these are converted to units (emission_gas)
+        
+        Function Arguments
+        ------------------
+
+        Keyword Arguments
+        -----------------
+        """
+        
+        dict_other = self.dict_attributes.get(self.attribute_group_key_other)
+        if dict_other is None:
+            return None
+        
+        # update the entries that should be units
+        tables_as_units = ["emission_gas"]
+
+        for k in tables_as_units:
+
+            v = dict_other.get(k)
+            if v is None:
+                continue
+
+            try:
+                unit = um.Units(v)
+
+            except Exception as e:
+                msg = f"Error trying to set other attribute {k} as uit: {e}"
+                #LOG self._log(msg, type_log = "error")
+                continue
+            
+            dict_other.update({k: unit})
+            
         return None
     
 
@@ -1143,6 +1188,7 @@ class ModelAttributesNew:
 
         """
         # initialize lists and dicts
+        all_variables = []
         all_variables_input = []
         all_variables_output = []
         dict_fields_to_vars = {}
@@ -1165,17 +1211,21 @@ class ModelAttributesNew:
             """
 
             for modvar_name in subsector_modvars:
-                
+
                 modvar = self.dict_variables.get(modvar_name)
                 if modvar is None:
                     continue
                 
                 # update output lists
                 all_variables.extend(modvar.fields)
-                if modvar.get_property("variable_type") == "input":
-                    all_variables_input.extend(modvar.fields)
-                elif modvar.get_property("variable_type") == "output":
-                    all_variables_output.extend(modvar.fields)
+                var_type = modvar.get_property("variable_type")
+                if isinstance(var_type, str):
+                    var_type = var_type.lower()
+                    if var_type == "input":
+                        all_variables_input.extend(modvar.fields)
+
+                    elif var_type == "output":
+                        all_variables_output.extend(modvar.fields)
 
                 # update relavent dictionaries
                 dict_vars_to_fields.update({modvar_name: modvar.fields})
@@ -2258,7 +2308,7 @@ class ModelAttributesNew:
             nominal fields for non-emitting subsectors.
         """
         # get emission subsectors
-        attr = self.dict_attributes.get("abbreviation_subsector")
+        attr = self.get_subsector_attribute_table()
         subsectors_emission = (
             list(
                 attr.table[
@@ -3054,7 +3104,6 @@ class ModelAttributesNew:
         dict_subsector_abv_to_pycat = attr_subsector.field_maps.get(
             f"{attr_subsector.key}_to_{self.subsector_field_category_py}"
         )
-        
 
         
         for k, v in dict_vardefs.items():
@@ -3440,9 +3489,9 @@ class ModelAttributesNew:
 
 
 
-    def get_gwp(self, 
+    def get_gwp(self, #FIXED
         gas: str, 
-        gwp: Union[int, None] = None
+        gwp: Union[int, None] = None,
     ) -> float:
         """
         For a given gas, get the scalar to convert to CO2e using the specified 
@@ -3458,23 +3507,35 @@ class ModelAttributesNew:
             time period (gwp is a number of years, e.g., 20, 100, 500).
         """
         # none checks
+        unit_gas = self.get_other_attribute("emission_gas")
+        gas = unit_gas.get_unit_key(gas)
         if gas is None:
             return None
+        
+        gwp = (
+            int(self.configuration.get("global_warming_potential"))
+            if not sf.isnumber(gwp)
+            else gwp
+        )
 
-        if gwp is None:
-            gwp = int(self.configuration.get("global_warming_potential"))
+        # get attribute
+        attr_gas = unit_gas.attribute_table
         key_dict = f"emission_gas_to_global_warming_potential_{gwp}"
 
         # check that the target energy unit is defined
-        if not key_dict in self.dict_attributes["emission_gas"].field_maps.keys():
+        dict_map = attr_gas.field_maps.get(key_dict)
+        if dict_map is None:
             valid_gwps = sf.format_print_list(self.configuration.valid_gwp)
-            raise KeyError(f"Invalid GWP '{gwp}': defined global warming potentials are {valid_gwps}.")
+            msg = f"Invalid GWP '{gwp}': defined global warming potentials are {valid_gwps}."
+            raise KeyError(msg)
+
         # check gas and return if valid
-        if gas in self.dict_attributes["emission_gas"].field_maps[key_dict].keys():
-            return self.dict_attributes["emission_gas"].field_maps[key_dict][gas]
-        else:
+        out = dict_map.get(gas)
+        if out is None:
             valid_gasses = sf.format_print_list(self.dict_attributes["emission_gas"].key_values)
             raise KeyError(f"Invalid gas '{gas}': defined gasses are {valid_gasses}.")
+
+        return out
 
 
 
@@ -3595,6 +3656,17 @@ class ModelAttributesNew:
             "power_units",
         )
 
+        return out
+    
+
+
+    def get_variable(self,
+        modvar_name: str,
+    ) -> Union[mv.ModelVariable, None]:
+        """
+        Get a model variable
+        """
+        out = self.dict_variables.get(modvar_name)
         return out
 
 
@@ -5376,49 +5448,75 @@ class ModelAttributesNew:
 
 
 
-    def get_variable_categories(self, 
-        variable: str
-    ) -> Union[List[str], None]:
+    def get_variable_categories(self, #FIXED
+        variable: str,
+        force_dict_return: bool = False,
+        stop_on_error: bool = False,
+    ) -> Union[List[str], Dict[str, List[str]], None]:
         """
         Retrieve an (ordered) list of categories for a variable. Returns None if
             the variable is not associated with any categories.
+
+        Function Arguments
+        ------------------
+        - variable: variable name to get categories for
+
+        Keyword Arguments
+        -----------------
+        - force_dict_return: the ModelVariable object stores categories in a 
+            dictionary, where schema elements are keys. Set 
+            `force_dict_return = True` to force the return of this dictionary. 
+            Otherwise, if only one set of categories is defined (across 
+            potentially multiple elements), this function will return the list
+            of categories
+        - stop_on_error: stop on an error? Otherwise, returns None
         """
-        if variable not in self.all_model_variables:
-            raise ValueError(f"Invalid variable '{variable}': variable not found.")
+        # get the model variable
+        modvar = self.get_variable(variable)
+        if modvar is None:
+            if stop_on_error:
+                raise ValueError(f"Invalid variable '{variable}': variable not found.")
+            return None
 
-        # initialize as all categories
-        subsector = self.dict_model_variable_to_subsector[variable]
-        all_cats = self.dict_attributes[self.get_subsector_attribute(subsector, "pycategory_primary")].key_values
-        
-        cats = all_cats
+        # get variable categories, defined in a dictionary
+        dict_cats = modvar.dict_category_keys
+        return_none = (dict_cats is None)
+        return_none |= (len(dict_cats) == 0) if not return_none else return_nont
+        if return_none:
+            return None
 
-        if self.dict_model_variable_to_category_restriction[variable] == "partial":
+        # if all elements have the same categories, return those as a list     
+        set_all_cats = set(sum(modvar.dict_category_keys.values(), []))
+        one_val = True
+        for val in dict_cats.values():
+            one_val &= set_all_cats.issubset(set(val))
 
-            cats = self.get_variable_attribute(variable, "categories")
+        out = val if (one_val and not force_dict_return) else dict_cats
 
-            if "none" not in cats.lower():
-                cats = cats.replace("`", "").split("|")
-                cats = [x for x in all_cats if x in cats]
-            else:
-                cats = None
-
-        return cats
-
+        return out
 
 
-    def get_variable_characteristic(self, 
+
+    def get_variable_characteristic(self, #FIXED
         variable: str, 
         characteristic: str
-    ) -> str:
+    ) -> Union[str, None]:
         """
         use get_variable_characteristic to retrieve a characterisetic--e.g., 
             characteristic = "$UNIT-MASS$" or 
             characteristic = "$EMISSION-GAS$"--associated with a variable.
-        """
-        var_schema = self.get_variable_attribute(variable, "variable_schema")
-        dict_out = clean_schema(var_schema, return_default_dict_q = True)
 
-        return dict_out.get(characteristic)
+            NOTE: also accepts clean versions, e.g., "unit_mass" or 
+            "emission_gas"
+        """
+        modvar = self.get_variable(variable)
+        if modvar is None:
+            return None
+        
+        characteristic = mv.clean_element(characteristic)
+        out = modvar.attribute(characteristic)
+
+        return out
 
 
 
@@ -5451,7 +5549,7 @@ class ModelAttributesNew:
 
 
 
-    def get_variable_subsector(self, 
+    def get_variable_subsector(self, #FIXED
         modvar: str, 
         throw_error_q: bool = True
     ) -> Union[str, None]:
