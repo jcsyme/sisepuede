@@ -1140,7 +1140,7 @@ def transformation_entc_renewable_target(
         # setup magnitude of change
         if magnitude == "VEC_FIRST_RAMP":
 
-            arr_entc_residual_capacity = model_attributes.get_standard_variables(
+            arr_entc_residual_capacity = model_attributes.extract_model_variable(
                 df,
                 model_electricity.modvar_entc_nemomod_residual_capacity,
                 expand_to_all_cats = True,
@@ -1185,7 +1185,7 @@ def transformation_entc_renewable_target(
         # verify sum and scale if necessary; 
         #    if magnitude > total_magnitude_msp_renewables, returns a scalar of 1 (no modifiation necessary)
         #    if magnitude < total_magnitude_msp_renewables, returns scalar to apply to specified MSP to ensure does not exceed magnitude
-        arr_entc_min_share_production = model_attributes.get_standard_variables(
+        arr_entc_min_share_production = model_attributes.extract_model_variable(
             df_transformed,
             model_electricity.modvar_entc_nemomod_min_share_production,
             expand_to_all_cats = True,
@@ -1279,7 +1279,7 @@ def transformation_entc_renewable_target(
 
         if (dict_cats_entc_max_investment is not None):
             
-            arr_entc_max_investment = model_attributes.get_standard_variables(
+            arr_entc_max_investment = model_attributes.extract_model_variable(
                 df_transformed,
                 model_electricity.modvar_entc_nemomod_total_annual_max_capacity_investment,
                 expand_to_all_cats = True,
@@ -1287,7 +1287,7 @@ def transformation_entc_renewable_target(
             )
 
             # get maximum residual capacities by technology
-            vec_entc_max_capacites = model_attributes.get_standard_variables(
+            vec_entc_max_capacites = model_attributes.extract_model_variable(
                 df_transformed,
                 model_electricity.modvar_entc_nemomod_residual_capacity,
                 expand_to_all_cats = True,

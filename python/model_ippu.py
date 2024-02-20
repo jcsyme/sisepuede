@@ -565,7 +565,7 @@ class IPPU:
             # check if there are gdp driven factors
             if isinstance(vec_gdp, np.ndarray):
                 for modvar_ef_gdp in all_modvar_ef_gdp:
-                    array_emission_cur = self.model_attributes.get_standard_variables(
+                    array_emission_cur = self.model_attributes.extract_model_variable(
                         df_ippu_trajectories, 
                         modvar_ef_gdp, 
                         expand_to_all_cats = True,
@@ -588,7 +588,7 @@ class IPPU:
                         "mass"
                     )
 
-                    array_emission_cur = self.model_attributes.get_standard_variables(
+                    array_emission_cur = self.model_attributes.extract_model_variable(
                         df_ippu_trajectories, 
                         modvar_ef_prod, 
                         expand_to_all_cats = True,
@@ -609,14 +609,14 @@ class IPPU:
             if include_carbon_capture & (gas == "co2"):
                 
                 # fraction captured is prevalence * efficacy
-                array_emission_frac_captured = self.model_attributes.get_standard_variables(
+                array_emission_frac_captured = self.model_attributes.extract_model_variable(
                     df_ippu_trajectories, 
                     modvar_carbon_capture_prevalence, 
                     expand_to_all_cats = True,
                     return_type = "array_base",
                     var_bounds = (0, 1),
                 )
-                array_emission_frac_captured *= self.model_attributes.get_standard_variables(
+                array_emission_frac_captured *= self.model_attributes.extract_model_variable(
                     df_ippu_trajectories, 
                     modvar_carbon_capture_efficacy, 
                     expand_to_all_cats = True,
@@ -804,14 +804,14 @@ class IPPU:
         )
 
         # get initial production and apply elasticities to gdp to calculate growth in production
-        array_ippu_prod_init_by_cat = self.model_attributes.get_standard_variables(
+        array_ippu_prod_init_by_cat = self.model_attributes.extract_model_variable(
             df_ippu_trajectories, 
             modvar_prod_qty_init, 
             expand_to_all_cats = True, 
             return_type = "array_base", 
             var_bounds = (0, np.inf)
         )
-        array_ippu_elasticity_prod_to_gdp = self.model_attributes.get_standard_variables(
+        array_ippu_elasticity_prod_to_gdp = self.model_attributes.extract_model_variable(
             df_ippu_trajectories, 
             modvar_elast_ind_prod_to_gdp,
             expand_to_all_cats = True, 
@@ -824,7 +824,7 @@ class IPPU:
         array_ippu_ind_prod = array_ippu_prod_init_by_cat[0]*array_ippu_ind_growth
 
         # set exogenous scaling of production
-        array_prod_scalar = self.model_attributes.get_standard_variables(
+        array_prod_scalar = self.model_attributes.extract_model_variable(
             df_ippu_trajectories, 
             modvar_scalar_prod, 
             expand_to_all_cats = True, 
@@ -834,12 +834,12 @@ class IPPU:
         array_ippu_ind_prod *= array_prod_scalar
 
         # adjust housing construction
-        vec_hh = self.model_attributes.get_standard_variables(
+        vec_hh = self.model_attributes.extract_model_variable(
             df_ippu_trajectories, 
             self.model_socioeconomic.modvar_grnl_num_hh, 
             return_type = "array_base"
         )
-        vec_ippu_average_lifetime_hh = self.model_attributes.get_standard_variables(
+        vec_ippu_average_lifetime_hh = self.model_attributes.extract_model_variable(
             df_ippu_trajectories, 
             self.modvar_ippu_average_lifespan_housing, 
             return_type = "array_base"
@@ -850,7 +850,7 @@ class IPPU:
         )
 
         # get average materials required, then project forward a "bau" approach (calculated using material reqs at t = 0)
-        arr_ippu_materials_required = self.model_attributes.get_standard_variables(
+        arr_ippu_materials_required = self.model_attributes.extract_model_variable(
             df_ippu_trajectories, 
             self.modvar_ippu_average_construction_materials_required_per_household, 
             expand_to_all_cats = True, 
@@ -1015,7 +1015,7 @@ class IPPU:
             if len(w) > 0:
                 # maximum proportion of virgin production (e.g., fraction of glass that is cullet) 
                 # that can be replaced by recycled materials--if not specifed, default to 1
-                array_ippu_maxiumum_recycling_ratio = self.model_attributes.get_standard_variables(
+                array_ippu_maxiumum_recycling_ratio = self.model_attributes.extract_model_variable(
                     df_ippu_trajectories,
                     self.modvar_ippu_max_recycled_material_ratio,
                     False,
@@ -1060,7 +1060,7 @@ class IPPU:
         )
 
         ##  finally, get wood harvested equivalent for AFOLU
-        arr_ippu_ratio_of_production_to_wood_harvesting = self.model_attributes.get_standard_variables(
+        arr_ippu_ratio_of_production_to_wood_harvesting = self.model_attributes.extract_model_variable(
             df_ippu_trajectories, 
             modvar_ratio_of_production_to_harvested_wood, 
             expand_to_all_cats = True,
@@ -1153,31 +1153,31 @@ class IPPU:
         ##  ECON/GNRL VECTOR AND ARRAY INITIALIZATION
 
         # get some vectors
-        array_pop = self.model_attributes.get_standard_variables(
+        array_pop = self.model_attributes.extract_model_variable(
             df_ippu_trajectories, 
             self.model_socioeconomic.modvar_gnrl_subpop, 
             override_vector_for_single_mv_q = False, 
             return_type = "array_base"
         )
-        vec_gdp = self.model_attributes.get_standard_variables(
+        vec_gdp = self.model_attributes.extract_model_variable(
             df_ippu_trajectories, 
             self.model_socioeconomic.modvar_econ_gdp, 
             override_vector_for_single_mv_q = False, 
             return_type = "array_base"
         )
-        vec_gdp_per_capita = self.model_attributes.get_standard_variables(
+        vec_gdp_per_capita = self.model_attributes.extract_model_variable(
             df_ippu_trajectories, 
             self.model_socioeconomic.modvar_econ_gdp_per_capita, 
             override_vector_for_single_mv_q = False, 
             return_type = "array_base"
         )
-        vec_hh = self.model_attributes.get_standard_variables(
+        vec_hh = self.model_attributes.extract_model_variable(
             df_ippu_trajectories, 
             self.model_socioeconomic.modvar_grnl_num_hh, 
             override_vector_for_single_mv_q = False, 
             return_type = "array_base"
         )
-        vec_pop = self.model_attributes.get_standard_variables(
+        vec_pop = self.model_attributes.extract_model_variable(
             df_ippu_trajectories, 
             self.model_socioeconomic.modvar_gnrl_pop_total, 
             override_vector_for_single_mv_q = False, 
@@ -1211,7 +1211,7 @@ class IPPU:
             self.modvar_ippu_qty_total_production,
             "mass"
         )
-        array_ippu_emissions_clinker = self.model_attributes.get_standard_variables(
+        array_ippu_emissions_clinker = self.model_attributes.extract_model_variable(
             df_ippu_trajectories, 
             self.modvar_ippu_ef_co2_per_prod_process_clinker, 
             expand_to_all_cats = True,
@@ -1219,7 +1219,7 @@ class IPPU:
         )/scalar_ippu_mass_clinker
         
         # get net imports and convert to units of production
-        array_ippu_net_imports_clinker = self.model_attributes.get_standard_variables(
+        array_ippu_net_imports_clinker = self.model_attributes.extract_model_variable(
             df_ippu_trajectories, 
             self.modvar_ippu_net_imports_clinker,
             expand_to_all_cats = True,
@@ -1231,7 +1231,7 @@ class IPPU:
             "mass"
         )
         # get production of clinker, remove net imports (and cap reduction to 0), and calculate emissions
-        array_ippu_production_clinker = self.model_attributes.get_standard_variables(df_ippu_trajectories, self.modvar_ippu_clinker_fraction_cement, False, return_type = "array_base", expand_to_all_cats = True)
+        array_ippu_production_clinker = self.model_attributes.extract_model_variable(df_ippu_trajectories, self.modvar_ippu_clinker_fraction_cement, False, return_type = "array_base", expand_to_all_cats = True)
         array_ippu_production_clinker = sf.vec_bounds(array_ippu_production_clinker*array_ippu_production - array_ippu_net_imports_clinker, (0, np.inf))
         array_ippu_emissions_clinker *= array_ippu_production_clinker
 
@@ -1327,16 +1327,16 @@ class IPPU:
         #####################
 
         ##  PRODUCT USE FROM PARAFFIN WAX AND LUBRICANTS
-        array_ippu_useinit_nonenergy_fuel = self.model_attributes.get_standard_variables(df_ippu_trajectories, self.modvar_ippu_useinit_nonenergy_fuel, False, return_type = "array_base", expand_to_all_cats = True)
+        array_ippu_useinit_nonenergy_fuel = self.model_attributes.extract_model_variable(df_ippu_trajectories, self.modvar_ippu_useinit_nonenergy_fuel, False, return_type = "array_base", expand_to_all_cats = True)
         array_ippu_pwl_growth = sf.project_growth_scalar_from_elasticity(vec_rates_gdp, np.ones(len(array_ippu_useinit_nonenergy_fuel)), False, "standard")
         array_ippu_emissions_produse_nonenergy_fuel = np.outer(array_ippu_pwl_growth, array_ippu_useinit_nonenergy_fuel[0])
-        array_ippu_production_scalar = self.model_attributes.get_standard_variables(df_ippu_trajectories, self.modvar_ippu_scalar_production, False, return_type = "array_base", var_bounds = (0, np.inf), expand_to_all_cats = True)
+        array_ippu_production_scalar = self.model_attributes.extract_model_variable(df_ippu_trajectories, self.modvar_ippu_scalar_production, False, return_type = "array_base", var_bounds = (0, np.inf), expand_to_all_cats = True)
         
         # get the emission factor and project emissions (unitless emissions)
-        array_ippu_ef_co2_produse = self.model_attributes.get_standard_variables(df_ippu_trajectories, self.modvar_ippu_ef_co2_per_prod_produse, False, return_type = "array_base", expand_to_all_cats = True)
+        array_ippu_ef_co2_produse = self.model_attributes.extract_model_variable(df_ippu_trajectories, self.modvar_ippu_ef_co2_per_prod_produse, False, return_type = "array_base", expand_to_all_cats = True)
         array_ippu_emissions_produse_nonenergy_fuel *= array_ippu_ef_co2_produse*self.model_attributes.get_scalar(self.modvar_ippu_useinit_nonenergy_fuel, "mass")
         array_ippu_emissions_produse_nonenergy_fuel *= array_ippu_production_scalar
-        array_ippu_elasticity_produse = self.model_attributes.get_standard_variables(df_ippu_trajectories, self.modvar_ippu_elast_produserate_to_gdppc, False, return_type = "array_base", expand_to_all_cats = True)
+        array_ippu_elasticity_produse = self.model_attributes.extract_model_variable(df_ippu_trajectories, self.modvar_ippu_elast_produserate_to_gdppc, False, return_type = "array_base", expand_to_all_cats = True)
         array_ippu_gdp_scalar_produse = sf.project_growth_scalar_from_elasticity(vec_rates_gdp_per_capita, array_ippu_elasticity_produse, False, "standard")
         
         # this scalar array accounts for elasticity changes in per/gdp product use rates due to increases in gdp/capita, increases in gdp, and exogenously-defined reductions to production
@@ -1345,7 +1345,7 @@ class IPPU:
         array_ippu_gdp_scalar_produse *= array_ippu_production_scalar
 
         ##  OTHER EMISSIONS (very small--NMVOC, e.g.)
-        array_ippu_emissions_other_nonenergy_co2 = self.model_attributes.get_standard_variables(df_ippu_trajectories, self.modvar_ippu_emissions_other_nonenergy_co2, False, return_type = "array_units_corrected", expand_to_all_cats = True)
+        array_ippu_emissions_other_nonenergy_co2 = self.model_attributes.extract_model_variable(df_ippu_trajectories, self.modvar_ippu_emissions_other_nonenergy_co2, False, return_type = "array_units_corrected", expand_to_all_cats = True)
         array_ippu_emissions_other_nonenergy_co2 = array_ippu_emissions_other_nonenergy_co2[0]*sf.project_growth_scalar_from_elasticity(vec_rates_gdp, np.ones(array_ippu_emissions_other_nonenergy_co2.shape), False, "standard")
         array_ippu_emissions_other_nonenergy_co2 *= array_ippu_production_scalar
 
@@ -1353,7 +1353,7 @@ class IPPU:
 
         """
         # get emission factor
-        array_ippu_net_imports_clinker = self.model_attributes.get_standard_variables(df_ippu_trajectories, self.modvar_ippu_net_imports_clinker
+        array_ippu_net_imports_clinker = self.model_attributes.extract_model_variable(df_ippu_trajectories, self.modvar_ippu_net_imports_clinker
         , False, return_type = "array_base", expand_to_all_cats = True)
         array_ippu_net_imports_clinker *= self.model_attributes.get_variable_unit_conversion_factor(
             self.modvar_ippu_net_imports_clinker,
@@ -1361,7 +1361,7 @@ class IPPU:
             "mass"
         )
         # get production of clinker, remove net imports (and cap reduction to 0), and calculate emissions
-        array_ippu_production_clinker = self.model_attributes.get_standard_variables(df_ippu_trajectories, self.modvar_ippu_clinker_fraction_cement, False, return_type = "array_base", expand_to_all_cats = True)
+        array_ippu_production_clinker = self.model_attributes.extract_model_variable(df_ippu_trajectories, self.modvar_ippu_clinker_fraction_cement, False, return_type = "array_base", expand_to_all_cats = True)
         array_ippu_production_clinker = sf.vec_bounds(array_ippu_production_clinker*array_ippu_production - array_ippu_net_imports_clinker, (0, np.inf))
         array_ippu_emissions_clinker *= array_ippu_production_clinker
         """

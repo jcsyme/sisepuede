@@ -56,7 +56,7 @@ def get_renewable_categories_from_inputs_final_tp(
     attr = model_electricity.model_attributes.get_attribute_table(subsec)
     
     try:
-        arr_entc_tag_renewable = model_attributes.get_standard_variables(
+        arr_entc_tag_renewable = model_attributes.extract_model_variable(
             df_input,
             modvar,
             expand_to_all_cats = True,
@@ -925,7 +925,7 @@ def transformation_entc_renewable_target(
 
         if magnitude == "VEC_FIRST_RAMP":
 
-            arr_entc_residual_capacity = model_attributes.get_standard_variables(
+            arr_entc_residual_capacity = model_attributes.extract_model_variable(
                 df,
                 model_electricity.modvar_entc_nemomod_residual_capacity,
                 expand_to_all_cats = True,
@@ -936,7 +936,7 @@ def transformation_entc_renewable_target(
             magnitude /= arr_entc_residual_capacity[ind_vec_ramp_first_zero_deviation, :].sum()
 
         # get the current minimum share of production (does not change when df_transformed is assigned below, since that only modifies the renewable target)
-        arr_entc_min_share_production = model_attributes.get_standard_variables(
+        arr_entc_min_share_production = model_attributes.extract_model_variable(
             df,
             model_electricity.modvar_entc_nemomod_min_share_production,
             expand_to_all_cats = True,
@@ -1143,7 +1143,7 @@ def transformation_entc_renewable_target(
         ##  3A: MODIFY FRACTIONS FOR UNSPECIFIED/SPECIFIED RENEWABLES (IN ORDER)
 
         # refresh and get totals
-        arr_entc_min_share_production = model_attributes.get_standard_variables(
+        arr_entc_min_share_production = model_attributes.extract_model_variable(
             df_transformed,
             model_electricity.modvar_entc_nemomod_min_share_production,
             expand_to_all_cats = True,
@@ -1185,7 +1185,7 @@ def transformation_entc_renewable_target(
             ##  3.A.II NEXT, SCALE UNSPECIFIED RENEWABLES IF NECESSARY
             
             # refresh and get totals
-            arr_entc_min_share_production = model_attributes.get_standard_variables(
+            arr_entc_min_share_production = model_attributes.extract_model_variable(
                 df_transformed,
                 model_electricity.modvar_entc_nemomod_min_share_production,
                 expand_to_all_cats = True,
@@ -1225,7 +1225,7 @@ def transformation_entc_renewable_target(
 
         if (dict_cats_entc_max_investment is not None):
             
-            arr_entc_max_investment = model_attributes.get_standard_variables(
+            arr_entc_max_investment = model_attributes.extract_model_variable(
                 df_transformed,
                 model_electricity.modvar_entc_nemomod_total_annual_max_capacity_investment,
                 expand_to_all_cats = True,
@@ -1233,7 +1233,7 @@ def transformation_entc_renewable_target(
             )
 
             # get maximum residual capacities by technology
-            vec_entc_max_capacites = model_attributes.get_standard_variables(
+            vec_entc_max_capacites = model_attributes.extract_model_variable(
                 df_transformed,
                 model_electricity.modvar_entc_nemomod_residual_capacity,
                 expand_to_all_cats = True,
@@ -1300,7 +1300,7 @@ def transformation_entc_renewable_target(
     if scale_non_renewables_to_match_surplus_msp:
 
         # get current status of minimum share of production after transforming
-        arr_entc_min_share_production = model_attributes.get_standard_variables(
+        arr_entc_min_share_production = model_attributes.extract_model_variable(
             df_out,
             model_electricity.modvar_entc_nemomod_min_share_production,
             expand_to_all_cats = True,
@@ -1415,7 +1415,7 @@ def transformation_entc_renewable_target(
     #    6. BOUND EVERYTHING (CAN APPLY TO ALL REGIONS AT SAME TIME)    #
     #####################################################################
 
-    arr_entc_min_share_production = model_attributes.get_standard_variables(
+    arr_entc_min_share_production = model_attributes.extract_model_variable(
         df_out,
         model_electricity.modvar_entc_nemomod_min_share_production,
         expand_to_all_cats = True,

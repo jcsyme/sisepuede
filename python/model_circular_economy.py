@@ -814,20 +814,20 @@ class CircularEconomy:
             not integrated, a specified elasticity.
         """
         # get scalar that represents the impact of a reduction of protein in the vegetarian diet
-        vec_wali_frac_protein_in_diet_with_rm = self.model_attributes.get_standard_variables(
+        vec_wali_frac_protein_in_diet_with_rm = self.model_attributes.extract_model_variable(
             df_ce_trajectories, 
             self.modvar_wali_frac_protein_with_red_meat, 
             override_vector_for_single_mv_q = True, 
             return_type = "array_base"
         )
-        vec_wali_frac_protein_in_diet_without_rm = self.model_attributes.get_standard_variables(
+        vec_wali_frac_protein_in_diet_without_rm = self.model_attributes.extract_model_variable(
             df_ce_trajectories, 
             self.modvar_wali_frac_protein_without_red_meat, 
             override_vector_for_single_mv_q = True, 
             return_type = "array_base"
         )
         vec_wali_protein_scalar_no_rm = vec_wali_frac_protein_in_diet_without_rm/vec_wali_frac_protein_in_diet_with_rm
-        vec_gnrl_frac_eating_red_meat = self.model_attributes.get_standard_variables(
+        vec_gnrl_frac_eating_red_meat = self.model_attributes.extract_model_variable(
             df_ce_trajectories, 
             self.model_socioeconomic.modvar_gnrl_frac_eating_red_meat, 
             override_vector_for_single_mv_q = True, 
@@ -837,7 +837,7 @@ class CircularEconomy:
         vec_wali_protein_scalar = (vec_gnrl_frac_eating_red_meat + vec_wali_protein_scalar_no_rm*(1 - vec_gnrl_frac_eating_red_meat)).flatten()
         
         # get protein consumed per person in kg/year
-        vec_wali_protein_per_capita = self.model_attributes.get_standard_variables(
+        vec_wali_protein_per_capita = self.model_attributes.extract_model_variable(
             df_ce_trajectories, 
             self.modvar_wali_protein_per_capita, 
             override_vector_for_single_mv_q = False, 
@@ -971,31 +971,31 @@ class CircularEconomy:
         ##  ECON/GNRL VECTOR AND ARRAY INITIALIZATION
 
         # get some vectors
-        array_pop = self.model_attributes.get_standard_variables(
+        array_pop = self.model_attributes.extract_model_variable(
             df_ce_trajectories, 
             self.model_socioeconomic.modvar_gnrl_subpop, 
             override_vector_for_single_mv_q = False, 
             return_type = "array_base"
         )
-        vec_gdp = self.model_attributes.get_standard_variables(
+        vec_gdp = self.model_attributes.extract_model_variable(
             df_ce_trajectories, 
             self.model_socioeconomic.modvar_econ_gdp, 
             override_vector_for_single_mv_q = False, 
             return_type = "array_base"
         )
-        vec_gdp_per_capita = self.model_attributes.get_standard_variables(
+        vec_gdp_per_capita = self.model_attributes.extract_model_variable(
             df_ce_trajectories, 
             self.model_socioeconomic.modvar_econ_gdp_per_capita, 
             override_vector_for_single_mv_q = False, 
             return_type = "array_base"
         )
-        vec_hh = self.model_attributes.get_standard_variables(
+        vec_hh = self.model_attributes.extract_model_variable(
             df_ce_trajectories, 
             self.model_socioeconomic.modvar_grnl_num_hh, 
             override_vector_for_single_mv_q = False, 
             return_type = "array_base"
         )
-        vec_pop = self.model_attributes.get_standard_variables(
+        vec_pop = self.model_attributes.extract_model_variable(
             df_ce_trajectories, 
             self.model_socioeconomic.modvar_gnrl_pop_total, 
             override_vector_for_single_mv_q = False, 
@@ -1017,7 +1017,7 @@ class CircularEconomy:
         ##  GET INITIAL WW GENERATED + BASED ON BOD/PERSON + COD/GDP, SET IMPLIED FRACTION OF BOD/M3 WW
 
         # bod/cod
-        vec_wali_bod_percap_init = self.model_attributes.get_standard_variables(
+        vec_wali_bod_percap_init = self.model_attributes.extract_model_variable(
             df_ce_trajectories, 
             self.modvar_wali_bod_per_capita, 
             override_vector_for_single_mv_q = True, 
@@ -1025,20 +1025,20 @@ class CircularEconomy:
         )[0, :]
         vec_wali_bod_percap_init*= self.model_attributes.configuration.get("days_per_year")
 
-        vec_wali_bod_correction = self.model_attributes.get_standard_variables(
+        vec_wali_bod_correction = self.model_attributes.extract_model_variable(
             df_ce_trajectories, 
             self.modvar_wali_bod_correction,
             return_type = "array_base"
         )
         array_wali_bod_percap = np.outer(vec_wali_bod_correction, vec_wali_bod_percap_init)
-        array_wali_cod_pergdp = self.model_attributes.get_standard_variables(
+        array_wali_cod_pergdp = self.model_attributes.extract_model_variable(
             df_ce_trajectories, 
             self.modvar_wali_cod_per_gdp, 
             override_vector_for_single_mv_q = True, 
             return_type = "array_units_corrected"
         )
         # get elasticity of wastewater
-        vec_wali_logelastic = self.model_attributes.get_standard_variables(
+        vec_wali_logelastic = self.model_attributes.extract_model_variable(
             df_ce_trajectories, 
             self.modvar_wali_logelast_ww_to_gdppc, 
             return_type = "array_base"
@@ -1051,14 +1051,14 @@ class CircularEconomy:
         )
 
         # volume per capita (m3)
-        array_wali_vol_domww_percap = self.model_attributes.get_standard_variables(
+        array_wali_vol_domww_percap = self.model_attributes.extract_model_variable(
             df_ce_trajectories, 
             self.modvar_wali_init_pcap_wwgen, 
             override_vector_for_single_mv_q = True, 
             return_type = "array_base"
         )
         array_wali_vol_domww_percap = (array_wali_vol_domww_percap.transpose() * vec_wali_bod_correction).transpose()
-        array_wali_vol_indww_per_gdp = self.model_attributes.get_standard_variables(
+        array_wali_vol_indww_per_gdp = self.model_attributes.extract_model_variable(
             df_ce_trajectories, 
             self.modvar_wali_init_pgdp_wwgen, 
             override_vector_for_single_mv_q = True, 
@@ -1153,25 +1153,25 @@ class CircularEconomy:
         ##  GET METHANE EMISSIONS FROM EACH TREATMENT PROCESS
 
         # get maximum methane production capacity for bod/cod (in co2e - i.e., using array_units_corrected)
-        vec_wali_bod_max_bo = self.model_attributes.get_standard_variables(
+        vec_wali_bod_max_bo = self.model_attributes.extract_model_variable(
             df_ce_trajectories, 
             self.modvar_wali_max_bod_capac, False, return_type = "array_units_corrected")
-        vec_wali_cod_max_bo = self.model_attributes.get_standard_variables(
+        vec_wali_cod_max_bo = self.model_attributes.extract_model_variable(
             df_ce_trajectories, 
             self.modvar_wali_max_cod_capac, False, return_type = "array_units_corrected")
         # get arrays for the treatment-specific methane correction factor,
-        array_trww_mcf = self.model_attributes.get_standard_variables(
+        array_trww_mcf = self.model_attributes.extract_model_variable(
             df_ce_trajectories, 
             self.modvar_trww_mcf, True, return_type = "array_base")
-        array_trww_frac_tow_removed = self.model_attributes.get_standard_variables(
+        array_trww_frac_tow_removed = self.model_attributes.extract_model_variable(
             df_ce_trajectories, 
             self.modvar_trww_frac_tow_removed, True, return_type = "array_base")
         # get some specific factors and merge them to all categories (aerobic + septic, for sludge removal)
-        array_trww_krem = self.model_attributes.get_standard_variables(
+        array_trww_krem = self.model_attributes.extract_model_variable(
             df_ce_trajectories, 
             self.modvar_trww_krem, True, return_type = "array_base")
         array_trww_krem = self.model_attributes.merge_array_var_partial_cat_to_array_all_cats(array_trww_krem, self.modvar_trww_krem)
-        array_trww_septic_compliance = self.model_attributes.get_standard_variables(
+        array_trww_septic_compliance = self.model_attributes.extract_model_variable(
             df_ce_trajectories, 
             self.modvar_trww_septic_sludge_compliance, True, return_type = "array_base")
         array_trww_septic_compliance = self.model_attributes.merge_array_var_partial_cat_to_array_all_cats(array_trww_septic_compliance, self.modvar_trww_septic_sludge_compliance)
@@ -1190,7 +1190,7 @@ class CircularEconomy:
         array_trww_bod_equivalent_removed_sludge = array_trww_tow_bod_removed_sludge + (array_trww_tow_cod_removed_sludge.transpose()*(vec_wali_cod_max_bo/vec_wali_bod_max_bo)).transpose()
         array_trww_emissions_ch4_treatment = array_trww_emissions_ch4_bod + array_trww_emissions_ch4_cod
         # get fraction of ch4 captures
-        array_trww_frac_ch4_recovered = self.model_attributes.get_standard_variables(
+        array_trww_frac_ch4_recovered = self.model_attributes.extract_model_variable(
             df_ce_trajectories, 
             self.modvar_trww_rf_biogas_recovered, True, return_type = "array_base", var_bounds = (0, 1), expand_to_all_cats = True)
         array_trww_ch4_recovered = array_trww_frac_ch4_recovered*array_trww_emissions_ch4_treatment
@@ -1220,16 +1220,16 @@ class CircularEconomy:
         vec_wali_protein = self.project_protein_consumption(df_ce_trajectories, vec_pop, vec_rates_gdp_per_capita)
         # use the BOD commercial/industrial correction factor as f_indcom from 6.10
         vec_wali_findcom = vec_wali_bod_correction
-        vec_wali_fnoncon = self.model_attributes.get_standard_variables(
+        vec_wali_fnoncon = self.model_attributes.extract_model_variable(
             df_ce_trajectories, 
             self.modvar_wali_param_fnoncon, False, return_type = "array_base")
-        vec_wali_nhh = self.model_attributes.get_standard_variables(
+        vec_wali_nhh = self.model_attributes.extract_model_variable(
             df_ce_trajectories, 
             self.modvar_wali_param_nhh, False, return_type = "array_base")
 
         # get total domestic nitrogen in same units as protein
         vec_wali_total_nitrogen_dom = vec_wali_protein*vec_wali_findcom*vec_wali_fnoncon*vec_wali_nhh*self.factor_f_npr
-        vec_wali_phosphorous_density_dom = self.model_attributes.get_standard_variables(
+        vec_wali_phosphorous_density_dom = self.model_attributes.extract_model_variable(
             df_ce_trajectories, 
             self.modvar_wali_param_p_per_bod, False, return_type = "array_base")
         # use BOD array to allocate domestic wastewater nitrogen (assume it's uniformly distributed)
@@ -1238,10 +1238,10 @@ class CircularEconomy:
         array_trww_total_phosphorous_dom = (array_trww_total_bod_by_pathway.transpose()*vec_wali_phosphorous_density_dom).transpose()
 
         # get total industrial nitrogen and phosphorous + a cod -> bod scalar
-        vec_wali_nitrogen_density_ind = self.model_attributes.get_standard_variables(
+        vec_wali_nitrogen_density_ind = self.model_attributes.extract_model_variable(
             df_ce_trajectories, 
             self.modvar_wali_nitrogen_density_ww_ind, False, return_type = "array_base")
-        vec_wali_phosphorous_density_ind = self.model_attributes.get_standard_variables(
+        vec_wali_phosphorous_density_ind = self.model_attributes.extract_model_variable(
             df_ce_trajectories, 
             self.modvar_wali_param_p_per_cod, False, return_type = "array_base")
         scalar_wali_cod_mass_to_bod_mass = self.model_attributes.get_variable_unit_conversion_factor(self.modvar_wali_nitrogen_density_ww_ind, self.modvar_wali_protein_per_capita, "mass")
@@ -1253,17 +1253,17 @@ class CircularEconomy:
         # get total nitrogen/phosphorous in each treatment pathway and find total removed by treatment. These are in terms of BOD mass now
         array_trww_total_nitrogen = array_trww_total_nitrogen_dom + array_trww_total_nitrogen_ind*scalar_wali_cod_mass_to_bod_mass
         array_trww_total_phosphorous = array_trww_total_phosphorous_dom + array_trww_total_phosphorous_ind*scalar_wali_cod_mass_to_bod_mass
-        array_trww_frac_n_removed = self.model_attributes.get_standard_variables(
+        array_trww_frac_n_removed = self.model_attributes.extract_model_variable(
             df_ce_trajectories, 
             self.modvar_trww_frac_n_removed, False, return_type = "array_base", var_bounds = (0, 1))
-        array_trww_frac_p_removed = self.model_attributes.get_standard_variables(
+        array_trww_frac_p_removed = self.model_attributes.extract_model_variable(
             df_ce_trajectories, 
             self.modvar_trww_frac_p_removed, False, return_type = "array_base", var_bounds = (0, 1))
         array_trww_total_n_effluent = array_trww_total_nitrogen*(1 - array_trww_frac_n_removed)
         array_trww_total_p_effluent = array_trww_total_phosphorous*(1 - array_trww_frac_p_removed)
 
         # retrieve the emission factors, which are g/g (unitless)
-        array_trww_ef_n2o_ww = self.model_attributes.get_standard_variables(
+        array_trww_ef_n2o_ww = self.model_attributes.extract_model_variable(
             df_ce_trajectories, 
             self.modvar_trww_ef_n2o_wastewater_treatment, False, return_type = "array_base")
         # nitrogen emissions in kg (first component) converted to emissions mass--assumes both industry and domestic have same units, kg
@@ -1369,31 +1369,31 @@ class CircularEconomy:
         ##  ECON/GNRL VECTOR AND ARRAY INITIALIZATION
 
         # get some vectors
-        array_pop = self.model_attributes.get_standard_variables(
+        array_pop = self.model_attributes.extract_model_variable(
             df_ce_trajectories, 
             self.model_socioeconomic.modvar_gnrl_subpop, 
             override_vector_for_single_mv_q = False, 
             return_type = "array_base"
         )
-        vec_gdp = self.model_attributes.get_standard_variables(
+        vec_gdp = self.model_attributes.extract_model_variable(
             df_ce_trajectories, 
             self.model_socioeconomic.modvar_econ_gdp, 
             override_vector_for_single_mv_q = False, 
             return_type = "array_base"
         )
-        vec_gdp_per_capita = self.model_attributes.get_standard_variables(
+        vec_gdp_per_capita = self.model_attributes.extract_model_variable(
             df_ce_trajectories, 
             self.model_socioeconomic.modvar_econ_gdp_per_capita, 
             override_vector_for_single_mv_q = False, 
             return_type = "array_base"
         )
-        vec_hh = self.model_attributes.get_standard_variables(
+        vec_hh = self.model_attributes.extract_model_variable(
             df_ce_trajectories, 
             self.model_socioeconomic.modvar_grnl_num_hh, 
             override_vector_for_single_mv_q = False, 
             return_type = "array_base"
         )
-        vec_pop = self.model_attributes.get_standard_variables(
+        vec_pop = self.model_attributes.extract_model_variable(
             df_ce_trajectories, 
             self.model_socioeconomic.modvar_gnrl_pop_total, 
             override_vector_for_single_mv_q = False, 
@@ -1424,18 +1424,18 @@ class CircularEconomy:
         )
 
         # municipal components
-        factor_waso_init_pc_waste = self.model_attributes.get_standard_variables(
+        factor_waso_init_pc_waste = self.model_attributes.extract_model_variable(
             df_ce_trajectories, 
             self.modvar_waso_init_msw_generated_pc,
             return_type = "array_base"
         )[0]
-        vec_waso_init_msw_composition = self.model_attributes.get_standard_variables(
+        vec_waso_init_msw_composition = self.model_attributes.extract_model_variable(
             df_ce_trajectories, 
             self.modvar_waso_init_composition_msw, 
             override_vector_for_single_mv_q = True, 
             return_type = "array_base"
         )[0]
-        array_waso_elasticity_waste_prod = self.model_attributes.get_standard_variables(
+        array_waso_elasticity_waste_prod = self.model_attributes.extract_model_variable(
             df_ce_trajectories, 
             self.modvar_waso_elast_msw, 
             return_type = "array_base"
@@ -1446,7 +1446,7 @@ class CircularEconomy:
             False, 
             "standard"
         )
-        array_waso_scale_msw = self.model_attributes.get_standard_variables(
+        array_waso_scale_msw = self.model_attributes.extract_model_variable(
             df_ce_trajectories, 
             self.modvar_waso_waste_per_capita_scalar, 
             return_type = "array_base"
@@ -1464,7 +1464,7 @@ class CircularEconomy:
         )
         
         # industrial - include multiplication by factor to write industrial waste in same units as msw
-        vec_waso_init_pgdp_waste = self.model_attributes.get_standard_variables(
+        vec_waso_init_pgdp_waste = self.model_attributes.extract_model_variable(
             df_ce_trajectories, 
             self.modvar_waso_init_isw_generated_pgdp, 
             return_type = "array_base"
@@ -1474,7 +1474,7 @@ class CircularEconomy:
             self.modvar_waso_init_msw_generated_pc,
             "mass"
         )
-        vec_waso_isw_composition = self.model_attributes.get_standard_variables(
+        vec_waso_isw_composition = self.model_attributes.extract_model_variable(
             df_ce_trajectories, 
             self.modvar_waso_composition_isw, 
             override_vector_for_single_mv_q = True, 
@@ -1503,7 +1503,7 @@ class CircularEconomy:
         ##  NOTE: assume categories for recycling and composition are mutually exclusive, allowing us to subtract successive values from array_waso_total_by_category
 
         # estimate total waste recycled
-        array_waso_waste_recycled = self.model_attributes.get_standard_variables(
+        array_waso_waste_recycled = self.model_attributes.extract_model_variable(
             df_ce_trajectories, 
             self.modvar_waso_frac_recycled, 
             return_type = "array_base", 
@@ -1526,29 +1526,29 @@ class CircularEconomy:
         array_waso_waste_compost = dict_waso_comp_biogas_check[self.modvar_waso_frac_compost]*array_waso_total_by_category
         array_waso_total_by_category -= (array_waso_waste_biogas + array_waso_waste_compost)
         # gete emission factors from composting/biogas - unitless
-        array_waso_ef_ch4_biogas = self.model_attributes.get_standard_variables(
+        array_waso_ef_ch4_biogas = self.model_attributes.extract_model_variable(
             df_ce_trajectories, 
             self.modvar_waso_ef_ch4_biogas,
             return_type = "array_units_corrected_gas"
         )
-        array_waso_ef_ch4_compost = self.model_attributes.get_standard_variables(
+        array_waso_ef_ch4_compost = self.model_attributes.extract_model_variable(
             df_ce_trajectories, 
             self.modvar_waso_ef_ch4_compost,
             return_type = "array_units_corrected_gas"
         )
-        array_waso_ef_n2o_compost = self.model_attributes.get_standard_variables(
+        array_waso_ef_n2o_compost = self.model_attributes.extract_model_variable(
             df_ce_trajectories, 
             self.modvar_waso_ef_n2o_compost, 
             return_type = "array_units_corrected_gas"
         )
         # other adjustments
-        vec_waso_ch4_flared_compost = self.model_attributes.get_standard_variables(
+        vec_waso_ch4_flared_compost = self.model_attributes.extract_model_variable(
             df_ce_trajectories, 
             self.modvar_waso_frac_ch4_flared_composting, 
             return_type = "array_base", 
             var_bounds = (0, 1)
         )
-        vec_waso_biogas_recovery_factor = self.model_attributes.get_standard_variables(
+        vec_waso_biogas_recovery_factor = self.model_attributes.extract_model_variable(
             df_ce_trajectories, 
             self.modvar_waso_rf_biogas, 
             return_type = "array_base", 
@@ -1609,14 +1609,14 @@ class CircularEconomy:
         ##  INCINERATION
 
         # start by adjusting the total to account for waste that is used in energy for incineration. This will be sent to the energy model as a fuel.
-        vec_waso_frac_isw_incinerated_for_energy = self.model_attributes.get_standard_variables(
+        vec_waso_frac_isw_incinerated_for_energy = self.model_attributes.extract_model_variable(
             df_ce_trajectories, 
             self.modvar_waso_frac_recovered_for_energy_incineration_isw, 
             override_vector_for_single_mv_q = False, 
             return_type = "array_base", 
             var_bounds = (0, 1)
         )
-        vec_waso_frac_msw_incinerated_for_energy = self.model_attributes.get_standard_variables(
+        vec_waso_frac_msw_incinerated_for_energy = self.model_attributes.extract_model_variable(
             df_ce_trajectories, 
             self.modvar_waso_frac_recovered_for_energy_incineration_msw, 
             override_vector_for_single_mv_q = False, 
@@ -1636,7 +1636,7 @@ class CircularEconomy:
         # after adjusting for waste sent to the energy model, calculate emissions from incineration - start with co2 and n2o, which depend on type of waste
         vec_waso_ef_incineration_co2 = vec_waso_cat_attr_dry_matter_content_as_fraction_wet_weight*vec_waso_cat_attr_total_carbon_content_as_fraction_dry_weight*vec_waso_cat_attr_fossil_carbon_fraction_as_fraction_total_carbon*self.factor_c_to_co2
         array_waso_emissions_co2_incineration = np.sum(array_waso_waste_incineration*vec_waso_ef_incineration_co2*factor_waso_mass_to_emission_mass, axis = 1)
-        array_waso_emissions_n2o_incineration = self.model_attributes.get_standard_variables(
+        array_waso_emissions_n2o_incineration = self.model_attributes.extract_model_variable(
             df_ce_trajectories, 
             self.modvar_waso_ef_n2o_incineration, 
             override_vector_for_single_mv_q = False, 
@@ -1646,13 +1646,13 @@ class CircularEconomy:
         array_waso_emissions_n2o_incineration = np.sum(array_waso_emissions_n2o_incineration, axis = 1)
         
         # add ch4, which is largely process dependent
-        vec_waso_ef_ch4_incineration_isw = self.model_attributes.get_standard_variables(
+        vec_waso_ef_ch4_incineration_isw = self.model_attributes.extract_model_variable(
             df_ce_trajectories, 
             self.modvar_waso_ef_ch4_incineration_isw, 
             override_vector_for_single_mv_q = False, 
             return_type = "array_units_corrected_gas"
         )
-        vec_waso_ef_ch4_incineration_msw = self.model_attributes.get_standard_variables(
+        vec_waso_ef_ch4_incineration_msw = self.model_attributes.extract_model_variable(
             df_ce_trajectories, 
             self.modvar_waso_ef_ch4_incineration_msw, 
             override_vector_for_single_mv_q = False, 
@@ -1685,7 +1685,7 @@ class CircularEconomy:
 
         # "back project" waste from previous years to estimate deposits, which contribute to emissions (in absence of historical)
         n_periods_bp = self.model_attributes.configuration.get("historical_back_proj_n_periods")
-        factor_waso_historical_bp_gr = self.model_attributes.get_standard_variables(
+        factor_waso_historical_bp_gr = self.model_attributes.extract_model_variable(
             df_ce_trajectories, 
             self.modvar_waso_historical_bp_grp, 
             return_type = "array_base"
@@ -1703,25 +1703,25 @@ class CircularEconomy:
             factor_waso_historical_bp_gr
         )
         # get some landfill characteristics and expand for back projection
-        vec_waso_mfc_landfill = self.model_attributes.get_standard_variables(
+        vec_waso_mfc_landfill = self.model_attributes.extract_model_variable(
             df_ce_trajectories, 
             self.modvar_waso_mcf_landfills_average, 
             return_type = "array_base"
         )
         vec_waso_mfc_landfill = sf.prepend_first_element(vec_waso_mfc_landfill, n_periods_bp)
-        vec_waso_mfc_open_dump = self.model_attributes.get_standard_variables(
+        vec_waso_mfc_open_dump = self.model_attributes.extract_model_variable(
             df_ce_trajectories, 
             self.modvar_waso_mcf_open_dumping_average, 
             return_type = "array_base"
         )
         vec_waso_mfc_open_dump = sf.prepend_first_element(vec_waso_mfc_open_dump, n_periods_bp)
-        vec_waso_oxf_landfill = self.model_attributes.get_standard_variables(
+        vec_waso_oxf_landfill = self.model_attributes.extract_model_variable(
             df_ce_trajectories, 
             self.modvar_waso_oxf_landfills, 
             return_type = "array_base"
         )
         vec_waso_oxf_landfill = sf.prepend_first_element(vec_waso_oxf_landfill, n_periods_bp)
-        vec_waso_avg_frac_landfill_gas_capture = self.model_attributes.get_standard_variables(
+        vec_waso_avg_frac_landfill_gas_capture = self.model_attributes.extract_model_variable(
             df_ce_trajectories, 
             self.modvar_waso_rf_landfill_gas_recovered, 
             return_type = "array_base", 
@@ -1729,7 +1729,7 @@ class CircularEconomy:
         )
         vec_waso_avg_frac_landfill_gas_capture = sf.prepend_first_element(vec_waso_avg_frac_landfill_gas_capture, n_periods_bp)
         # get waste characteristics, including k and ddocm
-        array_waso_k = self.model_attributes.get_standard_variables(
+        array_waso_k = self.model_attributes.extract_model_variable(
             df_ce_trajectories, 
             self.modvar_waso_physparam_k, 
             return_type = "array_base"
@@ -1762,7 +1762,7 @@ class CircularEconomy:
         vec_waso_landfill_gas_recovered = vec_waso_landfill_gas_recovered[rowind_waso_model_periods_landfill]
         
         # recovery can include caputre or flaring: multiply by some fraction that is captured for energy
-        vec_waso_landfill_gas_recovered *= self.model_attributes.get_standard_variables(
+        vec_waso_landfill_gas_recovered *= self.model_attributes.extract_model_variable(
             df_ce_trajectories, 
             self.modvar_waso_frac_landfill_gas_ch4_to_energy, 
             override_vector_for_single_mv_q = False, 

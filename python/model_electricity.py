@@ -1563,7 +1563,7 @@ class ElectricEnergy:
         ##  BUILD PROPORTIONAL VECTOR OF ENERGY DEMANDS
 
         # get the exports of the fuel
-        vec_enfu_exports = self.model_attributes.get_standard_variables(
+        vec_enfu_exports = self.model_attributes.extract_model_variable(
             df_retrieval_trajectories,
             self.modvar_enfu_exports_fuel_adjusted,
             expand_to_all_cats = True,
@@ -1571,7 +1571,7 @@ class ElectricEnergy:
         )[:, ind_enfu_energy_source]
 
         # get fuel imports of the selected source fuel
-        vec_enfu_imports = self.model_attributes.get_standard_variables(
+        vec_enfu_imports = self.model_attributes.extract_model_variable(
             df_retrieval_trajectories,
             self.modvar_enfu_imports_fuel,
             expand_to_all_cats = True,
@@ -1602,7 +1602,7 @@ class ElectricEnergy:
                 # try retrieving subsector demand from electric trajectories; if not there, look to retrieval (ENTC)
                 # if neither works, save error and move on
                 try: 
-                    vec_demand_subsec_cur = self.model_attributes.get_standard_variables(
+                    vec_demand_subsec_cur = self.model_attributes.extract_model_variable(
                         df_elec_trajectories,
                         dict_energy_vars_cur.get("energy_demand"),
                         expand_to_all_cats = True,
@@ -1611,7 +1611,7 @@ class ElectricEnergy:
                         
                 except:
                     try:
-                        vec_demand_subsec_cur = self.model_attributes.get_standard_variables(
+                        vec_demand_subsec_cur = self.model_attributes.extract_model_variable(
                             df_retrieval_trajectories,
                             dict_energy_vars_cur.get("energy_demand"),
                             expand_to_all_cats = True,
@@ -1663,7 +1663,7 @@ class ElectricEnergy:
             modvar_emissions_export = dict_modvars_emission_to_allocate.get(modvar)
 
             # get the total emissions in configuration units 
-            vec_entc_emissions_total = self.model_attributes.get_standard_variables(
+            vec_entc_emissions_total = self.model_attributes.extract_model_variable(
                 df_retrieval_trajectories,
                 modvar,
                 expand_to_all_cats = True,
@@ -1829,7 +1829,7 @@ class ElectricEnergy:
         ]
 
         # get gravimetric density (aka specific energy)
-        vec_enfu_energy_density_gravimetric = self.model_attributes.get_standard_variables(
+        vec_enfu_energy_density_gravimetric = self.model_attributes.extract_model_variable(
             df_elec_trajectories,
             self.modvar_enfu_energy_density_gravimetric,
             override_vector_for_single_mv_q = True,
@@ -1839,7 +1839,7 @@ class ElectricEnergy:
         vec_enfu_energy_density_gravimetric = vec_enfu_energy_density_gravimetric[:, self.ind_enfu_bgas]
 
         # get minimum fuel fraction to electricity
-        vec_enfu_minimum_fuel_frac_to_elec = self.model_attributes.get_standard_variables(
+        vec_enfu_minimum_fuel_frac_to_elec = self.model_attributes.extract_model_variable(
             df_elec_trajectories,
             self.modvar_enfu_minimum_frac_fuel_used_for_electricity,
             override_vector_for_single_mv_q = True,
@@ -2189,7 +2189,7 @@ class ElectricEnergy:
             techs_to_pivot = None
         )
 
-        arr_enfu_full_demand = self.model_attributes.get_standard_variables(
+        arr_enfu_full_demand = self.model_attributes.extract_model_variable(
             df_demands_with_exports,
             modvar_enfu_demand,
             expand_to_all_cats = True,
@@ -2514,7 +2514,7 @@ class ElectricEnergy:
                         
                         # retrieve array
                         if (cat not in dict_enfu_arrs_iar.keys()):
-                            arr_entc_iar = self.model_attributes.get_standard_variables(
+                            arr_entc_iar = self.model_attributes.extract_model_variable(
                                 df_elec_trajectories,
                                 modvar_iar,
                                 return_type = "array_base", 
@@ -2943,7 +2943,7 @@ class ElectricEnergy:
         )
 
         # 
-        arr_entc_maxprod_msp_increase = self.model_attributes.get_standard_variables(
+        arr_entc_maxprod_msp_increase = self.model_attributes.extract_model_variable(
             df_elec_trajectories, 
             modvar_maxprod_msp_increase,
             all_cats_missing_val = drop_flag,
@@ -2952,7 +2952,7 @@ class ElectricEnergy:
         )
         
         # get unadjusted MSP
-        arr_entc_msp = self.model_attributes.get_standard_variables(
+        arr_entc_msp = self.model_attributes.extract_model_variable(
             df_elec_trajectories,
             modvar_msp,
             expand_to_all_cats = True,
@@ -3124,7 +3124,7 @@ class ElectricEnergy:
 
 
         # get hydropower climate change factor
-        df_gnrl_ccf_hydropower = self.model_attributes.get_standard_variables(
+        df_gnrl_ccf_hydropower = self.model_attributes.extract_model_variable(
             df_elec_trajectories,
             self.model_socioeconomic.modvar_gnrl_climate_change_hydropower_availability,
             include_time_period = True,
@@ -3621,7 +3621,7 @@ class ElectricEnergy:
             vec_waso_mass_incinerated = np.sum(array_waso_mass_incinerated, axis = 1)
 
             # convert to energy units using gravimetric density (aka specific energy)
-            vec_enfu_energy_density_gravimetric = self.model_attributes.get_standard_variables(
+            vec_enfu_energy_density_gravimetric = self.model_attributes.extract_model_variable(
                 df_elec_trajectories,
                 self.modvar_enfu_energy_density_gravimetric,
                 override_vector_for_single_mv_q = True,
@@ -3630,7 +3630,7 @@ class ElectricEnergy:
             )
             vec_enfu_energy_density_gravimetric = vec_enfu_energy_density_gravimetric[:, self.ind_enfu_wste]
             # also get minimum fuel fraction to electricity
-            vec_enfu_minimum_fuel_frac_to_elec = self.model_attributes.get_standard_variables(
+            vec_enfu_minimum_fuel_frac_to_elec = self.model_attributes.extract_model_variable(
                 df_elec_trajectories,
                 self.modvar_enfu_minimum_frac_fuel_used_for_electricity,
                 override_vector_for_single_mv_q = True,
@@ -3680,7 +3680,7 @@ class ElectricEnergy:
                     modvar_waso_emissions_emissions, vec_waso_emissions_incineration = vec_waso_emissions_incineration
                     vec_waso_emissions_incineration *= self.model_attributes.get_scalar(modvar, "mass")
                     # get control scalar on reductions
-                    vec_entc_ear_scalar = self.model_attributes.get_standard_variables(
+                    vec_entc_ear_scalar = self.model_attributes.extract_model_variable(
                         df_elec_trajectories,
                         modvar_scalar,
                         override_vector_for_single_mv_q = True,
@@ -3741,7 +3741,7 @@ class ElectricEnergy:
             regions
         - scalar_to_nemomod_units: scalar applied to the values to convert to 
             proper units
-        **kwargs: passed to ModelAttributes.get_standard_variables()
+        **kwargs: passed to ModelAttributes.extract_model_variable()
         """
 
         # set some defaults
@@ -3759,7 +3759,7 @@ class ElectricEnergy:
 
         # get the variable from the data frame
         df_out = (
-            self.model_attributes.get_standard_variables(
+            self.model_attributes.extract_model_variable(
                 df_elec_trajectories,
                 modvar,
                 override_vector_for_single_mv_q = True,
@@ -4338,7 +4338,7 @@ class ElectricEnergy:
             vec_exogenous_emissions = np.sum(np.array(df_elec_trajectories[fields]), axis = 1)
             
             # retrieve the limit, store the origina (for dropping), and convert units
-            vec_emission_limit = self.model_attributes.get_standard_variables(
+            vec_emission_limit = self.model_attributes.extract_model_variable(
                 df_elec_trajectories,
                 modvar,
                 return_type = "array_base"
@@ -4672,7 +4672,7 @@ class ElectricEnergy:
         )
 
         # get variable costs, add fuel costs, and create data frame to pass
-        df_entc_variable_costs = self.model_attributes.get_standard_variables(
+        df_entc_variable_costs = self.model_attributes.extract_model_variable(
             df_elec_trajectories,
             self.modvar_entc_nemomod_variable_cost,
             return_type = "data_frame"
@@ -4964,7 +4964,7 @@ class ElectricEnergy:
             modvar, modvar_scalar = modvars
 
             # get the fuel factors
-            arr_enfu_tmp = self.model_attributes.get_standard_variables(
+            arr_enfu_tmp = self.model_attributes.extract_model_variable(
                 df_elec_trajectories, 
                 modvar, 
                 override_vector_for_single_mv_q = True, 
@@ -4988,7 +4988,7 @@ class ElectricEnergy:
                 output_subsec = self.model_attributes.subsec_name_entc
             )
             # apply scalar
-            arr_enfu_scalar = self.model_attributes.get_standard_variables(
+            arr_enfu_scalar = self.model_attributes.extract_model_variable(
                 df_elec_trajectories,
                 modvar_scalar,
                 override_vector_for_single_mv_q = True,
@@ -5492,7 +5492,7 @@ class ElectricEnergy:
 
         ##  ADJUST IMPORT FRACTIONS TO ACCOUNT FOR THE INCLUSION OF EXPORTS IN SpecifiedAnnualDemands
 
-        arr_enfu_import_fractions = self.model_attributes.get_standard_variables(
+        arr_enfu_import_fractions = self.model_attributes.extract_model_variable(
             df_elec_trajectories,
             modvar_import_fraction,
             expand_to_all_cats = True,
@@ -6011,7 +6011,7 @@ class ElectricEnergy:
         modvar_renewable_target = self.modvar_enfu_nemomod_renewable_production_target if (modvar_renewable_target is None) else modvar_renewable_target
 
         # get imports and renewable energy minimum production targets 
-        arr_enfu_imports = self.model_attributes.get_standard_variables(
+        arr_enfu_imports = self.model_attributes.extract_model_variable(
             df_elec_trajectories,
             modvar_import_fraction,
             expand_to_all_cats = True,
@@ -6019,7 +6019,7 @@ class ElectricEnergy:
             var_bounds = (0, 1)
         )
 
-        arr_enfu_re_target = self.model_attributes.get_standard_variables(
+        arr_enfu_re_target = self.model_attributes.extract_model_variable(
             df_elec_trajectories,
             modvar_renewable_target,
             expand_to_all_cats = True,
@@ -6409,7 +6409,7 @@ class ElectricEnergy:
 
         # get transmission loss and calculate final demand
         #   NOTE: transmission loss in ENTC is modeled as an increase in input activity ratio *= (1/(1 - loss))
-        arr_transmission_loss = self.model_attributes.get_standard_variables(
+        arr_transmission_loss = self.model_attributes.extract_model_variable(
             df_elec_trajectories, 
             self.modvar_enfu_transmission_loss_frac_electricity, 
             expand_to_all_cats = True,
@@ -6514,7 +6514,7 @@ class ElectricEnergy:
 
         # get transmission loss and calculate final demand
         #   NOTE: transmission loss in ENTC is modeled as an increase in input activity ratio *= (1/(1 - loss))
-        arr_transmission_loss = self.model_attributes.get_standard_variables(
+        arr_transmission_loss = self.model_attributes.extract_model_variable(
             df_elec_trajectories, 
             self.modvar_enfu_transmission_loss_frac_electricity, 
             override_vector_for_single_mv_q = False, 
@@ -7582,7 +7582,7 @@ class ElectricEnergy:
         ##  GET SUPPLY TO USE (MIN) AND TECH EFFICIENCIES
 
         # get efficiency factors--total production should match up to min supply utilization * efficiency
-        arr_entc_efficiencies = self.model_attributes.get_standard_variables(
+        arr_entc_efficiencies = self.model_attributes.extract_model_variable(
             df_elec_trajectories,
             self.modvar_entc_efficiency_factor_technology,
             override_vector_for_single_mv_q = True,
@@ -7719,7 +7719,7 @@ class ElectricEnergy:
         ##  GET SUPPLY TO USE (MIN) AND TECH EFFICIENCIES
 
         # get efficiency factors--total production should match up to min supply utilization * efficiency
-        arr_entc_efficiencies = self.model_attributes.get_standard_variables(
+        arr_entc_efficiencies = self.model_attributes.extract_model_variable(
             df_elec_trajectories,
             self.modvar_entc_efficiency_factor_technology,
             override_vector_for_single_mv_q = True,
@@ -8404,7 +8404,7 @@ class ElectricEnergy:
                 # self.modvar_enfu_imports_fuel: df_out_enfu_imports - don't adjust imports
             }
             for modvar in dict_dfs.keys():
-                arr_cur = self.model_attributes.get_standard_variables(
+                arr_cur = self.model_attributes.extract_model_variable(
                     dict_dfs.get(modvar), 
                     modvar,
                     expand_to_all_cats = True,
@@ -8594,7 +8594,7 @@ class ElectricEnergy:
         ##  GET FUEL DEMANDS WITHIN ENTC AND IMPORTS, FUEL PRODUCTION, AND FUEL DEMANDS
 
         # 1. retrieve transmission loss fraction (adjusts demands)
-        arr_transmission_loss_frac = self.model_attributes.get_standard_variables(
+        arr_transmission_loss_frac = self.model_attributes.extract_model_variable(
             df_elec_trajectories, 
             self.modvar_enfu_transmission_loss_frac_electricity, 
             expand_to_all_cats = True, 
@@ -8615,7 +8615,7 @@ class ElectricEnergy:
         )
         df_out += [df_enfu_demands_entc, df_enfu_imports]
     
-        arr_enfu_imports = self.model_attributes.get_standard_variables(
+        arr_enfu_imports = self.model_attributes.extract_model_variable(
             df_enfu_imports,
             self.modvar_enfu_imports_fuel,
             expand_to_all_cats = True,
@@ -8637,7 +8637,7 @@ class ElectricEnergy:
 
 
         # 4. get fuel production array for use in calculating adjusted exports
-        arr_enfu_production = self.model_attributes.get_standard_variables(
+        arr_enfu_production = self.model_attributes.extract_model_variable(
             df_fuel_production,
             self.modvar_enfu_production_fuel,
             expand_to_all_cats = True,
@@ -8647,7 +8647,7 @@ class ElectricEnergy:
 
 
         # 5. get demands from other subsectors (pull from here) - option is self.get_enfu_non_entc_fuel_demands_from_annual_demand
-        arr_enfu_demand_entc = self.model_attributes.get_standard_variables(
+        arr_enfu_demand_entc = self.model_attributes.extract_model_variable(
             df_enfu_demands_entc,
             self.modvar_enfu_energy_demand_by_fuel_entc,
             expand_to_all_cats = True,
@@ -9568,7 +9568,7 @@ class ElectricEnergy:
 
         # try retrieving output from NemoMod
         try:
-            arr_enfu_fuel_demand_elec = self.model_attributes.get_standard_variables(
+            arr_enfu_fuel_demand_elec = self.model_attributes.extract_model_variable(
                 df_out[- 1],
                 self.modvar_enfu_energy_demand_by_fuel_entc,
                 override_vector_for_single_mv_q = True,

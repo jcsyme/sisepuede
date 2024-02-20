@@ -301,7 +301,7 @@ class Socioeconomic:
         )
 
         # get some basic emission drivers
-        vec_gdp = self.model_attributes.get_standard_variables(
+        vec_gdp = self.model_attributes.extract_model_variable(
             df_se_trajectories, 
             self.modvar_econ_gdp, 
             override_vector_for_single_mv_q = False, 
@@ -309,7 +309,7 @@ class Socioeconomic:
         )
 
         vec_pop = np.sum(
-            self.model_attributes.get_standard_variables(
+            self.model_attributes.extract_model_variable(
                 df_se_trajectories, 
                 self.modvar_gnrl_subpop, 
                 override_vector_for_single_mv_q = False, 
@@ -329,13 +329,13 @@ class Socioeconomic:
         vec_rates_gdp_per_capita = vec_gdp_per_capita[1:]/vec_gdp_per_capita[0:-1] - 1
 
         # calculate the housing occupancy rate
-        vec_gnrl_elast_occrate_to_gdppc = self.model_attributes.get_standard_variables(
+        vec_gnrl_elast_occrate_to_gdppc = self.model_attributes.extract_model_variable(
             df_se_trajectories, 
             self.modvar_gnrl_elasticity_occrate_to_gdppc, 
             override_vector_for_single_mv_q = False, 
             return_type = "array_base"
         )
-        vec_gnrl_init_occrate = self.model_attributes.get_standard_variables(
+        vec_gnrl_init_occrate = self.model_attributes.extract_model_variable(
             df_se_trajectories, 
             self.modvar_gnrl_init_occ_rate, 
             override_vector_for_single_mv_q = False, 
