@@ -5287,7 +5287,7 @@ class ModelAttributesNew:
     ) -> pd.DataFrame:
 
         """
-        Retrieve an array or data frame of input variables. If 
+        Extract an array or data frame of input variables. If 
             return_type == "array_units_corrected", then the ModelAttributes 
             will re-scale emissions factors to reflect the desired output 
             emissions mass (as defined in the configuration).
@@ -5353,12 +5353,14 @@ class ModelAttributesNew:
         self.check_restricted_value_argument(
             return_type,
             ["data_frame", "array_base", "array_units_corrected", "array_units_corrected_gas"],
-            "return_type", "get_standard_variables"
+            "return_type", 
+            "get_standard_variables"
         )
         self.check_restricted_value_argument(
             return_num_type,
             [float, int, np.float64, np.int64],
-            "return_num_type", "get_standard_variables"
+            "return_num_type", 
+            "get_standard_variables"
         )
 
         # initialize output, apply various common transformations based on type
@@ -5402,7 +5404,11 @@ class ModelAttributesNew:
         # merge output to all categories?
         if expand_to_all_cats:
             out = np.array([out]).transpose() if (len(out.shape) == 1) else out
-            out = self.merge_array_var_partial_cat_to_array_all_cats(np.array(out), modvar, missing_vals = all_cats_missing_val)
+            out = self.merge_array_var_partial_cat_to_array_all_cats(
+                np.array(out), 
+                modvar, 
+                missing_vals = all_cats_missing_val,
+            )
             if return_type == "data_frame":
                 sec = self.get_variable_subsector(modvar)
                 flds = self.get_attribute_table(sec).key_values

@@ -837,7 +837,7 @@ class AFOLU:
             else self.modvar_agrc_area_prop_calc
         )
 
-        arr = self.model_attributes.get_standard_variables(
+        arr = self.model_attributes.extract(
             df_in, 
             varname, 
             override_vector_for_single_mv_q = True, 
