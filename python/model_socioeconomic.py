@@ -301,22 +301,21 @@ class Socioeconomic:
         )
 
         # get some basic emission drivers
-        vec_gdp = self.model_attributes.extract_model_variable(
+        vec_gdp = self.model_attributes.extract_model_variable(#
             df_se_trajectories, 
             self.modvar_econ_gdp, 
-            override_vector_for_single_mv_q = False, 
-            return_type = "array_base"
+            return_type = "array_base",
         )
 
         vec_pop = np.sum(
-            self.model_attributes.extract_model_variable(
+            self.model_attributes.extract_model_variable(#
                 df_se_trajectories, 
                 self.modvar_gnrl_subpop, 
-                override_vector_for_single_mv_q = False, 
                 return_type = "array_base"
             ), 
             axis = 1
         )
+
         vec_gdp_per_capita = np.nan_to_num(vec_gdp/vec_pop, 0.0, posinf = 0.0)
         vec_gdp_per_capita *= self.model_attributes.get_variable_unit_conversion_factor(
             self.modvar_econ_gdp,
@@ -329,24 +328,25 @@ class Socioeconomic:
         vec_rates_gdp_per_capita = vec_gdp_per_capita[1:]/vec_gdp_per_capita[0:-1] - 1
 
         # calculate the housing occupancy rate
-        vec_gnrl_elast_occrate_to_gdppc = self.model_attributes.extract_model_variable(
+        vec_gnrl_elast_occrate_to_gdppc = self.model_attributes.extract_model_variable(#
             df_se_trajectories, 
             self.modvar_gnrl_elasticity_occrate_to_gdppc, 
-            override_vector_for_single_mv_q = False, 
-            return_type = "array_base"
+            return_type = "array_base",
         )
-        vec_gnrl_init_occrate = self.model_attributes.extract_model_variable(
+
+        vec_gnrl_init_occrate = self.model_attributes.extract_model_variable(#
             df_se_trajectories, 
             self.modvar_gnrl_init_occ_rate, 
-            override_vector_for_single_mv_q = False, 
-            return_type = "array_base"
+            return_type = "array_base",
         )
+
         vec_gnrl_growth_occrate = sf.project_growth_scalar_from_elasticity(
             vec_rates_gdp_per_capita, 
             vec_gnrl_elast_occrate_to_gdppc, 
             False, 
-            "standard"
+            "standard",
         )
+
         vec_gnrl_occrate = vec_gnrl_init_occrate[0]*vec_gnrl_growth_occrate
         vec_gnrl_num_hh = np.round(vec_pop/vec_gnrl_occrate).astype(int)
 
