@@ -4192,11 +4192,11 @@ class ModelAttributesNew:
         for var in varlist:
             subsec = self.get_variable_subsector(var, throw_error_q = False)
             if subsec is not None:
-                array_cur = self.extract_model_variable(
+                array_cur = self.extract_model_variable(#
                     df_in, 
                     var, 
                     expand_to_all_cats = True, 
-                    return_type = "array_base"
+                    return_type = "array_base",
                 )
 
                 if subsec not in dict_totals.keys():
@@ -5219,8 +5219,10 @@ class ModelAttributesNew:
         init_q = True
         dict_arrs = {}
         for modvar in modvars:
+
             if modvar not in self.dict_model_variables_to_variables.keys():
                 raise ValueError(f"Invalid variable specified in extract_model_variable: variable '{modvar}' not found.")
+
             else:
 
                 subsector_cur = self.get_variable_subsector(modvar)
@@ -5229,14 +5231,25 @@ class ModelAttributesNew:
                 if init_q:
                     subsector = subsector_cur
                     init_q = False
+
                 elif subsector_cur != subsector:
                     raise ValueError(f"Error in get_multivariables_with_bounded_sum_by_category: variables must be from the same subsector.")
                 
                 # get current variable, merge to all categories, update dictionary, and check totals
-                arr_cur = self.extract_model_variable(df_in, modvar, True, "array_base")
-                arr_cur = self.merge_array_var_partial_cat_to_array_all_cats(arr_cur, modvar) if (cats is not None) else arr_cur
-                dict_arrs.update({modvar: arr_cur})
+                arr_cur = self.extract_model_variable(#
+                    df_in, 
+                    modvar, 
+                    override_vector_for_single_mv_q = True, 
+                    return_typ = "array_base",
+                )
 
+                arr_cur = (
+                    self.merge_array_var_partial_cat_to_array_all_cats(arr_cur, modvar) 
+                    if (cats is not None) 
+                    else arr_cur
+                )
+
+                dict_arrs.update({modvar: arr_cur})
                 arr += arr_cur
 
 
@@ -5280,17 +5293,28 @@ class ModelAttributesNew:
         # get fields needed
         subsector_integrated = self.get_variable_subsector(var_integrated)
         fields_check = self.build_varlist(subsector_integrated, var_integrated)
+        out = None
 
         # check and return the output variable + which variable was selected
         if set(fields_check).issubset(set(df_in.columns)):
-            out = self.extract_model_variable(df_in, var_integrated, **kwargs)
-            return var_integrated, out
+            out = self.extract_model_variable(#
+                df_in, 
+                var_integrated, 
+                **kwargs
+            )
+
+            out = (var_integrated, out)
 
         elif var_optional is not None:
-            out = self.extract_model_variable(df_in, var_optional, **kwargs)
-            return var_optional, out
+            out = self.extract_model_variable(#
+                df_in, 
+                var_optional,
+                 **kwargs
+            )
 
-        return None
+            out = (var_optional, out)
+
+        return out
 
 
 
@@ -6207,12 +6231,12 @@ class ModelAttributesNew:
 
 
 
-    def get_simple_input_to_output_emission_arrays(self,
+    def get_simple_input_to_output_emission_arrays(self, #FIXED
         df_ef: pd.DataFrame,
         df_driver: pd.DataFrame,
         dict_vars: dict,
-        variable_driver: str
-    ) -> list:
+        variable_driver: str,
+    ) -> Union[List[pd.DataFrame], None]:
         """
         Calculate simple driver*emission factor emissions. NOTE: this only works 
             w/in subsector. Returns a list of dataframes.
@@ -6232,23 +6256,65 @@ class ModelAttributesNew:
         """
         # check if
         df_out = []
-        subsector_driver = self.dict_model_variable_to_subsector[variable_driver]
-        for var in dict_vars.keys():
-            subsector_var, driver_unit_type, scale_factor = self.dict_model_variable_to_subsector[var]
+        subsector_driver = self.dict_model_variable_to_subsector.get(variable_driver)
+        if subsector_driver is None:
+            return None
+
+
+        for varname in dict_vars.keys():
+            
+            tup = self.dict_model_variable_to_subsector.get(varname)
+            if tup is None:
+                continue
+
+            subsector_var, driver_unit_type, scale_factor = tup
+
             if subsector_driver != subsector_driver:
-                warnings.warn(f"In get_simple_input_to_output_emission_arrays, driver variable '{variable_driver}' and emission variable '{var}' are in different sectors. This instance will be skipped.")
-            else:
-                # get emissions factor fields and apply scalar using extract_model_variable - then, scale to ensure it is in the proper terms of the driver
-                arr_ef = np.array(self.extract_model_variable(df_ef, var, True, "array_units_corrected"))
-                try:
-                    scalar_units = scale_factor if (scale_factor is not None) else self.get_variable_unit_conversion_factor(variable_driver, var, driver_unit_type)
-                except:
-                    scalar_units = scale_factor if (scale_factor is not None) else 1
+                msg = f"""
+                In get_simple_input_to_output_emission_arrays, driver variable 
+                '{variable_driver}' and emission variable '{varname}' are in 
+                different sectors. This instance will be skipped.
+                """
+                warnings.warn(msg)
+                #self._log(msg, type_log = "warning")
+                continue
 
-                # get the emissions driver array (driver must h)
-                arr_driver = np.array(df_driver[self.build_target_varlist_from_source_varcats(var, variable_driver)])*scalar_units
+            # get emissions factor fields and apply scalar using extract_model_variable
+            #   then, scale to ensure it is in the proper terms of the driver
+            arr_ef = np.array(
+                self.extract_model_variable(#
+                    df_ef, 
+                    varname, 
+                    override_vector_for_single_mv_q = True, 
+                    return_type = "array_units_corrected",
+                )
+            )
 
-                df_out.append(self.array_to_df(arr_driver*arr_ef, dict_vars[var]))
+            try:
+                scalar_units = (
+                    scale_factor 
+                    if (scale_factor is not None) 
+                    else self.get_variable_unit_conversion_factor(
+                        variable_driver, 
+                        varname, 
+                        driver_unit_type,
+                    )
+                )
+
+            except:
+                scalar_units = scale_factor if (scale_factor is not None) else 1
+
+            # get the emissions driver array 
+            key_driver = self.build_target_varlist_from_source_varcats(varname, variable_driver)
+            arr_driver = np.array(df_driver[key_driver])*scalar_units
+            
+            df_out.append(
+                self.array_to_df(
+                    arr_driver*arr_ef, 
+                    dict_vars[varname]
+                )
+            )
+
 
         return df_out
 
