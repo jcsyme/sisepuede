@@ -367,6 +367,8 @@ class ModelVariable:
             * self.flag_no_dims:
                 Flag to use in variable specification to note that the variable
                 is not associated with any categories (0 dimension)
+            * self.is_model_variable:
+                Attribute used to identify as a model variable object
             * self.name:
                 Name of the variable (passed in var_init via self.key_name)
             * self.name_clean:
@@ -467,6 +469,7 @@ class ModelVariable:
         self.dict_varinfo = dict_varinfo
         self.flag_all_cats = flag_all_cats
         self.flag_no_dims = flag_no_dims
+        self.is_model_variable = True
         self.name = name
         self.name_clean = name_clean
         self.name_fs_safe = name_fs_safe
@@ -1186,7 +1189,7 @@ class ModelVariable:
                 and fills any missing values with fill_value (or default value)
         - fill_value: if `expand_to_all_categories == True` OR 
             `extract_any == True`, missing categories will be filled with this
-            value (cannot be None). 
+            value. 
             * If None, reverts to self.default_value
         - return_type: one of the following values:
             * "data_frame": return the subset data frame that includes the 
@@ -1814,6 +1817,48 @@ class VariableSchema:
         return out
 
 
+########################
+#    SOME FUNCTIONS    #
+########################
+
+
+def clean_element(
+    element: str, 
+    container_elements: str = "$",
+    container_expressions: str = "``",
+    space_char: str = "-",
+) -> Union[str, None]:
+    """
+    Clean a variable schema element to a manageable, shared name that excludes
+        special characters.
+
+    Function Arguments
+    ------------------
+    - element: element to clean
+
+    Keyword Arguments
+    -----------------
+    - container_elements: string used to delimit elements--such as a category, 
+        unit, or gas--within a schema
+    - container_expressions: substring used to parse out schema and associated
+        elements
+    - space_char: character used within an element in place of a space
+    """
+
+    if not isinstance(element, str):
+        return None
+
+    element = (
+        element
+        .lower()
+        .replace(container_elements, "")
+        .replace(container_expressions, "")
+        .replace(space_char, "_")
+    )
+
+    return element
+
+
 
 def decompose_schema(
     var_schema: str, 
@@ -1886,42 +1931,14 @@ def decompose_schema(
 
 
 
-
-def clean_element(
-    element: str, 
-    container_elements: str = "$",
-    container_expressions: str = "``",
-    space_char: str = "-",
-) -> Union[str, None]:
+def is_model_variable(
+    modvar: Any,
+) -> bool:
     """
-    Clean a variable schema element to a manageable, shared name that excludes
-        special characters.
-
-    Function Arguments
-    ------------------
-    - element: element to clean
-
-    Keyword Arguments
-    -----------------
-    - container_elements: string used to delimit elements--such as a category, 
-        unit, or gas--within a schema
-    - container_expressions: substring used to parse out schema and associated
-        elements
-    - space_char: character used within an element in place of a space
+    Determine if the object is a ModelVariable
     """
-
-    if not isinstance(element, str):
-        return None
-
-    element = (
-        element
-        .lower()
-        .replace(container_elements, "")
-        .replace(container_expressions, "")
-        .replace(space_char, "_")
-    )
-
-    return element
+    out = hasattr(modvar, "is_model_variable")
+    return out
 
 
 

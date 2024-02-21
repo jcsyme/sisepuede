@@ -900,6 +900,23 @@ class ModelAttributesNew:
         )
 
         return None
+    
+
+
+    def _initialize_dims(self,           
+    ) -> None:
+        """
+        Initialize some dimensional information 
+        
+        Function Arguments
+        ------------------
+
+        Keyword Arguments
+        -----------------
+        """
+        
+            
+        return None
 
 
 
@@ -1094,7 +1111,7 @@ class ModelAttributesNew:
 
         return None
     
-
+    
 
     def _initialize_units(self,           
     ) -> None:
@@ -1116,7 +1133,9 @@ class ModelAttributesNew:
         Keyword Arguments
         -----------------
         """
-        
+
+        ##  UPDATE dict_attributes UNIT SUBDICT TO HAVE UNITS AS ELEMENTS
+
         dict_units = self.dict_attributes.get(self.attribute_group_key_unit)
         if dict_units is None:
             return None
@@ -1135,7 +1154,25 @@ class ModelAttributesNew:
                 continue
             
             dict_units.update({k: unit})
-            
+        
+
+        ##  SET SOME OTHER PROPERTIES
+
+        # initialize as available units
+        valid_rts_unit_conversion = list(dict_units.keys())
+        valid_rts_unit_conversion.append("total")
+
+        # emission gas available?
+        keys_other = self.dict_attributes.get(self.attribute_group_key_other).keys()
+        if "emission_gas" in keys_other:
+            valid_rts_unit_conversion.append("gas")
+        valid_rts_unit_conversion.sort()
+
+
+        ##  SET PROPERTIES
+
+        self.valid_return_types_unit_conversion = valid_rts_unit_conversion
+
         return None
     
 
@@ -1243,7 +1280,7 @@ class ModelAttributesNew:
         all_variables_output.sort()
 
 
-        ##  SET PROPERTIES HEREHERE
+        ##  SET PROPERTIES
 
         self.all_variables = all_variables
         self.all_variables_input = all_variables_input
@@ -2311,13 +2348,13 @@ class ModelAttributesNew:
         return_num_type: type = np.float64,
         throw_error_on_missing_fields: bool = True,
         include_time_period: bool = False,
+        extraction_logic: str = "all", # will reorganize these once i fix all of the instances of extract_model_variable
     ) -> pd.DataFrame:
-
         """
         Extract an array or data frame of input variables. If 
-            return_type == "array_units_corrected", then the ModelAttributes 
-            will re-scale emissions factors to reflect the desired output 
-            emissions mass (as defined in the configuration).
+            return_type == "array_units_corrected", then ModelAttributes will 
+            re-scale emissions factors to reflect the desired output emissions 
+            mass (as defined in the configuration).
 
         Function Arguments
         ------------------
@@ -2331,6 +2368,10 @@ class ModelAttributesNew:
             value.
         - expand_to_all_cats: default is False. If True, return the variable in 
             the shape of all categories.
+        - extraction_logic: set logic used on extraction
+            * "all": throws an error if any field in self.fields is missing
+            * "any": extracts any field in self.fields available in `obj`
+                and fills any missing values with fill_value (or default value)
         - force_boundary_restriction: default is True. Set to True to enforce 
             the boundaries on the variable. If False, a variable that is out of 
             bounds will raise an error.
@@ -2356,27 +2397,17 @@ class ModelAttributesNew:
             pass a minimum and maximum bound (np.inf can be used to as no 
             bound).
         """
+        ##  INITIALIZATION AND CHECKS
 
-        if (modvar is None) or (df_in is None):
+        # check model variable specificaiton and data frame
+        modvar = self.get_variable(modvar_name)
+        if (modvar is None):
+            raise ValueError(f"Invalid variable specified in extract_model_variable: variable '{modvar_name}' not found.")            
+
+        if not isinstance(df_in, pd.DataFrame):
             return None
-
-        if modvar not in self.dict_variables.keys():
-            raise ValueError(f"Invalid variable specified in extract_model_variable: variable '{modvar}' not found.")
-
-        flds = self.dict_model_variables_to_variables.get(modvar)
-        flds = (
-            flds[0] 
-            if ((len(flds) == 1) and not override_vector_for_single_mv_q) 
-            else flds
-        )
-
-        flds_check = set([flds]) if isinstance(flds, str) else set(flds)
-        if not flds_check.issubset(set(df_in.columns)):
-            if throw_error_on_missing_fields:
-                raise ValueError(f"Invalid variable specified in extract_model_variable: variable '{modvar}' not found.")
-            return None
-
-        # check some types
+        
+        # check some arguments
         self.check_restricted_value_argument(
             return_type,
             ["data_frame", "array_base", "array_units_corrected", "array_units_corrected_gas"],
@@ -2389,6 +2420,38 @@ class ModelAttributesNew:
             "return_num_type", 
             "extract_model_variable"
         )
+
+
+        ##  START EXTRACTION
+
+        # will default to model variable default value
+        fill_value = (
+            all_cats_missing_val
+            if sf.isnumber(all_cats_missing_val)
+            else None
+        )
+
+        try:
+            out = modvar.get_from_dataframe(self,
+                df_in,
+                expand_to_all_categories = expand_to_all_cats,
+                extraction_logic = extraction_logic,
+                fill_value = fill_value,
+            )
+        except Exception as e:
+            msg = f"""
+            Unable to extract variable {modvar.name} in extract_model_variable: {e}
+            """
+            raise ValueError(msg)
+        
+        # convert to array
+        out = out.to_numpy().astype(return_num_type)
+        out = (
+            out[:, 0] 
+            if ((len(modvar.fields) == 1) and not override_vector_for_single_mv_q)
+            else out
+        )
+        #HEREHERE
 
         # initialize output, apply various common transformations based on type
         out = np.array(df_in[flds]).astype(return_num_type)
@@ -3858,9 +3921,9 @@ class ModelAttributesNew:
 
 
 
-    def get_scalar(self,
-        modvar: str,
-        return_type: str = "total"
+    def get_scalar(self, #FIXED
+        modvar: Union[str, mv.ModelVariable],
+        return_type: str = "total",
     ) -> float:
         """
         Get the scalar a to convert units from modvar to configuration units,
@@ -3869,59 +3932,83 @@ class ModelAttributesNew:
             modvar_units * a = configuration_units
         """
 
-        valid_rts = ["total", "area", "gas", "length", "mass", "monetary", "power", "energy", "volume"]
+        # check return type
+        valid_rts = self.valid_return_types_unit_conversion
         if return_type not in valid_rts:
             tps = sf.format_print_list(valid_rts)
             raise ValueError(f"Invalid return type '{return_type}' in get_scalar: valid types are {tps}.")
 
-        # get scalars
-        #
-        area = self.get_variable_characteristic(modvar, self.varchar_str_unit_area)
-        scalar_area = 1 if not area else self.get_area_equivalent(area.lower())
-        #
-        energy = self.get_variable_characteristic(modvar, self.varchar_str_unit_energy)
-        scalar_energy = 1 if not energy else self.get_energy_equivalent(energy.lower())
-        #
-        gas = self.get_variable_characteristic(modvar, self.varchar_str_emission_gas)
-        scalar_gas = 1 if not gas else self.get_gwp(gas.lower())
-        #
-        length = self.get_variable_characteristic(modvar, self.varchar_str_unit_length)
-        scalar_length = 1 if not length else self.get_length_equivalent(length.lower())
-        #
-        mass = self.get_variable_characteristic(modvar, self.varchar_str_unit_mass)
-        scalar_mass = 1 if not mass else self.get_mass_equivalent(mass.lower())
-        #
-        monetary = self.get_variable_characteristic(modvar, self.varchar_str_unit_monetary)
-        scalar_monetary = 1 if not monetary else self.get_monetary_equivalent(monetary.lower())
-        #
-        power = self.get_variable_characteristic(modvar, self.varchar_str_unit_power)
-        scalar_power = 1 if not power else self.get_power_equivalent(power.lower())
-        #
-        volume = self.get_variable_characteristic(modvar, self.varchar_str_unit_volume)
-        scalar_volume = 1 if not volume else self.get_volume_equivalent(volume.lower())
 
+        ##  INITIALIZE OUTPUT SCALAR AND MULTIPLY AS NEEDED
+
+        scalar_out = 1
 
         if return_type == "area":
-            out = scalar_area
-        elif return_type == "energy":
-            out = scalar_energy
-        elif return_type == "gas":
-            out = scalar_gas
-        elif return_type == "length":
-            out = scalar_length
-        elif return_type == "mass":
-            out = scalar_mass
-        elif return_type == "monetary":
-            out = scalar_monetary
-        elif return_type == "power":
-            out = scalar_power
-        elif return_type == "volume":
-            out = scalar_volume
-        elif return_type == "total":
-            # total is used for scaling gas & mass to co2e in proper units
-            out = scalar_gas*scalar_mass
+            area = self.get_variable_characteristic(modvar, self.varchar_str_unit_area)
+            scalar_out *= (
+                self.get_area_equivalent(area.lower()) 
+                if isinstance(area, str) 
+                else 1
+            )
+        
+        if return_type == "energy":
+            energy = self.get_variable_characteristic(modvar, self.varchar_str_unit_energy)
+            scalar_out *= (
+                self.get_energy_equivalent(energy.lower()) 
+                if isinstance(energy, str) 
+                else 1
+            )
 
-        return out
+        if return_type in ["gas", "total"]: # total is used for scaling gas & mass to co2e in proper units
+            gas = self.get_variable_characteristic(modvar, self.varchar_str_emission_gas)
+            scalar_out *= (
+                self.get_gwp(gas.lower()) 
+                if isinstance(gas, str) 
+                else 1
+            )
+
+        if return_type == "length":
+            length = self.get_variable_characteristic(modvar, self.varchar_str_unit_length)
+            scalar_out *= (
+                self.get_length_equivalent(length.lower()) 
+                if isinstance(length, str) 
+                else 1
+            )
+
+        if return_type in ["mass", "total"]: # total is used for scaling gas & mass to co2e in proper units
+            mass = self.get_variable_characteristic(modvar, self.varchar_str_unit_mass)
+            scalar_out *= (
+                self.get_mass_equivalent(mass.lower()) 
+                if isinstance(mass, str) 
+                else 1
+            )
+
+        if return_type == "monetary":
+            monetary = self.get_variable_characteristic(modvar, self.varchar_str_unit_monetary)
+            scalar_out *= (
+                self.get_monetary_equivalent(monetary.lower()) 
+                if isinstance(monetary, str) 
+                else 1
+            )
+
+        if return_type == "power":
+            power = self.get_variable_characteristic(modvar, self.varchar_str_unit_power)
+            scalar_out *= (
+                self.get_power_equivalent(power.lower()) 
+                if isinstance(power, str) 
+                else 1
+            )
+
+        if return_type == "volume":
+            volume = self.get_variable_characteristic(modvar, self.varchar_str_unit_volume)
+            scalar_out *= (
+                self.get_volume_equivalent(volume.lower()) 
+                if isinstance(volume, str) 
+                else 1
+            )
+
+
+        return scalar_out
 
 
 
@@ -4568,7 +4655,7 @@ class ModelAttributesNew:
         # use an exogenous specification of variable trajectory groups?
         if isinstance(df_trajgroup, pd.DataFrame):
             
-            fields_sort_with_tg = fields_sort + [field_variable_trajectory_group]#HEREHERE
+            fields_sort_with_tg = fields_sort + [field_variable_trajectory_group]
 
             if (
                 set([field_variable, field_variable_trajectory_group])
@@ -5508,8 +5595,8 @@ class ModelAttributesNew:
 
 
     def get_variable_characteristic(self, #FIXED
-        variable: str, 
-        characteristic: str
+        modvar: Union[str, mv.ModelVariable], 
+        characteristic: str,
     ) -> Union[str, None]:
         """
         use get_variable_characteristic to retrieve a characterisetic--e.g., 
@@ -5519,8 +5606,13 @@ class ModelAttributesNew:
             NOTE: also accepts clean versions, e.g., "unit_mass" or 
             "emission_gas"
         """
-        modvar = self.get_variable(variable)
-        if modvar is None:
+
+        modvar = (
+            self.get_variable(modvar) 
+            if isinstance(modvar, str) 
+            else modvar
+        )
+        if not mv.is_model_variable(modvar):
             return None
         
         characteristic = mv.clean_element(characteristic)
