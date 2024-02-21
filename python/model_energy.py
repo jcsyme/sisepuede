@@ -4060,26 +4060,75 @@ class NonElectricEnergy:
 
         # add industrial energy, transportation, and SCOE
         if self.subsec_name_ccsq in subsectors_project:
-            df_out.append(self.project_ccsq(df_neenergy_trajectories, dict_dims, n_projection_time_periods, projection_time_periods))
+            df_out.append(
+                self.project_ccsq(
+                    df_neenergy_trajectories, 
+                    dict_dims, 
+                    n_projection_time_periods, 
+                    projection_time_periods
+                )
+            )
+
         if self.subsec_name_inen in subsectors_project:
-            df_out.append(self.project_industrial_energy(df_neenergy_trajectories, vec_gdp, dict_dims, n_projection_time_periods, projection_time_periods))
+            df_out.append(
+                self.project_industrial_energy(
+                    df_neenergy_trajectories, 
+                    vec_gdp, 
+                    dict_dims, 
+                    n_projection_time_periods, 
+                    projection_time_periods
+                )
+            )
+
         if self.subsec_name_scoe in subsectors_project:
-            df_out.append(self.project_scoe(df_neenergy_trajectories, vec_hh, vec_gdp, vec_rates_gdp_per_capita, dict_dims, n_projection_time_periods, projection_time_periods))
+            df_out.append(
+                self.project_scoe(
+                    df_neenergy_trajectories, 
+                    vec_hh, 
+                    vec_gdp, 
+                    vec_rates_gdp_per_capita, 
+                    dict_dims, 
+                    n_projection_time_periods, 
+                    projection_time_periods
+                )
+            )
+
         if self.subsec_name_trns in subsectors_project:
-            df_out.append(self.project_transportation(df_neenergy_trajectories, vec_pop, vec_rates_gdp, vec_rates_gdp_per_capita, dict_dims, n_projection_time_periods, projection_time_periods))
+            df_out.append(
+                self.project_transportation(
+                    df_neenergy_trajectories, 
+                    vec_pop, 
+                    vec_rates_gdp, 
+                    vec_rates_gdp_per_capita, 
+                    dict_dims, 
+                    n_projection_time_periods, 
+                    projection_time_periods
+                )
+            )
+
         # run fugitive emissions?
         if self.subsec_name_fgtv in subsectors_project:
             df_trajectories = sf.merge_output_df_list(
                 [df_neenergy_trajectories] + df_out,
                 self.model_attributes,
-                merge_type = "concatenate"
+                merge_type = "concatenate",
             )
-            df_out.append(self.project_fugitive_emissions(df_trajectories, dict_dims, n_projection_time_periods, projection_time_periods))
+
+            df_out.append(
+                self.project_fugitive_emissions(
+                    df_trajectories, 
+                    dict_dims, 
+                    n_projection_time_periods, 
+                    projection_time_periods
+                )
+            )
 
         # concatenate and add subsector emission totals
         df_out = sf.merge_output_df_list(
             df_out, 
             self.model_attributes, 
-            merge_type = "concatenate"
+            merge_type = "concatenate",
         )
+
+        
         return df_out
