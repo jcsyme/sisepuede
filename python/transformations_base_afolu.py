@@ -1317,16 +1317,16 @@ def transformation_support_lndu_transition_to_category_targets_single_region(
     ##  1. GET COMPONENTS USED FOR LAND USE PROJECTION
 
     # get the initial distribution of land and pasture fraction
-    vec_lndu_initial_frac = model_attributes.extract_model_variable(
+    vec_lndu_initial_frac = model_attributes.extract_model_variable(#
         df_input, 
         model_afolu.modvar_lndu_initial_frac, 
-        return_type = "array_base"
+        return_type = "array_base",
     )[0]
-    vec_lndu_pasture_frac = model_attributes.extract_model_variable(
+
+    vec_lndu_pasture_frac = model_attributes.extract_model_variable(#
         df_input, 
         model_afolu.modvar_lndu_frac_grassland_that_is_pasture, 
-        override_vector_for_single_mv_q = False,
-        return_type = "array_base"
+        return_type = "array_base",
     )
 
     # determine when to initialize the scaling
@@ -1755,7 +1755,7 @@ def transformation_lndu_increase_silvopasture(
 
 
         # get pasture fractions and carrying capacities
-        vec_lvst_carrying_capcity_scalar = model_attributes.extract_model_variable(
+        vec_lvst_carrying_capcity_scalar = model_attributes.extract_model_variable(#
             df,
             model_afolu.modvar_lvst_carrying_capacity_scalar,
             return_type = "array_base",
