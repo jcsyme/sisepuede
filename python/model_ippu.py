@@ -565,11 +565,11 @@ class IPPU:
             # check if there are gdp driven factors
             if isinstance(vec_gdp, np.ndarray):
                 for modvar_ef_gdp in all_modvar_ef_gdp:
-                    array_emission_cur = self.model_attributes.extract_model_variable(
+                    array_emission_cur = self.model_attributes.extract_model_variable(#
                         df_ippu_trajectories, 
                         modvar_ef_gdp, 
                         expand_to_all_cats = True,
-                        return_type = "array_units_corrected"
+                        return_type = "array_units_corrected",
                     )
 
                     array_emission += (
@@ -585,14 +585,14 @@ class IPPU:
                     scalar_ippu_mass = self.model_attributes.get_variable_unit_conversion_factor(
                         modvar_ef_prod,
                         modvar_prod_mass,
-                        "mass"
+                        "mass",
                     )
 
-                    array_emission_cur = self.model_attributes.extract_model_variable(
+                    array_emission_cur = self.model_attributes.extract_model_variable(#
                         df_ippu_trajectories, 
                         modvar_ef_prod, 
                         expand_to_all_cats = True,
-                        return_type = "array_units_corrected"
+                        return_type = "array_units_corrected",
                     )
 
                     array_emission += array_emission_cur*array_production/scalar_ippu_mass
@@ -609,14 +609,15 @@ class IPPU:
             if include_carbon_capture & (gas == "co2"):
                 
                 # fraction captured is prevalence * efficacy
-                array_emission_frac_captured = self.model_attributes.extract_model_variable(
+                array_emission_frac_captured = self.model_attributes.extract_model_variable(#
                     df_ippu_trajectories, 
                     modvar_carbon_capture_prevalence, 
                     expand_to_all_cats = True,
                     return_type = "array_base",
                     var_bounds = (0, 1),
                 )
-                array_emission_frac_captured *= self.model_attributes.extract_model_variable(
+
+                array_emission_frac_captured *= self.model_attributes.extract_model_variable(#
                     df_ippu_trajectories, 
                     modvar_carbon_capture_efficacy, 
                     expand_to_all_cats = True,
@@ -804,19 +805,21 @@ class IPPU:
         )
 
         # get initial production and apply elasticities to gdp to calculate growth in production
-        array_ippu_prod_init_by_cat = self.model_attributes.extract_model_variable(
+        array_ippu_prod_init_by_cat = self.model_attributes.extract_model_variable(#
             df_ippu_trajectories, 
             modvar_prod_qty_init, 
             expand_to_all_cats = True, 
             return_type = "array_base", 
-            var_bounds = (0, np.inf)
+            var_bounds = (0, np.inf),
         )
-        array_ippu_elasticity_prod_to_gdp = self.model_attributes.extract_model_variable(
+
+        array_ippu_elasticity_prod_to_gdp = self.model_attributes.extract_model_variable(#
             df_ippu_trajectories, 
             modvar_elast_ind_prod_to_gdp,
             expand_to_all_cats = True, 
-            return_type = "array_base"
+            return_type = "array_base",
         )
+
         array_ippu_ind_growth = sf.project_growth_scalar_from_elasticity(
             vec_rates_gdp, 
             array_ippu_elasticity_prod_to_gdp
@@ -824,45 +827,49 @@ class IPPU:
         array_ippu_ind_prod = array_ippu_prod_init_by_cat[0]*array_ippu_ind_growth
 
         # set exogenous scaling of production
-        array_prod_scalar = self.model_attributes.extract_model_variable(
+        array_prod_scalar = self.model_attributes.extract_model_variable(#
             df_ippu_trajectories, 
             modvar_scalar_prod, 
             expand_to_all_cats = True, 
             return_type = "array_base", 
-            var_bounds = (0, np.inf)
+            var_bounds = (0, np.inf),
         )
         array_ippu_ind_prod *= array_prod_scalar
 
         # adjust housing construction
-        vec_hh = self.model_attributes.extract_model_variable(
+        vec_hh = self.model_attributes.extract_model_variable(#
             df_ippu_trajectories, 
             self.model_socioeconomic.modvar_grnl_num_hh, 
-            return_type = "array_base"
+            return_type = "array_base",
         )
-        vec_ippu_average_lifetime_hh = self.model_attributes.extract_model_variable(
+
+        vec_ippu_average_lifetime_hh = self.model_attributes.extract_model_variable(#
             df_ippu_trajectories, 
             self.modvar_ippu_average_lifespan_housing, 
-            return_type = "array_base"
+            return_type = "array_base",
         )
+
         vec_ippu_housing_construction = self.project_hh_construction(
             vec_hh, 
-            vec_ippu_average_lifetime_hh
+            vec_ippu_average_lifetime_hh,
         )
 
         # get average materials required, then project forward a "bau" approach (calculated using material reqs at t = 0)
-        arr_ippu_materials_required = self.model_attributes.extract_model_variable(
+        arr_ippu_materials_required = self.model_attributes.extract_model_variable(#
             df_ippu_trajectories, 
             self.modvar_ippu_average_construction_materials_required_per_household, 
             expand_to_all_cats = True, 
             override_vector_for_single_mv_q = True, 
             return_type = "array_base", 
-            var_bounds = (0, np.inf)
+            var_bounds = (0, np.inf),
         )
+
         arr_ippu_materials_required *= self.model_attributes.get_variable_unit_conversion_factor(
             self.modvar_ippu_average_construction_materials_required_per_household,
             self.modvar_ippu_prod_qty_init,
-            "mass"
+            "mass",
         )
+
         arr_ippu_materials_required_baseline = np.outer(vec_ippu_housing_construction, arr_ippu_materials_required[0])
         arr_ippu_materials_required = (arr_ippu_materials_required.transpose()*vec_ippu_housing_construction).transpose()
         arr_ippu_materials_required_change = arr_ippu_materials_required - arr_ippu_materials_required_baseline
@@ -939,18 +946,75 @@ class IPPU:
             will be run
         """
 
-        # set defaults
-        modvar_average_lifespan_housing = self.modvar_ippu_average_lifespan_housing if (modvar_average_lifespan_housing is None) else modvar_average_lifespan_housing
-        modvar_change_net_imports = self.modvar_ippu_change_net_imports if (modvar_change_net_imports is None) else modvar_change_net_imports
-        modvar_demand_for_harvested_wood = self.modvar_ippu_demand_for_harvested_wood if (modvar_demand_for_harvested_wood is None) else modvar_demand_for_harvested_wood
-        modvar_elast_ind_prod_to_gdp = self.modvar_ippu_elast_ind_prod_to_gdp if (modvar_elast_ind_prod_to_gdp is None) else modvar_elast_ind_prod_to_gdp
-        modvar_max_recycled_material_ratio = self.modvar_ippu_max_recycled_material_ratio if (modvar_max_recycled_material_ratio is None) else modvar_max_recycled_material_ratio
-        modvar_num_hh = self.model_socioeconomic.modvar_grnl_num_hh if (modvar_num_hh is None) else modvar_num_hh
-        modvar_prod_qty_init = self.modvar_ippu_prod_qty_init if (modvar_prod_qty_init is None) else modvar_prod_qty_init
-        modvar_qty_recycled_used_in_production = self.modvar_ippu_qty_recycled_used_in_production if (modvar_qty_recycled_used_in_production is None) else modvar_qty_recycled_used_in_production
-        modvar_qty_total_production = self.modvar_ippu_qty_total_production if (modvar_qty_total_production is None) else modvar_qty_total_production
-        modvar_ratio_of_production_to_harvested_wood = self.modvar_ippu_ratio_of_production_to_harvested_wood if (modvar_ratio_of_production_to_harvested_wood is None) else modvar_ratio_of_production_to_harvested_wood
-        modvar_waste_total_recycled = self.modvar_waso_waste_total_recycled if (modvar_waste_total_recycled is None) else modvar_waste_total_recycled
+        ##  GET DEFAULT VARIABLES
+
+        modvar_average_lifespan_housing = (
+            self.modvar_ippu_average_lifespan_housing 
+            if (modvar_average_lifespan_housing is None) 
+            else modvar_average_lifespan_housing
+        )
+
+        modvar_change_net_imports = (
+            self.modvar_ippu_change_net_imports 
+            if (modvar_change_net_imports is None) 
+            else modvar_change_net_imports
+        )
+
+        modvar_demand_for_harvested_wood = (
+            self.modvar_ippu_demand_for_harvested_wood 
+            if (modvar_demand_for_harvested_wood is None) 
+            else modvar_demand_for_harvested_wood
+        )
+
+        modvar_elast_ind_prod_to_gdp = (
+            self.modvar_ippu_elast_ind_prod_to_gdp 
+            if (modvar_elast_ind_prod_to_gdp is None) 
+            else modvar_elast_ind_prod_to_gdp
+        )
+
+        modvar_max_recycled_material_ratio = (
+            self.modvar_ippu_max_recycled_material_ratio 
+            if (modvar_max_recycled_material_ratio is None) 
+            else modvar_max_recycled_material_ratio
+        )
+
+        modvar_num_hh = (
+            self.model_socioeconomic.modvar_grnl_num_hh 
+            if (modvar_num_hh is None) 
+            else modvar_num_hh
+        )
+
+        modvar_prod_qty_init = (
+            self.modvar_ippu_prod_qty_init 
+            if (modvar_prod_qty_init is None) 
+            else modvar_prod_qty_init
+        )
+
+        modvar_qty_recycled_used_in_production = (
+            self.modvar_ippu_qty_recycled_used_in_production 
+            if (modvar_qty_recycled_used_in_production is None) 
+            else modvar_qty_recycled_used_in_production
+        )
+
+        modvar_qty_total_production = (
+            self.modvar_ippu_qty_total_production 
+            if (modvar_qty_total_production is None) 
+            else modvar_qty_total_production
+        )
+
+        modvar_ratio_of_production_to_harvested_wood = (
+            self.modvar_ippu_ratio_of_production_to_harvested_wood 
+            if (modvar_ratio_of_production_to_harvested_wood is None) 
+            else modvar_ratio_of_production_to_harvested_wood
+        )
+
+        modvar_waste_total_recycled = (
+            self.modvar_waso_waste_total_recycled 
+            if (modvar_waste_total_recycled is None) 
+            else modvar_waste_total_recycled
+        )
+
+
 
         # allows production to be run outside of the project method
         if type(None) in set([type(x) for x in [dict_dims, n_projection_time_periods, projection_time_periods]]):
@@ -968,7 +1032,7 @@ class IPPU:
             modvar_waste_total_recycled,
             None,
             override_vector_for_single_mv_q = True,
-            return_type = "array_base"
+            return_type = "array_base",
         )
 
         # initialize production + initialize change to net imports as 0 (reduce categories later)
@@ -1011,19 +1075,25 @@ class IPPU:
             vec_ippu_cats_to_adjust_from_recycling = [clean_schema(x) for x in cats_ippu_to_recycle_ordered]
 
             # get indexes of of valid categories specified for recycling adjustments
-            w = [i for i in range(len(vec_ippu_cats_to_adjust_from_recycling)) if (vec_ippu_cats_to_adjust_from_recycling[i] != "none") and (vec_ippu_cats_to_adjust_from_recycling[i] in attr_ippu.key_values)]
+            w = [
+                i for i in range(len(vec_ippu_cats_to_adjust_from_recycling)) 
+                if (
+                    (vec_ippu_cats_to_adjust_from_recycling[i] != "none") and (vec_ippu_cats_to_adjust_from_recycling[i] in attr_ippu.key_values)
+                )
+            ]
+
             if len(w) > 0:
                 # maximum proportion of virgin production (e.g., fraction of glass that is cullet) 
                 # that can be replaced by recycled materials--if not specifed, default to 1
-                array_ippu_maxiumum_recycling_ratio = self.model_attributes.extract_model_variable(
+                array_ippu_maxiumum_recycling_ratio = self.model_attributes.extract_model_variable(#
                     df_ippu_trajectories,
                     self.modvar_ippu_max_recycled_material_ratio,
-                    False,
+                    all_cats_missing_val = 1.0,
+                    expand_to_all_cats = True,
                     return_type = "array_base",
                     var_bounds = (0, 1),
-                    expand_to_all_cats = True,
-                    all_cats_missing_val = 1.0
                 )
+
                 array_ippu_recycled_waste_adj = array_ippu_recycled_waste[:, w].copy()
                 array_ippu_recycled_waste_adj = self.model_attributes.merge_array_var_partial_cat_to_array_all_cats(
                     array_ippu_recycled_waste_adj,
@@ -1060,18 +1130,19 @@ class IPPU:
         )
 
         ##  finally, get wood harvested equivalent for AFOLU
-        arr_ippu_ratio_of_production_to_wood_harvesting = self.model_attributes.extract_model_variable(
+        arr_ippu_ratio_of_production_to_wood_harvesting = self.model_attributes.extract_model_variable(#
             df_ippu_trajectories, 
             modvar_ratio_of_production_to_harvested_wood, 
             expand_to_all_cats = True,
             return_type = "array_base",
-            var_bounds = (0, np.inf)
+            var_bounds = (0, np.inf),
         )
+
         arr_ippu_harvested_wood = np.nan_to_num(array_ippu_production/arr_ippu_ratio_of_production_to_wood_harvesting, 0.0, posinf = 0.0)
         arr_ippu_harvested_wood *= self.model_attributes.get_variable_unit_conversion_factor(
             modvar_prod_qty_init,
             modvar_demand_for_harvested_wood,
-            "mass"
+            "mass",
         )
 
 
@@ -1153,36 +1224,36 @@ class IPPU:
         ##  ECON/GNRL VECTOR AND ARRAY INITIALIZATION
 
         # get some vectors
-        array_pop = self.model_attributes.extract_model_variable(
+        array_pop = self.model_attributes.extract_model_variable(#
             df_ippu_trajectories, 
             self.model_socioeconomic.modvar_gnrl_subpop, 
-            override_vector_for_single_mv_q = False, 
-            return_type = "array_base"
+            return_type = "array_base",
         )
-        vec_gdp = self.model_attributes.extract_model_variable(
+
+        vec_gdp = self.model_attributes.extract_model_variable(#
             df_ippu_trajectories, 
             self.model_socioeconomic.modvar_econ_gdp, 
-            override_vector_for_single_mv_q = False, 
-            return_type = "array_base"
+            return_type = "array_base",
         )
-        vec_gdp_per_capita = self.model_attributes.extract_model_variable(
+
+        vec_gdp_per_capita = self.model_attributes.extract_model_variable(#
             df_ippu_trajectories, 
             self.model_socioeconomic.modvar_econ_gdp_per_capita, 
-            override_vector_for_single_mv_q = False, 
-            return_type = "array_base"
+            return_type = "array_base",
         )
-        vec_hh = self.model_attributes.extract_model_variable(
+
+        vec_hh = self.model_attributes.extract_model_variable(#
             df_ippu_trajectories, 
             self.model_socioeconomic.modvar_grnl_num_hh, 
-            override_vector_for_single_mv_q = False, 
-            return_type = "array_base"
+            return_type = "array_base",
         )
-        vec_pop = self.model_attributes.extract_model_variable(
+
+        vec_pop = self.model_attributes.extract_model_variable(#
             df_ippu_trajectories, 
             self.model_socioeconomic.modvar_gnrl_pop_total, 
-            override_vector_for_single_mv_q = False, 
-            return_type = "array_base"
+            return_type = "array_base",
         )
+
         vec_rates_gdp = np.array(df_se_internal_shared_variables["vec_rates_gdp"].dropna())
         vec_rates_gdp_per_capita = np.array(df_se_internal_shared_variables["vec_rates_gdp_per_capita"].dropna())
 
@@ -1209,30 +1280,42 @@ class IPPU:
         scalar_ippu_mass_clinker = self.model_attributes.get_variable_unit_conversion_factor(
             self.modvar_ippu_ef_co2_per_prod_process_clinker,
             self.modvar_ippu_qty_total_production,
-            "mass"
+            "mass",
         )
-        array_ippu_emissions_clinker = self.model_attributes.extract_model_variable(
+
+        array_ippu_emissions_clinker = self.model_attributes.extract_model_variable(#
             df_ippu_trajectories, 
             self.modvar_ippu_ef_co2_per_prod_process_clinker, 
             expand_to_all_cats = True,
-            return_type = "array_units_corrected"
+            return_type = "array_units_corrected",
         )/scalar_ippu_mass_clinker
         
         # get net imports and convert to units of production
-        array_ippu_net_imports_clinker = self.model_attributes.extract_model_variable(
+        array_ippu_net_imports_clinker = self.model_attributes.extract_model_variable(#
             df_ippu_trajectories, 
             self.modvar_ippu_net_imports_clinker,
             expand_to_all_cats = True,
-            return_type = "array_base"
+            return_type = "array_base",
         )
+
         array_ippu_net_imports_clinker *= self.model_attributes.get_variable_unit_conversion_factor(
             self.modvar_ippu_net_imports_clinker,
             self.modvar_ippu_qty_total_production,
-            "mass"
+            "mass",
         )
+
         # get production of clinker, remove net imports (and cap reduction to 0), and calculate emissions
-        array_ippu_production_clinker = self.model_attributes.extract_model_variable(df_ippu_trajectories, self.modvar_ippu_clinker_fraction_cement, False, return_type = "array_base", expand_to_all_cats = True)
-        array_ippu_production_clinker = sf.vec_bounds(array_ippu_production_clinker*array_ippu_production - array_ippu_net_imports_clinker, (0, np.inf))
+        array_ippu_production_clinker = self.model_attributes.extract_model_variable(#
+            df_ippu_trajectories, 
+            self.modvar_ippu_clinker_fraction_cement,
+            expand_to_all_cats = True,
+            return_type = "array_base",
+        )
+
+        array_ippu_production_clinker = sf.vec_bounds(
+            array_ippu_production_clinker*array_ippu_production - array_ippu_net_imports_clinker, 
+            (0, np.inf)
+        )
         array_ippu_emissions_clinker *= array_ippu_production_clinker
 
 
@@ -1327,44 +1410,81 @@ class IPPU:
         #####################
 
         ##  PRODUCT USE FROM PARAFFIN WAX AND LUBRICANTS
-        array_ippu_useinit_nonenergy_fuel = self.model_attributes.extract_model_variable(df_ippu_trajectories, self.modvar_ippu_useinit_nonenergy_fuel, False, return_type = "array_base", expand_to_all_cats = True)
-        array_ippu_pwl_growth = sf.project_growth_scalar_from_elasticity(vec_rates_gdp, np.ones(len(array_ippu_useinit_nonenergy_fuel)), False, "standard")
-        array_ippu_emissions_produse_nonenergy_fuel = np.outer(array_ippu_pwl_growth, array_ippu_useinit_nonenergy_fuel[0])
-        array_ippu_production_scalar = self.model_attributes.extract_model_variable(df_ippu_trajectories, self.modvar_ippu_scalar_production, False, return_type = "array_base", var_bounds = (0, np.inf), expand_to_all_cats = True)
+        array_ippu_useinit_nonenergy_fuel = self.model_attributes.extract_model_variable(#
+            df_ippu_trajectories, 
+            self.modvar_ippu_useinit_nonenergy_fuel,
+            expand_to_all_cats = True, 
+            return_type = "array_base",
+        )
+
+        array_ippu_pwl_growth = sf.project_growth_scalar_from_elasticity(
+            vec_rates_gdp, 
+            np.ones(len(array_ippu_useinit_nonenergy_fuel)), 
+            False, 
+            "standard",
+        )
+
+        array_ippu_emissions_produse_nonenergy_fuel = np.outer(
+            array_ippu_pwl_growth, 
+            array_ippu_useinit_nonenergy_fuel[0]
+        )
+
+        array_ippu_production_scalar = self.model_attributes.extract_model_variable(#
+            df_ippu_trajectories, 
+            self.modvar_ippu_scalar_production,
+            expand_to_all_cats = True, 
+            return_type = "array_base", 
+            var_bounds = (0, np.inf),
+        )
         
         # get the emission factor and project emissions (unitless emissions)
-        array_ippu_ef_co2_produse = self.model_attributes.extract_model_variable(df_ippu_trajectories, self.modvar_ippu_ef_co2_per_prod_produse, False, return_type = "array_base", expand_to_all_cats = True)
+        array_ippu_ef_co2_produse = self.model_attributes.extract_model_variable(#
+            df_ippu_trajectories, 
+            self.modvar_ippu_ef_co2_per_prod_produse,
+            expand_to_all_cats = True, 
+            return_type = "array_base",
+        )
+
         array_ippu_emissions_produse_nonenergy_fuel *= array_ippu_ef_co2_produse*self.model_attributes.get_scalar(self.modvar_ippu_useinit_nonenergy_fuel, "mass")
         array_ippu_emissions_produse_nonenergy_fuel *= array_ippu_production_scalar
-        array_ippu_elasticity_produse = self.model_attributes.extract_model_variable(df_ippu_trajectories, self.modvar_ippu_elast_produserate_to_gdppc, False, return_type = "array_base", expand_to_all_cats = True)
-        array_ippu_gdp_scalar_produse = sf.project_growth_scalar_from_elasticity(vec_rates_gdp_per_capita, array_ippu_elasticity_produse, False, "standard")
+
+        array_ippu_elasticity_produse = self.model_attributes.extract_model_variable(#
+            df_ippu_trajectories, 
+            self.modvar_ippu_elast_produserate_to_gdppc,
+            expand_to_all_cats = True, 
+            return_type = "array_base",
+        )
+
+        array_ippu_gdp_scalar_produse = sf.project_growth_scalar_from_elasticity(
+            vec_rates_gdp_per_capita, 
+            array_ippu_elasticity_produse, 
+            False, 
+            "standard",
+        )
         
         # this scalar array accounts for elasticity changes in per/gdp product use rates due to increases in gdp/capita, increases in gdp, and exogenously-defined reductions to production
         array_ippu_gdp_scalar_produse = (array_ippu_gdp_scalar_produse.transpose()*np.concatenate([np.ones(1), np.cumprod(1 + vec_rates_gdp)])).transpose()
         array_ippu_gdp_scalar_produse = array_ippu_gdp_scalar_produse * vec_gdp[0]
         array_ippu_gdp_scalar_produse *= array_ippu_production_scalar
 
+
         ##  OTHER EMISSIONS (very small--NMVOC, e.g.)
-        array_ippu_emissions_other_nonenergy_co2 = self.model_attributes.extract_model_variable(df_ippu_trajectories, self.modvar_ippu_emissions_other_nonenergy_co2, False, return_type = "array_units_corrected", expand_to_all_cats = True)
-        array_ippu_emissions_other_nonenergy_co2 = array_ippu_emissions_other_nonenergy_co2[0]*sf.project_growth_scalar_from_elasticity(vec_rates_gdp, np.ones(array_ippu_emissions_other_nonenergy_co2.shape), False, "standard")
-        array_ippu_emissions_other_nonenergy_co2 *= array_ippu_production_scalar
 
-        ##  OTHER PRODUCT USE EMISSIONS (HIGH DEGREE OF VARIATION BY COUNTRY)
-
-        """
-        # get emission factor
-        array_ippu_net_imports_clinker = self.model_attributes.extract_model_variable(df_ippu_trajectories, self.modvar_ippu_net_imports_clinker
-        , False, return_type = "array_base", expand_to_all_cats = True)
-        array_ippu_net_imports_clinker *= self.model_attributes.get_variable_unit_conversion_factor(
-            self.modvar_ippu_net_imports_clinker,
-            self.modvar_ippu_qty_total_production,
-            "mass"
+        array_ippu_emissions_other_nonenergy_co2 = self.model_attributes.extract_model_variable(#
+            df_ippu_trajectories, 
+            self.modvar_ippu_emissions_other_nonenergy_co2, 
+            expand_to_all_cats = True, 
+            return_type = "array_units_corrected",
         )
-        # get production of clinker, remove net imports (and cap reduction to 0), and calculate emissions
-        array_ippu_production_clinker = self.model_attributes.extract_model_variable(df_ippu_trajectories, self.modvar_ippu_clinker_fraction_cement, False, return_type = "array_base", expand_to_all_cats = True)
-        array_ippu_production_clinker = sf.vec_bounds(array_ippu_production_clinker*array_ippu_production - array_ippu_net_imports_clinker, (0, np.inf))
-        array_ippu_emissions_clinker *= array_ippu_production_clinker
-        """
+
+        array_ippu_emissions_other_nonenergy_co2 = array_ippu_emissions_other_nonenergy_co2[0]*sf.project_growth_scalar_from_elasticity(
+            vec_rates_gdp, 
+            np.ones(array_ippu_emissions_other_nonenergy_co2.shape), 
+            False, 
+            "standard",
+        )
+        
+        array_ippu_emissions_other_nonenergy_co2 *= array_ippu_production_scalar
 
 
         ##  OTHER PRODUCT USE
