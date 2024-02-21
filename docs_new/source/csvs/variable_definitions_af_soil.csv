@@ -11,17 +11,17 @@ Input,:math:`\text{EF}_2 - \text{N}_2\text{O}` Emissions from Drained and Manage
 Input,:math:`\text{EF}_{1FR} - \text{N}_2\text{O}` Rice Fields," | See :math:`EF_{1FR}` from Table 11.1 in V4, C11 IPCC GNGHGI 2019R
  | 
  | This emission factor is given by the IPCC as kg :math:`\text{N}_2\text{O-N}`(kg :math:`\text{NH}_3\text{-N} + \text{NO}_x\text{-N}`), and it is multipled in the by the factor 11/7 to convert :math:`\text{N}_2\text{O-N}` to  :math:`\text{N}_2\text{O}`.",``ef_soil_ef1_n_rice_fields_$EMISSION-GAS$`` (``$EMISSION-GAS$ = n2o``),none,,0,0.8,1.2,,0,
-Input,C Annual Cultivated Organic Soils Emission Factor,See table 5.6 for default factors,"``ef_soil_c_cultivated_organic_$CAT-SOIL-MANAGEMENT$_$UNIT-MASS$_per_$UNIT-AREA$`` (``$UNIT-MASS$ = tonne``, ``$UNIT-AREA$ = ha``)",``temperate_crop_grass``|``tropical_crop_grass``,,0,1.0,1.0,,0,
+Input,C Annual Cultivated Organic Soils Emission Factor,See table 5.6 for default factors,"``ef_soil_c_cultivated_organic_$CAT-SOIL-MANAGEMENT$_$UNIT-MASS$_per_$UNIT-AREA$`` (``$UNIT-MASS$ = tonne``, ``$UNIT-AREA$ = ha``)",``temperate_crop_grass``|``tropical_crop_grass``,,0,1,1,,0,
 Input,C Liming Emission Factor Dolomite," | Dimensionless emission factor that gives :math:`CO_2-C` mass of emission per mass of dolomite applied.
  | 
- | See Page V4, C11, page 11.29 of IPCC GNGHGI (2006) for emission factor defaults.",``ef_soil_c_liming_dolomite``,none,,0,1.0,1.0,,0,
+ | See Page V4, C11, page 11.29 of IPCC GNGHGI (2006) for emission factor defaults.",``ef_soil_c_liming_dolomite``,none,,0,1,1,,0,
 Input,C Liming Emission Factor Limestone," | Dimensionless emission factor that gives :math:`CO_2-C` mass of emission per mass of limestone applied.
  | 
- | See Page V4, C11, page 11.29 of IPCC GNGHGI (2006) for emission factor defaults.",``ef_soil_c_liming_limestone``,none,,0,1.0,1.0,,0,
+ | See Page V4, C11, page 11.29 of IPCC GNGHGI (2006) for emission factor defaults.",``ef_soil_c_liming_limestone``,none,,0,1,1,,0,
 Input,C Urea Emission Factor," | Dimensionless emission factor that gives :math:`CO_2-C` mass of emission per mass of urea applied.
  | 
- | See Page V4, C11, page 11.32 (Section 11.4.1) of IPCC GNGHGI (2006) for emission factor defaults.",``ef_soil_c_urea``,none,,0,1.0,1.0,,0,
-Input,C to N Ratio of Soil Organic Matter,"See Equation 11.8, V4, IPCC GNGHGI (2019R)",``ratio_soil_organic_matter_c_to_n``,none,,0,1.0,1.0,,0,
+ | See Page V4, C11, page 11.32 (Section 11.4.1) of IPCC GNGHGI (2006) for emission factor defaults.",``ef_soil_c_urea``,none,,0,1,1,,0,
+Input,C to N Ratio of Soil Organic Matter,"See Equation 11.8, V4, IPCC GNGHGI (2019R)",``ratio_soil_organic_matter_c_to_n``,none,,0,1,1,,0,
 Input,EF3 N Pasture Range and Paddock," | See :math:`EF_{3PRP}` from Table 11.1 in V4, C11 IPCC GNGHGI 2019R
  | 
  | This emission factor is given by the IPCC as kg :math:`\text{N}_2\text{O-N}`(kg N), and it is multipled in the by the factor 11/7 to convert :math:`\text{N}_2\text{O-N}` to  :math:`\text{N}_2\text{O}`.",``ef_soil_ef3_pasture_$EMISSION-GAS$_$CAT-SOIL-MANAGEMENT$`` (``$EMISSION-GAS$ = n2o``),``dry_climate``|``wet_climate``,,0,0.8,1.2,,0,
@@ -31,26 +31,26 @@ Input,EF4 N Volatilisation and Re-Deposition Emission Factor," | See :math:`EF_4
 Input,EF5 N Leaching and Runoff Emission Factor," | See :math:`EF_5` from Table 11.3 in V4, C11 IPCC GNGHGI 2019R
  | 
  | This emission factor is given by the IPCC as kg :math:`\text{N}_2\text{O-N}`(kg N), and it is multipled in the by the factor 11/7 to convert :math:`\text{N}_2\text{O-N}` to  :math:`\text{N}_2\text{O}`.",``ef_soil_ef5_n_leaching_$EMISSION-GAS$`` (``$EMISSION-GAS$ = n2o``),none,,0,0.8,1.2,,0,
-Input,Fertilizer N Demand Scalar,Use to reduce or increase per-unit demand for fertilizer N,``demscalar_soil_fertilizer_n_per_area``,none,,0,1.0,1.0,,0,
-Input,Fraction Synthetic Fertilizer Use Urea,Fraction of synthetic fertilizer use that comes from Urea. Can change in the future.,``frac_soil_synthetic_fertilizer_urea``,none,,0,1.0,1.0,,0,
-Input,Initial Liming Dolomite Applied to Soils,,``qtyinit_soil_liming_dolomite_applied_to_soils_$UNIT-MASS$`` (``$UNIT-MASS$ = kt),none,,0,1.0,1.0,,0,
-Input,Initial Liming Limestone Applied to Soils,,``qtyinit_soil_liming_limestone_applied_to_soils_$UNIT-MASS$`` (``$UNIT-MASS$ = kt),none,,0,1.0,1.0,,0,
-Input,Initial Synthetic Fertilizer Use,,``qtyinit_soil_synthetic_fertilizer_$UNIT-MASS$`` (``$UNIT-MASS$ = kt``),none,,0,1.0,1.0,,0,
-Input,Leaching Fraction of N Lost," | See :math:`FRAC_{LEACH-(H)}` from Table 11.3 in V4, C11 IPCC GNGHGI 2019R",``frac_soil_leachh_n_lost_to_leaching``,none,,0,1.0,1.0,,0,
-Input,Liming Demand Scalar,,``demscalar_soil_liming_per_area``,none,,0,1.0,1.0,,0,
-Input,Soil Organic C Stocks,"See :math:`SOC_{REF}` in Table 2.3, used in Equation 2.25, for Equation 11.8, V4 IPCC GNGHGI (2019R)","``qty_soil_organic_c_stock_$CAT-SOIL-MANAGEMENT$_$UNIT-MASS$_per_$UNIT-AREA$`` (``$UNIT-MASS$ = tonne``, ``$UNIT-AREA$ = ha``)",all,,0,1.0,1.0,,0,
-Input,Volatilisation Fraction from Non-Urea Synthetic Fertilizers," | See :math:`FRAC_{GASF}` from Table 11.3 in V4, C11 IPCC GNGHGI 2019R",``frac_soil_gasf_n_volatilisation_synthetic_fertilizer_non_urea``,none,,0,1.0,1.0,,0,
-Input,Volatilisation Fraction from Organic Amendments and Fertilizers," | See :math:`FRAC_{GASM}` from Table 11.3 in V4, C11 IPCC GNGHGI 2019R",``frac_soil_gasm_n_volatilisation_organic_amendments_fertilizer``,none,,0,1.0,1.0,,0,
-Input,Volatilisation Fraction from Urea Synthetic Fertilizers," | See :math:`FRAC_{GASF}` from Table 11.3 in V4, C11 IPCC GNGHGI 2019R",``frac_soil_gasf_n_volatilisation_synthetic_fertilizer_urea``,none,,0,1.0,1.0,,0,
-Output,:math:`\text{CO}_2` Emissions from Lime,,``emission_co2e_$EMISSION-GAS$_soil_lime_use`` (``$EMISSION-GAS$ = co2``),none,,0,1.0,1.0,,1,
-Output,:math:`\text{CO}_2` Emissions from Soil Carbon in Mineral Soils,N Mineralization in conversion to cropland,``emission_co2e_$EMISSION-GAS$_soil_soc_mineral_soils`` (``$EMISSION-GAS$ = co2``),none,,0,1.0,1.0,,1,
-Output,:math:`\text{CO}_2` Emissions from Urea,,``emission_co2e_$EMISSION-GAS$_soil_urea_use`` (``$EMISSION-GAS$ = co2``),none,,0,1.0,1.0,,1,
-Output,:math:`\text{N}_2\text{O}` Emissions from Fertilizer Use,,``emission_co2e_$EMISSION-GAS$_soil_fertilizer`` (``$EMISSION-GAS$ = n2o``),none,,0,1.0,1.0,,1,
-Output,:math:`\text{N}_2\text{O}` Emissions from Mineral Soils,,``emission_co2e_$EMISSION-GAS$_soil_mineral_soils`` (``$EMISSION-GAS$ = n2o``),none,,0,1.0,1.0,,1,
-Output,:math:`\text{N}_2\text{O}` Emissions from Organic Soils,,``emission_co2e_$EMISSION-GAS$_soil_organic_soils`` (``$EMISSION-GAS$ = n2o``),none,,0,1.0,1.0,,1,
-Output,:math:`\text{N}_2\text{O}` Emissions from Paddock Pasture and Range,,``emission_co2e_$EMISSION-GAS$_soil_paddock_pasture_range`` (``$EMISSION-GAS$ = n2o``),none,,0,1.0,1.0,,1,
-Output,Organic Fertilizer N Use,,``demand_soil_organic_fertilizer_n_$UNIT-MASS$`` (``$UNIT-MASS$ = kt``),none,,0,1.0,1.0,,0,
-Output,Synthetic Fertilizer N Use,,``demand_soil_synthetic_fertilizer_n_$UNIT-MASS$`` (``$UNIT-MASS$ = kt``),none,,0,1.0,1.0,,0,
-Output,Total Fertilizer N Use,,``demand_soil_fertilizer_n_$UNIT-MASS$`` (``$UNIT-MASS$ = kt``),none,,0,1.0,1.0,,0,
-Output,Total Lime Use,,``demand_soil_lime_$UNIT-MASS$`` (``$UNIT-MASS$ = kt),none,,0,1.0,1.0,,0,
-Output,Total Urea Use,,``demand_soil_urea_$UNIT-MASS$`` (``$UNIT-MASS$ = kt),none,,0,1.0,1.0,,0,
+Input,Fertilizer N Demand Scalar,Use to reduce or increase per-unit demand for fertilizer N,``demscalar_soil_fertilizer_n_per_area``,none,,0,1,1,,0,
+Input,Fraction Synthetic Fertilizer Use Urea,Fraction of synthetic fertilizer use that comes from Urea. Can change in the future.,``frac_soil_synthetic_fertilizer_urea``,none,,0,1,1,,0,
+Input,Initial Liming Dolomite Applied to Soils,,``qtyinit_soil_liming_dolomite_applied_to_soils_$UNIT-MASS$`` (``$UNIT-MASS$ = kt),none,,0,1,1,,0,
+Input,Initial Liming Limestone Applied to Soils,,``qtyinit_soil_liming_limestone_applied_to_soils_$UNIT-MASS$`` (``$UNIT-MASS$ = kt),none,,0,1,1,,0,
+Input,Initial Synthetic Fertilizer Use,,``qtyinit_soil_synthetic_fertilizer_$UNIT-MASS$`` (``$UNIT-MASS$ = kt``),none,,0,1,1,,0,
+Input,Leaching Fraction of N Lost," | See :math:`FRAC_{LEACH-(H)}` from Table 11.3 in V4, C11 IPCC GNGHGI 2019R",``frac_soil_leachh_n_lost_to_leaching``,none,,0,1,1,,0,
+Input,Liming Demand Scalar,,``demscalar_soil_liming_per_area``,none,,0,1,1,,0,
+Input,Soil Organic C Stocks,"See :math:`SOC_{REF}` in Table 2.3, used in Equation 2.25, for Equation 11.8, V4 IPCC GNGHGI (2019R)","``qty_soil_organic_c_stock_$CAT-SOIL-MANAGEMENT$_$UNIT-MASS$_per_$UNIT-AREA$`` (``$UNIT-MASS$ = tonne``, ``$UNIT-AREA$ = ha``)",all,,0,1,1,,0,
+Input,Volatilisation Fraction from Non-Urea Synthetic Fertilizers," | See :math:`FRAC_{GASF}` from Table 11.3 in V4, C11 IPCC GNGHGI 2019R",``frac_soil_gasf_n_volatilisation_synthetic_fertilizer_non_urea``,none,,0,1,1,,0,
+Input,Volatilisation Fraction from Organic Amendments and Fertilizers," | See :math:`FRAC_{GASM}` from Table 11.3 in V4, C11 IPCC GNGHGI 2019R",``frac_soil_gasm_n_volatilisation_organic_amendments_fertilizer``,none,,0,1,1,,0,
+Input,Volatilisation Fraction from Urea Synthetic Fertilizers," | See :math:`FRAC_{GASF}` from Table 11.3 in V4, C11 IPCC GNGHGI 2019R",``frac_soil_gasf_n_volatilisation_synthetic_fertilizer_urea``,none,,0,1,1,,0,
+Output,:math:`\text{CO}_2` Emissions from Lime,,``emission_co2e_$EMISSION-GAS$_soil_lime_use`` (``$EMISSION-GAS$ = co2``),none,,0,1,1,,1,
+Output,:math:`\text{CO}_2` Emissions from Soil Carbon in Mineral Soils,N Mineralization in conversion to cropland,``emission_co2e_$EMISSION-GAS$_soil_soc_mineral_soils`` (``$EMISSION-GAS$ = co2``),none,,0,1,1,,1,
+Output,:math:`\text{CO}_2` Emissions from Urea,,``emission_co2e_$EMISSION-GAS$_soil_urea_use`` (``$EMISSION-GAS$ = co2``),none,,0,1,1,,1,
+Output,:math:`\text{N}_2\text{O}` Emissions from Fertilizer Use,,``emission_co2e_$EMISSION-GAS$_soil_fertilizer`` (``$EMISSION-GAS$ = n2o``),none,,0,1,1,,1,
+Output,:math:`\text{N}_2\text{O}` Emissions from Mineral Soils,,``emission_co2e_$EMISSION-GAS$_soil_mineral_soils`` (``$EMISSION-GAS$ = n2o``),none,,0,1,1,,1,
+Output,:math:`\text{N}_2\text{O}` Emissions from Organic Soils,,``emission_co2e_$EMISSION-GAS$_soil_organic_soils`` (``$EMISSION-GAS$ = n2o``),none,,0,1,1,,1,
+Output,:math:`\text{N}_2\text{O}` Emissions from Paddock Pasture and Range,,``emission_co2e_$EMISSION-GAS$_soil_paddock_pasture_range`` (``$EMISSION-GAS$ = n2o``),none,,0,1,1,,1,
+Output,Organic Fertilizer N Use,,``demand_soil_organic_fertilizer_n_$UNIT-MASS$`` (``$UNIT-MASS$ = kt``),none,,0,1,1,,0,
+Output,Synthetic Fertilizer N Use,,``demand_soil_synthetic_fertilizer_n_$UNIT-MASS$`` (``$UNIT-MASS$ = kt``),none,,0,1,1,,0,
+Output,Total Fertilizer N Use,,``demand_soil_fertilizer_n_$UNIT-MASS$`` (``$UNIT-MASS$ = kt``),none,,0,1,1,,0,
+Output,Total Lime Use,,``demand_soil_lime_$UNIT-MASS$`` (``$UNIT-MASS$ = kt),none,,0,1,1,,0,
+Output,Total Urea Use,,``demand_soil_urea_$UNIT-MASS$`` (``$UNIT-MASS$ = kt),none,,0,1,1,,0,
