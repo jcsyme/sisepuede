@@ -837,11 +837,11 @@ class AFOLU:
             else self.modvar_agrc_area_prop_calc
         )
 
-        arr = self.model_attributes.extract_model_variable(
+        arr = self.model_attributes.extract_model_variable(#
             df_in, 
             varname, 
             override_vector_for_single_mv_q = True, 
-            return_type = "array_base"
+            return_type = "array_base",
         )
 
         totals = sum(arr.transpose())
@@ -1293,34 +1293,34 @@ class AFOLU:
             Default is 1 (can be read in later)
         """
         # lower bound for F_MG
-        arr_lndu_factor_soil_management_inf = self.model_attributes.extract_model_variable(
+        arr_lndu_factor_soil_management_inf = self.model_attributes.extract_model_variable(# 
             df_afolu_trajectories,
             self.modvar_lndu_factor_soil_management_infinum,
-            return_type = "array_base",
+            all_cats_missing_val = 1.0,
             expand_to_all_cats = True,
-            all_cats_missing_val = 1.0
+            return_type = "array_base",
         )
 
         # upper bound for F_MG
-        arr_lndu_factor_soil_management_sup = self.model_attributes.extract_model_variable(
+        arr_lndu_factor_soil_management_sup = self.model_attributes.extract_model_variable(#
             df_afolu_trajectories,
             self.modvar_lndu_factor_soil_management_supremum,
-            return_type = "array_base",
+            all_cats_missing_val = 1.0,
             expand_to_all_cats = True,
-            all_cats_missing_val = 1.0
+            return_type = "array_base",
         )
 
         # upper bound for F_I, or input component w/o manure
-        arr_lndu_factor_soil_inputs_no_manure_sup = self.model_attributes.extract_model_variable(
+        arr_lndu_factor_soil_inputs_no_manure_sup = self.model_attributes.extract_model_variable(#
             df_afolu_trajectories,
             self.modvar_lndu_factor_soil_inputs_supremum_no_manure,
-            return_type = "array_base",
+            all_cats_missing_val = 1.0,
             expand_to_all_cats = True,
-            all_cats_missing_val = 1.0
+            return_type = "array_base",
         )
 
         # fraction of croplands using no-till
-        arr_agrc_frac_improved_by_crop = self.model_attributes.extract_model_variable(
+        arr_agrc_frac_improved_by_crop = self.model_attributes.extract_model_variable(#
             df_afolu_trajectories,
             self.modvar_agrc_frac_no_till,
             all_cats_missing_val = 0.0,
@@ -1329,11 +1329,11 @@ class AFOLU:
         )
 
         # fraction of pastures that are improved
-        vec_lndu_frac_pastures_improved = self.model_attributes.extract_model_variable(
+        vec_lndu_frac_pastures_improved = self.model_attributes.extract_model_variable(#
             df_afolu_trajectories,
             self.modvar_lndu_frac_pastures_improved,
-            expand_to_all_cats = False,
             return_type = "array_base",
+            expand_to_all_cats = False,
         )
 
 
@@ -2062,35 +2062,35 @@ class AFOLU:
         ###########################
 
         # get variables requried to estimate demand - start with exports
-        arr_lvst_exports_unadj = self.model_attributes.extract_model_variable(
+        arr_lvst_exports_unadj = self.model_attributes.extract_model_variable(#
             df_afolu_trajectories,
             self.modvar_lvst_equivalent_exports,
             return_type = "array_base",
-            var_bounds = (0, np.inf)
+            var_bounds = (0, np.inf),
         )
-        arr_lvst_frac_imported = self.model_attributes.extract_model_variable(
+        arr_lvst_frac_imported = self.model_attributes.extract_model_variable(#
             df_afolu_trajectories,
             self.modvar_lvst_frac_demand_imported,
             return_type = "array_base",
-            var_bounds = (0, 1)
+            var_bounds = (0, 1),
         )
         fields_lvst_elas = self.model_attributes.switch_variable_category(
             self.subsec_name_lvst,
             self.modvar_lvst_elas_lvst_demand,
-            "demand_elasticity_category"
+            "demand_elasticity_category",
         )
-        vec_gnrl_frac_eating_red_meat = self.model_attributes.extract_model_variable(
+        vec_gnrl_frac_eating_red_meat = self.model_attributes.extract_model_variable(#
             df_afolu_trajectories,
             self.model_socioeconomic.modvar_gnrl_frac_eating_red_meat,
             return_type = "array_base",
-            var_bounds = (0, 1)
+            var_bounds = (0, 1),
         )
-        vec_lvst_production_init = self.model_attributes.extract_model_variable(
+        vec_lvst_production_init = self.model_attributes.extract_model_variable(#
             df_afolu_trajectories,
             self.modvar_lvst_pop_init,
             override_vector_for_single_mv_q = True,
             return_type = "array_base",
-            var_bounds = (0, np.inf)
+            var_bounds = (0, np.inf),
         )[0]
         arr_lvst_elas_demand = np.array(df_afolu_trajectories[fields_lvst_elas])
 
@@ -2123,25 +2123,30 @@ class AFOLU:
 
         #  2. get weights for allocating grazing area and feed requirement to animals - based on first year only
         #
-        vec_lvst_base_graze_weights = self.model_attributes.extract_model_variable(
+        vec_lvst_base_graze_weights = self.model_attributes.extract_model_variable(#
             df_afolu_trajectories,
             self.modvar_lvst_dry_matter_consumption,
             override_vector_for_single_mv_q = True,
-            return_type = "array_base"
+            return_type = "array_base",
         )[0]
-        vec_lvst_feed_allocation_weights = (vec_lvst_production_init*vec_lvst_base_graze_weights)/np.dot(vec_lvst_production_init, vec_lvst_base_graze_weights)
+
+        vec_lvst_feed_allocation_weights = (
+            vec_lvst_production_init*vec_lvst_base_graze_weights
+        )/np.dot(
+            vec_lvst_production_init, vec_lvst_base_graze_weights
+        )
         
         # get carrying capacity scalar relative to baseline
-        vec_lvst_carry_capacity_scale = self.model_attributes.extract_model_variable(
+        vec_lvst_carry_capacity_scale = self.model_attributes.extract_model_variable(#
             df_afolu_trajectories,
             self.modvar_lvst_carrying_capacity_scalar,
             return_type = "array_base",
-            var_bounds = (0, np.inf)
+            var_bounds = (0, np.inf),
         )
         vec_lvst_carry_capacity_scale = np.nan_to_num(
             vec_lvst_carry_capacity_scale/vec_lvst_carry_capacity_scale[0],
             nan = 1.0,
-            posinf = 1.0
+            posinf = 1.0,
         )
 
 
@@ -2150,27 +2155,27 @@ class AFOLU:
         #############################
 
         # variables required for demand
-        arr_agrc_elas_crop_demand = self.model_attributes.extract_model_variable(
+        arr_agrc_elas_crop_demand = self.model_attributes.extract_model_variable(#
             df_afolu_trajectories,
             self.modvar_agrc_elas_crop_demand_income,
-            return_type = "array_base"
+            return_type = "array_base",
         )
-        arr_agrc_exports_unadj = self.model_attributes.extract_model_variable(
+        arr_agrc_exports_unadj = self.model_attributes.extract_model_variable(#
             df_afolu_trajectories,
             self.modvar_agrc_equivalent_exports,
             return_type = "array_base",
-            var_bounds = (0, np.inf)
+            var_bounds = (0, np.inf),
         )
-        arr_agrc_frac_feed = self.model_attributes.extract_model_variable(
+        arr_agrc_frac_feed = self.model_attributes.extract_model_variable(#
             df_afolu_trajectories,
             self.modvar_agrc_frac_animal_feed,
-            return_type = "array_base"
+            return_type = "array_base",
         )
-        arr_agrc_frac_imported = self.model_attributes.extract_model_variable(
+        arr_agrc_frac_imported = self.model_attributes.extract_model_variable(#
             df_afolu_trajectories,
             self.modvar_agrc_frac_demand_imported,
             return_type = "array_base",
-            var_bounds = (0, 1)
+            var_bounds = (0, 1),
         )
         # do some unit conversion
         arr_agrc_exports_unadj *= self.model_attributes.get_variable_unit_conversion_factor(
@@ -2185,10 +2190,10 @@ class AFOLU:
         vec_agrc_frac_cropland_area = self.check_cropland_fractions(df_afolu_trajectories, "initial")[0]
         vec_agrc_cropland_area = area_agrc_cropland_init*vec_agrc_frac_cropland_area
         # get yield factors and calculate yield
-        arr_agrc_yf = self.model_attributes.extract_model_variable(
+        arr_agrc_yf = self.model_attributes.extract_model_variable(#
             df_afolu_trajectories,
             self.modvar_agrc_yf,
-            return_type = "array_base"
+            return_type = "array_base",
         )
         arr_agrc_yf *= self.model_attributes.get_variable_unit_conversion_factor(
             self.modvar_agrc_yf,
@@ -2200,11 +2205,11 @@ class AFOLU:
 
         ##  2. get dietary demand scalar for crop demand (increases based on reduction in red meat demand) - depends on how many people eat red meat (vec_gnrl_frac_eating_red_meat)
         
-        vec_agrc_diet_exchange_scalar = self.model_attributes.extract_model_variable(
+        vec_agrc_diet_exchange_scalar = self.model_attributes.extract_model_variable(#
             df_afolu_trajectories,
             self.modvar_lndu_vdes,
             return_type = "array_base",
-            var_bounds = (0, np.inf)
+            var_bounds = (0, np.inf),
         )
         vec_agrc_demscale = vec_gnrl_frac_eating_red_meat + vec_agrc_diet_exchange_scalar - vec_gnrl_frac_eating_red_meat*vec_agrc_diet_exchange_scalar
         vec_agrc_demscale = np.nan_to_num(vec_agrc_demscale/vec_agrc_demscale[0], 1.0, posinf = 1.0)
@@ -2240,13 +2245,15 @@ class AFOLU:
 
         ##  4. Apply production wasted scalar to projected supply requirements, then re-calculate demand (reducing domestic production loss will drop future demands)
         
-        vec_agrc_frac_production_wasted = self.model_attributes.extract_model_variable(
+        vec_agrc_frac_production_wasted = self.model_attributes.extract_model_variable(#
             df_afolu_trajectories,
             self.modvar_agrc_frac_production_lost,
             return_type = "array_base",
-            var_bounds = (0, 1)
+            var_bounds = (0, 1),
         )
-        vec_agrc_frac_production_wasted_scalar = np.nan_to_num((1 - vec_agrc_frac_production_wasted[0])/(1 - vec_agrc_frac_production_wasted), posinf = 0.0)
+        vec_agrc_frac_production_wasted_scalar = np.nan_to_num(
+            (1 - vec_agrc_frac_production_wasted[0])/(1 - vec_agrc_frac_production_wasted), posinf = 0.0,
+        )
        
         arr_agrc_production_nonfeed_unadj = (arr_agrc_production_nonfeed_unadj.transpose()*vec_agrc_frac_production_wasted_scalar).transpose()
         arr_agrc_domestic_demand_nonfeed_unadj = arr_agrc_production_nonfeed_unadj + arr_agrc_imports_unadj
@@ -2804,8 +2811,15 @@ class AFOLU:
             ind_wood = attr_ippu.get_key_value_index(self.cat_ippu_wood)
 
             # production data
-            arr_production, dfs_ippu_harvested_wood = self.model_ippu.get_production_with_recycling_adjustment(df_afolu_trajectories, vec_rates_gdp)
-            list_ippu_vars = self.model_attributes.build_varlist(self.subsec_name_ippu, self.model_ippu.modvar_ippu_demand_for_harvested_wood)
+            arr_production, dfs_ippu_harvested_wood = self.model_ippu.get_production_with_recycling_adjustment(
+                df_afolu_trajectories, 
+                vec_rates_gdp
+            )
+            list_ippu_vars = self.model_attributes.build_varlist(
+                self.subsec_name_ippu, 
+                self.model_ippu.modvar_ippu_demand_for_harvested_wood
+            )
+
             arr_frst_harvested_wood_industrial = 0.0
             vec_frst_harvested_wood_industrial_paper = 0.0
             vec_frst_harvested_wood_industrial_wood = 0.0
@@ -2815,8 +2829,15 @@ class AFOLU:
             i = 0
             while (i < len(dfs_ippu_harvested_wood)) and keep_going:
                 df = dfs_ippu_harvested_wood[i]
+                
                 if set(list_ippu_vars).issubset(df.columns):
-                    arr_frst_harvested_wood_industrial = self.model_attributes.extract_model_variable(df, self.model_ippu.modvar_ippu_demand_for_harvested_wood, False, "array_base", expand_to_all_cats = True)
+                    arr_frst_harvested_wood_industrial = self.model_attributes.extract_model_variable(#
+                        df, 
+                        self.model_ippu.modvar_ippu_demand_for_harvested_wood, 
+                        expand_to_all_cats = True,
+                        return_type = "array_base", 
+                    )
+
                     vec_frst_harvested_wood_industrial_paper = arr_frst_harvested_wood_industrial[:, ind_paper]
                     vec_frst_harvested_wood_industrial_wood = arr_frst_harvested_wood_industrial[:, ind_wood]
                     keep_going = False
@@ -2834,7 +2855,12 @@ class AFOLU:
 
 
         # get initial domestic demand for wood products
-        vec_frst_harvested_wood_domestic = self.model_attributes.extract_model_variable(df_afolu_trajectories, self.modvar_frst_init_per_hh_wood_demand, False, "array_base")
+        vec_frst_harvested_wood_domestic = self.model_attributes.extract_model_variable(#
+            df_afolu_trajectories, 
+            self.modvar_frst_init_per_hh_wood_demand, 
+            return_type = "array_base",
+        )
+
         vec_frst_harvested_wood_domestic *= self.model_attributes.get_variable_unit_conversion_factor(
             self.modvar_frst_init_per_hh_wood_demand,
             self.model_ippu.modvar_ippu_demand_for_harvested_wood,
@@ -2854,16 +2880,18 @@ class AFOLU:
                 n_projection_time_periods,
                 projection_time_periods
             )
+
             # get the enfu attrbute table and use it to retrieve the biomass fuel demand
             attr_enfu = self.model_attributes.get_attribute_table(self.subsec_name_enfu)
             ind_biomass = attr_enfu.get_key_value_index(self.cat_enfu_biomass)
-            vec_scoe_biomass_fuel_demand = self.model_attributes.extract_model_variable(
+            vec_scoe_biomass_fuel_demand = self.model_attributes.extract_model_variable(#
                 df_scoe,
                 self.model_energy.modvar_enfu_energy_demand_by_fuel_scoe,
-                False,
-                "array_base"
+                return_type = "array_base",
             )
+
             vec_scoe_biomass_fuel_demand = vec_scoe_biomass_fuel_demand[:, ind_biomass]
+
             # calculate the change and growth rate
             vec_scoe_biomass_fuel_demand_change = np.nan_to_num(vec_scoe_biomass_fuel_demand[1:]/vec_scoe_biomass_fuel_demand[0:-1], 1.0, posinf = 1.0)
             vec_scoe_biomass_fuel_demand_growth_rate = np.cumprod(np.insert(vec_scoe_biomass_fuel_demand_change, 0, 1.0))
@@ -2871,33 +2899,31 @@ class AFOLU:
             
             vec_frst_harvested_wood_domestic *= vec_hh[0]
             vec_frst_harvested_wood_domestic = vec_frst_harvested_wood_domestic[0]*vec_scoe_biomass_fuel_demand_growth_rate
+        
         else:
             # assume growth proportional to HHs
             vec_frst_harvested_wood_domestic *= vec_hh
 
         # get half-life factors for FOD model
-        vec_frst_k_hwp_paper = self.model_attributes.extract_model_variable(
+        vec_frst_k_hwp_paper = self.model_attributes.extract_model_variable(#
             df_afolu_trajectories,
             self.modvar_frst_hwp_half_life_paper,
-            False,
-            "array_base"
+            return_type = "array_base",
         )
         vec_frst_k_hwp_paper = np.log(2)/vec_frst_k_hwp_paper
-        vec_frst_k_hwp_wood = self.model_attributes.extract_model_variable(
+        vec_frst_k_hwp_wood = self.model_attributes.extract_model_variable(#
             df_afolu_trajectories,
             self.modvar_frst_hwp_half_life_wood,
-            False,
-            "array_base"
+            return_type = "array_base",
         )
         vec_frst_k_hwp_wood = np.log(2)/vec_frst_k_hwp_wood
 
         # totals
-        vec_frst_ef_c = self.model_attributes.extract_model_variable(
+        vec_frst_ef_c = self.model_attributes.extract_model_variable(#
             df_afolu_trajectories,
             self.modvar_frst_ef_c_per_hwp,
-            False,
-            "array_base",
-            var_bounds = (0, np.inf)
+            return_type = "array_base",
+            var_bounds = (0, np.inf),
         )
         vec_frst_c_paper = vec_frst_harvested_wood_industrial_paper*vec_frst_ef_c
         vec_frst_c_wood = (vec_frst_harvested_wood_industrial_wood + vec_frst_harvested_wood_domestic)*vec_frst_ef_c
@@ -3103,29 +3129,28 @@ class AFOLU:
         ##  ECON/GNRL VECTOR AND ARRAY INITIALIZATION
 
         # get some vectors
-        vec_gdp = self.model_attributes.extract_model_variable(
+        vec_gdp = self.model_attributes.extract_model_variable(#
             df_afolu_trajectories, 
-            self.model_socioeconomic.modvar_econ_gdp, 
-            override_vector_for_single_mv_q = False, 
-            return_type = "array_base"
+            self.model_socioeconomic.modvar_econ_gdp,  
+            return_type = "array_base",
         )
-        vec_gdp_per_capita = self.model_attributes.extract_model_variable(
+
+        vec_gdp_per_capita = self.model_attributes.extract_model_variable(#
             df_afolu_trajectories, 
             self.model_socioeconomic.modvar_econ_gdp_per_capita, 
-            override_vector_for_single_mv_q = False, 
-            return_type = "array_base"
+            return_type = "array_base",
         )
-        vec_hh = self.model_attributes.extract_model_variable(
+
+        vec_hh = self.model_attributes.extract_model_variable(#
             df_afolu_trajectories, 
             self.model_socioeconomic.modvar_grnl_num_hh, 
-            override_vector_for_single_mv_q = False, 
-            return_type = "array_base"
+            return_type = "array_base",
         )
-        vec_pop = self.model_attributes.extract_model_variable(
+
+        vec_pop = self.model_attributes.extract_model_variable(#
             df_afolu_trajectories, 
             self.model_socioeconomic.modvar_gnrl_pop_total, 
-            override_vector_for_single_mv_q = False, 
-            return_type = "array_base"
+            return_type = "array_base",
         )
 
         vec_rates_gdp = np.array(df_se_internal_shared_variables["vec_rates_gdp"].dropna())
@@ -3143,10 +3168,10 @@ class AFOLU:
 
         # area of the country + the applicable scalar used to convert outputs
         area = float(
-            self.model_attributes.extract_model_variable(
+            self.model_attributes.extract_model_variable(#
                 df_afolu_trajectories,
                 self.model_socioeconomic.modvar_gnrl_area,
-                return_type = "array_base"
+                return_type = "array_base",
             )[0]
         )
         scalar_lndu_input_area_to_output_area = self.model_attributes.get_scalar(
@@ -3155,10 +3180,10 @@ class AFOLU:
         )
 
         # get the initial distribution of land
-        vec_modvar_lndu_initial_frac = self.model_attributes.extract_model_variable(
+        vec_modvar_lndu_initial_frac = self.model_attributes.extract_model_variable(#
             df_afolu_trajectories, 
             self.modvar_lndu_initial_frac, 
-            return_type = "array_base"
+            return_type = "array_base",
         )[0]
 
         vec_modvar_lndu_initial_area = vec_modvar_lndu_initial_frac*area
@@ -3172,34 +3197,35 @@ class AFOLU:
         )
 
         # factor for reallocating land in adjustment
-        vec_lndu_reallocation_factor = self.model_attributes.extract_model_variable(
+        vec_lndu_reallocation_factor = self.model_attributes.extract_model_variable(#
             df_afolu_trajectories,
             self.modvar_lndu_reallocation_factor,
-            return_type = "array_base"
+            return_type = "array_base",
         )
 
         # get fractions of increasing net exports/exports met
-        arr_lndu_frac_increasing_net_exports_met = self.model_attributes.extract_model_variable(
+        arr_lndu_frac_increasing_net_exports_met = self.model_attributes.extract_model_variable(#
             df_afolu_trajectories,
             self.modvar_lndu_frac_increasing_net_exports_met,
             expand_to_all_cats = True,
             return_type = "array_base",
-            var_bounds = (0, 1)
+            var_bounds = (0, 1),
         )
-        arr_lndu_frac_increasing_net_imports_met = self.model_attributes.extract_model_variable(
+
+        arr_lndu_frac_increasing_net_imports_met = self.model_attributes.extract_model_variable(#
             df_afolu_trajectories,
             self.modvar_lndu_frac_increasing_net_imports_met,
             expand_to_all_cats = True,
             return_type = "array_base",
-            var_bounds = (0, 1)
+            var_bounds = (0, 1),
         )
 
         # get fraction of grassland that is pasture
-        vec_lndu_frac_grassland_pasture = self.model_attributes.extract_model_variable(
+        vec_lndu_frac_grassland_pasture = self.model_attributes.extract_model_variable(#
             df_afolu_trajectories,
             self.modvar_lndu_frac_grassland_that_is_pasture,
             return_type = "array_base",
-            var_bounds = (0, 1)
+            var_bounds = (0, 1),
         )
 
 
@@ -3311,7 +3337,7 @@ class AFOLU:
 
         vec_agrc_food_produced_wasted_before_consumption = np.sum(
             arr_agrc_production_nonfeed_unadj.transpose()*vec_agrc_frac_production_wasted, 
-            axis = 0
+            axis = 0,
         )
         vec_agrc_food_produced_wasted_before_consumption *= self.model_attributes.get_variable_unit_conversion_factor(
             self.modvar_agrc_yf,
@@ -3320,10 +3346,9 @@ class AFOLU:
         )
         
         # get total production that is wasted or lost that ends up in landfills
-        vec_agrc_frac_production_loss_to_landfills = self.model_attributes.extract_model_variable(
+        vec_agrc_frac_production_loss_to_landfills = self.model_attributes.extract_model_variable(#
             df_afolu_trajectories, 
             self.modvar_agrc_frac_production_loss_to_msw, 
-            override_vector_for_single_mv_q = False,
             return_type = "array_base", 
             var_bounds = (0, 1),
         )
@@ -3331,7 +3356,7 @@ class AFOLU:
         vec_agrc_food_wasted_to_landfills *= self.model_attributes.get_variable_unit_conversion_factor(
             self.modvar_agrc_total_food_lost_in_ag,
             self.modvar_agrc_total_food_lost_in_ag_to_msw,
-            "mass"
+            "mass",
         )
 
 
@@ -3478,7 +3503,12 @@ class AFOLU:
         ##  EXISTENCE EMISSIONS FOR OTHER LANDS, INCLUDING AG ACTIVITY ON PASTURES
 
         # get CH4 emissions from wetlands
-        arr_lndu_ef_ch4_boc = self.model_attributes.extract_model_variable(df_afolu_trajectories, self.modvar_lndu_ef_ch4_boc, True, "array_units_corrected")
+        arr_lndu_ef_ch4_boc = self.model_attributes.extract_model_variable(#
+            df_afolu_trajectories, 
+            self.modvar_lndu_ef_ch4_boc, 
+            override_vector_for_single_mv_q = True, 
+            return_type = "array_units_corrected"
+        )
         arr_lndu_ef_ch4_boc *= self.model_attributes.get_variable_unit_conversion_factor(
             self.model_socioeconomic.modvar_gnrl_area,
             self.modvar_lndu_ef_ch4_boc,
@@ -3492,7 +3522,10 @@ class AFOLU:
         arr_lndu_area_ch4_boc = np.array(df_land_use[fields_lndu_for_ch4_boc])
 
         df_out += [
-            self.model_attributes.array_to_df(arr_lndu_area_ch4_boc*arr_lndu_ef_ch4_boc, self.modvar_lndu_emissions_ch4_from_wetlands)
+            self.model_attributes.array_to_df(
+                arr_lndu_area_ch4_boc*arr_lndu_ef_ch4_boc, 
+                self.modvar_lndu_emissions_ch4_from_wetlands
+            )
         ]
 
 
@@ -3531,7 +3564,7 @@ class AFOLU:
             self.modvar_list_lndu_frac_drywet,
             1,
             force_sum_equality = True,
-            msg_append = "Land use dry/wet fractions by category do not sum to 1. See definition of dict_arrs_lndu_frac_drywet."
+            msg_append = "Land use dry/wet fractions by category do not sum to 1. See definition of dict_arrs_lndu_frac_drywet.",
         )
         # land use fractions in temperate/tropical climate
         dict_arrs_lndu_frac_temptrop = self.model_attributes.get_multivariables_with_bounded_sum_by_category(
@@ -3539,18 +3572,19 @@ class AFOLU:
             self.modvar_list_lndu_frac_temptrop,
             1,
             force_sum_equality = True,
-            msg_append = "Land use temperate/tropical fractions by category do not sum to 1. See definition of dict_arrs_lndu_frac_temptrop."
+            msg_append = "Land use temperate/tropical fractions by category do not sum to 1. See definition of dict_arrs_lndu_frac_temptrop.",
         )
 
         ##  BUILD SOME FACTORS
 
         # get original EF4
-        arr_soil_ef4_n_volatilisation = self.model_attributes.extract_model_variable(
+        arr_soil_ef4_n_volatilisation = self.model_attributes.extract_model_variable(#
             df_afolu_trajectories,
             self.modvar_soil_ef4_n_volatilisation,
             expand_to_all_cats = True,
-            return_type = "array_base"
+            return_type = "array_base",
         )
+
         # get EF4 for land use categories based on dry/wet (only applies to grassland)
         arr_lndu_ef4_n_volatilisation = 0.0
         for modvar_lndu_frac_drywet in dict_arrs_lndu_frac_drywet.keys():
@@ -3575,83 +3609,101 @@ class AFOLU:
         arr_area_frst = np.array(df_land_use[fields_ext])
         
         # get different variables
-        arr_frst_ef_sequestration = self.model_attributes.extract_model_variable(
+        arr_frst_ef_sequestration = self.model_attributes.extract_model_variable(#
             df_afolu_trajectories, 
             self.modvar_frst_sq_co2, 
             override_vector_for_single_mv_q = True, 
-            return_type = "array_units_corrected"
+            return_type = "array_units_corrected",
         )
+
         arr_frst_ef_sequestration *= self.model_attributes.get_variable_unit_conversion_factor(
             self.model_socioeconomic.modvar_gnrl_area,
             self.modvar_frst_sq_co2,
             "area"
         )
-        arr_frst_ef_methane = self.model_attributes.extract_model_variable(
+
+        arr_frst_ef_methane = self.model_attributes.extract_model_variable(#
             df_afolu_trajectories, 
             self.modvar_frst_ef_ch4, 
             override_vector_for_single_mv_q = True, 
-            return_type = "array_units_corrected"
+            return_type = "array_units_corrected",
         )
         arr_frst_ef_methane *= self.model_attributes.get_variable_unit_conversion_factor(
             self.model_socioeconomic.modvar_gnrl_area,
             self.modvar_frst_ef_ch4,
             "area"
         )
+
         # build output variables
         df_out += [
-            self.model_attributes.array_to_df(-1*arr_area_frst*arr_frst_ef_sequestration, self.modvar_frst_emissions_co2_sequestration),
-            self.model_attributes.array_to_df(arr_area_frst*arr_frst_ef_methane, self.modvar_frst_emissions_ch4)
+            self.model_attributes.array_to_df(
+                -1*arr_area_frst*arr_frst_ef_sequestration, 
+                self.modvar_frst_emissions_co2_sequestration
+            ),
+            self.model_attributes.array_to_df(
+                arr_area_frst*arr_frst_ef_methane, 
+                self.modvar_frst_emissions_ch4
+            )
         ]
 
 
         ##  FOREST FIRES
 
         # initialize some variables that are called below
-        arr_frst_frac_burned = self.model_attributes.extract_model_variable(
+        arr_frst_frac_burned = self.model_attributes.extract_model_variable(#
             df_afolu_trajectories, 
-            self.modvar_frst_average_fraction_burned_annually, 
+            self.modvar_frst_average_fraction_burned_annually,
+            expand_to_all_cats = True,
             override_vector_for_single_mv_q = True, 
             return_type = "array_base", 
-            expand_to_all_cats = True, 
             var_bounds = (0, 1)
         )
-        arr_frst_ef_co2_fires = self.model_attributes.extract_model_variable(
+        arr_frst_ef_co2_fires = self.model_attributes.extract_model_variable(#
             df_afolu_trajectories, 
-            self.modvar_frst_ef_co2_fires, 
+            self.modvar_frst_ef_co2_fires,
+            expand_to_all_cats = True, 
             override_vector_for_single_mv_q = True, 
             return_type = "array_base", 
-            expand_to_all_cats = True
         )
         # temperate biomass burned
-        arr_frst_biomass_consumed_temperate = self.model_attributes.extract_model_variable(
+        arr_frst_biomass_consumed_temperate = self.model_attributes.extract_model_variable(#
             df_afolu_trajectories, 
             self.modvar_frst_biomass_consumed_fire_temperate, 
             expand_to_all_cats = True, 
             override_vector_for_single_mv_q = True,
             return_type = "array_base", 
-            var_bounds = (0, 1)
+            var_bounds = (0, 1),
         )
-        arr_frst_biomass_consumed_temperate *= self.model_attributes.get_scalar(self.modvar_frst_biomass_consumed_fire_temperate, "mass")
+        arr_frst_biomass_consumed_temperate *= self.model_attributes.get_scalar(
+            self.modvar_frst_biomass_consumed_fire_temperate, 
+            "mass"
+        )
         arr_frst_biomass_consumed_temperate /= self.model_attributes.get_variable_unit_conversion_factor(
             self.modvar_frst_biomass_consumed_fire_temperate,
             self.model_socioeconomic.modvar_gnrl_area,
             "area"
         )
+
         # tropical biomass burned
-        arr_frst_biomass_consumed_tropical = self.model_attributes.extract_model_variable(
+        arr_frst_biomass_consumed_tropical = self.model_attributes.extract_model_variable(#
             df_afolu_trajectories, 
             self.modvar_frst_biomass_consumed_fire_tropical, 
             expand_to_all_cats = True, 
             override_vector_for_single_mv_q = True, 
             return_type = "array_base", 
-            var_bounds = (0, 1)
+            var_bounds = (0, 1),
         )
-        arr_frst_biomass_consumed_tropical *= self.model_attributes.get_scalar(self.modvar_frst_biomass_consumed_fire_tropical, "mass")
+
+        arr_frst_biomass_consumed_tropical *= self.model_attributes.get_scalar(
+            self.modvar_frst_biomass_consumed_fire_tropical, 
+            "mass",
+        )
         arr_frst_biomass_consumed_tropical /= self.model_attributes.get_variable_unit_conversion_factor(
             self.modvar_frst_biomass_consumed_fire_tropical,
             self.model_socioeconomic.modvar_gnrl_area,
-            "area"
+            "area",
         )
+
         # setup biomass arrays as a dictionary
         dict_frst_modvar_to_array_forest_fires = {
             self.modvar_frst_frac_temperate_nutrient_poor: arr_frst_biomass_consumed_temperate,
@@ -3664,11 +3716,12 @@ class AFOLU:
             # soil category
             cat_soil = clean_schema(self.model_attributes.get_variable_attribute(modvar, pycat_soil))
             ind_soil = attr_soil.get_key_value_index(cat_soil)
-            self.model_attributes.extract_model_variable(
+
+            self.model_attributes.extract_model_variable(#
                 df_afolu_trajectories, 
                 self.modvar_frst_ef_ch4, 
                 override_vector_for_single_mv_q = True, 
-                return_type = "array_units_corrected"
+                return_type = "array_units_corrected",
             )
             # get forest area
             arr_frst_area_temptrop_burned_cur = arr_area_frst*dict_arrs_frst_frac_temptrop[modvar]*arr_frst_frac_burned
@@ -3711,12 +3764,12 @@ class AFOLU:
         arr_agrc_crop_area = (arr_agrc_frac_cropland_area.transpose()*vec_cropland_area.transpose()).transpose()
        
         # unit-corrected emission factors - ch4
-        arr_agrc_ef_ch4 = self.model_attributes.extract_model_variable(
+        arr_agrc_ef_ch4 = self.model_attributes.extract_model_variable(#
             df_afolu_trajectories, 
             self.modvar_agrc_ef_ch4,
             expand_to_all_cats = True,
             override_vector_for_single_mv_q = True, 
-            return_type = "array_units_corrected"
+            return_type = "array_units_corrected",
         )
         arr_agrc_ef_ch4 *= self.model_attributes.get_variable_unit_conversion_factor(
             self.model_socioeconomic.modvar_gnrl_area,
@@ -3725,12 +3778,12 @@ class AFOLU:
         )
 
         # biomass
-        arr_agrc_ef_co2_biomass = self.model_attributes.extract_model_variable(
+        arr_agrc_ef_co2_biomass = self.model_attributes.extract_model_variable(#
             df_afolu_trajectories, 
             self.modvar_agrc_ef_co2_biomass, 
             expand_to_all_cats = True,
             override_vector_for_single_mv_q = True, 
-            return_type = "array_units_corrected"
+            return_type = "array_units_corrected",
         )
         arr_agrc_ef_co2_biomass *= self.model_attributes.get_variable_unit_conversion_factor(
             self.model_socioeconomic.modvar_gnrl_area,
@@ -3766,14 +3819,16 @@ class AFOLU:
         # get area of grassland/pastures
         field_lvst_graze_array = self.model_attributes.build_varlist(self.subsec_name_lndu, variable_subsec = self.modvar_lndu_area_by_cat, restrict_to_category_values = [self.cat_lndu_grass])[0]
         vec_lvst_graze_area = np.array(df_land_use[field_lvst_graze_array])
+
         # estimate the total number of livestock that are raised - arr_lvst_pop is a direct output of project_integrated_land_use
-        arr_lvst_total_weight = self.model_attributes.extract_model_variable(
+        arr_lvst_total_weight = self.model_attributes.extract_model_variable(#
             df_afolu_trajectories, 
             self.modvar_lvst_animal_weight,
             expand_to_all_cats = True,
             override_vector_for_single_mv_q = True,
-            return_type = "array_base"
+            return_type = "array_base",
         )
+
         arr_lvst_total_animal_mass = arr_lvst_pop*arr_lvst_total_weight
         arr_lvst_aggregate_animal_mass = np.sum(arr_lvst_total_animal_mass, axis = 1)
         arr_lvst_aggregate_animal_mass *= self.model_attributes.get_variable_unit_conversion_factor(
@@ -3782,45 +3837,59 @@ class AFOLU:
             "mass"
         )
         # get the enteric fermentation emission factor
-        arr_lvst_emissions_ch4_ef = self.model_attributes.extract_model_variable(
+        arr_lvst_emissions_ch4_ef = self.model_attributes.extract_model_variable(#
             df_afolu_trajectories, 
             self.modvar_lvst_ef_ch4_ef, 
             override_vector_for_single_mv_q = True, 
-            return_type = "array_units_corrected"
+            return_type = "array_units_corrected",
         )
+
         # add to output dataframe
         df_out += [
-            self.model_attributes.array_to_df(arr_lvst_emissions_ch4_ef*arr_lvst_pop, self.modvar_lvst_emissions_ch4_ef),
-            self.model_attributes.array_to_df(arr_lvst_pop, self.modvar_lvst_pop),
-            self.model_attributes.array_to_df(arr_lvst_aggregate_animal_mass, self.modvar_lvst_total_animal_mass)
+            self.model_attributes.array_to_df(
+                arr_lvst_emissions_ch4_ef*arr_lvst_pop, 
+                self.modvar_lvst_emissions_ch4_ef
+            ),
+
+            self.model_attributes.array_to_df(
+                arr_lvst_pop, 
+                self.modvar_lvst_pop,
+            ),
+
+            self.model_attributes.array_to_df(
+                arr_lvst_aggregate_animal_mass, 
+                self.modvar_lvst_total_animal_mass
+            )
         ]
 
 
         ##  MANURE MANAGEMENT DATA
 
         # nitrogen and volative solids generated (passed to manure management--unitless, so they take the mass of modvar_lvst_animal_weight)
-        arr_lvst_nitrogen = self.model_attributes.extract_model_variable(
+        arr_lvst_nitrogen = self.model_attributes.extract_model_variable(#
             df_afolu_trajectories, 
             self.modvar_lvst_genfactor_nitrogen,
             expand_to_all_cats = True,
             override_vector_for_single_mv_q = True, 
-            return_type = "array_base"
+            return_type = "array_base",
         )
         arr_lvst_nitrogen *= arr_lvst_total_animal_mass*self.model_attributes.configuration.get("days_per_year")
-        arr_lvst_volatile_solids = self.model_attributes.extract_model_variable(
+
+        arr_lvst_volatile_solids = self.model_attributes.extract_model_variable(#
             df_afolu_trajectories, 
             self.modvar_lvst_genfactor_volatile_solids,
             expand_to_all_cats = True,
             override_vector_for_single_mv_q = True, 
-            return_type = "array_base"
+            return_type = "array_base",
         )
         arr_lvst_volatile_solids *= arr_lvst_total_animal_mass*self.model_attributes.configuration.get("days_per_year")
-        arr_lvst_b0 = self.model_attributes.extract_model_variable(
+
+        arr_lvst_b0 = self.model_attributes.extract_model_variable(#
             df_afolu_trajectories, 
             self.modvar_lvst_b0_manure_ch4,
             expand_to_all_cats = True,
             override_vector_for_single_mv_q = True, 
-            return_type = "array_units_corrected_gas"
+            return_type = "array_units_corrected_gas",
         )
         # get ratio of n to volatile solids
         arr_lvst_ratio_vs_to_n = arr_lvst_volatile_solids/arr_lvst_nitrogen
@@ -3836,93 +3905,99 @@ class AFOLU:
             self.modvar_list_lvst_mm_fractions,
             1,
             force_sum_equality = True,
-            msg_append = "Energy fractions by category do not sum to 1. See definition of dict_arrs_inen_frac_energy."
+            msg_append = "Energy fractions by category do not sum to 1. See definition of dict_arrs_inen_frac_energy.",
         )
 
         # get variables that can be indexed below 
-        arr_lsmm_ef_direct_n2o = self.model_attributes.extract_model_variable(
+        arr_lsmm_ef_direct_n2o = self.model_attributes.extract_model_variable(#
             df_afolu_trajectories, 
             self.modvar_lsmm_ef_direct_n2o,
             expand_to_all_cats = True, 
             override_vector_for_single_mv_q = True,
-            return_type = "array_base"
+            return_type = "array_base",
         )
-        arr_lsmm_frac_lost_leaching = self.model_attributes.extract_model_variable(
+
+        arr_lsmm_frac_lost_leaching = self.model_attributes.extract_model_variable(#
             df_afolu_trajectories, 
             self.modvar_lsmm_frac_loss_leaching,
             expand_to_all_cats = True,
             override_vector_for_single_mv_q = True,
             return_type = "array_base",
-            var_bounds = (0, 1)
+            var_bounds = (0, 1),
         )
-        arr_lsmm_frac_lost_volatilisation = self.model_attributes.extract_model_variable(
+
+        arr_lsmm_frac_lost_volatilisation = self.model_attributes.extract_model_variable(#
             df_afolu_trajectories, 
             self.modvar_lsmm_frac_loss_volatilisation,
             expand_to_all_cats = True, 
             override_vector_for_single_mv_q = True,
             return_type = "array_base", 
-            var_bounds = (0, 1)
+            var_bounds = (0, 1),
         )
-        arr_lsmm_frac_used_for_fertilizer = self.model_attributes.extract_model_variable(
+
+        arr_lsmm_frac_used_for_fertilizer = self.model_attributes.extract_model_variable(#
             df_afolu_trajectories, 
             self.modvar_lsmm_frac_n_available_used,
             expand_to_all_cats = True, 
             override_vector_for_single_mv_q = True,
             return_type = "array_base", 
-            var_bounds = (0, 1)
+            var_bounds = (0, 1),
         )
-        arr_lsmm_mcf_by_pathway = self.model_attributes.extract_model_variable(
+
+        arr_lsmm_mcf_by_pathway = self.model_attributes.extract_model_variable(#
             df_afolu_trajectories, 
             self.modvar_lsmm_mcf_by_pathway,
             expand_to_all_cats = True, 
             override_vector_for_single_mv_q = True,
             return_type = "array_base",
-            var_bounds = (0, 1)
+            var_bounds = (0, 1),
         )
-        arr_lsmm_n_from_bedding = self.model_attributes.extract_model_variable(
+
+        arr_lsmm_n_from_bedding = self.model_attributes.extract_model_variable(#
             df_afolu_trajectories, 
             self.modvar_lsmm_n_from_bedding,
             expand_to_all_cats = True, 
             override_vector_for_single_mv_q = True,
-            return_type = "array_base"
+            return_type = "array_base",
         )
-        arr_lsmm_n_from_codigestates = self.model_attributes.extract_model_variable(
+
+        arr_lsmm_n_from_codigestates = self.model_attributes.extract_model_variable(#
             df_afolu_trajectories, 
             self.modvar_lsmm_n_from_codigestates,
             expand_to_all_cats = True,  
             override_vector_for_single_mv_q = True,
             return_type = "array_base",
-            var_bounds = (0, np.inf)
+            var_bounds = (0, np.inf),
         )
-        arr_lsmm_rf_biogas = self.model_attributes.extract_model_variable(
+
+        arr_lsmm_rf_biogas = self.model_attributes.extract_model_variable(#
             df_afolu_trajectories, 
             self.modvar_lsmm_rf_biogas,
             expand_to_all_cats = True, 
             override_vector_for_single_mv_q = True,
             return_type = "array_base", 
-            var_bounds = (0, 1)
+            var_bounds = (0, 1),
         )
-        vec_lsmm_frac_n_in_dung = self.model_attributes.extract_model_variable(
+
+        vec_lsmm_frac_n_in_dung = self.model_attributes.extract_model_variable(#
             df_afolu_trajectories, 
             self.modvar_lvst_frac_exc_n_in_dung, 
-            override_vector_for_single_mv_q = False,
             return_type = "array_base",
-            var_bounds = (0, 1)
+            var_bounds = (0, 1),
         )
-        vec_lsmm_ratio_n2_to_n2o = self.model_attributes.extract_model_variable(
+
+        vec_lsmm_ratio_n2_to_n2o = self.model_attributes.extract_model_variable(#
             df_afolu_trajectories, 
             self.modvar_lsmm_ratio_n2_to_n2o, 
-            override_vector_for_single_mv_q = False,
-            return_type = "array_base"
+            return_type = "array_base",
         )
 
         # soil EF4/EF5 from Table 11.3 - use average fractions from grasslands
         vec_soil_ef_ef4 = attr_lndu.get_key_value_index(self.cat_lndu_grass)
         vec_soil_ef_ef4 = arr_lndu_ef4_n_volatilisation[:, vec_soil_ef_ef4]
-        vec_soil_ef_ef5 = self.model_attributes.extract_model_variable(
+        vec_soil_ef_ef5 = self.model_attributes.extract_model_variable(#
             df_afolu_trajectories, 
             self.modvar_soil_ef5_n_leaching, 
-            override_vector_for_single_mv_q = False, 
             return_type = "array_base"
         )
 
@@ -4139,12 +4214,17 @@ class AFOLU:
         # get inital demand for fertilizer N - start with area of land receiving fertilizer (grasslands and croplands)
         # put units in terms of modvar_lsmm_n_to_fertilizer_agg_dung
         #
-        vec_soil_init_n_fertilizer_synthetic = self.model_attributes.extract_model_variable(df_afolu_trajectories, self.modvar_soil_fertuse_init_synthetic, False, "array_base")
+        vec_soil_init_n_fertilizer_synthetic = self.model_attributes.extract_model_variable(#
+            df_afolu_trajectories, 
+            self.modvar_soil_fertuse_init_synthetic, 
+            return_type = "array_base",
+        )
         vec_soil_init_n_fertilizer_synthetic *= self.model_attributes.get_variable_unit_conversion_factor(
             self.modvar_soil_fertuse_init_synthetic,
             self.modvar_lsmm_n_to_fertilizer_agg_dung,
             "mass"
         )
+
         vec_soil_n_fertilizer_use_organic = vec_lsmm_nitrogen_to_fertilizer_urine
         vec_soil_n_fertilizer_use_organic *= self.model_attributes.get_variable_unit_conversion_factor(
             self.modvar_lsmm_n_to_fertilizer_agg_urine,
@@ -4155,14 +4235,31 @@ class AFOLU:
         vec_soil_init_n_fertilizer_total = vec_soil_init_n_fertilizer_synthetic + vec_soil_n_fertilizer_use_organic
         
         # get land that's fertilized and use to project fertilizer demand - add in fraction of grassland that is pasture
-        arr_lndu_frac_fertilized = self.model_attributes.extract_model_variable(df_afolu_trajectories, self.modvar_lndu_frac_fertilized, True, "array_base", expand_to_all_cats = True, var_bounds = (0, 1))
+        arr_lndu_frac_fertilized = self.model_attributes.extract_model_variable(#
+            df_afolu_trajectories, 
+            self.modvar_lndu_frac_fertilized, 
+            expand_to_all_cats = True, 
+            override_vector_for_single_mv_q = True, 
+            return_type = "array_base", 
+            var_bounds = (0, 1)
+        )
+
         arr_land_use_with_pastures_as_grassland = arr_land_use.copy()
         arr_land_use_with_pastures_as_grassland[:, self.ind_lndu_grass] *= vec_lndu_frac_grassland_pasture
         vec_soil_area_fertilized = np.sum(arr_lndu_frac_fertilized*arr_land_use_with_pastures_as_grassland, axis = 1)
-        vec_soil_demscalar_fertilizer = self.model_attributes.extract_model_variable(df_afolu_trajectories, self.modvar_soil_demscalar_fertilizer, False, "array_base", var_bounds = (0, np.inf))
+
+        vec_soil_demscalar_fertilizer = self.model_attributes.extract_model_variable(#
+            df_afolu_trajectories, 
+            self.modvar_soil_demscalar_fertilizer, 
+            return_type = "array_base", 
+            var_bounds = (0, np.inf),
+        )
         
         # estimate fertilizer demand
-        vec_soil_n_fertilizer_use_total = np.concatenate([np.ones(1), np.cumprod(vec_soil_area_fertilized[1:]/vec_soil_area_fertilized[0:-1])])
+        vec_soil_n_fertilizer_use_total = np.concatenate([
+            np.ones(1), 
+            np.cumprod(vec_soil_area_fertilized[1:]/vec_soil_area_fertilized[0:-1])
+        ])
         vec_soil_n_fertilizer_use_total *= vec_soil_demscalar_fertilizer
         vec_soil_n_fertilizer_use_total *= vec_soil_init_n_fertilizer_total[0]
         
@@ -4173,7 +4270,7 @@ class AFOLU:
         vec_soil_n_fertilizer_use_synthetic = sf.vec_bounds(vec_soil_n_fertilizer_use_synthetic, (0, np.inf))
         
         # split synthetic fertilizer use up
-        vec_soil_frac_synthetic_fertilizer_urea = self.model_attributes.extract_model_variable(
+        vec_soil_frac_synthetic_fertilizer_urea = self.model_attributes.extract_model_variable(#
             df_afolu_trajectories, 
             self.modvar_soil_frac_synethic_fertilizer_urea,
             return_type = "array_base", 
@@ -4185,20 +4282,46 @@ class AFOLU:
         # next, initialize the component n_inputs (N20_DIRECT-N from equation 11.1)
         arr_soil_n_inputs = 0.0
         arr_soil_area_by_drywet = 0.0
-        arr_soil_ef1_organic = self.model_attributes.extract_model_variable(df_afolu_trajectories, self.modvar_soil_ef1_n_managed_soils_org_fert, True, "array_base", expand_to_all_cats = True)
-        arr_soil_ef1_synthetic = self.model_attributes.extract_model_variable(df_afolu_trajectories, self.modvar_soil_ef1_n_managed_soils_syn_fert, True, "array_base", expand_to_all_cats = True)
-        vec_soil_ef1_rice = self.model_attributes.extract_model_variable(df_afolu_trajectories, self.modvar_soil_ef1_n_managed_soils_rice, False, "array_base")
+
+        arr_soil_ef1_organic = self.model_attributes.extract_model_variable(#
+            df_afolu_trajectories, 
+            self.modvar_soil_ef1_n_managed_soils_org_fert,
+            expand_to_all_cats = True,
+            override_vector_for_single_mv_q = True, 
+            return_type = "array_base",
+        )
+
+        arr_soil_ef1_synthetic = self.model_attributes.extract_model_variable(#
+            df_afolu_trajectories, 
+            self.modvar_soil_ef1_n_managed_soils_syn_fert, 
+            expand_to_all_cats = True,
+            override_vector_for_single_mv_q = True, 
+            return_type = "array_base",
+        )
+
+        vec_soil_ef1_rice = self.model_attributes.extract_model_variable(#
+            df_afolu_trajectories,
+            self.modvar_soil_ef1_n_managed_soils_rice, 
+            return_type = "array_base",
+        )
         
         # finally, get the emission factor for C in organic cultivated soils as part of soil carbon
-        arr_soil_ef_c_organic_cultivated_soils = self.model_attributes.extract_model_variable(df_afolu_trajectories, self.modvar_soil_ef_c_organic_soils, True, "array_base", expand_to_all_cats = True)
+        arr_soil_ef_c_organic_cultivated_soils = self.model_attributes.extract_model_variable(#
+            df_afolu_trajectories, 
+            self.modvar_soil_ef_c_organic_soils, 
+            expand_to_all_cats = True,
+            override_vector_for_single_mv_q = True, 
+            return_type = "array_base",
+        )
+
         arr_soil_ef_c_organic_cultivated_soils *= self.model_attributes.get_scalar(
             self.modvar_soil_ef_c_organic_soils,
-            "mass"
+            "mass",
         )
         arr_soil_ef_c_organic_cultivated_soils /= self.model_attributes.get_variable_unit_conversion_factor(
             self.modvar_soil_ef_c_organic_soils,
             self.model_socioeconomic.modvar_gnrl_area,
-            "area"
+            "area",
         )
 
 
@@ -4211,7 +4334,7 @@ class AFOLU:
         # get crop components of synthetic and organic fertilizers for ef1 (will overwrite rice)
         ind_rice = attr_agrc.get_key_value_index(self.cat_agrc_rice)
         # some variables
-        arr_lndu_frac_mineral_soils = self.model_attributes.extract_model_variable(
+        arr_lndu_frac_mineral_soils = self.model_attributes.extract_model_variable(#
             df_afolu_trajectories,
             self.modvar_lndu_frac_mineral_soils, 
             expand_to_all_cats = True, 
@@ -4281,9 +4404,13 @@ class AFOLU:
             
             # update the dictionary for use later
             v_cur = dict_soil_fertilizer_application_by_climate_organic[cat_soil].copy()
-            dict_soil_fertilizer_application_by_climate_organic.update({cat_soil: v_cur + vec_soil_frac_cur_drywet_pstr*vec_soil_n_fertilizer_use_organic})
+            dict_soil_fertilizer_application_by_climate_organic.update({
+                cat_soil: v_cur + vec_soil_frac_cur_drywet_pstr*vec_soil_n_fertilizer_use_organic
+            })
             v_cur = dict_soil_fertilizer_application_by_climate_synthetic[cat_soil].copy()
-            dict_soil_fertilizer_application_by_climate_synthetic.update({cat_soil: v_cur + vec_soil_frac_cur_drywet_pstr*vec_soil_n_fertilizer_use_synthetic})
+            dict_soil_fertilizer_application_by_climate_synthetic.update({
+                cat_soil: v_cur + vec_soil_frac_cur_drywet_pstr*vec_soil_n_fertilizer_use_synthetic
+            })
 
 
         ##  F_CR - CROP RESIDUES
@@ -4300,21 +4427,44 @@ class AFOLU:
         )
 
         # get the regression information
-        arr_agrc_regression_m = self.model_attributes.extract_model_variable(df_afolu_trajectories, self.modvar_agrc_regression_m_above_ground_residue, True, "array_base", expand_to_all_cats = True)
-        arr_agrc_regression_b = self.model_attributes.extract_model_variable(df_afolu_trajectories, self.modvar_agrc_regression_b_above_ground_residue, True, "array_base", expand_to_all_cats = True)
+        arr_agrc_regression_m = self.model_attributes.extract_model_variable(#
+            df_afolu_trajectories, 
+            self.modvar_agrc_regression_m_above_ground_residue, 
+            expand_to_all_cats = True,
+            override_vector_for_single_mv_q = True, 
+            return_type = "array_base", 
+        )
+
+        arr_agrc_regression_b = self.model_attributes.extract_model_variable(#
+            df_afolu_trajectories, 
+            self.modvar_agrc_regression_b_above_ground_residue,
+            expand_to_all_cats = True,
+            override_vector_for_single_mv_q = True, 
+            return_type = "array_base", 
+        )
+
         arr_agrc_regression_b *= self.model_attributes.get_variable_unit_conversion_factor(
             self.modvar_agrc_regression_b_above_ground_residue,
             self.modvar_agrc_regression_m_above_ground_residue,
-            "mass"
+            "mass",
         )
+
         arr_agrc_regression_b /= self.model_attributes.get_variable_unit_conversion_factor(
             self.modvar_agrc_regression_b_above_ground_residue,
             self.modvar_agrc_regression_m_above_ground_residue,
-            "area"
+            "area",
         )
 
         # get crop dry matter
-        arr_agrc_crop_frac_dry_matter = self.model_attributes.extract_model_variable(df_afolu_trajectories, self.modvar_agrc_frac_dry_matter_in_crop, True, "array_base", expand_to_all_cats = True, var_bounds = (0, 1))
+        arr_agrc_crop_frac_dry_matter = self.model_attributes.extract_model_variable(#
+            df_afolu_trajectories, 
+            self.modvar_agrc_frac_dry_matter_in_crop, 
+            expand_to_all_cats = True,
+            override_vector_for_single_mv_q = True, 
+            return_type = "array_base", 
+            var_bounds = (0, 1),
+        )
+
         arr_agrc_crop_drymatter_per_unit = np.nan_to_num(arr_soil_yield/arr_soil_crop_area, 0.0, posinf = 0.0)
         arr_agrc_crop_drymatter_per_unit = arr_agrc_regression_m*arr_agrc_crop_drymatter_per_unit + arr_agrc_regression_b
         arr_agrc_crop_drymatter_above_ground = arr_agrc_crop_drymatter_per_unit*arr_soil_crop_area
@@ -4329,11 +4479,33 @@ class AFOLU:
         )
         vec_agrc_frac_residue_burned = dict_agrc_frac_residues_removed_burned.get(self.modvar_agrc_frac_residues_burned).flatten()
         vec_agrc_frac_residue_removed = dict_agrc_frac_residues_removed_burned.get(self.modvar_agrc_frac_residues_removed).flatten()
-        arr_agrc_combustion_factor = self.model_attributes.extract_model_variable(df_afolu_trajectories, self.modvar_agrc_combustion_factor, True, "array_base", expand_to_all_cats = True, var_bounds = (0, 1))
-       
+        arr_agrc_combustion_factor = self.model_attributes.extract_model_variable(#
+            df_afolu_trajectories, 
+            self.modvar_agrc_combustion_factor,
+            expand_to_all_cats = True,
+            override_vector_for_single_mv_q = True, 
+            return_type = "array_base", 
+            var_bounds = (0, 1),
+        )
+            
         # get n available in above ground/below ground residues
-        arr_agrc_n_content_ag_residues = self.model_attributes.extract_model_variable(df_afolu_trajectories, self.modvar_agrc_n_content_of_above_ground_residues, True, "array_base", expand_to_all_cats = True, var_bounds = (0, 1))
-        arr_agrc_n_content_bg_residues = self.model_attributes.extract_model_variable(df_afolu_trajectories, self.modvar_agrc_n_content_of_below_ground_residues, True, "array_base", expand_to_all_cats = True, var_bounds = (0, 1))
+        arr_agrc_n_content_ag_residues = self.model_attributes.extract_model_variable(#
+            df_afolu_trajectories, 
+            self.modvar_agrc_n_content_of_above_ground_residues,
+            expand_to_all_cats = True,
+            override_vector_for_single_mv_q = True, 
+            return_type = "array_base", 
+            var_bounds = (0, 1),
+        )
+
+        arr_agrc_n_content_bg_residues = self.model_attributes.extract_model_variable(#
+            df_afolu_trajectories, 
+            self.modvar_agrc_n_content_of_below_ground_residues,
+            expand_to_all_cats = True,
+            override_vector_for_single_mv_q = True, 
+            return_type = "array_base", 
+            var_bounds = (0, 1),
+        )
         
         # get total n HERE IS TOTAL N BURNED FROM CROP RESIDUE (in terms of modvar_agrc_regression_m_above_ground_residue)
         vec_agrc_total_n_residue_burned = np.sum(arr_agrc_crop_drymatter_above_ground*arr_agrc_n_content_ag_residues, axis = 1)*vec_agrc_frac_residue_burned
@@ -4348,16 +4520,32 @@ class AFOLU:
         vec_agrc_total_n_above_ground_residues_wet = np.sum(arr_agrc_total_n_above_ground_residues.transpose()*dict_arrs_agrc_frac_drywet[self.modvar_agrc_frac_wet], axis = 1)
         
         # move to below ground and get total biomass (used for biomass burning)
-        arr_agrc_ratio_bg_biomass_to_ag_biomass = self.model_attributes.extract_model_variable(df_afolu_trajectories, self.modvar_agrc_ratio_below_ground_biomass_to_above_ground_biomass, True, "array_base", expand_to_all_cats = True)
+        arr_agrc_ratio_bg_biomass_to_ag_biomass = self.model_attributes.extract_model_variable(#
+            df_afolu_trajectories, 
+            self.modvar_agrc_ratio_below_ground_biomass_to_above_ground_biomass, 
+            expand_to_all_cats = True,
+            override_vector_for_single_mv_q = True, 
+            return_type = "array_base", 
+        )
+
         arr_agrc_bg_biomass = (arr_agrc_crop_drymatter_per_unit*arr_soil_crop_area + arr_soil_yield)*arr_agrc_ratio_bg_biomass_to_ag_biomass
-        vec_agrc_crop_residue_biomass = np.sum(arr_agrc_crop_drymatter_per_unit*arr_soil_crop_area + arr_agrc_bg_biomass, axis = 1)
+        vec_agrc_crop_residue_biomass = np.sum(
+            arr_agrc_crop_drymatter_per_unit*arr_soil_crop_area + arr_agrc_bg_biomass, 
+            axis = 1,
+        )
        
         # get n from below ground residues
         arr_agrc_total_n_below_ground_residues = arr_agrc_bg_biomass*arr_agrc_n_content_bg_residues
         vec_agrc_total_n_below_ground_residues_rice = arr_agrc_total_n_below_ground_residues[:, ind_rice].copy()
         arr_agrc_total_n_below_ground_residues[:, ind_rice] = 0
-        vec_agrc_total_n_below_ground_residues_dry = np.sum(arr_agrc_total_n_below_ground_residues*dict_arrs_agrc_frac_drywet[self.modvar_agrc_frac_dry], axis = 1)
-        vec_agrc_total_n_below_ground_residues_wet = np.sum(arr_agrc_total_n_below_ground_residues*dict_arrs_agrc_frac_drywet[self.modvar_agrc_frac_wet], axis = 1)
+        vec_agrc_total_n_below_ground_residues_dry = np.sum(
+            arr_agrc_total_n_below_ground_residues*dict_arrs_agrc_frac_drywet[self.modvar_agrc_frac_dry], 
+            axis = 1,
+        )
+        vec_agrc_total_n_below_ground_residues_wet = np.sum(
+            arr_agrc_total_n_below_ground_residues*dict_arrs_agrc_frac_drywet[self.modvar_agrc_frac_wet], 
+            axis = 1,
+        )
         
         # get total crop residue and conver to units of F_ON and F_SN
         scalar_soil_residue_to_fertilizer_equivalent = self.model_attributes.get_variable_unit_conversion_factor(
@@ -4372,7 +4560,7 @@ class AFOLU:
         # finally, get ef1 component
         dict_agrc_modvar_to_n_residue = {
             self.modvar_agrc_frac_dry: vec_agrc_total_n_residue_dry,
-            self.modvar_agrc_frac_wet: vec_agrc_total_n_residue_wet
+            self.modvar_agrc_frac_wet: vec_agrc_total_n_residue_wet,
         }
         vec_soil_n2odirectn_fcr = 0.0
         vec_soil_n2odirectn_fcr_rice = vec_agrc_total_n_residue_rice*vec_soil_ef1_rice
@@ -4387,31 +4575,35 @@ class AFOLU:
         ##  ADD IN BIOMASS BURNING (FROM EQ. 2.27 & V4 SECTION 5.3.4.1)
 
         # dimensionless, buin terms of modvar_agrc_regression_m_above_ground_residue
-        vec_agrc_ef_ch4_biomass_burning = self.model_attributes.extract_model_variable(
+        vec_agrc_ef_ch4_biomass_burning = self.model_attributes.extract_model_variable(#
             df_afolu_trajectories, 
             self.modvar_agrc_ef_ch4_burning, 
-            return_type = "array_units_corrected"
+            return_type = "array_units_corrected",
         )
-        vec_agrc_ef_n2o_biomass_burning = self.model_attributes.extract_model_variable(
+
+        vec_agrc_ef_n2o_biomass_burning = self.model_attributes.extract_model_variable(#
             df_afolu_trajectories, 
             self.modvar_agrc_ef_n2o_burning, 
-            return_type = "array_units_corrected"
+            return_type = "array_units_corrected",
         )
+
         vec_agrc_crop_residue_burned = vec_agrc_crop_residue_biomass*vec_agrc_frac_residue_burned
 
         # get average combustion factor, or fraction of crops burned by fire
-        vec_agrc_avg_combustion_factor = self.model_attributes.extract_model_variable(
+        vec_agrc_avg_combustion_factor = self.model_attributes.extract_model_variable(#
             df_afolu_trajectories, 
             self.modvar_agrc_combustion_factor, 
             expand_to_all_cats = False,
             override_vector_for_single_mv_q = True,
             return_type = "array_base", 
-            var_bounds = (0, 1)
+            var_bounds = (0, 1),
         )
+
         cats_agrc_avg_combustion_factor = self.model_attributes.get_variable_categories(self.modvar_agrc_combustion_factor)
         inds_agrc_avg_combustion_factor = [attr_agrc.get_key_value_index(x) for x in cats_agrc_avg_combustion_factor]
         vec_agrc_avg_combustion_factor = np.sum(vec_agrc_avg_combustion_factor*arr_agrc_crop_area[:, inds_agrc_avg_combustion_factor], axis = 1)
         vec_agrc_avg_combustion_factor /= np.sum(arr_agrc_crop_area[:, inds_agrc_avg_combustion_factor], axis = 1)
+
         # multiply by combustion factor to get final mass of crops burned
         vec_agrc_crop_residue_burned *= vec_agrc_avg_combustion_factor
 
@@ -4464,25 +4656,27 @@ class AFOLU:
         ]
 
         # get carbon stocks and ratio of c to n - conver to self.modvar_lsmm_n_to_fertilizer_agg_dung units for N2O/EF1
-        arr_lndu_factor_soil_carbon = self.model_attributes.extract_model_variable(
+        arr_lndu_factor_soil_carbon = self.model_attributes.extract_model_variable(#
             df_afolu_trajectories,
             self.modvar_lndu_factor_soil_carbon,
+            expand_to_all_cats = True,
             return_type = "array_base",
-            expand_to_all_cats = True
         )
         
-        arr_soil_organic_c_stocks = self.model_attributes.extract_model_variable(
+        arr_soil_organic_c_stocks = self.model_attributes.extract_model_variable(#
             df_afolu_trajectories,
             self.modvar_soil_organic_c_stocks,
+            expand_to_all_cats = True,
             override_vector_for_single_mv_q = True,
             return_type = "array_base",
-            expand_to_all_cats = True
         )
+
         arr_soil_organic_c_stocks *= self.model_attributes.get_variable_unit_conversion_factor(
             self.modvar_soil_organic_c_stocks,
             self.modvar_lsmm_n_to_fertilizer_agg_dung,
             "mass"
         )
+
         arr_soil_organic_c_stocks /= self.model_attributes.get_variable_unit_conversion_factor(
             self.modvar_soil_organic_c_stocks,
             self.model_socioeconomic.modvar_gnrl_area,
@@ -4490,10 +4684,10 @@ class AFOLU:
         )
 
         # get some other factors
-        vec_soil_ratio_c_to_n_soil_organic_matter = self.model_attributes.extract_model_variable(
+        vec_soil_ratio_c_to_n_soil_organic_matter = self.model_attributes.extract_model_variable(#
             df_afolu_trajectories,
             self.modvar_soil_ratio_c_to_n_soil_organic_matter,
-            return_type = "array_base"
+            return_type = "array_base",
         )
 
 
@@ -4512,11 +4706,12 @@ class AFOLU:
             dict_arrs_frst_frac_temptrop,
             dict_arrs_lndu_frac_drywet
         )
+
         self.arrs_lndu_soc_conversion_factors = arrs_lndu_soc_conversion_factors
         vec_soil_delta_soc_mineral = self.calculate_soc_stock_change_with_time_dependence(
             arrs_lndu_land_conv,
             arrs_lndu_soc_conversion_factors,
-            20# get from config HEREHERE
+            20,# get from config HEREHERE
         )
         
         # initialize organic SOC, then loop over tropical/temperate cropland to get soil carbon for organic drained soils
@@ -4563,7 +4758,14 @@ class AFOLU:
         #####################################################################
 
         # get the emission factor variable
-        arr_soil_ef2 = self.model_attributes.extract_model_variable(df_afolu_trajectories, self.modvar_soil_ef2_n_organic_soils, True, "array_base", expand_to_all_cats = True)
+        arr_soil_ef2 = self.model_attributes.extract_model_variable(#
+            df_afolu_trajectories, 
+            self.modvar_soil_ef2_n_organic_soils, 
+            expand_to_all_cats = True,
+            override_vector_for_single_mv_q = True, 
+            return_type = "array_base", 
+        )
+
         arr_soil_ef2 *= self.model_attributes.get_variable_unit_conversion_factor(
             self.modvar_soil_ef2_n_organic_soils,
             self.modvar_lsmm_n_to_fertilizer_agg_dung,
@@ -4574,6 +4776,7 @@ class AFOLU:
             self.model_socioeconomic.modvar_gnrl_area,
             "area"
         )
+
         vec_soil_n2on_direct_organic = 0.0
         
         # loop over dry/wet to estimate carbon stocks in crops
@@ -4616,12 +4819,20 @@ class AFOLU:
         ####################################################################
 
         #
-        arr_soil_ef3 = self.model_attributes.extract_model_variable(df_afolu_trajectories, self.modvar_soil_ef3_n_prp, True, "array_base", expand_to_all_cats = True)
+        arr_soil_ef3 = self.model_attributes.extract_model_variable(#
+            df_afolu_trajectories, 
+            self.modvar_soil_ef3_n_prp, 
+            expand_to_all_cats = True,
+            override_vector_for_single_mv_q = True, 
+            return_type = "array_base",
+        )
+
         vec_lsmm_nitrogen_to_pasture *= self.model_attributes.get_variable_unit_conversion_factor(
             self.modvar_lsmm_n_to_pastures,
             self.modvar_lsmm_n_to_fertilizer_agg_dung,
             "mass"
         )
+
         # loop over dry/wet for EF3, pasture, range, and paddock
         vec_soil_n2on_direct_prp = 0.0
         dict_soil_ppr_n_by_climate = {}
@@ -4645,28 +4856,31 @@ class AFOLU:
         ###########################################################
 
         # get volatilisation vars
-        vec_soil_frac_gasf_non_urea = self.model_attributes.extract_model_variable(
+        vec_soil_frac_gasf_non_urea = self.model_attributes.extract_model_variable(#
             df_afolu_trajectories, 
             self.modvar_soil_frac_n_lost_volatilisation_sn_non_urea, 
             override_vector_for_single_mv_q = False, 
             return_type = "array_base", 
             var_bounds = (0, 1),
         )
-        vec_soil_frac_gasf_urea = self.model_attributes.extract_model_variable(
+
+        vec_soil_frac_gasf_urea = self.model_attributes.extract_model_variable(#
             df_afolu_trajectories, 
             self.modvar_soil_frac_n_lost_volatilisation_sn_urea,
             override_vector_for_single_mv_q = False, 
             return_type = "array_base", 
             var_bounds = (0, 1),
         )
-        vec_soil_frac_gasm = self.model_attributes.extract_model_variable(
+
+        vec_soil_frac_gasm = self.model_attributes.extract_model_variable(#
             df_afolu_trajectories, 
             self.modvar_soil_frac_n_lost_volatilisation_on, 
             override_vector_for_single_mv_q = False, 
             return_type = "array_base", 
             var_bounds = (0, 1),
         )
-        arr_soil_ef4 = self.model_attributes.extract_model_variable(
+
+        arr_soil_ef4 = self.model_attributes.extract_model_variable(#
             df_afolu_trajectories, 
             self.modvar_soil_ef4_n_volatilisation, 
             expand_to_all_cats = True,
@@ -4713,14 +4927,25 @@ class AFOLU:
         ###########################################################
 
         # get some components
-        vec_soil_ef5 = self.model_attributes.extract_model_variable(df_afolu_trajectories, self.modvar_soil_ef5_n_leaching, False, "array_base")
-        vec_soil_frac_leaching = self.model_attributes.extract_model_variable(df_afolu_trajectories, self.modvar_soil_frac_n_lost_leaching, False, "array_base", var_bounds = (0, 1))
+        vec_soil_ef5 = self.model_attributes.extract_model_variable(#
+            df_afolu_trajectories, 
+            self.modvar_soil_ef5_n_leaching, 
+            return_type = "array_base",
+        )
+
+        vec_soil_frac_leaching = self.model_attributes.extract_model_variable(#
+            df_afolu_trajectories, 
+            self.modvar_soil_frac_n_lost_leaching, 
+            return_type = "array_base", 
+            var_bounds = (0, 1)
+        )
         
         # add up sources of N
         vec_soil_n2on_indirect_leaching_fert = vec_soil_n_fertilizer_use_organic + vec_soil_n_fertilizer_use_synthetic
         vec_soil_n2on_indirect_leaching_fert *= vec_soil_frac_leaching*vec_soil_ef5
         vec_soil_n2on_indirect_leaching_ppr = vec_lsmm_nitrogen_to_pasture + vec_soil_n_fertilizer_use_organic_to_pasture
         vec_soil_n2on_indirect_leaching_ppr *= vec_soil_frac_leaching*vec_soil_ef5
+
         vec_soil_n2on_indirect_leaching_cr = vec_agrc_total_n_residue_dry + vec_agrc_total_n_residue_rice + vec_agrc_total_n_residue_wet
         vec_soil_n2on_indirect_leaching_cr *= vec_soil_frac_leaching*vec_soil_ef5
         vec_soil_n2on_indirect_leaching_mineral_soils = vec_soil_delta_soc_mineral/vec_soil_ratio_c_to_n_soil_organic_matter
@@ -4816,37 +5041,40 @@ class AFOLU:
         ##  LIMING
 
         # use land that's fertilized to project lime demand
-        vec_soil_demscalar_liming = self.model_attributes.extract_model_variable(
+        vec_soil_demscalar_liming = self.model_attributes.extract_model_variable(#
             df_afolu_trajectories, 
             self.modvar_soil_demscalar_liming, 
             return_type = "array_base", 
-            var_bounds = (0, np.inf)
+            var_bounds = (0, np.inf),
         )
-        vec_soil_lime_init_dolomite = self.model_attributes.extract_model_variable(
+
+        vec_soil_lime_init_dolomite = self.model_attributes.extract_model_variable(#
             df_afolu_trajectories, 
             self.modvar_soil_qtyinit_liming_dolomite,
             return_type = "array_base", 
-            var_bounds = (0, np.inf)
+            var_bounds = (0, np.inf),
         )
-        vec_soil_lime_init_limestone = self.model_attributes.extract_model_variable(
+
+        vec_soil_lime_init_limestone = self.model_attributes.extract_model_variable(#
             df_afolu_trajectories, 
             self.modvar_soil_qtyinit_liming_limestone,
             return_type = "array_base", 
-            var_bounds = (0, np.inf)
+            var_bounds = (0, np.inf),
         )
 
         # get emission factors
-        vec_soil_ef_liming_dolomite = self.model_attributes.extract_model_variable(
+        vec_soil_ef_liming_dolomite = self.model_attributes.extract_model_variable(#
             df_afolu_trajectories, 
             self.modvar_soil_ef_c_liming_dolomite,
             return_type = "array_base", 
-            var_bounds = (0, np.inf)
+            var_bounds = (0, np.inf),
         )
-        vec_soil_ef_liming_limestone = self.model_attributes.extract_model_variable(
+
+        vec_soil_ef_liming_limestone = self.model_attributes.extract_model_variable(#
             df_afolu_trajectories, 
             self.modvar_soil_ef_c_liming_limestone,
             return_type = "array_base", 
-            var_bounds = (0, np.inf)
+            var_bounds = (0, np.inf),
         )
 
         # write in terms of dolomite
@@ -4882,17 +5110,19 @@ class AFOLU:
 
         ##  UREA
 
-        vec_soil_ef_urea = self.model_attributes.extract_model_variable(
+        vec_soil_ef_urea = self.model_attributes.extract_model_variable(#
             df_afolu_trajectories, 
             self.modvar_soil_ef_c_urea, 
             return_type = "array_base", 
-            var_bounds = (0, np.inf)
+            var_bounds = (0, np.inf),
         )
+
         vec_soil_emission_co2_urea_use = vec_soil_ef_urea*vec_soil_n_fertilizer_use_synthetic_urea
         vec_soil_emission_co2_urea_use *= self.model_attributes.get_scalar(
             self.modvar_lsmm_n_to_fertilizer_agg_dung,
-            "mass"
+            "mass",
         )
+
         vec_soil_emission_co2_urea_use *= self.factor_c_to_co2
         vec_soil_emission_co2_urea_use *= self.model_attributes.get_gwp("co2")
         
@@ -4900,7 +5130,7 @@ class AFOLU:
         vec_soil_n_fertilizer_use_synthetic_urea *= self.model_attributes.get_variable_unit_conversion_factor(
             self.modvar_lsmm_n_to_fertilizer_agg_dung,
             self.modvar_soil_ureause_total,
-            "mass"
+            "mass",
         )
         
 

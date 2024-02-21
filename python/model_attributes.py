@@ -3586,7 +3586,7 @@ class ModelAttributes:
         for var in varlist:
             subsec = self.get_variable_subsector(var, throw_error_q = False)
             if subsec is not None:
-                array_cur = self.get_s2tandard_variables(
+                array_cur = self.get_standard_variables(
                     df_in, 
                     var, 
                     expand_to_all_cats = True, 
@@ -4586,7 +4586,7 @@ class ModelAttributes:
         dict_arrs = {}
         for modvar in modvars:
             if modvar not in self.dict_model_variables_to_variables.keys():
-                raise ValueError(f"Invalid variable specified in get_s2tandard_variables: variable '{modvar}' not found.")
+                raise ValueError(f"Invalid variable specified in get_standard_variables: variable '{modvar}' not found.")
             else:
 
                 subsector_cur = self.get_variable_subsector(modvar)
@@ -4599,7 +4599,7 @@ class ModelAttributes:
                     raise ValueError(f"Error in get_multivariables_with_bounded_sum_by_category: variables must be from the same subsector.")
                 
                 # get current variable, merge to all categories, update dictionary, and check totals
-                arr_cur = self.get_s2tandard_variables(df_in, modvar, True, "array_base")
+                arr_cur = self.get_standard_variables(df_in, modvar, True, "array_base")
                 arr_cur = self.merge_array_var_partial_cat_to_array_all_cats(arr_cur, modvar) if (cats is not None) else arr_cur
                 dict_arrs.update({modvar: arr_cur})
 
@@ -4649,11 +4649,11 @@ class ModelAttributes:
 
         # check and return the output variable + which variable was selected
         if set(fields_check).issubset(set(df_in.columns)):
-            out = self.get_s2tandard_variables(df_in, var_integrated, **kwargs)
+            out = self.get_standard_variables(df_in, var_integrated, **kwargs)
             return var_integrated, out
 
         elif var_optional is not None:
-            out = self.get_s2tandard_variables(df_in, var_optional, **kwargs)
+            out = self.get_standard_variables(df_in, var_optional, **kwargs)
             return var_optional, out
 
         return None
@@ -4882,7 +4882,7 @@ class ModelAttributes:
                 
     
 
-    def get_s2tandard_variables(self,
+    def get_standard_variables(self,
         df_in: pd.DataFrame,
         modvar: str,
         override_vector_for_single_mv_q: bool = False,
@@ -4944,7 +4944,7 @@ class ModelAttributes:
             return None
 
         if modvar not in self.dict_model_variables_to_variables.keys():
-            raise ValueError(f"Invalid variable specified in get_s2tandard_variables: variable '{modvar}' not found.")
+            raise ValueError(f"Invalid variable specified in get_standard_variables: variable '{modvar}' not found.")
 
         flds = self.dict_model_variables_to_variables.get(modvar)
         flds = (
@@ -4956,19 +4956,19 @@ class ModelAttributes:
         flds_check = set([flds]) if isinstance(flds, str) else set(flds)
         if not flds_check.issubset(set(df_in.columns)):
             if throw_error_on_missing_fields:
-                raise ValueError(f"Invalid variable specified in get_s2tandard_variables: variable '{modvar}' not found.")
+                raise ValueError(f"Invalid variable specified in get_standard_variables: variable '{modvar}' not found.")
             return None
 
         # check some types
         self.check_restricted_value_argument(
             return_type,
             ["data_frame", "array_base", "array_units_corrected", "array_units_corrected_gas"],
-            "return_type", "get_s2tandard_variables"
+            "return_type", "get_standard_variables"
         )
         self.check_restricted_value_argument(
             return_num_type,
             [float, int, np.float64, np.int64],
-            "return_num_type", "get_s2tandard_variables"
+            "return_num_type", "get_standard_variables"
         )
 
         # initialize output, apply various common transformations based on type
@@ -5772,8 +5772,8 @@ class ModelAttributes:
             if subsector_driver != subsector_driver:
                 warnings.warn(f"In get_simple_input_to_output_emission_arrays, driver variable '{variable_driver}' and emission variable '{var}' are in different sectors. This instance will be skipped.")
             else:
-                # get emissions factor fields and apply scalar using get_s2tandard_variables - then, scale to ensure it is in the proper terms of the driver
-                arr_ef = np.array(self.get_s2tandard_variables(df_ef, var, True, "array_units_corrected"))
+                # get emissions factor fields and apply scalar using get_standard_variables - then, scale to ensure it is in the proper terms of the driver
+                arr_ef = np.array(self.get_standard_variables(df_ef, var, True, "array_units_corrected"))
                 try:
                     scalar_units = scale_factor if (scale_factor is not None) else self.get_variable_unit_conversion_factor(variable_driver, var, driver_unit_type)
                 except:

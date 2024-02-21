@@ -2296,6 +2296,163 @@ class ModelAttributesNew:
         out = region.strip().lower().replace(" ", "_")
 
         return out
+    
+
+
+    def extract_model_variable(self,
+        df_in: pd.DataFrame,
+        modvar_name: str,
+        override_vector_for_single_mv_q: bool = False,
+        return_type: str = "data_frame",
+        var_bounds = None,
+        force_boundary_restriction: bool = True,
+        expand_to_all_cats: bool = False,
+        all_cats_missing_val: float = 0.0,
+        return_num_type: type = np.float64,
+        throw_error_on_missing_fields: bool = True,
+        include_time_period: bool = False,
+    ) -> pd.DataFrame:
+
+        """
+        Extract an array or data frame of input variables. If 
+            return_type == "array_units_corrected", then the ModelAttributes 
+            will re-scale emissions factors to reflect the desired output 
+            emissions mass (as defined in the configuration).
+
+        Function Arguments
+        ------------------
+        - df_in: data frame containing input variables
+        - modvar_name: name of variable to retrieve
+        
+        Keyword Arguments
+        -----------------
+        - all_cats_missing_val: default is 0. If expand_to_all_cats == True, 
+            categories not associated with modvar with be filled with this 
+            value.
+        - expand_to_all_cats: default is False. If True, return the variable in 
+            the shape of all categories.
+        - force_boundary_restriction: default is True. Set to True to enforce 
+            the boundaries on the variable. If False, a variable that is out of 
+            bounds will raise an error.
+        - include_time_period: include the time period? Only applies if 
+            return_type == "data_frame"
+        - override_vector_for_single_mv_q: default is False. Set to True to 
+            return an array if the dimension of the variable is 1; otherwise, a 
+            vector will be returned (if not a dataframe).
+        - return_num_type: return type for numeric values
+        - return_type: valid values are: 
+            * "data_frame"
+            * "array_base" (np.ndarray not corrected for configuration 
+                emissions)
+            * "array_units_corrected" (emissions corrected to reflect 
+                configuration output emission units)
+        - throw_error_on_missing_fields: set to True to throw an error if the
+            fields associated with modvar are not found in df_in.
+            * If False, returns None if fields implied by modvar are not found 
+                in df_in
+        - var_bounds: Default is None (no bounds). Otherwise, gives boundaries 
+            to enforce variables that are retrieved. For example, some variables 
+            may be restricted to the range (0, 1). Use a list-like structure to 
+            pass a minimum and maximum bound (np.inf can be used to as no 
+            bound).
+        """
+
+        if (modvar is None) or (df_in is None):
+            return None
+
+        if modvar not in self.dict_variables.keys():
+            raise ValueError(f"Invalid variable specified in extract_model_variable: variable '{modvar}' not found.")
+
+        flds = self.dict_model_variables_to_variables.get(modvar)
+        flds = (
+            flds[0] 
+            if ((len(flds) == 1) and not override_vector_for_single_mv_q) 
+            else flds
+        )
+
+        flds_check = set([flds]) if isinstance(flds, str) else set(flds)
+        if not flds_check.issubset(set(df_in.columns)):
+            if throw_error_on_missing_fields:
+                raise ValueError(f"Invalid variable specified in extract_model_variable: variable '{modvar}' not found.")
+            return None
+
+        # check some types
+        self.check_restricted_value_argument(
+            return_type,
+            ["data_frame", "array_base", "array_units_corrected", "array_units_corrected_gas"],
+            "return_type", 
+            "extract_model_variable"
+        )
+        self.check_restricted_value_argument(
+            return_num_type,
+            [float, int, np.float64, np.int64],
+            "return_num_type", 
+            "extract_model_variable"
+        )
+
+        # initialize output, apply various common transformations based on type
+        out = np.array(df_in[flds]).astype(return_num_type)
+        if return_type == "array_units_corrected":
+            out *= self.get_scalar(modvar, "total")
+        elif return_type == "array_units_corrected_gas":
+            out *= self.get_scalar(modvar, "gas")
+
+        if type(var_bounds) in [tuple, list, np.ndarray]:
+            # get numeric values and check
+            var_bounds = [x for x in var_bounds if type(x) in [int, float]]
+            if len(var_bounds) <= 1:
+                raise ValueError(f"Invalid specification of variable bounds '{var_bounds}': there must be a maximum and a minimum numeric value specified.")
+
+            # ensure array
+            out = np.array(out)
+            b_0, b_1 = np.min(var_bounds), np.max(var_bounds)
+            m_0, m_1 = np.min(out), np.max(out)
+
+            # check bounds
+            if m_1 > b_1:
+                str_warn = f"Invalid maximum value of '{modvar}': specifed value of {m_1} exceeds bound {b_1}."
+                if not force_boundary_restriction:
+                    raise ValueError(str_warn)
+                
+                warnings.warn(str_warn + "\nForcing maximum value in trajectory.")
+
+            # check min
+            if m_0 < b_0:
+                str_warn = f"Invalid minimum value of '{modvar}': specifed value of {m_0} below bound {b_0}."
+                if not force_boundary_restriction:
+                    raise ValueError(str_warn)
+                
+                warnings.warn(str_warn + "\nForcing minimum value in trajectory.")
+
+            # force boundary if required
+            out = sf.vec_bounds(out, var_bounds) if force_boundary_restriction else out
+
+
+        # merge output to all categories?
+        if expand_to_all_cats:
+            out = np.array([out]).transpose() if (len(out.shape) == 1) else out
+            out = self.merge_array_var_partial_cat_to_array_all_cats(
+                np.array(out), 
+                modvar, 
+                missing_vals = all_cats_missing_val,
+            )
+            if return_type == "data_frame":
+                sec = self.get_variable_subsector(modvar)
+                flds = self.get_attribute_table(sec).key_values
+
+
+        # convert back to data frame if necessary
+        if (return_type == "data_frame"):
+            flds = [flds] if (not type(flds) in [list, np.ndarray]) else flds
+            out = pd.DataFrame(out, columns = flds)
+
+            # add the time period?
+            if include_time_period & (self.dim_time_period in df_in.columns):
+                out[self.dim_time_period] = list(df_in[self.dim_time_period])
+                out = out[[self.dim_time_period] + flds]
+
+
+        return out
 
 
 
@@ -5272,160 +5429,7 @@ class ModelAttributesNew:
                 
     
 
-    def extract_model_variable(self,
-        df_in: pd.DataFrame,
-        modvar: str,
-        override_vector_for_single_mv_q: bool = False,
-        return_type: str = "data_frame",
-        var_bounds = None,
-        force_boundary_restriction: bool = True,
-        expand_to_all_cats: bool = False,
-        all_cats_missing_val: float = 0.0,
-        return_num_type: type = np.float64,
-        throw_error_on_missing_fields: bool = True,
-        include_time_period: bool = False,
-    ) -> pd.DataFrame:
-
-        """
-        Extract an array or data frame of input variables. If 
-            return_type == "array_units_corrected", then the ModelAttributes 
-            will re-scale emissions factors to reflect the desired output 
-            emissions mass (as defined in the configuration).
-
-        Function Arguments
-        ------------------
-        - df_in: data frame containing input variables
-        - modvar: variable name to retrieve
-        
-        Keyword Arguments
-        -----------------
-        - all_cats_missing_val: default is 0. If expand_to_all_cats == True, 
-            categories not associated with modvar with be filled with this 
-            value.
-         - expand_to_all_cats: default is False. If True, return the variable in 
-            the shape of all categories.
-        - force_boundary_restriction: default is True. Set to True to enforce 
-            the boundaries on the variable. If False, a variable that is out of 
-            bounds will raise an error.
-        - include_time_period: include the time period? Only applies if 
-            return_type == "data_frame"
-        - override_vector_for_single_mv_q: default is False. Set to True to 
-            return an array if the dimension of the variable is 1; otherwise, a 
-            vector will be returned (if not a dataframe).
-        - return_num_type: return type for numeric values
-        - return_type: valid values are: 
-            * "data_frame"
-            * "array_base" (np.ndarray not corrected for configuration 
-                emissions)
-            * "array_units_corrected" (emissions corrected to reflect 
-                configuration output emission units)
-        - throw_error_on_missing_fields: set to True to throw an error if the
-            fields associated with modvar are not found in df_in.
-            * If False, returns None if fields implied by modvar are not found 
-                in df_in
-        - var_bounds: Default is None (no bounds). Otherwise, gives boundaries 
-            to enforce variables that are retrieved. For example, some variables 
-            may be restricted to the range (0, 1). Use a list-like structure to 
-            pass a minimum and maximum bound (np.inf can be used to as no 
-            bound).
-        """
-
-        if (modvar is None) or (df_in is None):
-            return None
-
-        if modvar not in self.dict_model_variables_to_variables.keys():
-            raise ValueError(f"Invalid variable specified in extract_model_variable: variable '{modvar}' not found.")
-
-        flds = self.dict_model_variables_to_variables.get(modvar)
-        flds = (
-            flds[0] 
-            if ((len(flds) == 1) and not override_vector_for_single_mv_q) 
-            else flds
-        )
-
-        flds_check = set([flds]) if isinstance(flds, str) else set(flds)
-        if not flds_check.issubset(set(df_in.columns)):
-            if throw_error_on_missing_fields:
-                raise ValueError(f"Invalid variable specified in extract_model_variable: variable '{modvar}' not found.")
-            return None
-
-        # check some types
-        self.check_restricted_value_argument(
-            return_type,
-            ["data_frame", "array_base", "array_units_corrected", "array_units_corrected_gas"],
-            "return_type", 
-            "extract_model_variable"
-        )
-        self.check_restricted_value_argument(
-            return_num_type,
-            [float, int, np.float64, np.int64],
-            "return_num_type", 
-            "extract_model_variable"
-        )
-
-        # initialize output, apply various common transformations based on type
-        out = np.array(df_in[flds]).astype(return_num_type)
-        if return_type == "array_units_corrected":
-            out *= self.get_scalar(modvar, "total")
-        elif return_type == "array_units_corrected_gas":
-            out *= self.get_scalar(modvar, "gas")
-
-        if type(var_bounds) in [tuple, list, np.ndarray]:
-            # get numeric values and check
-            var_bounds = [x for x in var_bounds if type(x) in [int, float]]
-            if len(var_bounds) <= 1:
-                raise ValueError(f"Invalid specification of variable bounds '{var_bounds}': there must be a maximum and a minimum numeric value specified.")
-
-            # ensure array
-            out = np.array(out)
-            b_0, b_1 = np.min(var_bounds), np.max(var_bounds)
-            m_0, m_1 = np.min(out), np.max(out)
-
-            # check bounds
-            if m_1 > b_1:
-                str_warn = f"Invalid maximum value of '{modvar}': specifed value of {m_1} exceeds bound {b_1}."
-                if not force_boundary_restriction:
-                    raise ValueError(str_warn)
-                
-                warnings.warn(str_warn + "\nForcing maximum value in trajectory.")
-
-            # check min
-            if m_0 < b_0:
-                str_warn = f"Invalid minimum value of '{modvar}': specifed value of {m_0} below bound {b_0}."
-                if not force_boundary_restriction:
-                    raise ValueError(str_warn)
-                
-                warnings.warn(str_warn + "\nForcing minimum value in trajectory.")
-
-            # force boundary if required
-            out = sf.vec_bounds(out, var_bounds) if force_boundary_restriction else out
-
-
-        # merge output to all categories?
-        if expand_to_all_cats:
-            out = np.array([out]).transpose() if (len(out.shape) == 1) else out
-            out = self.merge_array_var_partial_cat_to_array_all_cats(
-                np.array(out), 
-                modvar, 
-                missing_vals = all_cats_missing_val,
-            )
-            if return_type == "data_frame":
-                sec = self.get_variable_subsector(modvar)
-                flds = self.get_attribute_table(sec).key_values
-
-
-        # convert back to data frame if necessary
-        if (return_type == "data_frame"):
-            flds = [flds] if (not type(flds) in [list, np.ndarray]) else flds
-            out = pd.DataFrame(out, columns = flds)
-
-            # add the time period?
-            if include_time_period & (self.dim_time_period in df_in.columns):
-                out[self.dim_time_period] = list(df_in[self.dim_time_period])
-                out = out[[self.dim_time_period] + flds]
-
-
-        return out
+    
 
 
 
