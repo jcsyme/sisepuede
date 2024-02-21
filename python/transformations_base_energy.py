@@ -56,12 +56,13 @@ def get_renewable_categories_from_inputs_final_tp(
     attr = model_electricity.model_attributes.get_attribute_table(subsec)
     
     try:
-        arr_entc_tag_renewable = model_attributes.extract_model_variable(
+        arr_entc_tag_renewable = model_attributes.extract_model_variable(#
             df_input,
             modvar,
             expand_to_all_cats = True,
             return_type = "array_base",
         )
+
     except Exception as e:
         return None
     
@@ -925,23 +926,24 @@ def transformation_entc_renewable_target(
 
         if magnitude == "VEC_FIRST_RAMP":
 
-            arr_entc_residual_capacity = model_attributes.extract_model_variable(
+            arr_entc_residual_capacity = model_attributes.extract_model_variable(#
                 df,
                 model_electricity.modvar_entc_nemomod_residual_capacity,
                 expand_to_all_cats = True,
-                return_type = "array_base"
+                return_type = "array_base",
             )
 
             magnitude = arr_entc_residual_capacity[ind_vec_ramp_first_zero_deviation, inds_renewable].sum()
             magnitude /= arr_entc_residual_capacity[ind_vec_ramp_first_zero_deviation, :].sum()
 
         # get the current minimum share of production (does not change when df_transformed is assigned below, since that only modifies the renewable target)
-        arr_entc_min_share_production = model_attributes.extract_model_variable(
+        arr_entc_min_share_production = model_attributes.extract_model_variable(#
             df,
             model_electricity.modvar_entc_nemomod_min_share_production,
             expand_to_all_cats = True,
-            return_type = "array_base"
+            return_type = "array_base",
         )
+
         vec_entc_msp_total_mass_original = (
             arr_entc_min_share_production[:, inds_entc_drop + inds_entc_no_drop]
             .sum(axis = 1)
@@ -1143,11 +1145,11 @@ def transformation_entc_renewable_target(
         ##  3A: MODIFY FRACTIONS FOR UNSPECIFIED/SPECIFIED RENEWABLES (IN ORDER)
 
         # refresh and get totals
-        arr_entc_min_share_production = model_attributes.extract_model_variable(
+        arr_entc_min_share_production = model_attributes.extract_model_variable(#
             df_transformed,
             model_electricity.modvar_entc_nemomod_min_share_production,
             expand_to_all_cats = True,
-            return_type = "array_base"
+            return_type = "array_base",
         )
         
         # get total MSP for renewables + total for unspecified/specified
@@ -1157,6 +1159,7 @@ def transformation_entc_renewable_target(
             if inds_renewable_unspecified is not None
             else np.zeros(len(arr_entc_min_share_production))
         )
+
         vec_entc_total_msp_renewables_specified = vec_entc_total_msp_renewables - vec_entc_total_msp_renewables_unspecified
         vec_entc_total_msp_renewable_cap = sf.vec_bounds(vec_entc_total_msp_renewables, (0, 1.0))
 
@@ -1185,11 +1188,11 @@ def transformation_entc_renewable_target(
             ##  3.A.II NEXT, SCALE UNSPECIFIED RENEWABLES IF NECESSARY
             
             # refresh and get totals
-            arr_entc_min_share_production = model_attributes.extract_model_variable(
+            arr_entc_min_share_production = model_attributes.extract_model_variable(#
                 df_transformed,
                 model_electricity.modvar_entc_nemomod_min_share_production,
                 expand_to_all_cats = True,
-                return_type = "array_base"
+                return_type = "array_base",
             )
             
             # get total MSP for renewables + total for unspecified/specified
@@ -1225,19 +1228,19 @@ def transformation_entc_renewable_target(
 
         if (dict_cats_entc_max_investment is not None):
             
-            arr_entc_max_investment = model_attributes.extract_model_variable(
+            arr_entc_max_investment = model_attributes.extract_model_variable(#
                 df_transformed,
                 model_electricity.modvar_entc_nemomod_total_annual_max_capacity_investment,
                 expand_to_all_cats = True,
-                return_type = "array_base"
+                return_type = "array_base",
             )
 
             # get maximum residual capacities by technology
-            vec_entc_max_capacites = model_attributes.extract_model_variable(
+            vec_entc_max_capacites = model_attributes.extract_model_variable(#
                 df_transformed,
                 model_electricity.modvar_entc_nemomod_residual_capacity,
                 expand_to_all_cats = True,
-                return_type = "array_base"
+                return_type = "array_base",
             )
             vec_entc_max_capacites = np.max(vec_entc_max_capacites, axis = 0)
 
@@ -1304,7 +1307,7 @@ def transformation_entc_renewable_target(
             df_out,
             model_electricity.modvar_entc_nemomod_min_share_production,
             expand_to_all_cats = True,
-            return_type = "array_base"
+            return_type = "array_base",
         )
 
         # get total for categories that were specified
@@ -1419,7 +1422,7 @@ def transformation_entc_renewable_target(
         df_out,
         model_electricity.modvar_entc_nemomod_min_share_production,
         expand_to_all_cats = True,
-        return_type = "array_base"
+        return_type = "array_base",
     )
 
     vec_entc_total_msp_total = arr_entc_min_share_production[:, inds_elec].sum(axis = 1)
@@ -1432,6 +1435,7 @@ def transformation_entc_renewable_target(
         model_electricity.modvar_entc_nemomod_min_share_production,
         restrict_to_category_values = dict_tech_info.get("all_techs_pp")
     )
+    
     for field in fields_scale:
         df_out[field] = np.array(df_out[field])*vec_entc_scale_msp
 
