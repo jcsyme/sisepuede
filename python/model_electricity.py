@@ -1724,7 +1724,11 @@ class ElectricEnergy:
             technologies. If None, use ModelAttributes default.
         """
         # some attribute initializations
-        attribute_technology = self.model_attributes.get_attribute_table(self.subsec_name_entc) if (attribute_technology is None) else attribute_technology
+        attribute_technology = (
+            self.model_attributes.get_attribute_table(self.subsec_name_entc) 
+            if (attribute_technology is None) 
+            else attribute_technology
+        )
         dict_tech_info = self.get_tech_info_dict(attribute_technology = attribute_technology)
         cost_type = cost_type if (cost_type in ["capital", "fixed", "variable"]) else "variable"
 
@@ -1945,22 +1949,42 @@ class ElectricEnergy:
             (not self.include_supply_techs_for_all_fuels)
         - return_type: "dict" or "pd.DataFrame". Default is dictionary.
         """
-        attribute_fuel = self.model_attributes.get_attribute_table(self.subsec_name_enfu) if (attribute_fuel is None) else attribute_fuel
-        drop_activity_ratio_fuels = (not self.include_supply_techs_for_all_fuels) if (drop_activity_ratio_fuels is None) else drop_activity_ratio_fuels
+        attribute_fuel = (
+            self.model_attributes.get_attribute_table(self.subsec_name_enfu) 
+            if (attribute_fuel is None) 
+            else attribute_fuel
+        )
+
+        drop_activity_ratio_fuels = (
+            (not self.include_supply_techs_for_all_fuels) 
+            if (drop_activity_ratio_fuels is None) 
+            else drop_activity_ratio_fuels
+        )
+
         return_type = return_type if (return_type in ["dict", "pd.DataFrame"]) else "dict"
 
         fuels_from_dummy = [] if drop_activity_ratio_fuels else attribute_fuel.key_values
+
         if drop_activity_ratio_fuels:
             for fuel in attribute_fuel.key_values:
                 ar_vars = self.dict_entc_fuel_categories_to_fuel_variables.get(fuel)
-                use_dummy = (self.key_oar not in ar_vars.keys()) and (fuel != self.cat_enfu_elec) if (ar_vars is not None) else True
+                use_dummy = (
+                    (self.key_oar not in ar_vars.keys()) and (fuel != self.cat_enfu_elec) 
+                    if (ar_vars is not None) 
+                    else True
+                )
+                
                 fuels_from_dummy.append(fuel) if use_dummy else None
         
         dict_fuels_dummy = dict((x, self.get_dummy_fuel_tech_name(x)) for x in fuels_from_dummy)
-        dict_fuels_dummy = pd.DataFrame(
-            self.get_dummy_fuel_techs().items(), 
-            columns = [self.field_nemomod_fuel, self.field_nemomod_technology]
-        ) if (return_type == "pd.DataFrame") else dict_fuels_dummy
+        dict_fuels_dummy = (
+            pd.DataFrame(
+                self.get_dummy_fuel_techs().items(), 
+                columns = [self.field_nemomod_fuel, self.field_nemomod_technology]
+            ) 
+            if (return_type == "pd.DataFrame") 
+            else dict_fuels_dummy
+        )
 
         return dict_fuels_dummy
 
@@ -1980,7 +2004,11 @@ class ElectricEnergy:
             use ModelAttributes default.
         """
         # get some defaults
-        attribute_technology = self.model_attributes.get_attribute_table(self.subsec_name_entc) if (attribute_technology is None) else attribute_technology
+        attribute_technology = (
+            self.model_attributes.get_attribute_table(self.subsec_name_entc) 
+            if (attribute_technology is None) 
+            else attribute_technology
+        )
         pycat_enfu = self.model_attributes.get_subsector_attribute(self.subsec_name_enfu, "pycategory_primary")
 
         # map generation techs to dummy supplies
@@ -2239,7 +2267,12 @@ class ElectricEnergy:
             * "dict_reverse": dictionary mapping upstream fuel to downstream
             * "upstream_fuels": list of upstream fuels
         """
-        attribute_fuel = self.model_attributes.get_attribute_table(self.model_attributes.subsec_name_enfu) if (attribute_fuel is None) else attribute_fuel
+        attribute_fuel = (
+            self.model_attributes.get_attribute_table(self.model_attributes.subsec_name_enfu) 
+            if (attribute_fuel is None) 
+            else attribute_fuel
+        )
+
         dict_upstream_fuel = attribute_fuel.field_maps.get(f"{attribute_fuel.key}_to_{self.model_attributes.field_enfu_upstream_to_fuel_category}")
         dict_fuel_cats = self.dict_entc_fuel_categories_to_fuel_variables
         
@@ -2482,9 +2515,24 @@ class ElectricEnergy:
         """
         
         # get some information
-        attribute_fuel = self.model_attributes.get_attribute_table(self.model_attributes.subsec_name_enfu) if not isinstance(attribute_fuel, AttributeTable) else attribute_fuel
-        attribute_technology = self.model_attributes.get_attribute_table(self.model_attributes.subsec_name_entc) if not isinstance(attribute_technology, AttributeTable) else attribute_technology
-        attribute_time_period = self.model_attributes.dict_attributes.get(f"dim_{self.model_attributes.dim_time_period}") if not isinstance(attribute_time_period, AttributeTable) else attribute_time_period
+        attribute_fuel = (
+            self.model_attributes.get_attribute_table(self.model_attributes.subsec_name_enfu) 
+            if not isinstance(attribute_fuel, AttributeTable) 
+            else attribute_fuel
+        )
+
+        attribute_technology = (
+            self.model_attributes.get_attribute_table(self.model_attributes.subsec_name_entc) 
+            if not isinstance(attribute_technology, AttributeTable) 
+            else attribute_technology
+        )
+
+        attribute_time_period = (
+            self.model_attributes.dict_attributes.get(f"dim_{self.model_attributes.dim_time_period}") 
+            if not isinstance(attribute_time_period, AttributeTable) 
+            else attribute_time_period
+        )
+
         dict_tech_info = self.get_tech_info_dict()
         dict_fuel_cats = self.dict_entc_fuel_categories_to_fuel_variables
 
@@ -2674,9 +2722,24 @@ class ElectricEnergy:
             )
         """
         # do some initialization from inputs
-        attribute_fuel = self.model_attributes.get_attribute_table(self.subsec_name_enfu) if (attribute_fuel is None) else attribute_fuel
-        attribute_technology = self.model_attributes.get_attribute_table(self.subsec_name_entc) if (attribute_technology is None) else attribute_technology
-        dict_tech_info = self.get_tech_info_dict(attribute_technology = attribute_technology) if (dict_tech_info is None) else dict_tech_info
+        attribute_fuel = (
+            self.model_attributes.get_attribute_table(self.subsec_name_enfu) 
+            if (attribute_fuel is None) 
+            else attribute_fuel
+        )
+
+        attribute_technology = (
+            self.model_attributes.get_attribute_table(self.subsec_name_entc) 
+            if (attribute_technology is None) 
+            else attribute_technology
+        )
+
+        dict_tech_info = (
+            self.get_tech_info_dict(attribute_technology = attribute_technology) 
+            if (dict_tech_info is None) 
+            else dict_tech_info
+        )
+        
         modvar_msp = self.modvar_entc_nemomod_min_share_production if (modvar_msp is None) else modvar_msp
         
         # initialize some shortcuts

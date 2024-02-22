@@ -184,11 +184,13 @@ def transformation_ippu_reduce_demand(
     # get attribute table, CircularEconomy model for variables, and check categories
     attr_ippu = model_attributes.get_attribute_table(model_attributes.subsec_name_ippu)
     bounds = (0, 1)
+
     model_ippu = (
         mi.IPPU(model_attributes) 
         if model_ippu is None
         else model_ippu
     )
+    
     modvar = model_ippu.modvar_ippu_scalar_production
 
     # convert the magnitude to a reduction as per input instructions

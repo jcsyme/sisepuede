@@ -1871,8 +1871,13 @@ def transformation_inen_shift_modvars(
     all_regions = sorted(list(set(df_input[field_region])))
     attr_inen = model_attributes.get_attribute_table(model_attributes.subsec_name_inen)
     attr_time_period = model_attributes.dict_attributes.get(f"dim_{model_attributes.dim_time_period}")
+
     df_out = []
-    regions_apply = all_regions if (regions_apply is None) else [x for x in regions_apply if x in all_regions]
+    regions_apply = (
+        all_regions 
+        if (regions_apply is None) 
+        else [x for x in regions_apply if x in all_regions]
+    )
 
     dict_modvar_specs_def = {model_energy.modvar_inen_frac_en_electricity: 1}
     dict_modvar_specs = dict_modvar_specs_def if not isinstance(dict_modvar_specs, dict) else dict_modvar_specs
@@ -2399,13 +2404,23 @@ def transformation_trns_fuel_shift_to_target(
     """
 
     # core vars (ordered)
-    model_energy = me.NonElectricEnergy(model_attributes) if not isinstance(model_energy, me.NonElectricEnergy) else model_energy
+    model_energy = (
+        me.NonElectricEnergy(model_attributes) 
+        if not isinstance(model_energy, me.NonElectricEnergy) 
+        else model_energy
+    )
     all_regions = sorted(list(set(df_input[field_region])))
+
     # dertivative vars (alphabetical)
     attr_trns = model_attributes.get_attribute_table("Transportation")
     attr_time_period = model_attributes.dict_attributes.get(f"dim_{model_attributes.dim_time_period}")
+
     df_out = []
-    regions_apply = all_regions if (regions_apply is None) else [x for x in regions_apply if x in all_regions]
+    regions_apply = (
+        all_regions 
+        if (regions_apply is None) 
+        else [x for x in regions_apply if x in all_regions]
+    )
 
     # model variables to explore
     modvars = [

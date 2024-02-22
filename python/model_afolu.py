@@ -111,7 +111,7 @@ class AFOLU:
     ) -> None:
 
         attr_lndu = self.model_attributes.get_attribute_table(self.subsec_name_lndu)
-        pycat_frst = self.model_attributes.get_subsector_attribute(self.subsec_name_frst, "pycategory_primary")
+        pycat_frst = self.model_attributes.get_subsector_attribute(self.subsec_name_frst, "primary_category")
         
         ##  set categories
 

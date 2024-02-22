@@ -1431,7 +1431,7 @@ class ModelAttributesNew:
 
 
 
-    def _check_subsector_attribute_table_crosswalk(self,
+    def _check_subsector_attribute_table_crosswalk(self, #VISIT
         dict_subsector_primary: dict,
         subsector_target: str,
         type_primary: str = "categories",
@@ -1847,7 +1847,7 @@ class ModelAttributesNew:
         """
         # some shared values
         subsec = self.subsec_name_inen
-        attr = self.get_attribute_table(subsec, "key_varreqs_partial")
+        attr = self.get_attribute_table(subsec, "variable_definitions")
 
         # check required fields - binary
         fields_req_bin = ["fuel_fraction_variable_by_fuel"]
@@ -1874,7 +1874,7 @@ class ModelAttributesNew:
         """
         # some shared values
         subsec = self.subsec_name_ippu
-        attr = self.get_attribute_table(subsec, "key_varreqs_partial")
+        attr = self.get_attribute_table(subsec, "variable_definitions")
 
         # check required fields - binary
         fields_req_bin = [
@@ -1958,17 +1958,31 @@ class ModelAttributesNew:
             type_target = "categories",
             injection_q = True
         )
+
         # check required fields - binary
-        fields_req_bin = ["mangroves_forest_category", "primary_forest_category", "secondary_forest_category"]
-        self._check_binary_fields(attribute_forest, self.subsec_name_frst, fields_req_bin, force_sum_to_one = 1)
+        fields_req_bin = [
+            "mangroves_forest_category", 
+            "primary_forest_category", 
+            "secondary_forest_category"
+        ]
+
+        self._check_binary_fields(
+            attribute_forest, 
+            self.subsec_name_frst, 
+            fields_req_bin, 
+            force_sum_to_one = 1,
+        )
 
         return None
 
 
 
-    ##  check the livestock manure management attribute table
     def _check_attribute_tables_lsmm(self,
     ) -> None:
+        """
+        Check the livestock manure management attribute table
+        """
+
         subsec = "Livestock Manure Management"
         attr = self.get_attribute_table(subsec)
         fields_check_sum = ["incineration_category", "pasture_category"]
@@ -1977,14 +1991,24 @@ class ModelAttributesNew:
         for field in fields_check_sum:
             vals = set(attr.table[field])
             if (not vals.issubset(set({0, 1}))) or (sum(attr.table[field]) > 1):
-                raise ValueError(f"Invalid specification of field '{field}' in {subsec} attribute located at {attr.fp_table}. Check to ensure that at most 1 is specified; all other entries should be 0.")
+                msg = f"""
+                Invalid specification of field '{field}' in {subsec} attribute 
+                located at {attr.fp_table}. Check to ensure that at most 1 is 
+                specified; all other entries should be 0.
+                """
+                raise ValueError(msg)
 
         # next, check that the fields are not assigning categories to multiple types
         fields_check_sum = [x for x in fields_check_sum if x in attr.table]
         vec_max = np.array(attr.table[fields_check_sum].sum(axis = 1))
         if max(vec_max) > 1:
             fields = sf.format_print_list(fields_check_sum)
-            raise ValueError(f"Invalid specification of fields {fields} in {subsec} attribute located at {attr.fp_table}: Non-injective mapping specified--categories can map to at most 1 of these fields.")
+            msg = f"""
+            Invalid specification of fields {fields} in {subsec} attribute 
+            located at {attr.fp_table}: Non-injective mapping specified--
+            categories can map to at most 1 of these fields.
+            """
+            raise ValueError(msg)
 
         return None
 
@@ -2014,7 +2038,7 @@ class ModelAttributesNew:
             subsec,
             injection_q = False,
             type_primary = "categories",
-            type_target = "varreqs_partial"
+            type_target = "varreqs_partial",
         )
 
         return None
@@ -2338,18 +2362,18 @@ class ModelAttributesNew:
 
     def extract_model_variable(self,
         df_in: pd.DataFrame,
-        modvar_name: str,
-        override_vector_for_single_mv_q: bool = False,
-        return_type: str = "data_frame",
-        var_bounds = None,
-        force_boundary_restriction: bool = True,
-        expand_to_all_cats: bool = False,
+        modvar: str,
         all_cats_missing_val: float = 0.0,
-        return_num_type: type = np.float64,
-        throw_error_on_missing_fields: bool = True,
+        expand_to_all_cats: bool = False,
+        extraction_logic: str = "all",
+        force_boundary_restriction: bool = True,
         include_time_period: bool = False,
-        extraction_logic: str = "all", # will reorganize these once i fix all of the instances of extract_model_variable
-    ) -> pd.DataFrame:
+        override_vector_for_single_mv_q: bool = False,
+        return_num_type: type = np.float64,
+        return_type: str = "data_frame",
+        throw_error_on_missing_fields: bool = True,
+        var_bounds = None,
+    ) -> Union[pd.DataFrame, None]:
         """
         Extract an array or data frame of input variables. If 
             return_type == "array_units_corrected", then ModelAttributes will 
@@ -2359,7 +2383,8 @@ class ModelAttributesNew:
         Function Arguments
         ------------------
         - df_in: data frame containing input variables
-        - modvar_name: name of variable to retrieve
+        - modvar_name: name of variable to retrieve OR model variable object
+            (if latter, acts as a wrapper)
         
         Keyword Arguments
         -----------------
@@ -2400,9 +2425,9 @@ class ModelAttributesNew:
         ##  INITIALIZATION AND CHECKS
 
         # check model variable specificaiton and data frame
-        modvar = self.get_variable(modvar_name)
-        if (modvar is None):
-            raise ValueError(f"Invalid variable specified in extract_model_variable: variable '{modvar_name}' not found.")            
+        modvar = self.get_variable(modvar)
+        if modvar is None:
+            raise ValueError(f"Invalid variable specified in extract_model_variable: variable '{modvar}' not found.")            
 
         if not isinstance(df_in, pd.DataFrame):
             return None
@@ -2432,7 +2457,7 @@ class ModelAttributesNew:
         )
 
         try:
-            out = modvar.get_from_dataframe(self,
+            out = modvar.get_from_dataframe(
                 df_in,
                 expand_to_all_categories = expand_to_all_cats,
                 extraction_logic = extraction_logic,
@@ -2454,9 +2479,9 @@ class ModelAttributesNew:
         #HEREHERE
 
         # initialize output, apply various common transformations based on type
-        out = np.array(df_in[flds]).astype(return_num_type)
         if return_type == "array_units_corrected":
             out *= self.get_scalar(modvar, "total")
+
         elif return_type == "array_units_corrected_gas":
             out *= self.get_scalar(modvar, "gas")
 
@@ -2547,14 +2572,25 @@ class ModelAttributesNew:
 
     def get_attribute_table(self, #FIXED
         subsector: str,
-        table_type = "pycategory_primary",
+        table_type = "primary_category",
     ) -> Union[AttributeTable, None]:
         """
-        Simplify retrieval of attribute tables within functions
+        Simplify retrieval of attribute tables within functions. 
+
+        Function Arguments
+        ------------------
+
+        Keyword Arguments
+        -----------------
+        - table_type: one of the following values
+            * "primary_category": primary category table associated with the 
+                subsector
+            * "variable_definitions"
         """
 
         # check input type
-        valid_types = ["pycategory_primary", "key_variable_definitions"]
+        valid_types = ["primary_category", "variable_definitions"]
+
         if table_type not in valid_types:
             tps = sf.format_print_list(valid_types)
             msg = f"Invalid table_type '{table_type}': valid options are {tps}."
@@ -2562,11 +2598,12 @@ class ModelAttributesNew:
 
         # get different table by different type
         key_dict = self.get_subsector_attribute(subsector, table_type)
-        if table_type == "pycategory_primary":
+
+        if table_type == "primary_category":
             dict_retrieve = self.dict_attributes.get(self.attribute_group_key_cat)
             out = dict_retrieve.get(key_dict)
 
-        elif table_type == "key_variable_definitions":
+        elif table_type == "variable_definitions":
             out = self.dict_variable_definitions.get(key_dict)
 
         return out
@@ -3363,7 +3400,7 @@ class ModelAttributesNew:
 
 
 
-    def get_var_dicts_by_shared_category(self, #fixed
+    def get_var_dicts_by_shared_category(self, #FIXED
         subsector: str,
         category_pivot: str,
         fields_to_filter_on: list,
@@ -3375,7 +3412,7 @@ class ModelAttributesNew:
         dict_out = {}
 
         # check attribute table
-        attr_table = self.get_attribute_table(subsector, "key_variable_definitions")
+        attr_table = self.get_attribute_table(subsector, "variable_definitions")
         if attr_table is None:
             return None
 
@@ -3422,7 +3459,7 @@ class ModelAttributesNew:
 
 
 
-    def merge_array_var_partial_cat_to_array_all_cats(self,
+    def merge_array_var_partial_cat_to_array_all_cats(self,#VISIT
         array_vals: np.ndarray,
         modvar: str,
         missing_vals: float = 0.0,
@@ -3470,15 +3507,18 @@ class ModelAttributesNew:
 
             subsector = self.get_variable_subsector(modvar)
             attr_subsec = self.get_attribute_table(subsector)
-            cat_restriction_type = self.dict_model_variable_to_category_restriction[modvar]
+            cat_restriction_type = self.dict_model_variable_to_category_restriction.get(modvar)
+
         else:
             subsector = output_subsec
             attr_subsec = self.get_attribute_table(subsector)
             cat_restriction_type = None
+
             # check that all categories are defined
             if not set(output_cats).issubset(set(attr_subsec.key_values)):
                 invalid_values = sf.format_print_list(list(set(output_cats) - set(attr_subsec.key_values)))
                 raise ValueError(f"Error in merge_array_var_partial_cat_to_array_all_cats: Invalid categories {invalid_values} specified for subsector {subsector} in output_cats.")
+
             # check that all categories are unique
             if len(set(output_cats)) != len(output_cats):
                 raise ValueError(f"Error in merge_array_var_partial_cat_to_array_all_cats: Categories specified in output_cats are not unique. Check that categories are unique.")
@@ -3486,6 +3526,7 @@ class ModelAttributesNew:
         # return the array if all categories are specified
         if cat_restriction_type == "all":
             return array_vals
+
         else:
             array_default = np.ones((len(array_vals), attr_subsec.n_key_values))*missing_vals
             cats = self.get_variable_categories(modvar) if (type(modvar) != type(None)) else output_cats
@@ -3881,12 +3922,17 @@ class ModelAttributesNew:
 
 
     def get_variable(self,
-        modvar_name: str,
+        modvar: Union[str, mv.ModelVariable],
     ) -> Union[mv.ModelVariable, None]:
         """
         Get a model variable
         """
-        out = self.dict_variables.get(modvar_name)
+        out = (
+            modvar
+            if mv.is_model_variable(modvar)
+            else self.dict_variables.get(modvar)
+        )
+
         return out
 
 
@@ -4423,7 +4469,7 @@ class ModelAttributesNew:
 
 
 
-    def assign_keys_from_attribute_fields(self,
+    def assign_keys_from_attribute_fields(self,#VISIT
         subsector: str,
         field_attribute: str,
         dict_assignment: dict,
@@ -5470,9 +5516,9 @@ class ModelAttributesNew:
         # valid if only one subsec and either all are categorized or none are categorized
         valid_q = len(subsecs) == 1 
         valid_q = (len(category_specs) == 1)
+
         # don't allow one variable if it has no categories
         valid_q &= not ((True in category_specs) & (len(modvars_to_check) == 1)) 
-
         if not valid_q:
             return None
 
@@ -5631,12 +5677,8 @@ class ModelAttributesNew:
             "emission_gas"
         """
 
-        modvar = (
-            self.get_variable(modvar) 
-            if isinstance(modvar, str) 
-            else modvar
-        )
-        if not mv.is_model_variable(modvar):
+        modvar = self.get_variable(modvar)
+        if modvar is None:
             return None
         
         characteristic = mv.clean_element(characteristic)
@@ -5646,10 +5688,9 @@ class ModelAttributesNew:
 
 
 
-    def get_variable_from_category(self, 
+    def get_variable_from_category(self, #FIXED
         subsector: str, 
         category: str, 
-        var_type: str = "all"
     ) -> str:
         """
         Retrieve a variable that is associated with a category in a file (see 
@@ -5658,20 +5699,19 @@ class ModelAttributesNew:
 
         # run some checks
         self.check_subsector(subsector)
-        if var_type not in ["all", "partial"]:
-            raise ValueError(f"Invalid var_type '{var_type}' in get_variable_from_category: valid types are 'all', 'partial'")
 
-        # get the value from the dictionary
-        pycat = self.get_subsector_attribute(subsector, "pycategory_primary")
-        key_vrp = self.get_subsector_attribute(subsector, f"key_varreqs_{var_type}")
+        # get the value from the dictionaryHEREHERE
+        attr_subsec = self.get_attribute_table(subsector)
+        subsec_abv = self.get_subsector_attribute(subsector, "abv_subsector")
+        attr_retrieve = f"{subsec_abv}_variable"
 
-        # get from the dictionary
-        key_dict = f"{pycat}_to_{key_vrp}"
-        dict_map = self.dict_attributes[pycat].field_maps.get(key_dict)
+        # retrieve output
+        out = attr_subsec.get_attribute(
+            category,
+            attr_retrieve,
+        )
 
-        return_val = dict_map.get(category) if (dict_map is not None) else None
-
-        return return_val
+        return out
 
 
 
@@ -5780,7 +5820,7 @@ class ModelAttributesNew:
 
 
 
-    def get_variables_from_attribute(self,
+    def get_variables_from_attribute(self, #VISIT
         subsec: str,
         dict_attributes: str,
     ) -> Union[List[str], None]:

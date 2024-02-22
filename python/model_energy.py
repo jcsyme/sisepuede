@@ -3404,12 +3404,14 @@ class NonElectricEnergy:
 
         # loop over the demand categories to get transportation demand
         for category in dict_trde_cats_to_trns_vars.keys():
+
             # get key index, model variable, 
             index_key = (
                 self.model_attributes
                 .get_attribute_table(self.subsec_name_trde)
                 .get_key_value_index(category)
             )
+            
             modvar = self.model_attributes.get_variable_from_category(
                 self.subsec_name_trde, 
                 category, 

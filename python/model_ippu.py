@@ -121,16 +121,11 @@ class IPPU:
             * self.dict_fc_ef_modvars_to_gas
             * self.dict_gas_to_fc_ef_modvars
         """
-        subsec = self.model_attributes.subsec_name_ippu
-
-        attr_ippu = self.model_attributes.get_attribute_table(
-            subsec,
-            table_type = "key_varreqs_partial",
-        )
-
         # get dictionaries mapping variables to gas
+        subsec = self.model_attributes.subsec_name_ippu
         vec_modvars_ef_ippu = self.model_attributes.get_variables_from_attribute(
-            subsec, {"emission_factor": 1},
+            subsec, 
+            {"emission_factor": 1},
         )
 
         dict_fc_ef_modvars_to_gas = pd.DataFrame(
@@ -139,23 +134,24 @@ class IPPU:
                 for x in vec_modvars_ef_ippu
             ]
         )
+
         dict_fc_ef_modvars_to_gas = sf.build_dict(dict_fc_ef_modvars_to_gas)
         dict_gas_to_fc_ef_modvars = sf.reverse_dict(
             dict_fc_ef_modvars_to_gas, 
             allow_multi_keys = True, 
             force_list_values = True,
         )
+
         # all fluorinated compounds
         all_fcs = sorted(list(dict_gas_to_fc_ef_modvars.keys()))
 
         # get IPPU emission factor model variables by gas classification
         dict_fc_ef_modvars_by_type = {}
+        
         for key, val in self.model_attributes.dict_fc_designation_to_gasses.items():
-
             modvars = sum(
                 [
-                    dict_gas_to_fc_ef_modvars.get(x)
-                    for x in val
+                    dict_gas_to_fc_ef_modvars.get(x) for x in val
                     if (dict_gas_to_fc_ef_modvars.get(x) is not None)
                 ], []
             )
