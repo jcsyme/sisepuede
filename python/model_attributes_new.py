@@ -2968,10 +2968,10 @@ class ModelAttributesNew:
 
 
 
-    def get_ordered_vars_by_nonprimary_category(self,
+    def get_ordered_vars_by_nonprimary_category(self, #FIXED
         subsector_var: str,
         subsector_targ: str,
-        varreq_type: str,
+        flag_none: str = "none",
         return_type: str = "vars"
     ) -> Union[List[int], List[str]]:
         """
@@ -2980,14 +2980,13 @@ class ModelAttributesNew:
             another subsector
         """
         # get var requirements for the variable subsector + the attribute for the target categories
-        varreq_var = self.get_subsector_attribute(subsector_var, varreq_type)
-        pycat_targ = self.get_subsector_attribute(subsector_targ, "pycategory_primary")
-        attr_vr_var = self.dict_variable_definitions[varreq_var]
-        attr_targ = self.dict_attributes[pycat_targ]
+        attr_vr_var = self.get_attribute_table(subsector_var, "variable_definitions")
+        attr_targ = self.get_attribute_table(subsector_targ, "primary_category")
+        pycat_targ = attr_targ.key
 
         # use the attribute table to map the category to the original variable
-        tab_for_cw = attr_vr_var.table[attr_vr_var.table[pycat_targ] != "none"]
-        vec_var_targs = [clean_schema(x) for x in list(tab_for_cw[pycat_targ])]
+        tab_for_cw = attr_vr_var.table[attr_vr_var.table[pycat_targ] != flag_none]
+        vec_var_targs = [mv.clean_element(x) for x in list(tab_for_cw[pycat_targ])]
         inds_varcats_to_cats = [vec_var_targs.index(x) for x in attr_targ.key_values]
 
         # check reutnr type

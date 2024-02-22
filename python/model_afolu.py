@@ -4720,13 +4720,13 @@ class AFOLU:
         arr_soil_organic_c_stocks *= self.model_attributes.get_variable_unit_conversion_factor(
             self.modvar_soil_organic_c_stocks,
             self.modvar_lsmm_n_to_fertilizer_agg_dung,
-            "mass"
+            "mass",
         )
 
         arr_soil_organic_c_stocks /= self.model_attributes.get_variable_unit_conversion_factor(
             self.modvar_soil_organic_c_stocks,
             self.model_socioeconomic.modvar_gnrl_area,
-            "area"
+            "area",
         )
 
         # get some other factors
@@ -4762,7 +4762,7 @@ class AFOLU:
         
         # initialize organic SOC, then loop over tropical/temperate cropland to get soil carbon for organic drained soils
         vec_soil_emission_co2_soil_carbon_organic = 0.0
-        
+
         for modvar in self.modvar_list_agrc_frac_temptrop:
             # get appropriate soil category
             cat_soil = clean_schema(self.model_attributes.get_variable_attribute(modvar, pycat_soil))

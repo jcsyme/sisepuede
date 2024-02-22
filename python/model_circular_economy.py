@@ -288,7 +288,6 @@ class CircularEconomy:
         vars_wali_to_trww = self.model_attributes.get_ordered_vars_by_nonprimary_category(
             self.model_attributes.subsec_name_wali,
             self.model_attributes.subsec_name_trww, 
-            "key_varreqs_all"
         )
         
         # time periods
@@ -1804,7 +1803,7 @@ class CircularEconomy:
             msg_append = "See the calculation of dict_waso_check_non_recycle_pathways.",
             force_sum_equality = True,
         )
-        
+
         array_waso_waste_incineration = (dict_waso_check_non_recycle_pathways[self.modvar_waso_frac_nonrecycled_incineration].flatten()*array_waso_total_by_category.transpose()).transpose()
         array_waso_waste_landfill = (dict_waso_check_non_recycle_pathways[self.modvar_waso_frac_nonrecycled_landfill].flatten()*array_waso_total_by_category.transpose()).transpose()
         array_waso_waste_open_dump = (dict_waso_check_non_recycle_pathways[self.modvar_waso_frac_nonrecycled_opendump].flatten()*array_waso_total_by_category.transpose()).transpose()

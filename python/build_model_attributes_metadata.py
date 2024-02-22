@@ -105,7 +105,7 @@ def build_emissions_information_table(
             subsec = model_attributes.get_variable_subsector(modvar)
             field_subsector_total = model_attributes.get_subsector_emission_total_field(subsec)
             sector = model_attributes.get_subsector_attribute(subsec, "sector")
-            pycat_primary = model_attributes.get_subsector_attribute(subsec, "pycategory_primary")
+            pycat_primary = model_attributes.get_subsector_attribute(subsec, "pycategory_primary_element")
 
             # fields and categories
             fields = model_attributes.build_varlist(None, modvar)
@@ -213,7 +213,7 @@ def build_variable_information_table(
         # get some attributes 
         subsec = model_attributes.get_variable_subsector(modvar)
         sector = model_attributes.get_subsector_attribute(subsec, "sector")
-        pycat_primary = model_attributes.get_subsector_attribute(subsec, "pycategory_primary")
+        pycat_primary = model_attributes.get_subsector_attribute(subsec, "pycategory_primary_element")
 
         # fields and categories
         fields = model_attributes.build_varlist(None, modvar)
