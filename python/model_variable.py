@@ -220,6 +220,7 @@ class ModelVariable:
             # update the dictionaries
             dict_category_key_space.update({key: v.key_values})
         """
+
         for elem in self.schema.mutable_elements_clean_ordered:
 
             if elem in dict_category_key_space.keys():
@@ -576,7 +577,7 @@ class ModelVariable:
         proceed |= category_subspace is None
         if not proceed:
             return None
-
+        
         # get the subspace(s) of categories
         category_subspace = (
             self.dict_varinfo.get(self.key_categories)
@@ -713,6 +714,9 @@ class ModelVariable:
             * List[attribute_table.AttributeTable]: optional list of 
                 AttributeTable objects
         """
+        # initialize
+        category_definition_out = {}
+
         # check the specification of the element definition and turn into a dictionary for iteration
         if isinstance(category_definition, at.AttributeTable):
             category_definition_out = {category_definition.key: category_definition}
@@ -725,9 +729,6 @@ class ModelVariable:
                 (v.key, v) for v in category_definition.values() 
                 if hasattr(v, "key") & hasattr(v, "key_values")
             )
-
-        else:
-            category_definition_out = {}
 
 
         return category_definition_out
@@ -1073,7 +1074,7 @@ class ModelVariable:
             if isinstance(category_restrictions, dict)
             else None
         )
-
+        
         # run through filtering and split elements
         category_restrictions = self.get_categories_by_element(
             category_restrictions,
@@ -1089,8 +1090,7 @@ class ModelVariable:
                 (k, v) for k, v in category_restrictions.items()
                 if k in keys_keep
             )
-    
-        
+
         ##  ITERATE 
         
         for dim in dims:

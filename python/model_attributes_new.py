@@ -1539,7 +1539,10 @@ class ModelAttributesNew:
             dict_valid_types_to_attribute_keys[type_target]
         )
 
-        key_target_pycat = self.get_subsector_attribute(subsector_target, "pycategory_primary")
+        key_target_pycat = self.get_subsector_attribute(
+            subsector_target, 
+            "pycategory_primary_element"
+        )
 
         if not key_primary:
             msg = f"""
@@ -1784,7 +1787,7 @@ class ModelAttributesNew:
 
         """
         # some shared values
-        pycat_enfu = self.get_subsector_attribute(self.subsec_name_enfu, "pycategory_primary")
+        pycat_enfu = self.get_subsector_attribute(self.subsec_name_enfu, "pycategory_primary_element")
         subsec = self.subsec_name_entc
         attr = self.get_attribute_table(subsec)
 
@@ -1792,6 +1795,7 @@ class ModelAttributesNew:
         # check required fields - binary - and the partition of types
         fields_req_bin = ["fuel_processing", "mining_and_extraction", "power_plant", "storage"]
         self._check_binary_fields(attr, subsec, fields_req_bin)
+
         fields_partition_bin = ["fuel_processing", "mining_and_extraction", "power_plant", "storage"]
         self._check_binary_category_partition(attr, fields_partition_bin)
 
@@ -1892,10 +1896,9 @@ class ModelAttributesNew:
         Check that the land use attribute tables are specified correctly.
         """
         # specify some generic variables
-        catstr_forest = self.get_subsector_attribute(self.subsec_name_frst, "pycategory_primary")
-        catstr_landuse = self.get_subsector_attribute(self.subsec_name_lndu, "pycategory_primary")
-        attribute_forest = self.dict_attributes[catstr_forest]
-        attribute_landuse = self.dict_attributes[catstr_landuse]
+        attribute_forest = self.get_attribute_table(self.subsec_name_frst)
+        attribute_landuse = self.get_attribute_table(self.subsec_name_lndu)
+
         cats_forest = attribute_forest.key_values
         cats_landuse = attribute_landuse.key_values
         matchstr_forest = self.matchstring_landuse_to_forests
@@ -1912,28 +1915,77 @@ class ModelAttributesNew:
         set_land_use_forest_cats = set([x.replace(matchstr_forest, "") for x in cats_landuse if (matchstr_forest in x)])
 
         if not set_cats_forest_in_land_use.issubset(set(cats_landuse)):
+
             missing_vals = set_cats_forest_in_land_use - set(cats_landuse)
             missing_str = sf.format_print_list(missing_vals)
-            raise KeyError(f"Missing key values in land use attribute file '{attribute_landuse.fp_table}': did not find land use categories {missing_str}.")
+
+            msg = f"""
+            Missing key values in land use attribute file 
+            '{attribute_landuse.fp_table}': did not find land use categories 
+            {missing_str}.
+            """
+
+            raise KeyError(msg)
+
         elif not set_land_use_forest_cats.issubset(cats_forest):
+
             extra_vals = set_land_use_forest_cats - set(cats_forest)
             extra_vals = sf.format_print_list(extra_vals)
-            raise KeyError(f"Undefined forest categories specified in land use attribute file '{attribute_landuse.fp_table}': did not find forest categories {extra_vals}.")
+
+            msg = f"""
+            Undefined forest categories specified in land use attribute file 
+            '{attribute_landuse.fp_table}': did not find forest categories 
+            {extra_vals}.
+            """
+
+            raise KeyError(msg)
+
 
         # check specification of crop category & pasture category
-        fields_req_bin = ["crop_category", "other_category", "pasture_category", "settlements_category", "wetlands_category"]
-        self._check_binary_fields(attribute_landuse, self.subsec_name_lndu, fields_req_bin, force_sum_to_one = 1)
+        fields_req_bin = [
+            "crop_category", 
+            "other_category", 
+            "pasture_category", 
+            "settlements_category", 
+            "wetlands_category"
+        ]
+
+        self._check_binary_fields(
+            attribute_landuse, 
+            self.subsec_name_lndu, 
+            fields_req_bin, 
+            force_sum_to_one = 1,
+        )
+
         # check
         fields_req_bin = ["reallocation_transition_probability_exhaustion_category"]
-        self._check_binary_fields(attribute_landuse, self.subsec_name_lndu, fields_req_bin, force_sum_to_one = 0)
+        self._check_binary_fields(
+            attribute_landuse, 
+            self.subsec_name_lndu, 
+            fields_req_bin, 
+            force_sum_to_one = 0,
+        )
 
 
         # check to ensure that source categories for mineralization in soil management are specified properly
         field_mnrl = "mineralization_in_land_use_conversion_to_managed"
-        cats_crop = self.get_categories_from_attribute_characteristic(self.subsec_name_lndu, {"crop_category": 1})
-        cats_mnrl = self.get_categories_from_attribute_characteristic(self.subsec_name_lndu, {field_mnrl: 1})
+        cats_crop = self.get_categories_from_attribute_characteristic(
+            self.subsec_name_lndu, 
+            {"crop_category": 1}
+        )
+        cats_mnrl = self.get_categories_from_attribute_characteristic(
+            self.subsec_name_lndu, 
+            {field_mnrl: 1}
+        )
+        
         if len(set(cats_crop) & set(cats_mnrl)) > 0:
-            raise ValueError(f"Invalid specification of field '{field_mnrl}' in {self.subsec_name_lndu} attribute located at {attribute_landuse.fp_table}. Category '{cats_crop[0]}' cannot be specified as a target category.")
+            msg = f"""
+            f"Invalid specification of field '{field_mnrl}' in 
+            {self.subsec_name_lndu} attribute located at 
+            {attribute_landuse.fp_table}. Category '{cats_crop[0]}' cannot be 
+            specified as a target category."
+            """
+            raise ValueError(msg)
 
         # check that land use/soil and forest/soil crosswalks are properly specified
         self._check_subsector_attribute_table_crosswalk(
@@ -1943,6 +1995,7 @@ class ModelAttributesNew:
             type_target = "categories",
             injection_q = True
         )
+
         self._check_subsector_attribute_table_crosswalk(
             self.subsec_name_lndu,
             self.subsec_name_soil,
@@ -1950,6 +2003,7 @@ class ModelAttributesNew:
             type_target = "categories",
             injection_q = True
         )
+
         # check that forest/land use crosswalk is set properly
         self._check_subsector_attribute_table_crosswalk(
             self.subsec_name_frst,
@@ -2589,15 +2643,19 @@ class ModelAttributesNew:
         """
 
         # check input type
-        valid_types = ["primary_category", "variable_definitions"]
+        valid_types = {
+            "primary_category": "pycategory_primary", 
+            "variable_definitions": "key_variable_definitions",
+        }
 
-        if table_type not in valid_types:
-            tps = sf.format_print_list(valid_types)
+        if table_type not in valid_types.keys():
+            tps = sf.format_print_list(sorted(list(valid_types.keys())))
             msg = f"Invalid table_type '{table_type}': valid options are {tps}."
             raise ValueError(msg)
 
         # get different table by different type
-        key_dict = self.get_subsector_attribute(subsector, table_type)
+        subsec_attr = valid_types.get(table_type)
+        key_dict = self.get_subsector_attribute(subsector, subsec_attr)
 
         if table_type == "primary_category":
             dict_retrieve = self.dict_attributes.get(self.attribute_group_key_cat)
@@ -2672,43 +2730,42 @@ class ModelAttributesNew:
 
 
 
-    def get_categories_from_attribute_characteristic(self, 
+    def get_categories_from_attribute_characteristic(self, #FIXED
         subsector: str,
         dict_subset: dict,
-        attribute_type: str = "pycategory_primary",
-        subsector_extract_key: str = None,
-    ) -> list:
+        attribute_type: str = "primary_category",
+        subsector_extract_key: Union[str, None] = None,
+    ) -> Union[list, None]:
         """
         Return categories from an attribute table that match some 
             characteristics (defined in dict_subset)
+
+        Keyword Arguments
+        -----------------
+        - attribute_type: "primary_category" or "variable_definitions"
+        - subsector_extract_key: optional key to specity to retrieve. If None,
+            retrieves subsector attribute key
         """
         #
-        auto_select_attr_q = (self.check_subsector(subsector, throw_error_q = False) == subsector)
+        attr = self.get_attribute_table(subsector, attribute_type)
+        if attr is None:
+            return None
 
-        if auto_select_attr_q:
-            pycat = self.get_subsector_attribute(subsector, attribute_type)
-            attr = (
-                self.dict_attributes.get(pycat) 
-                if (attribute_type == "pycategory_primary") 
-                else self.dict_variable_definitions.get(pycat)
-            )
-        else:
-            attr = self.dict_attributes.get(subsector)
-            extract_key = (
-                subsector_extract_key 
-                if (subsector_extract_key is not None) 
-                else (attr.key if (attr is not None) else "")
-            )
-            pycat = extract_key if (attr is not None) else ""
+        subsector_extract_key = (
+            subsector_extract_key
+            if isinstance(subsector_extract_key, str) & (subsector_extract_key in attr.table.columns)
+            else attr.key
+        )
 
-        return_val = None
-        if (attr is not None):
-            return_val = list(sf.subset_df(attr.table, dict_subset)[pycat])
-            return_val = (
-                [x for x in attr.key_values if x in return_val] 
-                if pycat == attr.key
-                else return_val
-            )
+        # 
+        return_val = list(sf.subset_df(attr.table, dict_subset)[subsector_extract_key])
+        
+        # ensure proper sorting
+        return_val = (
+            [x for x in attr.key_values if x in return_val] 
+            if subsector_extract_key == attr.key
+            else return_val
+        )
 
         return return_val
     
@@ -2829,44 +2886,83 @@ class ModelAttributesNew:
 
 
 
-    def get_ordered_category_attribute(self,
+    def get_ordered_category_attribute(self, #FIXED
         subsector: str,
         attribute: str,
-        attr_type: str = "pycategory_primary",
+        attr_type: str = "primary_category",
+        clean_attribute_schema_q: bool = False,
+        flag_none: str = "none",
         skip_none_q: bool = False,
         return_type: type = list,
-        clean_attribute_schema_q: bool = False,
     ) -> list:
         """
         Get attribute column from an attribute table ordered the same as key 
-            values
+            values.
+
+        Function Arguments
+        ------------------
+        - subsector: subsector to get categories in
+        - attribute: attribute to retrieve ordered outcomes for
+
+        Keyword Arguments
+        -----------------
+        - attr_type: either "primary_category" or "variable_definitions". Passed
+            to get_attribute_table(subsect, table_type = attr_type, )
+        - clean_attribute_schema_q: clean the target attribute using 
+            mv.clean_element
+        - flag_none: string identifying values as none
+        - skip_none_q: if True, will skip values identifyed == flag_none
+        - return_type: output return type. Acceptable types include 
+            * dict
+            * list
+            * np.ndarray
         """
+
+        ##  INITIALIZATION AND CHECKS
+
         valid_return_types = [list, np.ndarray, dict]
         if return_type not in valid_return_types:
             str_valid_types = sf.format_print_list(valid_return_types)
             raise ValueError(f"Invalid return_type '{return_type}': valid types are {str_valid_types}.")
+    
+        # get and check attribute table
+        attr_cur = self.get_attribute_table(subsector, table_type = attr_type)
+        if attr_cur is None:
+            msg = f"""
+            Invalid attribute type '{attr_type}': select 'primary_category' or 
+            'variable_definitions'.
+            """
+            raise ValueError(msg)
 
-        pycat = self.get_subsector_attribute(subsector, attr_type)
-        if attr_type == "pycategory_primary":
-            attr_cur = self.dict_attributes[pycat]
-        elif attr_type in ["key_varreqs_all", "key_varreqs_partial"]:
-            attr_cur = self.dict_variable_definitions[pycat]
-        else:
-            raise ValueError(f"Invalid attribute type '{attr_type}': select 'pycategory_primary', 'key_varreqs_all', or 'key_varreqs_partial'.")
-
+        # verify the attribute is available
         if attribute not in attr_cur.table.columns:
-            raise ValueError(f"Missing attribute column '{attribute}': attribute not found in '{subsector}' attribute table.")
+            msg = f"""
+            f"Missing attribute column '{attribute}': attribute not found in 
+            '{subsector}' attribute table.
+            """
+            raise ValueError(msg)
 
-        # get the dictionary and order
-        tab = attr_cur.table[attr_cur.table[attribute] != "none"] if skip_none_q else attr_cur.table
-        dict_map = sf.build_dict(tab[[attr_cur.key, attribute]]) if (not clean_attribute_schema_q) else dict(zip(tab[attr_cur.key], list(tab[attribute].apply(clean_schema))))
-        kv = [x for x in attr_cur.key_values if x in list(tab[attr_cur.key])]
 
+        ##  FILTER THE TABLE AND GET ORDERING
+
+        tab = (
+            attr_cur.table[attr_cur.table[attribute] != flag_none] 
+            if skip_none_q 
+            else attr_cur.table
+        )
+
+        dict_map = sf.build_dict(tab[[attr_cur.key, attribute]]) 
+        if clean_attribute_schema_q:
+            dict_map = dict((k, mv.clean_element(v)) for k, v in dict_map.items())
+
+        # return the dictionary?
         if return_type == dict:
-            out = dict_map
-        else:
-            out = [dict_map[x] for x in kv]
-            out = np.array(out) if return_type == np.ndarray else out
+            return dict_map
+
+        # otherwise, order the output
+        kv = [x for x in attr_cur.key_values if x in list(tab[attr_cur.key])]
+        out = [dict_map.get(x) for x in kv]
+        out = np.array(out) if (return_type == np.ndarray) else out
 
         return out
 
@@ -3088,7 +3184,13 @@ class ModelAttributesNew:
 
             * abv_subsector
             * key_variable_definitions
-            * pycategory_primary
+            * pycategory_primary:
+                return the primary category name associated with the subsector
+                EXCLUDING the self.attribute_group_key_cat prependage (not
+                variable schema element focused)
+            * pycategory_primary_element:
+                return the primary category name associated with the subsector
+                INCLUDING the self.attribute_group_key_cat prependage
             * sector
             * subsector
         """
@@ -3100,9 +3202,15 @@ class ModelAttributesNew:
             return None
 
         # if the primary category, simply get it and return it
-        if return_type == "pycategory_primary":
+        if return_type in ["pycategory_primary", "pycategory_primary_element"]:
+
             dict_map = attr_subsector.field_maps.get(f"subsector_to_{self.subsector_field_category_py}")
             out = dict_map.get(subsector) if isinstance(dict_map, dict) else None
+
+            # modify if seeking the element
+            if isinstance(out, str) & (return_type == "pycategory_primary_element"):
+                out = f"{self.attribute_group_key_cat}_{out}"
+
             return out
 
     
@@ -3135,11 +3243,27 @@ class ModelAttributesNew:
 
         # temporary to support debugging
         if return_type in ["key_varreqs_all", "key_varreqs_partial"]:
-            raise RuntimeError(f"ERROR in get_subector_attribute: invalid key {return_type}--this key type is not supported. Check source code and modify.")
+            msg = f"""
+            ERROR in get_subector_attribute: invalid key {return_type}--this key 
+            type is not supported. Check source code and modify."
+            """
+            raise RuntimeError(msg)
         
         # warn user, but still allow a return
-        valid_rts = sf.format_print_list(list(dict_out.keys()))
-        warnings.warn(f"Invalid subsector attribute '{return_type}'. Valid return type values are:{valid_rts}")
+        valid_rts = [
+            "abv_sector",
+            "abv_subsector",
+            "key_variable_definitions",
+            "pycategory_primary",
+            "sector"
+        ]
+
+        valid_rts = sf.format_print_list(valid_rts)
+        msg = f"""
+        Invalid subsector attribute '{return_type}'. Valid return type values 
+        are:{valid_rts}
+        """
+        warnings.warn(msg)
 
         return None
     
@@ -3364,7 +3488,7 @@ class ModelAttributesNew:
 
         
         for k, v in dict_vardefs.items():
-            
+
             # initialize table
             tab = v.table
             
@@ -3374,7 +3498,7 @@ class ModelAttributesNew:
             subsector = dict_subsector_abv_to_subsector.get(subsector_abv)
             
             attr_cats = self.get_attribute_table(subsector)
-            
+
             # dictionary to pass to each variable
             dict_sector_info = {
                 "sector": sector,
@@ -3385,7 +3509,7 @@ class ModelAttributesNew:
 
             # iterate to build variable objects
             for i, row in tab.iterrows():
-                
+
                 dict_row = row.to_dict()
                 dict_row.update(dict_sector_info)
                 
@@ -3493,14 +3617,21 @@ class ModelAttributesNew:
 
         # check inputs
         if (modvar is None) and any([(x is None) for x in [output_cats, output_subsec]]):
-            raise ValueError(f"Error in input specification. If modvar == None, then output_cats and output_subsec cannot be None.")
+            msg = f"""
+            Error in input specification. If modvar == None, then output_cats 
+            and output_subsec cannot be None.
+            """
+            raise ValueError(msg)
         
         if not sf.isnumber(missing_vals):
-            raise ValueError(f"Error in input specification of missing_vals: missing_vals should be a floating point number of integer.")
+            msg = f"""
+            Error in input specification of missing_vals: missing_vals should be 
+            a floating point number of integer.
+            """
+            raise ValueError(msg)
 
         # get subsector/categories information
         if modvar is not None:
-
             # check variable first
             if modvar not in self.all_model_variables:
                 raise ValueError(f"Invalid model variable '{modvar}' found in get_variable_characteristic.")
@@ -3517,11 +3648,21 @@ class ModelAttributesNew:
             # check that all categories are defined
             if not set(output_cats).issubset(set(attr_subsec.key_values)):
                 invalid_values = sf.format_print_list(list(set(output_cats) - set(attr_subsec.key_values)))
-                raise ValueError(f"Error in merge_array_var_partial_cat_to_array_all_cats: Invalid categories {invalid_values} specified for subsector {subsector} in output_cats.")
+                msg = f"""
+                Error in merge_array_var_partial_cat_to_array_all_cats: Invalid 
+                categories {invalid_values} specified for subsector {subsector} 
+                in output_cats.
+                """
+                raise ValueError(msg)
 
             # check that all categories are unique
             if len(set(output_cats)) != len(output_cats):
-                raise ValueError(f"Error in merge_array_var_partial_cat_to_array_all_cats: Categories specified in output_cats are not unique. Check that categories are unique.")
+                msg = f"""
+                Error in merge_array_var_partial_cat_to_array_all_cats: 
+                Categories specified in output_cats are not unique. Check that 
+                categories are unique.
+                """
+                raise ValueError(msg)
 
         # return the array if all categories are specified
         if cat_restriction_type == "all":
@@ -3538,7 +3679,7 @@ class ModelAttributesNew:
 
 
 
-    def reduce_all_cats_array_to_partial_cat_array(self, 
+    def reduce_all_cats_array_to_partial_cat_array(self, #VISIT
         array_vals: np.ndarray, 
         modvar: str
     ) -> np.ndarray:
@@ -4515,18 +4656,26 @@ class ModelAttributesNew:
         # check the subsector and type specifications
         self.check_subsector(subsector)
         dict_valid_types_to_attribute_keys = {
-            "categories": "pycategory_primary",
-            "varreqs_all": "key_varreqs_all",
-            "varreqs_partial": "key_varreqs_partial"
+            "categories": "primary_category", #"primary_category"
+            "variables": "variable_definitions", #"variable_definitions"
         }
+        
+        attr_type_retrieve = dict_valid_types_to_attribute_keys.get(type_table)
+        if attr_type_retrieve is None:
+            str_valid_types = sf.format_print_list(
+                list(dict_valid_types_to_attribute_keys.keys())
+            )
 
-        valid_types = list(dict_valid_types_to_attribute_keys.keys())
-        str_valid_types = sf.format_print_list(valid_types)
-        if type_table not in valid_types:
-            raise ValueError(f"Invalid type_primary '{type_primary}' specified. Valid values are '{str_valid_types}'.")
+            msg = f"""
+            Invalid type_primary '{type_primary}' specified. Valid values are 
+            '{str_valid_types}'.
+            """
+            raise ValueError(msg)
+
 
         # retrieve the attribute table and check the field specification
-        attr_subsector = self.get_attribute_table(subsector, dict_valid_types_to_attribute_keys[type_table])
+        
+        attr_subsector = self.get_attribute_table(subsector, attr_type_retrieve)
         sf.check_fields(attr_subsector.table, [field_attribute])
 
         # get the unique field values
@@ -4535,7 +4684,7 @@ class ModelAttributesNew:
                 subsector,
                 field_attribute,
                 skip_none_q = True,
-                attr_type = dict_valid_types_to_attribute_keys[type_table]
+                attr_type = attr_type_retrieve,
             )
         ))
         all_field_values.sort()
@@ -4545,18 +4694,25 @@ class ModelAttributesNew:
         dict_vals_unassigned = {}
 
         for val in all_field_values:
+            
             dict_out_key = clean_schema(val) if clean_field_vals else val
-            subsec_keys = attr_subsector.table[attr_subsector.table[field_attribute] == val][attr_subsector.key]
+            subsec_keys = attr_subsector.table[
+                attr_subsector.table[field_attribute] == val
+            ][attr_subsector.key]
+
             # loop over the keys to assign
             dict_assigned = {}
             for subsec_key in subsec_keys:
                 for k in dict_assignment.keys():
-                    if k in subsec_key:
-                        val_assigned = clean_schema(subsec_key) if clean_attr_key else subsec_key
-                        dict_assigned.update({dict_assignment[k]: val_assigned})
+                    if k not in subsec_key:
+                        continue
 
+                    val_assigned = clean_schema(subsec_key) if clean_attr_key else subsec_key
+                    dict_assigned.update({dict_assignment[k]: val_assigned})
+            
+            vals_unassigned = list(set(dict_assignment.values()) - set(dict_assigned.keys()))
             dict_out.update({dict_out_key: dict_assigned})
-            dict_vals_unassigned.update({dict_out_key: list(set(dict_assignment.values()) - set(dict_assigned.keys()))})
+            dict_vals_unassigned.update({dict_out_key: vals_unassigned})
 
         return dict_out, dict_vals_unassigned
 
@@ -4934,7 +5090,7 @@ class ModelAttributesNew:
 
 
 
-    def build_varlist(self,
+    def build_varlist(self, #VISIT
         subsector: Union[str, None],
         variable_subsec: Union[str, None] = None,
         restrict_to_category_values: Union[List[str], None] = None,

@@ -1047,27 +1047,34 @@ class IPPU:
 
         # perform adjustments to production if recycling is denoted
         if array_ippu_recycled is not None:
+
             # if recycling totals are passed from the waste model, convert to ippu categories
             cats_waso_recycle = self.model_attributes.get_variable_categories(modvar_waste_total_recycled)
             dict_repl = attr_waso.field_maps[f"{pycat_waso}_to_{pycat_ippu}"]
             cats_ippu_recycle = [clean_schema(dict_repl[x]) for x in cats_waso_recycle]
+
             array_ippu_recycled_waste = self.model_attributes.merge_array_var_partial_cat_to_array_all_cats(
                 array_ippu_recycled[1],
                 None,
                 output_cats = cats_ippu_recycle,
-                output_subsec = self.subsec_name_ippu
+                output_subsec = self.subsec_name_ippu,
             )
+
             # units correction to ensure consistency from waso -> ippu
             factor_ippu_waso_recycle_to_ippu_recycle = self.model_attributes.get_variable_unit_conversion_factor(
                 modvar_waste_total_recycled,
                 modvar_prod_qty_init,
                 "mass"
             )
+
             array_ippu_recycled_waste *= factor_ippu_waso_recycle_to_ippu_recycle
             array_ippu_production += array_ippu_recycled_waste
 
             # next, check for industrial categories whose production is affected by recycling, then adjust downwards
-            cats_ippu_to_recycle_ordered = self.model_attributes.get_ordered_category_attribute(self.subsec_name_ippu, "target_cat_industry_to_adjust_with_recycling")
+            cats_ippu_to_recycle_ordered = self.model_attributes.get_ordered_category_attribute(
+                self.subsec_name_ippu, 
+                "target_cat_industry_to_adjust_with_recycling",
+            )
             vec_ippu_cats_to_adjust_from_recycling = [clean_schema(x) for x in cats_ippu_to_recycle_ordered]
 
             # get indexes of of valid categories specified for recycling adjustments

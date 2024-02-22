@@ -132,7 +132,7 @@ class CircularEconomy:
             {
                 "Treatment Fraction": "treatment_fraction"
             },
-            "varreqs_all",
+            "variables",
             True
         )
 
@@ -887,13 +887,22 @@ class CircularEconomy:
                 non-red meat diets
             """
             array_lvst_total_dem = array_project_protein_driver
-            vec_lvst_weights = self.model_attributes.get_ordered_category_attribute("Livestock", "animal_weight_kg")
+            vec_lvst_weights = self.model_attributes.get_ordered_category_attribute(
+                self.model_attributes.subsec_name_lvst,
+                "animal_weight_kg"
+            )
             vec_protein_growth = np.sum(array_lvst_total_dem*vec_lvst_weights, axis = 1)
             vec_protein_growth = np.concatenate([np.ones(1), np.cumprod(vec_protein_growth[1:]/vec_protein_growth[0:-1])])
         
         else:
             if vec_rates_gdp_per_capita is None:
-                raise ValueError(f"Error in project_protein_consumption: Livestock growth rates not found in data frame. To use the '{self.modvar_wali_optional_elasticity_protein_to_gdppc}' variable, specify a vector of gdp growth rates.")
+                msg = f"""
+                Error in project_protein_consumption: Livestock growth rates not 
+                found in data frame. To use the 
+                '{self.modvar_wali_optional_elasticity_protein_to_gdppc}' 
+                variable, specify a vector of gdp growth rates.
+                """
+                raise ValueError(msg)
             
             # in this case, array_project_protein_driver_a == array_project_protein_driver_a
             vec_wali_elast_protein = array_project_protein_driver.flatten()
@@ -901,7 +910,7 @@ class CircularEconomy:
                 vec_rates_gdp_per_capita, 
                 vec_wali_elast_protein, 
                 False, 
-                "standard"
+                "standard",
             )
        
        # total protein
@@ -1751,20 +1760,51 @@ class CircularEconomy:
         ############################
 
         # get some attributes that are shared across pathways
-        vec_waso_cat_attr_dry_matter_content_as_fraction_wet_weight = self.model_attributes.get_ordered_category_attribute(self.subsec_name_waso, "dry_matter_content_as_fraction_wet_weight", return_type = np.ndarray)
-        vec_waso_cat_attr_doc_content_as_fraction_wet_waste = self.model_attributes.get_ordered_category_attribute(self.subsec_name_waso, "doc_content_as_fraction_wet_waste", return_type = np.ndarray)
-        vec_waso_cat_attr_doc_content_as_fraction_dry_waste = self.model_attributes.get_ordered_category_attribute(self.subsec_name_waso, "doc_content_as_fraction_dry_waste", return_type = np.ndarray)
-        vec_waso_cat_attr_docf_degradable = self.model_attributes.get_ordered_category_attribute(self.subsec_name_waso, "docf_degradable", return_type = np.ndarray)
-        vec_waso_cat_attr_total_carbon_content_as_fraction_dry_weight = self.model_attributes.get_ordered_category_attribute(self.subsec_name_waso, "total_carbon_content_as_fraction_dry_weight", return_type = np.ndarray)
-        vec_waso_cat_attr_fossil_carbon_fraction_as_fraction_total_carbon = self.model_attributes.get_ordered_category_attribute(self.subsec_name_waso, "fossil_carbon_fraction_as_fraction_total_carbon", return_type = np.ndarray)
+        vec_waso_cat_attr_dry_matter_content_as_fraction_wet_weight = self.model_attributes.get_ordered_category_attribute(
+            self.subsec_name_waso, 
+            "dry_matter_content_as_fraction_wet_weight", 
+            return_type = np.ndarray,
+        )
+
+        vec_waso_cat_attr_doc_content_as_fraction_wet_waste = self.model_attributes.get_ordered_category_attribute(
+            self.subsec_name_waso, 
+            "doc_content_as_fraction_wet_waste", 
+            return_type = np.ndarray,
+        )
+
+        vec_waso_cat_attr_doc_content_as_fraction_dry_waste = self.model_attributes.get_ordered_category_attribute(
+            self.subsec_name_waso, 
+            "doc_content_as_fraction_dry_waste", 
+            return_type = np.ndarray,
+        )
+
+        vec_waso_cat_attr_docf_degradable = self.model_attributes.get_ordered_category_attribute(
+            self.subsec_name_waso, 
+            "docf_degradable", 
+            return_type = np.ndarray,
+        )
+
+        vec_waso_cat_attr_total_carbon_content_as_fraction_dry_weight = self.model_attributes.get_ordered_category_attribute(
+            self.subsec_name_waso, 
+            "total_carbon_content_as_fraction_dry_weight", 
+            return_type = np.ndarray,
+        )
+
+        vec_waso_cat_attr_fossil_carbon_fraction_as_fraction_total_carbon = self.model_attributes.get_ordered_category_attribute(
+            self.subsec_name_waso, 
+            "fossil_carbon_fraction_as_fraction_total_carbon", 
+            return_type = np.ndarray,
+        )
+
         # check that the sum of these variables across categories equals one and force equality
         dict_waso_check_non_recycle_pathways = self.model_attributes.get_multivariables_with_bounded_sum_by_category(
             df_ce_trajectories,
             self.modvars_waso_frac_non_recyled_pathways,
             1,
             msg_append = "See the calculation of dict_waso_check_non_recycle_pathways.",
-            force_sum_equality = True
+            force_sum_equality = True,
         )
+        
         array_waso_waste_incineration = (dict_waso_check_non_recycle_pathways[self.modvar_waso_frac_nonrecycled_incineration].flatten()*array_waso_total_by_category.transpose()).transpose()
         array_waso_waste_landfill = (dict_waso_check_non_recycle_pathways[self.modvar_waso_frac_nonrecycled_landfill].flatten()*array_waso_total_by_category.transpose()).transpose()
         array_waso_waste_open_dump = (dict_waso_check_non_recycle_pathways[self.modvar_waso_frac_nonrecycled_opendump].flatten()*array_waso_total_by_category.transpose()).transpose()

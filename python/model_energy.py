@@ -1443,7 +1443,7 @@ class NonElectricEnergy:
             {
                 "Fuel Fraction": "fuel_fraction"
             },
-            "varreqs_partial",
+            "variables",
             True
         )
 
@@ -1485,7 +1485,7 @@ class NonElectricEnergy:
                 ":math:\\text{N}_2\\text{O}": "ef_n2o",
                 "Vehicle Distance Traveled from": "vehicle_distance_traveled"
             },
-            "varreqs_partial",
+            "variables",
             True
         )
 
@@ -3320,18 +3320,21 @@ class NonElectricEnergy:
 
 
         ##  CATEGORY AND ATTRIBUTE INITIALIZATION
-        pycat_enfu = self.model_attributes.get_subsector_attribute(self.subsec_name_enfu, "pycategory_primary")
-        pycat_trde = self.model_attributes.get_subsector_attribute(self.subsec_name_trde, "pycategory_primary")
-        pycat_trns = self.model_attributes.get_subsector_attribute(self.subsec_name_trns, "pycategory_primary")
+        pycat_trde = self.model_attributes.get_subsector_attribute(
+            self.subsec_name_trde, 
+            "pycategory_primary_element",
+        )
+
         # attribute tables
-        attr_enfu = self.model_attributes.dict_attributes[pycat_enfu]
-        attr_trde = self.model_attributes.dict_attributes[pycat_trde]
-        attr_trns = self.model_attributes.dict_attributes[pycat_trns]
+        attr_enfu = self.model_attributes.get_attribute_table(self.subsec_name_enfu)
+        attr_trde = self.model_attributes.get_attribute_table(self.subsec_name_trde)
+        attr_trns = self.model_attributes.get_attribute_table(self.subsec_name_trns)
 
 
         ##  OUTPUT INITIALIZATION
 
         df_out = [df_neenergy_trajectories[self.required_dimensions].copy()]
+
         # add transportation demand to outputs if necessary
         if append_trde_outputs:
             df_out += [
@@ -3362,7 +3365,7 @@ class NonElectricEnergy:
         dict_trde_cats_to_trns_vars = self.model_attributes.get_ordered_category_attribute(
             self.subsec_name_trns, 
             pycat_trde, 
-            attr_type = "key_varreqs_partial", 
+            attr_type = "variable_definitions",
             clean_attribute_schema_q = True,
             return_type = dict, 
             skip_none_q = True,
@@ -3846,18 +3849,29 @@ class NonElectricEnergy:
         """
 
         # allows production to be run outside of the project method
-        if type(None) in set([type(x) for x in [dict_dims, n_projection_time_periods, projection_time_periods]]):
-            dict_dims, df_neenergy_trajectories, n_projection_time_periods, projection_time_periods = self.model_attributes.check_projection_input_df(df_neenergy_trajectories, True, True, True)
+        check_none = any(
+            [(x is None) for x in [dict_dims, n_projection_time_periods, projection_time_periods]]
+        )
+        if check_none:
+            (
+                dict_dims, 
+                df_neenergy_trajectories, 
+                n_projection_time_periods, 
+                projection_time_periods
+            ) = self.model_attributes.check_projection_input_df(
+                df_neenergy_trajectories, 
+                True, 
+                True, 
+                True,
+            )
 
 
         ##  CATEGORY AND ATTRIBUTE INITIALIZATION
-        pycat_enfu = self.model_attributes.get_subsector_attribute(self.subsec_name_enfu, "pycategory_primary")
-        pycat_trde = self.model_attributes.get_subsector_attribute(self.subsec_name_trde, "pycategory_primary")
-        pycat_trns = self.model_attributes.get_subsector_attribute(self.subsec_name_trns, "pycategory_primary")
+         
         # attribute tables
-        attr_enfu = self.model_attributes.dict_attributes[pycat_enfu]
-        attr_trde = self.model_attributes.dict_attributes[pycat_trde]
-        attr_trns = self.model_attributes.dict_attributes[pycat_trns]
+        attr_enfu = self.model_attributes.get_attribute_table(self.subsec_name_enfu)
+        attr_trde = self.model_attributes.get_attribute_table(self.subsec_name_trde)
+        attr_trns = self.model_attributes.get_attribute_table(self.subsec_name_trns)
 
 
         ##  OUTPUT INITIALIZATION
@@ -3904,7 +3918,11 @@ class NonElectricEnergy:
         array_trde_freight_dem_by_cat = array_trde_dem_init_freight[0]*array_trde_growth_freight_dem_by_cat
         array_trde_freight_dem_by_cat *= array_trde_demscalar
         df_out.append(
-            self.model_attributes.array_to_df(array_trde_freight_dem_by_cat, self.modvar_trde_demand_mtkm, False, True)
+            self.model_attributes.array_to_df(
+                array_trde_freight_dem_by_cat, 
+                self.modvar_trde_demand_mtkm, 
+                reduce_from_all_cats_to_specified_cats = True,
+            )
         )
 
         # deal with person-km
@@ -3958,7 +3976,6 @@ class NonElectricEnergy:
         df_neenergy_trajectories: pd.DataFrame,
         subsectors_project: Union[list, str, None] = None
     ) -> pd.DataFrame:
-
         """
         Run the NonElectricEnergy model. Take a data frame of input variables 
             (ordered by time series) and return a data frame of output variables 

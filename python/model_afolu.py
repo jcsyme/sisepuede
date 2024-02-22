@@ -105,13 +105,22 @@ class AFOLU:
         """
         sf._optional_log(self.logger, msg, type_log = type_log, **kwargs)
 
+        return None
 
-    # assign some land use categories
+
+
     def _assign_cats_lndu(self
     ) -> None:
+        """
+        Assign shortcut properties for land use categories, including crosswalks
+            mapping forests to their land use category
+        """
 
         attr_lndu = self.model_attributes.get_attribute_table(self.subsec_name_lndu)
-        pycat_frst = self.model_attributes.get_subsector_attribute(self.subsec_name_frst, "primary_category")
+        pycat_frst = self.model_attributes.get_subsector_attribute(
+            self.subsec_name_frst, 
+            "pycategory_primary_element"
+        )
         
         ##  set categories
 
@@ -194,7 +203,7 @@ class AFOLU:
         """
         pycat_frst = self.model_attributes.get_subsector_attribute(
             self.model_attributes.subsec_name_frst,
-            "pycategory_primary"
+            "pycategory_primary_element"
         )
 
         dict_lndu_to_frst = self.model_attributes.get_ordered_category_attribute(
@@ -250,7 +259,7 @@ class AFOLU:
         subsec_lsmm = self.model_attributes.subsec_name_lsmm
         pycat_lsmm = self.model_attributes.get_subsector_attribute(
             subsec_lsmm, 
-            "pycategory_primary"
+            "pycategory_primary_element"
         )
 
         dict_out = self.model_attributes.assign_keys_from_attribute_fields(
@@ -259,7 +268,7 @@ class AFOLU:
             {
                 "Livestock Manure Management Fraction": "mm_fraction"
             },
-            "varreqs_all",
+            "variables",
             True
         )
 
@@ -1169,13 +1178,21 @@ class AFOLU:
             project_land_use
         """
         # get land use info
-        pycat_lndu = self.model_attributes.get_subsector_attribute(self.subsec_name_lndu, "pycategory_primary")
-        attr_lndu = self.model_attributes.dict_attributes[pycat_lndu]
+        attr_lndu = self.model_attributes.get_attribute_table(self.subsec_name_lndu)
 
         if len(arrs.shape) < 3:
-            raise ValueError(f"Invalid shape for array {function_var_name}; the array must be a list of square matrices.")
+            msg = f"""
+            f"Invalid shape for array {function_var_name}; the array must be a 
+            list of square matrices."
+            """
+            raise ValueError(msg)
+
         elif arrs.shape[1:3] != (attr_lndu.n_key_values, attr_lndu.n_key_values):
-            raise ValueError(f"Invalid shape of matrices in {function_var_name}. They must have shape ({attr_lndu.n_key_values}, {attr_lndu.n_key_values}).")
+            msg = f"""
+            f"Invalid shape of matrices in {function_var_name}. They must have 
+            shape ({attr_lndu.n_key_values}, {attr_lndu.n_key_values})."
+            """
+            raise ValueError(msg)
 
         return None
 
@@ -2213,8 +2230,15 @@ class AFOLU:
         )
         vec_agrc_demscale = vec_gnrl_frac_eating_red_meat + vec_agrc_diet_exchange_scalar - vec_gnrl_frac_eating_red_meat*vec_agrc_diet_exchange_scalar
         vec_agrc_demscale = np.nan_to_num(vec_agrc_demscale/vec_agrc_demscale[0], 1.0, posinf = 1.0)
+        
         # get categories that need to be scaled
-        vec_agrc_scale_demands_for_veg = np.array(self.model_attributes.get_ordered_category_attribute(self.subsec_name_agrc, "apply_vegetarian_exchange_scalar"))
+        vec_agrc_scale_demands_for_veg = np.array(
+            self.model_attributes.get_ordered_category_attribute(
+                self.subsec_name_agrc, 
+                "apply_vegetarian_exchange_scalar"
+            )
+        )
+
         arr_agrc_demscale = np.outer(vec_agrc_demscale, vec_agrc_scale_demands_for_veg)
         arr_agrc_demscale = arr_agrc_demscale + np.outer(np.ones(len(vec_agrc_demscale)), 1 - vec_agrc_scale_demands_for_veg)
 
@@ -2415,12 +2439,9 @@ class AFOLU:
         self.check_markov_shapes(arrs_efs, "arrs_efs")
 
         # get attributes
-        pycat_agrc = self.model_attributes.get_subsector_attribute(self.subsec_name_agrc, "pycategory_primary")
-        attr_agrc = self.model_attributes.dict_attributes[pycat_agrc]
-        pycat_lndu = self.model_attributes.get_subsector_attribute(self.subsec_name_lndu, "pycategory_primary")
-        attr_lndu = self.model_attributes.dict_attributes[pycat_lndu]
-        pycat_lvst = self.model_attributes.get_subsector_attribute(self.subsec_name_lvst, "pycategory_primary")
-        attr_lvst = self.model_attributes.dict_attributes[pycat_lvst]
+        attr_agrc = self.model_attributes.get_attribute_table(self.subsec_name_agrc)
+        attr_lndu = self.model_attributes.get_attribute_table(self.subsec_name_lndu)
+        attr_lvst = self.model_attributes.get_attribute_table(self.subsec_name_lvst)
 
         # set some commonly called attributes and indices in arrays
         m = attr_lndu.n_key_values
@@ -2438,16 +2459,24 @@ class AFOLU:
         arr_agrc_frac_cropland = np.array([vec_agrc_frac_cropland_area for k in range(n_tp)])
         arr_agrc_net_import_increase = np.zeros((n_tp, attr_agrc.n_key_values))
         arr_agrc_change_to_net_imports_lost = np.zeros((n_tp, attr_agrc.n_key_values))
-        arr_agrc_yield = np.array([(vec_initial_area[self.ind_lndu_crop]*vec_agrc_frac_cropland_area*arr_agrc_yield_factors[0]) for k in range(n_tp)])
+        
+        arr_agrc_yield = np.array([
+            (vec_initial_area[self.ind_lndu_crop]*vec_agrc_frac_cropland_area*arr_agrc_yield_factors[0]) 
+            for k in range(n_tp)
+        ])
+        
         arr_emissions_conv = np.zeros((n_tp, attr_lndu.n_key_values))
         arr_emissions_conv_matrices = np.zeros(arrs_transitions.shape)
         arr_land_use = np.array([vec_initial_area for k in range(n_tp)])
+        
         arr_lvst_dem_adj = arr_lvst_dem.copy().astype(int)
         arr_lvst_pop_adj = arr_lvst_dem.copy().astype(int)
+
         arr_lvst_net_import_increase = np.zeros((n_tp, attr_lvst.n_key_values))
         arr_lvst_change_to_net_imports_lost = np.zeros((n_tp, attr_lvst.n_key_values))
         arrs_land_conv = np.zeros((n_tp, attr_lndu.n_key_values, attr_lndu.n_key_values))
         arrs_transitions_adj = np.zeros(arrs_transitions.shape)
+
         arrs_yields_per_livestock = np.array([arr_lndu_yield_by_lvst for k in range(n_tp)])
 
         """
@@ -2694,7 +2723,9 @@ class AFOLU:
     ) -> Tuple:
 
         """
-        NEED DOCSTRING
+        Basic version of project_land_use_integrated() that only projects
+            land use dynamics (performing Markov forward linear algebra 
+            arithmetic)
 
         Function Arguments
         ------------------
@@ -2710,8 +2741,7 @@ class AFOLU:
         self.check_markov_shapes(arrs_efs, "arrs_efs")
 
         # get land use info
-        pycat_lndu = self.model_attributes.get_subsector_attribute(self.subsec_name_lndu, "pycategory_primary")
-        attr_lndu = self.model_attributes.dict_attributes[pycat_lndu]
+        attr_lndu = self.model_attributes.get_attribute_table(self.subsec_name_lndu)
 
         # intilize the land use and conversion emissions array
         shp_init = (n_tp, attr_lndu.n_key_values)
@@ -3110,20 +3140,29 @@ class AFOLU:
         )
 
         ##  CATEGORY INITIALIZATION
-        pycat_agrc = self.model_attributes.get_subsector_attribute(self.subsec_name_agrc, "pycategory_primary")
-        pycat_frst = self.model_attributes.get_subsector_attribute(self.subsec_name_frst, "pycategory_primary")
-        pycat_lndu = self.model_attributes.get_subsector_attribute(self.subsec_name_lndu, "pycategory_primary")
-        pycat_lsmm = self.model_attributes.get_subsector_attribute(self.subsec_name_lsmm, "pycategory_primary")
-        pycat_lvst = self.model_attributes.get_subsector_attribute(self.subsec_name_lvst, "pycategory_primary")
-        pycat_soil = self.model_attributes.get_subsector_attribute(self.subsec_name_soil, "pycategory_primary")
+
+        # pycat_ABRV is used to access the category elements (in context of 
+        # variable schema) in the attribute tables
+        pycat_lndu = self.model_attributes.get_subsector_attribute(
+            self.subsec_name_lndu, 
+            "pycategory_primary_element"
+        )
+        pycat_lsmm = self.model_attributes.get_subsector_attribute(
+            self.subsec_name_lsmm, 
+            "pycategory_primary_element"
+        )
+        pycat_soil = self.model_attributes.get_subsector_attribute(
+            self.subsec_name_soil, 
+            "pycategory_primary_element"
+        )
         
         # attribute tables
-        attr_agrc = self.model_attributes.dict_attributes[pycat_agrc]
-        attr_frst = self.model_attributes.dict_attributes[pycat_frst]
-        attr_lndu = self.model_attributes.dict_attributes[pycat_lndu]
-        attr_lsmm = self.model_attributes.dict_attributes[pycat_lsmm]
-        attr_lvst = self.model_attributes.dict_attributes[pycat_lvst]
-        attr_soil = self.model_attributes.dict_attributes[pycat_soil]
+        attr_agrc = self.get_attribute_table(self.subsec_name_agrc)
+        attr_frst = self.get_attribute_table(self.subsec_name_frst)
+        attr_lndu = self.get_attribute_table(self.subsec_name_lndu)
+        attr_lsmm = self.get_attribute_table(self.subsec_name_lsmm)
+        attr_lvst = self.get_attribute_table(self.subsec_name_lvst)
+        attr_soil = self.get_attribute_table(self.subsec_name_soil)
 
 
         ##  ECON/GNRL VECTOR AND ARRAY INITIALIZATION
@@ -4026,8 +4065,15 @@ class AFOLU:
             # get the current variable
             arr_lsmm_fracs_by_lvst = dict_arrs_lsmm_frac_manure[var_lvst_mm_frac]
             arr_lsmm_total_nitrogen_cur = arr_lvst_nitrogen*arr_lsmm_fracs_by_lvst
+
             # retrive the livestock management category
-            cat_lsmm = clean_schema(self.model_attributes.get_variable_attribute(var_lvst_mm_frac, pycat_lsmm))
+            cat_lsmm = clean_schema(
+                self.model_attributes.get_variable_attribute(
+                    var_lvst_mm_frac, 
+                    pycat_lsmm
+                )
+            )
+
             index_cat_lsmm = attr_lsmm.get_key_value_index(cat_lsmm)
 
 
@@ -4716,6 +4762,7 @@ class AFOLU:
         
         # initialize organic SOC, then loop over tropical/temperate cropland to get soil carbon for organic drained soils
         vec_soil_emission_co2_soil_carbon_organic = 0.0
+        
         for modvar in self.modvar_list_agrc_frac_temptrop:
             # get appropriate soil category
             cat_soil = clean_schema(self.model_attributes.get_variable_attribute(modvar, pycat_soil))
@@ -4802,8 +4849,14 @@ class AFOLU:
             # soil category
             cat_soil = clean_schema(self.model_attributes.get_variable_attribute(modvar, pycat_soil))
             ind_soil = attr_soil.get_key_value_index(cat_soil)
-            # get land use category for soil carbon facto
-            cats_lndu = [clean_schema(x) for x in self.model_attributes.get_ordered_category_attribute(self.subsec_name_frst, pycat_lndu)]
+
+            # get land use category for soil carbon factor
+            cats_lndu = [
+                clean_schema(x) for x in self.model_attributes.get_ordered_category_attribute(
+                    self.subsec_name_frst, 
+                    pycat_lndu
+                )
+            ]
             inds_lndu = [attr_lndu.get_key_value_index(x) for x in cats_lndu]
             arr_soil_frst_temptrop_cur = np.sum(arr_area_frst*dict_arrs_frst_frac_temptrop[modvar]*arr_lndu_frac_organic_soils[:, inds_lndu], axis = 1)
             arr_soil_frst_temptrop_cur *= arr_soil_ef2[:, ind_soil]
