@@ -4984,82 +4984,6 @@ class ModelAttributesNew:
 
 
 
-    def build_vars_outer(self, 
-        dict_vr_varschema: dict, 
-        dict_vars_to_cats: dict, 
-        category_to_replace: str, 
-        appendstr_i: str = "-I", 
-        appendstr_j: str = "-J",
-    ) -> list:
-        """
-        Build variables that rely on the direct product (e.g., transition 
-            probabilities).
-
-        Function Arguments
-        ------------------
-        - dict_vr_varschema: dictionary mapping a model variable to its variable
-            schema
-        - dict_vars_to_cats: 
-        - category_to_replace:
-
-        Keyword Arguments
-        -----------------
-        - appendstr_i: string appendage in varschema category used to signify 
-            first dimension
-        - appendstr_j: string appendage in varschema category used to signify 
-            second dimension
-        """
-        # build categories for I/J
-        cat_i, cat_j = self.format_category_for_direct(
-            category_to_replace, 
-            appendstr_i, 
-            appendstr_j
-        )
-
-        vars_out = []
-
-        # run some checks and notify of any dropped variables
-        set_vr_schema_vars = set(dict_vr_varschema.keys())
-        set_vars_to_cats_vars = set(dict_vars_to_cats.keys())
-        vars_to_loop = set_vr_schema_vars & set_vars_to_cats_vars
-
-        # variables not in dict_vars_to_cats
-        if len(set_vr_schema_vars - vars_to_loop) > 0:
-            l_drop = list(set_vr_schema_vars - vars_to_loop)
-            l_drop.sort()
-            l_drop = sf.format_print_list(l_drop)
-            warnings.warn(f"\tVariables {l_drop} not found in set_vars_to_cats_vars.")
-
-        # variables not in dict_vr_varschema
-        if len(set_vars_to_cats_vars - vars_to_loop) > 0:
-            l_drop = list(set_vars_to_cats_vars - vars_to_loop)
-            l_drop.sort()
-            l_drop = sf.format_print_list(l_drop)
-            warnings.warn(f"\tVariables {l_drop} not found in set_vr_schema_vars.")
-
-        vars_to_loop = list(vars_to_loop)
-        global v_to_l
-        v_to_l = vars_to_loop.copy()
-
-        # loop over the variables available in both the variable schema dictionary and the dictionary mapping each variable to categories
-        for var in vars_to_loop:
-            var_schema = clean_schema(dict_vr_varschema[var])
-
-            if (cat_i not in var_schema) or (cat_j not in var_schema):
-                raise ValueError(f"Error in {var} variable schema: one of the outer categories '{cat_i}' or '{cat_j}' was not found. Check the attribute file.")
-
-            for catval_i in dict_vars_to_cats[var]:
-                for catval_j in dict_vars_to_cats[var]:
-                    vars_out.append(
-                        var_schema
-                        .replace(cat_i, catval_i)
-                        .replace(cat_j, catval_j)
-                    )
-
-        return vars_out
-
-
-
     def build_target_varlist_from_source_varcats(self, 
         modvar_source: str, 
         modvar_target: str
@@ -5200,7 +5124,7 @@ class ModelAttributesNew:
         )
 
         if len(dict_vr_vvs_outer) > 0:
-            vars_out += self.build_vars_outer(
+            vars_out += self.build_vars_oute1r(
                 dict_vr_vvs_outer,
                  dict(
                     zip(
@@ -5242,8 +5166,8 @@ class ModelAttributesNew:
             vars_out += self.build_vars_basic(dict_vrp_vvs, dict_vrp_vvs_cats, category)
 
         if len(dict_vrp_vvs_outer) > 0:
-            vl = self.build_vars_outer(dict_vrp_vvs_outer, dict_vrp_vvs_cats_outer, category)
-            vars_out += self.build_vars_outer(dict_vrp_vvs_outer, dict_vrp_vvs_cats_outer, category)
+            vl = self.build_vars_oute1r(dict_vrp_vvs_outer, dict_vrp_vvs_cats_outer, category)
+            vars_out += self.build_vars_oute1r(dict_vrp_vvs_outer, dict_vrp_vvs_cats_outer, category)
 
         return vars_out
 
@@ -5529,20 +5453,6 @@ class ModelAttributesNew:
             modvars_out = set(var_spec_mv + [self.get_variable(x) for x in modvars_str])
 
         return modvars_out
-
-
-
-    def format_category_for_direct(self, 
-        category_to_replace: str, 
-        appendstr_i = "-I", 
-        appendstr_j = "-J"
-    ) -> Tuple[str, str]:
-        """
-        Format a category for the direct product of category values.
-        """
-        cat_i = category_to_replace.replace("$", f"{appendstr_i}$")[len(appendstr_i):]
-        cat_j = category_to_replace.replace("$", f"{appendstr_j}$")[len(appendstr_j):]
-        return (cat_i, cat_j)
     
 
 
@@ -5564,9 +5474,9 @@ class ModelAttributesNew:
 
 
 
-    def get_input_output_fields(self, 
-        subsectors_inuired: list, 
-        build_df_q = False
+    def get_input_output_fields(self, #VISIT
+        subsectors_io: list, 
+        build_df_q: bool = False,
     ) -> Tuple[List[str], List[str]]:
         """
         Get input/output fields for a list of subsectors
@@ -5578,18 +5488,35 @@ class ModelAttributesNew:
         subsectors_out = []
         subsectors_in = []
 
-        for subsector in subsectors_inuired:
+        for subsector in subsectors_io:
+
             vars_subsector_in = self.build_varlist(subsector, variable_type = "input")
             vars_subsector_out = self.build_varlist(subsector, variable_type = "output")
+
             vars_in += vars_subsector_in
             vars_out += vars_subsector_out
+
             if build_df_q:
                 subsectors_out += [subsector for x in vars_subsector_out]
                 subsectors_in += [subsector for x in vars_subsector_in]
 
         if build_df_q:
-            vars_in = pd.DataFrame({"subsector": subsectors_in, "variable": vars_in}).sort_values(by = ["subsector", "variable"]).reset_index(drop = True)
-            vars_out = pd.DataFrame({"subsector": subsectors_out, "variable": vars_out}).sort_values(by = ["subsector", "variable"]).reset_index(drop = True)
+            vars_in = (
+                pd.DataFrame({
+                    "subsector": subsectors_in, 
+                    "variable": vars_in
+                })
+                .sort_values(by = ["subsector", "variable"])
+                .reset_index(drop = True)
+            )
+            vars_out = (
+                pd.DataFrame({
+                    "subsector": subsectors_out, 
+                    "variable": vars_out
+                })
+                .sort_values(by = ["subsector", "variable"])
+                .reset_index(drop = True)
+            )
 
         return vars_in, vars_out
     
