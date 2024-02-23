@@ -169,7 +169,7 @@ def exogenous_demands_to_sispeuede_ies(
 
 
     # get some fields
-    field_driver = model_attributes.build_varlist(
+    field_driver = model_attributes.build_variable_fields(
         None, 
         modvar_driver, 
         restrict_to_category_values = cat_driver

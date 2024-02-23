@@ -5089,6 +5089,166 @@ class ModelAttributesNew:
 
 
 
+    def build_variable_fields(self, #VISIT
+        variable_specification: Union[mv.ModelVariable, str, List[mv.ModelVariable], List[str], None],
+        restrict_to_category_values: Union[Dict[str, List[str]], List[str], None] = None,
+        dict_force_override_vrp_vvs_cats: Union[Dict, None] = None,
+        variable_type: Union[str, None] = None,
+    ) -> List[str]:
+        """
+        Build a list of fields (complete variable schema from a data frame) 
+            based on the subsector and variable name.
+
+        Function Arguments
+        ------------------
+        - variable_specification: specification for variables to build. Accepts
+            the following options:
+
+            * sector: sector name or abbreviation
+            * subsector: subsector name or abbreviation
+            * variable name: name of a variable to retrieve
+            * model variable: model variable object used to define fields
+
+        Keyword Arguments
+        -----------------
+        - dict_force_override_vrp_vvs_cats: dict_force_override_vrp_vvs_cats can 
+            be set do a dictionary of the form
+
+            {
+                MODEL_VAR_NAME: [catval_a, catval_b, catval_c, ... ]
+            }
+
+            where catval_i are not all unique; this is useful for making a 
+            variable that maps unique categories to a subset of non-unique 
+            categories that represent proxies (e.g., buffalo -> cattle_dairy, )
+
+        - restrict_to_category_values: default is None. If None, applies to all 
+            categories specified in attribute tables. 
+            * If list, will restrict to specified categories only
+            * If dict, will map variable schema elements--including by 
+                dimension-to categories.
+
+            * NOTE: careful when using if variable_specification includes model
+                variables for multiple sectors; if categories are specified as
+                a list, the function operates under the assumption that *all*
+                variables are restricted to the same categories.
+
+            * NOTE: with multi-dimensional variables, if the category 
+                restriction is specified as a list, all dimensions associated
+                with a single category (for a given variable) will be subject
+                to the category restrictions. Use a dictionary that specifies
+                dimensions individually to allow different category restrictions
+                along different dimensions (e.g., $CAT-LANDUSE-DIM1$ and 
+                $CAT-LANDUSE-DIM2$)
+
+        - variable_type: input or output. If None, defaults to input.
+        """
+
+        ##  INITIALIZATION 
+
+        modvars_to_build = self.decompose_variable_specification(
+            variable_specification,
+            return_type = "variable",
+        )
+
+        if modvars_to_build is None:
+            return None
+
+        # get some subsector info
+        attr_subsec = self.get_subsector_attribute_table()
+        abv_subsec = self.get_subsector_attribute(subsector, "abv_subsector")
+        category = mv.clean_element(
+            attr_subsec.field_maps
+            .get(f"{attr_subsec.key}_to_primary_category")
+            .get(abv_subsec)
+        ) 
+
+        category_ij_tuple = self.format_category_for_direct(category, "-I", "-J")
+        attribute_table = self.get_attribute_table(subsector)
+
+        # check categories
+        if restrict_to_category_values is not None:
+            restrict_to_category_values = (
+                [restrict_to_category_values] 
+                if isinstance(restrict_to_category_values, str)
+                else restrict_to_category_values
+            )
+        valid_cats = self.check_category_restrictions(restrict_to_category_values, attribute_table)
+
+
+        ##  START BUILDING VARLIST
+
+        # get dictionary of variable to variable schema and id variables that are in the outer (Cartesian) product (i x j)
+        dict_vr_vvs, dict_vr_vvs_outer = self.separate_varreq_dict_for_outer(
+            subsector, 
+            "key_varreqs_all", 
+            category_ij_tuple, 
+            variable = variable_subsec, 
+            variable_type = variable_type
+        )
+
+        # build variables that apply to all categories
+        vars_out = self.build_vars_basic(
+            dict_vr_vvs, 
+            dict(
+                zip(
+                    list(dict_vr_vvs.keys()), 
+                    [valid_cats for x in dict_vr_vvs.keys()]
+                )
+            ), 
+            category
+        )
+
+        if len(dict_vr_vvs_outer) > 0:
+            vars_out += self.build_vars_outer(
+                dict_vr_vvs_outer,
+                 dict(
+                    zip(
+                        list(dict_vr_vvs_outer.keys()), 
+                        [valid_cats for x in dict_vr_vvs_outer.keys()]
+                    )
+                ), 
+                 category
+            )
+
+        # build those that apply to partial categories
+        dict_vrp_vvs, dict_vrp_vvs_outer = self.separate_varreq_dict_for_outer(
+            subsector, 
+            "key_varreqs_partial", 
+            category_ij_tuple, 
+            variable = variable_subsec, 
+            variable_type = variable_type
+        )
+
+        dict_vrp_vvs_cats, dict_vrp_vvs_cats_outer = self.get_partial_category_dictionaries(
+            subsector, 
+            category_ij_tuple, 
+            variable_in = variable_subsec, 
+            restrict_to_category_values = restrict_to_category_values,
+        )
+
+        # check dict_force_override_vrp_vvs_cats - use w/caution if not none. Cannot use w/outer
+        if dict_force_override_vrp_vvs_cats is not None:
+            # check categories
+            for k in dict_force_override_vrp_vvs_cats.keys():
+                sf.check_set_values(
+                    dict_force_override_vrp_vvs_cats[k], 
+                    attribute_table.key_values, 
+                    f" in dict_force_override_vrp_vvs_cats at key {k} (subsector {subsector})"
+                )
+            dict_vrp_vvs_cats = dict_force_override_vrp_vvs_cats
+
+        if len(dict_vrp_vvs) > 0:
+            vars_out += self.build_vars_basic(dict_vrp_vvs, dict_vrp_vvs_cats, category)
+
+        if len(dict_vrp_vvs_outer) > 0:
+            vl = self.build_vars_outer(dict_vrp_vvs_outer, dict_vrp_vvs_cats_outer, category)
+            vars_out += self.build_vars_outer(dict_vrp_vvs_outer, dict_vrp_vvs_cats_outer, category)
+
+        return vars_out
+
+
+
     def build_varlist(self, #VISIT
         subsector: Union[str, None],
         variable_subsec: Union[str, None] = None,
@@ -5294,7 +5454,81 @@ class ModelAttributesNew:
                 if len(missing_vals) > 0:
                     missing_vals = sf.format_print_list(missing_vals)
                     warnings.warn(f"clean_partial_category_dictionary: Invalid categories values {missing_vals} dropped when cleaning the dictionary. Category values not found.")
+
         return dict_in
+    
+
+
+    def decompose_variable_specification(self,
+        variable_specification: Union[mv.ModelVariable, str, List[mv.ModelVariable], List[str], None],
+        return_type: str = "variable_name",
+    ) -> Union[List[mv.ModelVariable], List[str], None]:
+        """
+        Decompose variable_specification into a list of model variables. Allows
+            for a range of specifications of variables, including sector, 
+            subsector, variable name, and ModelVariable objects.
+
+        Function Arguments
+        ------------------
+        - variable_specification: specification for variables to build. Accepts
+            the following options:
+
+            * sector: sector name or abbreviation
+            * subsector: subsector name or abbreviation
+            * variable name: name of a variable to retrieve
+            * model variable: model variable object used to define fields
+        
+        Keyword Arguments
+        -----------------
+        - return_type: one of the following types:
+            * "variable": list of mv.ModelVariable objects
+            * "variable_name": list of variable names as strings
+        """
+        
+        ##  DIVIDE INTO STRING AND MODEL VARIABLE ELEMENTS
+
+        var_spec_str = []
+        var_spec_mv = []
+        
+        if isinstance(variable_specification, str):
+            var_spec_str = [variable_specification]
+        
+        elif mv.is_model_variable(variable_specification):
+            var_spec_mv = [variable_specification]
+
+        elif sf.islistlike(variable_specification):
+            var_spec_str = [x for x in variable_specification if isinstance(x, str)]
+            var_spec_mv = [x for x in variable_specification if mv.is_model_variable(x)]
+
+
+        ## START BY DECOMPOSING ANY SECTORS
+
+        # check for sectors/subsectors
+        sectors = [x for x in var_spec_str if x in self.all_sectors]
+        subsectors = [x for x in var_spec_str if x in self.all_subsectors]
+        for sector in sectors:
+            sector_subsecs = self.get_sector_subsectors(sector) 
+            subsectors.extend([x for x in sector_subsecs if x not in subsectors])
+
+        # identify model variables that are specified as a string
+        modvars_str = [x for x in var_spec_str if x in self.all_model_variables]
+        
+        # next, iterate over over subsectors to update model variables
+        for subsec in subsectors:
+            modvars_cur = self.dict_model_variables_by_subsector.get(subsec)
+            if modvars_cur is None:
+                continue
+            modvars_str += modvars_cur 
+
+        # finally, combine based on output type
+        if return_type == "variable_name":
+            modvars_out = set(modvars_str + [x.name for x in var_spec_mv])
+            modvars_out = sorted(list(modvars_out))
+
+        elif return_type == "variable":
+            modvars_out = set(var_spec_mv + [self.get_variable(x) for x in modvars_str])
+
+        return modvars_out
 
 
 
@@ -6348,7 +6582,7 @@ class ModelAttributesNew:
             
 
 
-    def switch_variable_category(self, 
+    def switch_variable_category(self, #VISIT
         source_subsector: str, 
         target_variable: str, 
         attribute_field: str, 
@@ -6372,6 +6606,7 @@ class ModelAttributesNew:
             key_dict = f"{pycat_primary_source}_to_{attribute_field}"
             sf.check_keys(self.dict_attributes[pycat_primary_source].field_maps, [key_dict])
             dict_repl = self.dict_attributes[pycat_primary_source].field_maps[key_dict]
+
         else:
             dict_repl = dict_force_override
         
@@ -6383,7 +6618,14 @@ class ModelAttributesNew:
         cats_target = [dict_repl[x].replace("`", "") for x in cats_all]
 
         # use the 'dict_force_override_vrp_vvs_cats' override dictionary in build_varlist here
-        return self.build_varlist(target_subsector, target_variable, cats_target, {target_variable: cats_target})
+        out = self.build_varlist(
+            target_subsector, 
+            target_variable, 
+            cats_target, 
+            {target_variable: cats_target}
+        )
+
+        return out
 
 
 
@@ -6414,7 +6656,11 @@ class ModelAttributesNew:
         sum_cvs = list(df_tmp[df_tmp[attribute_sum_specification_field].isin([1])][pycat_primary])
         
         # get the variable list, check, and add to output
-        fields_sum = self.build_varlist(subsector, variable_subsec = variable, restrict_to_category_values = sum_cvs)
+        fields_sum = self.build_varlist(
+            subsector, 
+            variable_subsec = variable, 
+            restrict_to_category_values = sum_cv,
+        )
         
         # check return types
         if return_type == "fields":

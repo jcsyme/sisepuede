@@ -585,7 +585,7 @@ class ModelVariable:
             else category_subspace
         )
 
-
+        
         ##  CHECK SPECIFICATION OF category_subspace AND CONVERT TO DICTIONARY
 
         if isinstance(category_subspace, str):
@@ -608,7 +608,7 @@ class ModelVariable:
                     for elem in self.schema.mutable_elements_clean_ordered
                 )
            
-
+        
         ##  BUILD OUTPUT DICTIONARY MAPPING CLEANED MUTABLE ELEMENTS TO LISTS OF CATEGORIES
 
         # initialize the space as a list if defined that way; otherwise, each iteration will check for list elements
@@ -628,7 +628,7 @@ class ModelVariable:
             return_on_none = {},
         )
 
-
+       
         ##  ITERATE
 
         # set ordering for iteration; put root elements first (if they are specified)

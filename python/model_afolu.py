@@ -580,6 +580,7 @@ class AFOLU:
         self.modvar_frst_hwp_half_life_wood = "HWP Half Life Wood"
         self.modvar_frst_sq_co2 = "Forest Sequestration Emission Factor"
         self.modvar_frst_init_per_hh_wood_demand = "Initial Per Household Wood Demand"
+        
         #additional lists
         self.modvar_list_frst_frac_temptrop = [
             self.modvar_frst_frac_temperate_nutrient_poor,
@@ -588,9 +589,18 @@ class AFOLU:
         ]
 
         # assign some key categories
-        self.cat_frst_mang = self.model_attributes.get_categories_from_attribute_characteristic(self.subsec_name_frst, {"mangroves_forest_category": 1})[0]
-        self.cat_frst_prim = self.model_attributes.get_categories_from_attribute_characteristic(self.subsec_name_frst, {"primary_forest_category": 1})[0]
-        self.cat_frst_scnd = self.model_attributes.get_categories_from_attribute_characteristic(self.subsec_name_frst, {"secondary_forest_category": 1})[0]
+        self.cat_frst_mang = self.model_attributes.get_categories_from_attribute_characteristic(
+            self.subsec_name_frst, 
+            {"mangroves_forest_category": 1}
+        )[0]
+        self.cat_frst_prim = self.model_attributes.get_categories_from_attribute_characteristic(
+            self.subsec_name_frst, 
+            {"primary_forest_category": 1}
+        )[0]
+        self.cat_frst_scnd = self.model_attributes.get_categories_from_attribute_characteristic(
+            self.subsec_name_frst, 
+            {"secondary_forest_category": 1}
+        )[0]
 
 
         return None

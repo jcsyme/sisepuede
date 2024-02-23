@@ -687,8 +687,18 @@ class SISEPUEDEBatchDataRepository:
 
         # some needed dictionaries
         dict_sector_to_subdir = self.dict_sector_to_subdir
-        dict_subsec_abv_to_sector = self.model_attributes.dict_attributes.get("abbreviation_subsector").field_maps.get("abbreviation_subsector_to_sector")
-        dict_subsec_to_subsec_abv = self.model_attributes.dict_attributes.get("abbreviation_subsector").field_maps.get("subsector_to_abbreviation_subsector")
+        dict_subsec_abv_to_sector = (
+            self.model_attributes
+            .get_subsector_attribute_table()
+            .field_maps
+            .get("abbreviation_subsector_to_sector")
+        )
+        dict_subsec_to_subsec_abv = (
+            self.model_attributes
+            .get_subsector_attribute_table()
+            .field_maps
+            .get("subsector_to_abbreviation_subsector")
+        )
         
         # check dictionary specification
         dict_modvars = (
@@ -700,6 +710,7 @@ class SISEPUEDEBatchDataRepository:
                 else dict_modvars
             )
         )
+
         dict_modvars = (
             dict((x, None) for x in dict_modvars)
             if sf.islistlike(dict_modvars)
