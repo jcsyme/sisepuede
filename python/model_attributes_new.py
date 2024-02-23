@@ -6185,30 +6185,6 @@ class ModelAttributesNew:
 
 
 
-    # TESTING THE BRANCH!
-    def get_variables_by_sector(self, 
-        sector: str, 
-        return_var_type: str = "input"
-    ) -> List[str]:
-        """
-        Return a list of variables by sector
-        """
-        df_attr_sec = self.dict_attributes[self.table_name_attr_subsector].table
-        sectors = list(df_attr_sec[df_attr_sec["sector"] == sector]["subsector"])
-        vars_input, vars_output = self.get_input_output_fields(sectors)
-
-        if return_var_type == "input":
-            return vars_input
-        elif return_var_type == "output":
-            return vars_output
-        elif return_var_type == "both":
-            vars_both = sorted(vars_input + vars_output)
-            return vars_both
-        else:
-            raise ValueError(f"Invalid return_var_type specification '{return_var_type}' in get_variables_by_sector: valid values are 'input', 'output', and 'both'.")
-
-
-
     def get_variables_from_attribute(self, #VISIT
         subsec: str,
         dict_attributes: str,
