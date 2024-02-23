@@ -279,10 +279,15 @@ class Socioeconomic:
 
             * If False, returns only the variables calculated in SE 
         """
-        # add population and interpolate if necessary
-        #self.model_attributes.manage_pop_to_df(df_se_trajectories, "add")
+        # check fields ands get some properties
         self.check_df_fields(df_se_trajectories)
-        dict_dims, df_se_trajectories, n_projection_time_periods, projection_time_periods = self.model_attributes.check_projection_input_df(
+
+        (
+            dict_dims, 
+            df_se_trajectories, 
+            n_projection_time_periods, 
+            projection_time_periods
+        ) = self.model_attributes.check_projection_input_df(
             df_se_trajectories,
             override_time_periods = ignore_time_periods,
         )
@@ -313,7 +318,7 @@ class Socioeconomic:
                 self.modvar_gnrl_subpop, 
                 return_type = "array_base"
             ), 
-            axis = 1
+            axis = 1,
         )
 
         vec_gdp_per_capita = np.nan_to_num(vec_gdp/vec_pop, 0.0, posinf = 0.0)

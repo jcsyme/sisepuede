@@ -776,7 +776,7 @@ class SISEPUEDEBatchDataRepository:
             var_names = self.model_attributes.build_varlist(
                 subsec,
                 modvar, 
-                restrict_to_category_values = cats
+                restrict_to_category_values = cats,
             )
             
             for var_name in var_names:

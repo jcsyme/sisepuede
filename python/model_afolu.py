@@ -2095,7 +2095,7 @@ class AFOLU:
             return_type = "array_base",
             var_bounds = (0, np.inf),
         )
-        
+
         arr_lvst_frac_imported = self.model_attributes.extract_model_variable(#
             df_afolu_trajectories,
             self.modvar_lvst_frac_demand_imported,
@@ -3809,7 +3809,11 @@ class AFOLU:
         #####################
 
         # get area of cropland
-        field_crop_array = self.model_attributes.build_varlist(self.subsec_name_lndu, variable_subsec = self.modvar_lndu_area_by_cat, restrict_to_category_values = [self.cat_lndu_crop])[0]
+        field_crop_array = self.model_attributes.build_varlist(
+            self.subsec_name_lndu, 
+            variable_subsec = self.modvar_lndu_area_by_cat, 
+            restrict_to_category_values = [self.cat_lndu_crop],
+        )[0]
         vec_cropland_area = np.array(df_land_use[field_crop_array])
 
         # fraction of cropland represented by each crop
@@ -3870,7 +3874,11 @@ class AFOLU:
         ###################
 
         # get area of grassland/pastures
-        field_lvst_graze_array = self.model_attributes.build_varlist(self.subsec_name_lndu, variable_subsec = self.modvar_lndu_area_by_cat, restrict_to_category_values = [self.cat_lndu_grass])[0]
+        field_lvst_graze_array = self.model_attributes.build_varlist(
+            self.subsec_name_lndu, 
+            variable_subsec = self.modvar_lndu_area_by_cat, 
+            restrict_to_category_values = [self.cat_lndu_grass]
+        )[0]
         vec_lvst_graze_area = np.array(df_land_use[field_lvst_graze_array])
 
         # estimate the total number of livestock that are raised - arr_lvst_pop is a direct output of project_integrated_land_use

@@ -4246,7 +4246,13 @@ class ModelAttributesNew:
         
         if (set_times_keep != set(range(min(set_times_keep), max(set_times_keep) + 1))):
             if not interpolate_missing_q:
-                raise ValueError(f"Error in specified times: some time periods are missing and interpolate_missing_q = False. Modeling will not proceed. Set interpolate_missing_q = True to interpolate missing values.")
+                msg = f"""
+                Error in specified times: some time periods are missing and 
+                interpolate_missing_q = False. Modeling will not proceed. Set 
+                interpolate_missing_q = True to interpolate missing values.
+                """
+                raise ValueError()
+
             else:
                 set_times_keep = set(range(min(set_times_keep), max(set_times_keep) + 1))
                 df_project = pd.merge(
@@ -4258,7 +4264,7 @@ class ModelAttributesNew:
                 interpolate_q = True
 
         elif len(df_project[fields_dat].dropna()) != len(df_project):
-                interpolate_q = True
+            interpolate_q = True
 
         # set some information on time series
         projection_time_periods = list(set_times_keep)
@@ -4269,14 +4275,16 @@ class ModelAttributesNew:
         df_project = df_project.interpolate() if interpolate_q else df_project
         df_project = df_project[df_project[self.dim_time_period].isin(set_times_keep)]
         df_project.sort_values(by = [self.dim_time_period], inplace = True)
+        
         df_project = (
             df_project[[self.dim_time_period] + fields_dat] 
             if strip_dims 
             else df_project[fields_dims_notime + [self.dim_time_period] + fields_dat]
         )
 
-        return dict_dims, df_project, n_projection_time_periods, projection_time_periods
+        out = (dict_dims, df_project, n_projection_time_periods, projection_time_periods)
 
+        return out
 
 
     def transfer_df_variables(self,
@@ -6406,7 +6414,7 @@ class ModelAttributesNew:
 
 
 
-    def swap_array_categories(self,
+    def swap_array_categories(self, #VISIT
         array_in: np.ndarray,
         vec_ordered_cats_source: np.ndarray,
         vec_ordered_cats_target: np.ndarray,
@@ -6485,190 +6493,6 @@ class ModelAttributesNew:
 
 
 
-
-
-    #########################################
-    #    INTERNALLY-CALCULATED VARIABLES    #
-    #########################################
- 
-    def get_mutex_cats_for_internal_variable(self, 
-        subsector: str, 
-        variable: str, 
-        attribute_sum_specification_field: str, 
-        return_type: str = "fields",
-    ) -> Union[List[str], None]:
-        """
-        retrives mutually-exclusive fields used to sum to generate internal 
-            variables
-
-        - attribute_sum_specification_field gives the field in the category 
-            attribute table that defines what to sum over (e.g., gdp component 
-            in the value added)
-       
-        """
-        # 
-        # get categories to sum over
-        pycat_primary = self.get_subsector_attribute(subsector, "pycategory_primary")
-        df_tmp = self.dict_attributes[pycat_primary].table
-        sum_cvs = list(df_tmp[df_tmp[attribute_sum_specification_field].isin([1])][pycat_primary])
-        
-        # get the variable list, check, and add to output
-        fields_sum = self.build_varlist(
-            subsector, 
-            variable_subsec = variable, 
-            restrict_to_category_values = sum_cv,
-        )
-        
-        # check return types
-        if return_type == "fields":
-            return fields_sum
-        elif return_type == "category_values":
-            return sum_cvs
-        else:
-            raise ValueError(f"Invalid return_type '{return_type}'. Please specify 'fields' or 'category_values'.")
-
-
-
-    def get_simple_input_to_output_emission_arrays(self, #FIXED
-        df_ef: pd.DataFrame,
-        df_driver: pd.DataFrame,
-        dict_vars: dict,
-        variable_driver: str,
-    ) -> Union[List[pd.DataFrame], None]:
-        """
-        Calculate simple driver*emission factor emissions. NOTE: this only works 
-            w/in subsector. Returns a list of dataframes.
-
-        Function Arguments
-        ------------------
-        df_ef: data frame that contains the emission factor variables
-        df_driver: data frame containing the variables driving emissions
-        dict_vars: map the emission factor variable to a tuple: (emission model 
-            variable, driver_unit_type, scale_factor)
-            - driver_unit_type: a unit dimension--e.g., length, area, volume, 
-                mass, or energy--that relates a driver to a factor. Used for 
-                unit correction and overriden by scale_factor.
-            - scale_factor: a factor applied to the products to ensure proper 
-                unit conversion. Overrides connection from driver_unit_type.
-        variable_driver:
-        """
-        # check if
-        df_out = []
-        subsector_driver = self.dict_model_variable_to_subsector.get(variable_driver)
-        if subsector_driver is None:
-            return None
-
-
-        for varname in dict_vars.keys():
-            
-            tup = self.dict_model_variable_to_subsector.get(varname)
-            if tup is None:
-                continue
-
-            subsector_var, driver_unit_type, scale_factor = tup
-
-            if subsector_driver != subsector_driver:
-                msg = f"""
-                In get_simple_input_to_output_emission_arrays, driver variable 
-                '{variable_driver}' and emission variable '{varname}' are in 
-                different sectors. This instance will be skipped.
-                """
-                warnings.warn(msg)
-                #self._log(msg, type_log = "warning")
-                continue
-
-            # get emissions factor fields and apply scalar using extract_model_variable
-            #   then, scale to ensure it is in the proper terms of the driver
-            arr_ef = np.array(
-                self.extract_model_variable(#
-                    df_ef, 
-                    varname, 
-                    override_vector_for_single_mv_q = True, 
-                    return_type = "array_units_corrected",
-                )
-            )
-
-            try:
-                scalar_units = (
-                    scale_factor 
-                    if (scale_factor is not None) 
-                    else self.get_variable_unit_conversion_factor(
-                        variable_driver, 
-                        varname, 
-                        driver_unit_type,
-                    )
-                )
-
-            except:
-                scalar_units = scale_factor if (scale_factor is not None) else 1
-
-            # get the emissions driver array 
-            key_driver = self.build_target_varlist_from_source_varcats(varname, variable_driver)
-            arr_driver = np.array(df_driver[key_driver])*scalar_units
-            
-            df_out.append(
-                self.array_to_df(
-                    arr_driver*arr_ef, 
-                    dict_vars[varname]
-                )
-            )
-
-
-        return df_out
-
-
-
-    def manage_internal_variable_to_df(self,
-        df_in: pd.DataFrame,
-        subsector: str,
-        internal_variable: str,
-        component_variable: str,
-        attribute_sum_specification_field: str,
-        action: str = "add",
-        return_type: type = float
-    ) -> None:
-        """
-        Add a variable based on components. Inline modifier of df_in
-        """
-        # get the field to add
-        field_check = self.build_varlist(subsector, variable_subsec = internal_variable)[0]
-        valid_actions = ["add", "remove", "check"]
-        if action not in valid_actions:
-            str_valid = sf.format_print_list(valid_actions)
-            raise ValueError(f"Invalid actoion '{action}': valid actions are {str_valid}.")
-        if action == "check":
-            return True if (field_check in df_in.columns) else False
-        elif action == "remove":
-            if field_check in df_in.columns:
-                df_in.drop(labels = field_check, axis = 1, inplace = True)
-        elif action == "add":
-            if field_check not in df_in.columns:
-                # get fields to sum over
-                fields_sum = self.get_mutex_cats_for_internal_variable(subsector, component_variable, attribute_sum_specification_field, "fields")
-                sf.check_fields(df_in, fields_sum)
-                # add to the data frame (inline)
-                df_in[field_check] = df_in[fields_sum].sum(axis = 1).astype(return_type)
-
-
-
-    def manage_pop_to_df(self, 
-        df_in: pd.DataFrame, 
-        action: str = "add"
-    ) -> pd.DataFrame:
-        """
-        Add total population to df_in
-        """
-        out = self.manage_internal_variable_to_df(
-            df_in, 
-            "General", 
-            "Total Population", 
-            "Population", 
-            "total_population_component", 
-            action, 
-            int
-        )
-
-        return out
 
 
 

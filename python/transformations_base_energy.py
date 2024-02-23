@@ -2503,21 +2503,7 @@ def transformation_trns_fuel_shift_to_target(
                             )[0]
                         ) if (modvar in modvars_source) else None
 
-                #fields_target = [
-                #    model_attributes.build_varlist(
-                #        subsec,
-                #        x,
-                #        restrict_to_category_values = [cat]
-                #    )[0] for x in modvars_target
-                #]
 
-                # get some baseline values
-                """
-                tp_baseline = (n_tp - 1) if (baseline_period == "final") else 0
-                vec_initial_vals = np.array(df_in[fields_target].iloc[tp_baseline]).astype(float)
-                val_initial_target = vec_initial_vals.sum() if magnitude_relative_to_baseline else 0.0
-                vec_initial_distribution = np.nan_to_num(vec_initial_vals/vec_initial_vals.sum(), 1.0, posinf = 1.0)
-                """
                 # get some baseline values
                 tp_baseline = (n_tp - 1) if (baseline_period == "final") else 0
                 vec_target_baseline_total = np.array(df_in[fields_target]).astype(float).sum(axis = 1)
