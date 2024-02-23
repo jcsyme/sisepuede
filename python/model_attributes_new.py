@@ -6579,53 +6579,7 @@ class ModelAttributesNew:
         )
 
         return array_new
-            
 
-
-    def switch_variable_category(self, #VISIT
-        source_subsector: str, 
-        target_variable: str, 
-        attribute_field: str, 
-        cats_to_switch = None, 
-        dict_force_override = None,
-    ) -> List[str]:
-        """
-        attribute_field is the field in the primary category attriubte table to 
-            use for the switch; if dict_force_override is specified, then this 
-            dictionary will be used to switch categories
-
-        cats_to_switch can be specified to only operate on a subset of source 
-            categorical values
-        """
-
-        sf.check_keys(self.dict_model_variable_to_subsector, [target_variable])
-        target_subsector = self.dict_model_variable_to_subsector.get(target_variable)
-        pycat_primary_source = self.get_subsector_attribute(source_subsector, "pycategory_primary")
-
-        if dict_force_override is None:
-            key_dict = f"{pycat_primary_source}_to_{attribute_field}"
-            sf.check_keys(self.dict_attributes[pycat_primary_source].field_maps, [key_dict])
-            dict_repl = self.dict_attributes[pycat_primary_source].field_maps[key_dict]
-
-        else:
-            dict_repl = dict_force_override
-        
-        cats_all = (
-            self.dict_attributes[pycat_primary_source].key_values
-            if cats_to_switch is None
-            else self.check_category_restrictions(cats_to_switch, self.dict_attributes.get(pycat_primary_source))
-        )
-        cats_target = [dict_repl[x].replace("`", "") for x in cats_all]
-
-        # use the 'dict_force_override_vrp_vvs_cats' override dictionary in build_varlist here
-        out = self.build_varlist(
-            target_subsector, 
-            target_variable, 
-            cats_target, 
-            {target_variable: cats_target}
-        )
-
-        return out
 
 
 

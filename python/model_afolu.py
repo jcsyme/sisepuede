@@ -2095,23 +2095,28 @@ class AFOLU:
             return_type = "array_base",
             var_bounds = (0, np.inf),
         )
+        
         arr_lvst_frac_imported = self.model_attributes.extract_model_variable(#
             df_afolu_trajectories,
             self.modvar_lvst_frac_demand_imported,
             return_type = "array_base",
             var_bounds = (0, 1),
         )
-        fields_lvst_elas = self.model_attributes.switch_variable_category(
-            self.subsec_name_lvst,
+
+        arr_lvst_elas_demand = self.model_attributes.extract_model_variable(#
+            df_afolu_trajectories,
             self.modvar_lvst_elas_lvst_demand,
-            "demand_elasticity_category",
+            expand_to_all_cats = True, # should already be expanded
+            return_type = "array_base",
         )
+
         vec_gnrl_frac_eating_red_meat = self.model_attributes.extract_model_variable(#
             df_afolu_trajectories,
             self.model_socioeconomic.modvar_gnrl_frac_eating_red_meat,
             return_type = "array_base",
             var_bounds = (0, 1),
         )
+
         vec_lvst_production_init = self.model_attributes.extract_model_variable(#
             df_afolu_trajectories,
             self.modvar_lvst_pop_init,
@@ -2119,7 +2124,6 @@ class AFOLU:
             return_type = "array_base",
             var_bounds = (0, np.inf),
         )[0]
-        arr_lvst_elas_demand = np.array(df_afolu_trajectories[fields_lvst_elas])
 
 
         # 1. calculate domestic demand
