@@ -50,7 +50,7 @@ class ModelAttributesNew:
         self._initialize_config(fp_config)
         self._initialize_sector_sets()
         self._initialize_variables_by_subsector()
-        #self._initialize_all_primary_category_flags()
+        self._initialize_all_primary_category_flags()
         #self._initialize_emission_modvars_by_gas()
         #self._initialize_gas_attributes()
         #self._initialize_other_dictionaries()
@@ -317,7 +317,7 @@ class ModelAttributesNew:
 
 
 
-    def _initialize_all_primary_category_flags(self,
+    def _initialize_all_primary_category_flags(self, #FIXED
     ) -> None:
         """
         Sets all primary category flags, e.g., $CAT-CCSQ$ or $CAT-AGRICULTURE$.
@@ -325,12 +325,20 @@ class ModelAttributesNew:
 
             * all_primary_category_flags
         """
-        attr_subsec = self.dict_attributes.get(self.table_name_attr_subsector)
-        all_pcflags = None
+        attr_subsec = self.get_subsector_attribute_table()
+        if attr_subsec is None:
+            raise RuntimeError(f"Error initializing primary category flags: no subsector attribute table found.")
 
-        if attr_subsec is not None:
-            all_pcflags = sorted(list(set(attr_subsec.table["primary_category"])))
-            all_pcflags = [x.replace("`", "") for x in all_pcflags if sf.clean_field_names([x])[0] in self.all_pycategories]
+
+        cat_str = f"{self.attribute_group_key_cat}_"
+        modvar_dummy = self.get_variable(self.all_variables[0])
+        container = modvar_dummy.container_expressions
+
+        all_pcflags = sorted(list(set(attr_subsec.table["primary_category"])))
+        all_pcflags = [
+            x.replace(container, "") for x in all_pcflags 
+            if mv.clean_element(x).replace(cat_str, "") in self.all_pycategories
+        ]
 
         self.all_primary_category_flags = all_pcflags
 
@@ -971,6 +979,9 @@ class ModelAttributesNew:
                     if key in dict_modvar_by_gas.keys()
                     else dict_modvar_by_gas.update({key: [modvar]})
                 )
+
+        
+        ##  SET PROPERTIES
 
         self.dict_gas_to_total_emission_fields = dict_fields_by_gas
         self.dict_gas_to_total_emission_modvars = dict_modvar_by_gas
