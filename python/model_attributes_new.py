@@ -5358,7 +5358,7 @@ class ModelAttributesNew:
     
 
 
-    def get_modvar_from_varspec(self,
+    def get_modvar_from_varspec(self, #VISIT
         variable_specification: str,
     ) -> Union[str, None]:
         """
@@ -5382,19 +5382,17 @@ class ModelAttributesNew:
 
 
 
-    def get_multivariables_with_bounded_sum_by_category(self,
+    def get_multivariables_with_bounded_sum_by_category(self, #VISIT
         df_in: pd.DataFrame,
         modvars: list,
         sum_restriction: float,
         correction_threshold: float = 0.000001,
         force_sum_equality: bool = False,
-        msg_append: str = ""
+        msg_append: str = "",
     ) -> dict:
-
         """
-        use get_multivariables_with_bounded_sum_by_category() to retrive
-            multiple variables that, across categories, must sum to some value.
-            Gives a correction threshold to allow for small errors.
+        Retrive multiple variables that, across categories, must sum to some 
+            value. Gives a correction threshold to allow for small errors.
 
         Function Arguments
         ------------------
@@ -5456,6 +5454,7 @@ class ModelAttributesNew:
                 arr_cur = dict_arrs[modvar]
                 arr_cur = np.nan_to_num(arr_cur/arr, 0.0)
                 dict_arrs.update({modvar: arr_cur})
+                
         else:
             # correction sums if within correction threshold
             w = np.where(arr > sum_restriction + correction_threshold)[0]
