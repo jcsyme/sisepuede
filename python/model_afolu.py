@@ -3568,9 +3568,9 @@ class AFOLU:
             "area"
         )
 
-        fields_lndu_for_ch4_boc = self.model_attributes.build_target_varlist_from_source_varcats(
-            self.modvar_lndu_ef_ch4_boc, 
-            self.modvar_lndu_area_by_cat
+        fields_lndu_for_ch4_boc = self.model_attributes.build_target_variable_fields_from_source_variable_categories(
+            self.modvar_lndu_ef_ch4_boc, # source
+            self.modvar_lndu_area_by_cat, # target
         )
         arr_lndu_area_ch4_boc = np.array(df_land_use[fields_lndu_for_ch4_boc])
 

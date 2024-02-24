@@ -4986,43 +4986,20 @@ class ModelAttributesNew:
 
 
 
-    def build_vars_basic(self,
-        dict_vr_varschema: dict,
-        dict_vars_to_cats: dict,
-        category_to_replace: str
-    ) -> List[str]:
-        """
-        Build a basic variable list from varible schema
-        """
-        # dict_vars_to_loop has keys that are variables to loop over that map to category values
-        vars_out = []
-        vars_loop = list(set(dict_vr_varschema.keys()) & set(dict_vars_to_cats.keys()))
-        # loop over required variables (exclude transition probability)
-        for var in vars_loop:
-            error_str = f"Invalid value associated with variable key '{var}'  build_vars_basic/dict_vars_to_cats: the value in the dictionary should be the string 'none' or a list of category values."
-            var_schema = clean_schema(dict_vr_varschema[var])
-            if type(dict_vars_to_cats[var]) == list:
-                for catval in dict_vars_to_cats[var]:
-                    vars_out.append(var_schema.replace(category_to_replace, catval))
-            elif type(dict_vars_to_cats[var]) == str:
-                if dict_vars_to_cats[var].lower() == "none":
-                    vars_out.append(var_schema)
-                else:
-                    raise ValueError(error_str)
-            else:
-                raise ValueError(error_str)
-
-        return vars_out
-
-
-
-    def build_target_varlist_from_source_varcats(self, 
-        modvar_source: str, 
-        modvar_target: str
-    ):
+    def build_target_variable_fields_from_source_variable_categories(self, #FIXED
+        modvar_source: Union[str, mv.ModelVariable], 
+        modvar_target: Union[str, mv.ModelVariable], 
+    ) -> Union[List[str], None]:
         """
         Build a variable using an ordered set of categories associated with 
-            another variable
+            another variable. Must have the same primary category
+
+        BEHAVIOR:
+            * if modvar_source is not associated with categories but 
+                modvar_target is, returns None
+            * if modvar_target is not associated with any categories, returns
+                modvar_target.fields
+            * otherwise, tries to builds fields with shared categories
 
         Function Arguments
         ------------------
@@ -5032,13 +5009,22 @@ class ModelAttributesNew:
         """
         # get source categories
         cats_source = self.get_variable_categories(modvar_source)
+        cats_target = self.get_variable_categories(modvar_target)
+
+        # if there are no 
+        if (cats_source is None) & (cats_target is not None):
+            return None
+
+        # if the target variable is not associated with categories, return its fields
+        if cats_target is None:
+            modvar = self.get_variable(modvar_target)
+            out = modvar.fields if mv.is_model_variable(modvar) else None
+            return out
 
         # build the target variable list using the source categories
-        subsector_target = self.dict_model_variable_to_subsector[modvar_target]
-        vars_target = self.build_varlist(
-            subsector_target, 
-            variable_subsec = modvar_target, 
-            restrict_to_category_values = cats_source
+        vars_target = self.build_variable_fields(
+            modvar_target, 
+            restrict_to_category_values = cats_source,
         )
 
         return vars_target
@@ -5943,7 +5929,7 @@ class ModelAttributesNew:
     def get_variable_unit_conversion_factor(self, #FIXED
         var_to_convert: Union[str, mv.ModelVariable],
         var_to_match: Union[str, mv.ModelVariable],
-        units: str
+        units: str,
     ) -> Union[float, int, None]:
 
         """
