@@ -2971,9 +2971,9 @@ class AWSManager:
         fields = sorted(list(index_fields_ordered))
         if table_type in ["input", "output"]:
             fields += (
-                sorted(model_attributes.all_variables_output)
+                sorted(model_attributes.all_variable_fields_output)
                 if table_type.lower() == "output"
-                else sorted(model_attributes.all_variables_input)
+                else sorted(model_attributes.all_variable_fields_input)
             )
 
         # some data type dictionaries that are used
@@ -3096,8 +3096,8 @@ class AWSManager:
         )
         fields_retrieve = [
             x for x in fields_retrieve
-            if x in (self.model_attributes.all_variables_input)
-            or x in (self.model_attributes.all_variables_output)
+            if x in (self.model_attributes.all_variable_fields_input)
+            or x in (self.model_attributes.all_variable_fields_output)
         ]
 
         
@@ -3233,9 +3233,9 @@ class AWSManager:
             else table_type
         )
         domain = (
-            self.model_attributes.all_variables_input
+            self.model_attributes.all_variable_fields_input
             if table_type == "input"
-            else self.model_attributes.all_variables_output
+            else self.model_attributes.all_variable_fields_output
         )
 
         database_name = f"\"{self.athena_database}\""

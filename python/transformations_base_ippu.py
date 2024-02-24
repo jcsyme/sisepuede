@@ -99,7 +99,7 @@ def transformation_ippu_scale_emission_factor(
             modvars = model_ippu.dict_gas_to_fc_ef_modvars.get(k)    
         elif k in dict_fc_type_to_modvars.keys():
             modvars = dict_fc_type_to_modvars.get(k)
-        elif k in model_attributes.all_model_variables:
+        elif k in model_attributes.all_variables:
             modvars = [k]
 
         # skip if no valid model variables are found

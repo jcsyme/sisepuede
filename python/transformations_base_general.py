@@ -253,7 +253,7 @@ def transformation_general(
 
     ##  CHECK SPECIFICATION DICTIONARY
 
-    modvars = sorted([x for x in dict_modvar_specs.keys() if x in model_attributes.all_model_variables])
+    modvars = sorted([x for x in dict_modvar_specs.keys() if x in model_attributes.all_variables])
     dict_modvar_specs_clean = {}
 
     for modvar in modvars:

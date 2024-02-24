@@ -334,7 +334,7 @@ class SISEPUEDEModels:
 			else [x for x in fields_check if (x not in fields_index) and (x in df_results.columns)]
 		)
 		fields_check = (
-			[x for x in fields_check if x in self.model_attributes.all_variables_output]
+			[x for x in fields_check if x in self.model_attributes.all_variable_fields_output]
 			if output_only
 			else fields_check
 		)

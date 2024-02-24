@@ -1072,7 +1072,8 @@ class ModelVariable:
 
                 * str: only available if the number of mutable elements in the
                     schema is 1; behavior is the same as a single-element list.
-                    * RETURNS: field (string)
+                    * RETURNS: field (string) or None if the category is not
+                        associated with the variable subsector
             
             * NOTE: if `category_restrictions_as_full_spec == True`, then 
                 category_restrictions is treated as the initialization 
@@ -1186,7 +1187,11 @@ class ModelVariable:
                     fields_new.append(field)
                     
             fields = fields_new
-            
+        
+        # finally, reduce to string if needed
+        if return_type == "str":
+            fields = fields[0] if (len(fields) > 0) else None
+
         return fields
 
     

@@ -240,7 +240,7 @@ class SISEPUEDEBatchDataRepository:
         
         # get fields and return None if invalid
         fields_ind = [x for x in fields_ind if x in df_csv.columns]
-        fields_dat = [x for x in df_csv.columns if x in self.model_attributes.all_variables]
+        fields_dat = [x for x in df_csv.columns if x in self.model_attributes.all_variable_fields]
         if min(len(fields_dat), len(fields_ind)) == 0:
             return None
         
@@ -702,7 +702,7 @@ class SISEPUEDEBatchDataRepository:
         
         # check dictionary specification
         dict_modvars = (
-            self.model_attributes.all_model_variables
+            self.model_attributes.all_variables
             if dict_modvars is None
             else (
                 {dict_modvars: None} 

@@ -194,7 +194,7 @@ def build_variable_information_table(
     field_out_subsector = table_properties.field_subsector
     
     modvars = (
-        model_attributes.all_model_variables
+        model_attributes.all_variables
         if not sf.islistlike(modvars)
         else list(modvars)
     )

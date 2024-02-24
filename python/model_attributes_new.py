@@ -1201,7 +1201,7 @@ class ModelAttributesNew:
 
         ##  SET PROPERTIES
 
-        self.all_model_variables = all_model_variables
+        self.all_variables = all_model_variables
         self.dict_variables = dict_variables
 
         return None
@@ -1214,8 +1214,10 @@ class ModelAttributesNew:
         Initialize some dictionaries describing variables by subsector.
             Initializes the following properties:
 
-            * self.all_model_variables
             * self.all_variables
+            * self.all_variable_fields
+            * self.all_variable_fields_input
+            * self.all_variable_fields_output
             * self.dict_model_variables_by_subsector
             * self.dict_model_variable_to_subsector
             * self.dict_model_variable_to_category_restriction
@@ -1225,9 +1227,9 @@ class ModelAttributesNew:
 
         """
         # initialize lists and dicts
-        all_variables = []
-        all_variables_input = []
-        all_variables_output = []
+        all_variable_fields = []
+        all_variable_fields_input = []
+        all_variable_fields_output = []
         dict_fields_to_vars = {}
         dict_vars_by_subsector = {} #
         dict_vars_to_subsector = {} #
@@ -1236,16 +1238,8 @@ class ModelAttributesNew:
         modvars_all = []
 
         for subsector in self.all_subsectors_with_primary_category:
-            
             # get model variable lists
             subsector_modvars = self.get_subsector_variables(subsector)
-
-            """
-            self.get_subsector_variables(
-                subsector, 
-                var_type = "output",
-            )
-            """
 
             for modvar_name in subsector_modvars:
 
@@ -1254,15 +1248,15 @@ class ModelAttributesNew:
                     continue
                 
                 # update output lists
-                all_variables.extend(modvar.fields)
+                all_variable_fields.extend(modvar.fields)
                 var_type = modvar.get_property("variable_type")
                 if isinstance(var_type, str):
                     var_type = var_type.lower()
                     if var_type == "input":
-                        all_variables_input.extend(modvar.fields)
+                        all_variable_fields_input.extend(modvar.fields)
 
                     elif var_type == "output":
-                        all_variables_output.extend(modvar.fields)
+                        all_variable_fields_output.extend(modvar.fields)
 
                 # update relavent dictionaries
                 dict_vars_to_fields.update({modvar_name: modvar.fields})
@@ -1274,17 +1268,17 @@ class ModelAttributesNew:
 
 
         # get all variables as a list
-        all_variables.sort()
-        all_variables_input.sort()
-        all_variables_output += self.get_all_subsector_emission_total_fields()
-        all_variables_output.sort()
+        all_variable_fields.sort()
+        all_variable_fields_input.sort()
+        all_variable_fields_output += self.get_all_subsector_emission_total_fields()
+        all_variable_fields_output.sort()
 
 
         ##  SET PROPERTIES
 
-        self.all_variables = all_variables
-        self.all_variables_input = all_variables_input
-        self.all_variables_output = all_variables_output
+        self.all_variable_fields = all_variable_fields
+        self.all_variable_fields_input = all_variable_fields_input
+        self.all_variable_fields_output = all_variable_fields_output
         self.dict_model_variables_by_subsector = dict_vars_by_subsector
         self.dict_model_variable_to_subsector = dict_vars_to_subsector
         self.dict_model_variables_to_variables = dict_vars_to_fields
@@ -2315,7 +2309,7 @@ class ModelAttributesNew:
 
         out = (
             modvar
-            if modvar in self.all_model_variables
+            if modvar in self.all_variables
             else None
         )
 
@@ -3632,7 +3626,7 @@ class ModelAttributesNew:
         # get subsector/categories information
         if modvar is not None:
             # check variable first
-            if modvar not in self.all_model_variables:
+            if modvar not in self.all_variables:
                 raise ValueError(f"Invalid model variable '{modvar}' found in get_variable_characteristic.")
 
             subsector = self.get_variable_subsector(modvar)
@@ -3695,7 +3689,7 @@ class ModelAttributesNew:
         """
 
         # check variable first
-        if modvar not in self.all_model_variables:
+        if modvar not in self.all_variables:
             raise ValueError(f"Invalid model variable '{modvar}' found in get_variable_characteristic.")
 
         subsector = self.get_variable_subsector(modvar)
@@ -5023,8 +5017,9 @@ class ModelAttributesNew:
 
     def build_variable_fields(self, #VISIT
         variable_specification: Union[mv.ModelVariable, str, List[mv.ModelVariable], List[str], None],
-        restrict_to_category_values: Union[Dict[str, List[str]], List[str], None] = None,
-        dict_force_override_vrp_vvs_cats: Union[Dict, None] = None,
+        category_restrictions_as_full_spec: bool = False,
+        restrict_to_category_values: Union[Dict[str, List[str]], List[str], str, None] = None,
+        sort: bool = True,
         variable_type: Union[str, None] = None,
     ) -> List[str]:
         """
@@ -5043,11 +5038,30 @@ class ModelAttributesNew:
 
         Keyword Arguments
         -----------------
+        - category_restrictions_as_full_spec: Passed to each 
+            ModelVariable.build_fields(). Set to True to treat 
+            `restrict_to_category_values` as the full specification dictionary
         - restrict_to_category_values: default is None. If None, applies to all 
             categories specified in attribute tables. 
-            * If list, will restrict to specified categories only
-            * If dict, will map variable schema elements--including by 
-                dimension-to categories.
+
+            * dict: should map a mutable element to a list of categories
+                    associated with that element. 
+                    * RETURNS: list of fields
+            * list: only available if the number of mutable elements in the
+                schema is 1; assumes that categories are associated with 
+                that element.
+                * RETURNS: list of fields
+
+                NOTE: If the mutable elements are all associated with a 
+                single root element (e.g., cat_landuse_dim1 and 
+                cat_landuse_dim2 both share the parent cat_landuse), then 
+                a list is assumed to specify the space for the root element;
+                all dimensions will take this restriction.
+                
+            * str: only available if the number of mutable elements in the
+                schema is 1; behavior is the same as a single-element list.
+                * RETURNS: field (string) or None if the category is not
+                    associated with the variable subsector
 
             * NOTE: careful when using if variable_specification includes model
                 variables for multiple sectors; if categories are specified as
@@ -5062,6 +5076,11 @@ class ModelAttributesNew:
                 along different dimensions (e.g., $CAT-LANDUSE-DIM1$ and 
                 $CAT-LANDUSE-DIM2$)
 
+            * NOTE: if `category_restrictions_as_full_spec == True`, then 
+                category_restrictions is treated as the initialization 
+                dictionary
+
+        - sort: sort the output 
         - variable_type: input or output. If None, defaults to input.
         """
 
@@ -5071,110 +5090,57 @@ class ModelAttributesNew:
             variable_specification,
             return_type = "variable",
         )
-
         if modvars_to_build is None:
             return None
 
+        # check variable type
+        variable_type = (
+            variable_type.lower() 
+            if isinstance(variable_type, str) 
+            else variable_type
+        )
+        variable_type = (
+            None 
+            if variable_type not in ["input", "output"] 
+            else variable_type
+        )
 
-        ##  ITERATE
+
+        ##  ITERATE TO BUILD
+        
+        fields_out = []
 
         for modvar in modvars_to_build:
-            restrict_to_category_values
-            modvar.build_fields(
-                
-            )
-        # get some subsector info
-        attr_subsec = self.get_subsector_attribute_table()
-        abv_subsec = self.get_subsector_attribute(subsector, "abv_subsector")
-        category = mv.clean_element(
-            attr_subsec.field_maps
-            .get(f"{attr_subsec.key}_to_primary_category")
-            .get(abv_subsec)
-        ) 
-
-        category_ij_tuple = self.format_category_for_direct(category, "-I", "-J")
-        attribute_table = self.get_attribute_table(subsector)
-
-        # check categories
-        if restrict_to_category_values is not None:
-            restrict_to_category_values = (
-                [restrict_to_category_values] 
-                if isinstance(restrict_to_category_values, str)
-                else restrict_to_category_values
-            )
-        valid_cats = self.check_category_restrictions(restrict_to_category_values, attribute_table)
-
-
-        ##  START BUILDING VARLIST
-
-        # get dictionary of variable to variable schema and id variables that are in the outer (Cartesian) product (i x j)
-        dict_vr_vvs, dict_vr_vvs_outer = self.separate_varreq_dict_for_outer(
-            subsector, 
-            "key_varreqs_all", 
-            category_ij_tuple, 
-            variable = variable_subsec, 
-            variable_type = variable_type
-        )
-
-        # build variables that apply to all categories
-        vars_out = self.build_vars_basic(
-            dict_vr_vvs, 
-            dict(
-                zip(
-                    list(dict_vr_vvs.keys()), 
-                    [valid_cats for x in dict_vr_vvs.keys()]
-                )
-            ), 
-            category
-        )
-
-        if len(dict_vr_vvs_outer) > 0:
-            vars_out += self.build_vars_oute1r(
-                dict_vr_vvs_outer,
-                 dict(
-                    zip(
-                        list(dict_vr_vvs_outer.keys()), 
-                        [valid_cats for x in dict_vr_vvs_outer.keys()]
-                    )
-                ), 
-                 category
+            
+            # skip if variable type is specified
+            if variable_type is not None:
+                vt = modvar.get_property("variable_type").lower()
+                if isinstance(vt, str):
+                    if vt.lower() != variable_type:
+                        continue
+            
+            fields = modvar.build_fields(
+                category_restrictions = restrict_to_category_values,
+                category_restrictions_as_full_spec = category_restrictions_as_full_spec,
             )
 
-        # build those that apply to partial categories
-        dict_vrp_vvs, dict_vrp_vvs_outer = self.separate_varreq_dict_for_outer(
-            subsector, 
-            "key_varreqs_partial", 
-            category_ij_tuple, 
-            variable = variable_subsec, 
-            variable_type = variable_type
-        )
+            if fields is None:
+                continue
+            
+            (
+                fields_out.extend(fields)
+                if isinstance(fields, list)
+                else fields_out.append(fields)
+            )  
+        
+        # return to string if entered as a string
+        if isinstance(restrict_to_category_values, str) & (len(fields_out) == 1):
+            fields_out = fields_out[0]
 
-        dict_vrp_vvs_cats, dict_vrp_vvs_cats_outer = self.get_partial_category_dictionaries(
-            subsector, 
-            category_ij_tuple, 
-            variable_in = variable_subsec, 
-            restrict_to_category_values = restrict_to_category_values,
-        )
+        if isinstance(fields_out, list) & sort:
+            fields_out.sort()
 
-        # check dict_force_override_vrp_vvs_cats - use w/caution if not none. Cannot use w/outer
-        if dict_force_override_vrp_vvs_cats is not None:
-            # check categories
-            for k in dict_force_override_vrp_vvs_cats.keys():
-                sf.check_set_values(
-                    dict_force_override_vrp_vvs_cats[k], 
-                    attribute_table.key_values, 
-                    f" in dict_force_override_vrp_vvs_cats at key {k} (subsector {subsector})"
-                )
-            dict_vrp_vvs_cats = dict_force_override_vrp_vvs_cats
-
-        if len(dict_vrp_vvs) > 0:
-            vars_out += self.build_vars_basic(dict_vrp_vvs, dict_vrp_vvs_cats, category)
-
-        if len(dict_vrp_vvs_outer) > 0:
-            vl = self.build_vars_oute1r(dict_vrp_vvs_outer, dict_vrp_vvs_cats_outer, category)
-            vars_out += self.build_vars_oute1r(dict_vrp_vvs_outer, dict_vrp_vvs_cats_outer, category)
-
-        return vars_out
+        return fields_out
 
 
 
@@ -5440,7 +5406,7 @@ class ModelAttributesNew:
             subsectors.extend([x for x in sector_subsecs if x not in subsectors])
 
         # identify model variables that are specified as a string
-        modvars_str = [x for x in var_spec_str if x in self.all_model_variables]
+        modvars_str = [x for x in var_spec_str if x in self.all_variables]
         
         # next, iterate over over subsectors to update model variables
         for subsec in subsectors:
@@ -5921,7 +5887,7 @@ class ModelAttributesNew:
             a variable.
         """
         # check variable first
-        if variable not in self.all_model_variables:
+        if variable not in self.all_variables:
             raise ValueError(f"Invalid model variable '{variable}' found in get_variable_characteristic.")
 
         subsector = self.dict_model_variable_to_subsector[variable]
@@ -6202,8 +6168,8 @@ class ModelAttributesNew:
         - field_model_variable: field containing the model variable
         - field_simplex_group: field identifying the simplex group
         - str_split_varreqs_key: string to split keys in 
-            model_attributes.dict_variable_definitions on; the second element is used for 
-            sorting tables to assign simplex groups for
+            model_attributes.dict_variable_definitions on; the second element is 
+            used for sorting tables to assign simplex groups for
         - trajgroup_0: base trajectory group to start from when making 
             assignments
         """
