@@ -1506,7 +1506,7 @@ class AFOLU:
                 self.modvar_lndu_ef_co2_conv,
                 "area"
             )
-            if self.model_attributes.check_modvar(target_units_area_modvar) is not None
+            if self.model_attributes.get_variable(target_units_area_modvar) is not None
             else 1.0
         )
 
@@ -1919,7 +1919,7 @@ class AFOLU:
         
         modvar = (
             modvar
-            if self.model_attributes.check_modvar(modvar) is not None
+            if self.model_attributes.get_variable(modvar) is not None
             else self.modvar_lndu_prob_transition
         )
         """

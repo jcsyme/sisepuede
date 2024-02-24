@@ -68,7 +68,7 @@ def project_model_variable_using_growth_rate(
     # do some checks
     return_none = not isinstance(df_data, pd.DataFrame)
     return_none |= not sf.islistlike(time_periods_hist)
-    return_none |= (model_attributes.check_modvar(modvar) is None)
+    return_none |= (model_attributes.get_variable(modvar) is None)
     if return_none:
         return None
 

@@ -1705,8 +1705,8 @@ class NonElectricEnergy:
 
         # initialize some model_attributes objects
         attr_enfu = self.model_attributes.get_attribute_table(self.subsec_name_enfu)
-        return_none = self.model_attributes.check_modvar(modvar_demscalar) is None
-        return_none |= self.model_attributes.check_modvar(modvar_fuel_efficiency) is None
+        return_none = self.model_attributes.get_variable(modvar_demscalar) is None
+        return_none |= self.model_attributes.get_variable(modvar_fuel_efficiency) is None
 
         if return_none:
             self._log(

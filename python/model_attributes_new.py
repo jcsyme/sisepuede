@@ -2304,27 +2304,6 @@ class ModelAttributesNew:
         return dict_out[subsec] if (subsec != "all") else dict_out
 
 
-    
-    def check_modvar(self,
-        modvar: Union[Any, None],
-    ) -> Union[str, None]:
-        """
-        Check if modvar is valid. If so, will return modvar. If not, returns
-            None.
-        """
-
-        if not isinstance(modvar, str):
-            return None
-
-        out = (
-            modvar
-            if modvar in self.all_variables
-            else None
-        )
-
-        return out
-        
-
 
     def check_region(self,
         region: str,
@@ -5355,30 +5334,6 @@ class ModelAttributesNew:
             )
 
         return vars_in, vars_out
-    
-
-
-    def get_modvar_from_varspec(self, #VISIT
-        variable_specification: str,
-    ) -> Union[str, None]:
-        """
-        Return a model variable from a model variable OR field. 
-
-        Function Arguments
-        ------------------
-        - variable_specification: model variable OR field. Hierarchically,
-            checks to see if variable_specification is a model variable; if not,
-            looks to fields.
-        """
-
-        check_val = self.check_modvar(variable_specification)
-        check_val = (
-            self.dict_model_variables_to_variables.get(variable_specification)
-            if check_val is None
-            else check_val
-        )
-
-        return check_val
 
 
 
@@ -5592,7 +5547,7 @@ class ModelAttributesNew:
             else modvars_to_check
         )
         modvars_to_check = (
-            [x for x in modvars_to_check if self.check_modvar(x) is not None]
+            [x for x in modvars_to_check if self.get_variable(x) is not None]
             if sf.islistlike(modvars_to_check) 
             else None
         )
