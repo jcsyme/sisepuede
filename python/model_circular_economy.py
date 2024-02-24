@@ -1393,10 +1393,26 @@ class CircularEconomy:
         array_trww_emissions_n2o_effluent = array_trww_emissions_n2o_effluent.transpose()
 
         # calculate pollutants (N & P) -- get scalars for output units
-        scalar_trww_bod_mass_to_n_removed = self.model_attributes.get_variable_unit_conversion_factor(self.modvar_wali_protein_per_capita, self.modvar_trww_total_n_treated, "mass")
-        scalar_trww_bod_mass_to_p_removed = self.model_attributes.get_variable_unit_conversion_factor(self.modvar_wali_protein_per_capita, self.modvar_trww_total_p_treated, "mass")
-        scalar_trww_bod_mass_to_n_effluent = self.model_attributes.get_variable_unit_conversion_factor(self.modvar_wali_protein_per_capita, self.modvar_trww_total_n_in_effluent, "mass")
-        scalar_trww_bod_mass_to_p_effluent = self.model_attributes.get_variable_unit_conversion_factor(self.modvar_wali_protein_per_capita, self.modvar_trww_total_p_in_effluent, "mass")
+        scalar_trww_bod_mass_to_n_removed = self.model_attributes.get_variable_unit_conversion_factor(
+            self.modvar_wali_protein_per_capita, 
+            self.modvar_trww_total_n_treated, 
+            "mass",
+        )
+        scalar_trww_bod_mass_to_p_removed = self.model_attributes.get_variable_unit_conversion_factor(
+            self.modvar_wali_protein_per_capita, 
+            self.modvar_trww_total_p_treated, 
+            "mass",
+        )
+        scalar_trww_bod_mass_to_n_effluent = self.model_attributes.get_variable_unit_conversion_factor(
+            self.modvar_wali_protein_per_capita, 
+            self.modvar_trww_total_n_in_effluent,
+            "mass",
+        )
+        scalar_trww_bod_mass_to_p_effluent = self.model_attributes.get_variable_unit_conversion_factor(
+            self.modvar_wali_protein_per_capita, 
+            self.modvar_trww_total_p_in_effluent,
+            "mass",
+        )
 
         # set output vectors
         vec_trww_total_n_effluent = np.sum(array_trww_total_n_effluent*scalar_trww_bod_mass_to_n_effluent, axis = 1)

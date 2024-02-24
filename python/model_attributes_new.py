@@ -949,10 +949,13 @@ class ModelAttributesNew:
 
             for modvar in modvars:
                 # build the variable list
-                subsec = self.get_variable_subsector(modvar)
-                varlist = self.build_varlist(subsec, modvar)
+                varlist = self.build_variable_fields(modvar)
+
                 # get emission and add to dictionary
-                emission = self.get_variable_characteristic(modvar, self.varchar_str_emission_gas)
+                emission = self.get_variable_characteristic(
+                    modvar, 
+                    self.varchar_str_emission_gas
+                )
 
                 key = emission if (emission is not None) else key_other_totals
 
@@ -2263,7 +2266,7 @@ class ModelAttributesNew:
     def check_integrated_df_vars(self,
         df_in: pd.DataFrame,
         dict_integrated_vars: dict,
-        subsec: str = "all"
+        subsec: str = "all",
     ) -> dict:
         """
         Check data frames specified for integrated variables
@@ -2273,19 +2276,24 @@ class ModelAttributesNew:
         dict_out = {}
         #
         for subsec0 in subsecs:
+
             subsec = self.check_subsector(subsec0, throw_error_q = False)
+
             if (subsec is not None):
+
                 fields_req = []
-                for modvar in dict_integrated_vars[subsec]:
-                    fields_req += self.build_varlist(subsec, modvar)
+                for modvar in dict_integrated_vars.get(subsec):
+                    fields_req += self.build_variable_fields(modvar)
 
                 # check for required variables
                 subsec_val = True
+
                 if not set(fields_req).issubset(df_in.columns):
                     set_missing = list(set(fields_req) - set(df_in.columns))
                     set_missing = sf.format_print_list(set_missing)
                     warnings.warn(f"Integration in subsector '{subsec}' cannot proceed: The fields {set_missing} are missing.")
                     subsec_val = False
+
             else:
                 warnings.warn(f"Invalid subsector '{subsec}' found in check_integrated_df_vars: The subsector does not exist.")
                 subsec_val = False
@@ -2524,7 +2532,6 @@ class ModelAttributesNew:
             if ((len(modvar.fields) == 1) and not override_vector_for_single_mv_q)
             else out
         )
-        #HEREHERE
 
         # initialize output, apply various common transformations based on type
         if return_type == "array_units_corrected":
@@ -4320,10 +4327,14 @@ class ModelAttributesNew:
         variables_transfer = list(set(variables_transfer))
 
         for var_int in variables_transfer:
-
             df_ext = None
+
             try:
-                df_ext = self.get_optional_or_integrated_standard_variable(df_source, var_int, None)
+                df_ext = self.get_optional_or_integrated_standard_variable(
+                    df_source, 
+                    var_int, 
+                    None,
+                )
 
             except Exception as e:
                 if stop_on_error:
@@ -4332,24 +4343,38 @@ class ModelAttributesNew:
                     get_optional_or_integrated_standard_variable returned '{e}'.
                     """
                     raise RuntimeError(msg)
+            
+            if df_ext is None:
+                continue
 
+            # drop variables that are already in the target df
+            varlist = self.build_variable_fields(var_int)
+            vars_to_drop = list(
+                set(df_ext[1].columns) & set(dfs_extract[0].columns) & set(varlist)
+            )
 
-            if type(df_ext) != type(None):
-                #
-                subsec = self.get_variable_subsector(var_int)
-                varlist = self.build_varlist(subsec, var_int)
-                
-                # drop variables that are already in the target df
-                vars_to_drop = list(set(df_ext[1].columns) & set(dfs_extract[0].columns) & set(varlist))
-                if len(vars_to_drop) > 0:
-                    if overwrite_targets:
-                        dfs_extract[0].drop(vars_to_drop, axis = 1, inplace = True)
-                    else:
-                        df_ext[1].drop(vars_to_drop, axis = 1, inplace = True)
+            if len(vars_to_drop) > 0:
+                if overwrite_targets:
+                    dfs_extract[0].drop(
+                        vars_to_drop, 
+                        axis = 1, 
+                        inplace = True,
+                    )
 
-                dfs_extract.append(df_ext[1])
+                else:
+                    df_ext[1].drop(
+                        vars_to_drop, 
+                        axis = 1, 
+                        inplace = True,
+                    )
 
-        out = sf.merge_output_df_list(dfs_extract, self, merge_type = join_type)
+            dfs_extract.append(df_ext[1])
+
+        out = sf.merge_output_df_list(
+            dfs_extract, 
+            self, 
+            merge_type = join_type,
+        )
 
         return out
 
@@ -4546,7 +4571,7 @@ class ModelAttributesNew:
 
     def array_to_df(self,
         arr_in: np.ndarray,
-        modvar: str,
+        modvar: Union[str, mv.ModelVariable],
         include_scalars: bool = False,
         reduce_from_all_cats_to_specified_cats: bool = False,
     ) -> pd.DataFrame:
@@ -4558,7 +4583,8 @@ class ModelAttributesNew:
         ------------------
         - arr_in: np.ndarray to convert to data frame. If entered as a vector, 
             it will be converted to a (n x 1) array, where n = len(arr_in)
-        - modvar: the name of the model variable to use to name the dataframe
+        - modvar: the name of the model variable to use to name the dataframe OR
+            the ModelVariable object
 
         Keyword Arguments
         -----------------
@@ -4570,12 +4596,16 @@ class ModelAttributesNew:
             columns).
         """
 
-        # get subsector and fields to name based on variable
-        subsector = self.dict_model_variable_to_subsector.get(modvar)
-        fields = self.build_varlist(subsector, variable_subsec = modvar)
+        # get subsector and fields to name based on variable HEREHERE
+        subsector = self.get_variable_subsector(modvar)
+        fields = self.build_variable_fields(modvar)
 
         # transpose if needed
-        arr_in = np.array([arr_in]).transpose() if (len(arr_in.shape) == 1) else arr_in
+        arr_in = (
+            np.array([arr_in]).transpose() 
+            if (len(arr_in.shape) == 1) 
+            else arr_in
+        )
 
         # is the array that's being passed column-wise associated with all categories?
         if reduce_from_all_cats_to_specified_cats:
@@ -5015,7 +5045,7 @@ class ModelAttributesNew:
 
 
 
-    def build_variable_fields(self, #VISIT
+    def build_variable_fields(self,
         variable_specification: Union[mv.ModelVariable, str, List[mv.ModelVariable], List[str], None],
         category_restrictions_as_full_spec: bool = False,
         restrict_to_category_values: Union[Dict[str, List[str]], List[str], str, None] = None,
@@ -5141,141 +5171,6 @@ class ModelAttributesNew:
             fields_out.sort()
 
         return fields_out
-
-
-
-    def build_varlist(self, #VISIT
-        subsector: Union[str, None],
-        variable_subsec: Union[str, None] = None,
-        restrict_to_category_values: Union[List[str], None] = None,
-        dict_force_override_vrp_vvs_cats: Union[Dict, None] = None,
-        variable_type: Union[str, None] = None,
-    ) -> List[str]:
-        """
-        Build a list of fields (complete variable schema from a data frame) 
-            based on the subsector and variable name.
-
-        Function Arguments
-        ------------------
-        - subsector: str, the subsector to build the variable list for.
-        - variable_subsec: default is None. If None, then builds varlist of all 
-            variables required for this variable.
-
-        Keyword Arguments
-        -----------------
-        - dict_force_override_vrp_vvs_cats: dict_force_override_vrp_vvs_cats can 
-            be set do a dictionary of the form
-
-            {
-                MODEL_VAR_NAME: [catval_a, catval_b, catval_c, ... ]
-            }
-
-            where catval_i are not all unique; this is useful for making a 
-            variable that maps unique categories to a subset of non-unique 
-            categories that represent proxies (e.g., buffalo -> cattle_dairy, )
-
-        - restrict_to_category_values: default is None. If None, applies to all 
-            categories specified in attribute tables. Otherwise, will restrict 
-            to specified categories.
-        - variable_type: input or output. If None, defaults to input.
-        """
-
-        ##  INITIALIZATION 
-
-        # get subsector if None
-        if subsector is None:
-            if variable_subsec is None:
-                return None
-            subsector = self.get_variable_subsector(variable_subsec)
-
-        # get some subsector info
-        attr_subsec = self.dict_attributes.get(self.table_name_attr_subsector)
-        abv_subsec = self.get_subsector_attribute(subsector, "abv_subsector")
-        category = attr_subsec.field_maps.get(f"{attr_subsec.key}_to_primary_category").get(abv_subsec).replace("`", "")
-
-        category_ij_tuple = self.format_category_for_direct(category, "-I", "-J")
-        attribute_table = self.get_attribute_table(subsector)
-
-        # check categories
-        if restrict_to_category_values is not None:
-            restrict_to_category_values = (
-                [restrict_to_category_values] 
-                if isinstance(restrict_to_category_values, str)
-                else restrict_to_category_values
-            )
-        valid_cats = self.check_category_restrictions(restrict_to_category_values, attribute_table)
-
-
-        ##  START BUILDING VARLIST
-
-        # get dictionary of variable to variable schema and id variables that are in the outer (Cartesian) product (i x j)
-        dict_vr_vvs, dict_vr_vvs_outer = self.separate_varreq_dict_for_outer(
-            subsector, 
-            "key_varreqs_all", 
-            category_ij_tuple, 
-            variable = variable_subsec, 
-            variable_type = variable_type
-        )
-
-        # build variables that apply to all categories
-        vars_out = self.build_vars_basic(
-            dict_vr_vvs, 
-            dict(
-                zip(
-                    list(dict_vr_vvs.keys()), 
-                    [valid_cats for x in dict_vr_vvs.keys()]
-                )
-            ), 
-            category
-        )
-
-        if len(dict_vr_vvs_outer) > 0:
-            vars_out += self.build_vars_outer(
-                dict_vr_vvs_outer,
-                 dict(
-                    zip(
-                        list(dict_vr_vvs_outer.keys()), 
-                        [valid_cats for x in dict_vr_vvs_outer.keys()]
-                    )
-                ), 
-                 category
-            )
-
-        # build those that apply to partial categories
-        dict_vrp_vvs, dict_vrp_vvs_outer = self.separate_varreq_dict_for_outer(
-            subsector, 
-            "key_varreqs_partial", 
-            category_ij_tuple, 
-            variable = variable_subsec, 
-            variable_type = variable_type
-        )
-
-        dict_vrp_vvs_cats, dict_vrp_vvs_cats_outer = self.get_partial_category_dictionaries(
-            subsector, 
-            category_ij_tuple, 
-            variable_in = variable_subsec, 
-            restrict_to_category_values = restrict_to_category_values,
-        )
-
-        # check dict_force_override_vrp_vvs_cats - use w/caution if not none. Cannot use w/outer
-        if dict_force_override_vrp_vvs_cats is not None:
-            # check categories
-            for k in dict_force_override_vrp_vvs_cats.keys():
-                sf.check_set_values(
-                    dict_force_override_vrp_vvs_cats[k], 
-                    attribute_table.key_values, 
-                    f" in dict_force_override_vrp_vvs_cats at key {k} (subsector {subsector})"
-                )
-            dict_vrp_vvs_cats = dict_force_override_vrp_vvs_cats
-
-        if len(dict_vrp_vvs) > 0:
-            vars_out += self.build_vars_basic(dict_vrp_vvs, dict_vrp_vvs_cats, category)
-
-        if len(dict_vrp_vvs_outer) > 0:
-            vl = self.build_vars_outer(dict_vrp_vvs_outer, dict_vrp_vvs_cats_outer, category)
-            vars_out += self.build_vars_outer(dict_vrp_vvs_outer, dict_vrp_vvs_cats_outer, category)
-
-        return vars_out
 
 
 
@@ -5461,8 +5356,8 @@ class ModelAttributesNew:
 
         for subsector in subsectors_io:
 
-            vars_subsector_in = self.build_varlist(subsector, variable_type = "input")
-            vars_subsector_out = self.build_varlist(subsector, variable_type = "output")
+            vars_subsector_in = self.build_variable_fields(subsector, variable_type = "input")
+            vars_subsector_out = self.build_variable_fields(subsector, variable_type = "output")
 
             vars_in += vars_subsector_in
             vars_out += vars_subsector_out
@@ -5616,16 +5511,16 @@ class ModelAttributesNew:
     def get_optional_or_integrated_standard_variable(self,
         df_in: pd.DataFrame,
         var_integrated: str,
-        var_optional: str,
+        var_optional: Union[str, None],
         **kwargs
-    ) -> tuple:
+    ) -> Union[tuple, None]:
         """
         Function to return an optional variable if another (integrated) variable 
             is not passed
         """
         # get fields needed
         subsector_integrated = self.get_variable_subsector(var_integrated)
-        fields_check = self.build_varlist(subsector_integrated, var_integrated)
+        fields_check = self.build_variable_fields(var_integrated)
         out = None
 
         # check and return the output variable + which variable was selected
@@ -5818,7 +5713,7 @@ class ModelAttributesNew:
         if len(modvars_to_check) == 1:
             dict_out.update(
                 dict(
-                    (x, ind_base) for x in self.build_varlist(None, modvars_to_check[0])
+                    (x, ind_base) for x in self.build_variable_fields(modvars_to_check[0])
                 )
             )
 
@@ -5843,22 +5738,25 @@ class ModelAttributesNew:
 
                     field = None
                     try:
-                        field = self.build_varlist(
-                            None,
+                        field = self.build_variable_fields(
                             modvar,
-                            restrict_to_category_values = cat
+                            restrict_to_category_values = cat,
                         )
+
                     except Exception as e:
                         # skip on an error
                         continue
 
                     (
                         fields_group.append(field) 
-                        if field is not None
-                        else None
+                        if isinstance(field, str)
+                        else (
+                            fields_group.extend(field) 
+                            if isinstance(field, list) 
+                            else None
+                        )
                     )
-                
-                fields_group = sum(fields_group, [])
+
                 (
                     dict_out.update(
                         dict((x, ind_base) for x in fields_group)
@@ -5877,33 +5775,51 @@ class ModelAttributesNew:
 
 
 
-    def get_variable_attribute(self, 
-        variable: str, 
-        attribute: str
-    ) -> str:
+    def get_variable_attribute(self, #FIXED
+        variable: Union[str, mv.ModelVariable], 
+        attribute: str,
+        stop_on_error: bool = True,
+    ) -> Union[str, None]:
         """
         use get_variable_attribute to retrieve a variable attribute--any cleaned 
             field available in the variable requirements table--associated with 
             a variable.
         """
         # check variable first
-        if variable not in self.all_variables:
-            raise ValueError(f"Invalid model variable '{variable}' found in get_variable_characteristic.")
+        variable = self.get_variable(variable)
+        if variable is None:
+            if stop_on_error:
+                raise ValueError(f"Invalid model variable '{variable}' specified in get_variable_attribute.")
+            
+            return None
 
-        subsector = self.dict_model_variable_to_subsector[variable]
-        cat_restriction_type = self.dict_model_variable_to_category_restriction[variable]
-        key_varreqs = self.get_subsector_attribute(subsector, f"key_varreqs_{cat_restriction_type}")
-        key_fm = f"variable_to_{attribute}"
+        # get the subsector
+        subsector = self.get_variable_subsector(variable)
+        attr_subsector = self.get_attribute_table(
+            subsector, 
+            table_type = "variable_definitions",
+        )
 
-        sf.check_keys(self.dict_variable_definitions[key_varreqs].field_maps, [key_fm])
-        var_attr = self.dict_variable_definitions[key_varreqs].field_maps[key_fm][variable]
+        # get the attribute
+        var_attr = attr_subsector.get_attribute(
+            variable.name,
+            attribute,
+        )
+
+        if (var_attr is None) & stop_on_error:
+            msg = f"""
+            Error searching for {variable.name} attribute in 
+            get_variable_attribute: Attribute {attribute} not found in 
+            {subsector} attribute table.
+            """
+            raise RuntimeError(msg)
 
         return var_attr
 
 
 
     def get_variable_categories(self, #FIXED
-        variable: str,
+        variable: Union[str, mv.ModelVariable],
         force_dict_return: bool = False,
         stop_on_error: bool = False,
     ) -> Union[List[str], Dict[str, List[str]], None]:
@@ -5913,7 +5829,7 @@ class ModelAttributesNew:
 
         Function Arguments
         ------------------
-        - variable: variable name to get categories for
+        - variable: variable name to get categories for OR ModelVariable object
 
         Keyword Arguments
         -----------------
@@ -5935,7 +5851,7 @@ class ModelAttributesNew:
         # get variable categories, defined in a dictionary
         dict_cats = modvar.dict_category_keys
         return_none = (dict_cats is None)
-        return_none |= (len(dict_cats) == 0) if not return_none else return_nont
+        return_none |= (len(dict_cats) == 0) if not return_none else return_none
         if return_none:
             return None
 
@@ -5987,7 +5903,7 @@ class ModelAttributesNew:
         # run some checks
         self.check_subsector(subsector)
 
-        # get the value from the dictionaryHEREHERE
+        # get the value from the dictionary
         attr_subsec = self.get_attribute_table(subsector)
         subsec_abv = self.get_subsector_attribute(subsector, "abv_subsector")
         attr_retrieve = f"{subsec_abv}_variable"
@@ -6003,83 +5919,70 @@ class ModelAttributesNew:
 
 
     def get_variable_subsector(self, #FIXED
-        modvar: str, 
-        throw_error_q: bool = True
+        modvar: Union[str, mv.ModelVariable], 
+        key_subsector: str = "subsector",
+        throw_error_q: bool = True,
     ) -> Union[str, None]:
         """
         Easy function for getting a variable subsector
         """
-        dict_check = self.dict_model_variable_to_subsector
-        val_out = dict_check.get(modvar)
+        
+        out = (
+            modvar.get_property(key_subsector)
+            if mv.is_model_variable(modvar)
+            else self.dict_model_variable_to_subsector.get(modvar)
+        )
 
-        if (val_out is None) and throw_error_q:
+        if (out is None) and throw_error_q:
             raise KeyError(f"Invalid model variable '{modvar}': model variable not found.")
 
-        return val_out
+        return out
 
 
 
-    def get_variable_unit_conversion_factor(self, 
-        var_to_convert: str, 
-        var_to_match: str, 
+    def get_variable_unit_conversion_factor(self, #FIXED
+        var_to_convert: Union[str, mv.ModelVariable],
+        var_to_match: Union[str, mv.ModelVariable],
         units: str
-    ) -> float:
+    ) -> Union[float, int, None]:
 
         """
         Conversion factor to scale 'var_to_convert' to the same unit type 
-            'units' as 'var_to_match'
+            'units' as 'var_to_match'. Returns None if var_to_convert is None
 
         Function Arguments
         ------------------
         - var_to_convert: string of a model variable to scale units
         - var_to_match: string of a model variable to match units
-        - units: valid values are: 
-            * 'area'
-            * 'energy'
-            * 'length'
-            * 'mass'
-            * 'monetary'
-            * 'volume'
+        - units: valid values are defined in self.all_units
         """
         # return None if no variable passed
         if var_to_convert is None:
             return None
+        
+        # retrieve units object
+        units = self.get_unit(units)
+        if units is None:
 
-        # check specification
-        dict_valid_units = {
-            "area": self.varchar_str_unit_area,
-            "energy": self.varchar_str_unit_energy,
-            "length": self.varchar_str_unit_length,
-            "mass": self.varchar_str_unit_mass,
-            "monetary": self.varchar_str_unit_monetary,
-            "volume": self.varchar_str_unit_volume
-        }
+            str_valid_units = sf.format_print_list(self.all_units)
+            msg = f"""
+            Invalid units '{units}' specified in 
+            get_variable_conversion_factor: valid values are {str_valid_units}
+            """
 
-        # check values
-        if units not in dict_valid_units.keys():
-            str_valid_units = sf.format_print_list(sorted(list(dict_valid_units.keys())))
-            raise ValueError(f"Invalid units '{units}' specified in get_variable_conversion_factor: valid values are {str_valid_units}")
+            raise ValueError(msg)
+        
 
-        # get arguments
+        # get characteristic and convert
+        unit_key = f"{self.attribute_group_key_unit}_{units.key}"
         args = (
-            self.get_variable_characteristic(var_to_convert, dict_valid_units[units]),
-            self.get_variable_characteristic(var_to_match, dict_valid_units[units])
+            self.get_variable_characteristic(var_to_convert, unit_key),
+            self.get_variable_characteristic(var_to_match, unit_key)
         )
-        # switch based on input units
-        if units == "area":
-            val_return = self.get_area_equivalent(*args)
-        elif units == "energy":
-            val_return = self.get_energy_equivalent(*args)
-        elif units == "length":
-            val_return = self.get_length_equivalent(*args)
-        elif units == "mass":
-            val_return = self.get_mass_equivalent(*args)
-        elif units == "monetary":
-            val_return = self.get_monetary_equivalent(*args)
-        elif units == "volume":
-            val_return = self.get_volume_equivalent(*args)
 
-        return val_return
+        out = units.convert(*args)
+
+        return out
 
 
 
@@ -6181,10 +6084,11 @@ class ModelAttributesNew:
         for key, attr in self.dict_variable_definitions.items():
 
             # get sortable class for this table
-            sort_class = key.split(str_split_varreqs_key)
-            if len(sort_class) < 2:
-                continue
-            sort_class = sort_class[1]
+            #sort_class = key.split(str_split_varreqs_key)
+            #if len(sort_class) < 2:
+            #    continue
+            #sort_class = sort_class[1]
+            sort_class = key
 
             # skip if unidentified
             if field_simplex_group not in attr.table.columns:
@@ -6219,7 +6123,7 @@ class ModelAttributesNew:
                         f"MISSIONSEARCHNOTE: As of 2023-10-06, there is a temporary solution implemeted in ModelAttributes.get_variable_to_simplex_group_dictionary() to ensure that transition probability rows are enforced on a simplex.\n\nFIX THIS ASAP TO DERIVE PROPERLY."
                     )
 
-                    fields_to_split = self.build_varlist(None, var_transitions)
+                    fields_to_split = self.build_variable_fields(var_transitions)
                     attr_lndu = self.get_attribute_table(self.subsec_name_lndu)
                     dict_assigned = {}
 
@@ -6306,8 +6210,7 @@ class ModelAttributesNew:
         -----------------
         - blank_val: the value to use to fill the frame
         """
-        subsec = self.get_variable_subsector(modvar)
-        cols = self.build_varlist(subsec, modvar)
+        cols = self.build_variable_fields(modvar)
         df_out = pd.DataFrame(np.ones((n, len(cols)))*blank_val, columns = cols)
 
         return df_out

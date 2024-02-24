@@ -1187,7 +1187,7 @@ class ModelVariable:
                     fields_new.append(field)
                     
             fields = fields_new
-        
+
         # finally, reduce to string if needed
         if return_type == "str":
             fields = fields[0] if (len(fields) > 0) else None
