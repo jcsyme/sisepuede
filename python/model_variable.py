@@ -759,6 +759,7 @@ class ModelVariable:
         
         if self.delim_categories in categories[0]:
             categories = categories[0].split(self.delim_categories)
+
         else:    
             categories = category_str.split(self.delim_categories)
             categories = [
