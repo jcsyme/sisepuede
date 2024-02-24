@@ -1037,8 +1037,9 @@ class ModelVariable:
 
 
     def build_fields(self,
-        category_restrictions: Union[dict, None] = None,
+        category_restrictions: Union[Dict[str, List[str]], List[str], str, None] = None,
         category_restrictions_as_full_spec: bool = False,
+        stop_on_error: bool = True,
     ) -> Union[List[str], None]:
         """
         Build fields associated with the variable.
@@ -1051,14 +1052,35 @@ class ModelVariable:
         - category_restrictions: optional dictionary to overwrite 
             `self.dict_category_keys` with; i.e., keys in category_restrictions 
             will overwrite those in `self.dict_category_keys` IF 
-            `category_restrictions_as_full_spec == False`. 
+            `category_restrictions_as_full_spec == False`. Accepts the following
+            types:
+                * dict: should map a mutable element to a list of categories
+                    associated with that element. 
+                    * RETURNS: list of fields
+
+                * list: only available if the number of mutable elements in the
+                    schema is 1; assumes that categories are associated with 
+                    that element.
+                    * RETURNS: list of fields
+
+                    NOTE: If the mutable elements are all associated with a 
+                    single root element (e.g., cat_landuse_dim1 and 
+                    cat_landuse_dim2 both share the parent cat_landuse), then 
+                    a list is assumed to specify the space for the root element;
+                    all dimensions will take this restriction.
+                    
+
+                * str: only available if the number of mutable elements in the
+                    schema is 1; behavior is the same as a single-element list.
+                    * RETURNS: field (string)
             
             * NOTE: if `category_restrictions_as_full_spec == True`, then 
                 category_restrictions is treated as the initialization 
                 dictionary
-                
+            
         - category_restrictions_as_full_spec: Set to True to treat 
             `category_restrictions` as the full specification dictionary
+        - stop_on_error: set to False to return None on a known error. 
         """
         
         # INITIALIZATION
@@ -1068,12 +1090,67 @@ class ModelVariable:
         fields = [self.schema.schema]
         schema = self.schema.schema
         
-        # keys to keep from the dictionary (if applicable)
-        keys_keep = (
-            list(category_restrictions.keys())
-            if isinstance(category_restrictions, dict)
-            else None
-        )
+        # check input specification
+        return_type = "list"
+        if isinstance(category_restrictions, str):
+            category_restrictions = [category_restrictions]
+            return_type = "str"
+        
+        # if categories are entered as a list, ensure that there is only 
+        # one mutable element; if there are none, then just proceed without the 
+        # restrictions
+        if isinstance(category_restrictions, list):
+
+            # initialize the mutable element
+            elem = (
+                self.schema.mutable_elements_clean_ordered[0]
+                if self.schema.n_mutable_elements == 1
+                else None
+            )
+            
+            if self.schema.n_mutable_elements > 1:
+                # HERE, assume that, in the presence of multiple dimensions, 
+                # that the list is specifying category restrictions for the root
+                # element
+                if len(self.dict_category_key_space) == 1:
+                    elem = list(self.dict_category_key_space.keys())[0]
+
+                else:
+                    if stop_on_error:
+                        rest = sf.format_print_list(category_restrictions)
+                        msg = f"""
+                        Unable to assign category restrictions {rest} in 
+                        ModelVariable.build_fields: categories are ambiguous, there
+                        are multiple mutable elements. Please use a dictionary 
+                        instead.
+                        """
+                        raise RuntimeError(msg)
+                    
+                    return None
+
+            elif self.schema.n_mutable_elements == 0:
+                # here, there are no categories, so the specification isn't considered
+                category_restrictions = None 
+    
+
+            if elem is not None:
+                category_restrictions = {
+                    elem: category_restrictions
+                }
+
+
+        # keys to keep from the dictionary (if applicable) 
+        # - allow for child elements, since get_categories_by_element()
+        #   can generate those elements
+        keys_keep = None
+
+        if isinstance(category_restrictions, dict):
+            keys_keep = [
+                [x] + self.schema.dict_root_element_to_children.get(x, [])
+                for x in category_restrictions.keys()
+            ]
+            keys_keep = set(sum(keys_keep, []))
+        
         
         # run through filtering and split elements
         category_restrictions = self.get_categories_by_element(
@@ -1082,19 +1159,19 @@ class ModelVariable:
         )
         if not isinstance(category_restrictions, dict):
             category_restrictions = {}
-        
+
         # if full specification, then get_categories_by_element() will  
         # fill out keys as though the dictionaries are being initialized
-        if (not category_restrictions_as_full_spec) and isinstance(keys_keep, list):
+        if (not category_restrictions_as_full_spec) and (keys_keep is not None):
             category_restrictions = dict(
                 (k, v) for k, v in category_restrictions.items()
                 if k in keys_keep
             )
+        
 
         ##  ITERATE 
         
         for dim in dims:
-            
             # try the input dictionary, return internal restrictions if not defined
             restrictions = category_restrictions.get(
                 dim,
@@ -1270,7 +1347,6 @@ class ModelVariable:
             )
 
             df_out = df_out[self.fields_space]
-            print(df_out.shape)
 
         df_out.reset_index(drop = True, inplace = True)
         df_out = df_out.to_numpy() if (return_type == "array") else df_out
@@ -1439,6 +1515,8 @@ class VariableSchema:
                 schema
             * self.mutable_elements_ordered: 
                 ordered list of elements that can be replaced in the schema 
+            * self.n_mutable_elements:
+                number of mutable elements
             * self.schema: schema to use that includes mutable elements
             * self.schema_raw: initial schema that includes elements set as
                 attributes using the specification
@@ -1491,6 +1569,8 @@ class VariableSchema:
         # next, get mutable elements
         mutable_elements_ordered = self.get_mutable_elements(schema)
         mutable_elements_clean_ordered = self.get_mutable_elements(schema, clean = True, )
+        n_mutable_elements = len(mutable_elements_clean_ordered)
+
         dict_mutable_elements_original_to_clean = dict(
             zip(
                 mutable_elements_ordered,
@@ -1517,6 +1597,7 @@ class VariableSchema:
         self.dict_root_element_to_children = dict_root_element_to_children
         self.mutable_elements_ordered = mutable_elements_ordered
         self.mutable_elements_clean_ordered = mutable_elements_clean_ordered
+        self.n_mutable_elements = n_mutable_elements
         self.schema = schema
         self.schema_raw = schema_raw
 

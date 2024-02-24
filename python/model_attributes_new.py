@@ -5043,17 +5043,6 @@ class ModelAttributesNew:
 
         Keyword Arguments
         -----------------
-        - dict_force_override_vrp_vvs_cats: dict_force_override_vrp_vvs_cats can 
-            be set do a dictionary of the form
-
-            {
-                MODEL_VAR_NAME: [catval_a, catval_b, catval_c, ... ]
-            }
-
-            where catval_i are not all unique; this is useful for making a 
-            variable that maps unique categories to a subset of non-unique 
-            categories that represent proxies (e.g., buffalo -> cattle_dairy, )
-
         - restrict_to_category_values: default is None. If None, applies to all 
             categories specified in attribute tables. 
             * If list, will restrict to specified categories only
@@ -5086,6 +5075,14 @@ class ModelAttributesNew:
         if modvars_to_build is None:
             return None
 
+
+        ##  ITERATE
+
+        for modvar in modvars_to_build:
+            restrict_to_category_values
+            modvar.build_fields(
+                
+            )
         # get some subsector info
         attr_subsec = self.get_subsector_attribute_table()
         abv_subsec = self.get_subsector_attribute(subsector, "abv_subsector")
@@ -6351,7 +6348,7 @@ class ModelAttributesNew:
 
 
 
-    def separate_varreq_dict_for_outer(self,
+    def separate_varreq_dict_for_outer(self, #REMOVE
         subsector: str,
         key_type: str,
         category_outer_tuple: tuple,
