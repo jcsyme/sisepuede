@@ -81,20 +81,47 @@ class MixedLNDUTransitionFromBounds:
 		* self.dict_fields_sum_check
 		* self.model_afolu
 		"""
-		self.attr_lndu = self.model_attributes.get_attribute_table(self.model_attributes.subsec_name_lndu)
-		self.model_afolu = mafl.AFOLU(self.model_attributes)
+		attr_lndu = self.model_attributes.get_attribute_table(self.model_attributes.subsec_name_lndu)
+		model_afolu = mafl.AFOLU(self.model_attributes)
 
 		# fields to use to check sums
-		self.dict_fields_sum_check = {}
+		dict_fields_sum_check = {}
 
-		all_vars = self.model_attributes.build_varlist(
-			self.model_afolu.subsec_name_lndu,
-			self.model_afolu.modvar_lndu_prob_transition
+		
+
+
+		##  BUILD LAND USE DICTIONARY MAPPING 
+
+		all_vars = self.model_attributes.build_variable_fields(
+			model_afolu.modvar_lndu_prob_transition,
 		)
 
-		for v in self.attr_lndu.key_values:
-			varlist = [x.replace(self.field_prepend_dfs, "") for x in all_vars if x.startswith(f"{self.field_prepend_dfs}{v}_to")]
-			self.dict_fields_sum_check.update({v: varlist})
+		pycat_elem = self.model_attributes.get_subsector_attribute(
+			self.model_attributes.subsec_name_lndu, 
+			"pycategory_primary_element"
+		)
+
+		for key in self.attr_lndu.key_values:
+			
+			fields_row = self.model_attributes.build_variable_fields(
+				model_afolu.modvar_lndu_prob_transition,
+				restrict_to_category_values = {f"{pycat_elem}_dim1": [key]}
+			)
+			
+			fields_row = [x.replace(self.field_prepend_dfs, "") for x in fields_row]
+
+			#varlist = [x.replace(self.field_prepend_dfs, "") for x in all_vars if x.startswith(f"{self.field_prepend_dfs}{v}_to")]
+			self.dict_fields_sum_check.update({v: fields_row})
+
+
+		##  SET PROPERTIES
+
+		self.attr_lndu = attr_lndu
+		self.dict_fields_sum_check = dict_fields_sum_check
+		self.model_afolu = model_afolu
+
+		return None
+
 
 
 
@@ -302,6 +329,7 @@ class MixedLNDUTransitionFromBounds:
 
 		for cat in self.dict_fields_sum_check:
 			fields_cur = self.dict_fields_sum_check.get(cat)
+
 			# filter rows to keep at end
 			arr_cur = np.array(df_in[fields_cur])
 			vec_total = np.sum(arr_cur, axis = 1)

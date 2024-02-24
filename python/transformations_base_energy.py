@@ -421,7 +421,7 @@ def transformation_entc_increase_efficiency_of_electricity_production(
     """
 
     # only apply to generation techs
-    categories = model_attributes.get_categories_from_attribute_characteristic(
+    categories = model_attributes.filter_keys_by_attribute(
         model_attributes.subsec_name_entc,
         {
             "power_plant": 1
@@ -486,7 +486,7 @@ def transformation_entc_increase_renewables(
 
     # initialize output and categories
     df_out = df_input.copy()
-    categories = model_attributes.get_categories_from_attribute_characteristic(
+    categories = model_attributes.filter_keys_by_attribute(
         model_attributes.subsec_name_entc,
         {
             "renewable_energy_technology": 1
@@ -664,7 +664,7 @@ def transformation_entc_reduce_cost_of_renewables(
     ]
 
     # get categories
-    categories = model_attributes.get_categories_from_attribute_characteristic(
+    categories = model_attributes.filter_keys_by_attribute(
         model_attributes.subsec_name_entc,
         {
             "renewable_energy_technology": 1

@@ -118,16 +118,13 @@ class CircularEconomy:
 
             - "treatment_fraction"
         """
-
-        subsec_wali = self.model_attributes.subsec_name_wali
-        subsec_trww = self.model_attributes.subsec_name_trww
         pycat_trww = self.model_attributes.get_subsector_attribute(
-            subsec_trww, 
-            "pycategory_primary"
+            self.model_attributes.subsec_name_trww, 
+            "pycategory_primary_element"
         )
 
         dict_out = self.model_attributes.assign_keys_from_attribute_fields(
-            subsec_wali,
+            self.model_attributes.subsec_name_wali,
             pycat_trww,
             {
                 "Treatment Fraction": "treatment_fraction"
@@ -746,7 +743,7 @@ class CircularEconomy:
 
             # convert to total sludge, then get the correct cateogry and add (should be a unique sludge category)
             array_waso_sludge = np.sum(array_waso_sludge[1], axis = 1)
-            cat_sludge = self.model_attributes.get_categories_from_attribute_characteristic(
+            cat_sludge = self.model_attributes.filter_keys_by_attribute(
                 self.subsec_name_waso, 
                 {key_attr_sludge: 1}
             )
@@ -780,7 +777,7 @@ class CircularEconomy:
 
             # convert to total sludge, then get the correct cateogry and add (should be a unique sludge category)
             array_waso_agrc_food_waste = np.sum(array_waso_agrc_food_waste[1], axis = 1)
-            cat_food = self.model_attributes.get_categories_from_attribute_characteristic(
+            cat_food = self.model_attributes.filter_keys_by_attribute(
                 self.subsec_name_waso, 
                 {key_attr_food: 1}
             )
@@ -970,17 +967,33 @@ class CircularEconomy:
         # check that all required fields are contained—assume that it is ordered by time period
         self.check_df_fields(df_ce_trajectories, self.required_variables_wali)
         if (dict_dims is None) | (n_projection_time_periods is None) | (projection_time_periods is None):
-            dict_dims, df_ce_trajectories, n_projection_time_periods, projection_time_periods = self.model_attributes.check_projection_input_df(df_ce_trajectories, True, True, True)
+            (
+                dict_dims, 
+                df_ce_trajectories, 
+                n_projection_time_periods, 
+                projection_time_periods
+            ) = self.model_attributes.check_projection_input_df(
+                df_ce_trajectories, 
+                True, 
+                True, 
+                True,
+            )
 
 
         ##  CATEGORY AND ATTRIBUTE INITIALIZATION
-        pycat_gnrl = self.model_attributes.get_subsector_attribute(self.subsec_name_gnrl, "pycategory_primary")
-        pycat_trww = self.model_attributes.get_subsector_attribute(self.subsec_name_trww, "pycategory_primary")
-        pycat_wali = self.model_attributes.get_subsector_attribute(self.subsec_name_wali, "pycategory_primary")
+        pycat_gnrl = self.model_attributes.get_subsector_attribute(
+            self.subsec_name_gnrl, 
+            "pycategory_primary_element",
+        )
+        pycat_wali = self.model_attributes.get_subsector_attribute(
+            self.subsec_name_wali, 
+            "pycategory_primary_element",
+        )
+
         # attribute tables
-        attr_gnrl = self.model_attributes.dict_attributes[pycat_gnrl]
-        attr_trww = self.model_attributes.dict_attributes[pycat_trww]
-        attr_wali = self.model_attributes.dict_attributes[pycat_wali]
+        attr_gnrl = self.model_attributes.get_attribute_table(self.subsec_name_gnrl)
+        attr_trww = self.model_attributes.get_attribute_table(self.subsec_name_trww)
+        attr_wali = self.model_attributes.get_attribute_table(self.subsec_name_wali)
 
 
         ##  ECON/GNRL VECTOR AND ARRAY INITIALIZATION
@@ -1106,8 +1119,17 @@ class CircularEconomy:
         # DOM WW IS OK
         # TMP: INDUSTRIAL CAN TO BE IMPROVED TO INTEGRATE PRODUCTION BY INDUSTRY
         #
-        cats_dom_ww = list(attr_wali.table[attr_wali.table[pycat_gnrl] != "none"][pycat_wali])
-        cats_ind_ww = list(attr_wali.table[attr_wali.table["industrial_category"] != "none"][pycat_wali])
+        cats_dom_ww = self.model_attributes.filter_keys_by_attribute(
+            self.model_attributes.subsec_name_wali,
+            {pycat_gnrl: "none"},
+            dict_as_exclusionary = True,
+        )
+        cats_ind_ww = self.model_attributes.filter_keys_by_attribute(
+            self.model_attributes.subsec_name_wali,
+            {"industrial_category": "none"},
+            dict_as_exclusionary = True,
+        )
+    
         # initialize bod/cod (oxygen demand) and volume by category (as transpose)
         array_trww_total_bod_by_pathway = np.zeros((len(attr_trww.key_values), n_projection_time_periods))
         array_trww_total_cod_by_pathway = array_trww_total_bod_by_pathway.copy()
@@ -1119,7 +1141,8 @@ class CircularEconomy:
         # domestic
         for cdw in cats_dom_ww:
             # get population category
-            cat_gnrl = clean_schema(self.model_attributes.dict_attributes[pycat_wali].field_maps[f"{pycat_wali}_to_{pycat_gnrl}"][cdw])
+            cat_gnrl = attr_wali.get_attribute(cdw, pycat_gnrl)
+            cat_gnrl = mv.clean_element(cat_gnrl)
             ind_gnrl = attr_gnrl.get_key_value_index(cat_gnrl)
 
             # the associated vector of wastewater produced + bod produced
@@ -1128,13 +1151,21 @@ class CircularEconomy:
 
             # get the treatment pathway
             vars_treatment_path = []
-            for var in self.vars_wali_to_trww:
-                vars_treatment_path += self.model_attributes.build_varlist(self.subsec_name_wali, var, [cdw])
-            array_pathways = sf.check_row_sums(np.array(df_ce_trajectories[vars_treatment_path]), msg_pass = f" 'df_ce_trajectories[vars_treatment_path]' for wali category '{cdw}'")
+            for modvar in self.vars_wali_to_trww:
+                vars_treatment_path += self.model_attributes.build_variable_fields(
+                    modvar, 
+                    restrict_to_category_values = [cdw],
+                )
+
+            array_pathways = sf.check_row_sums(
+                np.array(df_ce_trajectories[vars_treatment_path]), 
+                msg_pass = f" 'df_ce_trajectories[vars_treatment_path]' for wali category '{cdw}'",
+            )
             
             # add to output arrays
             array_trww_total_bod_by_pathway += (array_pathways.transpose()*vec_bod)
             array_trww_total_ww_bod_by_pathway += (array_pathways.transpose()*vec_ww)
+
 
         # industrial
         for cdw in cats_ind_ww:
@@ -1146,16 +1177,30 @@ class CircularEconomy:
             
             # get the treatment pathway
             vars_treatment_path = []
-            for var in self.vars_wali_to_trww:
-                vars_treatment_path += self.model_attributes.build_varlist(self.subsec_name_wali, var, [cdw])
-            array_pathways = sf.check_row_sums(np.array(df_ce_trajectories[vars_treatment_path]), msg_pass = f" 'df_ce_trajectories[vars_treatment_path]' for wali category '{cdw}'")
+            for modvar in self.vars_wali_to_trww:
+                vars_treatment_path += self.model_attributes.build_variable_fields(
+                    modvar, 
+                    restrict_to_category_values = [cdw]
+                )
+
+            array_pathways = sf.check_row_sums(
+                np.array(df_ce_trajectories[vars_treatment_path]), 
+                msg_pass = f" 'df_ce_trajectories[vars_treatment_path]' for wali category '{cdw}'",
+            )
             
             # add to output arrays
             array_trww_total_cod_by_pathway += (array_pathways.transpose()*vec_cod)
             array_trww_total_ww_cod_by_pathway += (array_pathways.transpose()*vec_ww)
 
         # total bod (kg -> tonne), cod (tonne), and ww vol (m3) -- get factor, which is applied only to the data frame (to presreve array_trww_total_bod_by_pathway in units of emissions mass for downstream calculations)
-        factor_trww_emissions_mass_to_tow_mass = self.model_attributes.get_mass_equivalent(self.model_attributes.configuration.get("emissions_mass").lower(), self.model_attributes.get_variable_characteristic(self.modvar_trww_sludge_produced, "$UNIT-MASS$"))
+        factor_trww_emissions_mass_to_tow_mass = self.model_attributes.get_mass_equivalent(
+            self.model_attributes.configuration.get("emissions_mass").lower(),
+             self.model_attributes.get_variable_characteristic(
+                self.modvar_trww_sludge_produced, 
+                self.model_attributes.varchar_str_unit_mass,
+            )
+        )
+
         array_trww_total_bod_by_pathway = array_trww_total_bod_by_pathway.transpose()
         array_trww_total_cod_by_pathway = array_trww_total_cod_by_pathway.transpose()
         array_trww_total_ww_bod_by_pathway = array_trww_total_ww_bod_by_pathway.transpose()
@@ -1224,7 +1269,7 @@ class CircularEconomy:
 
         array_trww_krem = self.model_attributes.merge_array_var_partial_cat_to_array_all_cats(
             array_trww_krem, 
-            self.modvar_trww_krem
+            self.modvar_trww_krem,
         )
         array_trww_septic_compliance = self.model_attributes.extract_model_variable(#
             df_ce_trajectories, 
@@ -1515,12 +1560,7 @@ class CircularEconomy:
 
         ##  CATEGORY AND ATTRIBUTE INITIALIZATION
         pycat_gnrl = self.model_attributes.get_subsector_attribute(self.subsec_name_gnrl, "pycategory_primary")
-        pycat_trww = self.model_attributes.get_subsector_attribute(self.subsec_name_trww, "pycategory_primary")
-        pycat_waso = self.model_attributes.get_subsector_attribute(self.subsec_name_waso, "pycategory_primary")
-        # attribute tables
-        attr_gnrl = self.model_attributes.dict_attributes[pycat_gnrl]
-        attr_trww = self.model_attributes.dict_attributes[pycat_trww]
-        attr_waso = self.model_attributes.dict_attributes[pycat_waso]
+        attr_gnrl = self.model_attributes.get_attribute_table(self.subsec_name_gnrl)
 
 
         ##  ECON/GNRL VECTOR AND ARRAY INITIALIZATION

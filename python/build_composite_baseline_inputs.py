@@ -102,10 +102,8 @@ def project_model_variable_using_growth_rate(
         if (time_periods.field_time_period in df_data.columns)
         else None
     )
-    flds += sa.model_attributes.build_varlist(
-        None,
-        modvar
-    )
+    flds += sa.model_attributes.build_variable_fields(modvar)
+
     # return None if any required fields are not in the input dataframe
     s1 = set(flds) - set([time_periods.field_time_period])
     if not s1.issubset(set(df_data.columns)):
@@ -268,10 +266,7 @@ def project_from_growth_rate(
 
     for iso, df in dfg:
         
-        fields = model_attributes.build_varlist(
-            None, 
-            modvar,
-        )
+        fields = model_attributes.build_variable_fields(modvar)
         arr_cur = np.array(df[fields])
         
         # project first period after historical based on trend/mean 

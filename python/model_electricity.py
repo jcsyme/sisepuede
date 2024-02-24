@@ -769,11 +769,11 @@ class ElectricEnergy:
         """
 
         # Energy (Electricity) Mode Fields
-        self.cat_enmo_gnrt = self.model_attributes.get_categories_from_attribute_characteristic(
+        self.cat_enmo_gnrt = self.model_attributes.filter_keys_by_attribute(
             self.model_attributes.dim_mode,
             {"generation_category": 1}
         )[0]
-        self.cat_enmo_stor = self.model_attributes.get_categories_from_attribute_characteristic(
+        self.cat_enmo_stor = self.model_attributes.filter_keys_by_attribute(
             self.model_attributes.dim_mode,
             {"storage_category": 1}
         )[0]
@@ -875,31 +875,31 @@ class ElectricEnergy:
         self.modvar_enfu_value_of_fuel_trns = "Value of Fuel Consumed in Transportation"
         
         # key categories
-        self.cat_enfu_bgas = self.model_attributes.get_categories_from_attribute_characteristic(
+        self.cat_enfu_bgas = self.model_attributes.filter_keys_by_attribute(
             self.subsec_name_enfu, 
             {
                 self.model_attributes.field_enfu_biogas_fuel_category: 1
             }
         )[0]
-        self.cat_enfu_elec = self.model_attributes.get_categories_from_attribute_characteristic(
+        self.cat_enfu_elec = self.model_attributes.filter_keys_by_attribute(
             self.subsec_name_enfu, 
             {
                 self.model_attributes.field_enfu_electricity_demand_category: 1
             }
         )[0]
-        self.cat_enfu_hgen = self.model_attributes.get_categories_from_attribute_characteristic(
+        self.cat_enfu_hgen = self.model_attributes.filter_keys_by_attribute(
             self.subsec_name_enfu, 
             {
                 self.model_attributes.field_enfu_hydrogen_fuel_category: 1
             }
         )[0]
-        self.cat_enfu_hpwr = self.model_attributes.get_categories_from_attribute_characteristic(
+        self.cat_enfu_hpwr = self.model_attributes.filter_keys_by_attribute(
             self.subsec_name_enfu, 
             {
                 self.model_attributes.field_enfu_hydropower_fuel_category : 1
             }
         )[0]
-        self.cat_enfu_wste = self.model_attributes.get_categories_from_attribute_characteristic(
+        self.cat_enfu_wste = self.model_attributes.filter_keys_by_attribute(
             self.subsec_name_enfu, 
             {
                 self.model_attributes.field_enfu_waste_fuel_category: 1
@@ -2337,7 +2337,7 @@ class ElectricEnergy:
             # get partition field, then grab categories
             tt_filt = self.get_entc_partition_field(tt)
             techs += (
-                self.model_attributes.get_categories_from_attribute_characteristic(
+                self.model_attributes.filter_keys_by_attribute(
                     self.subsec_name_entc,
                     {tt_filt: 1}
                 ) 
@@ -2386,7 +2386,7 @@ class ElectricEnergy:
         )
         cat_switch = dict_cat_name_to_cat.get(cat_name)
 
-        cat_out = self.model_attributes.get_categories_from_attribute_characteristic(
+        cat_out = self.model_attributes.filter_keys_by_attribute(
             self.subsec_name_entc,
             {f"electricity_generation_{pycat_enfu}": unclean_category(cat_switch)} 
         )[0]

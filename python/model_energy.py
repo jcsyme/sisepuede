@@ -501,7 +501,7 @@ class NonElectricEnergy:
             self.modvar_enfu_energy_demand_by_fuel_scoe
         ]
         # key categories
-        self.cat_enfu_electricity = self.model_attributes.get_categories_from_attribute_characteristic(
+        self.cat_enfu_electricity = self.model_attributes.filter_keys_by_attribute(
             self.subsec_name_enfu, 
             {
                 self.model_attributes.field_enfu_electricity_demand_category: 1
@@ -600,7 +600,7 @@ class NonElectricEnergy:
             "fuel_fraction"
         )
         # key categories
-        self.cat_inen_agricultural = self.model_attributes.get_categories_from_attribute_characteristic(
+        self.cat_inen_agricultural = self.model_attributes.filter_keys_by_attribute(
             self.subsec_name_inen, 
             {
                 "agricultural_category": 1
@@ -698,7 +698,7 @@ class NonElectricEnergy:
         self.modvar_trde_demand_mtkm = "Megatonne-Kilometer Demand"
         self.modvar_trde_demand_pkm = "Passenger-Kilometer Demand"
 
-        self.cat_trde_frgt = self.model_attributes.get_categories_from_attribute_characteristic(
+        self.cat_trde_frgt = self.model_attributes.filter_keys_by_attribute(
             self.subsec_name_trde, 
             {"freight_category": 1}
         )[0]

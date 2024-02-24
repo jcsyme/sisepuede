@@ -1966,11 +1966,12 @@ class ModelAttributesNew:
 
         # check to ensure that source categories for mineralization in soil management are specified properly
         field_mnrl = "mineralization_in_land_use_conversion_to_managed"
-        cats_crop = self.get_categories_from_attribute_characteristic(
+        cats_crop = self.filter_keys_by_attribute(
             self.subsec_name_lndu, 
             {"crop_category": 1}
         )
-        cats_mnrl = self.get_categories_from_attribute_characteristic(
+
+        cats_mnrl = self.filter_keys_by_attribute(
             self.subsec_name_lndu, 
             {field_mnrl: 1}
         )
@@ -2731,10 +2732,11 @@ class ModelAttributesNew:
 
 
 
-    def get_categories_from_attribute_characteristic(self, #FIXED
+    def filter_keys_by_attribute(self, #FIXED
         subsector: str,
         dict_subset: dict,
         attribute_type: str = "primary_category",
+        dict_as_exclusionary: bool = False,
         subsector_extract_key: Union[str, None] = None,
     ) -> Union[list, None]:
         """
@@ -2744,6 +2746,8 @@ class ModelAttributesNew:
         Keyword Arguments
         -----------------
         - attribute_type: "primary_category" or "variable_definitions"
+        - dict_as_exclusionary: set to True to *exclude* values passed in the 
+            dictionary
         - subsector_extract_key: optional key to specity to retrieve. If None,
             retrieves subsector attribute key
         """
@@ -2759,7 +2763,13 @@ class ModelAttributesNew:
         )
 
         # 
-        return_val = list(sf.subset_df(attr.table, dict_subset)[subsector_extract_key])
+        return_val = list(
+            sf.subset_df(
+                attr.table, 
+                dict_subset,
+                dict_as_exclusionary = dict_as_exclusionary,
+            )[subsector_extract_key]
+        )
         
         # ensure proper sorting
         return_val = (
@@ -4637,7 +4647,12 @@ class ModelAttributesNew:
 
             raise ValueError(msg)
 
-        return pd.DataFrame(arr_in*scalar_em*scalar_me, columns = fields)
+        out = pd.DataFrame(
+            arr_in*scalar_em*scalar_me, 
+            columns = fields,
+        )
+
+        return out
 
 
 

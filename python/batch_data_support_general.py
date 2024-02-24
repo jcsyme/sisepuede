@@ -175,7 +175,7 @@ def exogenous_demands_to_sispeuede_ies(
         restrict_to_category_values = cat_driver
     )[0]
     fields_dem = [
-        x for x in model_attributes.build_varlist(None, modvar_demand)
+        x for x in model_attributes.build_variable_fields(modvar_demand)
         if x in df_inputs.columns
     ]
 
@@ -184,21 +184,20 @@ def exogenous_demands_to_sispeuede_ies(
     cats_all_dem = model_attributes.get_variable_categories(modvar_demand)
     cats_dem = [
         x for x in cats_all_dem
-        if model_attributes.build_varlist(
-            None,
+        if model_attributes.build_variable_fields(
             modvar_demand,
-            restrict_to_category_values = [x]
-        )[0] in fields_dem
+            restrict_to_category_values = x
+        ) in fields_dem
     ]
-    fields_elast = model_attributes.build_varlist(
-        None,
+
+    fields_elast = model_attributes.build_variable_fields(
         modvar_elasticity,
-        restrict_to_category_values = cats_dem
+        restrict_to_category_values = cats_dem,
     )
-    fields_scalars = model_attributes.build_varlist(
-        None,
+
+    fields_scalars = model_attributes.build_variable_fields(
         modvar_scalar_demand,
-        restrict_to_category_values = cats_dem
+        restrict_to_category_values = cats_dem,
     )
 
     

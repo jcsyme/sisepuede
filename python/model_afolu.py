@@ -125,53 +125,53 @@ class AFOLU:
         ##  set categories
 
         # crop category
-        self.cat_lndu_crop = self.model_attributes.get_categories_from_attribute_characteristic(
+        self.cat_lndu_crop = self.model_attributes.filter_keys_by_attribute(
             self.subsec_name_lndu, 
             {"crop_category": 1}
         )[0]
         
         # mangrove forest category
-        self.cat_lndu_fstm = self.model_attributes.get_categories_from_attribute_characteristic(
+        self.cat_lndu_fstm = self.model_attributes.filter_keys_by_attribute(
             self.subsec_name_lndu,
             {pycat_frst: f"``{self.cat_frst_mang}``"}
         )[0]
         
         # primary forest category
-        self.cat_lndu_fstp = self.model_attributes.get_categories_from_attribute_characteristic(
+        self.cat_lndu_fstp = self.model_attributes.filter_keys_by_attribute(
             self.subsec_name_lndu,
             {pycat_frst: f"``{self.cat_frst_prim}``"}
         )[0]
 
         # secondary forest category
-        self.cat_lndu_fsts = self.model_attributes.get_categories_from_attribute_characteristic(
+        self.cat_lndu_fsts = self.model_attributes.filter_keys_by_attribute(
             self.subsec_name_lndu,
             {pycat_frst: f"``{self.cat_frst_scnd}``"}
         )[0]
 
         # other land use
-        self.cat_lndu_othr = self.model_attributes.get_categories_from_attribute_characteristic(
+        self.cat_lndu_othr = self.model_attributes.filter_keys_by_attribute(
             self.subsec_name_lndu, 
             {"other_category": 1}
         )[0]
 
         # grassland, used for pasture
-        self.cat_lndu_grass = self.model_attributes.get_categories_from_attribute_characteristic(
+        self.cat_lndu_grass = self.model_attributes.filter_keys_by_attribute(
             self.subsec_name_lndu, 
             {"pasture_category": 1}
         )[0]
 
         # settlements
-        self.cat_lndu_stlm = self.model_attributes.get_categories_from_attribute_characteristic(
+        self.cat_lndu_stlm = self.model_attributes.filter_keys_by_attribute(
             self.subsec_name_lndu, 
             {"settlements_category": 1}
         )[0]
-        self.cat_lndu_wetl = self.model_attributes.get_categories_from_attribute_characteristic(
+        self.cat_lndu_wetl = self.model_attributes.filter_keys_by_attribute(
             self.subsec_name_lndu, 
             {"wetlands_category": 1}
         )[0]
         
         # list of categories to use to "max out" transition probabilities when scaling land use prevelance
-        self.cats_lndu_max_out_transition_probs = self.model_attributes.get_categories_from_attribute_characteristic(
+        self.cats_lndu_max_out_transition_probs = self.model_attributes.filter_keys_by_attribute(
             self.model_attributes.subsec_name_lndu,
             {
                 "reallocation_transition_probability_exhaustion_category": 1
@@ -414,9 +414,9 @@ class AFOLU:
         self.model_socioeconomic = Socioeconomic(model_attributes)
 
         # key categories
-        self.cat_enfu_biomass = model_attributes.get_categories_from_attribute_characteristic(self.subsec_name_enfu, {"biomass_demand_category": 1})[0]
-        self.cat_ippu_paper = model_attributes.get_categories_from_attribute_characteristic(self.subsec_name_ippu, {"virgin_paper_category": 1})[0]
-        self.cat_ippu_wood = model_attributes.get_categories_from_attribute_characteristic(self.subsec_name_ippu, {"virgin_wood_category": 1})[0]
+        self.cat_enfu_biomass = model_attributes.filter_keys_by_attribute(self.subsec_name_enfu, {"biomass_demand_category": 1})[0]
+        self.cat_ippu_paper = model_attributes.filter_keys_by_attribute(self.subsec_name_ippu, {"virgin_paper_category": 1})[0]
+        self.cat_ippu_wood = model_attributes.filter_keys_by_attribute(self.subsec_name_ippu, {"virgin_wood_category": 1})[0]
         
         return None
 
@@ -543,7 +543,7 @@ class AFOLU:
             self.modvar_agrc_frac_residues_removed
         ]
         # some key categories
-        self.cat_agrc_rice = self.model_attributes.get_categories_from_attribute_characteristic(self.subsec_name_agrc, {"rice_category": 1})[0]
+        self.cat_agrc_rice = self.model_attributes.filter_keys_by_attribute(self.subsec_name_agrc, {"rice_category": 1})[0]
 
         return None
 
@@ -589,15 +589,15 @@ class AFOLU:
         ]
 
         # assign some key categories
-        self.cat_frst_mang = self.model_attributes.get_categories_from_attribute_characteristic(
+        self.cat_frst_mang = self.model_attributes.filter_keys_by_attribute(
             self.subsec_name_frst, 
             {"mangroves_forest_category": 1}
         )[0]
-        self.cat_frst_prim = self.model_attributes.get_categories_from_attribute_characteristic(
+        self.cat_frst_prim = self.model_attributes.filter_keys_by_attribute(
             self.subsec_name_frst, 
             {"primary_forest_category": 1}
         )[0]
-        self.cat_frst_scnd = self.model_attributes.get_categories_from_attribute_characteristic(
+        self.cat_frst_scnd = self.model_attributes.filter_keys_by_attribute(
             self.subsec_name_frst, 
             {"secondary_forest_category": 1}
         )[0]
@@ -701,8 +701,8 @@ class AFOLU:
         self.modvar_lsmm_rf_biogas = "Biogas Recovery Factor at LSMM Anaerobic Digesters"
 
         # some categories
-        self.cat_lsmm_incineration = self.model_attributes.get_categories_from_attribute_characteristic(self.subsec_name_lsmm, {"incineration_category": 1})[0]
-        self.cat_lsmm_pasture = self.model_attributes.get_categories_from_attribute_characteristic(self.subsec_name_lsmm, {"pasture_category": 1})[0]
+        self.cat_lsmm_incineration = self.model_attributes.filter_keys_by_attribute(self.subsec_name_lsmm, {"incineration_category": 1})[0]
+        self.cat_lsmm_pasture = self.model_attributes.filter_keys_by_attribute(self.subsec_name_lsmm, {"pasture_category": 1})[0]
 
         return None
 
@@ -1931,8 +1931,7 @@ class AFOLU:
         df_mat_melt = pd.melt(df_mat, id_vars = [field_key], value_vars = key_vals).sort_values(by = [field_key, "variable"])
 
         # get field names
-        fields_names = self.model_attributes.build_varlist(
-            self.subsec_name_lndu,
+        fields_names = self.model_attributes.build_variable_fields(
             self.modvar_lndu_prob_transition,
             restrict_to_category_values = key_vals
         )
@@ -2023,10 +2022,9 @@ class AFOLU:
         )
 
         # get vars and expand 
-        field_variables = self.model_attributes.build_varlist(
-            self.subsec_name_lndu,
+        field_variables = self.model_attributes.build_variable_fields(
             modvar,
-            restrict_to_category_values = key_vals
+            restrict_to_category_values = key_vals,
         )
         field_variables = [x[1] for x in itertools.product(np.ones(mat_shape[0]), field_variables)]
         df_out[field_field] = field_variables
@@ -2859,9 +2857,8 @@ class AFOLU:
                 df_afolu_trajectories, 
                 vec_rates_gdp
             )
-            list_ippu_vars = self.model_attributes.build_varlist(
-                self.subsec_name_ippu, 
-                self.model_ippu.modvar_ippu_demand_for_harvested_wood
+            list_ippu_vars = self.model_attributes.build_variable_fields(
+                self.model_ippu.modvar_ippu_demand_for_harvested_wood,
             )
 
             arr_frst_harvested_wood_industrial = 0.0
@@ -3654,10 +3651,9 @@ class AFOLU:
 
         # get ordered fields from land use
         fields_lndu_forest_ordered = [self.dict_cats_frst_to_cats_lndu.get(x) for x in attr_frst.key_values]
-        fields_ext = self.model_attributes.build_varlist(
-            None, 
+        fields_ext = self.model_attributes.build_variable_fields(
+            self.modvar_lndu_area_by_cat,
             restrict_to_category_values = fields_lndu_forest_ordered,
-            variable_subsec = self.modvar_lndu_area_by_cat,
         )
         arr_area_frst = np.array(df_land_use[fields_ext])
         
@@ -3809,11 +3805,10 @@ class AFOLU:
         #####################
 
         # get area of cropland
-        field_crop_array = self.model_attributes.build_varlist(
-            self.subsec_name_lndu, 
-            variable_subsec = self.modvar_lndu_area_by_cat, 
-            restrict_to_category_values = [self.cat_lndu_crop],
-        )[0]
+        field_crop_array = self.model_attributes.build_variable_fields(
+            self.modvar_lndu_area_by_cat, 
+            restrict_to_category_values = self.cat_lndu_crop,
+        )
         vec_cropland_area = np.array(df_land_use[field_crop_array])
 
         # fraction of cropland represented by each crop
@@ -3874,11 +3869,10 @@ class AFOLU:
         ###################
 
         # get area of grassland/pastures
-        field_lvst_graze_array = self.model_attributes.build_varlist(
-            self.subsec_name_lndu, 
-            variable_subsec = self.modvar_lndu_area_by_cat, 
-            restrict_to_category_values = [self.cat_lndu_grass]
-        )[0]
+        field_lvst_graze_array = self.model_attributes.build_variable_fields(
+            self.modvar_lndu_area_by_cat, 
+            restrict_to_category_values = self.cat_lndu_grass,
+        )
         vec_lvst_graze_area = np.array(df_land_use[field_lvst_graze_array])
 
         # estimate the total number of livestock that are raised - arr_lvst_pop is a direct output of project_integrated_land_use

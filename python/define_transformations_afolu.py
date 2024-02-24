@@ -1159,9 +1159,8 @@ class TransformationsAFOLU:
 
         ##  SET LAND USE REALLOCATION FACTOR
 
-        fields_lndu_reallocation = self.model_attributes.build_varlist(
-            None,
-            variable_subsec = self.model_afolu.modvar_lndu_reallocation_factor,
+        fields_lndu_reallocation = self.model_attributes.build_variable_fields(
+            self.model_afolu.modvar_lndu_reallocation_factor,
         )
         df_out[fields_lndu_reallocation] = 0.0
 

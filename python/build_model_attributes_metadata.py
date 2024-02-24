@@ -108,7 +108,7 @@ def build_emissions_information_table(
             pycat_primary = model_attributes.get_subsector_attribute(subsec, "pycategory_primary_element")
 
             # fields and categories
-            fields = model_attributes.build_varlist(None, modvar)
+            fields = model_attributes.build_variable_fields(modvar)
             cats = model_attributes.get_variable_categories(modvar)
             cats = [""] if (cats is None) else cats
             pycats_primary = [
@@ -216,7 +216,7 @@ def build_variable_information_table(
         pycat_primary = model_attributes.get_subsector_attribute(subsec, "pycategory_primary_element")
 
         # fields and categories
-        fields = model_attributes.build_varlist(None, modvar)
+        fields = model_attributes.build_variable_fields(modvar)
         cats = model_attributes.get_variable_categories(modvar)
         cats = [""] if (cats is None) else cats
         cats = (

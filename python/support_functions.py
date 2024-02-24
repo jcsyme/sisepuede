@@ -2771,13 +2771,18 @@ def str_split(
 
 def subset_df(
     df: pd.DataFrame,
-    dict_in: Union[Dict[str, List], None]
+    dict_in: Union[Dict[str, List], None],
+    dict_as_exclusionary: bool = False,
 ) -> pd.DataFrame:
     """
+    Subset a dataframe using values associated with fields, passed in a 
+        filtering dictionary
+
+
     Function Arguments
     ------------------
     - df: data frame to reduce
-    = dict_in: dictionary used to reduce df that takes the following form:
+    - dict_in: dictionary used to reduce df that takes the following form:
 
         dict_in = {
             field_a = [v_a1, v_a2, v_a3, ... v_an],
@@ -2797,15 +2802,25 @@ def subset_df(
 
         is a single acceptable value for field_b.
 
+    Keyword Arguments
+    -----------------
+    - dict_as_exclusionary: set to True to *exclude* values passed in the 
+        dictionary
     """
 
 
     dict_in = {} if not isinstance(dict_in, dict) else dict_in
 
-    for k in dict_in.keys():
-        if k in df.columns:
-            val = [dict_in.get(k)] if not isinstance(dict_in.get(k), list) else dict_in.get(k)
-            df = df[df[k].isin(val)]
+    for k, v in dict_in.items():
+        if k not in df.columns:
+            continue
+    
+        val = [v] if not isinstance(v, list) else v
+        df = (
+            df[df[k].isin(val)]
+            if not dict_as_exclusionary
+            else df[~df[k].isin(val)]
+        )
 
     df.reset_index(drop = True, inplace = True)
 
