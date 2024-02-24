@@ -5178,7 +5178,7 @@ class ModelAttributesNew:
     def check_category_restrictions(self, 
         categories_to_restrict_to: Union[List, None], 
         attribute_table: AttributeTable, 
-        stop_process_on_error: bool = True
+        stop_process_on_error: bool = True,
     ) -> Union[List, None]:
         """
         Check category subsets that are specified.
@@ -5214,39 +5214,8 @@ class ModelAttributesNew:
                     warnings.warn(msg_err + " They will be dropped.")
 
             return valid_cats
-        else:
-            return attribute_table.key_values
 
-
-
-    def clean_partial_category_dictionary(self,
-        dict_in: dict,
-        all_category_values: list,
-        delim: str = None
-    ) -> dict:
-        """
-        Clean a partial category dictionary to return either none (no 
-            categorization) or a list of applicable categories
-        """
-
-        delim = self.delim_multicats if (delim is None) else delim
-
-        for k in dict_in.keys():
-            if "none" == dict_in[k].lower().replace(" ", ""):
-                dict_in.update({k: "none"})
-            else:
-                cats = dict_in[k].replace("`", "").split(delim)
-                dict_in.update(
-                    {
-                        k: [x for x in all_category_values if x in cats]
-                    }
-                )
-                missing_vals = [x for x in cats if x not in dict_in[k]]
-                if len(missing_vals) > 0:
-                    missing_vals = sf.format_print_list(missing_vals)
-                    warnings.warn(f"clean_partial_category_dictionary: Invalid categories values {missing_vals} dropped when cleaning the dictionary. Category values not found.")
-
-        return dict_in
+        return attribute_table.key_values
     
 
 
@@ -5544,55 +5513,6 @@ class ModelAttributesNew:
             out = (var_optional, out)
 
         return out
-
-
-
-    def get_partial_category_dictionaries(self,
-        subsector: str,
-        category_outer_tuple: tuple,
-        key_type: str = "key_varreqs_partial",
-        delim: str = "|",
-        variable_in = None,
-        restrict_to_category_values = None,
-        var_type = None
-    ) -> tuple:
-        """
-        Build a dictionary of categories applicable to a give variable; split by 
-            unidim/outer
-        """
-        key_attribute = self.get_subsector_attribute(subsector, key_type)
-        valid_cats = self.check_category_restrictions(
-            restrict_to_category_values, 
-            self.dict_attributes[self.get_subsector_attribute(subsector, "pycategory_primary")]
-        )
-
-        # initialize
-        dict_vr_vvs_cats_ud = {}
-        dict_vr_vvs_cats_outer = {}
-
-        if key_attribute is not None:
-            dict_vr_vvs_cats_ud, dict_vr_vvs_cats_outer = self.separate_varreq_dict_for_outer(
-                subsector, 
-                key_type, 
-                category_outer_tuple, 
-                target_field = "categories", 
-                variable = variable_in,
-                variable_type = var_type
-            )
-            dict_vr_vvs_cats_ud = self.clean_partial_category_dictionary(
-                dict_vr_vvs_cats_ud, 
-                valid_cats, 
-                delim
-            )
-            dict_vr_vvs_cats_outer = self.clean_partial_category_dictionary(
-                dict_vr_vvs_cats_outer, 
-                valid_cats, 
-                delim
-            )
-
-        tup_out = dict_vr_vvs_cats_ud, dict_vr_vvs_cats_outer
-
-        return tup_out
 
 
 
