@@ -1053,8 +1053,8 @@ class ModelAttributes:
 
             for modvar in modvars:
                 # build the variable list
-                subsec = self.get_variable_subsector(modvar)
-                varlist = self.build_varlist(subsec, modvar)
+                varlist = self.build_variable_fields(modvar)
+
                 # get emission and add to dictionary
                 emission = self.get_variable_characteristic(modvar, self.varchar_str_emission_gas)
 
@@ -1222,11 +1222,11 @@ class ModelAttributes:
             modvars_all += sorted(vars_by_subsector)
 
             # get mappings for individual model variables (to/from fields)
-            for var in vars_by_subsector:
-                var_lists = self.build_varlist(subsector, variable_subsec = var)
-                dict_vars_to_fields.update({var: var_lists})
+            for modvar in vars_by_subsector:
+                var_lists = self.build_variable_fields(modvar)
+                dict_vars_to_fields.update({modvar: var_lists})
                 dict_fields_to_vars.update(
-                    dict(zip(var_lists, [var for x in var_lists]))
+                    dict(zip(var_lists, [modvar for x in var_lists]))
                 )
 
                 all_variables_input += (
@@ -2060,7 +2060,7 @@ class ModelAttributes:
             if (subsec is not None):
                 fields_req = []
                 for modvar in dict_integrated_vars[subsec]:
-                    fields_req += self.build_varlist(subsec, modvar)
+                    fields_req += self.build_variable_fields(modvar)
 
                 # check for required variables
                 subsec_val = True
@@ -2352,13 +2352,12 @@ class ModelAttributes:
 
         dict_repl_categories_with_fields = {}
         for cat in cats:
-            fields = self.build_varlist(
-                None,
+            field = self.build_variable_fields(
                 modvar,
                 restrict_to_category_values = cat,
             )
             
-            dict_repl_categories_with_fields.update({cat: fields[0]})
+            dict_repl_categories_with_fields.update({cat: fields})
             
         return dict_repl_categories_with_fields
     

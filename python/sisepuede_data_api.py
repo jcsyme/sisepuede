@@ -773,8 +773,7 @@ class SISEPUEDEBatchDataRepository:
                 continue
             
             # build field names to retrieve
-            var_names = self.model_attributes.build_varlist(
-                subsec,
+            var_names = self.model_attributes.build_variable_fields(
                 modvar, 
                 restrict_to_category_values = cats,
             )
@@ -782,12 +781,11 @@ class SISEPUEDEBatchDataRepository:
             for var_name in var_names:
                 
                 """
-                restriction = None if (cat is None) else [cat]
-                var_name = self.model_attributes.build_varlist(
-                    subsec,
+                restriction = None if (cat is None) else cat
+                var_name = self.model_attributes.build_variable_fields(
                     modvar, 
-                    restrict_to_category_values = restriction
-                )[0]
+                    restrict_to_category_values = restriction,
+                )
                 """;
                 
                 df_var = []

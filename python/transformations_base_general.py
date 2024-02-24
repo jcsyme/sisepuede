@@ -104,7 +104,7 @@ def prepare_demand_scalars(
 
         for modvar in modvars:
             
-            fields = model_attributes.build_varlist(None, modvar)
+            fields = model_attributes.build_variable_fields(modvar)
 
             vec_base = np.array(row[fields].iloc[0]).astype(float)
             df[fields] = np.nan_to_num(
@@ -400,11 +400,11 @@ def transformation_general(
                 )
 
                 # set fields
-                fields_adjust = model_attributes.build_varlist(
-                    dict_cur.get("subsector"),
+                fields_adjust = model_attributes.build_variable_fields(
                     modvar,
-                    restrict_to_category_values = categories
+                    restrict_to_category_values = categories,
                 )
+
                 fields_adjust_source = None
                 fields_adjust_target = None
 
@@ -412,16 +412,14 @@ def transformation_general(
 
                     fields_adjust = None
 
-                    fields_adjust_source = model_attributes.build_varlist(
-                        dict_cur.get("subsector"),
+                    fields_adjust_source = model_attributes.build_variable_fields(
                         modvar,
-                        restrict_to_category_values = categories_source
+                        restrict_to_category_values = categories_source,
                     )
 
-                    fields_adjust_target = model_attributes.build_varlist(
-                        dict_cur.get("subsector"),
+                    fields_adjust_target = model_attributes.build_variable_fields(
                         modvar,
-                        restrict_to_category_values = sorted(list(categories_target.keys()))
+                        restrict_to_category_values = sorted(list(categories_target.keys())),
                     )
 
 
@@ -698,20 +696,18 @@ def transformation_general_shift_fractions_from_modvars(
 
         for cat in cats_all:
 
-            restriction = [cat] if (cat is not None) else None
             fields = [
-                model_attributes.build_varlist(
-                    None,
+                model_attributes.build_variable_fields(
                     x,
-                    restrict_to_category_values = restriction
-                )[0] for x in modvars_target
+                    restrict_to_category_values = cat,
+                ) for x in modvars_target
             ]
+            
             fields_source = [
-                model_attributes.build_varlist(
-                    None,
+                model_attributes.build_variable_fields(
                     x,
-                    restrict_to_category_values = restriction
-                )[0] for x in modvars_source
+                    restrict_to_category_values = cat,
+                ) for x in modvars_source
             ]
             
             # values at first time period, initial total of target columns, and associated pmf
@@ -750,12 +746,10 @@ def transformation_general_shift_fractions_from_modvars(
             # loop over adjustment variables to build new trajectories
             for modvar in modvars_adjust:
                 
-                restriction = [cat] if (cat is not None) else None
-                field_cur = model_attributes.build_varlist(
-                    subsec,
+                field_cur = model_attributes.build_variable_fields(
                     modvar,
-                    restrict_to_category_values = restriction,
-                )[0]
+                    restrict_to_category_values = cat,
+                )
 
                 vec_old = np.array(df_in[field_cur])
                 val_final = vec_old[n_tp - 1]

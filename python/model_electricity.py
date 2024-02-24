@@ -352,8 +352,7 @@ class ElectricEnergy:
 
         # in Electricity, update required variables
         for modvar in self.integration_variables:
-            subsec = self.model_attributes.get_variable_subsector(modvar)
-            new_vars = self.model_attributes.build_varlist(subsec, modvar)
+            new_vars = self.model_attributes.build_variable_fields(modvar)
             self.required_variables += new_vars
 
         # set required variables and ensure no double counting
@@ -9023,11 +9022,11 @@ class ElectricEnergy:
         # build renaming dictionary
         cats_valid = self.model_attributes.get_variable_categories(modvar)
         dict_cats_to_varname = [x for x in attr.key_values if (x in list(df_source[field_pivot])) and (x in cats_valid)]
-        varnames = self.model_attributes.build_varlist(
-            subsec, 
+        varnames = self.model_attributes.build_variable_fields(
             modvar, 
-            restrict_to_category_values = dict_cats_to_varname
+            restrict_to_category_values = dict_cats_to_varname,
         )
+        
         dict_cats_to_varname = dict(zip(dict_cats_to_varname, varnames))
 
         # reformat using pivot

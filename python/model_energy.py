@@ -279,10 +279,10 @@ class NonElectricEnergy:
         ]
 
         # in Energy, update required variables
-        for modvar in list_vars_required_for_integration:
-            subsec = self.model_attributes.get_variable_subsector(modvar)
-            new_vars = self.model_attributes.build_varlist(subsec, modvar)
-            self.required_variables += new_vars
+        new_vars = self.model_attributes.build_variable_fields(
+            list_vars_required_for_integration
+        )
+        self.required_variables += new_vars
 
         # sot required variables and ensure no double counting
         self.required_variables = list(set(self.required_variables))

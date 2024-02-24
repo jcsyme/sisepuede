@@ -240,7 +240,7 @@ def transformation_entc_change_msp_max(
 
     # check for variables and initialize fields_check as drops
     model_attributes = model_electricity.model_attributes
-    fields_check = model_attributes.build_varlist(None, modvar_msp_max)
+    fields_check = model_attributes.build_variable_fields(modvar_msp_max)
     df_out = df_input.copy()
     df_out[fields_check] = drop_flag
     
@@ -356,16 +356,14 @@ def transformation_entc_hydrogen_electrolysis(
     # adjust other hydrogen shares
     if len(cats_response) > 0:
 
-        vars_appplied = model_attributes.build_varlist(
-            model_attributes.subsec_name_entc,
+        vars_appplied = model_attributes.build_variable_fields(
             modvar_msp,
-            restrict_to_category_values = cats_to_apply
+            restrict_to_category_values = cats_to_apply,
         )
 
-        vars_respond = model_attributes.build_varlist(
-            model_attributes.subsec_name_entc,
+        vars_respond = model_attributes.build_variable_fields(
             modvar_msp,
-            restrict_to_category_values = cats_response
+            restrict_to_category_values = cats_response,
         )
 
         arr_maintain = np.array(df_input[vars_appplied])
@@ -494,13 +492,11 @@ def transformation_entc_increase_renewables(
     )
 
     # source fields to target fields
-    fields_source = model_attributes.build_varlist(
-        model_attributes.subsec_name_entc,
+    fields_source = model_attributes.build_variable_fields(
         model_electricity.modvar_entc_nemomod_residual_capacity,
         restrict_to_category_values = categories
     )
-    fields_target = model_attributes.build_varlist(
-        model_attributes.subsec_name_entc,
+    fields_target = model_attributes.build_variable_fields(
         model_electricity.modvar_entc_nemomod_total_annual_min_capacity,
         restrict_to_category_values = categories
     )
@@ -580,8 +576,7 @@ def transformation_entc_least_cost_solution(
     attr_enfu = model_attributes.get_attribute_table(model_attributes.subsec_name_enfu)
     drop_flag = model_electricity.drop_flag_tech_capacities if not sf.isnumber(drop_flag) else drop_flag
     dict_tech_info = model_electricity.get_tech_info_dict()
-    fields_to_drop_flag = model_attributes.build_varlist(
-        None, 
+    fields_to_drop_flag = model_attributes.build_variable_fields(
         model_electricity.modvar_entc_max_elec_prod_increase_for_msp
     )
     
@@ -802,8 +797,7 @@ def transformation_entc_renewable_target(
     
     # some info for drops related to MSP Max Prod increase relative to base (model_electricity.modvar_entc_max_elec_prod_increase_for_msp)
     drop_flag = model_electricity.drop_flag_tech_capacities if not sf.isnumber(drop_flag) else drop_flag
-    fields_to_drop_flag = model_attributes.build_varlist(
-        None, 
+    fields_to_drop_flag = model_attributes.build_variable_fields(
         model_electricity.modvar_entc_max_elec_prod_increase_for_msp
     )
 
@@ -913,15 +907,13 @@ def transformation_entc_renewable_target(
 
         # setup renewable specification
         for cat in attr_entc.key_values:
-            var_names = model_attributes.build_varlist(
-                model_attributes.subsec_name_entc, 
+            field = model_attributes.build_variable_fields(
                 model_electricity.modvar_entc_nemomod_renewable_tag_technology,
-                restrict_to_category_values = [cat]
+                restrict_to_category_values = cat
             )
 
-            if var_names is not None:
-                if len(var_names) > 0:
-                    df[var_names[0]] = int(cat in cats_renewable)
+            if isinstance(field, str):
+                df[field] = int(cat in cats_renewable)
 
 
         if magnitude == "VEC_FIRST_RAMP":
@@ -1176,11 +1168,11 @@ def transformation_entc_renewable_target(
             vec_entc_scale_msp_renewable_specified = vec_entc_msp_renewable_specified_cap/vec_entc_total_msp_renewables_specified
 
             # get the fields to scale
-            fields_scale = model_attributes.build_varlist(
-                None,
+            fields_scale = model_attributes.build_variable_fields(
                 model_electricity.modvar_entc_nemomod_min_share_production,
                 restrict_to_category_values = list(magnitude_renewables_by_region.keys())
             )
+            
             for field in fields_scale:
                 df_transformed[field] = np.array(df_transformed[field])*vec_entc_scale_msp_renewable_specified
 
@@ -1211,12 +1203,13 @@ def transformation_entc_renewable_target(
                 vec_scale_match_unspecified/vec_entc_total_msp_renewables_unspecified,
                 posinf = 0.0
             )
+
             # get the fields to scale (unspecified)
-            fields_scale = model_attributes.build_varlist(
-                None,
+            fields_scale = model_attributes.build_variable_fields(
                 model_electricity.modvar_entc_nemomod_min_share_production,
                 restrict_to_category_values = cats_renewable_unspecified
             )
+
             for field in fields_scale:
                 df_transformed[field] = np.array(df_transformed[field])*vec_scale_unspecified
 
@@ -1324,16 +1317,17 @@ def transformation_entc_renewable_target(
         df_out[field_total_surplus] = vec_entc_msp_surplus
 
         # get the current totals of fields to drop, then and scale to match total surplus
-        fields_drop = model_attributes.build_varlist(
-            None,
+        fields_drop = model_attributes.build_variable_fields(
             model_electricity.modvar_entc_nemomod_min_share_production,
             restrict_to_category_values = cats_entc_drop
         )
+
         vec_entc_fields_to_scale = np.array(df_out[fields_drop]).sum(axis = 1)
         vec_entc_scalar_drops_to_surplus = np.nan_to_num(
             vec_entc_msp_surplus/vec_entc_fields_to_scale,
             0.0
         )
+
         for field in fields_drop:
             df_out[field] = np.array(df_out[field])*vec_entc_scalar_drops_to_surplus
         
@@ -1359,15 +1353,14 @@ def transformation_entc_renewable_target(
 
             # scale the surplus -- mix between original vector and target vector, which will have same ceiling
             for i, cat in enumerate(cats_entc_drop):
-                ind = inds_entc_drop[i]
-                field_cat = model_attributes.build_varlist(
-                    None,
-                    model_electricity.modvar_entc_nemomod_min_share_production,
-                    restrict_to_category_values = [cat]
-                )[0]
-
                 
+                field_cat = model_attributes.build_variable_fields(
+                    model_electricity.modvar_entc_nemomod_min_share_production,
+                    restrict_to_category_values = cat
+                )
+
                 # get target for MSP + current 
+                ind = inds_entc_drop[i]
                 vec_target = vec_entc_msp_surplus_cur*vec_entc_msp_final_period[ind]/total_msp_original_drops
                 vec_cur = np.array(df_cur[field_cat])
 
@@ -1430,10 +1423,9 @@ def transformation_entc_renewable_target(
     vec_entc_scale_msp = vec_entc_msp_specified_cap/vec_entc_total_msp_total
 
     # get the fields to scale
-    fields_scale = model_attributes.build_varlist(
-        None,
+    fields_scale = model_attributes.build_variable_fields(
         model_electricity.modvar_entc_nemomod_min_share_production,
-        restrict_to_category_values = dict_tech_info.get("all_techs_pp")
+        restrict_to_category_values = dict_tech_info.get("all_techs_pp"),
     )
     
     for field in fields_scale:
@@ -1477,13 +1469,16 @@ def transformation_entc_specify_transmission_losses(
     - **kwargs: passed to transformation_general()
     """
 
-    magnitude_type = "baseline_scalar" if (magnitude_type not in ["baseline_scalar", "final_value"]) else magnitude_type
-    subsec = model_attributes.get_variable_subsector(model_electricity.modvar_enfu_transmission_loss_frac_electricity)
-    var_bound = model_attributes.build_varlist(
-        subsec, 
+    magnitude_type = (
+        "baseline_scalar" 
+        if (magnitude_type not in ["baseline_scalar", "final_value"]) 
+        else magnitude_type
+    )
+
+    var_bound = model_attributes.build_variable_fields(
         model_electricity.modvar_enfu_transmission_loss_frac_electricity,
-        restrict_to_category_values = [model_electricity.cat_enfu_elec]
-    )[0]
+        restrict_to_category_values = model_electricity.cat_enfu_elec,
+    )
 
     if magnitude_type == "basline_scalar":
         # call general transformation
@@ -1911,7 +1906,13 @@ def transformation_inen_shift_modvars(
 
     for region in all_regions:
 
-        df_in = df_input[df_input[field_region] == region].sort_values(by = [model_attributes.dim_time_period]).reset_index(drop = True)
+        df_in = (
+            df_input[
+                df_input[field_region] == region
+            ]
+            .sort_values(by = [model_attributes.dim_time_period])
+            .reset_index(drop = True)
+        )
         df_in_new = df_in.copy()
         vec_tp = list(df_in[model_attributes.dim_time_period])
         n_tp = len(df_in)
@@ -1920,11 +1921,10 @@ def transformation_inen_shift_modvars(
             for cat in cats_all:
 
                 fields = [
-                    model_attributes.build_varlist(
-                        subsec,
+                    model_attributes.build_variable_fields(
                         x,
-                        restrict_to_category_values = [cat]
-                    )[0] for x in modvars_target
+                        restrict_to_category_values = cat
+                    ) for x in modvars_target
                 ]
 
                 vec_initial_vals = np.array(df_in[fields].iloc[0]).astype(float)
@@ -1950,11 +1950,11 @@ def transformation_inen_shift_modvars(
 
                 # loop over adjustment variables to build new trajectories
                 for modvar in modvars_adjust:
-                    field_cur = model_attributes.build_varlist(
-                        subsec,
+                    field_cur = model_attributes.build_variable_fields(
                         modvar,
-                        restrict_to_category_values = [cat]
-                    )[0]
+                        restrict_to_category_values = cat,
+                    )
+
                     vec_old = np.array(df_in[field_cur])
                     val_final = vec_old[n_tp - 1]
                     val_new = (
@@ -2064,12 +2064,10 @@ def transformation_scoe_electrify_category_to_target(
 
         if region in regions_apply:
             for cat in dict_targets_final_tp.keys():
-
-                field_elec = model_attributes.build_varlist(
-                    subsec,
+                field_elec = model_attributes.build_variable_fields(
                     model_energy.modvar_scoe_frac_heat_en_electricity,
-                    restrict_to_category_values = [cat]
-                )[0]
+                    restrict_to_category_values = cat,
+                )
 
                 val_final_elec = float(df_in[field_elec].iloc[n_tp - 1])
                 target_value = min(max(dict_targets_final_tp.get(cat) + val_final_elec, 0), 1)
@@ -2082,11 +2080,11 @@ def transformation_scoe_electrify_category_to_target(
 
                 # loop over adjustment variables to build new trajectories
                 for modvar in modvars_adjust:
-                    field_cur = model_attributes.build_varlist(
-                        subsec,
+                    field_cur = model_attributes.build_variable_fields(
                         modvar,
-                        restrict_to_category_values = [cat]
-                    )[0]
+                        restrict_to_category_values = cat,
+                    )
+
                     vec_old = np.array(df_in[field_cur])
                     val_final = vec_old[n_tp - 1]
                     val_new = (val_final/(1 - val_final_elec))*scale_non_elec if (field_cur != field_elec) else target_value
@@ -2483,25 +2481,28 @@ def transformation_trns_fuel_shift_to_target(
                 fields_target = []
 
                 for modvar in modvars_source + modvars_target:
-                    if cat in model_attributes.get_variable_categories(modvar):
 
-                        modvars_adjust.append(modvar) 
+                    cats_valid = model_attributes.get_variable_categories(modvar)
+                    if cat not in cats_valid:
+                        continue
 
+                    modvars_adjust.append(modvar) 
+
+                    if (modvar in modvars_target):
                         fields_target.append(
-                            model_attributes.build_varlist(
-                                subsec,
+                            model_attributes.build_variable_fields(
                                 modvar,
-                                restrict_to_category_values = [cat]
-                            )[0]
-                        ) if (modvar in modvars_target) else None
-
+                                restrict_to_category_values = cat,
+                            )
+                        )
+                    
+                    if (modvar in modvars_source):
                         fields_source.append(
-                            model_attributes.build_varlist(
-                                subsec,
+                            model_attributes.build_variable_fields(
                                 modvar,
-                                restrict_to_category_values = [cat]
-                            )[0]
-                        ) if (modvar in modvars_source) else None
+                                restrict_to_category_values = cat,
+                            )
+                        )
 
 
                 # get some baseline values
@@ -2518,11 +2519,10 @@ def transformation_trns_fuel_shift_to_target(
 
                     for modvar in modvars_source:
                         if cat in model_attributes.get_variable_categories(modvar):
-                            field_cur = model_attributes.build_varlist(
-                                subsec,
+                            field_cur = model_attributes.build_variable_fields(
                                 modvar,
-                                restrict_to_category_values = [cat]
-                            )[0]
+                                restrict_to_category_values = cat
+                            )
                             
                             magnitude_new += float(df_in[field_cur].iloc[tp_baseline])*magnitude
 
@@ -2572,11 +2572,10 @@ def transformation_trns_fuel_shift_to_target(
                 # loop over adjustment variables to build new trajectories
                 for modvar in modvars_adjust:
                     
-                    field_cur = model_attributes.build_varlist(
-                        subsec,
+                    field_cur = model_attributes.build_variable_fields(
                         modvar,
-                        restrict_to_category_values = [cat]
-                    )[0]
+                        restrict_to_category_values = cat,
+                    )
 
                     """
                     vec_old = np.array(df_in[field_cur])
@@ -2688,13 +2687,13 @@ def transformation_trns_electrify_category_to_target_old(
         if region in regions_apply:
             for cat in dict_targets_final_tp.keys():
 
+                field_elec = model_attributes.build_variable_fields(
+                    model_energy.modvar_trns_fuel_fraction_electricity,
+                    restrict_to_category_values = cat,
+                )
+
                 target_value = dict_targets_final_tp.get(cat)
                 scale_non_elec = 1 - target_value
-                field_elec = model_attributes.build_varlist(
-                    model_attributes.subsec_name_trns,
-                    model_energy.modvar_trns_fuel_fraction_electricity,
-                    restrict_to_category_values = [cat]
-                )[0]
 
                 val_final_elec = float(df_in[field_elec].iloc[n_tp - 1])
 
@@ -2705,11 +2704,11 @@ def transformation_trns_electrify_category_to_target_old(
 
                 # loop over adjustment variables to build new trajectories
                 for modvar in modvars_adjust:
-                    field_cur = model_attributes.build_varlist(
-                        model_attributes.subsec_name_trns,
+                    field_cur = model_attributes.build_variable_fields(
                         modvar,
-                        restrict_to_category_values = [cat]
-                    )[0]
+                        restrict_to_category_values = cat,
+                    )
+
                     vec_old = np.array(df_in[field_cur])
                     val_final = vec_old[n_tp - 1]
                     val_new = (
@@ -2721,6 +2720,7 @@ def transformation_trns_electrify_category_to_target_old(
                         if (field_cur != field_elec) 
                         else target_value
                     )
+                    
                     vec_new = vec_ramp*val_new + (1 - vec_ramp)*vec_old
 
                     df_in_new[field_cur] = vec_new
