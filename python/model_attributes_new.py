@@ -51,8 +51,8 @@ class ModelAttributesNew:
         self._initialize_sector_sets()
         self._initialize_variables_by_subsector()
         self._initialize_all_primary_category_flags()
-        #self._initialize_emission_modvars_by_gas()
-        #self._initialize_gas_attributes()
+        self._initialize_emission_modvars_by_gas()
+        self._initialize_gas_attributes()
         #self._initialize_other_dictionaries()
 
         #self._check_attribute_tables()
@@ -896,12 +896,12 @@ class ModelAttributesNew:
             fp_config,
             self.get_unit_attribute("area"),
             self.get_unit_attribute("energy"),
-            self.get_other_attribute("emission_gas").attribute_table, # the emission_gas table is stored as a um.Unit
+            self.get_other_attribute_table("emission_gas").attribute_table, # the emission_gas table is stored as a um.Unit
             self.get_unit_attribute("length"),
             self.get_unit_attribute("mass"),
             self.get_unit_attribute("monetary"),
             self.get_unit_attribute("power"),
-            self.get_other_attribute("region"),
+            self.get_other_attribute_table("region"),
             self.get_dimensional_attribute_table(self.dim_time_period),
             self.get_unit_attribute("volume"),
             attr_required_parameters = self.attribute_configuration_parameters,
@@ -928,7 +928,7 @@ class ModelAttributesNew:
 
 
 
-    def _initialize_emission_modvars_by_gas(self,
+    def _initialize_emission_modvars_by_gas(self, #FIXED
         key_other_totals: str = "multigas",
     ) -> None:
         """
@@ -936,7 +936,7 @@ class ModelAttributesNew:
             by gas. Sets the following properties:
 
             * self.dict_gas_to_total_emission_fields
-            * self.dict_gas_to_total_emission_modvars
+            * self.dict_gas_to_total_emission_variables
 
         Keyword Arguments
         -----------------
@@ -947,8 +947,19 @@ class ModelAttributesNew:
         all_tabs = self.dict_variable_definitions.keys()
         dict_fields_by_gas = {}
         dict_modvar_by_gas = {}
-        for tab in all_tabs:
-            tab = self.dict_variable_definitions.get(tab).table
+
+        for subsec in self.all_subsectors:
+
+            tab = self.get_attribute_table(
+                subsec, 
+                table_type = "variable_definitions",
+            )
+
+            if tab is None:
+                continue
+
+            tab = tab.table
+
             modvars = list(
                 tab[
                     tab[self.field_emissions_total_flag] == 1
@@ -962,7 +973,7 @@ class ModelAttributesNew:
                 # get emission and add to dictionary
                 emission = self.get_variable_characteristic(
                     modvar, 
-                    self.varchar_str_emission_gas
+                    self.varchar_str_emission_gas,
                 )
 
                 key = emission if (emission is not None) else key_other_totals
@@ -973,6 +984,7 @@ class ModelAttributesNew:
                     if key in dict_fields_by_gas.keys()
                     else dict_fields_by_gas.update({key: varlist})
                 )
+
                 # add to modvars by gas
                 (
                     dict_modvar_by_gas[key].append(modvar)
@@ -984,7 +996,7 @@ class ModelAttributesNew:
         ##  SET PROPERTIES
 
         self.dict_gas_to_total_emission_fields = dict_fields_by_gas
-        self.dict_gas_to_total_emission_modvars = dict_modvar_by_gas
+        self.dict_gas_to_total_emission_variables = dict_modvar_by_gas
 
         return None
     
@@ -1009,6 +1021,9 @@ class ModelAttributesNew:
                 ], []
             )
         )
+
+
+        ##  SET PROPERTIES
 
         self.dict_fc_designation_to_gasses = dict_fc_designation_to_gas
         self.dict_gas_to_fc_designation = dict_gas_to_fc_designation
@@ -2880,12 +2895,25 @@ class ModelAttributesNew:
             the fluorinated compound designation of the gas 
         """
         
-        attr_gas = self.get_other_attribute("emission_gas")
+        attr_gas = self.get_other_attribute_table("emission_gas")
+        if attr_gas is None:
+            msg = f"""
+            Error getting fluorinated compound dictionary: emission_gas 
+            attribute table not found.
+            """
+            raise RuntimeError(msg)
+
         dict_out = {}
-        df_by_designation = attr_gas.table.groupby([field_fc_designation])
+       
+        df_by_designation = (
+            attr_gas
+            .attribute_table
+            .table
+            .groupby([field_fc_designation])
+        )
         
         for desig, df in df_by_designation:
-            desig = str(desig).lower().replace(" ", "_")
+            desig = mv.clean_element(desig)
             dict_out.update({desig: list(df[attr_gas.key])})
             
         return dict_out
@@ -3010,7 +3038,7 @@ class ModelAttributesNew:
     
 
 
-    def get_other_attribute(self, #FIXED
+    def get_other_attribute_table(self, #FIXED
         attribute: str,
     ) -> AttributeTable:
         """
@@ -3043,7 +3071,7 @@ class ModelAttributesNew:
         """
 
         attribute_region = (
-            self.get_other_attribute("region")
+            self.get_other_attribute_table("region")
             if (attribute_region is None) 
             else attribute_region
         )
@@ -3914,7 +3942,7 @@ class ModelAttributesNew:
             time period (gwp is a number of years, e.g., 20, 100, 500).
         """
         # none checks
-        unit_gas = self.get_other_attribute("emission_gas")
+        unit_gas = self.get_other_attribute_table("emission_gas")
         gas = unit_gas.get_unit_key(gas)
         if gas is None:
             return None
@@ -4480,11 +4508,11 @@ class ModelAttributesNew:
                 gas = self.get_variable_characteristic(var, self.varchar_str_emission_gas)
 
                 if (var_type == "output") and gas:
-                    total_emission_modvars_by_gas = self.dict_gas_to_total_emission_modvars.get(gas)
+                    total_emission_modvars_by_gas = self.dict_gas_to_total_emission_variables.get(gas)
                     if total_emission_modvars_by_gas is not None:
                         flds_add += (
                             self.dict_model_variables_to_variables.get(var) 
-                            if var in self.dict_gas_to_total_emission_modvars.get(gas)
+                            if var in self.dict_gas_to_total_emission_variables.get(gas)
                             else []
                         )
 
@@ -5974,11 +6002,6 @@ class ModelAttributesNew:
 
         for key, attr in self.dict_variable_definitions.items():
 
-            # get sortable class for this table
-            #sort_class = key.split(str_split_varreqs_key)
-            #if len(sort_class) < 2:
-            #    continue
-            #sort_class = sort_class[1]
             sort_class = key
 
             # skip if unidentified
@@ -6001,6 +6024,7 @@ class ModelAttributesNew:
                 # check groupings and skip if invalid
                 simplex_modvars = list(df[field_model_variable])
                 dict_vars_to_sg = self.get_simplex_group_specification(simplex_modvars)
+
                 if dict_vars_to_sg is None:
                     continue
 

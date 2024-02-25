@@ -1053,7 +1053,7 @@ class ModelAttributes:
 
             for modvar in modvars:
                 # build the variable list
-                varlist = self.build_variable_fields(modvar)
+                varlist = self.build_varlist(None, modvar)
 
                 # get emission and add to dictionary
                 emission = self.get_variable_characteristic(modvar, self.varchar_str_emission_gas)
@@ -1223,7 +1223,7 @@ class ModelAttributes:
 
             # get mappings for individual model variables (to/from fields)
             for modvar in vars_by_subsector:
-                var_lists = self.build_variable_fields(modvar)
+                var_lists = self.build_varlist(subsector, modvar)
                 dict_vars_to_fields.update({modvar: var_lists})
                 dict_fields_to_vars.update(
                     dict(zip(var_lists, [modvar for x in var_lists]))
@@ -1231,12 +1231,12 @@ class ModelAttributes:
 
                 all_variables_input += (
                     var_lists
-                    if var in vars_by_subsector_input
+                    if modvar in vars_by_subsector_input
                     else []
                 )
                 all_variables_output += (
                     var_lists
-                    if var in vars_by_subsector_output
+                    if modvar in vars_by_subsector_output
                     else []
                 )
 
@@ -2060,7 +2060,7 @@ class ModelAttributes:
             if (subsec is not None):
                 fields_req = []
                 for modvar in dict_integrated_vars[subsec]:
-                    fields_req += self.build_variable_fields(modvar)
+                    fields_req += self.build_varlist(None, modvar)
 
                 # check for required variables
                 subsec_val = True
@@ -2352,10 +2352,11 @@ class ModelAttributes:
 
         dict_repl_categories_with_fields = {}
         for cat in cats:
-            field = self.build_variable_fields(
+            field = self.build_varlist(
+                None,
                 modvar,
-                restrict_to_category_values = cat,
-            )
+                restrict_to_category_values = [cat],
+            )[0]
             
             dict_repl_categories_with_fields.update({cat: fields})
             
@@ -5385,7 +5386,7 @@ class ModelAttributes:
         simplex_groups = []
 
         for key, attr in self.dict_varreqs.items():
-
+            
             # get sortable class for this table
             sort_class = key.split(str_split_varreqs_key)
             if len(sort_class) < 2:

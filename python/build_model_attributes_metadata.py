@@ -74,7 +74,7 @@ def build_emissions_information_table(
     """
     attr_gas = model_attributes.dict_attributes.get("emission_gas")
     dict_gas_to_name = attr_gas.field_maps.get(f"{attr_gas.key}_to_name")
-    dict_gas_to_emision_modvars = model_attributes.dict_gas_to_total_emission_modvars
+    dict_gas_to_emision_modvars = model_attributes.dict_gas_to_total_emission_variables
     
     # get shared field names
     table_properties = InformationTableProperties()
@@ -177,7 +177,7 @@ def build_variable_information_table(
     """
     attr_gas = model_attributes.dict_attributes.get("emission_gas")
     dict_gas_to_name = attr_gas.field_maps.get(f"{attr_gas.key}_to_name")
-    dict_gas_to_emision_modvars = model_attributes.dict_gas_to_total_emission_modvars
+    dict_gas_to_emision_modvars = model_attributes.dict_gas_to_total_emission_variables
     
     # get shared field names
     table_properties = InformationTableProperties()

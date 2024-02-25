@@ -30,10 +30,17 @@ class ModelVariable:
 
         * name: the name of the variable, used to access the variable in 
             dictionaries etc.
-        * grouping: an optional grouping used to (in SISEPUEDE, this is a 
-            subsector)
-        * categories: 
 
+        * variable_schema: 
+
+            E.g. of schema:
+
+                ``ef_ippu_$UNIT-MASS$_$EMISSION-GAS$_per_$UNIT-MASS$_product_use_$CAT-INDUSTRY-DIM1$_$CAT-INDUSTRY-DIM2$_$CAT-TRANSPORTATION$`` (``$UNIT-MASS$ = tonne``, ``$EMISSION-GAS$ = co2``)
+
+        * categories: 
+            E.g. of setting with dictionary: 
+            
+            (``$CAT-INDUSTRY_DIM2$ = paper|cement|plastic``, ``$CAT-INDUSTRY-DIM1$ = product_use_lubricants|product_use_paraffin_wax|cement|plastic``, ``$CAT-TRANSPORTATION$ = aviation|rail_freight|dymm``)
 
 
     Initialization Arguments
@@ -43,6 +50,8 @@ class ModelVariable:
         * pd.DataFrame: a Pandas DataFrame whose first row is used to initialize 
             variable elements by smapping fields (key) to values
         * pd.Series: a Pandas Series used to map indicies (key) to values
+
+
     - category_definition: initializer for variable categories (i.e., mutable
         elements in the variable schema). Can be:
         * attribute_table.AttributeTable: Can be provided if there is only a
@@ -242,7 +251,7 @@ class ModelVariable:
         dict_category_keys = self.get_categories_by_element(
             dict_category_space = dict_category_key_space,
         )
-            
+
             
         ##  SET PROPERTIES
 
@@ -271,11 +280,19 @@ class ModelVariable:
             * self.fields_space_complement:
                 complement in fields_space of fields
         """
+        # NOTE FOR fields and fields_space:
+        # it is important to include allow_full_space = True during 
+        # initialization; this argument allows access to the full category 
+        # space during initialization
 
-        fields = self.build_fields()
+        # allow full space as a hack for initialization
+        fields = self.build_fields(
+            allow_full_space = True
+        )
 
         # trick it into building variables across entire range
         fields_space = self.build_fields(
+            allow_full_space = True,
             category_restrictions = {}, 
             category_restrictions_as_full_spec = True,
         ) 
@@ -517,7 +534,10 @@ class ModelVariable:
         Initialize the dictionary mapping the variable schema's mutable elements 
             to categories in the variable field. Differs from 
             self.dict_category_key_space in that the keys are schema mutable 
-            elements, not root elements.
+            elements, not root elements. 
+
+        If keys in dict_category_space are child elements, returns those 
+            elements.
 
         Support function for self.get_categories_by_element()
 
@@ -532,6 +552,22 @@ class ModelVariable:
         - return_on_none: element to return if dict_category_space is None
         """
 
+        dict_out = return_on_none
+
+        if isinstance(dict_category_space, dict):
+            dict_out = {}
+
+            for x in self.schema.mutable_elements_clean_ordered:
+                vec = dict_category_space.get(self.schema.get_root_element(x)[0])
+                vec = (
+                    dict_category_space.get(x)
+                    if vec is None
+                    else vec
+                )
+
+                dict_out.update({x: vec})
+
+        """
         dict_out = (
             dict(
                 (x, dict_category_space.get(self.schema.get_root_element(x)[0]))
@@ -540,6 +576,7 @@ class ModelVariable:
             if isinstance(dict_category_space, dict)
             else return_on_none
         )
+        """;
 
         return dict_out
 
@@ -585,7 +622,7 @@ class ModelVariable:
             else category_subspace
         )
 
-        
+
         ##  CHECK SPECIFICATION OF category_subspace AND CONVERT TO DICTIONARY
 
         if isinstance(category_subspace, str):
@@ -617,6 +654,7 @@ class ModelVariable:
             if sf.islistlike(dict_category_space) 
             else None
         )
+        
         flags_skip =  [
             self.flag_all_cats, 
             f"{self.container_expressions}{self.flag_all_cats}{self.container_expressions}"
@@ -643,6 +681,7 @@ class ModelVariable:
             )
         elements_iter = elements_root + elements_children
 
+
         # iterate over each of the mutable element categories to get specified category subsets
         for elem in elements_iter:
             
@@ -664,7 +703,14 @@ class ModelVariable:
                 # check the space to ensure it's defined
                 if isinstance(dict_category_space, dict):
                     key_space = self.schema.get_root_element(k)
-                    space = dict_category_space.get(key_space[0], "__skip")
+
+                    # check if the space is denoted as the key itself rather than the root
+                    space = (
+                        dict_category_space.get(key_space[0])
+                        if key_space[0] in dict_category_space.keys()
+                        else dict_category_space.get(k, "__skip")
+                    )
+                        
                     if space == "__skip":
                         continue
                 
@@ -676,8 +722,7 @@ class ModelVariable:
                 )
                 if not isinstance(categories, list):
                     continue
-                    
-            
+                
                 categories = (
                     [x for x in space if x in categories]
                     if sf.islistlike(space)
@@ -833,6 +878,43 @@ class ModelVariable:
             out = default_if_missing
 
         return out
+    
+
+
+    def get_merged_category_key_dictionary(self,
+    ) -> dict:
+        """
+        Passing dict_category_key_space to dict_category space in
+            get_categories_by_element() can allow for users to specify 
+            categories that fall outside of the variable definition. 
+        
+        This merge operation begins with dict_category_key_space, then 
+            overwrites any keys with available values from dict_category_keys. 
+            This choice, instead of simply using self.dict_category_keys,
+            allows for the space still be expansive when there are not 
+            restrictions and for dimensional elements in self.dict_category_keys
+            to restrict the space further than the use of 
+            self.dict_category_key_space would on its own.
+        """
+
+        dict_out = {}#self.dict_category_key_space.copy()
+        
+        # decompose and drop root from dictionary
+        for k, v in self.dict_category_key_space.items():
+    
+            elems_child = self.schema.dict_root_element_to_children.get(k)
+            
+            dict_update = (
+                dict((x, v) for x in elems_child)
+                if elems_child is not None
+                else {k: v}
+            )
+            
+            dict_out.update(dict_update)
+
+        dict_out.update(self.dict_category_keys.copy())
+
+        return dict_out
     
 
 
@@ -1038,6 +1120,7 @@ class ModelVariable:
 
 
     def build_fields(self,
+        allow_full_space: bool = False,
         category_restrictions: Union[Dict[str, List[str]], List[str], str, None] = None,
         category_restrictions_as_full_spec: bool = False,
         stop_on_error: bool = True,
@@ -1050,6 +1133,9 @@ class ModelVariable:
         
         Keyword Argumnents
         ------------------
+        - allow_full_space: Allow the variable to access categories in the 
+            complete space, beyond those for which it is defined? If True, can
+            let the variable be built for undefined categories. 
         - category_restrictions: optional dictionary to overwrite 
             `self.dict_category_keys` with; i.e., keys in category_restrictions 
             will overwrite those in `self.dict_category_keys` IF 
@@ -1154,11 +1240,19 @@ class ModelVariable:
             keys_keep = set(sum(keys_keep, []))
         
         
+        dict_space = (
+            self.dict_category_key_space
+            if allow_full_space
+            else self.get_merged_category_key_dictionary()
+        )
+
+
         # run through filtering and split elements
         category_restrictions = self.get_categories_by_element(
             category_restrictions,
-            dict_category_space = self.dict_category_key_space,
+            dict_category_space = dict_space,
         )
+
         if not isinstance(category_restrictions, dict):
             category_restrictions = {}
 
@@ -1174,6 +1268,7 @@ class ModelVariable:
         ##  ITERATE 
         
         for dim in dims:
+            
             # try the input dictionary, return internal restrictions if not defined
             restrictions = category_restrictions.get(
                 dim,
