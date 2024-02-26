@@ -200,8 +200,6 @@ class ElectricEnergy:
             {
                 "Energy Demand by Fuel": "energy_demand"
             },
-            type_table = "variables",
-            clean_field_vals = True
         )
 
         return dict_out
@@ -237,8 +235,6 @@ class ElectricEnergy:
                 "NemoMod :math:\\text{CO}_2 Emissions from Electricity Generation": "emissions_co2",
                 "NemoMod :math:\\text{N}_2\\text{O} Emissions from Electricity Generation": "emissions_n2o"
             },
-            type_table = "variables",
-            clean_field_vals = True
         )
 
         return dict_out
@@ -1091,8 +1087,6 @@ class ElectricEnergy:
                 "Fuel Production NemoMod OutputActivityRatio": key_oar,
                 "Maximum Production Increase Fraction to Satisfy MinShareProduction": key_mpi_frac_msp
             },
-            "variables",
-            True
         )
         
         self.key_iar = key_iar
@@ -5320,7 +5314,7 @@ class ElectricEnergy:
                 None,
                 missing_vals = 0.0,
                 output_cats = cats_entc_ordered,
-                output_subsec = self.model_attributes.subsec_name_entc
+                output_subsec = self.model_attributes.subsec_name_entc,
             )
 
             # apply scalar

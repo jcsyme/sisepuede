@@ -129,8 +129,6 @@ class CircularEconomy:
             {
                 "Treatment Fraction": "treatment_fraction"
             },
-            "variables",
-            True
         )
 
         return dict_out
@@ -1275,7 +1273,10 @@ class CircularEconomy:
             return_type = "array_base",
         )
 
-        array_trww_septic_compliance = self.model_attributes.merge_array_var_partial_cat_to_array_all_cats(array_trww_septic_compliance, self.modvar_trww_septic_sludge_compliance)
+        array_trww_septic_compliance = self.model_attributes.merge_array_var_partial_cat_to_array_all_cats(
+            array_trww_septic_compliance, 
+            self.modvar_trww_septic_sludge_compliance,
+        )
 
         # get treatment pathways that produce sludge
         array_mask_sludge = np.sign(array_trww_krem) + np.sign(array_trww_septic_compliance)

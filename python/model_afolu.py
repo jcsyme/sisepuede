@@ -268,8 +268,6 @@ class AFOLU:
             {
                 "Livestock Manure Management Fraction": "mm_fraction"
             },
-            "variables",
-            True
         )
 
         return dict_out

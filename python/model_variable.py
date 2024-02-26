@@ -166,6 +166,8 @@ class ModelVariable:
         Initialize categories based on input attributes. Sets the following 
             properties:
 
+            * self.categories_are_restricted:
+                True if categories are restricted or False otherwise
             * self.dict_category_keys:
                 dictionary mapping a cleaned category to the set of key values
                 that are valid for the variable
@@ -252,7 +254,7 @@ class ModelVariable:
             dict_category_space = dict_category_key_space,
         )
 
-            
+
         ##  SET PROPERTIES
 
         self.dict_category_keys = dict_category_keys

@@ -1115,11 +1115,13 @@ class IPPU:
                     array_ippu_recycled_waste_adj,
                     None,
                     output_cats = np.array(vec_ippu_cats_to_adjust_from_recycling)[w],
-                    output_subsec = self.subsec_name_ippu
+                    output_subsec = self.subsec_name_ippu,
                 )
+
                 # inititialize production, then get change to net imports (anything negative) and reduce virgin production accordingly
                 array_ippu_production_base = array_ippu_production*(1 - array_ippu_maxiumum_recycling_ratio)
                 array_ippu_production = array_ippu_production*array_ippu_maxiumum_recycling_ratio - array_ippu_recycled_waste_adj
+                
                 # array of changes to net imports has to be mapped back to the original recycling categories
                 array_ippu_change_net_imports = sf.vec_bounds(array_ippu_production, (-np.inf, 0))
                 array_ippu_change_net_imports = self.model_attributes.swap_array_categories(

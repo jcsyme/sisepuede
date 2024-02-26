@@ -3621,7 +3621,7 @@ class ModelAttributesNew:
         modvar: str,
         missing_vals: float = 0.0,
         output_cats: Union[list, None] = None,
-        output_subsec: Union[str, None] = None
+        output_subsec: Union[str, None] = None,
     ) -> np.ndarray:
         """
         Reformat a partial category array (with partical categories along 
@@ -3670,7 +3670,7 @@ class ModelAttributesNew:
                 raise ValueError(f"Invalid model variable '{modvar}' found in get_variable_characteristic.")
 
             subsector = self.get_variable_subsector(modvar)
-            attr_subsec = self.get_attribute_table(subsector)
+            attr_subsec = self.get_attribute_table(subsector)#HEREHERE
             cat_restriction_type = self.dict_model_variable_to_category_restriction.get(modvar)
 
         else:
@@ -3701,20 +3701,21 @@ class ModelAttributesNew:
         if cat_restriction_type == "all":
             return array_vals
 
-        else:
-            array_default = np.ones((len(array_vals), attr_subsec.n_key_values))*missing_vals
-            cats = self.get_variable_categories(modvar) if (type(modvar) != type(None)) else output_cats
-            inds_cats = [attr_subsec.get_key_value_index(x) for x in cats]
-            inds = np.repeat([inds_cats], len(array_default), axis = 0)
-            np.put_along_axis(array_default, inds, array_vals, axis = 1)
 
-            return array_default
+        array_default = np.ones((len(array_vals), attr_subsec.n_key_values))*missing_vals
+        cats = self.get_variable_categories(modvar) if (type(modvar) != type(None)) else output_cats
+
+        inds_cats = [attr_subsec.get_key_value_index(x) for x in cats]
+        inds = np.repeat([inds_cats], len(array_default), axis = 0)
+        np.put_along_axis(array_default, inds, array_vals, axis = 1)
+
+        return array_default
 
 
 
-    def reduce_all_cats_array_to_partial_cat_array(self, #VISIT
+    def reduce_all_cats_array_to_partial_cat_array(self, #FIXED
         array_vals: np.ndarray, 
-        modvar: str
+        modvar: Union[str, mv.ModelVariable],
     ) -> np.ndarray:
         """
         Reduce an all category array (with all categories along columns) to 
@@ -3729,19 +3730,17 @@ class ModelAttributesNew:
         """
 
         # check variable first
-        if modvar not in self.all_variables:
+        modvar = self.get_variable(modvar)
+        if modvar is None:
             raise ValueError(f"Invalid model variable '{modvar}' found in get_variable_characteristic.")
 
-        subsector = self.get_variable_subsector(modvar)
-        attr_subsec = self.get_attribute_table(subsector)
-        cat_restriction_type = self.dict_model_variable_to_category_restriction[modvar]
+        out = (
+            array_vals[:, modvar.fields_index]
+            if modvar.categories_are_restricted
+            else array_vals
+        )
 
-        if cat_restriction_type == "all":
-            return array_vals
-        else:
-            cats = self.get_variable_categories(modvar)
-            inds_cats = [attr_subsec.get_key_value_index(x) for x in cats]
-            return array_vals[:, inds_cats]
+        return out
 
 
 
@@ -4679,13 +4678,13 @@ class ModelAttributesNew:
 
 
 
-    def assign_keys_from_attribute_fields(self,#VISIT
+    def assign_keys_from_attribute_fields(self, #FIXED
         subsector: str,
         field_attribute: str,
         dict_assignment: dict,
-        type_table: str = "categories",
-        clean_field_vals: bool = True,
         clean_attr_key: bool = False,
+        clean_field_vals: bool = True,
+        table_type: str = "variable_definitions",
     ) -> tuple:
         """
         Assign key_values that are associated with a secondary category. Use 
@@ -4717,43 +4716,35 @@ class ModelAttributesNew:
             clean_schema(variable_name))
         - clean_field_vals: default = True. Apply clean_schema() to the values 
             found in attr_subsector[field_attribute]?
-        - type_table: default = "categories". Represents the type of attribute
+        - table_type: default = "categories". Represents the type of attribute
             table; valid values are 'categories', 'varreqs_all', and 
             'varreqs_partial'
         """
 
         # check the subsector and type specifications
-        self.check_subsector(subsector)
-        dict_valid_types_to_attribute_keys = {
-            "categories": "primary_category", #"primary_category"
-            "variables": "variable_definitions", #"variable_definitions"
-        }
-        
-        attr_type_retrieve = dict_valid_types_to_attribute_keys.get(type_table)
-        if attr_type_retrieve is None:
-            str_valid_types = sf.format_print_list(
-                list(dict_valid_types_to_attribute_keys.keys())
+        try:
+            attr_subsector = self.get_attribute_table(
+                subsector, 
+                table_type = table_type,
             )
 
-            msg = f"""
-            Invalid type_primary '{type_primary}' specified. Valid values are 
-            '{str_valid_types}'.
-            """
-            raise ValueError(msg)
+            if attr_subsector is None:
+                raise RuntimError(f"Subsector {subsector} not found.")
 
+            sf.check_fields(attr_subsector.table, [field_attribute])
 
-        # retrieve the attribute table and check the field specification
-        
-        attr_subsector = self.get_attribute_table(subsector, attr_type_retrieve)
-        sf.check_fields(attr_subsector.table, [field_attribute])
+        except Exception as e:
+            msg = f"Error in assign_keys_from_attribute_fields: {e}"
+            raise RuntimeError(msg)
+
 
         # get the unique field values
         all_field_values = list(set(
-            self.get_ordered_category_attribute(
+            self.get_ordered_category_attribute(#HEREHERE
                 subsector,
                 field_attribute,
+                attr_type = table_type,
                 skip_none_q = True,
-                attr_type = attr_type_retrieve,
             )
         ))
         all_field_values.sort()

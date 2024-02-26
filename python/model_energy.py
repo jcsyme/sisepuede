@@ -1445,8 +1445,6 @@ class NonElectricEnergy:
             {
                 "Fuel Fraction": "fuel_fraction"
             },
-            "variables",
-            True
         )
 
         return dict_out
@@ -1487,8 +1485,6 @@ class NonElectricEnergy:
                 ":math:\\text{N}_2\\text{O}": "ef_n2o",
                 "Vehicle Distance Traveled from": "vehicle_distance_traveled"
             },
-            "variables",
-            True
         )
 
         return dict_out
