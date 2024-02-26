@@ -4348,7 +4348,12 @@ class ElectricEnergy:
         """
 
         # get the region attribute - reduce only to applicable regions
-        attribute_region = self.model_attributes.dict_attributes[self.model_attributes.dim_region] if (attribute_region is None) else attribute_region
+        attribute_region = (
+            self.get_attribute_region()
+            if (attribute_region is None) 
+            else attribute_region
+        )
+
         dict_rename = (
             {
                 self.model_attributes.dim_region: self.field_nemomod_value, 
@@ -4814,7 +4819,7 @@ class ElectricEnergy:
 
     def format_nemomod_table_capacity_to_activity_unit(self,
         regions: Union[List[str], None] = None,
-        return_type: str = "table"
+        return_type: str = "table",
     ) -> pd.DataFrame:
         """
         Format the CapacityToActivityUnit input table for NemoMod based on 
@@ -4831,11 +4836,15 @@ class ElectricEnergy:
         """
 
         # first, get power units, swap to get energy unit equivalent, then get units for the default total energy variable
-        units_power = self.model_attributes.dict_attributes["unit_power"].field_maps["power_to_unit_power"].get(
+        units_power = self.model_attributes.get_unit("power").get_unit_key(
             self.model_attributes.configuration.get("power_units")
         )
+
         units_energy_power_equivalent = self.model_attributes.get_energy_power_swap(units_power)
-        cau = self.model_attributes.get_energy_equivalent(units_energy_power_equivalent, self.units_energy_nemomod)
+        cau = self.model_attributes.get_energy_equivalent(
+            units_energy_power_equivalent, 
+            self.units_energy_nemomod,
+        )
 
         if return_type == "table":
             df_out = pd.DataFrame({self.field_nemomod_value: [cau]})
@@ -4848,6 +4857,7 @@ class ElectricEnergy:
                 ],
                 regions = regions
             )
+
         elif return_type == "value":
             df_out = cau
 
@@ -7334,8 +7344,18 @@ class ElectricEnergy:
             self.field_nemomod_lorder,
             "weight"
         ]
-        attribute_time_slice = self.model_attributes.dict_attributes["time_slice"] if (attribute_time_slice is None) else attribute_time_slice
-        sf.check_fields(attribute_time_slice.table, fields_req, msg_prepend = "Missing fields in table 'LTsGroup': ")
+
+        attribute_time_slice = (
+            self.model_attributes.get_other_attribute_table("time_slice")
+            if (attribute_time_slice is None) 
+            else attribute_time_slice
+        )
+
+        sf.check_fields(
+            attribute_time_slice.table, 
+            fields_req, 
+            msg_prepend = "Missing fields in table 'LTsGroup': ",
+        )
 
 
         ##  FORMAT THE TIMESLICE ATTRIBUTE TABLE
@@ -7401,24 +7421,26 @@ class ElectricEnergy:
             # prepare from LTsGroup table
             dict_agg = {
                 self.field_nemomod_id: "first",
-                fld: "first"
+                fld: "first",
             }
 
-            df_tgs_out = df_tgs[[
-                self.field_nemomod_id, fld
-            ]].groupby(
-                [fld]
-            ).agg(dict_agg).sort_values(
-                by = [self.field_nemomod_id]
-            ).reset_index(
-                drop = True
+            df_tgs_out = (
+                df_tgs[[
+                    self.field_nemomod_id, fld
+                ]]
+                .groupby([fld])
+                .agg(dict_agg)
+                .sort_values(by = [self.field_nemomod_id])
+                .reset_index(drop = True)
             )
 
             # get attribute for time slice group
-            attr_cur = self.model_attributes.dict_attributes[dict_field_to_attribute[fld]].table.copy()
+            table_name = dict_field_to_attribute.get(fld)
+            attr_cur = self.model_attributes.get_other_attribute_table(table_name).table.copy()
+
             attr_cur.rename(
                 columns = {
-                    dict_field_to_attribute[fld]: self.field_nemomod_name,
+                    table_name: self.field_nemomod_name,
                     "description": self.field_nemomod_description,
                     "multiplier": self.field_nemomod_multiplier
                 }, inplace = True

@@ -209,7 +209,7 @@ class TransformationsEnergy:
                 categories mapped to MSP targets under the renewable target
                 transformation
         """
-        attr_tech = self.model_attributes.get_attribute_table("cat_technology")
+        attr_tech = self.model_attributes.get_attribute_table("Energy Technology")
         dict_config = self.config if not isinstance(dict_config, dict) else dict_config
         cats_renewable = [x for x in cats_renewable if x in attr_tech.key_values]
 
@@ -278,7 +278,7 @@ class TransformationsEnergy:
                 for the Renewable Targets transformation.
         """
 
-        attr_industry = self.model_attributes.get_attribute_table("cat_industry")
+        attr_industry = self.model_attributes.get_attribute_table("IPPU")
         dict_config = self.config if not isinstance(dict_config, dict) else dict_config
 
 
