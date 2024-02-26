@@ -37,8 +37,8 @@ def get_models(
     if models.upper() == "ALL":
         return None
 
-    attr_subsector = model_attributes.dict_attributes.get("abbreviation_sector")
-    valid_models = attr_subsector.key_values + list(attr_subsector.table["sector"])
+    attr_sector = model_attributes.get_sector_attribute_table()
+    valid_models = attr_sector.key_values + list(attr_sector.table["sector"])
 
     models = [
         x for x in models.split(delim)

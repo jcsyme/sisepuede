@@ -184,26 +184,29 @@ class region_solar:
             uses average over years specified in attr_time_period
         """
 
-        if (
-            (attributes is None) & (attr_hour is None) & (attr_time_period is None) & (attr_ts_group_1 is None)
-        ) | (
-            (self.lat_pop is None) | (self.lon_pop is None)
-        ):
+        return_none = (attributes is None)
+        return_none &= (attr_hour is None)
+        return_none &= (attr_time_period is None)
+        return_none &= (attr_ts_group_1 is None)
+
+        return_none |= (self.lat_pop is None) | (self.lon_pop is None)
+
+        if return_none:
             return None
 
         # get defaults from model attributes
         attr_time_period = (
-            attributes.dict_attributes.get(f"dim_{attributes.dim_time_period}")
+            attributes.get_dimensional_attribute_table(attributes.dim_time_period)
             if (attributes is not None) and (attr_time_period is None)
             else attr_time_period
         )
         attr_ts_group_1 = (
-            attributes.dict_attributes.get(f"ts_group_1")
+            attributes.get_other_attribute_table(f"ts_group_1")
             if (attributes is not None) and (attr_ts_group_1 is None)
             else attr_ts_group_1
         )
         attr_hour = (
-            attributes.dict_attributes.get(f"hour")
+            attributes.get_other_attribute_table(f"hour")
             if (attributes is not None) and (attr_hour is None)
             else attr_hour
         )

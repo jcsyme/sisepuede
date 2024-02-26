@@ -72,7 +72,7 @@ def build_emissions_information_table(
     - model_attributes: model_attributes.ModelAttributes object used to generate
         and manage variables
     """
-    attr_gas = model_attributes.dict_attributes.get("emission_gas")
+    attr_gas = model_attributes.get_other_attribute_table("emission_gas").attribute_table
     dict_gas_to_name = attr_gas.field_maps.get(f"{attr_gas.key}_to_name")
     dict_gas_to_emision_modvars = model_attributes.dict_gas_to_total_emission_variables
     
@@ -175,7 +175,7 @@ def build_variable_information_table(
     - modvars: model variables to build information for. If None, returns all
         model variables.
     """
-    attr_gas = model_attributes.dict_attributes.get("emission_gas")
+    attr_gas = model_attributes.get_other_attribute_table("emission_gas").attribute_table
     dict_gas_to_name = attr_gas.field_maps.get(f"{attr_gas.key}_to_name")
     dict_gas_to_emision_modvars = model_attributes.dict_gas_to_total_emission_variables
     

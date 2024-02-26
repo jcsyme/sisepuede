@@ -1910,7 +1910,8 @@ class AFOLU:
         """
         attr_lndu = self.model_attributes.get_attribute_table(self.subsec_name_lndu)
         field_time_period = self.model_attributes.dim_time_period
-        attr_time_period = self.model_attributes.dict_attributes.get(f"dim_{field_time_period}")
+        attr_time_period = self.model_attributes.get_dimensional_attribute_table(field_time_period)
+        
         key_vals = (
             attr_lndu.key_values 
             if (key_vals is None)

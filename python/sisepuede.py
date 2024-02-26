@@ -269,7 +269,7 @@ class SISEPUEDE:
 
 	def _initialize_attribute_design(self,
 		attribute_design: Union[AttributeTable, None] = None,
-		key_model_attributes_design: str = "dim_design_id",
+		key_model_attributes_design: str = "design_id",
 	) -> None:
 		"""
 		Initialize and check the attribute design table. Sets the following
@@ -290,7 +290,7 @@ class SISEPUEDE:
 
 		# initialize the attribute design table -- checks on the table are run when experimental manager is initialized
 		self.attribute_design = (
-			self.model_attributes.dict_attributes.get(key_model_attributes_design) 
+			self.model_attributes.get_dimensional_attribute_table(key_model_attributes_design)
 			if not isinstance(attribute_design, AttributeTable) 
 			else attribute_design
 		)

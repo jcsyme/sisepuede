@@ -657,12 +657,18 @@ class ElectricEnergy:
         ##  INITIALIZATION
 
         # attribute tables
-        attr_region = self.model_attributes.dict_attributes.get(self.model_attributes.dim_region)
+        attr_region = self.model_attributes.get_other_attribute_table(
+            self.model_attributes.dim_region
+        )
         attr_technology = self.model_attributes.get_attribute_table(self.subsec_name_entc)
-        attr_time_slice = self.model_attributes.dict_attributes.get("time_slice")
+        attr_time_slice = self.model_attributes.get_other_attribute_table("time_slice")
 
         # attribute derivatives
-        dict_tables_required_to_required_fields = self.dict_tables_required_to_required_fields if (dict_tables_required_to_required_fields is None) else dict_tables_required_to_required_fields
+        dict_tables_required_to_required_fields = (
+            self.dict_tables_required_to_required_fields 
+            if (dict_tables_required_to_required_fields is None) 
+            else dict_tables_required_to_required_fields
+        )
         dict_out = {}
         set_tables_required = set(self.dict_tables_required_to_required_fields.keys())
 
@@ -1808,6 +1814,82 @@ class ElectricEnergy:
                 out = (min_spec, min_spec)
 
         return out
+    
+
+
+    def get_attribute_emission(self,
+    ) -> AttributeTable:
+        """
+        Shortcut to get the emission attribute table
+        """
+
+        out = (
+            self.model_attributes
+            .get_other_attribute_table("emission_gas")
+            .attribute_table
+        )
+
+        return out
+
+
+
+    def get_attribute_enfu(self,
+        **kwargs
+    ) -> AttributeTable:
+        """
+        Shortcut to get the Energy Fuels attribute table
+        """
+
+        out = self.model_attributes.get_attribute_table(
+            self.model_attributes.subsec_name_enfu,
+            **kwargs
+        )
+
+        return out
+    
+
+
+    def get_attribute_entc(self,
+        **kwargs
+    ) -> AttributeTable:
+        """
+        Shortcut to get the Energy Technology attribute table
+        """
+
+        out = self.model_attributes.get_attribute_table(
+            self.model_attributes.subsec_name_entc,
+            **kwargs
+        )
+
+        return out
+
+
+
+    def get_attribute_region(self,
+    ) -> AttributeTable:
+        """
+        Shortcut to get the region table
+        """
+
+        out = self.model_attributes.get_other_attribute_table(
+            self.model_attributes.dim_region,
+        )
+
+        return out
+
+
+
+    def get_attribute_time_period(self,
+    ) -> AttributeTable:
+        """
+        Shortcut to get the time period attribute table
+        """
+
+        out = self.model_attributes.get_dimensional_attribute_table(
+            self.model_attributes.dim_time_period,
+        )
+
+        return out
 
 
 
@@ -1884,12 +1966,14 @@ class ElectricEnergy:
         # get minimum fraction to electricity
         vec_enfu_minimum_fuel_energy_to_electricity_biogas = vec_enfu_total_energy_biogas*vec_enfu_minimum_fuel_frac_to_elec
 
-        return vec_enfu_total_energy_biogas, vec_enfu_minimum_fuel_energy_to_electricity_biogas
+        out = (vec_enfu_total_energy_biogas, vec_enfu_minimum_fuel_energy_to_electricity_biogas)
+
+        return out
 
 
 
     def get_dummy_fuel_description(self,
-        return_type: str = "fuel"
+        return_type: str = "fuel",
     ) -> str:
         """
         Provide a description of the dummy fuel. Set return_type = "tech" to
@@ -2525,19 +2609,19 @@ class ElectricEnergy:
         
         # get some information
         attribute_fuel = (
-            self.model_attributes.get_attribute_table(self.model_attributes.subsec_name_enfu) 
+            self.get_attribute_enfu()
             if not isinstance(attribute_fuel, AttributeTable) 
             else attribute_fuel
         )
 
         attribute_technology = (
-            self.model_attributes.get_attribute_table(self.model_attributes.subsec_name_entc) 
+            self.get_attribute_entc()
             if not isinstance(attribute_technology, AttributeTable) 
             else attribute_technology
         )
 
         attribute_time_period = (
-            self.model_attributes.dict_attributes.get(f"dim_{self.model_attributes.dim_time_period}") 
+            self.get_attribute_time_period()
             if not isinstance(attribute_time_period, AttributeTable) 
             else attribute_time_period
         )
@@ -4084,17 +4168,35 @@ class ElectricEnergy:
         """
 
         # set some defaults
-        attribute_emission = self.model_attributes.dict_attributes["emission_gas"] if (attribute_emission is None) else attribute_emission
-        dict_rename = {"emission_gas": self.field_nemomod_value, "name": self.field_nemomod_description} if (dict_rename is None) else dict_rename
+        attribute_emission = (
+            self.get_attribute_emission() 
+            if (attribute_emission is None) 
+            else attribute_emission
+        )
+        dict_rename = (
+            {
+                "emission_gas": self.field_nemomod_value, 
+                "name": self.field_nemomod_description
+            } 
+            if (dict_rename is None) 
+            else dict_rename
+        )
 
         # set values out
         df_out = attribute_emission.table.copy()
         df_out.rename(columns = dict_rename, inplace = True)
+        
         fields_ord = [x for x in self.fields_nemomod_sort_hierarchy if (x in df_out.columns)]
-        df_out = df_out[fields_ord].sort_values(by = fields_ord).reset_index(drop = True)
 
-        return {self.model_attributes.table_nemomod_emission: df_out}
+        df_out = (
+            df_out[fields_ord]
+            .sort_values(by = fields_ord)
+            .reset_index(drop = True)
+        )
 
+        dict_out = {self.model_attributes.table_nemomod_emission: df_out}
+
+        return dict_out
 
 
     def format_nemomod_attribute_table_fuel(self,
@@ -4116,7 +4218,7 @@ class ElectricEnergy:
 
         # set some defaults
         attribute_fuel = (
-            self.model_attributes.get_attribute_table(self.subsec_name_enfu) 
+            self.get_attribute_enfu()
             if (attribute_fuel is None) 
             else attribute_fuel
         )
@@ -4176,7 +4278,12 @@ class ElectricEnergy:
         """
 
         # get the region attribute - reduce only to applicable regions
-        attribute_mode = self.model_attributes.dict_attributes.get(self.model_attributes.dim_mode) if (attribute_mode is None) else attribute_mode
+        attribute_mode = (
+            self.model_attributes.get_other_attribute_table(self.model_attributes.dim_mode) 
+            if (attribute_mode is None) 
+            else attribute_mode
+        )
+
         dict_rename = (
             {
                 self.model_attributes.dim_mode: self.field_nemomod_value, 
@@ -4483,9 +4590,24 @@ class ElectricEnergy:
         """
 
         # get some defaults and attribute tables
-        dict_gas_to_emission_fields = self.model_attributes.dict_gas_to_total_emission_fields if (dict_gas_to_emission_fields is None) else dict_gas_to_emission_fields
-        attribute_emission = self.model_attributes.dict_attributes.get("emission_gas") if (attribute_emission is None) else attribute_emission
-        attribute_time_period = self.model_attributes.dict_attributes.get(self.model_attributes.dim_time_period) if (attribute_time_period is None) else attribute_time_period
+        dict_gas_to_emission_fields = (
+            self.model_attributes.dict_gas_to_total_emission_fields 
+            if (dict_gas_to_emission_fields is None) 
+            else dict_gas_to_emission_fields
+        )
+
+        attribute_emission = (
+            self.get_attribute_emission() 
+            if (attribute_emission is None) 
+            else attribute_emission
+        )
+
+        attribute_time_period = (
+            self.get_attribute_time_period() 
+            if (attribute_time_period is None) 
+            else attribute_time_period
+        )
+
         drop_flag = self.drop_flag_tech_capacities if (drop_flag is None) else drop_flag
 
         modvars_limit = [
@@ -4499,7 +4621,10 @@ class ElectricEnergy:
             i, modvar = modvar
 
             # get emission and global warming potential (divide out for limit)
-            emission = self.model_attributes.get_variable_characteristic(modvar, self.model_attributes.varchar_str_emission_gas)
+            emission = self.model_attributes.get_variable_characteristic(
+                modvar, 
+                self.model_attributes.varchar_str_emission_gas,
+            )
             gwp = self.model_attributes.get_gwp(emission)
 
             # then, get total exogenous emissions
@@ -4587,20 +4712,21 @@ class ElectricEnergy:
             ModelAttributes attribute table.
         - regions: regions to keep in capacity factor table
         """
+        ##  INITIALIZATION
 
         # check fields
         fields_req = [self.field_nemomod_region, self.field_nemomod_time_slice]
         sf.check_fields(df_reference_capacity_factor, fields_req)
 
-        ##  CATEGORY AND ATTRIBUTE INITIALIZATION
+        # attribute tables
         attribute_technology = (
-            self.model_attributes.get_attribute_table(self.subsec_name_entc) 
+            self.get_attribute_entc()
             if (attribute_technology is None) 
             else attribute_technology
         )
 
         attribute_region = (
-            self.model_attributes.dict_attributes.get(self.model_attributes.dim_region) 
+            self.get_attribute_region()
             if (attribute_region is None) 
             else attribute_region
         )
@@ -4999,7 +5125,11 @@ class ElectricEnergy:
             attribute_nemomod_table with default values
         """
 
-        attribute_nemomod_table = self.model_attributes.dict_attributes.get("nemomod_table") if (attribute_nemomod_table is None) else attribute_nemomod_table
+        attribute_nemomod_table = (
+            self.model_attributes.get_other_attribute_table("nemomod_table") 
+            if (attribute_nemomod_table is None) 
+            else attribute_nemomod_table
+        )
 
         # check fields (key is always contained in an attribute table if it is successfully initialized)
         sf.check_fields(attribute_nemomod_table.table, [field_default_values])
@@ -6865,16 +6995,44 @@ class ElectricEnergy:
 
         ##  INITIAlIZATION
 
-        attribute_fuel = self.model_attributes.get_attribute_table(self.subsec_name_enfu) if (attribute_fuel is None) else attribute_fuel
-        attribute_region = self.model_attributes.dict_attributes.get(self.model_attributes.dim_region) if (attribute_region is None) else attribute_region
-        attribute_time_slice = self.model_attributes.dict_attributes.get("time_slice") if (attribute_time_slice is None) else attribute_time_slice
+        attribute_fuel = (
+            self.get_attribute_enfu() 
+            if (attribute_fuel is None) 
+            else attribute_fuel
+        )
+
+        attribute_region = (
+            self.get_attribute_region() 
+            if (attribute_region is None) 
+            else attribute_region
+        )
+
+        attribute_time_slice = (
+            self.model_attributes.get_other_attribute_table("time_slice") 
+            if (attribute_time_slice is None) 
+            else attribute_time_slice
+        )
         
         # attribute derivatives
-        fuels_to_specify = attribute_fuel.key_values if (fuels_to_specify is None) else [x for x in fuels_to_specify if x in attribute_fuel.key_values]
-        fuels_to_specify = attribute_fuel.key_values if (len(fuels_to_specify) == 0) else fuels_to_specify
+        fuels_to_specify = (
+            attribute_fuel.key_values 
+            if (fuels_to_specify is None) 
+            else [x for x in fuels_to_specify if x in attribute_fuel.key_values]
+        )
+
+        fuels_to_specify = (
+            attribute_fuel.key_values 
+            if (len(fuels_to_specify) == 0) 
+            else fuels_to_specify
+        )
+
         regions = self.model_attributes.get_region_list_filtered(regions, attribute_region = attribute_region)
         regions_keep = set(attribute_region.key_values) & set(regions)
-        regions_keep = (regions_keep & set(df_reference_demand_profile[self.field_nemomod_region])) if (self.field_nemomod_region in df_reference_demand_profile.columns) else regions_keep
+        regions_keep = (
+            (regions_keep & set(df_reference_demand_profile[self.field_nemomod_region])) 
+            if (self.field_nemomod_region in df_reference_demand_profile.columns) 
+            else regions_keep
+        )
 
         if len(regions_keep) == 0:
             raise ValueError(f"No valid regions found for format_nemomod_table_specified_demand_profile() in df_reference_demand_profile")
@@ -8239,7 +8397,7 @@ class ElectricEnergy:
         field_values: str = None,
         attribute_time_period: AttributeTable = None,
         field_year: str = "year",
-        time_period_as_year: bool = None
+        time_period_as_year: bool = None,
     ) -> pd.DataFrame:
         """
         Initialize a data frame that has the correct dimensions for SISEPUEDE
@@ -8269,6 +8427,7 @@ class ElectricEnergy:
 
         df_out = df_in.copy()
         df_out[self.field_nemomod_year] = np.array(df_out[self.field_nemomod_year]).astype(int)
+
         # does the time period
         if self.nemomod_time_period_as_year:
             df_out[self.field_nemomod_year] = self.transform_field_year_nemomod(
@@ -8276,22 +8435,31 @@ class ElectricEnergy:
                 time_period_as_year = time_period_as_year,
                 direction = "from_nemomod"
             )
+
         else:
-            attribute_time_period = self.dict_attributes.get(self.model_attributes.dim_time_period) if (attribute_time_period is None) else attribute_time_period
+            attribute_time_period = (
+                self.get_attribute_time_period()
+                if (attribute_time_period is None) 
+                else attribute_time_period
+            )
+            
             dict_map = attribute_time_period.field_maps.get(f"{field_year}_to_{attribute_time_period.key}")
 
-        df_out = pd.pivot(
-            df_out,
-            [field_index],
-            field_pivot,
-            field_values
-        ).reset_index(
-            drop = False
-        ).rename(
-            columns = {
-                self.field_nemomod_year: self.model_attributes.dim_time_period
-            }
-        ).rename_axis(None, axis = 1)
+        df_out = (
+            pd.pivot(
+                df_out,
+                [field_index],
+                field_pivot,
+                field_values,
+            )
+            .reset_index(drop = False)
+            .rename(
+                columns = {
+                    self.field_nemomod_year: self.model_attributes.dim_time_period,
+                }
+            )
+            .rename_axis(None, axis = 1)
+        )
 
         return df_out
 
@@ -8301,7 +8469,7 @@ class ElectricEnergy:
         engine: sqlalchemy.engine.Engine,
         vector_reference_time_period: Union[list, np.ndarray],
         table_name: str = None,
-        transform_time_period: bool = True
+        transform_time_period: bool = True,
     ) -> pd.DataFrame:
         """
         Retrieves NemoMod vdiscountedcapitalinvestment output table and 
@@ -8323,8 +8491,14 @@ class ElectricEnergy:
         """
 
         # initialize some pieces
-        table_name = self.model_attributes.table_nemomod_capital_investment_discounted if (table_name is None) else table_name
+        table_name = (
+            self.model_attributes.table_nemomod_capital_investment_discounted 
+            if (table_name is None) 
+            else table_name
+        )
+
         subsec = self.model_attributes.get_variable_subsector(self.modvar_entc_nemomod_discounted_capital_investment)
+
 
         df_out = self.retrieve_and_pivot_nemomod_table(
             engine,
@@ -8341,7 +8515,7 @@ class ElectricEnergy:
         engine: sqlalchemy.engine.Engine,
         vector_reference_time_period: Union[list, np.ndarray],
         table_name: str = None,
-        transform_time_period: bool = True
+        transform_time_period: bool = True,
     ) -> pd.DataFrame:
         """
         Retrieve NemoMod vdiscountedcapitalinvestment output table and reformat 
@@ -8363,7 +8537,11 @@ class ElectricEnergy:
         """
 
         # initialize some pieces
-        table_name = self.model_attributes.table_nemomod_capital_investment_discounted if (table_name is None) else table_name
+        table_name = (
+            self.model_attributes.table_nemomod_capital_investment_discounted 
+            if (table_name is None) 
+            else table_name
+        )
 
         df_out = self.retrieve_and_pivot_nemomod_table(
             engine,
@@ -9714,7 +9892,17 @@ class ElectricEnergy:
         
         # check that all required fields are contained—assume that it is ordered by time period
         self.check_df_fields(df_elec_trajectories)
-        dict_dims, df_elec_trajectories, n_projection_time_periods, projection_time_periods = self.model_attributes.check_projection_input_df(df_elec_trajectories, True, True, True)
+        (
+            dict_dims, 
+            df_elec_trajectories, 
+            n_projection_time_periods, 
+            projection_time_periods
+        ) = self.model_attributes.check_projection_input_df(
+            df_elec_trajectories, 
+            True, 
+            True, 
+            True,
+        )
 
         # check the dictionary of reference tables
         dict_ref_tables = self.dict_nemomod_reference_tables if (dict_ref_tables is None) else dict_ref_tables
@@ -9763,7 +9951,7 @@ class ElectricEnergy:
             dict_ref_tables.get(self.model_attributes.table_nemomod_capacity_factor),
             dict_ref_tables.get(self.model_attributes.table_nemomod_specified_demand_profile),
             regions = regions,
-            tuple_enfu_production_and_demands = tuple_enfu_production_and_demands
+            tuple_enfu_production_and_demands = tuple_enfu_production_and_demands,
         )
 
         # try to write input tables to the NemoMod scenario database
@@ -9780,7 +9968,7 @@ class ElectricEnergy:
         ##  2. SET UP AND CALL NEMOMOD
 
         # get calculation time periods
-        attr_time_period = self.model_attributes.dict_attributes.get(f"dim_{self.model_attributes.dim_time_period}")
+        attr_time_period = self.model_attributes.get_attribute_time_period()
         vector_calc_time_periods = (
             self.model_attributes.configuration.get("nemomod_time_periods") 
             if (vector_calc_time_periods is None) 

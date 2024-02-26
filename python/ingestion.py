@@ -529,8 +529,8 @@ class InputTemplate:
 					self._log(msg, type_log = "info")
 
 		elif (attribute_strategy is None) and (self.filter_invalid_strategies):
-			key_try = f"dim_{self.model_attributes.dim_strategy_id}"
-			out = self.model_attributes.dict_attributes.get(key_try)
+			key_try = self.model_attributes.dim_strategy_id
+			out = self.model_attributes.get_dimensional_attribute_table(key_try)
 			if out is None:
 				msg = f"""No strategy attribute found in ModelAttributes using 
 					dict_attributes key '{key_try}'. Setting 
@@ -1321,7 +1321,7 @@ class BaseInputDatabase:
 		"""
 		Import regions for the BaseInputDatabase class from BaseInputDatabase
 		"""
-		attr_region = self.model_attributes.dict_attributes.get("region")
+		attr_region = self.model_attributes.get_other_attribute_table(self.model_attributes.dim_region)
 
 		if regions is None:
 			regions_out = attr_region.key_values
@@ -1342,15 +1342,16 @@ class BaseInputDatabase:
 		"""
 		Import regions for the BaseInputDatabase class from BaseInputDatabase
 		"""
-		attr_sector = self.model_attributes.dict_attributes.get("abbreviation_sector")
+		attr_sector = self.model_attributes.get_sector_attribute_table()
 		key_dict = f"{attr_sector.key}_to_sector"
 		dict_conv = attr_sector.field_maps.get(key_dict)
 		all_sectors = [dict_conv.get(x) for x in attr_sector.key_values]
 
-		if sectors is None:
-			sectors_out = all_sectors
-		else:
-			sectors_out = [sector for sector in sectors if sector in all_sectors]
+		sectors_out = (
+			all_sectors
+			if sectors is None
+			[sector for sector in sectors if sector in all_sectors]
+		)
 
 		return sectors_out
 
@@ -1527,7 +1528,7 @@ class BaseInputDatabase:
 		- template_base_str: baseline string for naming templates
 		"""
 
-		attr_region = self.model_attributes.dict_attributes.get("region")
+		attr_region = self.model_attributes.get_other_attribute_table(self.model_attributes.dim_region)
 
 		# check sector
 		if sector in self.model_attributes.all_sectors:

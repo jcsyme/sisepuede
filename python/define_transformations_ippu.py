@@ -196,7 +196,7 @@ class TransformationsIPPU:
             raise RuntimeError(f"Error: invalid specification of model_attributes in TransformationsIPPU")
 
         # get strategy attribute, baseline strategy, and some fields
-        attribute_strategy = model_attributes.dict_attributes.get(f"dim_{model_attributes.dim_strategy_id}")
+        attribute_strategy = model_attributes.get_dimensional_attribute_table(model_attributes.dim_strategy_id)
         baseline_strategy = int(
             attribute_strategy.table[
                 attribute_strategy.table["baseline_strategy_id"] == 1

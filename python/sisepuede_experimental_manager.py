@@ -408,7 +408,9 @@ class SISEPUEDEExperimentalManager:
 		drop_regions = []
 
 		# get strategies to instantiate sampling units for
-		attr_strat = self.model_attributes.dict_attributes.get(f"dim_{self.model_attributes.dim_strategy_id}")
+		attr_strat = self.model_attributes.get_dimensional_attribute_table(
+			self.model_attributes.dim_strategy_id
+		)
 		dict_all_dims = {
 			#self.key_time_series #HEREHERE
 			self.key_strategy: attr_strat.key_values

@@ -143,7 +143,7 @@ class Regions:
         field_wb_global_region = "world_bank_global_region"
 
         # set attributes and some dictionaries
-        attributes = model_attributes.dict_attributes.get(f"{model_attributes.dim_region}")
+        attributes = model_attributes.get_other_attribute_table("region")
 
         # initialize ISO dictionaries
         dict_iso_to_region = attributes.field_maps.get(f"{field_iso}_to_{attributes.key}")
@@ -890,7 +890,7 @@ class TimePeriods:
             * self.min_year
         """
 
-        attributes = model_attributes.dict_attributes.get(f"dim_{model_attributes.dim_time_period}")
+        attributes = model_attributes.get_dimensional_attribute_table(model_attributes.dim_time_period)
         dict_year_to_time_period = attributes.field_maps.get(f"{field_year}_to_{attributes.key}")
         dict_time_period_to_year = attributes.field_maps.get(f"{attributes.key}_to_{field_year}")
         

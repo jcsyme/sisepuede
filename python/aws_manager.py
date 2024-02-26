@@ -4375,8 +4375,8 @@ class AWSManager:
         )
         
         for dim in dims:
-            key = f"dim_{dim}"
-            attr = self.model_attributes.dict_attributes.get(key)
+            
+            attr = self.model_attributes.get_dimensional_attribute_table(dim)
 
             if attr is None:
                 self._log(

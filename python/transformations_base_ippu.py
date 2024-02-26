@@ -78,7 +78,7 @@ def transformation_ippu_scale_emission_factor(
     if not isinstance(dict_magnitude, dict):
         # LOGGING
         return df_input
-    attr_gas = model_attributes.dict_attributes.get("emission_gas")
+    attr_gas = model_attributes.get_other_attribute_table("emission_gas").attribute_table
     attr_ippu = model_attributes.get_attribute_table(model_attributes.subsec_name_ippu)
 
     # initialize IPPU model and dictionary of emission factors by FC specification

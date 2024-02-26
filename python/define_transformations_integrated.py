@@ -231,13 +231,21 @@ class TransformationsIntegrated:
             raise RuntimeError(f"Error: invalid specification of model_attributes in TransformationsIPPU")
 
         # get strategy attribute, baseline strategy, and some fields
-        attribute_strategy = self.model_attributes.dict_attributes.get(f"dim_{self.model_attributes.dim_strategy_id}")
+        attribute_strategy = self.model_attributes.get_dimensional_attribute_table(
+            self.model_attributes.dim_strategy_id
+        )
+
         baseline_strategy = int(
             attribute_strategy.table[
                 attribute_strategy.table["baseline_strategy_id"] == 1
             ][attribute_strategy.key].iloc[0]
         )
-        field_region = self.model_attributes.dim_region if (field_region is None) else field_region
+
+        field_region = (
+            self.model_attributes.dim_region 
+            if (field_region is None) 
+            else field_region
+        )
 
         # set some useful classes
         time_periods = sc.TimePeriods(self.model_attributes)
@@ -658,7 +666,7 @@ class TransformationsIntegrated:
             None,
             self.model_attributes
         )
-        attr_sector = self.model_attributes.dict_attributes.get("abbreviation_sector")
+        attr_sector = self.model_attributes.get_sector_attribute_table()
         dict_sectoral_templates = {}
 
         for sector in self.model_attributes.all_sectors:
@@ -1159,8 +1167,11 @@ class TransformationsIntegrated:
         # INITIALIZE STRATEGIES TO LOOP OVER
         
         # initialize attributes and other basic variables
-        attr_sector = self.model_attributes.dict_attributes.get(f"abbreviation_sector")
-        attr_strat = self.model_attributes.dict_attributes.get(f"dim_{self.model_attributes.dim_strategy_id}")
+        attr_sector = self.model_attributes.get_sector_attribute_table()
+        attr_strat = self.model_attributes.get_dimensional_attribute_table(
+            self.model_attributes.dim_strategy_id
+        )
+
         fields_var_all = self.model_attributes.build_variable_dataframe_by_sector(
             None, 
             include_time_periods = False

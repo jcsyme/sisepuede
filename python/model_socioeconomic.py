@@ -109,7 +109,7 @@ class Socioeconomic:
         
         subsectors = sorted(list(
             sf.subset_df(
-                self.model_attributes.dict_attributes.get("abbreviation_subsector").table, 
+                self.model_attributes.get_subsector_attribute_table().table, 
                 {
                     "sector": ["Socioeconomic"]
                 }

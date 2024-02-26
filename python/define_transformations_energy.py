@@ -209,7 +209,7 @@ class TransformationsEnergy:
                 categories mapped to MSP targets under the renewable target
                 transformation
         """
-        attr_tech = self.model_attributes.dict_attributes.get("cat_technology")
+        attr_tech = self.model_attributes.get_attribute_table("cat_technology")
         dict_config = self.config if not isinstance(dict_config, dict) else dict_config
         cats_renewable = [x for x in cats_renewable if x in attr_tech.key_values]
 
@@ -278,7 +278,7 @@ class TransformationsEnergy:
                 for the Renewable Targets transformation.
         """
 
-        attr_industry = self.model_attributes.dict_attributes.get("cat_industry")
+        attr_industry = self.model_attributes.get_attribute_table("cat_industry")
         dict_config = self.config if not isinstance(dict_config, dict) else dict_config
 
 
@@ -455,16 +455,24 @@ class TransformationsEnergy:
             raise RuntimeError(f"Error: invalid specification of model_attributes in transformations_energy")
 
         # get strategy attribute, baseline strategy, and some fields
-        attribute_strategy = model_attributes.dict_attributes.get(f"dim_{model_attributes.dim_strategy_id}")
+        attribute_strategy = model_attributes.get_dimensional_attribute_table(
+            model_attributes.dim_strategy_id
+        )
+
         baseline_strategy = int(
             attribute_strategy.table[
                 attribute_strategy.table["baseline_strategy_id"] == 1
             ][attribute_strategy.key].iloc[0]
         )
-        field_region = model_attributes.dim_region if (field_region is None) else field_region
+        
+        field_region = (
+            model_attributes.dim_region 
+            if (field_region is None) 
+            else field_region
+        )
 
         # add technology attribute
-        attribute_technology = model_attributes.dict_attributes.get(f"cat_technology")
+        attribute_technology = model_attributes.get_attribute_table(f"cat_technology")
 
         # set some useful classes
         time_periods = sc.TimePeriods(model_attributes)

@@ -31,7 +31,7 @@ def get_time_period(
         for the maximum time period or return_type = "min" for the minimum time
         period.
     """
-    attr_time_period = model_attributes.dict_attributes.get(f"dim_{model_attributes.dim_time_period}")
+    attr_time_period = model_attributes.get_dimensional_attribute_table(model_attributes.dim_time_period)
     return_val = min(attr_time_period.key_values) if (return_type == "min") else max(attr_time_period.key_values)
 
     return return_val
@@ -232,7 +232,7 @@ def transformation_general(
     all_regions = sorted(list(set(df_input[field_region])))
  
     # dertivative vars (alphabetical)
-    attr_time_period = model_attributes.dict_attributes.get(f"dim_{model_attributes.dim_time_period}")
+    attr_time_period = model_attributes.get_dimensional_attribute_table(model_attributes.dim_time_period)
     df_out = []
     regions_apply = all_regions if (regions_apply is None) else [x for x in regions_apply if x in all_regions]
 
@@ -627,7 +627,7 @@ def transformation_general_shift_fractions_from_modvars(
     # dertivative vars (alphabetical)
     all_regions = sorted(list(set(df_input[field_region])))
     attr_subsec = model_attributes.get_attribute_table(subsec)
-    attr_time_period = model_attributes.dict_attributes.get(f"dim_{model_attributes.dim_time_period}")
+    attr_time_period = model_attributes.get_dimensional_attribute_table(model_attributes.dim_time_period)
     regions_apply = all_regions if (regions_apply is None) else [x for x in regions_apply if x in all_regions]
 
     # check the modvar specification dictionary (for targets)

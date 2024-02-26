@@ -192,7 +192,7 @@ class NonElectricEnergy:
             - drop_fugitive_from_none_q: drop NonElectricEnergy.subsec_name_fgtv if subsectors_project == None?
         """
         # get subsector attribute
-        attr_subsec = self.model_attributes.dict_attributes.get("abbreviation_subsector")
+        attr_subsec = self.model_attributes.get_subsector_attribute_table()
         attr_subsec_table = attr_subsec.table[attr_subsec.table["subsector"].isin(self.valid_projection_subsecs)]
         valid_subsectors_project = list(attr_subsec_table[attr_subsec.key])
         dict_map = attr_subsec.field_maps.get(f"{attr_subsec.key}_to_subsector")
