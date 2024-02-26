@@ -426,12 +426,14 @@ class NonElectricEnergy:
         self.modvar_ccsq_frac_heat_en_hydrogen = "CCSQ Fraction Heat Energy Demand Hydrogen"
         self.modvar_ccsq_frac_heat_en_natural_gas = "CCSQ Fraction Heat Energy Demand Natural Gas"
         self.modvar_ccsq_total_sequestration = "Annual Capture and Sequestration by Type"
+
         # get some dictionaries implied by the CCSQ attribute tables
         self.modvar_dicts_ccsq_fuel_vars = self.model_attributes.get_var_dicts_by_shared_category(
             self.subsec_name_ccsq,
-            self.model_attributes.get_subsector_attribute(self.subsec_name_enfu, "pycategory_primary"),
+            self.model_attributes.get_subsector_attribute(self.subsec_name_enfu, "pycategory_primary_element"),
             ["energy_efficiency_variable_by_fuel", "fuel_fraction_variable_by_fuel"]
         )
+
         # reassign as variables
         self.modvar_dict_ccsq_fuel_fractions_to_efficiency_factors = self.modvar_dicts_ccsq_fuel_vars.get("fuel_fraction_variable_by_fuel_to_energy_efficiency_variable_by_fuel")
 
@@ -663,13 +665,13 @@ class NonElectricEnergy:
         self.modvar_scoe_frac_heat_en_solid_biomass = "SCOE Fraction Heat Energy Demand Solid Biomass"
 
         # get some dictionaries implied by the SCOE attribute tables
-        cat = self.model_attributes.get_subsector_attribute(self.subsec_name_enfu, "pycategory_primary")
-        cat = f"cat_{cat}"
+        
         self.modvar_dicts_scoe_fuel_vars = self.model_attributes.get_var_dicts_by_shared_category(
             self.subsec_name_scoe,
-            self.model_attributes.get_subsector_attribute(self.subsec_name_enfu, "pycategory_primary"),
+            self.model_attributes.get_subsector_attribute(self.subsec_name_enfu, "pycategory_primary_element"),
             ["energy_efficiency_variable_by_fuel", "fuel_fraction_variable_by_fuel", "energy_demand_variable_by_fuel"]
         )
+        
         # reassign as variables
         self.modvar_dict_scoe_fuel_fractions_to_efficiency_factors = self.modvar_dicts_scoe_fuel_vars.get("fuel_fraction_variable_by_fuel_to_energy_efficiency_variable_by_fuel")
 
@@ -1958,16 +1960,30 @@ class NonElectricEnergy:
         """
 
         # allows production to be run outside of the project method
-        if type(None) in set([type(x) for x in [dict_dims, n_projection_time_periods, projection_time_periods]]):
-            dict_dims, df_neenergy_trajectories, n_projection_time_periods, projection_time_periods = self.model_attributes.check_projection_input_df(df_neenergy_trajectories, True, True, True)
+        if any([(x is None) for x in [dict_dims, n_projection_time_periods, projection_time_periods]]):
+            (
+                dict_dims, 
+                df_neenergy_trajectories, 
+                n_projection_time_periods, 
+                projection_time_periods
+            ) = self.model_attributes.check_projection_input_df(
+                df_neenergy_trajectories, 
+                True, 
+                True, 
+                True,
+            )
 
 
         ##  CATEGORY AND ATTRIBUTE INITIALIZATION
-        pycat_ccsq = self.model_attributes.get_subsector_attribute(self.subsec_name_ccsq, "pycategory_primary")
-        pycat_enfu = self.model_attributes.get_subsector_attribute(self.subsec_name_enfu, "pycategory_primary")
+
+        pycat_enfu = self.model_attributes.get_subsector_attribute(
+            self.subsec_name_enfu, 
+            "pycategory_primary_element",
+        )
+
         # attribute tables
-        attr_ccsq = self.model_attributes.dict_attributes[pycat_ccsq]
-        attr_enfu = self.model_attributes.dict_attributes[pycat_enfu]
+        attr_ccsq = self.model_attributes.get_attribute_table(self.subsec_name_ccsq)
+        attr_enfu = self.model_attributes.get_attribute_table(self.subsec_name_enfu)
 
 
         ##  OUTPUT INITIALIZATION
@@ -2257,21 +2273,27 @@ class NonElectricEnergy:
         """
 
         # allows production to be run outside of the project method
-        if type(None) in set([type(x) for x in [dict_dims, n_projection_time_periods, projection_time_periods]]):
-            dict_dims, df_neenergy_trajectories, n_projection_time_periods, projection_time_periods = self.model_attributes.check_projection_input_df(df_neenergy_trajectories, True, True, True)
+        if any([(x is None) for x in [dict_dims, n_projection_time_periods, projection_time_periods]]):
+            (
+                dict_dims, 
+                df_neenergy_trajectories, 
+                n_projection_time_periods, 
+                projection_time_periods
+            ) = self.model_attributes.check_projection_input_df(
+                df_neenergy_trajectories, 
+                True, 
+                True, 
+                True,
+            )
 
 
-        ##  CATEGORY AND ATTRIBUTE INITIALIZATION
-        pycat_enfu = self.model_attributes.get_subsector_attribute(self.subsec_name_enfu, "pycategory_primary")
-        pycat_fgtv = self.model_attributes.get_subsector_attribute(self.subsec_name_fgtv, "pycategory_primary")
-        pycat_inen = self.model_attributes.get_subsector_attribute(self.subsec_name_inen, "pycategory_primary")
-        pycat_ippu = self.model_attributes.get_subsector_attribute(self.subsec_name_ippu, "pycategory_primary")
-        # attribute tables
-        attr_enfu = self.model_attributes.dict_attributes[pycat_enfu]
-        attr_fgtv = self.model_attributes.dict_attributes[pycat_fgtv]
-        attr_inen = self.model_attributes.dict_attributes[pycat_inen]
-        attr_ippu = self.model_attributes.dict_attributes[pycat_ippu]
-
+        ## ATTRIBUTE INITIALIZATION
+        
+        attr_enfu = self.model_attributes.get_attribute_table(self.subsec_name_enfu)
+        attr_fgtv = self.model_attributes.get_attribute_table(self.subsec_name_fgtv)
+        attr_inen = self.model_attributes.get_attribute_table(self.subsec_name_inen)
+        attr_ippu = self.model_attributes.get_attribute_table(self.subsec_name_ippu)
+        
 
         ##  OUTPUT INITIALIZATION
 
@@ -2540,14 +2562,15 @@ class NonElectricEnergy:
 
 
         ##  CATEGORY AND ATTRIBUTE INITIALIZATION
-        pycat_enfu = self.model_attributes.get_subsector_attribute(self.subsec_name_enfu, "pycategory_primary")
-        pycat_inen = self.model_attributes.get_subsector_attribute(self.subsec_name_inen, "pycategory_primary")
-        pycat_ippu = self.model_attributes.get_subsector_attribute(self.subsec_name_ippu, "pycategory_primary")
-        # attribute tables
-        attr_enfu = self.model_attributes.dict_attributes[pycat_enfu]
-        attr_inen = self.model_attributes.dict_attributes[pycat_inen]
-        attr_ippu = self.model_attributes.dict_attributes[pycat_ippu]
+        pycat_enfu = self.model_attributes.get_subsector_attribute(
+            self.subsec_name_enfu, 
+            "pycategory_primary_element",
+        )
 
+        # attribute tables
+        attr_enfu = self.model_attributes.get_attribute_table(self.subsec_name_enfu)
+        attr_inen = self.model_attributes.get_attribute_table(self.subsec_name_inen)
+        attr_ippu = self.model_attributes.get_attribute_table(self.subsec_name_ippu)
 
         ##  OUTPUT INITIALIZATION
 
@@ -2712,6 +2735,7 @@ class NonElectricEnergy:
 
         # loop over fuels to
         for var_ener_frac in self.modvars_inen_list_fuel_fraction:
+            
             # retrive the fuel category and index
             cat_fuel = clean_schema(self.model_attributes.get_variable_attribute(var_ener_frac, pycat_enfu))
             index_cat_fuel = attr_enfu.get_key_value_index(cat_fuel)
@@ -2906,11 +2930,15 @@ class NonElectricEnergy:
 
 
         ##  CATEGORY AND ATTRIBUTE INITIALIZATION
-        pycat_enfu = self.model_attributes.get_subsector_attribute(self.subsec_name_enfu, "pycategory_primary")
-        pycat_scoe = self.model_attributes.get_subsector_attribute(self.subsec_name_scoe, "pycategory_primary")
+        
+        pycat_enfu = self.model_attributes.get_subsector_attribute(
+            self.subsec_name_enfu, 
+            "pycategory_primary_element",
+        )
+
         # attribute tables
-        attr_enfu = self.model_attributes.dict_attributes[pycat_enfu]
-        attr_scoe = self.model_attributes.dict_attributes[pycat_scoe]
+        attr_enfu = self.model_attributes.get_attribute_table(self.subsec_name_enfu)
+        attr_scoe = self.model_attributes.get_attribute_table(self.subsec_name_scoe)
 
 
         ##  OUTPUT INITIALIZATION

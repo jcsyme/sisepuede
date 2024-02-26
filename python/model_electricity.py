@@ -1072,7 +1072,10 @@ class ElectricEnergy:
             category. Set as self.key_oar
         """
 
-        pycat_enfu = self.model_attributes.get_subsector_attribute(self.subsec_name_enfu, "pycategory_primary") 
+        pycat_enfu = self.model_attributes.get_subsector_attribute(
+            self.subsec_name_enfu,
+             "pycategory_primary_element",
+        ) 
 
         tuple_out = self.model_attributes.assign_keys_from_attribute_fields(
             self.subsec_name_entc,
@@ -2366,7 +2369,7 @@ class ElectricEnergy:
         """
         pycat_enfu = self.model_attributes.get_subsector_attribute(
             self.model_attributes.subsec_name_enfu, 
-            "pycategory_primary"
+            "pycategory_primary_element",
         )
 
         dict_cat_name_to_cat = {
@@ -3678,8 +3681,11 @@ class ElectricEnergy:
         - return_emission_factors: bool--calculate emission factors?
         """
         # some attribute initializations
-        attribute_technology = self.model_attributes.get_attribute_table(self.subsec_name_entc) if (attribute_technology is None) else attribute_technology
-        pycat_enfu = self.model_attributes.get_subsector_attribute(self.subsec_name_enfu, "pycategory_primary")
+        attribute_technology = (
+            self.model_attributes.get_attribute_table(self.subsec_name_entc) 
+            if (attribute_technology is None) 
+            else attribute_technology
+        )
 
         # output variable initialization
         dict_efs = {}
@@ -3786,7 +3792,14 @@ class ElectricEnergy:
                     emission: vec_entc_ear_scalar*vec_waso_emissions_incineration/vec_enfu_total_energy_waste
                 })
 
-        return vec_enfu_total_energy_waste, vec_enfu_minimum_fuel_energy_to_electricity_waste, dict_efs
+
+        tup_out = (
+            vec_enfu_total_energy_waste, 
+            vec_enfu_minimum_fuel_energy_to_electricity_waste, 
+            dict_efs
+        )
+
+        return tup_out
 
 
 
@@ -3846,8 +3859,11 @@ class ElectricEnergy:
             return None
 
         attr = self.model_attributes.get_attribute_table(subsector)
-        pycat = self.model_attributes.get_subsector_attribute(subsector, "pycategory_primary")
-        scalar_to_nemomod_units = 1.0 if not sf.isnumber(scalar_to_nemomod_units) else scalar_to_nemomod_units
+        scalar_to_nemomod_units = (
+            1.0 
+            if not sf.isnumber(scalar_to_nemomod_units) 
+            else scalar_to_nemomod_units
+        )
 
         # get the variable from the data frame
         df_out = (
@@ -3874,7 +3890,9 @@ class ElectricEnergy:
 
 
         # add a year (would not be in data frame)
-        if (self.field_nemomod_year in fields_index_nemomod) and (self.model_attributes.dim_time_period in df_elec_trajectories.columns):
+        exchange_year_tp = (self.field_nemomod_year in fields_index_nemomod)
+        exchange_year_tp &= (self.model_attributes.dim_time_period in df_elec_trajectories.columns)
+        if exchange_year_tp:
             df_out = self.model_attributes.exchange_year_time_period(
                 df_out,
                 self.field_nemomod_year,
@@ -3898,7 +3916,12 @@ class ElectricEnergy:
             value_name = self.field_nemomod_value
         )
 
-        df_out = df_out[~df_out[self.field_nemomod_value].isin([drop_flag])] if (drop_flag is not None) else df_out
+        df_out = (
+            df_out[~df_out[self.field_nemomod_value].isin([drop_flag])] 
+            if (drop_flag is not None) 
+            else df_out
+        )
+
         if isinstance(df_append, pd.DataFrame):
             df_out = pd.concat([df_out, df_append[df_out.columns]], axis = 0).reset_index(drop = True)
         
@@ -3909,7 +3932,9 @@ class ElectricEnergy:
             regions = regions
         )
 
-        return {table_nemomod: df_out}
+        dict_out = {table_nemomod: df_out}
+
+        return dict_out
 
 
 
@@ -4071,7 +4096,7 @@ class ElectricEnergy:
         return {self.model_attributes.table_nemomod_emission: df_out}
 
 
-    ##  format FUEL for NemoMod
+
     def format_nemomod_attribute_table_fuel(self,
         attribute_fuel: AttributeTable = None,
         dict_rename: dict = None
@@ -4090,8 +4115,17 @@ class ElectricEnergy:
         """
 
         # set some defaults
-        attribute_fuel = self.model_attributes.get_attribute_table(self.subsec_name_enfu) if (attribute_fuel is None) else attribute_fuel
-        pycat_fuel = self.model_attributes.get_subsector_attribute(self.subsec_name_enfu, "pycategory_primary")
+        attribute_fuel = (
+            self.model_attributes.get_attribute_table(self.subsec_name_enfu) 
+            if (attribute_fuel is None) 
+            else attribute_fuel
+        )
+
+        pycat_fuel = self.model_attributes.get_subsector_attribute(
+            self.subsec_name_enfu, 
+            "pycategory_primary_element"
+        )
+
         dict_rename = (
             {
                 pycat_fuel: self.field_nemomod_value, 
@@ -4118,7 +4152,9 @@ class ElectricEnergy:
         fields_ord = [x for x in self.fields_nemomod_sort_hierarchy if (x in df_out.columns)]
         df_out = df_out[fields_ord].sort_values(by = fields_ord).reset_index(drop = True)
 
-        return {self.model_attributes.table_nemomod_fuel: df_out}
+        dict_out = {self.model_attributes.table_nemomod_fuel: df_out}
+
+        return dict_out
 
 
 
@@ -4155,7 +4191,9 @@ class ElectricEnergy:
         fields_ord = [x for x in self.fields_nemomod_sort_hierarchy if (x in df_out.columns)]
         df_out = df_out[fields_ord].sort_values(by = fields_ord).reset_index(drop = True)
 
-        return {self.model_attributes.table_nemomod_mode_of_operation: df_out}
+        dict_out = {self.model_attributes.table_nemomod_mode_of_operation: df_out}
+
+        return dict_out
 
 
 
@@ -4248,7 +4286,12 @@ class ElectricEnergy:
             if (attribute_storage is None) 
             else attribute_storage
         )
-        pycat_strg = self.model_attributes.get_subsector_attribute(self.subsec_name_enst, "pycategory_primary")
+
+        pycat_strg = self.model_attributes.get_subsector_attribute(
+            self.subsec_name_enst, 
+            "pycategory_primary_element",
+        )
+
         dict_rename = (
             {
                 pycat_strg: self.field_nemomod_value, 
@@ -4261,6 +4304,7 @@ class ElectricEnergy:
         # set values out
         df_out = attribute_storage.table.copy()
         df_out.rename(columns = dict_rename, inplace = True)
+
         fields_ord = [x for x in self.fields_nemomod_sort_hierarchy if (x in df_out.columns)] 
         fields_ord += [f"netzero{x}" for x in ["year", "tg1", "tg2"]]
         df_out = (
@@ -4296,17 +4340,50 @@ class ElectricEnergy:
         """
 
         # set some defaults
-        attribute_fuel = self.model_attributes.get_attribute_table(self.subsec_name_enfu) if (attribute_fuel is None) else attribute_fuel
-        attribute_technology = self.model_attributes.get_attribute_table(self.subsec_name_entc) if (attribute_technology is None) else attribute_technology
-        pychat_entc = self.model_attributes.get_subsector_attribute(self.subsec_name_entc, "pycategory_primary")
-        dict_rename = {pychat_entc: self.field_nemomod_value, "description": self.field_nemomod_description} if (dict_rename is None) else dict_rename
+        attribute_fuel = (
+            self.model_attributes.get_attribute_table(self.subsec_name_enfu) 
+            if (attribute_fuel is None) 
+            else attribute_fuel
+        )
+
+        attribute_technology = (
+            self.model_attributes.get_attribute_table(self.subsec_name_entc) 
+            if (attribute_technology is None) 
+            else attribute_technology
+        )
+
+        pycat_entc = self.model_attributes.get_subsector_attribute(
+            self.subsec_name_entc, 
+            "pycategory_primary_element",
+        )
+
+        dict_rename = (
+            {
+                pycat_entc: self.field_nemomod_value, 
+                "description": self.field_nemomod_description,
+            } 
+            if (dict_rename is None) 
+            else dict_rename
+        )
 
         # add dummies
         dict_fuels_to_dummy_techs = self.get_dummy_fuel_techs(attribute_fuel = attribute_fuel)
+
         df_out_dummies = pd.DataFrame({self.field_nemomod_fuel: list(dict_fuels_to_dummy_techs.keys())})
-        df_out_dummies[self.field_nemomod_value] = df_out_dummies[self.field_nemomod_fuel].replace(dict_fuels_to_dummy_techs)
-        df_out_dummies[self.field_nemomod_description] = df_out_dummies[self.field_nemomod_fuel].apply(self.format_dummy_tech_description_from_fuel)
-        df_out_dummies.drop([self.field_nemomod_fuel], axis = 1, inplace = True)
+        df_out_dummies[self.field_nemomod_value] = (
+            df_out_dummies[self.field_nemomod_fuel]
+            .replace(dict_fuels_to_dummy_techs)
+        )
+        df_out_dummies[self.field_nemomod_description] = (
+            df_out_dummies[self.field_nemomod_fuel]
+            .apply(self.format_dummy_tech_description_from_fuel)
+        )
+
+        df_out_dummies.drop(
+            [self.field_nemomod_fuel], 
+            axis = 1, 
+            inplace = True,
+        )
 
         # set values out
         df_out = attribute_technology.table.copy()
@@ -4516,10 +4593,18 @@ class ElectricEnergy:
         sf.check_fields(df_reference_capacity_factor, fields_req)
 
         ##  CATEGORY AND ATTRIBUTE INITIALIZATION
-        attribute_technology = self.model_attributes.get_attribute_table(self.subsec_name_entc) if (attribute_technology is None) else attribute_technology
-        attribute_region = self.model_attributes.dict_attributes.get(self.model_attributes.dim_region) if (attribute_region is None) else attribute_region
-        pycat_entc = self.model_attributes.get_subsector_attribute(self.subsec_name_entc, "pycategory_primary")
+        attribute_technology = (
+            self.model_attributes.get_attribute_table(self.subsec_name_entc) 
+            if (attribute_technology is None) 
+            else attribute_technology
+        )
 
+        attribute_region = (
+            self.model_attributes.dict_attributes.get(self.model_attributes.dim_region) 
+            if (attribute_region is None) 
+            else attribute_region
+        )
+        
 
         ##  GET CLIMATE CHANGE FACTORS
 
@@ -5321,11 +5406,18 @@ class ElectricEnergy:
         """
 
         ##  CATEGORY AND ATTRIBUTE INITIALIZATION
-        attribute_fuel = self.model_attributes.get_attribute_table(self.subsec_name_enfu) if (attribute_fuel is None) else attribute_fuel
-        attribute_technology = self.model_attributes.get_attribute_table(self.subsec_name_entc) if (attribute_technology is None) else attribute_technology
-        pycat_enfu = self.model_attributes.get_subsector_attribute(self.subsec_name_enfu, "pycategory_primary")
-        pycat_enst = self.model_attributes.get_subsector_attribute(self.subsec_name_enst, "pycategory_primary")
-        pycat_entc = self.model_attributes.get_subsector_attribute(self.subsec_name_entc, "pycategory_primary")
+        attribute_fuel = (
+            self.model_attributes.get_attribute_table(self.subsec_name_enfu) 
+            if (attribute_fuel is None) 
+            else attribute_fuel
+        )
+
+        attribute_technology = (
+            self.model_attributes.get_attribute_table(self.subsec_name_entc) 
+            if (attribute_technology is None) 
+            else attribute_technology
+        )
+
 
         # cat to fuel dictionary + reverse
         dict_tech_info = self.get_tech_info_dict(
@@ -5740,10 +5832,17 @@ class ElectricEnergy:
         # NOTE: ADD A CHECK IN THE StorageStartLevel TABLE TO COMPARE TO MINIMUM STORAGE CHARGE AND SELECT MAX BETWEEN THE TWO
 
         # set some defaults
-        attribute_storage = self.model_attributes.get_attribute_table(self.subsec_name_enst) if (attribute_storage is None) else attribute_storage
-        pycat_strg = self.model_attributes.get_subsector_attribute(self.subsec_name_enst, "pycategory_primary")
+        attribute_storage = (
+            self.model_attributes.get_attribute_table(self.subsec_name_enst) 
+            if (attribute_storage is None) 
+            else attribute_storage
+        )
+        
         # initialize storage info
-        dict_strg_to_min_charge = attribute_storage.field_maps.get(f"{attribute_storage.key}_to_{field_attribute_min_charge}")
+        dict_strg_to_min_charge = attribute_storage.field_maps.get(
+            f"{attribute_storage.key}_to_{field_attribute_min_charge}"
+        )
+
         all_storage = list(dict_strg_to_min_charge.keys())
         df_out = pd.DataFrame({
             self.field_nemomod_storage: all_storage,
@@ -5761,6 +5860,7 @@ class ElectricEnergy:
             ],
             regions = regions
         )
+
         dict_return = {self.model_attributes.table_nemomod_min_storage_charge: df_out}
 
         return dict_return
@@ -5974,10 +6074,17 @@ class ElectricEnergy:
         
         ##  CATEGORY AND ATTRIBUTE INITIALIZATION
 
-        attribute_fuel = self.model_attributes.get_attribute_table(self.subsec_name_enfu) if (attribute_fuel is None) else attribute_fuel
-        attribute_technology = self.model_attributes.get_attribute_table(self.subsec_name_entc) if (attribute_technology is None) else attribute_technology
-        pycat_enfu = self.model_attributes.get_subsector_attribute(self.subsec_name_enfu, "pycategory_primary")
-        pycat_entc = self.model_attributes.get_subsector_attribute(self.subsec_name_entc, "pycategory_primary")
+        attribute_fuel = (
+            self.model_attributes.get_attribute_table(self.subsec_name_enfu) 
+            if (attribute_fuel is None) 
+            else attribute_fuel
+        )
+
+        attribute_technology = (
+            self.model_attributes.get_attribute_table(self.subsec_name_entc) 
+            if (attribute_technology is None) 
+            else attribute_technology
+        )
 
 
         ##  BUILD DUMMY SUPPLY TECHNOLOGIES FOR FUELS WITHOUT SPECIFIED OUTPUT ACTIVITY RATIOS
@@ -6886,11 +6993,18 @@ class ElectricEnergy:
         """
 
         # set some defaults
-        attribute_storage = self.model_attributes.get_attribute_table(self.subsec_name_enst) if (attribute_storage is None) else attribute_storage
-        pycat_strg = self.model_attributes.get_subsector_attribute(self.subsec_name_enst, "pycategory_primary")
-        dict_strg_to_min_charge = attribute_storage.field_maps.get(f"{attribute_storage.key}_to_{field_attribute_min_charge}")
+        attribute_storage = (
+            self.model_attributes.get_attribute_table(self.subsec_name_enst) 
+            if (attribute_storage is None) 
+            else attribute_storage
+        )
+
+        dict_strg_to_min_charge = attribute_storage.field_maps.get(
+            f"{attribute_storage.key}_to_{field_attribute_min_charge}"
+        )
 
         dict_return = {}
+
         # StorageStartLevel
         dict_return.update(
             self.format_model_variable_as_nemomod_table(
@@ -6907,24 +7021,27 @@ class ElectricEnergy:
                 var_bounds = (0, 1)
             )
         )
+
         # some cleaning of the data frame
         df_tmp = dict_return[self.model_attributes.table_nemomod_storage_level_start]
-        df_tmp = df_tmp[
-            df_tmp[self.field_nemomod_year] == min(df_tmp[self.field_nemomod_year])
-        ].drop(
-            [self.field_nemomod_year],
-            axis = 1
-        ).reset_index(
-            drop = True
+        df_tmp = (
+            df_tmp[
+                df_tmp[self.field_nemomod_year] == min(df_tmp[self.field_nemomod_year])
+            ]
+            .drop([self.field_nemomod_year], axis = 1,)
+            .reset_index(drop = True)
         )
+
         # add bounds and drop the temporary field
         df_tmp[field_tmp] = df_tmp[self.field_nemomod_storage].replace(dict_strg_to_min_charge)
         bounds = list(zip(list(df_tmp[field_tmp]), list(np.ones(len(df_tmp)))))
+
         df_tmp[self.field_nemomod_value] = sf.vec_bounds(
             np.array(df_tmp[self.field_nemomod_value]),
             bounds
         )
         df_tmp.drop([field_tmp], axis = 1, inplace = True)
+
         # update
         dict_return.update({self.model_attributes.table_nemomod_storage_level_start: df_tmp})
 
@@ -6950,7 +7067,6 @@ class ElectricEnergy:
 
 
 
-    ##  format TechnologyFromStorage and TechnologyToStorage for NemoMod
     def format_nemomod_table_technology_from_and_to_storage(self,
         attribute_storage: AttributeTable = None,
         attribute_technology: AttributeTable = None,
@@ -7719,8 +7835,6 @@ class ElectricEnergy:
             if (attribute_technology is None) 
             else attribute_technology
         )
-        pycat_enfu = self.model_attributes.get_subsector_attribute(self.subsec_name_enfu, "pycategory_primary")
-        pycat_entc = self.model_attributes.get_subsector_attribute(self.subsec_name_entc, "pycategory_primary")
 
         # get some categories and keys
         cat_entc_pp_biogas = self.get_entc_cat_for_integration("bgas")
@@ -7860,15 +7974,18 @@ class ElectricEnergy:
             return_type = "NemoMod"
 
         # some attribute initializations
-        attribute_technology = self.model_attributes.get_attribute_table(self.subsec_name_entc) if (attribute_technology is None) else attribute_technology
-        pycat_enfu = self.model_attributes.get_subsector_attribute(self.subsec_name_enfu, "pycategory_primary")
-        pycat_entc = self.model_attributes.get_subsector_attribute(self.subsec_name_entc, "pycategory_primary")
+        attribute_technology = (
+            self.model_attributes.get_attribute_table(self.subsec_name_entc) 
+            if (attribute_technology is None) 
+            else attribute_technology
+        )
 
         # get some categories and keys
         cat_entc_pp_biogas = self.get_entc_cat_for_integration("bgas")
         cat_entc_pp_waste = self.get_entc_cat_for_integration("wste")
         ind_entc_pp_biogas = attribute_technology.get_key_value_index(cat_entc_pp_biogas)
         ind_entc_pp_waste = attribute_technology.get_key_value_index(cat_entc_pp_waste)
+
         # get some scalars to use if returning a capacity constraint dataframe
         if return_type == "CapacityCheck":
             units_energy_config = self.model_attributes.configuration.get("energy_units")
@@ -7916,12 +8033,14 @@ class ElectricEnergy:
             self.field_nemomod_value: vec_enfu_min_energy_to_elec_biogas,
             self.field_nemomod_year: list(df_elec_trajectories[self.model_attributes.dim_time_period])
         })
+
         # waste component
         df_waste = pd.DataFrame({
             self.field_nemomod_technology: cat_entc_pp_waste,
             self.field_nemomod_value: vec_enfu_min_energy_to_elec_waste,
             self.field_nemomod_year: list(df_elec_trajectories[self.model_attributes.dim_time_period])
         })
+
         # concatenate into output data frame
         df_out = pd.concat([df_biogas, df_waste], axis = 0)
         df_out = self.model_attributes.exchange_year_time_period(
@@ -7930,6 +8049,7 @@ class ElectricEnergy:
             df_out[self.field_nemomod_year],
             direction = self.direction_exchange_year_time_period
         )
+
         # add key values
         df_out = self.add_multifields_from_key_values(df_out,
             [
@@ -9026,7 +9146,7 @@ class ElectricEnergy:
             modvar, 
             restrict_to_category_values = dict_cats_to_varname,
         )
-        
+
         dict_cats_to_varname = dict(zip(dict_cats_to_varname, varnames))
 
         # reformat using pivot

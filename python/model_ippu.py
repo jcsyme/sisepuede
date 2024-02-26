@@ -1013,14 +1013,27 @@ class IPPU:
 
 
         # allows production to be run outside of the project method
-        if type(None) in set([type(x) for x in [dict_dims, n_projection_time_periods, projection_time_periods]]):
-            dict_dims, df_ippu_trajectories, n_projection_time_periods, projection_time_periods = self.model_attributes.check_projection_input_df(df_ippu_trajectories, True, True, True)
+        if any([(x is None) for x in [dict_dims, n_projection_time_periods, projection_time_periods]]):
+            (
+                dict_dims, 
+                df_ippu_trajectories, 
+                n_projection_time_periods, 
+                projection_time_periods
+            ) = self.model_attributes.check_projection_input_df(
+                df_ippu_trajectories, 
+                True, 
+                True, 
+                True,
+            )
 
         # get some attribute info
-        pycat_ippu = self.model_attributes.get_subsector_attribute(self.subsec_name_ippu, "pycategory_primary")
-        pycat_waso = self.model_attributes.get_subsector_attribute(self.subsec_name_waso, "pycategory_primary")
-        attr_ippu = self.model_attributes.dict_attributes[pycat_ippu]
-        attr_waso = self.model_attributes.dict_attributes[pycat_waso]
+        pycat_ippu = self.model_attributes.get_subsector_attribute(
+            self.subsec_name_ippu, 
+            "pycategory_primary_element",
+        )
+
+        attr_ippu = self.model_attributes.get_attribute_table(self.subsec_name_ippu)
+        attr_waso = self.model_attributes.get_attribute_table(self.subsec_name_waso)
 
         # get recycling
         array_ippu_recycled = self.model_attributes.get_optional_or_integrated_standard_variable(
@@ -1050,7 +1063,7 @@ class IPPU:
 
             # if recycling totals are passed from the waste model, convert to ippu categories
             cats_waso_recycle = self.model_attributes.get_variable_categories(modvar_waste_total_recycled)
-            dict_repl = attr_waso.field_maps[f"{pycat_waso}_to_{pycat_ippu}"]
+            dict_repl = attr_waso.field_maps[f"{attr_waso.key}_to_{pycat_ippu}"]
             cats_ippu_recycle = [clean_schema(dict_repl[x]) for x in cats_waso_recycle]
 
             array_ippu_recycled_waste = self.model_attributes.merge_array_var_partial_cat_to_array_all_cats(
@@ -1210,18 +1223,25 @@ class IPPU:
 
         # make sure socioeconomic variables are added and
         df_ippu_trajectories, df_se_internal_shared_variables = self.model_socioeconomic.project(df_ippu_trajectories)
+
         # check that all required fields are contained—assume that it is ordered by time period
         self.check_df_fields(df_ippu_trajectories)
-        dict_dims, df_ippu_trajectories, n_projection_time_periods, projection_time_periods = self.model_attributes.check_projection_input_df(df_ippu_trajectories, True, True, True)
+        (
+            dict_dims, 
+            df_ippu_trajectories, 
+            n_projection_time_periods, 
+            projection_time_periods
+        ) = self.model_attributes.check_projection_input_df(
+            df_ippu_trajectories, 
+            True, 
+            True, 
+            True,
+        )
 
-        ##  CATEGORY AND ATTRIBUTE INITIALIZATION
-        pycat_gnrl = self.model_attributes.get_subsector_attribute(self.subsec_name_gnrl, "pycategory_primary")
-        pycat_ippu = self.model_attributes.get_subsector_attribute(self.subsec_name_ippu, "pycategory_primary")
-        pycat_waso = self.model_attributes.get_subsector_attribute(self.subsec_name_waso, "pycategory_primary")
         # attribute tables
-        attr_gnrl = self.model_attributes.dict_attributes[pycat_gnrl]
-        attr_ippu = self.model_attributes.dict_attributes[pycat_ippu]
-        attr_waso = self.model_attributes.dict_attributes[pycat_waso]
+        attr_gnrl = self.model_attributes.get_attribute_table(self.subsec_name_gnrl)
+        attr_ippu = self.model_attributes.get_attribute_table(self.subsec_name_ippu)
+        attr_waso = self.model_attributes.get_attribute_table(self.subsec_name_waso)
 
 
         ##  ECON/GNRL VECTOR AND ARRAY INITIALIZATION

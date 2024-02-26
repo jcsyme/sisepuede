@@ -5965,7 +5965,7 @@ class ModelAttributesNew:
     
 
 
-    def get_variable_to_simplex_group_dictionary(self,
+    def get_variable_to_simplex_group_dictionary(self, #FIXED
         field_model_variable: str = "variable",
         field_simplex_group: str = "simplex_group",
         str_split_varreqs_key: str = "category_",
@@ -5980,7 +5980,6 @@ class ModelAttributesNew:
             self.build_variable_dataframe_by_sector(), then simplex groups are
             used as the default variable trajectory group in build templates.
 
-        NOTE: LATER INSTANTATION OF THIS CAN MAKE USE OF Variable CLASS
 
         Function Arguments
         ------------------
@@ -6280,26 +6279,12 @@ class ModelAttributesNew:
 
 def clean_schema(
     var_schema: str, 
-    return_default_dict_q: bool = False
+    return_default_dict_q: bool = False,
 ) -> str:
     """
     Clean a variable schema input `var_schema`
     """
-    var_schema = var_schema.split("(")
-    var_schema[0] = var_schema[0].replace("`", "").replace(" ", "")
-
-    dict_repls = {}
-    if len(var_schema) > 1:
-        repls =  var_schema[1].replace("`", "").split(",")
-        for dr in repls:
-            dr0 = dr.replace(" ", "").replace(")", "").split("=")
-            var_schema[0] = var_schema[0].replace(dr0[0], dr0[1])
-            dict_repls.update({dr0[0]: dr0[1]})
-
-    if return_default_dict_q:
-        return dict_repls
-    else:
-        return var_schema[0]
+    return mv.clean_element(var_schema)
 
 
 

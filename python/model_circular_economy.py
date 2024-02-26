@@ -981,12 +981,9 @@ class CircularEconomy:
 
 
         ##  CATEGORY AND ATTRIBUTE INITIALIZATION
+
         pycat_gnrl = self.model_attributes.get_subsector_attribute(
             self.subsec_name_gnrl, 
-            "pycategory_primary_element",
-        )
-        pycat_wali = self.model_attributes.get_subsector_attribute(
-            self.subsec_name_wali, 
             "pycategory_primary_element",
         )
 
@@ -1556,11 +1553,6 @@ class CircularEconomy:
         self.check_df_fields(df_ce_trajectories, self.required_variables_wali)
         if type(None) in [type(dict_dims), type(n_projection_time_periods), type(projection_time_periods)]:
             dict_dims, df_ce_trajectories, n_projection_time_periods, projection_time_periods = self.model_attributes.check_projection_input_df(df_ce_trajectories, True, True, True)
-
-
-        ##  CATEGORY AND ATTRIBUTE INITIALIZATION
-        pycat_gnrl = self.model_attributes.get_subsector_attribute(self.subsec_name_gnrl, "pycategory_primary")
-        attr_gnrl = self.model_attributes.get_attribute_table(self.subsec_name_gnrl)
 
 
         ##  ECON/GNRL VECTOR AND ARRAY INITIALIZATION

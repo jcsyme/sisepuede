@@ -325,9 +325,13 @@ def transformation_general(
             subsector = model_attributes.dict_model_variable_to_subsector.get(modvar)
 
             # check categories against subsector
-            if (categories is not None) or (categories_source is not None) or (categories_target is not None):
-                pycat = model_attributes.get_subsector_attribute(subsector, "pycategory_primary")
-                attr = model_attributes.dict_attributes.get(pycat)
+            verify_categories = (categories is not None)
+            verify_categories |= (categories_source is not None)
+            verify_categories |= (categories_target is not None)
+
+            if verify_categories:
+
+                attr = model_attributes.get_attribute_table(subsector)
 
                 if (categories is not None):
                     categories = [x for x in categories if x in attr.key_values]
@@ -341,7 +345,11 @@ def transformation_general(
                     categories_target = dict((k, v) for k, v in categories_target.items() if k in attr.key_values)
                     categories_target = None if (sum(list(categories_target.values())) != 1.0) else categories_target
 
-            vector_targets_ordered = [x for x in attr.key_values if x in categories_target.keys()] if isinstance(categories_target, dict) else None
+            vector_targets_ordered = (
+                [x for x in attr.key_values if x in categories_target.keys()] 
+                if isinstance(categories_target, dict) 
+                else None
+            )
 
 
             dict_modvar_specs_clean.update({
@@ -361,10 +369,19 @@ def transformation_general(
 
     modvars = sorted(list(dict_modvar_specs_clean.keys()))
 
+
     ##  ITERATE OVER REGIONS AND MODVARS TO BUILD TRANSFORMATION
     
     for region in all_regions:
-        df_in = df_input[df_input[ field_region] == region].sort_values(by = [model_attributes.dim_time_period]).reset_index(drop = True)
+
+        df_in = (
+            df_input[
+                df_input[ field_region] == region
+            ]
+            .sort_values(by = [model_attributes.dim_time_period])
+            .reset_index(drop = True)
+        )
+
         df_in_new = df_in.copy()
         vec_tp = list(df_in[model_attributes.dim_time_period])
         n_tp = len(df_in)
@@ -386,6 +403,7 @@ def transformation_general(
                 tp_baseline = dict_cur.get("tp_baseline")
                 vec_ramp = dict_cur.get("vec_ramp")
                 vector_targets_ordered = dict_cur.get("vector_targets_ordered")
+
                 ind_tp_baseline = (
                     vec_tp.index(tp_baseline) 
                     if (
@@ -470,6 +488,7 @@ def transformation_general(
                     arr_final = np.concatenate([arr_new_source, arr_new_target], axis = 1)
                     fields_adjust = fields_adjust_source + fields_adjust_target
 
+
                 elif magnitude_type in ["vector_specification"]:
                     
                     # CASE WHERE VECTOR IS EXPLICITLY SPECIFIED - specificy everything as float
@@ -477,6 +496,7 @@ def transformation_general(
                     arr_final = np.array(df_in_new[fields_adjust]).astype(float)
                     for j, field in enumerate(fields_adjust):
                         arr_final[:, j] = np.array(magnitude).astype(float)  
+
 
                 else:
 
@@ -519,6 +539,7 @@ def transformation_general(
                             (magnitude, np.inf)
                         )
 
+
                 # check if bounds need to be applied
                 arr_final = sf.vec_bounds(arr_final, bounds) if (bounds is not None) else arr_final
                 
@@ -549,6 +570,7 @@ def transformation_general(
             prepend_q = True,
             overwrite_fields = True
         )
+        
 
     return df_out
 
