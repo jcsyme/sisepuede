@@ -922,12 +922,14 @@ class ModelVariable:
 
     def get_property(self,
         prop: str,
+        return_on_none: Any = None,
     ) -> Any:
         """
         Try to retrieve the variable prop--associated with dict_varinfo--
-            for the variable.
+            for the variable. Returns `return_on_none` if no value is found.
         """
-        out = self.dict_varinfo.get(prop)
+        out = self.dict_varinfo.get(prop, return_on_none)
+        
         return out
 
 

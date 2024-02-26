@@ -2493,6 +2493,8 @@ class ModelAttributesNew:
 
         # check model variable specificaiton and data frame
         modvar = self.get_variable(modvar)
+        flds = modvar.fields
+
         if modvar is None:
             raise ValueError(f"Invalid variable specified in extract_model_variable: variable '{modvar}' not found.")            
 
@@ -2590,6 +2592,7 @@ class ModelAttributesNew:
                 modvar, 
                 missing_vals = all_cats_missing_val,
             )
+
             if return_type == "data_frame":
                 sec = self.get_variable_subsector(modvar)
                 flds = self.get_attribute_table(sec).key_values
@@ -2597,7 +2600,7 @@ class ModelAttributesNew:
 
         # convert back to data frame if necessary
         if (return_type == "data_frame"):
-            flds = [flds] if (not type(flds) in [list, np.ndarray]) else flds
+            flds = [flds] if not sf.islistlike(flds) else flds
             out = pd.DataFrame(out, columns = flds)
 
             # add the time period?
@@ -3616,10 +3619,10 @@ class ModelAttributesNew:
 
 
 
-    def merge_array_var_partial_cat_to_array_all_cats(self,#VISIT
+    def merge_array_var_partial_cat_to_array_all_cats(self, #FIXED
         array_vals: np.ndarray,
-        modvar: str,
-        missing_vals: float = 0.0,
+        modvar: Union[str, mv.ModelVariable],
+        missing_vals: Union[float, None] = None,
         output_cats: Union[list, None] = None,
         output_subsec: Union[str, None] = None,
     ) -> np.ndarray:
@@ -3637,8 +3640,9 @@ class ModelAttributesNew:
         
         Keyword Arguments
         -----------------
-        - missing_vals: values to set for categories not in array_vals. Default 
-            is 0.0.
+        - missing_vals: values to set for categories not in array_vals. If None,
+            uses modvar.default_value if modvar is available OR 0.0 if no modvar
+            is specified. 
         - output_cats: vector of categories associated with the output variable. 
             Only used if modvar == None. The combination of 
             output_cats + output_subsec provide a manual override to the modvar 
@@ -3655,28 +3659,36 @@ class ModelAttributesNew:
             and output_subsec cannot be None.
             """
             raise ValueError(msg)
-        
-        if not sf.isnumber(missing_vals):
-            msg = f"""
-            Error in input specification of missing_vals: missing_vals should be 
-            a floating point number of integer.
-            """
-            raise ValueError(msg)
 
-        # get subsector/categories information
+
+        # default missing value if no other information is recevied
+        def_missing = 0.0
+
+        
+        ##  BUILD COMPONENTS BASED ON INPUT SPECIFICATION
+
         if modvar is not None:
             # check variable first
-            if modvar not in self.all_variables:
+            modvar = self.get_variable(modvar)
+            if modvar is None:
                 raise ValueError(f"Invalid model variable '{modvar}' found in get_variable_characteristic.")
 
             subsector = self.get_variable_subsector(modvar)
-            attr_subsec = self.get_attribute_table(subsector)#HEREHERE
-            cat_restriction_type = self.dict_model_variable_to_category_restriction.get(modvar)
+            attr_subsec = self.get_attribute_table(subsector)
+            cats_restricted = modvar.categories_are_restricted
+            
+            missing_vals = (
+                modvar.get_property("default_value", return_on_none = def_missing)
+                if not sf.isnumber(missing_vals)
+                else missing_vals
+            )
 
         else:
             subsector = output_subsec
             attr_subsec = self.get_attribute_table(subsector)
-            cat_restriction_type = None
+            cats_restricted = True # proceed as if they are restricted; only incurs a few more calculations
+
+            missing_vals = def_missing if not sf.isnumber(missing_vals) else missing_vals
 
             # check that all categories are defined
             if not set(output_cats).issubset(set(attr_subsec.key_values)):
@@ -3698,12 +3710,12 @@ class ModelAttributesNew:
                 raise ValueError(msg)
 
         # return the array if all categories are specified
-        if cat_restriction_type == "all":
+        if not cats_restricted:
             return array_vals
 
 
         array_default = np.ones((len(array_vals), attr_subsec.n_key_values))*missing_vals
-        cats = self.get_variable_categories(modvar) if (type(modvar) != type(None)) else output_cats
+        cats = self.get_variable_categories(modvar) if (modvar is not None) else output_cats
 
         inds_cats = [attr_subsec.get_key_value_index(x) for x in cats]
         inds = np.repeat([inds_cats], len(array_default), axis = 0)
@@ -5324,12 +5336,12 @@ class ModelAttributesNew:
 
 
 
-    def get_input_output_fields(self, #VISIT
-        subsectors_io: list, 
+    def get_input_output_fields(self, #FXIED
+        subsectors_io: Union[str, List[str]], 
         build_df_q: bool = False,
     ) -> Tuple[List[str], List[str]]:
         """
-        Get input/output fields for a list of subsectors
+        Get input/output fields for a list of subsectors (or subsector)
         """
 
         # initialize output lists
@@ -5338,6 +5350,13 @@ class ModelAttributesNew:
         subsectors_out = []
         subsectors_in = []
 
+        subsectors_io = (
+            subsectors_io
+            if sf.islistlike(subsectors_io)
+            else [subsectors_io]
+        )
+
+        # iterate over subsectors
         for subsector in subsectors_io:
 
             vars_subsector_in = self.build_variable_fields(subsector, variable_type = "input")
@@ -5350,6 +5369,7 @@ class ModelAttributesNew:
                 subsectors_out += [subsector for x in vars_subsector_out]
                 subsectors_in += [subsector for x in vars_subsector_in]
 
+
         if build_df_q:
             vars_in = (
                 pd.DataFrame({
@@ -5359,6 +5379,7 @@ class ModelAttributesNew:
                 .sort_values(by = ["subsector", "variable"])
                 .reset_index(drop = True)
             )
+            
             vars_out = (
                 pd.DataFrame({
                     "subsector": subsectors_out, 
@@ -5374,7 +5395,7 @@ class ModelAttributesNew:
 
     def get_multivariables_with_bounded_sum_by_category(self, #VISIT
         df_in: pd.DataFrame,
-        modvars: list,
+        modvars: Union[str, mv.ModelVariable, List[Union[str, mv.ModelVariable]]],
         sum_restriction: float,
         correction_threshold: float = 0.000001,
         force_sum_equality: bool = False,
@@ -5387,7 +5408,8 @@ class ModelAttributesNew:
         Function Arguments
         ------------------
         - df_in: data frame containing input variables
-        - modvars: variables to sum over and restrict
+        - modvars: variables to sum over and restrict; may be entered as a name,
+            ModelVariable, or list of either of those
         - sum_restriction: maximium sum that array may equal
 
         Keyword Arguments
@@ -5402,47 +5424,60 @@ class ModelAttributesNew:
         """
         # retrieve arrays
         arr = 0
-        init_q = True
         dict_arrs = {}
-        for modvar in modvars:
+        init_q = True
+        modvars = (
+            [modvars]
+            if not sf.islistlike(modvars)
+            else modvars
+        )
 
-            if modvar not in self.dict_model_variables_to_variables.keys():
+        # iterate over specified variables
+        for modvar in modvars:
+            
+            modvar = self.get_variable(modvar)
+            if modvar is None:
                 raise ValueError(f"Invalid variable specified in extract_model_variable: variable '{modvar}' not found.")
 
-            else:
+            subsector_cur = self.get_variable_subsector(modvar)
+            cats = self.get_variable_categories(modvar)
 
-                subsector_cur = self.get_variable_subsector(modvar)
-                cats = self.get_variable_categories(modvar)
+            if init_q:
+                subsector = subsector_cur
+                init_q = False
 
-                if init_q:
-                    subsector = subsector_cur
-                    init_q = False
+            elif subsector_cur != subsector:
+                msg = f"""
+                Error in get_multivariables_with_bounded_sum_by_category: 
+                variables must be from the same subsector.
+                """
+                raise ValueError(msg)
+            
+            # get current variable, merge to all categories, update dictionary, and check totals
+            arr_cur = self.extract_model_variable(#
+                df_in, 
+                modvar, 
+                override_vector_for_single_mv_q = True, 
+                return_typ = "array_base",
+            )
 
-                elif subsector_cur != subsector:
-                    raise ValueError(f"Error in get_multivariables_with_bounded_sum_by_category: variables must be from the same subsector.")
-                
-                # get current variable, merge to all categories, update dictionary, and check totals
-                arr_cur = self.extract_model_variable(#
-                    df_in, 
-                    modvar, 
-                    override_vector_for_single_mv_q = True, 
-                    return_typ = "array_base",
-                )
+            arr_cur = (
+                self.merge_array_var_partial_cat_to_array_all_cats(arr_cur, modvar) 
+                if (cats is not None) 
+                else arr_cur
+            )
 
-                arr_cur = (
-                    self.merge_array_var_partial_cat_to_array_all_cats(arr_cur, modvar) 
-                    if (cats is not None) 
-                    else arr_cur
-                )
+            # ensure that the key is a string, not the ModelVariable object
+            dict_arrs.update({modvar.name: arr_cur})
+            arr += arr_cur
 
-                dict_arrs.update({modvar: arr_cur})
-                arr += arr_cur
-
+        modvars = sorted(list(dict_arrs.keys()))
 
         if force_sum_equality:
             for modvar in modvars:
-                arr_cur = dict_arrs[modvar]
+                arr_cur = dict_arrs.get(modvar)
                 arr_cur = np.nan_to_num(arr_cur/arr, 0.0)
+
                 dict_arrs.update({modvar: arr_cur})
                 
         else:
@@ -5456,6 +5491,7 @@ class ModelAttributesNew:
 
             if len(w[0]) > 0:
                 inds = w[0]*len(arr[0]) + w[1]
+
                 for modvar in modvars:
                     arr_cur = dict_arrs.get(modvar)
                     new_vals = sum_restriction*arr_cur[w[0], w[1]].flatten()/arr[w[0], w[1]].flatten()
@@ -6257,7 +6293,7 @@ class ModelAttributesNew:
             array_in,
             None,
             output_cats = cats_new,
-            output_subsec = subsector
+            output_subsec = subsector,
         )
 
         return array_new
