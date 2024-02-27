@@ -770,12 +770,17 @@ class ElectricEnergy:
         """
 
         # Energy (Electricity) Mode Fields
-        self.cat_enmo_gnrt = self.model_attributes.filter_keys_by_attribute(
+
+        # use unsafe functionality of filter_keys_by_attribute to filter an attribute table
+        attr_mode = self.model_attributes.get_other_attribute_table(
             self.model_attributes.dim_mode,
+        )
+        self.cat_enmo_gnrt = self.model_attributes.filter_keys_by_attribute(
+            attr_mode,
             {"generation_category": 1}
         )[0]
         self.cat_enmo_stor = self.model_attributes.filter_keys_by_attribute(
-            self.model_attributes.dim_mode,
+            attr_mode,
             {"storage_category": 1}
         )[0]
 
