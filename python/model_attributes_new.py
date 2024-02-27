@@ -6106,70 +6106,7 @@ class ModelAttributesNew:
 
 
 
-    def separate_varreq_dict_for_outer(self, #REMOVE
-        subsector: str,
-        key_type: str,
-        category_outer_tuple: tuple,
-        target_field: str = "variable_schema",
-        field_to_split_on: str = "variable_schema",
-        variable = None,
-        variable_type = None
-    ) -> tuple:
-        """
-        Separate a variable requirement dictionary into those associated with
-            simple vars and those with outer
-
-        Function Arguments
-        ------------------
-        - key_type: key_varreqs_all, key_varreqs_partial
-
-        Keyword Arguments
-        -----------------
-        - field_to_split_on: gives the field from the attribute table to use to
-            split between outer and unidim
-        - target_field: the field to return in the dictionary
-
-        """
-        key_attribute = self.get_subsector_attribute(subsector, key_type)
-        if key_attribute is not None:
-            dict_vr_vvs = self.dict_variable_definitions[self.get_subsector_attribute(subsector, key_type)].field_maps[f"variable_to_{field_to_split_on}"].copy()
-            dict_vr_vtf = self.dict_variable_definitions[self.get_subsector_attribute(subsector, key_type)].field_maps[f"variable_to_{target_field}"].copy()
-
-            # filter on variable type if specified
-            if variable_type is not None:
-                if variable is not None:
-                    warnings.warn(f"variable and variable_type both specified in separate_varreq_dict_for_outer: the variable assignment is higher priority, and variable_type will be ignored.")
-                else:
-                    dict_var_types = self.dict_variable_definitions[self.get_subsector_attribute(subsector, key_type)].field_maps[f"variable_to_variable_type"]
-                    drop_vars = [x for x in dict_var_types.keys() if dict_var_types[x].lower() != variable_type.lower()]
-                    [dict_vr_vvs.pop(x) for x in drop_vars]
-                    [dict_vr_vtf.pop(x) for x in drop_vars]
-
-            dict_vr_vtf_outer = dict_vr_vtf.copy()
-
-            # raise a traceable error
-            try:
-                vars_outer = [x for x in dict_vr_vtf.keys() if (category_outer_tuple[0] in dict_vr_vvs[x]) and (category_outer_tuple[1] in dict_vr_vvs[x])]
-                vars_unidim = [x for x in dict_vr_vtf.keys() if (x not in vars_outer)]
-                [dict_vr_vtf_outer.pop(x) for x in vars_unidim]
-                [dict_vr_vtf.pop(x) for x in vars_outer]
-            except:
-                raise ValueError(f"Invalid attribute table designations found in subsector '{subsector}': check the field '{target_field}'.")
-
-            if variable != None:
-                vars_outer = list(dict_vr_vtf_outer.keys())
-                vars_unidim = list(dict_vr_vtf.keys())
-                [dict_vr_vtf_outer.pop(x) for x in vars_outer if (x != variable)]
-                [dict_vr_vtf.pop(x) for x in vars_unidim if (x != variable)]
-        else:
-            dict_vr_vtf = {}
-            dict_vr_vtf_outer = {}
-
-        return dict_vr_vtf, dict_vr_vtf_outer
-
-
-
-    def swap_array_categories(self, #VISIT
+    def swap_array_categories(self, #FIXED
         array_in: np.ndarray,
         vec_ordered_cats_source: np.ndarray,
         vec_ordered_cats_target: np.ndarray,
@@ -6196,12 +6133,11 @@ class ModelAttributesNew:
         """
 
         # get and check subsector
-        subsector = self.check_subsector(subsector, throw_error_q = False)
-        if subsector is None:
+        attr = self.get_attribute_table(subsector)
+        if attr is None:
             return array_in
 
-        # check subsector attribute
-        attr = self.get_attribute_table(subsector)
+        # check category inputs
         if len(set(vec_ordered_cats_source) & set(vec_ordered_cats_target)) > 0:
             warnings.warn("Invalid swap specification in 'swap_array_categories': categories can only exist in source or target")
             return array_in
@@ -6224,13 +6160,23 @@ class ModelAttributesNew:
         set_drops_source = set(vec_ordered_cats_source) - set(vec_source)
         if len(set_drops_source) > 0:
             vals_dropped_source = sf.format_print_list(list(set_drops_source))
-            warnings.warn(f"Source values {vals_dropped_source} dropped in swap_array_categories (either not well-defined categories or there was no associated target category).")
+            msg = f"""
+            Source values {vals_dropped_source} dropped in swap_array_categories 
+            (either not well-defined categories or there was no associated 
+            target category).
+            """
+            warnings.warn(msg)
 
         # some warnings - target
         set_drops_target = set(vec_ordered_cats_target) - set(vec_target)
         if len(set_drops_target) > 0:
             vals_dropped_target = sf.format_print_list(list(set_drops_target))
-            warnings.warn(f"target values {vals_dropped_target} dropped in swap_array_categories (either not well-defined categories or there was no associated target category).")
+            msg = f"""
+            Target values {vals_dropped_target} dropped in swap_array_categories 
+            (either not well-defined categories or there was no associated 
+            target category).
+            """
+            warnings.warn(msg)
 
         # build dictionary and set up the new categories
         dict_swap = dict(zip(vec_source, vec_target))
