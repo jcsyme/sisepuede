@@ -123,19 +123,22 @@ class IPPU:
         """
         # get dictionaries mapping variables to gas
         subsec = self.model_attributes.subsec_name_ippu
-        vec_modvars_ef_ippu = self.model_attributes.get_variables_from_attribute(
+        vec_modvars_ef_ippu = self.model_attributes.filter_keys_by_attribute(
             subsec, 
             {"emission_factor": 1},
+            attribute_type = "variable_definitions",
         )
 
-        dict_fc_ef_modvars_to_gas = pd.DataFrame(
-            [
-                (x, self.model_attributes.get_variable_characteristic(x, self.model_attributes.varchar_str_emission_gas))
-                for x in vec_modvars_ef_ippu
-            ]
+        dict_fc_ef_modvars_to_gas = dict(
+            (
+                x, 
+                self.model_attributes.get_variable_characteristic(
+                    x, self.model_attributes.varchar_str_emission_gas
+                )
+            ) 
+            for x in vec_modvars_ef_ippu
         )
 
-        dict_fc_ef_modvars_to_gas = sf.build_dict(dict_fc_ef_modvars_to_gas)
         dict_gas_to_fc_ef_modvars = sf.reverse_dict(
             dict_fc_ef_modvars_to_gas, 
             allow_multi_keys = True, 
@@ -1121,7 +1124,7 @@ class IPPU:
                 # inititialize production, then get change to net imports (anything negative) and reduce virgin production accordingly
                 array_ippu_production_base = array_ippu_production*(1 - array_ippu_maxiumum_recycling_ratio)
                 array_ippu_production = array_ippu_production*array_ippu_maxiumum_recycling_ratio - array_ippu_recycled_waste_adj
-                
+
                 # array of changes to net imports has to be mapped back to the original recycling categories
                 array_ippu_change_net_imports = sf.vec_bounds(array_ippu_production, (-np.inf, 0))
                 array_ippu_change_net_imports = self.model_attributes.swap_array_categories(

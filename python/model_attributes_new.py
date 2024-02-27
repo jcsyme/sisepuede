@@ -5937,66 +5937,6 @@ class ModelAttributesNew:
         out = units.convert(*args)
 
         return out
-
-
-
-    def get_variables_from_attribute(self, #VISIT
-        subsec: str,
-        dict_attributes: str,
-    ) -> Union[List[str], None]:
-        """
-        Retrieve a list of model variables from an attribute. Returns an 
-            empty list if no variables match the specification.
-            
-        NOTE: Returns None if subsec is invalid, attribute is not found. 
-        
-        Function Arguments
-        ------------------
-        - subsec: subsector to get variables from
-        - dict_attributes: dictionary mapping field in variable attribute tables
-            to values to use for filtering
-        
-        Keyword Arguments
-        -----------------
-        """
-        
-        subsec = self.check_subsector(subsec, throw_error_q = False)
-        if (subsec == False) or not isinstance(dict_attributes, dict):
-            return None
-        
-        vars_out = None
-        
-        # check each attribute table
-        for key in ["key_varreqs_all", "key_varreqs_partial"]:
-            
-            attr = self.get_attribute_table(subsec, table_type = key)
-            
-            # check if we should attempt to filter the dataframe
-            continue_q = True
-            if attr is not None:
-                continue_q = (
-                    not any([x in attr.table.columns for x in dict_attributes.keys()])
-                    if len(attr.table) > 0
-                    else True
-                )
-            if continue_q:
-                continue
-            
-            # otherwise, filter out
-            vars_match = list(
-                sf.subset_df(
-                    attr.table,
-                    dict_attributes
-                )[attr.key]
-            )
-            
-            vars_out = (
-                vars_match
-                if vars_out is None
-                else (vars_out + vars_match)
-            )
-            
-        return vars_out
     
 
 
