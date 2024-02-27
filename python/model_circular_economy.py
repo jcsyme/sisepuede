@@ -807,6 +807,7 @@ class CircularEconomy:
         Projects protein consumption (in kg) based on livestock growth, or, if 
             not integrated, a specified elasticity.
         """
+        
         # get scalar that represents the impact of a reduction of protein in the vegetarian diet
         vec_wali_frac_protein_in_diet_with_rm = self.model_attributes.extract_model_variable(#
             df_ce_trajectories, 
@@ -957,7 +958,7 @@ class CircularEconomy:
         """
 
         ##  CHECKS
-
+        
         # make sure socioeconomic variables are added and
         if df_se_internal_shared_variables is None:
             df_ce_trajectories, df_se_internal_shared_variables = self.model_socioeconomic.project(df_ce_trajectories)
@@ -990,7 +991,7 @@ class CircularEconomy:
         attr_trww = self.model_attributes.get_attribute_table(self.subsec_name_trww)
         attr_wali = self.model_attributes.get_attribute_table(self.subsec_name_wali)
 
-
+        
         ##  ECON/GNRL VECTOR AND ARRAY INITIALIZATION
 
         # get some vectors
@@ -1107,7 +1108,7 @@ class CircularEconomy:
         array_wali_cod_total = (array_wali_cod_pergdp.transpose()*vec_gdp).transpose()
         array_wali_indww_total = (array_wali_vol_indww_per_gdp.transpose()*vec_gdp).transpose()
 
-
+        
         ##  CALCULATE TOTALS SENT TO EACH TREATMENT PATH
 
         #
@@ -1223,7 +1224,7 @@ class CircularEconomy:
             df_trww_total_ww_by_pathway
         ]
 
-
+        
         ##  GET METHANE EMISSIONS FROM EACH TREATMENT PROCESS
 
         # get maximum methane production capacity for bod/cod (in co2e - i.e., using array_units_corrected)
@@ -2149,10 +2150,10 @@ class CircularEconomy:
         """
 
         ##  CHECKS
-
+        
         # make sure socioeconomic variables are added and
         df_ce_trajectories, df_se_internal_shared_variables = self.model_socioeconomic.project(df_ce_trajectories)
-
+        
         # check that all required fields are contained—assume that it is ordered by time period
         self.check_df_fields(df_ce_trajectories)
         dict_dims, df_ce_trajectories, n_projection_time_periods, projection_time_periods = self.model_attributes.check_projection_input_df(df_ce_trajectories, True, True, True)

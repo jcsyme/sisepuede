@@ -4284,12 +4284,14 @@ class ModelAttributes:
         attr_time_period = self.get_dimensional_attribute_table(self.dim_time_period)
 
         # field initialization
-        fields_dat = [x for x in df_project.columns if (x not in self.sort_ordered_dimensions_of_analysis)]
+        fields_dat = [
+            x for x in df_project.columns 
+            if (x not in self.sort_ordered_dimensions_of_analysis)
+        ]
         fields_dims_notime = [
             x for x in self.sort_ordered_dimensions_of_analysis 
             if (x != self.dim_time_period) and (x in df_project.columns)
         ]
-        
 
 
         ##  CHECK DIMENSIONS OF ANALYSIS (CANNOT HANDLE MORE THAN ONE SCENARIO)
@@ -4364,14 +4366,13 @@ class ModelAttributes:
         elif len(df_project[fields_dat].dropna()) != len(df_project):
             interpolate_q = True
 
-
         ##  FINALLY, GET INFORMATION TO PASS BACK TO CALL
 
         # set some information on time series
         projection_time_periods = list(set_times_keep)
         projection_time_periods.sort()
         n_projection_time_periods = len(projection_time_periods)
-
+        
         # format data frame
         df_project = df_project.interpolate() if interpolate_q else df_project
         df_project = df_project[df_project[self.dim_time_period].isin(set_times_keep)]

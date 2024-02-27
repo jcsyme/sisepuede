@@ -281,7 +281,7 @@ class Socioeconomic:
         """
         # check fields ands get some properties
         self.check_df_fields(df_se_trajectories)
-
+        print(f"shape0:\t{df_se_trajectories.shape}")
         (
             dict_dims, 
             df_se_trajectories, 
@@ -291,6 +291,8 @@ class Socioeconomic:
             df_se_trajectories,
             override_time_periods = ignore_time_periods,
         )
+
+        print(f"shape:\t{df_se_trajectories.shape}")
 
         # initialize output
         df_out = (
