@@ -5393,13 +5393,14 @@ class ModelAttributesNew:
 
 
 
-    def get_multivariables_with_bounded_sum_by_category(self, #VISIT
+    def get_multivariables_with_bounded_sum_by_category(self, #FIXED
         df_in: pd.DataFrame,
         modvars: Union[str, mv.ModelVariable, List[Union[str, mv.ModelVariable]]],
         sum_restriction: float,
         correction_threshold: float = 0.000001,
         force_sum_equality: bool = False,
         msg_append: str = "",
+        stop_on_error: bool = True,
     ) -> dict:
         """
         Retrive multiple variables that, across categories, must sum to some 
@@ -5437,7 +5438,14 @@ class ModelAttributesNew:
             
             modvar = self.get_variable(modvar)
             if modvar is None:
-                raise ValueError(f"Invalid variable specified in extract_model_variable: variable '{modvar}' not found.")
+                if stop_on_error:
+                    msg = f"""
+                    Invalid variable specified in extract_model_variable: 
+                    variable '{modvar}' not found.
+                    """
+                    raise ValueError(msg)
+                
+                continue
 
             subsector_cur = self.get_variable_subsector(modvar)
             cats = self.get_variable_categories(modvar)
@@ -5458,7 +5466,7 @@ class ModelAttributesNew:
                 df_in, 
                 modvar, 
                 override_vector_for_single_mv_q = True, 
-                return_typ = "array_base",
+                return_type = "array_base",
             )
 
             arr_cur = (
