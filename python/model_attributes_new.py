@@ -6084,11 +6084,11 @@ class ModelAttributesNew:
     def instantiate_blank_modvar_df_by_categories(self,
         modvar: str,
         n: int,
-        blank_val: Union[int, float] = 0.0,
-    ) -> pd.DataFrame:
+        blank_val: Union[int, float, None] = None,
+    ) -> Union[pd.DataFrame, None]:
         """
         Create a blank data frame, filled with blank_val, with properly ordered 
-            variable names.
+            variable names. Returns None if modvar is invalid.
 
         Function Arguments
         ------------------
@@ -6099,6 +6099,16 @@ class ModelAttributesNew:
         -----------------
         - blank_val: the value to use to fill the frame
         """
+        modvar = self.get_variable(modvar)
+        if modvar is None:
+            return None
+
+        blank_val = (
+            modvar.get_property("default_value", return_on_none = 0.0)
+            if not sf.isnumber(blank_val)
+            else blank_val
+        )
+
         cols = self.build_variable_fields(modvar)
         df_out = pd.DataFrame(np.ones((n, len(cols)))*blank_val, columns = cols)
 

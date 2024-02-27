@@ -9356,7 +9356,10 @@ class ElectricEnergy:
         )
 
         # initialize output
-        df_out = self.model_attributes.instantiate_blank_modvar_df_by_categories(modvar, len(vector_reference_time_period))
+        df_out = self.model_attributes.instantiate_blank_modvar_df_by_categories(
+            modvar, 
+            len(vector_reference_time_period),
+        )
         df_out[self.model_attributes.dim_time_period] = vector_reference_time_period
 
         # match the target
@@ -10049,8 +10052,10 @@ class ElectricEnergy:
             ]
 
             df_out += [
-                self.model_attributes.instantiate_blank_modvar_df_by_categories(self,
-                    modvar, n = len(df_elec_trajectories), blank_val = missing_vals_on_error
+                self.model_attributes.instantiate_blank_modvar_df_by_categories(
+                    modvar, 
+                    n = len(df_elec_trajectories), 
+                    blank_val = missing_vals_on_error
                 ) for modvar in modvars_instantiate
             ]
 
