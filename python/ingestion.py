@@ -1350,7 +1350,7 @@ class BaseInputDatabase:
 		sectors_out = (
 			all_sectors
 			if sectors is None
-			[sector for sector in sectors if sector in all_sectors]
+			else [sector for sector in sectors if sector in all_sectors]
 		)
 
 		return sectors_out

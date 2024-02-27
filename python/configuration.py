@@ -87,7 +87,7 @@ class Configuration:
             attr_time_period,
             attr_volume,
             attr_required_parameters,
-            delim = "|"
+            delim = "|",
         )
 
 
@@ -229,23 +229,76 @@ class Configuration:
 
         ##  CHECK VALID CONFIGURATION VALUES AND UPDATE IF APPROPRIATE
 
-        valid_area = self.get_valid_values_from_attribute_column(attr_area, "area_equivalent_", str, "unit_area_to_area")
+        valid_area = self.get_valid_values_from_attribute_column(
+            attr_area, 
+            "area_equivalent_", 
+            str, 
+            "unit_area_to_area",
+        )
+
         valid_bool = [True, False]
-        valid_energy = self.get_valid_values_from_attribute_column(attr_energy, "energy_equivalent_", str, "unit_energy_to_energy")
-        valid_gwp = self.get_valid_values_from_attribute_column(attr_gas, "global_warming_potential_", int)
+
+        valid_energy = self.get_valid_values_from_attribute_column(
+            attr_energy, 
+            "energy_equivalent_", 
+            str, 
+            "unit_energy_to_energy",
+        )
+
+        valid_gwp = self.get_valid_values_from_attribute_column(
+            attr_gas, 
+            "global_warming_potential_", 
+            int,
+        )
+
         valid_historical_hwp_method = ["back_project", "historical"]
+
         valid_historical_solid_waste_method = ["back_project", "historical"]
+
         valid_lurmod = ["decrease_only", "increase_only", "decrease_and_increase"]
-        valid_length = self.get_valid_values_from_attribute_column(attr_length, "length_equivalent_", str, "unit_length_to_length")
-        valid_mass = self.get_valid_values_from_attribute_column(attr_mass, "mass_equivalent_", str, "unit_mass_to_mass")
-        valid_monetary = self.get_valid_values_from_attribute_column(attr_monetary, "monetary_equivalent_", str, "unit_monetary_to_monetary")
+
+        valid_length = self.get_valid_values_from_attribute_column(
+            attr_length, 
+            "length_equivalent_", 
+            str, 
+            "unit_length_to_length",
+        )
+
+        valid_mass = self.get_valid_values_from_attribute_column(
+            attr_mass, 
+            "mass_equivalent_", 
+            str, 
+            "unit_mass_to_mass",
+        )
+
+        valid_monetary = self.get_valid_values_from_attribute_column(
+            attr_monetary, 
+            "monetary_equivalent_", 
+            str, 
+            "unit_monetary_to_monetary",
+        )
+
         valid_output_method = ["csv", "sqlite"]
-        valid_power = self.get_valid_values_from_attribute_column(attr_power, "power_equivalent_", str, "unit_power_to_power")
+        valid_power = self.get_valid_values_from_attribute_column(
+            attr_power, 
+            "power_equivalent_", 
+            str, 
+            "unit_power_to_power",
+        )
+       
         valid_region = attr_region.key_values
+
         valid_solvers = ["cbc", "clp", "cplex", "gams_cplex", "glpk", "gurobi", "highs"]
+
         valid_time_period = attr_time_period.key_values
-        valid_volume = self.get_valid_values_from_attribute_column(attr_volume, "volume_equivalent_", str)
+
+        valid_volume = self.get_valid_values_from_attribute_column(
+            attr_volume, 
+            "volume_equivalent_", 
+            str,
+        )
         
+
         # map parameters to valid values
         dict_checks = {
             "area_units": valid_area,
@@ -314,7 +367,7 @@ class Configuration:
         attribute_table: AttributeTable,
         column_match_str: str,
         return_type: type = None,
-        field_map_to_val: str = None
+        field_map_to_val: str = None,
     ) -> List[str]:
         """
         Retrieve valid key values from an attribute column
@@ -324,14 +377,22 @@ class Configuration:
             for x in attribute_table.table.columns 
             if (x[0:min(len(column_match_str), len(x))] == column_match_str)
         ]
-        if return_type != None:
+        if return_type is not None:
             cols = [return_type(x) for x in cols]
+
         # if a dictionary is specified, map the values to a name
-        if field_map_to_val != None:
-            if field_map_to_val in attribute_table.field_maps.keys():
-                cols = [attribute_table.field_maps[field_map_to_val][x] for x in cols]
-            else:
-                raise KeyError(f"Error in get_valid_values_from_attribute_column: the field map '{field_map_to_val}' is not defined.")
+        if field_map_to_val is not None:
+            
+            dict_map = attribute_table.field_maps.get(field_map_to_val)
+
+            if not isinstance(dict_map, dict):
+                msg = f"""
+                Error in get_valid_values_from_attribute_column: the field map 
+                '{field_map_to_val}' is not defined.
+                """
+                raise KeyError(msg)
+            
+            cols = [dict_map.get(x) for x in cols]
 
         return cols
 

@@ -540,8 +540,12 @@ class AFOLU:
             self.modvar_agrc_frac_residues_burned,
             self.modvar_agrc_frac_residues_removed
         ]
+
         # some key categories
-        self.cat_agrc_rice = self.model_attributes.filter_keys_by_attribute(self.subsec_name_agrc, {"rice_category": 1})[0]
+        self.cat_agrc_rice = self.model_attributes.filter_keys_by_attribute(
+            self.subsec_name_agrc, 
+            {"rice_category": 1}
+        )[0]
 
         return None
 
@@ -699,8 +703,14 @@ class AFOLU:
         self.modvar_lsmm_rf_biogas = "Biogas Recovery Factor at LSMM Anaerobic Digesters"
 
         # some categories
-        self.cat_lsmm_incineration = self.model_attributes.filter_keys_by_attribute(self.subsec_name_lsmm, {"incineration_category": 1})[0]
-        self.cat_lsmm_pasture = self.model_attributes.filter_keys_by_attribute(self.subsec_name_lsmm, {"pasture_category": 1})[0]
+        self.cat_lsmm_incineration = self.model_attributes.filter_keys_by_attribute(
+            self.subsec_name_lsmm, 
+            {"incineration_category": 1}
+        )[0]
+        self.cat_lsmm_pasture = self.model_attributes.filter_keys_by_attribute(
+            self.subsec_name_lsmm, 
+            {"pasture_category": 1}
+        )[0]
 
         return None
 
@@ -1463,8 +1473,8 @@ class AFOLU:
         n_cats = attr_lndu.n_key_values
         n_tp = n_tp if sf.isnumber(n_tp, integer = True) else self.n_time_periods
 
-        fields_pij = self.model_attributes.dict_model_variables_to_variables.get(self.modvar_lndu_prob_transition)
-        fields_efc = self.model_attributes.dict_model_variables_to_variables.get(self.modvar_lndu_ef_co2_conv)
+        fields_pij = self.model_attributes.dict_model_variables_to_variable_fields.get(self.modvar_lndu_prob_transition)
+        fields_efc = self.model_attributes.dict_model_variables_to_variable_fields.get(self.modvar_lndu_ef_co2_conv)
         if (fields_pij is None) | ((fields_efc is None) & get_emission_factors):
             return None
 
@@ -3167,12 +3177,12 @@ class AFOLU:
         )
         
         # attribute tables
-        attr_agrc = self.get_attribute_table(self.subsec_name_agrc)
-        attr_frst = self.get_attribute_table(self.subsec_name_frst)
-        attr_lndu = self.get_attribute_table(self.subsec_name_lndu)
-        attr_lsmm = self.get_attribute_table(self.subsec_name_lsmm)
-        attr_lvst = self.get_attribute_table(self.subsec_name_lvst)
-        attr_soil = self.get_attribute_table(self.subsec_name_soil)
+        attr_agrc = self.model_attributes.get_attribute_table(self.subsec_name_agrc)
+        attr_frst = self.model_attributes.get_attribute_table(self.subsec_name_frst)
+        attr_lndu = self.model_attributes.get_attribute_table(self.subsec_name_lndu)
+        attr_lsmm = self.model_attributes.get_attribute_table(self.subsec_name_lsmm)
+        attr_lvst = self.model_attributes.get_attribute_table(self.subsec_name_lvst)
+        attr_soil = self.model_attributes.get_attribute_table(self.subsec_name_soil)
 
 
         ##  ECON/GNRL VECTOR AND ARRAY INITIALIZATION

@@ -285,7 +285,7 @@ class SISEPUEDEBatchDataRepository:
         - fld: valid SISEPUEDE field. If invalid, returns None
         - key_type: "historical" or "projected". If invalid, returns None
         """
-        modvar = self.model_attributes.dict_variables_to_model_variables.get(fld)
+        modvar = self.model_attributes.dict_variable_fields_to_model_variables.get(fld)
         key = (
             self.key_historical 
             if (key_type in ["historical", self.key_historical])

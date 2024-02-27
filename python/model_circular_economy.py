@@ -182,14 +182,14 @@ class CircularEconomy:
         # get input/output model variables`
         required_model_vars = sorted(list(set(
             [
-                self.model_attributes.dict_variables_to_model_variables.get(x) 
+                self.model_attributes.dict_variable_fields_to_model_variables.get(x) 
                 for x in required_vars
             ]
         )))
 
         output_model_vars = sorted(list(set(
             [
-                self.model_attributes.dict_variables_to_model_variables.get(x) 
+                self.model_attributes.dict_variable_fields_to_model_variables.get(x) 
                 for x in output_vars
             ]
         )))
