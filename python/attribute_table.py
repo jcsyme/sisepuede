@@ -2,6 +2,7 @@ import numpy as np
 import os, os.path
 import pandas as pd
 import support_functions as sf
+import warnings
 from typing import *
 
 
@@ -130,7 +131,7 @@ class AttributeTable:
 
         # add a key if not specified and check all fields
         if not key in table.columns:
-            print(f"Key {key} not found in table '{fp_table}''. Adding integer key.")
+            warnings.warn(f"Key {key} not found in table '{fp_table}''. Adding integer key.")
             table[key] = range(len(table))
         sf.check_fields(table, [key] + fields_to_dict)
 

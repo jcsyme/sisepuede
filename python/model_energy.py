@@ -3446,7 +3446,6 @@ class NonElectricEnergy:
             modvar = self.model_attributes.get_variable_from_category(
                 self.subsec_name_trde, 
                 category, 
-                "partial",
             )
             scalar_length = self.model_attributes.get_scalar(modvar, "length")
 
@@ -3565,7 +3564,7 @@ class NonElectricEnergy:
         )
 
         # loop over fuels to calculate emissions and demand associated with each fuel
-        fuels_loop = sorted(list(self.dict_trns_fuel_categories_to_fuel_variables.keys()))
+        fuels_loop = sorted(list(self.dict_trns_fuel_categories_to_fuel_variables.keys()))#HEREHERE
         for cat_fuel in fuels_loop:
 
             # get the index of the current category
@@ -3628,7 +3627,11 @@ class NonElectricEnergy:
             
             # add vmt by fuel to output and get scalar to convert self.modvar_trde_demand_pkm to configuration units
             modvar_trns_vmt_by_fuel_cut = self.dict_trns_fuel_categories_to_fuel_variables.get(cat_fuel)
-            modvar_trns_vmt_by_fuel_cut = modvar_trns_vmt_by_fuel_cut.get("vehicle_distance_traveled") if (modvar_trns_vmt_by_fuel_cut is not None) else None
+            modvar_trns_vmt_by_fuel_cut = (
+                modvar_trns_vmt_by_fuel_cut.get("vehicle_distance_traveled") 
+                if (modvar_trns_vmt_by_fuel_cut is not None) 
+                else None
+            )
             scalar_trns_vkm_to_config = self.model_attributes.get_scalar(self.modvar_trde_demand_pkm, "length")
 
             df_out += [

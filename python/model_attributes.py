@@ -2495,17 +2495,16 @@ class ModelAttributes:
             pass a minimum and maximum bound (np.inf can be used to as no 
             bound).
         """
+
         ##  INITIALIZATION AND CHECKS
+
+        if (modvar is None) or not isinstance(df_in, pd.DataFrame):
+            return None
 
         # check model variable specificaiton and data frame
         modvar = self.get_variable(modvar)
-        flds = modvar.fields
-
         if modvar is None:
             raise ValueError(f"Invalid variable specified in extract_model_variable: variable '{modvar}' not found.")            
-
-        if not isinstance(df_in, pd.DataFrame):
-            return None
         
         # check some arguments
         self.check_restricted_value_argument(
@@ -2523,6 +2522,9 @@ class ModelAttributes:
 
 
         ##  START EXTRACTION
+
+        # initialize extration fields, which are modified below in different circumstances
+        flds = modvar.fields
 
         # will default to model variable default value
         fill_value = (
