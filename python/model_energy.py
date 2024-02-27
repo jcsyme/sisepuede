@@ -148,6 +148,8 @@ class NonElectricEnergy:
             f"{msg_prepend} projection cannot proceed: fields "
         )
 
+        return None
+
 
 
     def get_required_subsectors(self):

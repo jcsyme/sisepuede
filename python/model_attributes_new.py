@@ -42,7 +42,6 @@ class ModelAttributesNew:
 
         # initialize some properties and elements (ordered)
         self._initialize_attribute_tables(dir_attributes)
-        #self._initialize_dims()
         self._initialize_other_attributes()
         self._initialize_units()
         self._initialize_variables()
@@ -53,9 +52,9 @@ class ModelAttributesNew:
         self._initialize_all_primary_category_flags()
         self._initialize_emission_modvars_by_gas()
         self._initialize_gas_attributes()
-        #self._initialize_other_dictionaries()
+        self._initialize_other_dictionaries()
 
-        #self._check_attribute_tables()
+        self._check_attribute_tables()
 
         return None
 
@@ -1671,7 +1670,7 @@ class ModelAttributesNew:
         Check subsector attribute table
         """
         # check for proper specifications in attribute table
-        attr = self.dict_attributes.get("abbreviation_subsector")
+        attr = self.get_subsector_attribute_table()
 
         self._check_binary_fields(
             attr, 
@@ -2131,8 +2130,13 @@ class ModelAttributesNew:
         )
 
         # function to check the TRDE crosswalk of a variable name to 
+        field_targ = self.get_subsector_attribute(
+            self.subsec_name_trde,
+            "abv_subsector"
+        )
+
         self._check_subsector_attribute_table_crosswalk(
-            {subsec: "partial_category_en_trde"},
+            {subsec: f"{field_targ}_variable"},
             subsec,
             injection_q = False,
             type_target = "variable_definitions",
@@ -2338,13 +2342,13 @@ class ModelAttributesNew:
 
     def check_region(self,
         region: str,
-        allow_unclean: bool = False
+        allow_unclean: bool = False,
     ) -> None:
         """
         Ensure a region is properly specified
         """
         region = self.clean_region(region) if allow_unclean else region
-        attr_region = self.dict_attributes.get(self.dim_region)
+        attr_region = self.get_other_attribute_table(self.dim_region)
 
         # check sectors
         if region not in attr_region.key_values:
@@ -2355,7 +2359,7 @@ class ModelAttributesNew:
 
 
 
-    def check_sector(self, 
+    def check_sector(self, #FIXED
         sector: str,
         throw_error: bool = True,
     ) -> Union[str, None]:
@@ -2364,36 +2368,38 @@ class ModelAttributesNew:
         """
         # check sectors
         
-        out = None if throw_error else sector
+        out = (None if throw_error_q else sector)
 
         if sector not in self.all_sectors:
             if throw_error:
                 valid_sectors = sf.format_print_list(self.all_sectors)
                 raise ValueError(f"Invalid sector specification '{sector}': valid sectors are {valid_sectors}")
-            else:
-                # return None if not throwing an error
-                out = None
+            
+            out = None
 
         return out
 
 
 
-    def check_subsector(self,
+    def check_subsector(self, #FIXED
         subsector: str,
-        throw_error_q = True
+        throw_error_q = True,
     ) -> Union[str, None]:
         """
         Ensure a subsector is properly specified
         """
+
+        out = (None if throw_error_q else subsector)
+
         # check sectors
         if subsector not in self.all_subsectors:
-            valid_subsectors = sf.format_print_list(self.all_subsectors)
             if throw_error_q:
+                valid_subsectors = sf.format_print_list(self.all_subsectors)
                 raise ValueError(f"Invalid subsector specification '{subsector}': valid sectors are {valid_subsectors}")
-            else:
-                return False
-        else:
-            return (None if throw_error_q else subsector)
+
+            out = None
+
+        return out
 
 
 
@@ -3463,7 +3469,7 @@ class ModelAttributesNew:
         """
 
         subsec_check = self.check_subsector(subsector, throw_error_q = False, )
-        if subsector != subsec_check:
+        if subsec_check is None:
             return None
 
         attr = self.get_attribute_table(subsector)
@@ -5584,19 +5590,24 @@ class ModelAttributesNew:
     
 
 
-    def get_simplex_group(self,
-        variable: str,
+    def get_simplex_group(self, #FIXED
+        modvar: Union[str, mv.ModelVariable],
     ) -> Union[int, None]:
         """
         Return a simplex group from a variable.
 
         Function Arguments
         ------------------
-        - variable: field variable. Cannot be done from modvar since one modvar
-            may have components associated with different simplex groups
+        - modvar: field variable OR ModelVariable object. Cannot be done from 
+            modvar since one modvar may have components associated with 
+            different simplex groups
         """
 
-        out = self.dict_variable_to_simplex_group.get(variable)
+        modvar = self.get_variable(modvar)
+        if modvar is None:
+            return None
+            
+        out = self.dict_variable_to_simplex_group.get(modvar.name)
         
         return out
     
@@ -5722,10 +5733,6 @@ class ModelAttributesNew:
                 ind_base += 1
 
         return dict_out
-                
-    
-
-    
 
 
 
@@ -6030,9 +6037,7 @@ class ModelAttributesNew:
                 ##
 
                 # otherwise, add to output 
-                simplex_groups.append((sort_class, dict_vars_to_sg))
-        
-        
+                simplex_groups.append((sort_class, dict_vars_to_sg)) 
 
 
         ##  NOW, SORT BY SECTOR/SUBSECTOR AND ASSIGN
@@ -6081,7 +6086,7 @@ class ModelAttributesNew:
 
 
 
-    def instantiate_blank_modvar_df_by_categories(self,
+    def instantiate_blank_modvar_df_by_categories(self, #FIXED
         modvar: str,
         n: int,
         blank_val: Union[int, float, None] = None,
