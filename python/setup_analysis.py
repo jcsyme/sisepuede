@@ -21,7 +21,7 @@ dir_ref_data_crosswalks = sf.check_path(os.path.join(dir_ref, "data_crosswalks")
 dir_ref_nemo = sf.check_path(os.path.join(dir_ref, "nemo_mod"), False)
 dir_tmp = sf.check_path(os.path.join(dir_proj, "tmp"), True)
 # attribute tables and readthedocs NOTE HEREHERE replace docs_new with docs when back
-dir_docs = sf.check_path(os.path.join(os.path.dirname(dir_py), "docs_new", "source"), False)
+dir_docs = sf.check_path(os.path.join(os.path.dirname(dir_py), "docs", "source"), False)
 dir_attribute_tables = sf.check_path(os.path.join(dir_docs, "csvs"), False)
 # get model attributes
 model_attributes = ModelAttributes(dir_attribute_tables, fp_config)

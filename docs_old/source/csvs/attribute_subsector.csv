@@ -1,0 +1,22 @@
+﻿Sector,Subsector,``$ABBREVIATION-SUBSECTOR$``,Primary Category,Description,Model Language,Emission Subsector
+AFOLU,Agriculture,``agrc``,``$CAT-AGRICULTURE$``,Agricultural activity ....,Python,1
+AFOLU,Forest,``frst``,``$CAT-FOREST$``,"Forest activity, including sequestration and",Python,1
+AFOLU,Land Use,``lndu``,``$CAT-LANDUSE$``,"Land use activity, including deforestation and transition between land use categories.",Python,1
+AFOLU,Livestock Manure Management,``lsmm``,``$CAT-MANURE-MANAGEMENT$``,Pathways for treatment and use of manure. Includes sonnections to the soil management subsector in the form of soil fertilizer. ,Python,1
+AFOLU,Livestock,``lvst``,``$CAT-LIVESTOCK$``,Livestock activity and emissions. ,Python,1
+AFOLU,Soil Management,``soil``,``$CAT-SOIL-MANAGEMENT$``,Soil carbon and fertilizer application. Treated separately from cropland to capture different soil management regimes.,Python,1
+Circular Economy,Liquid Waste,``wali``,``$CAT-WASTE-LIQUID$``,Activity (primarily demands and pathways) driving the generation of liquid waste.,Python,0
+Circular Economy,Solid Waste,``waso``,``$CAT-WASTE-SOLID$``,Activity (demand and emission) associated with emissions from domestic and industrial solid waste disposal and treatment ,Python,1
+Circular Economy,Wastewater Treatment,``trww``,``$CAT-WASTEWATER-TREATMENT$``,Wastewater treatment options and characteristics,Python,1
+Energy,Carbon Capture and Sequestration,``ccsq``,``$CAT-CCSQ$``,Carbon capture and sequestration,Python,1
+Energy,Energy Fuels,``enfu``,``$CAT-FUEL$``,Fuel used in electricity generation.,Julia/Python,0
+Energy,Energy Storage,``enst``,``$CAT-STORAGE$``,Storage technologies used in n energy system. ,Julia/Python,0
+Energy,Energy Technology,``entc``,``$CAT-TECHNOLOGY$``,"Technology associated with the generation of electricity--in particular, power plants.",Julia/Python,1
+Energy,Fugitive Emissions,``fgtv``,``$CAT-FUEL$``,"Activity (demand and emission) associated with fugitive emissions from coal, natural gas, and crude/oil production and transportation.",Python,1
+Energy,Industrial Energy,``inen``,``$CAT-INDUSTRY$``,Activity (demand and emission) associated with the energy generation and use in industry,Python,1
+Energy,Stationary Combustion and Other Energy,``scoe``,``$CAT-SCOE$``,"Emissions from stationary combustion due to residential, commercial and municipal activities, and agricultural fuel combustion.",Python,1
+Energy,Transportation,``trns``,``$CAT-TRANSPORTATION$``,Activity (demand and emission) associated with the generation of electricity ....,Python,1
+Energy,Transportation Demand,``trde``,``$CAT-TRANSPORTATION-DEMAND$``,"Different drivers of demand for transportation, integrating cross-sector demand effects.",Pyhon,0
+IPPU,IPPU,``ippu``,``$CAT-INDUSTRY$``,Activity (demand and emission) associated with industrial processes and product use,Python,1
+Socioeconomic,Economy,``econ``,``$CAT-ECONOMY$``,Economic activity driving emissions.,Python,0
+Socioeconomic,General,``gnrl``,``$CAT-GENERAL$``,"Other non-economic drivers of emissions, including demographics.",Python,0

@@ -1,0 +1,29 @@
+Variable Type,Variable,Information,Variable Schema,Categories,Reference,Default Value,Default LHS Scalar Minimum at Final Time Period,Default LHS Scalar Maximum at Final Time Period,Simplex Group,Emissions Total by Gas Component,Notes
+Input,:math:`\text{N}_2\text{O}` Manure Management Emission Factor," | Dimensionless emission factor for direct :math:`\text{N}_2\text{O}` emissions from each manure management system.
+ | 
+ | Corresponds with :math:`EF_{3_{(S)}}` in Equation 10.34A in V4,C10 IPCC GNGHGI 2019R.",``ef_lsmm_direct_management_$CAT-MANURE-MANAGEMENT$_$EMISSION-GAS$_per_n`` (``$EMISSION-GAS$ = n2o``),all,,0,1,1,,0," | Derived from values in Table 10.21 (V4,C10 IPCC GNGHGI 2019R). "
+Input,Biogas Recovery Factor at LSMM Anaerobic Digesters,,``gasrf_lsmm_biogas_$CAT-MANURE-MANAGEMENT$``,``anaerobic_digester``,,0,1,1,,0,
+Input,Fraction of Nitrogen Lost to Leaching,,``frac_lsmm_n_loss_leaching_$CAT-MANURE-MANAGEMENT$``,all,,0,1,1,,0," | Derived from values in Table 10.22 (V4C10 IPCC GNGHGI 2019R). 
+ | 
+ | **NOTE**: SISEPUEDE treats these loss factors as a mean across animal types, then allows for exploration around ranges."
+Input,Fraction of Nitrogen Lost to Volatilisation,,``frac_lsmm_n_loss_volatilisation_$CAT-MANURE-MANAGEMENT$``,all,,0,1,1,,0," | Derived from values in Table 10.22 (V4C10 IPCC GNGHGI 2019R). 
+ | 
+ | **NOTE**: SISEPUEDE treats these loss factors as a mean across animal types, then allows for exploration around ranges."
+Input,Fraction of Nitrogen Used in Fertilizer," | This scalar represents the fraction of total volatile solids (manure) available for fertilizer. Some categories, like ``deep_bedding`` are often combined with others. To avoid mutli-stage management, entries for these categories should specify a fraction of manure that will eventually end up used in fertilizer.
+ | 
+ | **NOTE:** Incineration is included since urine is separated and sent to fertilizer. The fraction that is sent to fertilizer is applied only to nitrogen in urine.",``frac_lsmm_manure_to_fertilizer_$CAT-MANURE-MANAGEMENT$``,``anaerobic_lagoon``|``daily_spread``|``deep_bedding``|``dry_lot``|``incineration``|``liquid_slurry``|``poultry_manure``|``storage_solid``,,0,1,1,,0,
+Input,Manure Management Methane Correction Factor,,``mcf_lsmm_$CAT-MANURE-MANAGEMENT$``,all,,0,1,1,,0,| Derived from values in Table 10.17 (V4C10 IPCC GNGHGI 2019R). 
+Input,Nitrogen from Bedding per Animal," | Represents :math:`N_{beddingMS_{(T, S)}}` in Equation 10.34 in V4, C10 IPCC GNGHGI 2019R, or the amount of nitrogen from bedding. 
+ | 
+ | Applies only to solid storage and deep bedding.",``qty_lsmm_nitrogen_in_bedding_$UNIT-MASS$_per_head_$CAT-MANURE-MANAGEMENT$`` (``$UNIT-MASS$ = kg``),``deep_bedding``|``storage_solid``,,0,1,1,,0,"See V4, C10 (2019R) 10.95 for a description of default values."
+Input,Nitrogen from Co-Digestates Factor,Factor applied to mass of dung used in anaerobic digesters to estimate relative mass of nitrogen.,``factor_lsmm_n_from_codigestates_$CAT-MANURE-MANAGEMENT$``,``anaerobic_digester``,,0,1,1,,0,
+Input,Ratio of :math:`\text{N}_2` to :math:`\text{N}_2\text{O}`,"See :math:`R_{N_2(N_2O)}` in Equation 10.34B, V4,C10 IPCC GNGHGI 2019R",``ratio_lsmm_n2_to_n2o``,none,,0,1,1,,0,
+Output,:math:`\text{CH}_4` Emissions from Manure Management,Methane emissions from manure,``emission_co2e_$EMISSION-GAS$_lsmm_$CAT-MANURE-MANAGEMENT$`` (``$EMISSION-GAS$ = ch4``),all,,0,1,1,,1,
+Output,:math:`\text{N}_2\text{O}` Emissions from Manure Management,Nitrus oxide emissions from manure,``emission_co2e_$EMISSION-GAS$_lsmm_$CAT-MANURE-MANAGEMENT$`` (``$EMISSION-GAS$ = n2o``),all,,0,1,1,,1,
+Output,Dung Incinerated,,``qty_lsmm_dung_to_incinerate_$UNIT-MASS$`` (``$UNIT-MASS$ = tonne``),none,,0,1,1,,0,
+Output,LSMM Biogas Recovered from Anaerobic Digesters,,``gasrecovered_lsmm_biogass_$CAT-MANURE-MANAGEMENT$_$UNIT-MASS$`` (``$UNIT-MASS$ = tonne``),``anaerobic_digester``,,0,1,1,,0,
+Output,Nitrogen Available for Fertilizer,,``qty_lsmm_n_to_fertilizer_$CAT-MANURE-MANAGEMENT$_$UNIT-MASS$ (``$UNIT-MASS$ = kt``),all,,0,1,1,,0,
+Output,Total Nitrogen Available for Construction/Feed/Other,"Managed manure that is not used for fertilizer can be used for construction, feed, or left at point of use. This gives the amount used for these totals.",``qty_lsmm_total_n_used_for_other_$UNIT-MASS$ (``$UNIT-MASS$ = kt``),none,,0,1,1,,0,
+Output,Total Nitrogen Available for Fertilizer from Dung,,``qty_lsmm_total_n_to_fertilizer_from_dung_$UNIT-MASS$ (``$UNIT-MASS$ = kt``),none,,0,1,1,,0,
+Output,Total Nitrogen Available for Fertilizer from Urine,,``qty_lsmm_total_n_to_fertilizer_from_urine_$UNIT-MASS$ (``$UNIT-MASS$ = kt``),none,,0,1,1,,0,
+Output,Total Nitrogen to Pastures,Deposits from the ``pasture_paddock_range`` category are treated in the Soil Management subsector. This variable is used to pass total nitrogen deposits to the soil management subsector model.,``qty_lsmm_total_n_to_pastures_$UNIT-MASS$ (``$UNIT-MASS$ = kt``),none,,0,1,1,,0,
