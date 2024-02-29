@@ -458,7 +458,7 @@ class ModelVariable:
 
                 # pass errors
                 errors = (":" + ("\n\t".join(errors))) if isinstance(errors, list) else "."
-                msg = f"Properties for variable {name} successfully set with {num_error} errors{errors}."
+                msg = f"Properties for variable {name} successfully set with {num_errors} errors{errors}."
                 self._log(msg, type_log = "error")
 
                 # pass warnings

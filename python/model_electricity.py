@@ -5923,6 +5923,9 @@ class ElectricEnergy:
 
         ##  NEXT, GET EXOGENOUSLY SPECIFIED MinShareProduction VALUES (ADJUSTED FOR IMPORTS) 
 
+        # Estimate production share of techs specified with a 
+        # TotalTechnologyAnnualActivityLowerLimit. Use this function to avoid 
+        # conflicting constraints between MinShareProduction/ReMinProductionTarget
         vec_entc_elec_demand_frac_from_tech_lower_limit = self.estimate_production_share_from_activity_limits(
             df_elec_trajectories,
             tuple_enfu_production_and_demands = tuple_enfu_production_and_demands
