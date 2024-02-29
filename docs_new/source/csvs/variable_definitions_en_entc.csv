@@ -24,7 +24,7 @@ Input,Fuel Production NemoMod InputActivityRatio Diesel," | Input activity ratio
  | The total input energy to a technology comes from the combination of all input fuel input activity ratios.",``nemomod_entc_input_activity_ratio_fuel_production_$CAT-TECHNOLOGY$_diesel``,``me_coal``|``me_natural_gas``|``me_crude``,,0,1,1,,none,0,``fuel_diesel``,
 Input,Fuel Production NemoMod InputActivityRatio Electricity," | Input activity ratio of electricity for a fuel production technology (can be combined with other input fuels).
  | 
- | The total input energy to a technology comes from the combination of all input fuel input activity ratios.",``nemomod_entc_input_activity_ratio_fuel_production_$CAT-TECHNOLOGY$_electricity``,```fp_hydrogen_electrolysis``|``fp_hydrogen_gasification``|``fp_hydrogen_reformation``|``fp_natural_gas``|``fp_petroleum_refinement``|``me_coal``|``me_natural_gas``|``me_crude``,,0,1,1,,none,0,``fuel_electricity``,
+ | The total input energy to a technology comes from the combination of all input fuel input activity ratios.",``nemomod_entc_input_activity_ratio_fuel_production_$CAT-TECHNOLOGY$_electricity``,``fp_hydrogen_electrolysis``|``fp_hydrogen_gasification``|``fp_hydrogen_reformation``|``fp_natural_gas``|``fp_petroleum_refinement``|``me_coal``|``me_natural_gas``|``me_crude``,,0,1,1,,none,0,``fuel_electricity``,
 Input,Fuel Production NemoMod InputActivityRatio Gasoline," | Input activity ratio of gasoline for a fuel production technology (can be combined with other input fuels).
  | 
  | The total input energy to a technology comes from the combination of all input fuel input activity ratios.",``nemomod_entc_input_activity_ratio_fuel_production_$CAT-TECHNOLOGY$_gasoline``,``me_coal``|``me_natural_gas``|``me_crude``,,0,1,1,,none,0,``fuel_gasoline``,
@@ -54,7 +54,7 @@ Input,Fuel Production NemoMod OutputActivityRatio Hydrocarbon Gas Liquids," | Ou
  | The total output energy from a technology comes from the combination of all output fuel input activity ratios.",``nemomod_entc_output_activity_ratio_fuel_production_$CAT-TECHNOLOGY$_hydrocarbon_gas_liquids``,``fp_natural_gas``|``fp_petroleum_refinement``,,0,1,1,,none,0,``fuel_hydrocarbon_gas_liquids``,
 Input,Fuel Production NemoMod OutputActivityRatio Hydrogen," | Output activity ratio of hydrogen produced by a fuel production technology (can be combined with other output fuels).
  | 
- | The total output energy from a technology comes from the combination of all output fuel input activity ratios.",``nemomod_entc_output_activity_ratio_fuel_production_$CAT-TECHNOLOGY$_hydrogen``,```fp_hydrogen_electrolysis``|``fp_hydrogen_gasification``|``fp_hydrogen_reformation``,,0,1,1,,none,0,``fuel_hydrogen``,
+ | The total output energy from a technology comes from the combination of all output fuel input activity ratios.",``nemomod_entc_output_activity_ratio_fuel_production_$CAT-TECHNOLOGY$_hydrogen``,``fp_hydrogen_electrolysis``|``fp_hydrogen_gasification``|``fp_hydrogen_reformation``,,0,1,1,,none,0,``fuel_hydrogen``,
 Input,Fuel Production NemoMod OutputActivityRatio Kerosene," | Output activity ratio of kerosene produced by a fuel production technology (can be combined with other output fuels).
  | 
  | The total output energy from a technology comes from the combination of all output fuel input activity ratios.",``nemomod_entc_output_activity_ratio_fuel_production_$CAT-TECHNOLOGY$_kerosene``,``fp_petroleum_refinement``,,0,1,1,,none,0,``fuel_kerosene``,
