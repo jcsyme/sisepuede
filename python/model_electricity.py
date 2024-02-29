@@ -5856,12 +5856,6 @@ class ElectricEnergy:
 
 
         ##  ADJUST IMPORT FRACTIONS TO ACCOUNT FOR THE INCLUSION OF EXPORTS IN SpecifiedAnnualDemands
-        
-        global df_et
-        df_et = df_elec_trajectories.copy()
-
-        print(modvar_import_fraction)
-        print(df_et.shape)
 
         arr_enfu_import_fractions = self.model_attributes.extract_model_variable(#
             df_elec_trajectories,
@@ -10023,7 +10017,7 @@ class ElectricEnergy:
         ##  2. SET UP AND CALL NEMOMOD
 
         # get calculation time periods
-        attr_time_period = self.model_attributes.get_attribute_time_period()
+        attr_time_period = self.get_attribute_time_period()
         vector_calc_time_periods = (
             self.model_attributes.configuration.get("nemomod_time_periods") 
             if (vector_calc_time_periods is None) 
