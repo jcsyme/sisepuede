@@ -914,7 +914,8 @@ class ModelVariable:
             
             dict_out.update(dict_update)
 
-        dict_out.update(self.dict_category_keys.copy())
+        dict_update = self.dict_category_keys.copy()
+        dict_out.update(dict_update)
 
         return dict_out
     

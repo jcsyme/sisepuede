@@ -2138,8 +2138,16 @@ class ElectricEnergy:
         - return_type: return "fuels" or "dummy_fuel_techs"
         """
         # check model variable to use
-        modvar_fuel_import_fraction = self.modvar_enfu_frac_fuel_demand_imported if (modvar_fuel_import_fraction is None) else modvar_fuel_import_fraction
-        return_type = return_type if (return_type in ["fuels", "dummy_fuel_techs"]) else "fuels"
+        modvar_fuel_import_fraction = (
+            self.modvar_enfu_frac_fuel_demand_imported 
+            if (modvar_fuel_import_fraction is None) 
+            else modvar_fuel_import_fraction
+        )
+        return_type = (
+            return_type 
+            if (return_type in ["fuels", "dummy_fuel_techs"]) 
+            else "fuels"
+        )
 
         # get enfu categories from import fraction, then integrate those associated with output activity ratios
         cats_price_high = self.model_attributes.get_variable_categories(modvar_fuel_import_fraction)
@@ -2150,7 +2158,11 @@ class ElectricEnergy:
             cats_price_high = list(set(cats_price_high))
         
         # convert to fuel-techs if needed
-        cats_price_high = self.get_dummy_fuel_tech_name(cats_price_high) if (return_type == "dummy_fuel_techs") else cats_price_high
+        cats_price_high = (
+            self.get_dummy_fuel_tech_name(cats_price_high) 
+            if (return_type == "dummy_fuel_techs") 
+            else cats_price_high
+        )
         cats_price_high.sort()
 
         return cats_price_high
@@ -2647,9 +2659,11 @@ class ElectricEnergy:
                 for cat in cats_entc:
                     if cat in dict_tech_info.get("all_techs_me"):
                         
-                        dict_entc_me_tech_to_input_fuels[cat].append(fuel) if (
-                            cat in dict_entc_me_tech_to_input_fuels.keys()
-                        ) else dict_entc_me_tech_to_input_fuels.update({cat: [fuel]})
+                        (
+                            dict_entc_me_tech_to_input_fuels[cat].append(fuel) 
+                            if (cat in dict_entc_me_tech_to_input_fuels.keys()) 
+                            else dict_entc_me_tech_to_input_fuels.update({cat: [fuel]})
+                        )
                         
                         # retrieve array
                         if (cat not in dict_enfu_arrs_iar.keys()):
@@ -2856,11 +2870,7 @@ class ElectricEnergy:
             tuple_enfu_production_and_demands = tuple_enfu_production_and_demands,
         )
 
-        global tmp
-        global tmp2
-        tmp = arr_entc_msp
-        tmp2 = vec_frac_msp_accounted_for_by_growth_limit
-        
+
         # initialize an output dictionary mapping each tech to fuel
         dict_output_tech_to_fuel = {}
         
@@ -4923,11 +4933,15 @@ class ElectricEnergy:
         scalar_cost_variable /= self.get_nemomod_energy_scalar(self.modvar_entc_nemomod_variable_cost)
 
         # CapitalCost
-        df_append = self.build_dummy_tech_cost(
-            flag_dummy_price, 
-            cost_type = "capital", 
-            override_time_period_transformation = True
-        ) if ("CapitalCost" in tables_with_dummy) else None
+        df_append = (
+            self.build_dummy_tech_cost(
+                flag_dummy_price, 
+                cost_type = "capital", 
+                override_time_period_transformation = True
+            ) 
+            if ("CapitalCost" in tables_with_dummy) 
+            else None
+        )
 
         dict_return.update(
             self.format_model_variable_as_nemomod_table(
@@ -4946,13 +4960,17 @@ class ElectricEnergy:
                 var_bounds = (0, np.inf)
             )
         )
-
+        
         # FixedCost
-        df_append = self.build_dummy_tech_cost(
-            flag_dummy_price, 
-            cost_type = "fixed", 
-            override_time_period_transformation = True
-        ) if ("FixedCost" in tables_with_dummy) else None
+        df_append = (
+            self.build_dummy_tech_cost(
+                flag_dummy_price, 
+                cost_type = "fixed", 
+                override_time_period_transformation = True
+            ) 
+            if ("FixedCost" in tables_with_dummy) 
+            else None
+        )
         
         dict_return.update(
             self.format_model_variable_as_nemomod_table(
@@ -4992,7 +5010,7 @@ class ElectricEnergy:
             self.modvar_entc_nemomod_variable_cost,
             return_type = "data_frame",
         )
-
+        
         # add time period and get categories associated with each field (ordered the same as fields)
         df_entc_variable_costs[self.model_attributes.dim_time_period] = df_elec_trajectories[self.model_attributes.dim_time_period]
         cats_df_variable_costs = self.model_attributes.get_variable_categories(self.modvar_entc_nemomod_variable_cost)
@@ -5017,17 +5035,21 @@ class ElectricEnergy:
             field_varcost = list(df_entc_variable_costs.columns)[j]
             
             df_entc_variable_costs[field_varcost] = np.array(df_entc_variable_costs[field_varcost]) + arr_enfu_costs[:, ind_enfu]
-
+        
         #
         # dummy techs are high-cost technologies that help ensure there is no unmet demand in the system if other constraints create an issue
         # https://sei-international.github.io/NemoMod.jl/stable/model_concept/
         #
         
-        df_append = self.build_dummy_tech_cost(
-            flag_dummy_price, 
-            cost_type = "variable", 
-            override_time_period_transformation = True
-        ) if ("VariableCost" in tables_with_dummy) else None
+        df_append = (
+            self.build_dummy_tech_cost(
+                flag_dummy_price, 
+                cost_type = "variable", 
+                override_time_period_transformation = True
+            ) 
+            if ("VariableCost" in tables_with_dummy) 
+            else None
+        )
 
         dict_return.update(
             self.format_model_variable_as_nemomod_table(
@@ -5048,12 +5070,12 @@ class ElectricEnergy:
             )
         )
         
-        
+
         # next, replace costs for dummy techs with costs that are at least 10x higher than max of other costs where applicable
         cats_entc_dummy_with_high_cost = self.get_enfu_cats_with_high_dummy_tech_costs(return_type = "dummy_fuel_techs")
         cats_entc_dummy = list(self.get_dummy_fuel_techs().values())
         cats_no_cost = set(cats_entc_dummy) - set(cats_entc_dummy_with_high_cost)
-
+        
         for table_name in list(dict_return.keys()):
             df_tmp = dict_return.get(table_name)
 
@@ -5065,7 +5087,7 @@ class ElectricEnergy:
             df_tmp[self.field_nemomod_value] = vals_new
 
             dict_return.update({table_name: df_tmp})
-
+        
         return dict_return
 
 
@@ -5834,6 +5856,12 @@ class ElectricEnergy:
 
 
         ##  ADJUST IMPORT FRACTIONS TO ACCOUNT FOR THE INCLUSION OF EXPORTS IN SpecifiedAnnualDemands
+        
+        global df_et
+        df_et = df_elec_trajectories.copy()
+
+        print(modvar_import_fraction)
+        print(df_et.shape)
 
         arr_enfu_import_fractions = self.model_attributes.extract_model_variable(#
             df_elec_trajectories,
@@ -6789,7 +6817,10 @@ class ElectricEnergy:
 
         # calculate total grid demand for electricity
         tuple_enfu_production_and_demands = (
-            self.model_energy.project_enfu_production_and_demands(df_elec_trajectories, target_energy_units = self.model_attributes.configuration.get("energy_units_nemomod")) 
+            self.model_energy.project_enfu_production_and_demands(
+                df_elec_trajectories, 
+                target_energy_units = self.model_attributes.configuration.get("energy_units_nemomod")
+            ) 
             if (tuple_enfu_production_and_demands is None) 
             else tuple_enfu_production_and_demands
         )

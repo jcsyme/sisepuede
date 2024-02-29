@@ -1878,7 +1878,7 @@ class NonElectricEnergy:
 
 
         ##  CALCULATE IMPORTS, EXPORTS, AND PRODUCTION
-
+        
         # get import fractions and calculate imports
         arr_import_fracs = self.model_attributes.extract_model_variable(#
             df_neenergy_trajectories,

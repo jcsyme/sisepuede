@@ -2562,7 +2562,7 @@ class ModelAttributes:
         elif return_type == "array_units_corrected_gas":
             out *= self.get_scalar(modvar, "gas")
 
-        if type(var_bounds) in [tuple, list, np.ndarray]:
+        if any([isinstance(var_bounds, x) for x in [tuple, list, np.ndarray]]):
             # get numeric values and check
             var_bounds = [x for x in var_bounds if type(x) in [int, float]]
             if len(var_bounds) <= 1:
@@ -5878,7 +5878,7 @@ class ModelAttributes:
         for val in dict_cats.values():
             one_val &= set_all_cats.issubset(set(val))
 
-        out = val if (one_val and not force_dict_return) else dict_cats
+        out = val.copy() if (one_val and not force_dict_return) else dict_cats
 
         return out
 
