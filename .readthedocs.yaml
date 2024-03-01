@@ -34,4 +34,4 @@ sphinx:
   install:
 #    extra_requirements:
 #      - docs
-    - requirements: docs/source/requirements.txt
+    requirements: docs/source/requirements.txt
