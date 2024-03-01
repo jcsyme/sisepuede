@@ -1,0 +1,54 @@
+##  MODEL PARAMETERS
+parameters:
+  # standard reporting unit for land use areas
+  area_units: ha
+  # number of days per year in calculations (365.25 is default)
+  days_per_year: 365.25
+  # set the discount rate (must be between 0 and 1)
+  discount_rate: 0.0
+  # set the mass reporting unit for emissions
+  emissions_mass: MT
+  # set the reporting units for energy demand (kJ, MJ, GJ, PJ, TJ)
+  energy_units: PJ
+  # set the units for energy demands in NemoMod (kJ, MJ, GJ, PJ, TJ) - these should be of reasonable scale to power units to enable good numerical solutions
+  energy_units_nemomod: PJ
+  # set the global warming potential (20, 100, 500)
+  global_warming_potential: 100
+  # if back-projecting solid waste, set the number of periods to back project
+  historical_back_proj_n_periods: 10
+  # method for accounting for harvested wood products before the model period
+  historical_harvested_wood_products_method: back_project
+  # method for accounting for solid waste disposal before the model period
+  historical_solid_waste_method: back_project
+  # approach to use for "maxing out" transition probabilities for land use classes that transition into pasture and cropland states. Acceptable options are "decrease_only", "increase_only", or "decrease_and_increase". See the SISEPUEDE documentation for additional information.
+  land_use_reallocation_max_out_directionality: decrease_only
+  # length units for reporting
+  length_units: km
+  # monetary units for output (m -> 10^3; mm -> 10^6; mmm -> 10^9)
+  monetary_units: mm_usd
+  # nemomod solver to use. Acceptable values are: cbc, clp, cplex, gams_cplex, glpk, gurobi, highs (Note: if specifying CPLEX or Gurobi, ensure access to the solver/license)
+  nemomod_solver: highs
+  # nemomod solver time limit
+  nemomod_solver_time_limit_seconds: 900
+  # time periods to run for NemoMod. Either 'all' or pipe-delimited values (e.g., 0|1|2|...)
+  nemomod_time_periods: all
+  # power units in NemoMod and output (MW, GW)
+  power_units: GW
+  # region (defined in attribute_cat_region.csv) to run - set to "all" to run all, or separate with pipes (|) to create a list
+  region: costa_rica
+  # units for reporting volumes (like wastewater)
+  volume_units: m3
+
+
+##  EXPERIMENTAL MANAGEMENT PARAMETERS
+experiment:
+  # number of samples to use when generating futures
+  num_lhc_samples: 1000
+  # output method: acceptable options are "CSV", "SQLite"
+  output_method: SQLite
+  # used for reproducibility. Leave blank or enter a negative number for no seed.
+  random_seed: 6401745
+  # save inputs to table?
+  save_inputs: False
+  # base time period for uncertainty. Uncertainty first shows up *immediately after* this time period
+  time_period_u0: 5
