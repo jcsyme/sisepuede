@@ -491,7 +491,7 @@ class ModelAttributes:
 
         # check sector and subsector specifications
         set_sector_tables = set({table_name_attr_sector, table_name_attr_subsector})
-        set_avail_others = set(dict_attributes.get("other").keys())
+        set_avail_others = set(dict_attributes.get(attribute_group_protected_other).keys())
         if not set_sector_tables.issubset(set_avail_others):
             missing_vals = sf.print_setdiff(set_sector_tables, set_avail_others)
             raise RuntimeError(f"Error initializing attribute tables: table names {missing_vals} not found.")
@@ -5071,10 +5071,13 @@ class ModelAttributes:
 
 
         if include_time_periods:
-            time_period = self.dim_time_period
+            attr_time_period = self.get_dimensional_attribute_table(
+                self.dim_time_period
+            )
+
             df_out = sf.explode_merge(
                 df_out,
-                self.dict_attributes.get("dim_time_period").table[[time_period]]
+                attr_time_period.table[[attr_time_period.key]]
             )
 
             fields_sort += [time_period]
@@ -5627,7 +5630,7 @@ class ModelAttributes:
         - delim: delimiter to use in input strings
         """
         # get subsector attribute
-        attr_sec = self.dict_attributes.get("abbreviation_sector")
+        attr_sec = self.get_sector_attribute_table()
         dict_map = attr_sec.field_maps.get(f"{attr_sec.key}_to_sector")
         valid_sectors_project = [dict_map.get(x) for x in attr_sec.key_values]
 
