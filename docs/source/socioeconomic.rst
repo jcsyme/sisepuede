@@ -4,66 +4,52 @@ Socioeconomic
 
 The socioeconomic sector represents the primary drivers of emissions. These include economic and demographic factors that influence all emissions sectors of the economy. These factors are treated as exogenous uncertainties.
 
-General
-=======
-
-Variables by Category
----------------------
-
-.. csv-table:: For each general category category, trajectories of the following variables are needed.
-   :file: ./csvs/table_varreqs_by_category_se_gnrl.csv
-   :header-rows: 1
-
-Variables by Partial Category
------------------------------
-
-The general socioeconomic subsector includes some variables that apply only to a subset of categories. These variables are described below. The categories that variables apply to are described in the ``category`` column. If the variable applies to no specific categorical value, the entry will read **none**.
-
-.. csv-table:: Trajectories of the following variables are needed for **some** (or no) general categories.
-   :file: ./csvs/table_varreqs_by_partial_category_se_gnrl.csv
-   :header-rows: 1
+General (GNRL)
+==============
 
 Categories
 ----------
 
-General should be divided into the following categories, given by ``$CAT-GENERAL$``.
+Categories associated with the General subsector are identified by the ``$CAT-GENERAL$`` variable schema element and shown in the category attribute table shown below.
 
 .. csv-table:: General categories (``$CAT-GENERAL$`` attribute table)
    :file: ./csvs/attribute_cat_general.csv
    :header-rows: 1
 
-----
 
+Variables
+---------
 
-Economy
-=======
+Variables associated with the General subsector are shown below. 
 
-The *Economy* subsector is used to represent exogenous economic drivers of emissions and is separate from the economic impact analysis.
- .. note:: Gross Domestic Product (GDP) is entered as an exogenous uncertainty. Value added trajectories are included under ``$CAT-ECONOMY$`` and represent subsets of economic activity. The categories specified under ``$CAT-ECONOMY$`` do not have to be mutually exclusive, but they are considered exogenous and used to drive industrial emissions.
-
-Variables by Category
----------------------
-
-.. csv-table:: For each general exogenous economic category, trajectories of the following variables are needed.
-   :file: ./csvs/table_varreqs_by_category_se_econ.csv
+.. csv-table:: Trajectories of the following variables are needed for the General subsector. The categories that variables apply to are described in the ``category`` column.
+   :file: ./csvs/variable_definitions_se_gnrl.csv
    :header-rows: 1
 
 
-Variables by Partial Category
------------------------------
+----
 
-   The economy socioeconomic subsector includes some variables that apply only to a subset of categories. These variables are described below. The categories that variables apply to are described in the ``category`` column. If the variable applies to no specific categorical value, the entry will read **none**.
 
-   .. csv-table:: Trajectories of the following variables are needed for **some** (or no) economy categories.
-      :file: ./csvs/table_varreqs_by_partial_category_se_econ.csv
-      :header-rows: 1
+Economy (ECON)
+==============
 
+The Economy subsector is used to represent exogenous economic drivers of emissions and is separate from the economic impact analysis. Note that Gross Domestic Product (GDP), which is treated as an exogenous uncertainty, in one of the key drivers of emissions, combining with elasticities to both GDP and GDP/capita to affect projections of future demands of products and transportation.
 
 
 Categories
 ----------
-Economic value added trajectories should be divided into the following categories, given by ``$CAT-ECONOMY$``.
+Categories associated with the Economy subsector are identified by the ``$CAT-ECONOMY$`` variable schema element and shown in the category attribute table shown below.
 
 .. csv-table:: Economy categories (``$CAT-ECONOMY$`` attribute table)
    :file: ./csvs/attribute_cat_economy.csv
+   :header-rows: 1
+
+
+Variables
+---------
+
+Variables associated with the Economy subsector are shown below. 
+
+.. csv-table:: Trajectories of the following variables are needed for the Economy subsector. The categories that variables apply to are described in the ``category`` column.
+   :file: ./csvs/variable_definitions_se_econ.csv
    :header-rows: 1

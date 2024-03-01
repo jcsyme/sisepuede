@@ -2,7 +2,7 @@
 Energy - Electricity and Fuel Production
 ========================================
 
-Electricity and fuel production are modeled using `Julia NemoMod <https://sei-international.github.io/NemoMod.jl/stable/>`_ (`access the Julia GitHub repository here <https://github.com/sei-international/NemoMod.jl/>`_), an energy framework developed by the `Stockholm Environmental Institute <https://www.sei.org>`_. Two key subsectors are exclusive to electricity and fuel production (* indicates non-emission subsector): 
+Electricity and Fuel Production is modeled using `Julia NemoMod <https://sei-international.github.io/NemoMod.jl/stable/>`_ (`access the Julia GitHub repository here <https://github.com/sei-international/NemoMod.jl/>`_), an energy framework developed by the `Stockholm Environmental Institute <https://www.sei.org>`_. Two key subsectors are exclusive to electricity and fuel production (* indicates non-emission subsector): 
 
 * Energy Technology (ENTC--NOTE this is marked as **Electricity and Fuel Production** on the `SISEPUEDE DAG <./sisepuede_concept.html>`_)
 * Energy Storage (ENST)*
@@ -37,69 +37,64 @@ NemoMod includes a range of tables used to integrate components of an energy sys
    :header-rows: 1
 
 
-
-Categories - Region
--------------------
-
-NemoMod allows users to specify regions, and policies can be modeled that represent cross-regional power transfers, storage, etc. In the SISEPUEDE NemoMod implementation, each country is treated as a region.
-
 ----
 
 
-Energy Storage (STORAGE)
-========================
+Energy Storage (ENST)
+=====================
 
 **DESCRIPTION OF STORAGE AND INTERACTIONS WITH TECH**
-
-
-Variables by Categories
------------------------
-
-The following variables are required for each category ``$CAT-STORAGE$``.
-
-.. csv-table:: For different Energy Storage categories, trajectories of the following variables are needed. The category for which variables are required is denoted in the *categories* column.
-   :file: ./csvs/table_varreqs_by_category_en_enst.csv
-   :header-rows: 1
 
 
 Categories
 ----------
 
-.. csv-table:: The following STORAGE dimensions are specified for the SISEPUEDE NemoMod model.
+Categories associated with Energy Storage are identified by the ``$CAT-STORAGE$`` variable schema element and shown in the category attribute table shown below.
+
+.. csv-table:: Energy Storage categories (``$CAT-STORAGE$`` attribute table) included in the SISEPUEDE NemoMod model.
    :file: ./csvs/attribute_cat_storage.csv
    :header-rows: 1
+
+
+Variables
+---------
+
+Variables associated with the Energy Storage subsector are shown below. 
+
+.. csv-table:: Trajectories of the following variables are needed for the Energy Storage subsector. The categories that variables apply to are described in the ``category`` column.
+   :file: ./csvs/variable_definitions_en_enst.csv
+   :header-rows: 1
+
 
 ---
 
 
 
-Energy Technology (TECHNOLOGY)
-==============================
+Energy Technology (ENTC)
+========================
 
-The SISEPUEDE model (v1.0) uses NemoMod *only* to model the electricity sector. Therefore, technologies are limited to power generation (power plants) and storage.
+The SISEPUEDE model (v1.0) uses NemoMod to model the production of energy, including:
 
-.. csv-table:: The following TECHNOLOGY dimensions are specified for the SISEPUEDE NemoMod model.
+* Electricity generation technology
+* Fuel production and refinement, including petroleum and natural gas
+* Mining and raw materials extraction, including coal mining and natural gas and oil exploration and extraction (*excluding* fugitive emissions, which are estimated in the `Fugitive Emissions (FGTV) <../energy_non_electric.html#fugitive-emissions-fgtv>`_ subsector)
+
+
+Categories
+----------
+
+Categories associated with Energy Technology are identified by the ``$CAT-TECHNOLOGY$`` variable schema element and shown in the category attribute table shown below.
+
+.. csv-table:: Technology categories (``$CAT-TECHNOLOGY$`` attribute table) included in the SISEPUEDE NemoMod model.
    :file: ./csvs/attribute_cat_technology.csv
    :header-rows: 1
 
 
-Variables by Category
----------------------
+Variables
+---------
 
-The following variables are required for each category ``$CAT-TECHNOLOGY$``. Note that these technologies represent consumers of fuel (including electricity); in SISEPUEDE, this is restricted to generation technology and storage.
+Variables associated with the Energy Technology subsector are shown below. 
 
-.. csv-table:: For each Energy Technology category, trajectories of the following variables are needed. The category for which variables are required is denoted in the *categories* column.
-   :file: ./csvs/table_varreqs_by_category_en_entc.csv
+.. csv-table:: Trajectories of the following variables are needed for the Energy Technology subsector. The categories that variables apply to are described in the ``category`` column.
+   :file: ./csvs/variable_definitions_en_entc.csv
    :header-rows: 1
-
-
-Variables by Partial Category
------------------------------
-
-The following variables are required for some categories ``$CAT-TECHNOLOGY$``.
-
-.. csv-table:: For different technology categories, trajectories of the following variables are needed. The category for which variables are required is denoted in the *categories* column.
-   :file: ./csvs/table_varreqs_by_partial_category_en_entc.csv
-   :header-rows: 1
-
-----

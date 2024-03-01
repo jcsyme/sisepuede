@@ -27,20 +27,32 @@ and are responsive to changes in trade and GDP, GDP/capita, and population.
 See the `AFOLU Mathematical Documentation <./mathdoc_afolu.htm>`_ for more information on the model structure, including mathematical formulae and assumptions.
 
 
-Agriculture
-===========
+Agriculture (AGRC)
+==================
 
 The **Agriculture** subsector is used to quantify emissions associated with growing crops, including emissions from the release of soil carbon, fertilizer applications and crop liming, crop burning, methane emissions from paddy rice fields, **AND MORE;CONTINUE**. Agriculture is divided into the following categories (crops), given by the metavariable ``$CAT-AGRICULTURE$``. Each crop should be associated an FAO classifications. `See the FAO <https://www.fao.org/waicent/faoinfo/economic/faodef/annexe.htm>`_ for the source of these classifications and a complete mapping of crop types to categories. On the git, the table ``ingestion/FAOSTAT/ref/attribute_fao_crop.csv`` contains the information mapping each crop to this crop type. Note, this table can be used to merge and aggregate data from FAO into these categories. If a crop type is not present in a country, set the associated area as a fraction of crop area to 0.
 
 .. note:: Carbon stocks are scaled by 44/12 to estimate :math:`\text{CO}_2` emissions. See Section 2.2.3 of the `IPCC Guidelines for National Greenhouse Gas Inventories <https://www.ipcc.ch/report/2019-refinement-to-the-2006-ipcc-guidelines-for-national-greenhouse-gas-inventories/>`_.
 
-Variables by Category
----------------------
+
+Categories
+----------
+
+Categories associated with Agriculture are identified by the ``$CAT-AGRICULTURE$`` variable schema element and shown in the category attribute table shown below. 
+
+.. csv-table:: Agricultural categories (``$CAT-AGRICULTURE$`` attribute table)
+   :file: ./csvs/attribute_cat_agriculture.csv
+   :header-rows: 1
+..   :widths: 15,15,30,15,10,15
+
+
+Variables
+---------
 
 Agriculture requires the following variables.
 
-.. csv-table:: For each agricultural category, trajectories of the following variables are needed.
-   :file: ./csvs/table_varreqs_by_category_af_agrc.csv
+.. csv-table:: Trajectories of the following variables are needed for the Agriculture subsector. The categories that variables apply to are described in the ``category`` column.
+   :file: ./csvs/variable_definitions_af_agrc.csv
    :header-rows: 1
 .. :widths: 20, 30, 30, 10, 10
 
@@ -49,55 +61,18 @@ Agriculture requires the following variables.
  | These variables are used in Equations 11.6 and 11.7 (Volume 4) of the IPCC NGHGI to estimate :math:`\text{N}_2\text{O}`
 
 
-Variables by Partial Category
------------------------------
-
- Agriculture includes some variables that apply only to a subset of categories. These variables are described below. The categories that variables apply to are described in the ``category`` column.
-
- .. csv-table:: Trajectories of the following variables are needed for **some** categories `$CAT-AGRICULTURE`. If they are independent of categories, the category will show up as **none**.
-    :file: ./csvs/table_varreqs_by_partial_category_af_agrc.csv
-    :header-rows: 1
-
-
-Categories
-----------
-
-Agriculture is divided into the following categories.
-
-.. csv-table:: Agricultural categories (``$CAT-AGRICULTURE$`` attribute table)
-   :file: ./csvs/attribute_cat_agriculture.csv
-   :header-rows: 1
-..   :widths: 15,15,30,15,10,15
-
-
-
-**Costs to be added**
-
 ----
 
-Forestry
-========
 
-Variables by Category
----------------------
-
-.. csv-table:: For each forest category, trajectories of the following variables are needed.
-   :file: ./csvs/table_varreqs_by_category_af_frst.csv
-   :header-rows: 1
-
-Variables by Partial Category
------------------------------
-
-Forestry includes some variables that apply only to a subset of categories. These variables are described below. The categories that variables apply to are described in the ``category`` column.
-
-.. csv-table:: Trajectories of the following variables are needed for **some** forest categories. If they are independent of categories, the category will show up as **none**.
-   :file: ./csvs/table_varreqs_by_partial_category_af_frst.csv
-   :header-rows: 1
+Forestry (FRST)
+===============
 
 Categories
 ----------
 
-Forestry is divided into the following categories. These categories reflect an aggregation of forestry types into emission-relevant categories. Note that areas of forested land are determined in the **Land Use** subsector. The land use at time *t* is determined by an ergodic Markov Chain (probabilities are set in the variable input table and subject to uncertainty using the mixing approach)
+Categories associated with Forestry are identified by the ``$CAT-FOREST$`` variable schema element and shown in the category attribute table shown below. 
+
+These categories reflect an aggregation of forestry types into emission-relevant categories. Note that areas of forested land are determined in the **Land Use** subsector. The land use at time *t* is determined by an ergodic Markov Chain (probabilities are set in the variable input table and subject to uncertainty using the mixing approach)
 
 .. csv-table:: Forest categories (``$CAT-FOREST$`` attribute table)
    :file: ./csvs/attribute_cat_forest.csv
@@ -105,10 +80,21 @@ Forestry is divided into the following categories. These categories reflect an a
 ..   :widths: 15,15,30,15,10,15
 
 
+Variables
+---------
+
+Variables associated with the Forestry subsector are denoted below. 
+
+.. csv-table:: Trajectories of the following variables are needed for the Forestry subsector. The categories that variables apply to are described in the ``category`` column.
+   :file: ./csvs/variable_definitions_af_frst.csv
+   :header-rows: 1
+
+
 ----
 
-Land Use
-========
+
+Land Use (LNDU)
+===============
 
 Land use projections are driven by a Markov Chain, represented by a transition matrix :math:`Q(t)` (the matrix is specified for each time period in the input template). The model requires initial states (entered as a fraction of total land area) for all land use categories ``$CAT-LANDUSE$``. See the `AFOLU Mathematical Documentation <./mathdoc_afolu.htm>`_ for more information on the integrated land use model.
 
@@ -142,143 +128,127 @@ The value of :math:`\eta` represents the fraction of unmet demand, in pasture an
    #. decrease_and_increase: If the demand for cropland and/or pasture **decreases** or **increases**, then transition probabilities out of land use categories specified as Reallocation Transition Probability Exhaustion Categories (into cropland or pastures) will be minimized or maximized (respectively) before scaling other inbound transition probabilities (they are bound by 0 and 1, respectively).
 
 
-Fraction of Increasing Net Exports/Imports Met
-^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+Changes to Net Exports/Imports
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-Text here
+Text here describing the mass balance modifications
 
-
-Variables by Category
----------------------
-
-.. csv-table:: For each land use category, trajectories of the following variables are needed.
-   :file: ./csvs/table_varreqs_by_category_af_lndu.csv
-   :header-rows: 1
-
-Variables by Partial Category
------------------------------
-
-Land use includes some variables that apply only to a subset of categories. These variables are described below. The categories that variables apply to are described in the ``category`` column.
-
-.. note::
-   Note that the sum of all initial fractions of area across land use categories *u* should be should equal 1to , i.e. :math:`\sum_u \varphi_u = 1`, where :math:`\varphi_{\text{$CAT-LANDUSE$}} \to` ``frac_lu_$CAT-LANDUSE$`` at period *t*.
-
-.. csv-table:: Trajectories of the following variables are needed for **some** land use categories.
-   :file: ./csvs/table_varreqs_by_partial_category_af_lndu.csv
-   :header-rows: 1
-.. :widths: 15, 15, 20, 10, 10, 10, 10, 10
 
 Categories
 ----------
 
-Land use should be divided into the following categories, given by ``$CAT-LANDUSE$``.
+Categories associated with Land Use are identified by the ``$CAT-LAND-USE$`` variable schema element and shown in the category attribute table shown below. 
 
 .. csv-table:: Land Use categories (``$CAT-LANDUSE$`` attribute table)
    :file: ./csvs/attribute_cat_land_use.csv
    :header-rows: 1
 
+
+Variables
+---------
+
+Variables associated with the Land Use subsector are shown below. 
+
+.. csv-table:: Trajectories of the following variables are needed for the Land Use subsector. The categories that variables apply to are described in the ``category`` column.
+   :file: ./csvs/variable_definitions_af_lndu.csv
+   :header-rows: 1
+
+
 ----
 
 
-Livestock
-=========
+Livestock (LVST)
+================
 
-For each category, the following variables are needed. Information on enteric fermentation can be found from `the EPA <https://www3.epa.gov/ttnchie1/ap42/ch14/final/c14s04.pdf>`_ and **ADDITIONAL LINKS HERE**.
-
-Variables by Category
----------------------
-
-.. csv-table:: For each livestock category, trajectories of the following variables are needed.
-   :file: ./csvs/table_varreqs_by_category_af_lvst.csv
-   :header-rows: 1
-
-
-Variables by Partial Category
------------------------------
-
-Livestock includes some variables that apply only to a subset of categories. These variables are described below. The categories that variables apply to are described in the ``category`` column.
-
-.. csv-table:: Trajectories of the following variables are needed for **some** livestock categories.
-   :file: ./csvs/table_varreqs_by_partial_category_af_lvst.csv
-   :header-rows: 1
+The Livestock sector accounts for emissions from livestock, primarily from enteric fermentation from ruminants. Emissions from livestock manure are accounted for in the Livestock Manure Management (LSMM) subsector. Information on enteric fermentation can be found from `the EPA <https://www3.epa.gov/ttnchie1/ap42/ch14/final/c14s04.pdf>`_ and **ADDITIONAL LINKS HERE**. The Livetock subsector also is used to estimate changes in livestock demands, imports, exports, and subsequent population (in conjunction with the Land Use Reallocation Factor and the Land Use subsector).
 
 
 Categories
 ----------
 
-Livestock should be divided into the following categories, given by ``$CAT-LIVESTOCK$``.
+Categories associated with Transportation are identified by the ``$CAT-LIVESTOCK$`` variable schema element and shown in the category attribute table shown below. 
 
-.. note::
-   Animal weights are only used to estimate the increase in protein consumption in liquid waste (which contribute to :math:`\text{N}_2\text{O}` emissions). All estimates are adapted from `Holechek 1988 <https://journals.uair.arizona.edu/index.php/rangelands/article/download/10362/9633>`_ (using 2.2 lbs/kg) unless otherwise noted.
+
+.. note:: Animal weights are only used to estimate the increase in protein consumption in liquid waste (which contribute to :math:`\text{N}_2\text{O}` emissions). All estimates are adapted from `Holechek 1988 <https://journals.uair.arizona.edu/index.php/rangelands/article/download/10362/9633>`_ (using 2.2 lbs/kg) unless otherwise noted.
 
 .. csv-table:: Livestock categories (``$CAT-LIVESTOCK$`` attribute table)
    :file: ./csvs/attribute_cat_livestock.csv
    :header-rows: 1
 
 
+Variables
+---------
 
-Livestock Manure Management
-===========================
+Variables associated with the Livestock subsector are shown below. 
 
-EXPLANATION HERE
-
-Variables by Category
----------------------
-
-.. csv-table:: For each livestock category, trajectories of the following variables are needed.
-   :file: ./csvs/table_varreqs_by_category_af_lsmm.csv
+.. csv-table:: Trajectories of the following variables are needed for the Livestock subsector. The categories that variables apply to are described in the ``category`` column.
+   :file: ./csvs/variable_definitions_af_lvst.csv
    :header-rows: 1
 
 
-Variables by Partial Category
------------------------------
+----
 
-Livestock manure management includes some variables that apply only to a subset of categories. These variables are described below. The categories that variables apply to are described in the ``category`` column.
 
-   .. csv-table:: Trajectories of the following variables are needed for **some** livestock manure management categories.
-      :file: ./csvs/table_varreqs_by_partial_category_af_lsmm.csv
-      :header-rows: 1
+Livestock Manure Management (LSMM)
+==================================
+
+The Livestock Manure Management (LSMM) subsector accounts for emissions resulting from the storage and processing of manure resulting from livestock. It includes a number of treatment pathways and integrations with other sectors, including: 
+
+* Livestock: estimates of manure production are derived from the Livestock subsector
+* Soil: organic fertilizer emissions from manure application are accounted
+* Energy Technology: Biogas captured from anaerobic digestion for the purposes of use in energy production is passed to ENTC
 
 
 Categories
 ----------
 
-Manure management is divided into the following categories, given by ``$CAT-MANURE-MANAGEMENT$``.
+Categories associated with Livestock Manure Management are identified by the ``$CAT-MANURE-MANAGEMENT$`` variable schema element and shown in the category attribute table shown below. 
 
 .. csv-table:: Livestock manure management categories (``$CAT-MANURE-MANAGEMENT$`` attribute table)
    :file: ./csvs/attribute_cat_manure_management.csv
    :header-rows: 1
 
 
+Variables
+---------
 
-Soil Management
-===============
+Variables associated with the Livestock Manure Management subsector are shown below. 
 
-EXPLANATION HERE
-
-Variables by Category
----------------------
-
-.. csv-table:: For each soil management category, trajectories of the following variables are needed.
-   :file: ./csvs/table_varreqs_by_category_af_soil.csv
+.. csv-table:: Trajectories of the following variables are needed for the Livestock Manure Management subsector. The categories that variables apply to are described in the ``category`` column.
+   :file: ./csvs/variable_definitions_af_lsmm.csv
    :header-rows: 1
 
 
-Variables by Partial Category
------------------------------
+----
 
-   Soil management includes some variables that apply only to a subset of categories. These variables are described below. The categories that variables apply to are described in the ``category`` column.
 
-   .. csv-table:: Trajectories of the following variables are needed for **some** soil management categories.
-      :file: ./csvs/table_varreqs_by_partial_category_af_soil.csv
-      :header-rows: 1
+Soil Management (SOIL)
+======================
+
+In practice, the Soil Management subector overarches AFOLU, accounts for emissions from a number of organic, agricultural, and land use conversion processeses. Notably, the sector accounts for soil carbon emissions from no-till practices, soil carbon emissions from land use conversion (biomass conversion is accounted for in the Land Use subsector), and a number of emissions coming from the application of organic and synthetic fetilizers and liming.
+
+The Soil subsector integrates directly with the following other subsectors:
+
+* Agriculture:
+* Land Use
+* Livestock Manure Management:
 
 
 Categories
 ----------
 
-Soil management is divided into the following categories, given by ``$CAT-SOIL-MANAGEMENT$``.
+Categories associated with Soil Management are identified by the ``$CAT-SOIL-MANAGEMENT$`` variable schema element and shown in the category attribute table shown below. 
 
-.. csv-table:: Soil management categories (``$CAT-SOIL-MANAGEMENT$`` attribute table)
+.. csv-table:: Soil Management categories (``$CAT-SOIL-MANAGEMENT$`` attribute table)
    :file: ./csvs/attribute_cat_soil_management.csv
+   :header-rows: 1
+
+
+Variables
+---------
+
+Variables associated with the Soil Management subsector are shown below. 
+
+.. csv-table:: Trajectories of the following variables are needed for the Soil Management subsector. The categories that variables apply to are described in the ``category`` column.
+   :file: ./csvs/variable_definitions_af_soil.csv
    :header-rows: 1
