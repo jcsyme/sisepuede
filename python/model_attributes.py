@@ -2619,6 +2619,67 @@ class ModelAttributes:
 
 
         return out
+    
+
+
+    def filter_keys_by_attribute(self, #FIXED
+        subsector: Union[str, AttributeTable],
+        dict_subset: dict,
+        attribute_type: str = "primary_category",
+        dict_as_exclusionary: bool = False,
+        subsector_extract_key: Union[str, None] = None,
+    ) -> Union[list, None]:
+        """
+        Return categories from an attribute table that match some 
+            characteristics (defined in dict_subset)
+
+        Function Arguments
+        ------------------
+        - subsector: name of subsector, or, unsafe allowance to pass attribute
+            table
+        - dict_subset: dictionary to use for subsetting
+
+        Keyword Arguments
+        -----------------
+        - attribute_type: "primary_category" or "variable_definitions"
+        - dict_as_exclusionary: set to True to *exclude* values passed in the 
+            dictionary
+        - subsector_extract_key: optional key to specity to retrieve. If None,
+            retrieves subsector attribute key
+        """
+        #
+        attr = (
+            self.get_attribute_table(subsector, attribute_type)
+            if isinstance(subsector, str)
+            else subsector
+        )
+
+        if attr is None:
+            return None
+
+        subsector_extract_key = (
+            subsector_extract_key
+            if isinstance(subsector_extract_key, str) & (subsector_extract_key in attr.table.columns)
+            else attr.key
+        )
+
+        # 
+        return_val = list(
+            sf.subset_df(
+                attr.table, 
+                dict_subset,
+                dict_as_exclusionary = dict_as_exclusionary,
+            )[subsector_extract_key]
+        )
+        
+        # ensure proper sorting
+        return_val = (
+            [x for x in attr.key_values if x in return_val] 
+            if subsector_extract_key == attr.key
+            else return_val
+        )
+
+        return return_val
 
 
 
@@ -2751,67 +2812,33 @@ class ModelAttributes:
                 ret = tab_red[0]
 
         return ret
+    
 
 
-
-    def filter_keys_by_attribute(self, #FIXED
-        subsector: Union[str, AttributeTable],
-        dict_subset: dict,
-        attribute_type: str = "primary_category",
-        dict_as_exclusionary: bool = False,
-        subsector_extract_key: Union[str, None] = None,
-    ) -> Union[list, None]:
+    def get_category_replacement_field_dict(self,
+        modvar: Union[str, mv.ModelVariable],
+    ) -> Union[dict, None]:
         """
-        Return categories from an attribute table that match some 
-            characteristics (defined in dict_subset)
-
-        Function Arguments
-        ------------------
-        - subsector: name of subsector, or, unsafe allowance to pass attribute
-            table
-        - dict_subset: dictionary to use for subsetting
-
-        Keyword Arguments
-        -----------------
-        - attribute_type: "primary_category" or "variable_definitions"
-        - dict_as_exclusionary: set to True to *exclude* values passed in the 
-            dictionary
-        - subsector_extract_key: optional key to specity to retrieve. If None,
-            retrieves subsector attribute key
+        Replace SISEPUEDE categories with the target field associated with the
+            model variable `modvar`. Returns None if the variable is not 
+            associated with a category.
         """
-        #
-        attr = (
-            self.get_attribute_table(subsector, attribute_type)
-            if isinstance(subsector, str)
-            else subsector
-        )
-
-        if attr is None:
+        
+        cats = self.get_variable_categories(modvar)
+        if cats is None:
             return None
 
-        subsector_extract_key = (
-            subsector_extract_key
-            if isinstance(subsector_extract_key, str) & (subsector_extract_key in attr.table.columns)
-            else attr.key
-        )
-
-        # 
-        return_val = list(
-            sf.subset_df(
-                attr.table, 
-                dict_subset,
-                dict_as_exclusionary = dict_as_exclusionary,
-            )[subsector_extract_key]
-        )
-        
-        # ensure proper sorting
-        return_val = (
-            [x for x in attr.key_values if x in return_val] 
-            if subsector_extract_key == attr.key
-            else return_val
-        )
-
-        return return_val
+        dict_repl_categories_with_fields = {}
+        for cat in cats:
+            field = self.build_varlist(
+                None,
+                modvar,
+                restrict_to_category_values = [cat],
+            )[0]
+            
+            dict_repl_categories_with_fields.update({cat: fields})
+            
+        return dict_repl_categories_with_fields
     
 
 
@@ -3271,7 +3298,7 @@ class ModelAttributes:
 
     
         # otherwise, get abbreviation
-        dict_subsec_to_abv = attr_subsector.field_maps.get(f"subsector_to_abbreviation_subsector")
+        dict_subsec_to_abv = attr_subsector.field_maps.get(f"subsector_to_{attr_subsector.key}")
         if not isinstance(dict_subsec_to_abv, dict):
             return None
 
@@ -3305,6 +3332,12 @@ class ModelAttributes:
             """
             raise RuntimeError(msg)
         
+        # otherwise, try to retrieve an attribute from the table
+        attr_try_out = attr_subsector.get_attribute(abv_subsector, return_type)
+        if attr_try_out is not None:
+            return attr_try_out
+
+        
         # warn user, but still allow a return
         valid_rts = [
             "abv_sector",
@@ -3313,6 +3346,9 @@ class ModelAttributes:
             "pycategory_primary",
             "sector"
         ]
+        valid_rts.extend(
+            [x for x in attr_subsector.table.columns if x not in valid_rts]
+        )
 
         valid_rts = sf.format_print_list(valid_rts)
         msg = f"""
