@@ -845,6 +845,7 @@ class IterativeDatabaseTable:
 			return df_write, None, None
 
 		set_new_indices, set_shared_indices = check_indices_tuple
+		df_out = None
 
 		# case where the data frame is missing required columns - return df_write as None
 		if (set_new_indices is None) and (set_shared_indices is None):
@@ -874,11 +875,16 @@ class IterativeDatabaseTable:
 		if index_conflict_resolution == "stop":
 			raise RuntimeError(msg_str)
 
+
 		# SKIP on conflict, and stash the entire dataframe
 		elif index_conflict_resolution == "skip":
+
 			set_indices_to_stash = set_new_indices
 			self._stash(df_write)
-			return None, set_indices_to_write, set_indices_to_stash
+			out = (df_out, set_indices_to_write, set_indices_to_stash) # df_out is None
+
+			return out
+
 
 		# ATTEMPT TO REPLACE rows with existing indices - only applicable if interaction type is SQL
 		#   defaults to write_stash if the query fails
@@ -903,15 +909,33 @@ class IterativeDatabaseTable:
 				self._log(f"Successfully removed index rows for overwrite in {self.table_name} in SQL.", type_log = "info")
 
 			except Exception as e:
-				self._log(f"Deletion of rows failed: {e}. Setting index_conflict_resolution = 'write_skip'", type_log = "warning")
+				self._log(
+					f"Deletion of rows failed: {e}. Setting index_conflict_resolution = 'write_skip'", 
+					type_log = "warning",
+				)
 				index_conflict_resolution == "write_skip"
 
-		# SKIP AND STASH - break out to allow write_replace to shift to write_skip on a fail
-		if (index_conflict_resolution == "write_skip") or ((self.interaction_type == "csv") and (index_conflict_resolution == "write_replace")):
+
+
+		##  SKIP AND STASH - break out to allow write_replace to shift to write_skip on a fail
+		#  - note: depends on other conditionals, so leave as an 'if' statement
+
+		skip_and_stash = (index_conflict_resolution == "write_skip")
+		skip_and_stash |= ((self.interaction_type == "csv") and (index_conflict_resolution == "write_replace"))
+
+		if skip_and_stash:
 			set_indices_to_write = set_new_indices.difference(set_shared_indices)
 			set_indices_to_stash = set_shared_indices
 			df_out = self.filter_data_frame_from_index_tuples(df_write, set_indices_to_write)
-			df_stash = self.filter_data_frame_from_index_tuples(df_write, set_shared_indices) if self.keep_stash else None
+
+			df_stash = (
+				self.filter_data_frame_from_index_tuples(
+					df_write, 
+					set_shared_indices
+				) 
+				if self.keep_stash 
+				else None
+			)
 			self._stash(df_stash)
 
 

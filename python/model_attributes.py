@@ -2828,15 +2828,16 @@ class ModelAttributes:
         if cats is None:
             return None
 
-        dict_repl_categories_with_fields = {}
-        for cat in cats:
-            field = self.build_varlist(
-                None,
-                modvar,
-                restrict_to_category_values = [cat],
-            )[0]
-            
-            dict_repl_categories_with_fields.update({cat: fields})
+        dict_repl_categories_with_fields = dict(
+            (
+                cat,
+                self.build_variable_fields(
+                    modvar,
+                    restrict_to_category_values = cat,
+                )
+            )
+            for cat in cats
+        )
             
         return dict_repl_categories_with_fields
     

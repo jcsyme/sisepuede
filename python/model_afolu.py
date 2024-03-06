@@ -840,54 +840,9 @@ class AFOLU:
 
 
 
-    ######################################
-    #    SUBSECTOR SPECIFIC FUNCTIONS    #
-    ######################################
-
-    ###   AGRICULTURE
-
-    def check_cropland_fractions(self,
-        df_in: pd.DataFrame,
-        frac_type: str = "initial",
-        thresh_for_correction: float = 0.01,
-    ) -> np.ndarray:
-        """
-        Check cropland fractions and extract from data frame. Returns np.ndarray
-            ordered by AGRC attribute keys
-        """
-        if frac_type not in ["initial", "calculated"]:
-            raise ValueError(f"Error in frac_type '{frac_type}': valid values are 'initial' and 'calculated'.")
-
-        varname = (
-            self.modvar_agrc_area_prop_init 
-            if frac_type == "initial"
-            else self.modvar_agrc_area_prop_calc
-        )
-
-        arr = self.model_attributes.extract_model_variable(#
-            df_in, 
-            varname, 
-            override_vector_for_single_mv_q = True, 
-            return_type = "array_base",
-        )
-
-        totals = sum(arr.transpose())
-        m = max(np.abs(totals - 1))
-        if m > thresh_for_correction:
-            msg = f"""
-                Invalid crop areas found in check_cropland_fractions. The
-                maximum fraction total was {m}; the maximum allowed deviation 
-                from 1 is {thresh_for_correction}.
-            """
-            raise ValueError(msg)
-
-        arr = (arr.transpose()/totals).transpose()
-
-        return arr
-
-
-
-    ###   LAND USE
+    ###########################
+    #    SUPPORT FUNCTIONS    #
+    ###########################
 
     def adjust_transition_matrix(self,
         mat: np.ndarray,
@@ -1053,6 +1008,86 @@ class AFOLU:
 
 
 
+    def back_project_hwp_c_k(self,
+        n_tps_lookback: int,
+        vec_frst_c_paper: np.ndarray,
+        vec_frst_c_wood: np.ndarray,
+        vec_frst_k_hwp_paper: np.ndarray,
+        vec_frst_k_hwp_wood: np.ndarray,
+        n_tps_mean: int = 5,
+    ) -> Union[Tuple[np.ndarray], None]:
+        """
+        Back project carbon stored in wood and paper products (c) and the exponential decay parameter k.
+
+        Returns a tuple with the following elements:
+
+            (
+                vec_frst_c_paper,
+                vec_frst_c_wood,
+                vec_frst_k_hwp_paper,
+                vec_frst_k_hwp_wood,
+            )
+            
+
+        Function Arguments
+        ------------------
+        - n_tps_lookback: number of time periods to look back
+        - vec_frst_c_paper: vector of c stored in paper products
+        - vec_frst_c_wood: vector of c stored in wood products
+        - vec_frst_k_hwp_paper: vector of decay variable k for paper
+        - vec_frst_k_hwp_wood: vector of decay variable k for wood
+
+        Keyword Arguments
+        -----------------
+        - n_tps_mean: number of years to use to generate the mean rate of growth in HWP. Will not, in practice, exceed the number of observed years
+        """
+        # return None if the lookback is invalid
+        if n_tps_lookback <= 0:
+            return None
+
+        # need to subtract 1 because we apply the mean to rates
+        n_tps_mean = max(n_tps_mean, 1)
+        n_tps_mean = min(n_tps_mean, len(vec_frst_c_paper) - 1)
+
+        # back-project previous paper products
+        r_paper = np.mean(vec_frst_c_paper[1:(1 + n_tps_mean)]/vec_frst_c_paper[0:n_tps_mean])
+        vec_frst_c_paper = np.concatenate([
+            np.array(
+                [
+                    vec_frst_c_paper[0]*(r_paper**(x - n_tps_lookback)) 
+                    for x in range(n_tps_lookback)
+                ]
+            ),
+            #vec_frst_c_paper[0]*(r_paper**(np.arange(n_tps_lookback) - n_tps_lookback))
+            vec_frst_c_paper
+        ])
+         
+
+        # back-project previous wood products
+        r_wood = np.mean(vec_frst_c_wood[1:(1 + n_tps_mean)]/vec_frst_c_wood[0:n_tps_mean])
+        vec_frst_c_wood = np.concatenate([
+            np.array(
+                [
+                    vec_frst_c_wood[0]*(r_wood**(x - n_tps_lookback)) 
+                    for x in range(n_tps_lookback)
+                ]
+            ),
+            vec_frst_c_wood
+        ])
+        vec_frst_k_hwp_paper = np.concatenate([np.array([vec_frst_k_hwp_paper[0] for x in range(n_tps_lookback)]), vec_frst_k_hwp_paper])
+        vec_frst_k_hwp_wood = np.concatenate([np.array([vec_frst_k_hwp_wood[0] for x in range(n_tps_lookback)]), vec_frst_k_hwp_wood])
+
+        tup_out = (
+            vec_frst_c_paper,
+            vec_frst_c_wood,
+            vec_frst_k_hwp_paper,
+            vec_frst_k_hwp_wood,
+        )
+
+        return tup_out
+
+
+
     def calculate_ipcc_soc_deltas(self,
         vec_soc: np.ndarray,
         approach: int = 1
@@ -1184,12 +1219,53 @@ class AFOLU:
             v_out[i:min(n, i + D)] += v_cur[0:min(D, n - i)]
 
         return v_out
+    
+
+
+    def check_cropland_fractions(self,
+        df_in: pd.DataFrame,
+        frac_type: str = "initial",
+        thresh_for_correction: float = 0.01,
+    ) -> np.ndarray:
+        """
+        Check cropland fractions and extract from data frame. Returns np.ndarray
+            ordered by AGRC attribute keys
+        """
+        if frac_type not in ["initial", "calculated"]:
+            raise ValueError(f"Error in frac_type '{frac_type}': valid values are 'initial' and 'calculated'.")
+
+        varname = (
+            self.modvar_agrc_area_prop_init 
+            if frac_type == "initial"
+            else self.modvar_agrc_area_prop_calc
+        )
+
+        arr = self.model_attributes.extract_model_variable(#
+            df_in, 
+            varname, 
+            override_vector_for_single_mv_q = True, 
+            return_type = "array_base",
+        )
+
+        totals = sum(arr.transpose())
+        m = max(np.abs(totals - 1))
+        if m > thresh_for_correction:
+            msg = f"""
+                Invalid crop areas found in check_cropland_fractions. The
+                maximum fraction total was {m}; the maximum allowed deviation 
+                from 1 is {thresh_for_correction}.
+            """
+            raise ValueError(msg)
+
+        arr = (arr.transpose()/totals).transpose()
+
+        return arr
 
 
 
     def check_markov_shapes(self, 
         arrs: np.ndarray, 
-        function_var_name:str
+        function_var_name:str,
     ) -> None:
         """
         Check the shape of transition/emission factor matrices sent to 
@@ -1287,7 +1363,6 @@ class AFOLU:
 
         return out
     
-
 
 
     def get_lndu_soil_soc_factors(self,
@@ -2852,9 +2927,13 @@ class AFOLU:
         - dict_check_integrated_variables:
         """
 
+        # initialize some small checks and shorthands 
+        check_ippu = dict_check_integrated_variables.get(self.subsec_name_ippu)
+        check_scoe = dict_check_integrated_variables.get(self.subsec_name_scoe)
+        historical_method = self.model_attributes.configuration.get("historical_harvested_wood_products_method")
 
         # IPPU components
-        if dict_check_integrated_variables[self.subsec_name_ippu]:
+        if check_ippu is not None:
 
             # get projections of industrial wood and paper product demand
             attr_ippu = self.model_attributes.get_attribute_table(self.subsec_name_ippu)
@@ -2918,7 +2997,7 @@ class AFOLU:
         )
 
         # If energy components are available, scale hh demand from SCOE
-        if dict_check_integrated_variables[self.subsec_name_scoe]:
+        if check_scoe is not none:
 
             # get changes in biomass energy demand for stationary emissions (largely driven by wood)
             df_scoe = self.model_energy.project_scoe(
@@ -2954,6 +3033,7 @@ class AFOLU:
             # assume growth proportional to HHs
             vec_frst_harvested_wood_domestic *= vec_hh
 
+
         # get half-life factors for FOD model
         vec_frst_k_hwp_paper = self.model_attributes.extract_model_variable(#
             df_afolu_trajectories,
@@ -2980,38 +3060,26 @@ class AFOLU:
         self.vec_frst_c_wood = vec_frst_c_wood
 
         # set a lookback based on some number of years (max half-life to estimate some amount of carbon stock)
-        if self.model_attributes.configuration.get("historical_harvested_wood_products_method") == "back_project":
-            n_years_lookback = int(self.model_attributes.configuration.get("historical_back_proj_n_periods"))#int(np.round(np.log(2)*max(max(1/vec_frst_k_hwp_paper), max(1/vec_frst_k_hwp_wood))))
-            
+        if historical_method == "back_project":
+
+            n_years_lookback = int(self.model_attributes.configuration.get("historical_back_proj_n_periods"))
+
             if n_years_lookback > 0:
-                # need to subtract 1 because we apply the mean to rates
-                n_years_mean = min(5, len(vec_frst_c_paper) - 1)
+                
+                (
+                    vec_frst_c_paper,
+                    vec_frst_c_wood,
+                    vec_frst_k_hwp_paper,
+                    vec_frst_k_hwp_wood,
+                ) = self.back_project_hwp_c_k(
+                    n_years_lookback,
+                    vec_frst_c_paper,
+                    vec_frst_c_wood,
+                    vec_frst_k_hwp_paper,
+                    vec_frst_k_hwp_wood,
+                )
 
-                # back-project previous paper products
-                r_paper = np.mean(vec_frst_c_paper[1:(1 + n_years_mean)]/vec_frst_c_paper[0:n_years_mean])
-                vec_frst_c_paper = np.concatenate([
-                    np.array(
-                        [
-                            vec_frst_c_paper[0]*(r_paper**(x - n_years_lookback)) 
-                            for x in range(n_years_lookback)
-                        ]
-                    ),
-                    vec_frst_c_paper
-                ])
 
-                # back-project previous wood products
-                r_wood = np.mean(vec_frst_c_wood[1:(1 + n_years_mean)]/vec_frst_c_wood[0:n_years_mean])
-                vec_frst_c_wood = np.concatenate([
-                    np.array(
-                        [
-                            vec_frst_c_wood[0]*(r_wood**(x - n_years_lookback)) 
-                            for x in range(n_years_lookback)
-                        ]
-                    ),
-                    vec_frst_c_wood
-                ])
-                vec_frst_k_hwp_paper = np.concatenate([np.array([vec_frst_k_hwp_paper[0] for x in range(n_years_lookback)]), vec_frst_k_hwp_paper])
-                vec_frst_k_hwp_wood = np.concatenate([np.array([vec_frst_k_hwp_wood[0] for x in range(n_years_lookback)]), vec_frst_k_hwp_wood])
         else:
             # set up n_years_lookback to be based on historical
             n_years_lookback = 0
@@ -3794,6 +3862,17 @@ class AFOLU:
 
         ##  HARVESTED WOOD PRODUCTS
 
+        self.tup_tmp = (
+            vec_hh,
+            vec_gdp,
+            vec_rates_gdp,
+            vec_rates_gdp_per_capita,
+            dict_dims,
+            n_projection_time_periods,
+            projection_time_periods,
+        )
+        self.df_afolu_trajectories_tmp = df_afolu_trajectories.copy()
+
         # add to output
         df_out += self.project_harvested_wood_products(
             df_afolu_trajectories,
@@ -3804,7 +3883,7 @@ class AFOLU:
             dict_dims,
             n_projection_time_periods,
             projection_time_periods,
-            self.dict_integration_variables_by_subsector
+            self.dict_integration_variables_by_subsector,
         )
 
 
