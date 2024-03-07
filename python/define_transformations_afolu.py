@@ -1387,7 +1387,7 @@ class TransformationsAFOLU:
         df_out = tba.transformation_agrc_increase_crop_productivity(
             df_input,
             # CHANGEDFORINDIA - ORIG 0.2
-            0.4, # can be specified as dictionary to affect different crops differently HEREHERE
+            0.4, # can be specified as dictionary to affect different crops differently 
             self.vec_implementation_ramp,
             self.model_attributes,
             model_afolu = self.model_afolu,
@@ -1397,6 +1397,57 @@ class TransformationsAFOLU:
 
         return df_out
 
+
+
+    def transformation_agrc_decrease_climate_productivity_climate_india(self,
+        df_input: Union[pd.DataFrame, None] = None,
+        strat: Union[int, None] = None,
+    ) -> pd.DataFrame:
+        """
+        Implement the "Increase Crop Productivity" AGRC transformation on input 
+            DataFrame df_input. 
+        """
+        # check input dataframe
+        df_input = (
+            self.baseline_inputs
+            if not isinstance(df_input, pd.DataFrame) 
+            else df_input
+        )
+
+        # see excel for this
+        dict_climate_impacts = {
+            "cereals": -0.1113,
+            "fruits": -0.097,
+            "other_annual": -0.1677,
+            "pulses": -0.04,
+            "rice": -0.177,
+            "tubers": 0.099,
+            "vegetables_and_vines": -0.097,
+        }
+        impacts_mean = np.mean(np.array(dict_climate_impacts.values()))
+        
+        df_out = df_input.copy()
+
+        # get ag cats
+        cats_ag = self.model_attribtues.get_attribute_table(self.model_attribtues.subsec_name_agrc)
+        cats_ag = cats_ag.key_values
+
+        for cat in cats_ag:
+            # get mean value if otherwise undefined
+            val = dict_climate_impacts.get(cat, impacts_mean)
+        
+            df_out = tba.transformation_agrc_increase_crop_productivity(
+                df_out,
+                val, # can be specified as dictionary to affect different crops differently HEREHERE
+                self.vec_implementation_ramp,
+                self.model_attributes,
+                categories = [cat],
+                field_region = self.key_region,
+                model_afolu = self.model_afolu,
+                strategy_id = strat,
+            )
+
+        return df_out
 
 
     def transformation_agrc_reduce_supply_chain_losses(self,

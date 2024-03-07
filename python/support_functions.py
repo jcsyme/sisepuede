@@ -2407,8 +2407,8 @@ def read_yaml(
     -----------------
     - munchify_dict: convert to Munch object (nested class dictionaries)
     """
-
-    return_none = not isinstance(fp, str)
+    return_none = not isinstance(fp, str) 
+    
     return_none |= (
         not os.path.exists(fp)
         if not return_none

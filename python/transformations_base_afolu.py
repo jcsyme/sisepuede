@@ -245,7 +245,7 @@ def transformation_agrc_increase_crop_productivity(
     # check category specification
     categories = model_attributes.get_valid_categories(
         categories,
-        model_attributes.subsec_name_agrc
+        model_attributes.subsec_name_agrc,
     )
     if categories is None:
         # LOGGING

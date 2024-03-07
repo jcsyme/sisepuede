@@ -789,6 +789,21 @@ class TransformationsIntegrated:
         all_transformations.append(self.pflo_all_with_partial_reallocation)
 
 
+        ##  BUILD AN INDIA PLUR THAT INCLUDES CLIMATE (FLAG:INDIA)
+        
+        function_list_plur_india = function_list_plur.copy()
+        function_list_plur_india.append(
+            self.transformations_afolu.transformation_agrc_decrease_climate_productivity_climate_india
+        )
+
+        self.pflo_all_with_partial_reallocation = sc.Transformation(
+            "PFLO:ALL_PLUR_INDIA_CC", 
+            function_list_plur, 
+            attr_strategy
+        )
+        all_transformations.append(self.pflo_all_with_partial_reallocation)
+
+
         ##  EXPLORE ALL W/O SILVOPASTURE (EXPLORATORY ONLY)
 
         function_list_plur_no_silvopasture = function_list_plur.copy()

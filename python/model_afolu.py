@@ -1045,37 +1045,41 @@ class AFOLU:
         if n_tps_lookback <= 0:
             return None
 
-        # need to subtract 1 because we apply the mean to rates
+        # initialize time periods
         n_tps_mean = max(n_tps_mean, 1)
-        n_tps_mean = min(n_tps_mean, len(vec_frst_c_paper) - 1)
+        n_tps_mean = min(n_tps_mean, len(vec_frst_c_paper) - 1) # -1 because we apply the mean to rates
 
-        # back-project previous paper products
+
+        ##  CARBON CONTENT BACK PROJECTIONS
+
+        vec_exp = (np.arange(n_tps_lookback) - n_tps_lookback)
+
+        # paper products
         r_paper = np.mean(vec_frst_c_paper[1:(1 + n_tps_mean)]/vec_frst_c_paper[0:n_tps_mean])
         vec_frst_c_paper = np.concatenate([
-            np.array(
-                [
-                    vec_frst_c_paper[0]*(r_paper**(x - n_tps_lookback)) 
-                    for x in range(n_tps_lookback)
-                ]
-            ),
-            #vec_frst_c_paper[0]*(r_paper**(np.arange(n_tps_lookback) - n_tps_lookback))
+            vec_frst_c_paper[0]*(r_paper**vec_exp), 
             vec_frst_c_paper
         ])
          
-
-        # back-project previous wood products
+        # wood products
         r_wood = np.mean(vec_frst_c_wood[1:(1 + n_tps_mean)]/vec_frst_c_wood[0:n_tps_mean])
         vec_frst_c_wood = np.concatenate([
-            np.array(
-                [
-                    vec_frst_c_wood[0]*(r_wood**(x - n_tps_lookback)) 
-                    for x in range(n_tps_lookback)
-                ]
-            ),
+            vec_frst_c_wood[0]*(r_wood**vec_exp), 
             vec_frst_c_wood
         ])
-        vec_frst_k_hwp_paper = np.concatenate([np.array([vec_frst_k_hwp_paper[0] for x in range(n_tps_lookback)]), vec_frst_k_hwp_paper])
-        vec_frst_k_hwp_wood = np.concatenate([np.array([vec_frst_k_hwp_wood[0] for x in range(n_tps_lookback)]), vec_frst_k_hwp_wood])
+
+
+        ##  DECAY FACTOR (ASSUME CONSTANT IN BACK PROJECTION)
+
+        vec_frst_k_hwp_paper = np.concatenate([
+            np.repeat(vec_frst_k_hwp_paper[0], n_tps_lookback),
+            vec_frst_k_hwp_paper
+        ])
+        vec_frst_k_hwp_wood = np.concatenate([
+            np.repeat(vec_frst_k_hwp_wood[0], n_tps_lookback),
+            vec_frst_k_hwp_wood
+        ])
+
 
         tup_out = (
             vec_frst_c_paper,
@@ -2926,11 +2930,30 @@ class AFOLU:
         - projection_time_periods:
         - dict_check_integrated_variables:
         """
+        ## 
 
         # initialize some small checks and shorthands 
         check_ippu = dict_check_integrated_variables.get(self.subsec_name_ippu)
         check_scoe = dict_check_integrated_variables.get(self.subsec_name_scoe)
         historical_method = self.model_attributes.configuration.get("historical_harvested_wood_products_method")
+
+        # get initial domestic demand for wood products
+        vec_frst_harvested_wood_domestic = self.model_attributes.extract_model_variable(#
+            df_afolu_trajectories, 
+            self.modvar_frst_init_per_hh_wood_demand, 
+            return_type = "array_base",
+        )
+        vec_frst_harvested_wood_domestic *= self.model_attributes.get_variable_unit_conversion_factor(
+            self.modvar_frst_init_per_hh_wood_demand,
+            self.model_ippu.modvar_ippu_demand_for_harvested_wood,
+            "mass"
+        )
+
+        # TEMPORARY: THIS MAY NOT NEED TO BE INCLUDED HERE SINCE IT REPRESENTS BIOMASS DEMANDS, WHICH ARE ACCOUNTED FOR IN ENERGY
+        vec_frst_harvested_wood_domestic *= 0.0
+
+
+        ##  CHECK DEMAND COMPONENTS FROM IPPU AND SCOE
 
         # IPPU components
         if check_ippu is not None:
@@ -2983,21 +3006,10 @@ class AFOLU:
             vec_frst_harvested_wood_industrial_wood = 0.0
 
 
-        # get initial domestic demand for wood products
-        vec_frst_harvested_wood_domestic = self.model_attributes.extract_model_variable(#
-            df_afolu_trajectories, 
-            self.modvar_frst_init_per_hh_wood_demand, 
-            return_type = "array_base",
-        )
 
-        vec_frst_harvested_wood_domestic *= self.model_attributes.get_variable_unit_conversion_factor(
-            self.modvar_frst_init_per_hh_wood_demand,
-            self.model_ippu.modvar_ippu_demand_for_harvested_wood,
-            "mass"
-        )
+        ##  SCALE HH DEMAND FROM SCOE BASED ON BIOMASS? **REVISIT THIS
 
-        # If energy components are available, scale hh demand from SCOE
-        if check_scoe is not none:
+        if check_scoe is not None:
 
             # get changes in biomass energy demand for stationary emissions (largely driven by wood)
             df_scoe = self.model_energy.project_scoe(
@@ -3022,8 +3034,14 @@ class AFOLU:
             vec_scoe_biomass_fuel_demand = vec_scoe_biomass_fuel_demand[:, ind_biomass]
 
             # calculate the change and growth rate
-            vec_scoe_biomass_fuel_demand_change = np.nan_to_num(vec_scoe_biomass_fuel_demand[1:]/vec_scoe_biomass_fuel_demand[0:-1], 1.0, posinf = 1.0)
-            vec_scoe_biomass_fuel_demand_growth_rate = np.cumprod(np.insert(vec_scoe_biomass_fuel_demand_change, 0, 1.0))
+            vec_scoe_biomass_fuel_demand_change = np.nan_to_num(
+                vec_scoe_biomass_fuel_demand[1:]/vec_scoe_biomass_fuel_demand[0:-1], 
+                1.0, 
+                posinf = 1.0,
+            )
+            vec_scoe_biomass_fuel_demand_growth_rate = np.cumprod(
+                np.insert(vec_scoe_biomass_fuel_demand_change, 0, 1.0)
+            )
             df_scoe = 0
             
             vec_frst_harvested_wood_domestic *= vec_hh[0]
@@ -3034,13 +3052,17 @@ class AFOLU:
             vec_frst_harvested_wood_domestic *= vec_hh
 
 
-        # get half-life factors for FOD model
+        ##  PREPARE FOR FOD
+
+        # get half-life factors for FOD model - start with paper
         vec_frst_k_hwp_paper = self.model_attributes.extract_model_variable(#
             df_afolu_trajectories,
             self.modvar_frst_hwp_half_life_paper,
             return_type = "array_base",
         )
         vec_frst_k_hwp_paper = np.log(2)/vec_frst_k_hwp_paper
+
+        # add wood
         vec_frst_k_hwp_wood = self.model_attributes.extract_model_variable(#
             df_afolu_trajectories,
             self.modvar_frst_hwp_half_life_wood,
@@ -3083,15 +3105,29 @@ class AFOLU:
         else:
             # set up n_years_lookback to be based on historical
             n_years_lookback = 0
-            raise ValueError(f"Error in project_harvested_wood_products: historical_harvested_wood_products_method 'historical' not supported at the moment.")
+            msg = f"""
+            Error in project_harvested_wood_products(): 
+            historical_harvested_wood_products_method 'historical' not supported 
+            at the moment.
+            """
+            raise ValueError(msg)
 
-        # initialize and run using assumptions of steady-state (see Equation 12.4)
+
+        ## RUN ASSUMPTIONS USING STEADY-STATE ASSUMPTIONS (see Equation 12.4)
+
+        # initialize 
         vec_frst_c_from_hwp_paper = np.zeros(len(vec_frst_k_hwp_paper))
-        vec_frst_c_from_hwp_paper[0] = np.mean(vec_frst_c_paper[0:min(5, len(vec_frst_c_paper))])/vec_frst_k_hwp_paper[0]
-        vec_frst_c_from_hwp_wood = np.zeros(len(vec_frst_k_hwp_wood))
-        vec_frst_c_from_hwp_wood[0] = np.mean(vec_frst_c_wood[0:min(5, len(vec_frst_c_wood))])/vec_frst_k_hwp_wood[0]
+        vec_frst_c_from_hwp_paper[0] = np.mean(
+            vec_frst_c_paper[0:min(5, len(vec_frst_c_paper))]
+        )/vec_frst_k_hwp_paper[0]
 
-        # execute the FOD model
+        vec_frst_c_from_hwp_wood = np.zeros(len(vec_frst_k_hwp_wood))
+        vec_frst_c_from_hwp_wood[0] = np.mean(
+            vec_frst_c_wood[0:min(5, len(vec_frst_c_wood))]
+        )/vec_frst_k_hwp_wood[0]
+
+
+        # First Order Decay (FOD) implementation
         for i in range(len(vec_frst_c_from_hwp_paper) - 1):
             # paper
             current_stock_paper = vec_frst_c_from_hwp_paper[0] if (i == 0) else vec_frst_c_from_hwp_paper[i]
@@ -3111,6 +3147,7 @@ class AFOLU:
         vec_frst_c_from_hwp_paper_delta = vec_frst_c_from_hwp_paper[1:] - vec_frst_c_from_hwp_paper[0:-1]
         vec_frst_c_from_hwp_wood_delta = vec_frst_c_from_hwp_wood[1:] - vec_frst_c_from_hwp_wood[0:-1]
 
+
         v_print = self.factor_c_to_co2*vec_frst_c_wood
         v_print *= self.model_attributes.get_scalar(
             self.model_ippu.modvar_ippu_demand_for_harvested_wood, 
@@ -3121,10 +3158,17 @@ class AFOLU:
         # get emissions from co2
         vec_frst_emissions_co2_hwp = vec_frst_c_from_hwp_paper_delta + vec_frst_c_from_hwp_wood_delta
         vec_frst_emissions_co2_hwp *= self.factor_c_to_co2
-        vec_frst_emissions_co2_hwp *= -1*self.model_attributes.get_scalar(self.model_ippu.modvar_ippu_demand_for_harvested_wood, "mass")
+        vec_frst_emissions_co2_hwp *= -1*self.model_attributes.get_scalar(
+            self.model_ippu.modvar_ippu_demand_for_harvested_wood, 
+            "mass",
+        )
+
 
         list_dfs_out = [
-            self.model_attributes.array_to_df(vec_frst_emissions_co2_hwp, self.modvar_frst_emissions_co2_hwp)
+            self.model_attributes.array_to_df(
+                vec_frst_emissions_co2_hwp, 
+                self.modvar_frst_emissions_co2_hwp,
+            )
         ]
 
         return list_dfs_out
