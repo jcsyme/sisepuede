@@ -761,6 +761,7 @@ class TransformationsIntegrated:
 
         # break out before adding AFOLU so that w & w/o reallocation can be sent to different transformations
         function_list_plur = function_list.copy()
+        function_list_india_ccdr = function_list.copy()
         function_list_plur_no_deforestation_stoppage = function_list.copy()
         function_list += self.transformations_afolu.af_all.function_list.copy()
 
@@ -789,6 +790,78 @@ class TransformationsIntegrated:
         all_transformations.append(self.pflo_all_with_partial_reallocation)
 
 
+
+        ##################################################
+        #    TEMP: ADD INDIA SPECIFIC TRANSFORMATIONS    #
+        ##################################################
+
+        ##  START WITH INDIA PLUR WITH CC
+
+    
+        self.lndu_partial_reallocation_india_cc = sc.Transformation(
+            "LNDU:PLUR_INDIA_CC", 
+            [
+                self.transformations_afolu.transformation_lndu_reallocate_land,
+                self.transformations_afolu.transformation_agrc_decrease_climate_productivity_climate_india
+            ],
+            attr_strategy
+        )
+        all_transformations.append(self.lndu_partial_reallocation_india_cc)
+
+
+        ##  BUILD INDIA CCDR
+
+        function_list_india_ccdr += [
+            #self.transformation_agrc_decrease_exports,
+            self.transformations_afolu.transformation_agrc_expand_conservation_agriculture,
+            self.transformations_afolu.transformation_agrc_improve_rice_management,
+            self.transformations_afolu.transformation_agrc_increase_crop_productivity,
+            self.transformations_afolu.transformation_agrc_reduce_supply_chain_losses,
+            # self.transformation_lndu_integrated_transitions replaces:
+            #   self.transformation_lndu_expand_silvopasture,
+            #   self.transformation_frst_stop_deforestation
+            #self.transformations_afolu.transformation_lndu_integrated_transitions,
+            self.transformations_afolu.transformation_lndu_reallocate_land,
+            self.transformations_afolu.transformation_lsmm_improve_manure_management_cattle_pigs,
+            self.transformations_afolu.transformation_lsmm_improve_manure_management_other,
+            self.transformations_afolu.transformation_lsmm_improve_manure_management_poultry,
+            self.transformations_afolu.transformation_lsmm_increase_biogas_capture,
+            #self.transformations_afolu.transformation_lvst_decrease_exports,
+            #self.transformations_afolu.transformation_lvst_increase_productivity,
+            self.transformations_afolu.transformation_lvst_reduce_enteric_fermentation,
+            self.transformations_afolu.transformation_soil_reduce_excess_fertilizer,
+            self.transformations_afolu.transformation_soil_reduce_excess_lime
+        ]
+
+        # drop healthier diets
+        function_list_india_ccdr = [
+            x for x in function_list_india_ccdr 
+            if x != self.transformation_pflo_healthier_diets
+        ]
+        
+        self.pflo_ccdr_india_with_partial_reallocation = sc.Transformation(
+            "PFLO:INDIA_CCDR_PLUR", 
+            function_list_india_ccdr, 
+            attr_strategy
+        )
+        all_transformations.append(self.pflo_ccdr_india_with_partial_reallocation)
+
+
+        ##  BUILD INDIA CCDR THAT INCLUDES CLIMATE (FLAG:INDIA)
+        
+        function_list_india_ccdr_cc = function_list_india_ccdr.copy()
+        function_list_india_ccdr_cc.append(
+            self.transformations_afolu.transformation_agrc_decrease_climate_productivity_climate_india
+        )
+
+        self.pflo_ccdr_india_with_partial_reallocation_india_cc = sc.Transformation(
+            "PFLO:INDIA_CCDR_PLUR_INDIA_CC", 
+            function_list_india_ccdr_cc, 
+            attr_strategy
+        )
+        all_transformations.append(self.pflo_ccdr_india_with_partial_reallocation_india_cc)
+
+
         ##  BUILD AN INDIA PLUR THAT INCLUDES CLIMATE (FLAG:INDIA)
         
         function_list_plur_india = function_list_plur.copy()
@@ -796,12 +869,18 @@ class TransformationsIntegrated:
             self.transformations_afolu.transformation_agrc_decrease_climate_productivity_climate_india
         )
 
-        self.pflo_all_with_partial_reallocation = sc.Transformation(
+        self.pflo_all_with_partial_reallocation_india_cc = sc.Transformation(
             "PFLO:ALL_PLUR_INDIA_CC", 
             function_list_plur, 
             attr_strategy
         )
-        all_transformations.append(self.pflo_all_with_partial_reallocation)
+        all_transformations.append(self.pflo_all_with_partial_reallocation_india_cc)
+        
+        ###################
+        #    END INDIA    #
+        ###################
+
+
 
 
         ##  EXPLORE ALL W/O SILVOPASTURE (EXPLORATORY ONLY)

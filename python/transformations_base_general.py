@@ -633,8 +633,7 @@ def transformation_general_shift_fractions_from_modvars(
     # check the modvar specification dictionary (for targets)
     dict_modvar_specs = dict(
         (k, v) for k, v in dict_modvar_specs.items() 
-        if (k in modvars) 
-        and (isinstance(v, int) or isinstance(v, float))
+        if (k in modvars) & sf.isnumber(v)
     )
 
     # return the original DataFrame if the allocation among target variables is incorrect
@@ -721,15 +720,15 @@ def transformation_general_shift_fractions_from_modvars(
             fields = [
                 model_attributes.build_variable_fields(
                     x,
-                    restrict_to_category_values = cat,
-                ) for x in modvars_target
+                    restrict_to_category_values = [cat],
+                )[0] for x in modvars_target
             ]
             
             fields_source = [
                 model_attributes.build_variable_fields(
                     x,
-                    restrict_to_category_values = cat,
-                ) for x in modvars_source
+                    restrict_to_category_values = [cat],
+                )[0] for x in modvars_source
             ]
             
             # values at first time period, initial total of target columns, and associated pmf
@@ -770,8 +769,8 @@ def transformation_general_shift_fractions_from_modvars(
                 
                 field_cur = model_attributes.build_variable_fields(
                     modvar,
-                    restrict_to_category_values = cat,
-                )
+                    restrict_to_category_values = [cat],
+                )[0]
 
                 vec_old = np.array(df_in[field_cur])
                 val_final = vec_old[n_tp - 1]

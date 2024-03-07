@@ -5039,6 +5039,7 @@ class ModelAttributes:
                     how = "any",
                     inplace = True
                 )
+
                 # if the trajgroup is already defined, split into 
                 # - variables that are assigned by not in df_trajgroup
                 # - variables that are assigned and in df_trajgroup
@@ -5117,7 +5118,7 @@ class ModelAttributes:
                 attr_time_period.table[[attr_time_period.key]]
             )
 
-            fields_sort += [time_period]
+            fields_sort += [attr_time_period.key]
 
         df_out = (
             df_out

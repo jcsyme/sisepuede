@@ -460,7 +460,7 @@ class SISEPUEDEFileStructure:
 
 		##  BUILD SUBDIRECTORIES
 
-		# create a subdirectory in which to store all files associated with a run -- include output db and model_attribtues pickle
+		# create a subdirectory in which to store all files associated with a run -- include output db and model_attriutes pickle
 		dir_base_output_raw = (
 			sf.check_path(
 				os.path.join(self.dir_out, self.id_fs_safe), 

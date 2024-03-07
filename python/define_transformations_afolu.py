@@ -1424,12 +1424,12 @@ class TransformationsAFOLU:
             "tubers": 0.099,
             "vegetables_and_vines": -0.097,
         }
-        impacts_mean = np.mean(np.array(dict_climate_impacts.values()))
+        impacts_mean = np.array(list(dict_climate_impacts.values())).mean()
         
         df_out = df_input.copy()
 
         # get ag cats
-        cats_ag = self.model_attribtues.get_attribute_table(self.model_attribtues.subsec_name_agrc)
+        cats_ag = self.model_attributes.get_attribute_table(self.model_attributes.subsec_name_agrc)
         cats_ag = cats_ag.key_values
 
         for cat in cats_ag:

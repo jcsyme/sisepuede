@@ -472,7 +472,9 @@ class TransformationsEnergy:
         )
 
         # add technology attribute
-        attribute_technology = model_attributes.get_attribute_table(f"cat_technology")
+        attribute_technology = model_attributes.get_attribute_table(
+            model_attributes.subsec_name_entc
+        )
 
         # set some useful classes
         time_periods = sc.TimePeriods(model_attributes)

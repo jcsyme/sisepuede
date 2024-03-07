@@ -3079,7 +3079,6 @@ class AFOLU:
         )
         vec_frst_c_paper = vec_frst_harvested_wood_industrial_paper*vec_frst_ef_c
         vec_frst_c_wood = (vec_frst_harvested_wood_industrial_wood + vec_frst_harvested_wood_domestic)*vec_frst_ef_c
-        self.vec_frst_c_wood = vec_frst_c_wood
 
         # set a lookback based on some number of years (max half-life to estimate some amount of carbon stock)
         if historical_method == "back_project":
@@ -3906,16 +3905,6 @@ class AFOLU:
 
         ##  HARVESTED WOOD PRODUCTS
 
-        self.tup_tmp = (
-            vec_hh,
-            vec_gdp,
-            vec_rates_gdp,
-            vec_rates_gdp_per_capita,
-            dict_dims,
-            n_projection_time_periods,
-            projection_time_periods,
-        )
-        self.df_afolu_trajectories_tmp = df_afolu_trajectories.copy()
 
         # add to output
         df_out += self.project_harvested_wood_products(
