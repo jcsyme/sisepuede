@@ -1,0 +1,15 @@
+Item,``$CAT-LANDUSE$``
+Artificial surfaces (including urban and associated areas),settlements
+Herbaceous crops,croplands
+Woody crops,croplands
+Multiple or layered crops,croplands
+Grassland,grasslands
+Tree-covered areas,forests_agg
+Mangroves,forests_mangroves
+Shrub-covered areas,grasslands
+"Shrubs and/or herbaceous vegetation, aquatic or regularly flooded",other
+Sparsely natural vegetated areas,other
+Terrestrial barren land,other
+Permanent snow and glaciers,other
+Inland water bodies,wetlands
+Coastal water bodies and intertidal areas,none
