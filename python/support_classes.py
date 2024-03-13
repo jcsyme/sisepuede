@@ -481,13 +481,19 @@ class Regions:
 
 
     def get_un_region(self,
-        region: str
+        region: str,
+        input_region: str = "region",
     ) -> Union[str, None]:
         """
         Retrieve the UN global region associated with region (roughly a 
-            continent). Often used for assigning regional averages.
+            continent). Often used for assigning regional averages. Use 
+            input_region = "iso" to convert from an iso code.
         """
-        region = self.return_region_or_iso(region, return_type = "region")
+        region = self.return_region_or_iso(
+            region, 
+            return_type = input_region,
+        )
+
         out = self.dict_region_to_un_region.get(region)
 
         return out
@@ -495,13 +501,19 @@ class Regions:
 
 
     def get_world_bank_region(self,
-        region: str
+        region: str,
+        input_region: str = "region",
     ) -> Union[str, None]:
         """
         Retrieve the World Bank global region associated with region. Often used 
-            for assigning regional averages.
+            for assigning regional averages. Use input_region = "iso" to convert 
+            from an iso code.
         """
-        region = self.return_region_or_iso(region, return_type = "region")
+        region = self.return_region_or_iso(
+            region, 
+            return_type = input_region,
+        )
+
         out = self.dict_region_to_wb_region.get(region)
 
         return out
@@ -710,6 +722,139 @@ class Regions:
         out = sf.str_replace(out, dict_repl)
 
         return out
+
+    
+
+    def convert_region_codes(self,
+        df: pd.DataFrame,
+        field_codes: str,
+        input_code_type: str,
+        output_code_type: str,
+        merge_type: str = "inner",
+        overwrite: bool = False,
+        replace: bool = True,
+    ) -> Union[pd.DataFrame, None]:
+        """
+        Convert region code types. Valid input and output code types include:
+        
+        Function Arguments
+        ------------------
+        - df: data frame containing the field to convert
+        - field_codes: field name containg codes to convert
+        - input_code_type: input code type to convert from. Valid input codes
+            include:
+            
+            * "fao_region_code":
+                FAO region code (integer)
+            * "iso":
+                ISO 3 alphanumeric code
+            * "iso_numeric":
+                ISO numeric (integer) code
+            * "region": 
+                Region name
+
+        - output_code_type: output code type to convert to. Valid output codes
+            include:
+
+            * "fao_region_code":
+                FAO region code (integer)
+            * "iso":
+                ISO 3 alphanumeric code
+            * "iso_numeric":
+                ISO numeric (integer) code
+            * "region": 
+                Region name
+            * "un_region":
+                UN Region name (non-injective, image only)
+            * "un_sub_region":
+                UN Region name (non-injective, image only)
+            * "world_bank_global_region": 
+                World Bank region code
+                
+            
+        Keyword Arguments
+        -----------------
+        - merge_type: "inner" or "outer". If outer, can contain NAs
+        - overwrite: overwrite existing output field if present?
+        - replace: replace the field containing the region codes? If False, 
+            keeps both the old (input) and new (output) fields
+        """
+
+        ##  CHECKS AND INIT
+
+        # check that field_codes is in the dataframe
+        if field_codes not in df.columns:
+            return df
+
+        # map the input/output type to the field in the attribute table
+        dict_type_to_attribute_field = {
+            "fao_region_code": "fao_area_code",
+            "iso": "iso_alpha_3",
+            "iso_numeric": "iso_numeric",
+            "region": self.key,
+            "un_region": "un_region",
+            "un_sub_region": "un_sub_region",
+            "world_bank_global_region": "world_bank_global_region",
+        }
+
+        # next, get the fields from the attribute table
+        field_input = dict_type_to_attribute_field.get(input_code_type)
+        field_output = dict_type_to_attribute_field.get(output_code_type)
+
+        # then check output overwriting and drop the existing field if necessary
+        if (field_output in df.columns):
+            if not overwrite:
+                return df
+            
+            df.drop(
+                [field_output], 
+                axis = 1,
+                inplace = True,
+            )
+
+
+        # check type specifications - start with inputs
+        valid_inputs = ["fao_region_code", "iso", "iso_numeric", "region"]
+        if input_code_type not in valid_inputs:
+            valid_inputs_print = sf.format_print_list()
+            msg = f"""
+            f"Error in convert_region_codes: invalid input type 
+            '{input_code_type}'. Valid inputs are {valid_inputs_print}"
+            """
+            raise RuntimeError(msg)
+
+        # check outputs
+        valid_outputs = sorted(list(dict_type_to_attribute_field.keys()))
+        if output_code_type not in valid_outputs:
+            valid_outputs_print = sf.format_print_list()
+            msg = f"""
+            f"Error in convert_region_codes: invalid output type 
+            '{input_code_type}'. Valid inputs are {valid_outputs_print}"
+            """
+            raise RuntimeError(msg)
+
+        
+        ##  BUILD OUTPUT TABLE
+
+        df_merge = (
+            self.attributes
+            .table[[field_input, field_output]]
+            .copy()
+            .rename(
+                columns = {field_input: field_codes}
+            )
+        )
+        
+        df = sf.merge_replace(
+            df,
+            df_merge,
+            merge_type = merge_type,
+            replace = replace,
+        )
+        
+        
+        return df
+
 
 
 

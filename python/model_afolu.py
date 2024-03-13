@@ -3114,7 +3114,7 @@ class AFOLU:
 
         ## RUN ASSUMPTIONS USING STEADY-STATE ASSUMPTIONS (see Equation 12.4)
 
-        # initialize 
+        # initialize using Equation 12.4 for paper and wood
         vec_frst_c_from_hwp_paper = np.zeros(len(vec_frst_k_hwp_paper))
         vec_frst_c_from_hwp_paper[0] = np.mean(
             vec_frst_c_paper[0:min(5, len(vec_frst_c_paper))]
@@ -3146,13 +3146,6 @@ class AFOLU:
         vec_frst_c_from_hwp_paper_delta = vec_frst_c_from_hwp_paper[1:] - vec_frst_c_from_hwp_paper[0:-1]
         vec_frst_c_from_hwp_wood_delta = vec_frst_c_from_hwp_wood[1:] - vec_frst_c_from_hwp_wood[0:-1]
 
-
-        v_print = self.factor_c_to_co2*vec_frst_c_wood
-        v_print *= self.model_attributes.get_scalar(
-            self.model_ippu.modvar_ippu_demand_for_harvested_wood, 
-            "mass"
-        )
-        v_mult = (1 - np.exp(-vec_frst_k_hwp_wood))/vec_frst_k_hwp_wood
 
         # get emissions from co2
         vec_frst_emissions_co2_hwp = vec_frst_c_from_hwp_paper_delta + vec_frst_c_from_hwp_wood_delta

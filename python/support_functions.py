@@ -1913,6 +1913,86 @@ def merge_output_df_list(
 
 
 
+def merge_replace(
+    df: pd.DataFrame,
+    df_to_merge: pd.DataFrame,
+    merge_type: str = "inner",
+    replace: bool = True,
+) -> pd.DataFrame:
+    """
+    Replace a field in df with a map dataframe (df_to_merge). df_to_merge should 
+        only have 2 columns. Merges on a shared field between df and df_to_merge;
+        e.g., suppose
+        
+        df.columns = (A, B, C, D) and
+        df_to_merge.columns = (B, E);
+        
+        then the output data frame will have
+        
+        df_out.columns = (A, E, C, D) 
+        
+            NOTE: if replace = False, then the output will be (A, B, E, C, D)
+        
+    Function Arguments
+    ------------------
+    - df: data frame with a field to replace
+    - df_to_merge: data frame with new field to overwrite
+
+    Keyword Arguments
+    -----------------
+    - merge_type: "inner", "outer", "left" (does not support right)
+        NOTE: "left" left joins df_to_merge to df
+    - replace: replace the old field in df with the new one in df_to_merge
+    """
+    ##  CHECKS
+    
+    # return the original data frame if there are too many in the merge
+    if df_to_merge.shape[1] != 2:
+        warnings.warn("Warning in merge_replace(): df_to_merge has more than 2 columns")
+        return df
+    
+    # return the original data frame if there are too many shared columns
+    field_shared = set(df.columns) & set(df_to_merge.columns)
+    if len(field_shared) > 1:
+        warnings.warn("Warning in merge_replace(): multiple shared fields found between df and df_to_merge")
+        return df
+    
+    # check merge type
+    merge_type = (
+        "inner" 
+        if (merge_type not in ["inner", "left", "outer"]) 
+        else merge_type
+    )
+
+    
+    ##  DO THE MERGE
+    
+    field_shared = list(field_shared)[0]
+    field_output = [x for x in df_to_merge.columns if x != field_shared][0]
+    
+    # get output ordering
+    fields_ord = list(df.columns)
+    ind = fields_ord.index(field_shared)
+    fields_ord.insert(ind + 1, field_output)
+
+    # merge and update
+    df_out = pd.merge(
+        df,
+        df_to_merge,
+        how = merge_type,
+    )[fields_ord]
+
+    if replace:
+        df_out.drop(
+            [field_shared],
+            axis = 1,
+            inplace = True,
+        )
+        
+    return df_out
+
+
+
 def mix_tensors(
     vec_b0: np.ndarray,
     vec_b1: Union[np.ndarray, None],
