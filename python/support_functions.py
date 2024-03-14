@@ -2647,6 +2647,31 @@ def scalar_bounds(
 
 
 
+def seteq(
+    set_0: Union[np.ndarray, set, list],
+    set_1: Union[np.ndarray, set, list],
+) -> bool:
+    """
+    Check if unique elements in set_0 are equivalent to unique elements in set_1
+
+    E.g., 
+
+        sf.seteq([1, 2, 4, 3], [1, 2, 2, 4, 4, 4, 3]) 
+
+        will return True
+
+    
+    """
+    s0 = set(set_0)
+    s1 = set(set_1)
+
+    eq = s0.issubset(s1)
+    eq &= s1.issubset(s0)
+
+    return eq
+
+
+
 def set_properties_from_dict(
     obj: Any,
     dict_info: Dict[str, Any],

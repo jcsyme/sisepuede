@@ -1083,16 +1083,22 @@ class ModelAttributes:
             self._initialize_variables_by_subsector()). Sets the following
             properties:
 
-            * self.dict_variable_to_simplex_group
+            * self.dict_field_to_simplex_group
         """
 
         # get simplex groups
-        dict_variable_to_simplex_group = self.get_variable_to_simplex_group_dictionary()
+        dict_field_to_simplex_group = self.get_variable_to_simplex_group_dictionary()
+        dict_simplex_group_to_fields = sf.reverse_dict(
+            dict_field_to_simplex_group,
+            allow_multi_keys = True,
+            force_list_values = True,
+        )
         
 
         ##  SET PROPERTIES
         
-        self.dict_variable_to_simplex_group = dict_variable_to_simplex_group
+        self.dict_field_to_simplex_group = dict_field_to_simplex_group
+        self.dict_simplex_group_to_fields = dict_simplex_group_to_fields
 
         return None
 
@@ -1249,7 +1255,7 @@ class ModelAttributes:
             * self.dict_model_variables_by_subsector
             * self.dict_model_variable_to_subsector
             * self.dict_model_variable_to_category_restriction
-            * self.dict_variable_to_simplex_group
+            * self.dict_field_to_simplex_group
             * self.dict_model_variables_to_variable_fields
             * self.dict_variable_fields_to_model_variables
 
@@ -3824,7 +3830,7 @@ class ModelAttributes:
         unit_type: str,
         unit: str,
         unit_to_match: Union[str, None],
-        config_str: str,
+        config_str: Union[str, None],
         stop_on_error: bool = True,
     ) -> Union[float, None]:
         """
@@ -5704,7 +5710,7 @@ class ModelAttributes:
         if modvar is None:
             return None
             
-        out = self.dict_variable_to_simplex_group.get(modvar.name)
+        out = self.dict_field_to_simplex_group.get(modvar.name)
         
         return out
     
@@ -6075,7 +6081,7 @@ class ModelAttributes:
         """
 
         # initialize output dict and first-stage group list
-        dict_variable_to_simplex_group = {}
+        dict_field_to_simplex_group = {}
         simplex_groups = []
 
         for key, attr in self.dict_variable_definitions.items():
@@ -6176,10 +6182,10 @@ class ModelAttributes:
                     simplex_group += 1
                 
                 # update field to outer simplex group dictionary
-                dict_variable_to_simplex_group.update({field: simplex_group_assign})
+                dict_field_to_simplex_group.update({field: simplex_group_assign})
 
 
-        return dict_variable_to_simplex_group
+        return dict_field_to_simplex_group
 
 
 
