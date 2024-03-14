@@ -157,3 +157,7 @@
 5023,PFLO:Placeholder 8,PFLO:PLACEHOLDER_8,0,placeholder
 5024,PFLO:Placeholder 9,PFLO:PLACEHOLDER_9,0,placeholder
 5025,PFLO:Placeholder 10,PFLO:PLACEHOLDER_10,0,placeholder
+6001,LNDU: Partial land use reallocation with India Climate Change,LNDU:PLUR_INDIA_CC,0,Set land use reallocation factor to 0.5 + India's expected climate change impacts on yields
+6002,LNDU: India CCDR,PFLO:INDIA_CCDR_PLUR,0,India CCDR with partial land use reallocation
+6003,PFLO: India CCDR and India Climate Change Impacts,PFLO:INDIA_CCDR_PLUR_INDIA_CC,0,India CCDR with partial land use reallocation + India's expected climate change impacts on yields
+6004,PFLO: All transformations with partial land use reallocation and India Climate Change Impacts,PFLO:ALL_PLUR_INDIA_CC,0,All transformations with partial land use reallocation + India's expected climate change impacts on yields
