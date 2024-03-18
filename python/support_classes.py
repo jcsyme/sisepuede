@@ -6,6 +6,7 @@ import geopy.distance
 from model_attributes import *
 import numpy as np
 import pandas as pd
+import re
 import support_functions as sf
 
 
@@ -23,12 +24,28 @@ class Regions:
     The Regions class is designed to provide convenient support for batch 
         integration of global and regional datasets into the SISEPUEDE 
         framework.
+
+
+    Initialization Arguments
+    ------------------------
+    - model_attributes: ModelAttributes object used to coordinate attributes and
+        variables
+
+    Optional Arguments
+    ------------------
+    - regex_region_groups: optional regular expression used to identify region
+        groups in the attribute table
     """
+
     def __init__(self,
         model_attributes: ModelAttributes,
+        regex_region_groups: Union[re.Pattern, None] = re.compile("(.*)_region$"),
     ):
 
-        self._initialize_region_properties(model_attributes)
+        self._initialize_region_properties(
+            model_attributes,
+            regex_region_groups = regex_region_groups,
+        )
 
         # initialize some default data source properties
         self._initialize_defaults_iea()
@@ -109,6 +126,7 @@ class Regions:
     def _initialize_region_properties(self,
         model_attributes: ModelAttributes,
         field_year: str = "year",
+        regex_region_groups: Union[re.Pattern, None] = re.compile("(.*)_region$"),
     ) -> None:
         """
         Set the following properties:
@@ -131,6 +149,8 @@ class Regions:
             * self.field_lon
             * self.field_wb_global_region
             * self.key
+            * self.regex_superregion
+            * self.valid_region_groups
 
         """
         # some fields
@@ -158,6 +178,15 @@ class Regions:
         # set up some sets
         all_isos = sorted(list(dict_iso_to_region.keys()))
         all_isos_numeric = sorted(list(dict_iso_numeric_to_region.keys()))
+
+
+        ##  GET VALID REGION GROUPS
+
+        region_groupings = [
+            regex_region_groups.match(x).groups()[0] 
+            for x in attributes.table.columns
+            if regex_region_groups.match(x) is not None
+        ]
 
 
         ##  OTHER REGIONAL CODES
@@ -204,6 +233,8 @@ class Regions:
         self.field_lon = field_lon
         self.field_wb_global_region = field_wb_global_region
         self.key = attributes.key
+        self.regex_region_groups = regex_region_groups
+        self.region_groupings = region_groupings
 
         return None
 
@@ -214,105 +245,216 @@ class Regions:
     #    CORE FUNCTIONS    #
     ########################
 
-    # 
-    def aggregate_df_by_wb_global_region(self,
+
+    #
+    #
+    #
+
+    """
+    USE THIS AS A TEMPLATE TO BUILD FUNCTION FOR MISSING VARIABLES
+    def add_missing_probs(
+        df_afolu_probs: pd.DataFrame,
+        model_afolu: mafl.AFOLU,
+        regions: sc.Regions,
+        time_periods: sc.TimePeriods,
+        field_iso: str,
+        region_grouping: str = "un_sub",
+    ) -> Union[pd.DataFrame, None]:
+        
+        "DOCSTRING HERE"
+
+        regions_missing = [
+            x for x in regions.all_isos
+            if x not in df_afolu_probs[field_iso].unique()
+        ]
+        
+        print(regions_missing)
+        if len(regions_missing) == 0:
+            return None
+        
+        
+        fields = (
+            model_afolu
+            .model_attributes
+            .build_variable_fields(
+                model_afolu.modvar_lndu_prob_transition
+            )
+        )
+        
+        # generate by region
+        df_agg_by_region = regions.aggregate_df_by_region_group(
+            df_afolu_probs[
+                [field_iso, time_periods.field_time_period] + fields
+            ]
+            .rename(
+                columns = {field_iso: regions.field_iso}
+            ),
+            region_grouping,
+            [regions.field_iso, time_periods.field_time_period],
+            dict((x, "mean") for x in fields),
+            field_merge = regions.field_iso,
+        )
+        
+        # group and convert to dictionary
+        field_grouping = regions.get_region_group_field(region_grouping)
+        dict_agg_by_region = sf.group_df_as_dict(
+            df_agg_by_region,
+            [field_grouping],
+        )
+        
+        
+        ##  BUILD OUTPUT TABLE
+        
+        df_out = []
+        
+        for x in regions_missing:
+            
+            rg = regions.get_region_group(x, region_grouping)
+            
+            if rg not in dict_agg_by_region.keys():
+                print(f"Region group '{rg}' not found for region {x}: skipping")
+                continue
+
+            df_tmp = (
+                dict_agg_by_region
+                .get(rg)
+                .copy()
+                .drop([field_grouping], axis = 1, )
+            )
+            
+            df_tmp[regions.key] = x
+            df_out.append(df_tmp)
+
+        df_out = (
+            pd.concat(df_out)
+            .reset_index(drop = True)
+        )
+        
+        
+        return df_out
+        
+    """
+
+
+
+    def aggregate_df_by_region_group(self,
         df_in: pd.DataFrame,
-        global_wb_region: str,
+        region_grouping: str,
         fields_group: List[str],
         dict_agg: Dict[str, str],
-        field_iso: Union[str, None] = None,
+        extract_regions: Union[str, List[str], None] = None,
+        field_merge: Union[str, None] = None,
+        input_type: str = "auto",
+        stop_on_error: bool = True,
     ) -> pd.DataFrame:
         """
-        Get a regional average (for WB global region) across ISOs for which
-            production averages are available in df_in
+        Get a regional average across ISOs for related to the applicable region
+            group. 
 
         Function Arguments
         ------------------
         - df_in: input data frame
-        - global_wb_region: World Bank global region to aggregate df_in to
+        - region_grouping: either "un" or "world_bank". The group used to group
+            the regions in the data frame
         - fields_group: fields to group on (excluding region)
         - dict_agg: aggregation dictionary to use 
 
         Keyword Arguments
         -----------------
-        - field_iso: field containing the ISO code. If None, defaults to 
-            self.field_iso
+        - extract_regions: optional specification of a region for which a region
+            grouping will be extracted from the aggregation. str, list of 
+            strings, or None
+        - field_merge: field to merge on. If None, defaults to Regions.field_iso
+        - stop_on_error: stop execution on an error? Otherwise, returns original
+            data frame.
         """
         
-        field_iso = self.field_iso if (field_iso is None) else field_iso
-        if global_wb_region not in self.all_wb_regions:
+        ##  INITIALIZATION AND CHECKS
+
+        # check merge field
+        field_merge = self.field_iso if (field_merge is None) else field_merge
+        if field_merge not in df_in.columns:
+            if stop_on_error:
+                valid_regions = sf.format_print_list(self.region_groupings)
+                msg = f"""
+                Region merge field {field_merge} not found in df_in in
+                aggregate_df_by_region_group(). Check to ensure the field is
+                specified correctly.
+                """
+                raise RuntimeError(msg)
             return df_in
 
-        regions_wb = [
-            self.dict_region_to_iso.get(x) 
-            for x in self.dict_wb_region_to_region.get(global_wb_region)
-        ]
-        df_filt = df_in[df_in[field_iso].isin(regions_wb)]
+        # 
+        if region_grouping not in self.region_groupings:
+            if stop_on_error:
+                valid_regions = sf.format_print_list(self.region_groupings)
+                msg = f"""
+                Invalid region grouping '{region_grouping}' specified in 
+                aggregate_df_by_region_group(): valid regions are 
+                {self.region_groupings}
+                """
+                raise RuntimeError(msg)
+            return df_in
+
+
+        # get desired regions from the attribute table
+        field = self.get_region_group_field(region_grouping)
+        tab = self.attributes.table
+        all_region_groups = list(tab[field])
         
+        if extract_regions is not None:
+            extract_regions = (
+                [extract_regions] 
+                if isinstance(extract_regions, str) 
+                else extract_regions
+            )
+
+            extract_regions = (
+                []
+                if not sf.islistlike(extract_regions)
+                else [x for x in extract_regions if x in all_region_groups]
+            )
+
+            if len(extract_regions) > 0:
+                tab = (
+                    self.attributes.table[
+                        self.attributes.table[field].isin(extract_regions)
+                    ]
+                    .reset_index(drop = True)
+                )
+
+
+        # merge on applicable field,
+        df_filt = pd.merge(
+            df_in,
+            tab[[field_merge, field]],
+            how = "inner",
+        )
+
+        dict_agg_pass = dict((k, v) for k, v in dict_agg.items())
+
+
+        ##  CHECK GROUPING/AGG DICTIONARY
+
+        if field not in fields_group:
+            fields_group.append(field)
+            dict_agg_pass.update({field: "first"})
+
+        if field_merge in fields_group:
+            fields_group = [x for x in fields_group if x != field_merge]
+        
+        # drop field_merge from dictionary if present
+        if field_merge in dict_agg_pass.keys():
+            dict_agg_pass.pop(field_merge)
+            
         # get aggregation
         df_filt = sf.simple_df_agg(
-            df_filt, 
+            df_filt.drop([field_merge], axis = 1), 
             fields_group,
             dict_agg
         )
         
         return df_filt
-    
-
-
-    def get_regions_df(self,
-        include_iso: bool = False,
-        include_region_wb_key: bool = False,
-        regions: Union[List[str], None] = None,
-        regions_wb: Union[List[str], None] = None,    
-    ) -> Union[pd.DataFrame, None]:
-        """
-        Initialize a data frame of regions. Returns None if no valid regions
-            are specified. 
-        
-        Keyword Arguments
-        -----------------
-        - include_iso: include iso code?
-        - include_region_wb_key: if `regions_wb == True`, then set to True to
-            keep the region_wb key as a column
-        - regions: list of regions to use to build the data frame
-        - regions_wb: optional list of world bank regions to use to filter
-        - use_iso: 
-        """
-        
-        # check regions and WB regions
-        regions = self.get_valid_regions(regions)
-        if regions is None:
-            return None
-
-        regions_wb = [regions_wb] if isinstance(regions_wb, str) else regions_wb
-
-        # initialize output df and check if global regions should be added
-        df_out = pd.DataFrame({self.key: regions})
-        if sf.islistlike(regions_wb):
-
-            df_out[self.field_wb_global_region] = (
-                df_out[self.key]
-                .replace(self.dict_region_to_wb_region)
-            )
-
-            df_out = (
-                df_out[
-                    df_out[self.field_wb_global_region].isin(regions_wb)
-                ]
-                .reset_index(drop = True)
-            )
-
-            (
-                df_out.drop([self.field_wb_global_region], axis = 1, inplace = True)
-                if not include_region_wb_key
-                else None
-            )
-
-        if include_iso:
-            df_out[self.field_iso] = df_out[self.key].apply(self.dict_region_to_iso.get)
-
-        return df_out
 
 
     
@@ -434,8 +576,12 @@ class Regions:
         - region_str: region string; either region or ISO can be entered
         """
         
-        dict_region_to_lat = self.attributes.field_maps.get(f"{self.attributes.key}_to_{self.field_lat}")
-        dict_region_to_lon = self.attributes.field_maps.get(f"{self.attributes.key}_to_{self.field_lon}")
+        dict_region_to_lat = self.attributes.field_maps.get(
+            f"{self.attributes.key}_to_{self.field_lat}"
+        )
+        dict_region_to_lon = self.attributes.field_maps.get(
+            f"{self.attributes.key}_to_{self.field_lon}"
+        )
 
         # check region
         region = (
@@ -451,6 +597,131 @@ class Regions:
         tuple_out = (dict_region_to_lat.get(region), dict_region_to_lon.get(region))
 
         return tuple_out
+    
+
+
+    def get_region_group(self,
+        region: Union[str, int], 
+        region_grouping: str,
+    ) -> pd.DataFrame:
+        """
+        Get a regional grouping for a region by type
+
+        Function Arguments
+        ------------------
+        - region: region name, ISO Alpha 3, or ISO numeric code
+        - region_grouping: either "un" or "world_bank". The group used to group
+            the regions in the data frame
+
+        Keyword Arguments
+        -----------------
+        """
+        
+        ##  INITIALIZATION AND CHECKS
+
+        # 
+        if region_grouping not in self.region_groupings:
+            if stop_on_error:
+                valid_regions = sf.format_print_list(self.region_groupings)
+                msg = f"""
+                Invalid region grouping '{region_grouping}' specified in 
+                aggregate_df_by_region_group(): valid regions are 
+                {self.region_groupings}
+                """
+                raise RuntimeError(msg)
+            return df_in
+
+        # get it as a key, then use attribute function
+        region = self.return_region_or_iso(
+            region,
+            return_type = "region",
+        )
+
+        out = self.attributes.get_attribute(
+            region, 
+            self.get_region_group_field(region_grouping),
+        )
+
+        return out
+    
+
+
+    def get_region_group_field(self,
+        region_grouping: str,
+    ) -> Union[str, None]:
+        """
+        Get a regional grouping field in the regions attribute table
+
+        Function Arguments
+        ------------------
+        - region_grouping: element of self.region_groupings
+
+        Keyword Arguments
+        -----------------
+        """
+
+        if region_grouping not in self.region_groupings:
+            return None
+
+        out = f"{region_grouping}_region"
+
+        return out
+    
+
+
+    def get_regions_df(self,
+        include_iso: bool = False,
+        include_region_wb_key: bool = False,
+        regions: Union[List[str], None] = None,
+        regions_wb: Union[List[str], None] = None,    
+    ) -> Union[pd.DataFrame, None]:
+        """
+        Initialize a data frame of regions. Returns None if no valid regions
+            are specified. 
+        
+        Keyword Arguments
+        -----------------
+        - include_iso: include iso code?
+        - include_region_wb_key: if `regions_wb == True`, then set to True to
+            keep the region_wb key as a column
+        - regions: list of regions to use to build the data frame
+        - regions_wb: optional list of world bank regions to use to filter
+        - use_iso: 
+        """
+        
+        # check regions and WB regions
+        regions = self.get_valid_regions(regions)
+        if regions is None:
+            return None
+
+        regions_wb = [regions_wb] if isinstance(regions_wb, str) else regions_wb
+
+        # initialize output df and check if global regions should be added
+        df_out = pd.DataFrame({self.key: regions})
+        if sf.islistlike(regions_wb):
+
+            df_out[self.field_wb_global_region] = (
+                df_out[self.key]
+                .replace(self.dict_region_to_wb_region)
+            )
+
+            df_out = (
+                df_out[
+                    df_out[self.field_wb_global_region].isin(regions_wb)
+                ]
+                .reset_index(drop = True)
+            )
+
+            (
+                df_out.drop([self.field_wb_global_region], axis = 1, inplace = True)
+                if not include_region_wb_key
+                else None
+            )
+
+        if include_iso:
+            df_out[self.field_iso] = df_out[self.key].apply(self.dict_region_to_iso.get)
+
+        return df_out
 
 
     
@@ -489,12 +760,12 @@ class Regions:
             continent). Often used for assigning regional averages. Use 
             input_region = "iso" to convert from an iso code.
         """
-        region = self.return_region_or_iso(
-            region, 
-            return_type = input_region,
-        )
-
-        out = self.dict_region_to_un_region.get(region)
+        out = self.get_region_group(region, "un")
+        #region = self.return_region_or_iso(
+        #    region, 
+        #    return_type = input_region,
+        #)
+        #out = self.dict_region_to_un_region.get(region)
 
         return out
 
@@ -509,12 +780,12 @@ class Regions:
             for assigning regional averages. Use input_region = "iso" to convert 
             from an iso code.
         """
-        region = self.return_region_or_iso(
-            region, 
-            return_type = input_region,
-        )
-
-        out = self.dict_region_to_wb_region.get(region)
+        out = self.get_region_group(region, "world_bank_global")
+        #region = self.return_region_or_iso(
+        #    region, 
+        #    return_type = input_region,
+        #)
+        #out = self.dict_region_to_wb_region.get(region)
 
         return out
 

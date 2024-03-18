@@ -277,6 +277,7 @@ def call_with_varkwargs(
     func: callable,
     *args,
     dict_kwargs: Union[dict, None] = None,
+    include_defaults: bool = False,
     verify_function: Union[callable, None] = None,
 ) -> Any:
     """
@@ -293,6 +294,7 @@ def call_with_varkwargs(
     -----------------
     - dict_kwargs: dictionary containing keyword aruguments. If not a 
         dictionary, returns func(*args)
+    - include_defaults: include default arguments as keyword arguments?
     - verify_function: function to used for verifying keyword arguments. In
         general, should be None (defaults to func) unless func is a known
         wrapper for verify_function
@@ -303,18 +305,27 @@ def call_with_varkwargs(
 
     # get available function arguments/kwargs
     verify_function = func if not callable(verify_function) else verify_function
-    args_list, kwargs_pass = get_args(verify_function, include_defaults = False)
+    args_list, kwargs_pass = get_args(
+        verify_function, 
+        include_defaults = include_defaults,
+    )
     
     # add arguments from original function if necessary
     if func != verify_function:
-        args_list_func, kwargs_pass_func = get_args(func, include_defaults = False)
-        kwargs_pass.update(kwargs_pass_func) if isinstance(kwargs_pass_func, dict) else None
+        args_list_func, kwargs_pass_func = get_args(
+            func, 
+            include_defaults = include_defaults,
+        )
+        (
+            kwargs_pass.update(kwargs_pass_func) 
+            if isinstance(kwargs_pass_func, dict) 
+            else None
+        )
 
     # get keyword arguments
     dict_kwargs = {} if not isinstance(dict_kwargs, dict) else dict_kwargs
     kwargs_pass = dict((k, v) for k, v in dict_kwargs.items() if k in kwargs_pass.keys())
-    
-    
+
     return func(*args, **kwargs_pass)
 
 
@@ -364,6 +375,7 @@ def check_fields(
 def check_keys(
     dict_in: dict,
     keys: list,
+    logic: str = "all",
     throw_error_q: bool = True
 ) -> bool:
     """
@@ -376,6 +388,8 @@ def check_keys(
 
     Keyword Arguments
     -----------------
+    - logic: optional specification of a logic. If "all", verifies all `keys`
+        are in `dict_in`. If "any", checks to see if any are present.
     - throw_error_q: Throw an error if any required keys are not found?
         * If `throw_error_q == True`, will throw an error if required keys
             are not found
@@ -385,7 +399,13 @@ def check_keys(
     """
     s_keys_dict = set(dict_in.keys())
     s_keys_check = set(keys)
-    if s_keys_check.issubset(s_keys_dict):
+
+    condition = (
+        s_keys_check.issubset(s_keys_dict)
+        if logic == "all"
+        else (len(s_keys_check & s_keys_dict) > 0)
+    )
+    if condition:
         return True
 
     fields_missing = format_print_list(s_keys_check - s_keys_dict)

@@ -313,7 +313,7 @@ class TransformationsIntegrated:
                 self.model_attributes,
                 regions[0],
                 demo_q = True,
-                logger = self.logger
+                logger = self.logger,
             )
 
         except Exception as e:
