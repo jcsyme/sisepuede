@@ -384,16 +384,14 @@ class Regions:
                 raise RuntimeError(msg)
             return df_in
 
-        # 
-        if region_grouping not in self.region_groupings:
-            if stop_on_error:
-                valid_regions = sf.format_print_list(self.region_groupings)
-                msg = f"""
-                Invalid region grouping '{region_grouping}' specified in 
-                aggregate_df_by_region_group(): valid regions are 
-                {self.region_groupings}
-                """
-                raise RuntimeError(msg)
+
+        # check the region grouping and return the original data frame if it's invalid
+        # (raises an error if stop_on_error = True)
+        region_grouping = self.check_region_grouping(
+            region_grouping,
+            stop_on_error = stop_on_error,
+        )
+        if region_grouping is None:
             return df_in
 
 
@@ -455,6 +453,31 @@ class Regions:
         )
         
         return df_filt
+    
+
+
+    def check_region_grouping(self,
+        region_grouping: str,
+        stop_on_error: bool = True,
+    ) -> Union[None, str]:
+        """
+        Check whether a region grouping is valid. If an error is not raised,
+            returns the region grouping if it is valid or None otherwise.
+        """
+        if region_grouping not in self.region_groupings:
+
+            if stop_on_error:
+                valid_regions = sf.format_print_list(self.region_groupings)
+                msg = f"""
+                Invalid region grouping '{region_grouping}' specified: valid 
+                region groupings are defined in Regions.attributes and include
+                {self.region_groupings}
+                """
+                raise RuntimeError(msg)
+
+            return None
+
+        return region_grouping
 
 
     
