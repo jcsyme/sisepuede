@@ -3,7 +3,7 @@ lagoon,anaerobic_lagoon,1
 liquid_slurry,liquid_slurry,1
 solid_storage,storage_solid,1
 drylot,dry_lot,1
-pasture_range_paddock,,1
+pasture_range_paddock,paddock_pasture_range,1
 daily_spread,daily_spread,1
 digester,anaerobic_digester,1
 incineration,incineration,1
