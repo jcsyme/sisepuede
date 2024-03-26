@@ -463,7 +463,7 @@ def check_row_sums(
     array: np.ndarray,
     sum_restriction: float = 1,
     thresh_correction: float = 0.001,
-    msg_pass: str = ""
+    msg_pass: str = "",
 ) -> np.ndarray:
     """
     Check row sums to ensure they add to 1
@@ -472,7 +472,13 @@ def check_row_sums(
     max_diff = np.max(np.abs(sums - sum_restriction))
 
     if max_diff > thresh_correction:
-        raise ValueError(f"Invalid row sums in array{msg_pass}. The maximum deviance is {max_diff}, which is greater than the threshold for correction.")
+        msg = f"""
+        Invalid row sums in array{msg_pass}. The maximum deviance is {max_diff}, 
+        which is greater than the threshold for correction 
+        (thresh_correction = {thresh_correction}).
+        """
+
+        raise ValueError(msg)
 
     arr_out = (array.transpose()/sums).transpose()
 
