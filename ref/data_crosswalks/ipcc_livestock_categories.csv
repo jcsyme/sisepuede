@@ -4,12 +4,12 @@ buffalo_dairy,buffalo
 buffalo_nondairy,buffalo
 cattle_dairy,cattle_dairy
 cattle_nondairy,cattle_nondairy
-chicken_broiler,chicken
-chicken_layer,chicken
-goat,goat
+chicken_broiler,chickens
+chicken_layer,chickens
+goat,goats
 horses,horses
 mules,mules
-poultry_low_productivity,chicken
+poultry_low_productivity,chickens
 sheep,sheep
 sheep_dairy,sheep
 sheep_nondairy,sheep
