@@ -692,6 +692,35 @@ class Regions:
     
 
 
+    def get_region_name(self,
+        region: Union[str, int], 
+    ) -> pd.DataFrame:
+        """
+        Get a region name (not-cleaned)
+
+        Function Arguments
+        ------------------
+        - region: region, ISO Alpha 3, or ISO numeric code
+
+        Keyword Arguments
+        -----------------
+        """
+
+        # get it as a key, then use attribute function
+        region = self.return_region_or_iso(
+            region,
+            return_type = "region",
+        )
+
+        out = self.attributes.get_attribute(
+            region, 
+            "category_name",
+        )
+
+        return out
+
+
+
     def get_regions_df(self,
         include_iso: bool = False,
         include_region_wb_key: bool = False,

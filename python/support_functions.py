@@ -3095,10 +3095,16 @@ def vector_limiter(
     types_valid = [tuple, list, np.ndarray]
     if not any([isinstance(var_bounds, x) for x in types_valid]):
         str_types_valid = format_print_list([str(x) for x in types_valid])
-        raise ValueError(f"Invalid variable bounds type '{var_bounds}' in vector_limiter: valid types are {str_types_valid}")
+        msg = f"""
+        Invalid variable bounds type '{var_bounds}' in vector_limiter: valid types are {str_types_valid}
+        """
+        raise ValueError(msg)
     
     elif len(var_bounds) < 1:
-        raise ValueError(f"Invalid bounds specification of length 0 found in vector_limiter. Enter at least a lower bound.")
+        msg = f"""
+        Invalid bounds specification of length 0 found in vector_limiter. Enter at least a lower bound.
+        """
+        raise ValueError(msg)
 
     # get vector totals
     vec_total = 0

@@ -563,6 +563,143 @@ def transformation_frst_reduce_deforestation(
 
 
 
+
+def transformation_frst_increase_reforestation(
+    df_input: pd.DataFrame,
+    magnitude: Union[Dict[str, float], float],
+    vec_ramp: np.ndarray,
+    model_attributes: ma.ModelAttributes,
+    cats_inflow_restriction: Union[List[str], None] = None,
+    model_afolu: Union[mafl.AFOLU, None] = None,
+    **kwargs
+) -> pd.DataFrame:
+    """
+    Reduce deforestion by stopping transitions out of forest land use 
+        categories.
+
+    Function Arguments
+    ------------------
+    - df_input: input data frame containing baseline trajectories
+    - magnitude: float specifying increase in reforestation as a fraction of 
+        final value
+    - model_attributes: ModelAttributes object used to call strategies/
+        variables
+    - vec_ramp: ramp vec used for implementation
+
+    Keyword Arguments
+    -----------------
+    - cats_inflow_restriction: optional specification of inflow categories used
+        to restrict transitions into secondary forest
+    - field_region: field in df_input that specifies the region
+    - model_afolu: optional AFOLU object to pass for variable access
+    - regions_apply: optional set of regions to use to define strategy. If None,
+        applies to all regions.
+    - strategy_id: optional specification of strategy id to add to output
+        dataframe (only added if integer)
+    - **kwargs: passed to 
+        transformation_support_lndu_transition_to_category_targets_single_region()
+    """
+    
+    # build
+    model_afolu = (
+        mafl.AFOLU(model_attributes) 
+        if model_afolu is None
+        else model_afolu
+    )
+    attr_lndu = model_attributes.get_attribute_table(
+        model_attributes.subsec_name_lndu,
+    )
+    
+    magnitude = (
+        float(sf.vec_bounds(magnitude, (0.0, np.inf)))
+        if sf.isnumber(magnitude)
+        else None
+    )
+
+    if magnitude is None:
+        # LOGGING
+        return df_input
+    
+    
+    ##  SETUP DICTIONARY--shift 
+    cat_fsts = model_afolu.cat_lndu_fsts
+    cat_crop = model_afolu.cat_lndu_crop
+    cat_grsl = model_afolu.cat_lndu_grass
+
+    cats_ir = (#[cat_crop, cat_grsl]
+        [x for x in attr_lndu.key_values if x in cats_inflow_restriction and x != cat_fsts]
+        if sf.islistlike(cats_inflow_restriction)
+        else [x for x in attr_lndu.key_values if x != cat_fsts]
+
+    )
+    
+    dict_magnitude = {
+        cat_fsts: {
+            "categories_inflow_restrict": cats_ir,
+            "magnitude": magnitude + 1,
+            "magnitude_type": "baseline_scalar"
+        }
+    }
+    
+    cats_stable = [
+        model_afolu.cat_lndu_stlm,
+        model_afolu.cat_lndu_wetl,
+        model_afolu.cat_lndu_fstp,
+    ]
+    
+    # get region
+    field_region_def = "nation"
+    region_default = "DEFAULT"
+    field_region = kwargs.get("field_region", field_region_def)
+    field_region = field_region_def if (field_region is None) else field_region
+    
+    # organize and group
+    df_group = df_input.copy()
+    use_fake_region = (field_region not in df_group.columns)
+    if use_fake_region:
+        df_group[field_region] = region_default
+    df_group = df_group.groupby([field_region])
+    
+    df_out = None
+    i = 0
+
+
+    for region, df in df_group:
+        
+        # PER-REGION MODS HERE 
+        tup = transformation_support_lndu_transition_to_category_targets_single_region(
+            df,
+            dict_magnitude,
+            vec_ramp,
+            model_attributes,
+            cats_stable = cats_stable,
+            model_afolu = model_afolu,
+            #**kwargs
+        )
+
+        
+        if df_out is None:
+            df_out = [tup[0] for k in range(len(df_group))]
+        else:
+            df_out[i] = tup[0]
+            
+        i += 1
+        
+
+    df_out = pd.concat(df_out, axis = 0).reset_index(drop = True)
+    (
+        df_out.drop([field_region], axis = 1, inplace = True)
+        if use_fake_region
+        else None
+    )
+    
+    return df_out
+
+
+
+
+
+
 ##############
 #    LNDU    #
 ##############

@@ -817,6 +817,7 @@ class TransformationsIntegrated:
             self.transformations_afolu.transformation_agrc_improve_rice_management,
             self.transformations_afolu.transformation_agrc_increase_crop_productivity,
             self.transformations_afolu.transformation_agrc_reduce_supply_chain_losses,
+            self.transformations_afolu.transformation_agrc_reduce_supply_chain_losses,
             # self.transformation_lndu_integrated_transitions replaces:
             #   self.transformation_lndu_expand_silvopasture,
             #   self.transformation_frst_stop_deforestation

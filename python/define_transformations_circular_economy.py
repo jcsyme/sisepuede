@@ -909,7 +909,7 @@ class TransformationsCircularEconomy:
             df_input,
             # as float, applies to both landfill and biogas; specify as dict to break out; 
             # e.g., {"treated_advanced_anaerobic": 0.85, "treated_secondary_anaerobic": 0.5}
-            0.95, # CHANGEDFORINDIA 0.85
+            1.0, # CHANGEDFORINDIA 0.85
             self.vec_implementation_ramp,
             self.model_attributes,
             field_region = self.key_region,
@@ -1146,7 +1146,7 @@ class TransformationsCircularEconomy:
 
         df_out = tbc.transformation_waso_increase_gas_capture(
             df_input,
-            0.95, # as float, applies to both landfill and biogas; specify as dict to break out # CHANGEDFORINDIA 0.85
+            1.0, # as float, applies to both landfill and biogas; specify as dict to break out # CHANGEDFORINDIA 0.85
             self.vec_implementation_ramp,
             self.model_attributes,
             field_region = self.key_region,

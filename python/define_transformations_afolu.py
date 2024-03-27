@@ -492,6 +492,7 @@ class TransformationsAFOLU:
                 #   self.transformation_lndu_expand_silvopasture,
                 #   self.transformation_frst_stop_deforestation
                 self.transformation_lndu_integrated_transitions,
+                self.transformation_frst_increase_reforestation, #INDIA - must come AFTER silvopasture
                 self.transformation_lsmm_improve_manure_management_cattle_pigs,
                 self.transformation_lsmm_improve_manure_management_other,
                 self.transformation_lsmm_improve_manure_management_poultry,
@@ -519,6 +520,7 @@ class TransformationsAFOLU:
                 #   self.transformation_lndu_expand_silvopasture,
                 #   self.transformation_frst_stop_deforestation
                 self.transformation_lndu_integrated_transitions,
+                self.transformation_frst_increase_reforestation, #INDIA - must come AFTER silvopasture
                 self.transformation_lndu_reallocate_land,
                 self.transformation_lsmm_improve_manure_management_cattle_pigs,
                 self.transformation_lsmm_improve_manure_management_other,
@@ -546,6 +548,7 @@ class TransformationsAFOLU:
                 # self.transformation_lndu_integrated_transitions replaces:
                 self.transformation_lndu_expand_silvopasture,
                 #   self.transformation_frst_stop_deforestation
+                self.transformation_frst_increase_reforestation, #INDIA - must come AFTER silvopasture
                 self.transformation_lndu_reallocate_land,
                 self.transformation_lsmm_improve_manure_management_cattle_pigs,
                 self.transformation_lsmm_improve_manure_management_other,
@@ -690,6 +693,14 @@ class TransformationsAFOLU:
         ##############################
         #    FRST TRANSFORMATIONS    #
         ##############################
+
+        self.frst_increase_reforestation = sc.Transformation(
+            "FRST:INC_REFORESTATION", 
+            self.transformation_frst_increase_reforestation,
+            attr_strategy
+        )
+        all_transformations.append(self.frst_increase_reforestation)
+
 
         self.frst_stop_deforestation = sc.Transformation(
             "FRST:DEC_DEFORESTATION", 
@@ -1483,6 +1494,36 @@ class TransformationsAFOLU:
     #    FRST TRANSFORMATIONS    #
     ##############################
 
+    def transformation_frst_increase_reforestation(self,
+        df_input: Union[pd.DataFrame, None] = None,
+        strat: Union[int, None] = None,
+    ) -> pd.DataFrame:
+        """
+        Implement the "Increase Reforestation" FRST transformation on input 
+            DataFrame df_input. 
+        """
+        # check input dataframe
+        df_input = (
+            self.baseline_inputs
+            if not isinstance(df_input, pd.DataFrame) 
+            else df_input
+        )
+
+        df_out = tba.transformation_frst_increase_reforestation(
+            df_input,
+            2, # double forests INDIA
+            self.vec_implementation_ramp,
+            self.model_attributes,
+            cats_inflow_restriction = ["croplands", "other"], # SET FOR INDIA--NEED A BETTER WAY TO DETERMINE
+            field_region = self.key_region,
+            model_afolu = self.model_afolu,
+            strategy_id = strat,
+        )
+
+        return df_out
+
+
+
     def transformation_frst_stop_deforestation(self,
         df_input: Union[pd.DataFrame, None] = None,
         strat: Union[int, None] = None,
@@ -1551,7 +1592,7 @@ class TransformationsAFOLU:
 
         df_out = tba.transformation_lndu_increase_silvopasture(
             df_input,
-            0.25, # CHANGEDFORINDIA - ORIG 0.1
+            0.1, # CHANGEDFORINDIA - ORIG 0.1
             self.vec_implementation_ramp,
             self.model_attributes,
             field_region = self.key_region,
@@ -1840,7 +1881,7 @@ class TransformationsAFOLU:
             {
                 self.model_afolu.modvar_lsmm_rf_biogas: {
                     "bounds": (0.0, 1),
-                    "magnitude": 0.95, # CHANGEDFORINDIA 0.9
+                    "magnitude": 1.0, # CHANGEDFORINDIA 0.9
                     "magnitude_type": "final_value_floor",
                     "vec_ramp": self.vec_implementation_ramp
                 }
