@@ -700,6 +700,8 @@ def transformation_general_shift_fractions_from_modvars(
 
     for region, df_in in df_in_grouped:
 
+        region = region[0] if isinstance(region, tuple) else region
+        
         # return baseline df if not in applicable regions
         if region not in regions_apply:
             df_out.append(df_in)

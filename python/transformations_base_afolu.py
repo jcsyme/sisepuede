@@ -533,6 +533,8 @@ def transformation_frst_reduce_deforestation(
     
     for region, df in df_group:
         
+        region = region[0] if isinstance(region, tuple) else region
+
         # PER-REGION MODS HERE 
         df_trans = transformation_support_lndu_specify_transitions(
             df,
@@ -666,6 +668,8 @@ def transformation_frst_increase_reforestation(
 
     for region, df in df_group:
         
+        region = region[0] if isinstance(region, tuple) else region
+
         # PER-REGION MODS HERE 
         tup = transformation_support_lndu_transition_to_category_targets_single_region(
             df,
@@ -1869,6 +1873,8 @@ def transformation_lndu_increase_silvopasture(
     global vec_lndu_pasture_frac
 
     for region, df in df_group:
+        
+        region = region[0] if isinstance(region, tuple) else region
         
         # PER-REGION MODS HERE 
         (

@@ -320,6 +320,8 @@ class InputTemplate:
 
 		for strat, df in df_input_merge:
 
+			strat = strat[0] if isinstance(strat, tuple) else strat
+			
 			# keep all rows if baseline--otherwise, only keep those that are defined
 			merge_type = "left" if (strat == self.baseline_strategy) else "inner"
 			df_merge = (

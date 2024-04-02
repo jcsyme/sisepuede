@@ -2970,6 +2970,7 @@ class ModelAttributes:
         )
         
         for desig, df in df_by_designation:
+            desig = desig[0] if isinstance(desig, tuple) else desig
             desig = mv.clean_element(desig)
             dict_out.update({desig: list(df[attr_gas.key])})
             
@@ -6098,6 +6099,8 @@ class ModelAttributes:
             dfg = attr.table.groupby([field_simplex_group])
 
             for i, df in dfg:
+                
+                i = i[0] if isinstance(i, tuple) else i
 
                 # skip if misspecified
                 if not sf.isnumber(i, skip_nan = True):

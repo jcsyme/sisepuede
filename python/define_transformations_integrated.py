@@ -1348,6 +1348,7 @@ class TransformationsIntegrated:
         # iterate over regions
         for r, df in df_out_grouped:
             
+            r = r[0] if isinstance(r, tuple) else r
             if r not in regions:
                 continue
             
@@ -1437,6 +1438,8 @@ class TransformationsIntegrated:
 
                     for strat, df_exog in df_cur_grouped:
                         
+                        strat = strat[0] if isinstance(strat, tuple) else strat
+
                         df_cur = None
                         # try to concatenate current strategy
                         try:

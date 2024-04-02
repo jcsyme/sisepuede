@@ -1158,7 +1158,11 @@ def filter_df_on_reference_df_rows(
 
     if fields_groupby is None:
         df_check = (df_compare[fields_compare] != df_compare[fields_compare_ref].rename(columns = dict_rnm_rev))
-        series_keep = df_check.any(axis = 1) if (filter_method == "any") else df_check.all(axis = 1)
+        series_keep = (
+            df_check.any(axis = 1) 
+            if (filter_method == "any") 
+            else df_check.all(axis = 1)
+        )
         df_return = df_compare[series_keep][df_filter.columns].reset_index(drop = True)
 
     else:
@@ -1168,9 +1172,13 @@ def filter_df_on_reference_df_rows(
         for i, df in df_group:
             
             df_check = (df[fields_compare] != df[fields_compare_ref].rename(columns = dict_rnm_rev))
-            series_keep = df_check.any(axis = 1) if (filter_method == "any") else df_check.all(axis = 1)
-            append_df = any(list(series_keep))
+            series_keep = (
+                df_check.any(axis = 1) 
+                if (filter_method == "any") 
+                else df_check.all(axis = 1)
+            )
 
+            append_df = any(list(series_keep))
             df_return.append(df) if append_df else None
 
         df_return = (
@@ -1647,7 +1655,8 @@ def get_vector_growth_rates_from_first_element(
 def group_df_as_dict(
     df_in: pd.DataFrame,
     fields_group: List[str],
-    fields_out_set: Union[List[str], str, None] = None
+    fields_out_set: Union[List[str], str, None] = None,
+    singleton_as_tuple: bool = False,
 ) -> Union[Dict[Tuple, pd.DataFrame], None]:
     """
     Group a data frame df_in by fields group and return a dictionary of unique 
@@ -1666,6 +1675,8 @@ def group_df_as_dict(
     - fields_out_set: If not None, then will extract unique elements in these 
         fields (if a list, as a data frame of unique rows; if a single element,
         then as a set)
+    - singleton_as_tuple: for single groupers, return a tuple as the key (pandas
+        default)?
     """
     
     fields_group = [x for x in fields_group if x in df_in.columns]
@@ -1677,6 +1688,9 @@ def group_df_as_dict(
 
     for i, df in df_in_grouped:
         
+        if not singleton_as_tuple:
+            i = i[0] if (isinstance(i, tuple) & (len(i) == 1)) else i
+
         val = df
 
         if fields_out_set is not None:
@@ -2207,9 +2221,9 @@ def pivot_df_clean(
     # pivot and clean indices
     df_piv = pd.pivot(
         df_pivot,
-        fields_ind,
-        fields_column,
-        fields_value
+        index = fields_ind,
+        columns = fields_column,
+        values = fields_value,
     ).reset_index()
 
     df_piv.columns = [

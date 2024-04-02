@@ -853,6 +853,8 @@ def transformation_entc_renewable_target(
 
     for region, df in dfs:
         
+        region = region[0] if isinstance(region, tuple) else region
+
         # init the magnitude for the region
         magnitude = magnitude_target
 
@@ -1338,6 +1340,8 @@ def transformation_entc_renewable_target(
         
         for region, df_cur in dfg:
             
+            region = region[0] if isinstance(region, tuple) else region
+
             # get original total MSP accounted for 
             vec_entc_msp_final_period = dict_vec_entc_msp_final_period.get(region)
             if vec_entc_msp_final_period is None:
@@ -1506,6 +1510,8 @@ def transformation_entc_specify_transmission_losses(
 
         for i, df in dfs_out:
             
+            i = i[0] if isinstance(i, tuple) else i
+
             val_final = float(
                 df[
                     df[model_attributes.dim_time_period] == get_time_period(model_attributes, "max")

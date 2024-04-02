@@ -266,6 +266,8 @@ def project_from_growth_rate(
 
     for iso, df in dfg:
         
+        iso = iso[0] if isinstance(iso, tuple) else iso
+
         fields = model_attributes.build_variable_fields(modvar)
         arr_cur = np.array(df[fields])
         

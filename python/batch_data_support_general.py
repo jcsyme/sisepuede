@@ -221,6 +221,8 @@ def exogenous_demands_to_sispeuede_ies(
     # maximum magntiude of elasticity to include in means
 
     for i, df in df_inputs_by_iso:
+        
+        i = i[0] if isinstance(i, tuple) else i
 
         # set a data frame for the driver; can be pulled from socioeconomic
         if modvar_driver in model_socioeconomic.output_model_variables:

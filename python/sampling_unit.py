@@ -2707,6 +2707,8 @@ class FutureTrajectories:
 		df_out = []
 		for varname, df in dfg:
 			
+			varname = varname[0] if isinstance(varname, tuple) else varname
+
 			df_red = (
 				df[
 					~df[field_variable_trajgroup].isin([missing_flag])

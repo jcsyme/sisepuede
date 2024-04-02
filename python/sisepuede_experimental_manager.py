@@ -431,6 +431,7 @@ class SISEPUEDEExperimentalManager:
 
 		for region, df in dfg:
 
+			region = region[0] if isinstance(region, tuple) else region
 			region_print = self.get_output_region(region)
 
 			try:
