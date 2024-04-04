@@ -288,6 +288,24 @@ def generate_schema_from_df(
 
 
 
+def get_table_names(
+    engine:sqlalchemy.engine,
+    error_return: Union[Any, None] = None,
+) -> Union[List[str], None]:
+    """
+    Return a list of table name contained in the SQL Alchemy engine `engine`. 
+        On an error, returns `error_return`
+    """
+
+    try:
+        out = sqlalchemy.inspect(engine).get_table_names()
+    except:
+        out = error_return
+    
+    return out
+
+
+
 def join_list_for_query(
     list_in: list,
     delim: str = ", ",
@@ -399,7 +417,8 @@ def sql_table_to_df(
     """
 
     # check table names
-    if table_name not in engine.table_names():
+    table_names = get_table_names(engine, error_return = [])
+    if table_name not in table_names:
         # LOGHERE
         return None
 
@@ -427,7 +446,7 @@ def _write_dataframes_to_db(
     dict_tables: dict,
     db_engine: Union[sqlalchemy.engine.Engine, str],
     preserve_table_schema: bool = True,
-    append_q: bool = False
+    append_q: bool = False,
 ) -> None:
     """
     Write a dictionary of tables to an SQL database.
@@ -455,40 +474,73 @@ def _write_dataframes_to_db(
         if os.path.exists(db_engine) and db_engine.endswith(".sqlite"):
             try:
                 db_engine = sqlalchemy.create_engine(f"sqlite:///{db_engine}")
+
             except Exception as e:
                 raise ValueError(f"Error establishing a connection to sqlite database at {db_engine}: {e} ")
+    
     elif not isinstance(db_engine, sqlalchemy.engine.Engine):
         t = type(db_engine)
         raise ValueError(f"Invalid db_con type {t}: only types str, sqlalchemy.engine.Engine are valid.")
 
+
     # get available tables
-    tables_avail = db_engine.table_names()
-    with db_engine.connect() as con:
-        for table in dict_tables.keys():
-            #
-            df_write = dict_tables.get(table)
+    tables_avail = get_table_names(db_engine, error_return = [])
 
-            if table in tables_avail:
+    #with db_engine.connect() as con:
 
-                # try retrieving columns
-                df_columns = pd.read_sql_query(f"select * from {table} limit 0;", con)
+    for table in dict_tables.keys():
+        
+        df_write = dict_tables.get(table)
 
-                # initialize writing based on appendage/preserving schema
-                cols_write = list(df_columns.columns)
-                on_exists = "append"
-                query = None
-                write_q = set(df_columns.columns).issubset(set(df_write.columns))
+        # simply write the table if it's not present
+        if table not in tables_avail:
+            df_write.to_sql(
+                table, 
+                db_engine, 
+                if_exists = "replace", 
+                index = None,
+            )
 
-                if not append_q:
-                    cols_write = cols_write if preserve_table_schema else list(df_write.columns)
-                    on_exists = on_exists if preserve_table_schema else "replace"
-                    query = f"delete from {table};" if preserve_table_schema else f"drop table {table};"
-                    write_q = write_q if preserve_table_schema else True
+            continue
+    
 
-                con.execute(query) if (query is not None) else None
-                df_write[cols_write].to_sql(
-                    table, con, if_exists = on_exists, index = None
-                ) if write_q else None
+        # try retrieving columns
+        df_columns = pd.read_sql_query(
+            f"select * from {table} limit 0;", 
+            db_engine
+        )
 
-            else:
-                df_write.to_sql(table, con, if_exists = "replace", index = None)
+        # initialize writing based on appendage/preserving schema
+        cols_write = list(df_columns.columns)
+        on_exists = "append"
+        query = None
+        write_q = set(df_columns.columns).issubset(set(df_write.columns))
+
+        if not append_q:
+
+            cols_write = cols_write if preserve_table_schema else list(df_write.columns)
+            on_exists = on_exists if preserve_table_schema else "replace"
+
+            query = (
+                f"delete from {table};" 
+                if preserve_table_schema 
+                else f"drop table {table};"
+            )
+
+            write_q = write_q if preserve_table_schema else True
+
+        if query is not None:
+            with db_engine.connect() as con:
+                con.execute(sqlalchemy.text(query))
+                con.commit() # what a fucking pain in the ass it was to find THIS was necessary 
+
+        if write_q:
+            df_write[cols_write].to_sql(
+                table, 
+                db_engine, 
+                if_exists = on_exists, 
+                index = None,
+            ) 
+
+
+    return None

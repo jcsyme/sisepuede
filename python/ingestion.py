@@ -321,7 +321,7 @@ class InputTemplate:
 		for strat, df in df_input_merge:
 
 			strat = strat[0] if isinstance(strat, tuple) else strat
-			
+
 			# keep all rows if baseline--otherwise, only keep those that are defined
 			merge_type = "left" if (strat == self.baseline_strategy) else "inner"
 			df_merge = (
@@ -336,6 +336,7 @@ class InputTemplate:
 			try:
 				for field in [field_key_strategy, field_time_period]:
 					df[field] = df[field].astype(int)
+
 			except Exception as e:
 				vars_missing = sorted(list(set(df[df["value"].isna()][field_req_variable])))
 				vars_missing = sf.format_print_list(vars_missing)
@@ -375,9 +376,16 @@ class InputTemplate:
 		if isinstance(df_variable_information, pd.DataFrame):
 
 			# get existing ield_max/field_min contained in df_variable_information (if exist)
-			field_max_nms = [x for x in df_variable_information.columns if (regex_max.match(str(x)) is not None)]
+			field_max_nms = [
+				x for x in df_variable_information.columns 
+				if (regex_max.match(str(x)) is not None)
+			]
 			field_max_nms = field_max_nms[0] if (len(field_max_nms) > 0) else None
-			field_min_nms = [x for x in df_variable_information.columns if (regex_min.match(str(x)) is not None)]
+			
+			field_min_nms = [
+				x for x in df_variable_information.columns 
+				if (regex_min.match(str(x)) is not None)
+			]
 			field_min_nms = field_min_nms[0] if (len(field_min_nms) > 0) else None
 
 			# update extraction fields to pull from df_variable_information

@@ -8497,9 +8497,9 @@ class ElectricEnergy:
         df_out = (
             pd.pivot(
                 df_out,
-                [field_index],
-                field_pivot,
-                field_values,
+                columns = field_pivot,
+                index = [field_index],
+                values = field_values,
             )
             .reset_index(drop = False)
             .rename(
@@ -9320,12 +9320,20 @@ class ElectricEnergy:
         # initialize some pieces
         subsec = self.model_attributes.get_variable_subsector(modvar)
         attr = self.model_attributes.get_attribute_table(subsec)
-        attr_tech = attr if (subsec == self.subsec_name_entc) else self.model_attributes.get_attribute_table(self.subsec_name_entc)
+        attr_tech = (
+            attr 
+            if (subsec == self.subsec_name_entc) 
+            else self.model_attributes.get_attribute_table(self.subsec_name_entc)
+        )
         dict_tech_info = self.get_tech_info_dict(attribute_technology = attr_tech)
         field_pivot = self.field_nemomod_technology if (field_pivot is None) else field_pivot
 
         # techs to filter on
-        cats_filter = sum([dict_tech_info.get(x) for x in techs_to_pivot], []) if (techs_to_pivot is not None) else None
+        cats_filter = (
+            sum([dict_tech_info.get(x) for x in techs_to_pivot], []) 
+            if (techs_to_pivot is not None) 
+            else None
+        )
 
         # generate any replacement dictionaries
         dict_repl = {}
@@ -9346,9 +9354,13 @@ class ElectricEnergy:
         # apply field replacements if needed
         if dict_repl_values is not None:
             for field in dict_repl_values.keys():
-                if field in df_table_nemomod.keys():
-                    dict_repl_cur = dict_repl_values.get(field)
-                    df_table_nemomod[field].replace(dict_repl_cur, inplace = True) if (dict_repl_cur is not None) else None
+
+                if field not in df_table_nemomod.keys():
+                    continue
+            
+                dict_repl_cur = dict_repl_values.get(field)
+                if (dict_repl_cur is not None):
+                    df_table_nemomod[field].replace(dict_repl_cur, inplace = True)
 
         # apply an optional aggregation to the dataframe after retrieving
         if dict_agg_info is not None:
@@ -9362,8 +9374,16 @@ class ElectricEnergy:
                 )
 
         # reduce data frame to techs (should be trivial)
-        df_source = df_table_nemomod[df_table_nemomod[field_pivot].isin(cats_filter)] if (cats_filter is not None) else df_table_nemomod
-        df_source = sf.subset_df(df_source, dict_filter_override) if (dict_filter_override is not None) else df_source
+        df_source = (
+            df_table_nemomod[df_table_nemomod[field_pivot].isin(cats_filter)] 
+            if (cats_filter is not None) 
+            else df_table_nemomod
+        )
+        df_source = (
+            sf.subset_df(df_source, dict_filter_override) 
+            if (dict_filter_override is not None) 
+            else df_source
+        )
         df_source[field_pivot] = df_source[field_pivot].replace(dict_repl)
 
         # build renaming dictionary
@@ -10012,6 +10032,7 @@ class ElectricEnergy:
                 dict_to_sql,
                 engine
             )
+            
         except Exception as e:
             self._log(f"Error writing data to {fp_database}: {e}", type_log = "error")
             return None

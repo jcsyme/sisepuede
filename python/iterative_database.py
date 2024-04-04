@@ -314,7 +314,9 @@ class IterativeDatabaseTable:
 		if self.interaction_type == "sql":
 
 			query_delete = None
-			self.exists = (self.table_name in engine.table_names())
+
+			table_names = sqlutil.get_table_names(engine, error_return = [])
+			self.exists = (self.table_name in table_names)
 
 			if self.exists:
 				# if not replacing, initialize columns; otherwise, delete the table and wait to initialize columns until the first call to "write"
@@ -533,7 +535,10 @@ class IterativeDatabaseTable:
 		error_msg = f"Column asymmetry discovered in table {self.table_name} -- check the table."
 
 		if self.interaction_type == "sql":
-			self.exists = (self.table_name in self.engine.table_names())
+
+			table_names = sqlutil.get_table_names(self.engine, error_return = [])
+			self.exists = (self.table_name in table_names)
+
 			if check_columns and self.exists:
 				query = f"select * from {self.table_name} limit 0;"
 				df_columns = None

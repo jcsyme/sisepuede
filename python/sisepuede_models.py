@@ -2,7 +2,7 @@ import logging
 from model_attributes import ModelAttributes
 from model_afolu import AFOLU
 from model_circular_economy import CircularEconomy
-from model_electricity import ElectricEnergy
+import model_electricity as elec
 from model_energy import NonElectricEnergy
 from model_ippu import IPPU
 from model_socioeconomic import Socioeconomic
@@ -110,16 +110,21 @@ class SISEPUEDEModels:
 
 		self.model_afolu = AFOLU(self.model_attributes)
 		self.model_circecon = CircularEconomy(self.model_attributes)
-		self.model_electricity = ElectricEnergy(
-			self.model_attributes,
-			self.fp_julia,
-			self.fp_nemomod_reference_files,
-			logger = self.logger
-		) if self.allow_electricity_run else None
+
+		self.model_electricity = None
+		if self.allow_electricity_run:
+			self.model_electricity = elec.ElectricEnergy(
+				self.model_attributes,
+				self.fp_julia,
+				self.fp_nemomod_reference_files,
+				logger = self.logger
+			)
+
 		self.model_energy = NonElectricEnergy(
 			self.model_attributes,
 			logger = self.logger
 		)
+		
 		self.model_ippu = IPPU(self.model_attributes)
 		self.model_socioeconomic = Socioeconomic(self.model_attributes)
 
@@ -508,7 +513,12 @@ class SISEPUEDEModels:
 		##  4. Run Non-Electric Energy (excluding Fugitive Emissions) and collect output
 
 		if "Energy" in models_run:
-			self._log("Running Energy model (NonElectricEnergy without Fugitive Emissions)", type_log = "info")
+
+			self._log(
+				"Running Energy model (NonElectricEnergy without Fugitive Emissions)", 
+				type_log = "info",
+			)
+
 			if run_integrated and set(["IPPU", "AFOLU"]).issubset(set(models_run)):
 				df_input_data = self.model_attributes.transfer_df_variables(
 					df_input_data,
@@ -523,16 +533,26 @@ class SISEPUEDEModels:
 					if run_integrated 
 					else df_return
 				)
-				self._log(f"NonElectricEnergy without Fugitive Emissions model run successfully completed", type_log = "info")
+				self._log(
+					f"NonElectricEnergy without Fugitive Emissions model run successfully completed", type_log = "info",
+				)
 
 			except Exception as e:
-				self._log(f"Error running NonElectricEnergy without Fugitive Emissions: {e}", type_log = "error")
+				self._log(
+					f"Error running NonElectricEnergy without Fugitive Emissions: {e}",
+					type_log = "error",
+				)
 		
 
 		##  5. Run Electricity and collect output
 
 		if ("Energy" in models_run) and include_electricity_in_energy and self.allow_electricity_run:
-			self._log("Running Energy model (Electricity and Fuel Production: trying to call Julia)", type_log = "info")
+
+			self._log(
+				"Running Energy model (Electricity and Fuel Production: trying to call Julia)", 
+				type_log = "info",
+			)
+
 			if run_integrated and set(["Circular Economy", "AFOLU"]).issubset(set(models_run)):
 				df_input_data = self.model_attributes.transfer_df_variables(
 					df_input_data,
@@ -554,16 +574,27 @@ class SISEPUEDEModels:
 					if run_integrated 
 					else df_return
 				)
-				self._log(f"ElectricEnergy model run successfully completed", type_log = "info")
+
+				self._log(
+					f"ElectricEnergy model run successfully completed", 
+					type_log = "info",
+				)
 
 			except Exception as e:
-				self._log(f"Error running ElectricEnergy model: {e}", type_log = "error")
+				self._log(
+					f"Error running ElectricEnergy model: {e}", 
+					type_log = "error",
+				)
 
 		
 		##  6. Add fugitive emissions from Non-Electric Energy and collect output
 
 		if "Energy" in models_run:
-			self._log("Running Energy (Fugitive Emissions)", type_log = "info")
+			self._log(
+				"Running Energy (Fugitive Emissions)", 
+				type_log = "info",
+			)
+
 			if run_integrated and set(["IPPU", "AFOLU"]).issubset(set(models_run)):
 				df_input_data = self.model_attributes.transfer_df_variables(
 					df_input_data,
@@ -578,15 +609,23 @@ class SISEPUEDEModels:
 						subsectors_project = self.model_attributes.subsec_name_fgtv
 					)
 				)
+
 				df_return = (
 					[sf.merge_output_df_list(df_return, self.model_attributes, merge_type = "concatenate")] 
 					if run_integrated 
 					else df_return
 				)
-				self._log(f"Fugitive Emissions from Energy model run successfully completed", type_log = "info")
+
+				self._log(
+					f"Fugitive Emissions from Energy model run successfully completed", 
+					type_log = "info",
+				)
 
 			except Exception as e:
-				self._log(f"Error running Fugitive Emissions from Energy model: {e}", type_log = "error")
+				self._log(
+					f"Error running Fugitive Emissions from Energy model: {e}", 
+					type_log = "error",
+				)
 
 		
 		##  7. Add Socioeconomic output at the end to avoid double-initiation throughout models
@@ -601,15 +640,23 @@ class SISEPUEDEModels:
 						project_for_internal = False
 					)
 				)
+
 				df_return = (
 					[sf.merge_output_df_list(df_return, self.model_attributes, merge_type = "concatenate")] 
 					if run_integrated 
 					else df_return
 				)
-				self._log(f"Socioeconomic outputs successfully appended.", type_log = "info")
+
+				self._log(
+					f"Socioeconomic outputs successfully appended.", 
+					type_log = "info",
+				)
 
 			except Exception as e:
-				self._log(f"Error appending Socioeconomic outputs: {e}", type_log = "error")
+				self._log(
+					f"Error appending Socioeconomic outputs: {e}", 
+					type_log = "error",
+				)
 
 		
 		# build output data frame

@@ -2431,7 +2431,7 @@ class AFOLU:
             represent population changes)
         - return_type: return type of array
         """
-
+        
         # get the demand scalar to apply to per-capita demands
         dem_scale_proj_pc = (gdp_per_capita_rates.transpose()*elast[0:-1].transpose()).transpose()
         dem_scale_proj_pc = np.cumprod(1 + dem_scale_proj_pc, axis = 0)

@@ -792,6 +792,7 @@ def dict_to_excel(
     fp_out: str,
     dict_out: Dict[str, pd.DataFrame],
     replace_file: bool = False, 
+    **kwargs
 ) -> None:
     """
     Write a dictionary `dict_out` of dataframes to Excel file at path fp_out.
@@ -799,7 +800,9 @@ def dict_to_excel(
 
     Keyword Arguments
     -----------------
+    - encoding: if None, defaults to UTF-8
     - replace_file: if True, removes file if exists
+    - **kwargs: passed to df.to_excel (ignores encoding)
     """
 
     (
@@ -808,14 +811,26 @@ def dict_to_excel(
         else None
     )
 
-    with pd.ExcelWriter(fp_out) as excel_writer:
-        for k in dict_out.keys():
-            dict_out[k].to_excel(
+    dict_kwargs = dict(
+        (k, v) for k, v in kwargs.items() 
+        if k not in ["index", "sheet_name"]
+    )
+
+    # https://stackoverflow.com/questions/46840960/indexerror-at-least-one-sheet-must-be-visible
+    with pd.ExcelWriter(fp_out, engine = "xlsxwriter") as excel_writer:
+
+        for k, df in dict_out.items():
+            nm = str(k)
+
+            df.to_excel(
                 excel_writer, 
-                sheet_name = str(k), 
+                sheet_name = nm, 
                 index = False, 
-                encoding = "UTF-8"
+                **dict_kwargs,
             )
+    
+
+    return None
 
 
 

@@ -7,7 +7,7 @@ import os, os.path
 import pandas as pd
 from sisepuede_experimental_manager import *
 from sisepuede_file_structure import *
-from sisepuede_models import *
+import sisepuede_models as sm
 #from sisepuede_output_database import *
 import sisepuede_output_database as sod
 import support_classes as sc
@@ -747,7 +747,7 @@ class SISEPUEDE:
 			
 			init_elec = (not initialize_as_dummy) & self.file_struct.allow_electricity_run
 
-			self.models = SISEPUEDEModels(
+			self.models = sm.SISEPUEDEModels(
 				self.model_attributes,
 				allow_electricity_run = init_elec,
 				fp_julia = dir_jl,
@@ -1483,7 +1483,11 @@ class SISEPUEDE:
 			self.database.table_name_output
 		)
 		index_conflict_resolution = None
-		index_conflict_resolution = "write_replace" if (force_overwrite_existing_primary_keys or (idt.index_conflict_resolution == "write_replace")) else None
+		index_conflict_resolution = (
+			"write_replace" 
+			if (force_overwrite_existing_primary_keys or (idt.index_conflict_resolution == "write_replace")) 
+			else None
+		)
 		set_available_ids = idt.available_indices
 
 		# check regions specification
