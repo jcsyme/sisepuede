@@ -2270,7 +2270,7 @@ def print_setdiff(
 
 def project_from_array(
     arr_in: np.ndarray,
-    max_deviation_from_mean: float = 0.2,
+    max_deviation_from_mean: Union[float, None] = 0.2,
     max_lookback: Union[int, None] = None,
 ) -> Union[np.ndarray, None]:
     """
@@ -2287,7 +2287,8 @@ def project_from_array(
     Keyword Arguments
     -----------------
     - max_deviation_from_mean: maximium proportional deviation from mean; used
-        to prevent large swings in the regression.
+        to prevent large swings in the regression. Set to None to remove the
+        bounds.
     - max_lookback: optional maximum number of rows to use for identifying 
     """
     
@@ -2317,7 +2318,11 @@ def project_from_array(
                                
         y = np.array([arr[:, i]]).transpose()
         y_bar = np.mean(y)
-        bounds = ((1 - max_deviation_from_mean)*y_bar, (1 + max_deviation_from_mean)*y_bar)
+        bounds = (
+            ((1 - max_deviation_from_mean)*y_bar, (1 + max_deviation_from_mean)*y_bar)
+            if isnumber(max_deviation_from_mean) 
+            else None
+        )
         
         xty = np.dot(x.transpose(), y)
         coeffs = np.dot(xtx_inv, xty)
@@ -2559,6 +2564,75 @@ def read_yaml(
     out = munch.munchify(out) if munchify_dict else out
     
     return out
+
+
+
+def repeat_df(
+    df: pd.DataFrame,
+    n_repetitions: int,
+    axis: int = 0,
+) -> pd.DataFrame:
+    """
+    Repeat a data frame.
+
+    Function Arguments
+    ------------------
+    - df: data frame to repeat
+    - n_repetitions: number of repetitions
+
+    Keyword Arguments
+    -----------------
+    - axis: 0 to repeat along rows (vertical concatenation), 1 to repeat along 
+        columns (horizontal concatenation)
+    """
+
+    ##  INITIALIZATION
+
+    # return the original data frame?
+    return_df = not isnumber(n_repetitions, integer = True)
+    return_df |= (n_repetitions <= 1) if not return_df else return_df
+    if return_df:
+        return df
+    
+    # check number of repetitions and axis=
+    axis = 0 if axis not in [0, 1] else axis
+
+    
+    ##  DO THE REPETITIONS
+
+    fields = list(df.columns)
+    dict_dtypes = df.dtypes.to_dict()
+
+    # expand fields
+    if axis == 1:
+        dict_dtypes = dict(
+            (f"{x}_{i}", dict_dtypes.get(x))
+            for i in range(n_repetitions) for x in fields
+        )
+        fields = [f"{x}_{i}" for i in range(n_repetitions) for x in fields]
+
+    # repeat, then treat axis
+    df_out = np.repeat(
+        df.to_numpy(), 
+        n_repetitions, 
+        axis = 0
+    )
+
+    if axis == 1:
+        df_out = np.array([df_out.flatten()])
+
+    # convert to data frame and set data types
+    df_out = pd.DataFrame(
+        df_out,
+        columns = fields,
+    )
+
+    for field in df_out.columns:
+        df_out[field] = df_out[field].astype(
+            dict_dtypes.get(field),
+        )
+
+    return df_out
 
 
 

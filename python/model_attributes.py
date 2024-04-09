@@ -603,11 +603,14 @@ class ModelAttributes:
             * self.attribute_file_extension
             * self.delim_multicats
             * self.field_emissions_total_flag
+            * self.is_model_attributes
             * self.matchstring_landuse_to_forests
         """
+
         self.attribute_file_extension = ".csv"
         self.delim_multicats = "|"
         self.field_emissions_total_flag = "emissions_total_by_gas_component"
+        self.is_model_attributes = True
         self.matchstring_landuse_to_forests = "forests_"
 
         return None
@@ -6315,9 +6318,11 @@ class ModelAttributes:
 
 
 
-
-
-
+###################################
+###                             ###
+###    SOME SIMPLE FUNCTIONS    ###
+###                             ###
+###################################
 
 def clean_schema(
     var_schema: str, 
@@ -6327,6 +6332,20 @@ def clean_schema(
     Clean a variable schema input `var_schema`
     """
     return mv.clean_element(var_schema)
+
+
+
+def is_model_attributes(
+    obj: Any,
+) -> bool:
+    """
+    check if obj is a ModelAttributes object
+    """
+
+    out = hasattr(obj, "is_model_attributes")
+    out &= obj.is_model_attributes if out else False
+
+    return out
 
 
 

@@ -11,6 +11,12 @@ import support_functions as sf
 
 
 
+
+##################################
+#    INITIALIZATION FUNCTIONS    #
+##################################
+
+
 class Regions:
     """
     Leverage some simple region actions based on model attributes. Supports the
@@ -39,6 +45,7 @@ class Regions:
 
     def __init__(self,
         model_attributes: ModelAttributes,
+        initialize_model_attributes: bool = False,
         regex_region_groups: Union[re.Pattern, None] = re.compile("(.*)_region$"),
     ):
 
@@ -148,9 +155,11 @@ class Regions:
             * self.field_lat
             * self.field_lon
             * self.field_wb_global_region
+            * self.is_regions
             * self.key
             * self.regex_superregion
             * self.valid_region_groups
+
 
         """
         # some fields
@@ -209,7 +218,7 @@ class Regions:
         dict_region_to_un_region = attributes.field_maps.get(f"{attributes.key}_to_{field_un_global_region}")
         all_un_regions = sorted(list(dict_region_to_un_region.keys()))
 
-    
+
         ##  SET PROPERTIES
 
         self.all_isos = all_isos
@@ -232,6 +241,7 @@ class Regions:
         self.field_lat = field_lat
         self.field_lon = field_lon
         self.field_wb_global_region = field_wb_global_region
+        self.is_regions = True
         self.key = attributes.key
         self.regex_region_groups = regex_region_groups
         self.region_groupings = region_groupings
@@ -249,7 +259,7 @@ class Regions:
     #
     #
     #
-
+ 
     """
     USE THIS AS A TEMPLATE TO BUILD FUNCTION FOR MISSING VARIABLES
     def add_missing_probs(
@@ -480,6 +490,318 @@ class Regions:
         return region_grouping
 
 
+
+    def fill_missing_regions(self,
+        df: pd.DataFrame,
+        fields_data: List[str],
+        dict_method: dict,
+        region_spec: str,
+        field_region: Union[str, None] = None,
+        regions_fill: Union[List[str], None] = None,
+    ) -> Union[pd.DataFrame, None]:
+        """
+        Fill in data for regions that are missing using a 
+        
+        Function Arguments
+        ------------------
+        - df: data frame with regions to fill
+        - fields_data: data fields to fill
+        - dict_method: fill method information. Keys are a method while values
+            are dictionaries that map parameters to values. Options are:
+            * "grouping_average": Use a regional grouping average. Requires the
+                following parameters:
+                * "regional_grouping": grouping method to use
+            * "analog_population_center": Use an analog from the nearest 2020 
+                population center.
+
+        - region_spec: regional specification; must be one of
+            * "iso": use ISO codes, available in regions.all_iso
+            * "iso_numeric": use ISO numeric codes, available in 
+                regions.all_isos_numeric
+            * "region": use the region identifier, available as 
+                regions.all_regions
+            
+        Keyword Arguments
+        -----------------
+        - field_region: optional specification of region field to use. If None, 
+            uses the field associated with region_spec.
+        - regions_fill: optional specification of regions to fill. If None,
+            defaults to all regions availabile in regions.all_regions.
+        """
+
+        ##  INITIAlIZATION AND CHECKS
+        
+        # get region specification--default to region
+        region_spec = (
+            "region"
+            if region_spec not in ["iso", "iso_numeric", "region"]
+            else region_spec
+        )
+
+        # check dict method specification
+        ret_df = not isinstance(dict_method, dict)
+        ret_df |= (len(dict_method) != 1) if not ret_df else ret_df
+        if ret_df:
+            msg = "Invalid specification of dict_method in fill_missing_regions(): must be a dictionary of length 1."
+            warnings.warn(msg)
+            return df
+
+        # check method
+        method = list(dict_method.keys())[0]
+        valid_methods = [
+            "grouping_average", 
+            "analog_population_center",
+        ]
+
+        if method not in valid_methods:
+            msg = sf.format_print_list(valid_methods)
+            msg = f"""
+            Invalid method '{method}' specified in fill_missing_regions(): valid 
+            methods are {msg}. Returning original data frame.
+            """
+            return df
+
+        
+        # SET REGION INFO; option to set region field as something else
+        field_region = None if not isinstance(field_region, str) else field_region
+        match region_spec:
+            case "iso":
+                field_region = self.field_iso if field_region is None else field_region
+                regions_space = self.all_isos
+            case "iso_numeric":
+                field_region = self.field_iso_numeric if field_region is None else field_region
+                regions_space = self.all_isos_numeric
+            case "region":
+                field_region = self.key if field_region is None else field_region
+                regions_space = self.all_regions
+
+        # raise an error if the region field is not found
+        if field_region not in df.columns:
+            msg = f"Error in fill_missing_regions: region field {field_region} not found in the input data frame."
+            raise RuntimeError(msg)
+
+        fields_index = [x for x in df.columns if x not in [field_region] + fields_data]
+
+        # initialize regions that are not in the space
+        regions_missing = [
+            x for x in regions_space
+            if x not in df[field_region].unique()
+        ]
+
+        # regions to actually fill in
+        regions_fill = (
+            regions_missing
+            if not sf.islistlike(regions_fill)
+            else [x for x in regions_fill if x in regions_missing]
+        )
+        
+        if len(regions_fill) == 0:
+            return df
+
+
+        ##  NOW, BASED ON THE REPLACEMENT TYPE, CALL A SUPPORTING FUNCTION
+
+        # initialize as df
+        df_out = df
+
+        if method == "grouping_average":
+            
+            # get the region grouping
+            dict_cur = dict_method.get(method)
+            grp = dict_cur.get("region_grouping")
+        
+            if grp is None:
+                msg = f"""
+                Invalid specification of method '{method}' in 
+                fill_missing_regions(): parameter "region_grouping" not found.
+                """
+                warnings.warn(msg)
+                return df
+            
+            # otherwise, fill using the aggregate
+            df_out = self.fill_missing_regions_using_grouping_aggregate(
+                df,
+                grp,
+                field_region,
+                fields_data,
+                fields_index,
+                regions_fill,
+                return_region_type = region_spec,
+                aggregation_method = "mean",
+            )
+
+
+        elif method == "analog_population_center":
+            print("ADD analog_population_center")
+
+
+        return df_out
+
+
+
+    def fill_missing_regions_using_grouping_aggregate(self,
+        df: pd.DataFrame,
+        region_grouping: str,
+        field_region: Union[str, None],
+        fields_data: List[str],
+        fields_index: Union[List[str], None],
+        regions_fill: List[str],
+        return_region_type: str,
+        aggregation_method: str = "mean",
+    ) -> Union[pd.DataFrame, None]:
+        """
+        Fill in data for regions that are missing using a grouping average. 
+            NOTE: includes little generic checking. Support function for 
+            fill_missing_regions()
+
+        
+        Function Arguments
+        ------------------
+        - df: data frame with regions to fill
+        - region_grouping: grouping to use for filling in reginal meanf
+        - fields_data: data fields to fill
+        - field_region: optional specification of region field to use. If None, 
+            uses the field associated with region_spec.
+        - regions_fill: optional specification of regions to fill. If None,
+            defaults to all regions availabile in regions.all_regions.
+        - return_region_type: return "region", "iso", or "iso_numeric". Should
+            align with field types in field_region
+
+        Keyword Arguments
+        -----------------
+        - aggregation_method: aggregation function used to combine across 
+            regions. Passed to pd.groupby.aggregate. "mean", "sum", etc are 
+            acceptable. 
+        """
+
+        ##  INITIALIZATION AND CHECKS
+
+        # check data fields
+        fields_data = [x for x in fields_data if x in df.columns]
+        if len(fields_data) == 0:
+            return df
+
+        # check the region grouping
+        if region_grouping not in self.region_groupings:
+            msg = f"Error in fill_missing_regions_grouping_average: invalid region grouping '{region_grouping}'."
+            raise RuntimeError(msg)
+
+        # next, get region groupings that need to be retrieved 
+        all_group_vals = set(
+            [
+                self.get_region_group(region, region_grouping)
+                for region in regions_fill
+            ]
+        )
+        all_group_vals = sorted(list(all_group_vals))
+
+        # get regions as key values
+        regions_fill_all = [
+            self.return_region_or_iso(x, return_type = "region")
+            for x in regions_fill
+        ]
+        field_rg = self.get_region_group_field(region_grouping)
+        
+        # get attribute table, then convert to dictionary mapping region group to regions
+        dict_rg_to_regions = self.attributes.table
+        dict_rg_to_regions = dict_rg_to_regions[
+            dict_rg_to_regions[field_rg]
+            .isin(all_group_vals)
+        ][[self.key, field_rg]]
+
+        # initialize the dictionary of regions to region means
+        dict_rg_to_region_means = sf.group_df_as_dict(
+            dict_rg_to_regions,
+            fields_group = [field_rg],
+            fields_out_set = [self.key]
+        )
+
+
+        ##  NEXT, BUILD REGIONAL AGGREGATE
+
+        field_tmp = "REGION_TMP_ADD"
+        df[field_tmp] = [
+            self.return_region_or_iso(x, return_type = "region")
+            for x in list(df[field_region])
+        ]
+
+        # init dictionary and map over region groupings to combine data
+        dict_rg_to_aggs = {}
+        for k, v in dict_rg_to_region_means.items():
+
+            # merge to regions, drop na, and calculate aggregate 
+            df_cur = (
+                pd.merge(
+                    v.rename(columns = {self.key: field_tmp}),
+                    df,
+                    how = "inner",
+                )
+                .drop(
+                    columns = [field_tmp, field_region]
+                )
+                .dropna()
+            )
+
+            dict_agg = dict((x, "first") for x in fields_index)
+            dict_agg.update(dict((x, aggregation_method) for x in fields_data))
+
+            # get the means
+            df_out = sf.simple_df_agg(
+                df_cur,
+                fields_index,
+                dict_agg,
+            )
+
+            dict_rg_to_aggs.update({k: df_out})
+
+
+        # drop temporary merge column
+        df.drop(
+            columns = field_tmp, 
+            inplace = True,
+        )
+
+        
+        ##  ITERATE OVER REGIONS AND ASSIGN AGGREGATE
+
+        df_out = [df]
+
+        for region in regions_fill_all:
+            
+            # get region grouping and aggregate info
+            grouping = self.get_region_group(region, region_grouping)
+            df_rg = dict_rg_to_aggs.get(grouping)
+            if df_rg is None:
+                continue
+
+            df_update = df_rg.copy()
+            df_update[field_region] = self.return_region_or_iso(
+                region,
+                return_type = return_region_type,
+            )
+
+            df_out.append(df_update[df.columns])
+
+        
+        # concatenate and return
+        df_out = (
+            pd.concat(
+                df_out,
+                axis = 0
+            )
+            .reset_index(drop = True)
+        )
+
+
+        return df_out
+
+        
+
+
+
+
+
+
     
     def get_closest_region(self,
         region: str,
@@ -489,8 +811,8 @@ class Regions:
         type_return: str = "region",
     ) -> Union[str, None]:
         """
-        Based on latitude/longitude of population centers, find the 
-            closest neighboring region.
+        Based on latitude/longitude of population centers, find the closest 
+            neighboring region.
         
 
         Function Arguments
@@ -1355,6 +1677,7 @@ class TimePeriods:
             * self.dict_year_to_time_period
             * self.field_time_period
             * self.field_year
+            * self.is_time_periods
             * self.min_year
         """
 
@@ -1374,6 +1697,7 @@ class TimePeriods:
         self.dict_year_to_time_period = dict_year_to_time_period
         self.field_time_period = attributes.key
         self.field_year = field_year
+        self.is_time_periods = True
         self.year_max = year_max
         self.year_min = year_min
 
@@ -1866,6 +2190,42 @@ class YAMLConfiguration:
 
         return value
         
+
+
+
+###################################
+###                             ###
+###    SOME SIMPLE FUNCTIONS    ###
+###                             ###
+###################################
+
+def is_regions(
+    obj: Any,
+) -> bool:
+    """
+    check if obj is a Regions object
+    """
+
+    out = hasattr(obj, "is_regions")
+    out &= obj.is_regions if out else False
+
+    return out
+
+
+
+def is_time_periods(
+    obj: Any,
+) -> bool:
+    """
+    check if obj is a TimePeriods object
+    """
+
+    out = hasattr(obj, "is_time_periods")
+    out &= obj.is_time_periods if out else False
+
+    return out
+
+
 
 
 
