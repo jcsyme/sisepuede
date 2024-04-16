@@ -2026,7 +2026,7 @@ class TransformationsEnergy:
             dict_cats_entc_max_investment = self.dict_entc_renewable_target_cats_max_investment,
             field_region = self.key_region,
             magnitude_renewables = self.dict_entc_renewable_target_msp,
-            strategy_id = strat
+            strategy_id = strat,
         )
 
         return df_strat_cur

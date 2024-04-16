@@ -1515,7 +1515,7 @@ class TransformationsAFOLU:
 
         df_out = tba.transformation_frst_increase_reforestation(
             df_input, 
-            2, # double forests INDIA
+            0.1, # double forests INDIA
             self.vec_implementation_ramp,
             self.model_attributes,
             cats_inflow_restriction = ["croplands", "other"], # SET FOR INDIA--NEED A BETTER WAY TO DETERMINE
