@@ -859,7 +859,11 @@ def transformation_entc_renewable_target(
         magnitude = magnitude_target
 
         # get renewable categories from input data frame; if none are specified, append and return (nothing to transform)
-        dict_cats_renewable_all = get_renewable_categories_from_inputs_final_tp(df, model_electricity)
+        dict_cats_renewable_all = get_renewable_categories_from_inputs_final_tp(
+            df, 
+            model_electricity,
+        )
+
         if len(dict_cats_renewable_all) == 0:
             df_out.append(df)
             continue
@@ -917,7 +921,7 @@ def transformation_entc_renewable_target(
             if isinstance(field, str):
                 df[field] = int(cat in cats_renewable)
 
-
+        # make an adjustment too identify the magnitude if it hasn't been dealt with yet
         if magnitude == "VEC_FIRST_RAMP":
 
             arr_entc_residual_capacity = model_attributes.extract_model_variable(#
@@ -929,6 +933,7 @@ def transformation_entc_renewable_target(
 
             magnitude = arr_entc_residual_capacity[ind_vec_ramp_first_zero_deviation, inds_renewable].sum()
             magnitude /= arr_entc_residual_capacity[ind_vec_ramp_first_zero_deviation, :].sum()
+
 
         # get the current minimum share of production (does not change when df_transformed is assigned below, since that only modifies the renewable target)
         arr_entc_min_share_production = model_attributes.extract_model_variable(#
@@ -944,7 +949,8 @@ def transformation_entc_renewable_target(
         )
         vec_entc_msp_final_period = arr_entc_min_share_production[-1, :]
         dict_vec_entc_msp_final_period.update({region: vec_entc_msp_final_period})
-        
+
+
         # add the total original mass to the dataframe so it can be accessed later (and dropped)
         df[field_total_mass_original] = vec_entc_msp_total_mass_original
 
@@ -981,7 +987,6 @@ def transformation_entc_renewable_target(
                 )
 
 
-        
         # iterate over categories to modify output data frame -- will use to copy into new variables
         df_transformed = (
             transformation_general(
@@ -1043,6 +1048,7 @@ def transformation_entc_renewable_target(
         )
         scalar_renewables_div = min(magnitude/total_magnitude_msp_renewables, 1.0)
 
+        
         if isinstance(magnitude_renewables_by_region, dict):
 
             # apply to each category - slightly slower
@@ -1064,6 +1070,7 @@ def transformation_entc_renewable_target(
                     field_region = field_region,
                     **kwargs
                 )
+        
 
         elif isinstance(magnitude_renewables_by_region, float):
             
@@ -1156,7 +1163,7 @@ def transformation_entc_renewable_target(
 
         vec_entc_total_msp_renewables_specified = vec_entc_total_msp_renewables - vec_entc_total_msp_renewables_unspecified
         vec_entc_total_msp_renewable_cap = sf.vec_bounds(vec_entc_total_msp_renewables, (0, 1.0))
-
+        
 
         if cats_renewable_unspecified is not None:
             
@@ -1167,7 +1174,11 @@ def transformation_entc_renewable_target(
                 vec_entc_total_msp_renewables_specified, 
                 (0, magnitude)
             )
-            vec_entc_scale_msp_renewable_specified = vec_entc_msp_renewable_specified_cap/vec_entc_total_msp_renewables_specified
+            
+            vec_entc_scale_msp_renewable_specified = np.nan_to_num(
+                vec_entc_msp_renewable_specified_cap/vec_entc_total_msp_renewables_specified,
+                1.0,
+            )
 
             # get the fields to scale
             fields_scale = model_attributes.build_variable_fields(

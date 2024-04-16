@@ -2553,7 +2553,7 @@ class TransformationsEnergy:
     ##############################
 
     def transformation_trde_reduce_demand(self,
-        df_input: pd.DataFrame,
+        df_input: pd.DataFrame = None,
         strat: Union[int, None] = None,
     ) -> pd.DataFrame:
         """

@@ -126,6 +126,8 @@ class TransformationsAFOLU:
         )
         self._initialize_transformations()
 
+        return None
+
 
 
 
@@ -490,9 +492,9 @@ class TransformationsAFOLU:
                 self.transformation_agrc_reduce_supply_chain_losses,
                 # self.transformation_lndu_integrated_transitions replaces:
                 #   self.transformation_lndu_expand_silvopasture,
-                #   self.transformation_frst_stop_deforestation
+                #   self.transformation_lndu_stop_deforestation
                 self.transformation_lndu_integrated_transitions,
-                self.transformation_frst_increase_reforestation, #INDIA - must come AFTER silvopasture
+                self.transformation_lndu_increase_reforestation, #INDIA - must come AFTER silvopasture
                 self.transformation_lsmm_improve_manure_management_cattle_pigs,
                 self.transformation_lsmm_improve_manure_management_other,
                 self.transformation_lsmm_improve_manure_management_poultry,
@@ -518,9 +520,9 @@ class TransformationsAFOLU:
                 self.transformation_agrc_reduce_supply_chain_losses,
                 # self.transformation_lndu_integrated_transitions replaces:
                 #   self.transformation_lndu_expand_silvopasture,
-                #   self.transformation_frst_stop_deforestation
+                #   self.transformation_lndu_stop_deforestation
                 self.transformation_lndu_integrated_transitions,
-                self.transformation_frst_increase_reforestation, #INDIA - must come AFTER silvopasture
+                self.transformation_lndu_increase_reforestation, #INDIA - must come AFTER silvopasture
                 self.transformation_lndu_reallocate_land,
                 self.transformation_lsmm_improve_manure_management_cattle_pigs,
                 self.transformation_lsmm_improve_manure_management_other,
@@ -547,8 +549,8 @@ class TransformationsAFOLU:
                 self.transformation_agrc_reduce_supply_chain_losses,
                 # self.transformation_lndu_integrated_transitions replaces:
                 self.transformation_lndu_expand_silvopasture,
-                #   self.transformation_frst_stop_deforestation
-                self.transformation_frst_increase_reforestation, #INDIA - must come AFTER silvopasture
+                #   self.transformation_lndu_stop_deforestation
+                self.transformation_lndu_increase_reforestation, #INDIA - must come AFTER silvopasture
                 self.transformation_lndu_reallocate_land,
                 self.transformation_lsmm_improve_manure_management_cattle_pigs,
                 self.transformation_lsmm_improve_manure_management_other,
@@ -575,7 +577,7 @@ class TransformationsAFOLU:
                 self.transformation_agrc_reduce_supply_chain_losses,
                 # self.transformation_lndu_integrated_transitions replaces:
                 #   self.transformation_lndu_expand_silvopasture,
-                #   self.transformation_frst_stop_deforestation
+                #   self.transformation_lndu_stop_deforestation
                 self.transformation_lndu_integrated_transitions,
                 self.transformation_lndu_reallocate_land,
                 self.transformation_lsmm_improve_manure_management_cattle_pigs,
@@ -694,22 +696,8 @@ class TransformationsAFOLU:
         #    FRST TRANSFORMATIONS    #
         ##############################
 
-        self.frst_increase_reforestation = sc.Transformation(
-            "FRST:INC_REFORESTATION", 
-            self.transformation_frst_increase_reforestation,
-            attr_strategy
-        )
-        all_transformations.append(self.frst_increase_reforestation)
-
-
-        self.frst_stop_deforestation = sc.Transformation(
-            "FRST:DEC_DEFORESTATION", 
-            self.transformation_frst_stop_deforestation,
-            attr_strategy
-        )
-        all_transformations.append(self.frst_stop_deforestation)
         
-        
+
 
         ##############################
         #    LNDU TRANSFORMATIONS    #
@@ -731,6 +719,14 @@ class TransformationsAFOLU:
         all_transformations.append(self.lndu_expand_sustainable_grazing)
 
 
+        self.lndu_increase_reforestation = sc.Transformation(
+            "LNDU:INC_REFORESTATION", 
+            self.transformation_lndu_increase_reforestation,
+            attr_strategy
+        )
+        all_transformations.append(self.lndu_increase_reforestation)
+
+
         self.lndu_partial_reallocation = sc.Transformation(
             "LNDU:PLUR", 
             self.transformation_lndu_reallocate_land,
@@ -748,6 +744,14 @@ class TransformationsAFOLU:
             attr_strategy
         )
         all_transformations.append(self.lndu_expand_silvopasture_with_partial_reallocation)
+
+
+        self.lndu_stop_deforestation = sc.Transformation(
+            "LNDU:DEC_DEFORESTATION", 
+            self.transformation_lndu_stop_deforestation,
+            attr_strategy
+        )
+        all_transformations.append(self.lndu_stop_deforestation)
 
 
 
@@ -1235,7 +1239,7 @@ class TransformationsAFOLU:
         )
 
         df_out = tbg.transformation_general(
-            df_out,
+            df_input,
             self.model_attributes,
             {
                 self.model_afolu.modvar_agrc_equivalent_exports: {
@@ -1494,7 +1498,7 @@ class TransformationsAFOLU:
     #    FRST TRANSFORMATIONS    #
     ##############################
 
-    def transformation_frst_increase_reforestation(self,
+    def transformation_lndu_increase_reforestation(self,
         df_input: Union[pd.DataFrame, None] = None,
         strat: Union[int, None] = None,
     ) -> pd.DataFrame:
@@ -1510,7 +1514,7 @@ class TransformationsAFOLU:
         )
 
         df_out = tba.transformation_frst_increase_reforestation(
-            df_input,
+            df_input, 
             2, # double forests INDIA
             self.vec_implementation_ramp,
             self.model_attributes,
@@ -1524,7 +1528,7 @@ class TransformationsAFOLU:
 
 
 
-    def transformation_frst_stop_deforestation(self,
+    def transformation_lndu_stop_deforestation(self,
         df_input: Union[pd.DataFrame, None] = None,
         strat: Union[int, None] = None,
     ) -> pd.DataFrame:
@@ -1668,7 +1672,7 @@ class TransformationsAFOLU:
             strat = strat,
         )
         # then deforestation
-        df_out = self.transformation_frst_stop_deforestation(
+        df_out = self.transformation_lndu_stop_deforestation(
             df_out,
             strat = strat,
         )

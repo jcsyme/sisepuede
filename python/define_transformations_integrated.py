@@ -340,6 +340,15 @@ class TransformationsIntegrated:
             following properties:
 
             * self.baseline_inputs
+
+        NOTE: Additionally, to preserve consistency when calling transformations
+            from the TransformationsIntegrated object, this overwrites baseline
+            inputs for all component transformations, i.e., also resets
+
+            * self.transformations_afolu.baseline_inputs
+            * self.transformations_circular_economy.baseline_inputs
+            * self.transformations_energy.baseline_inputs
+            * self.transformations_ippu.baseline_inputs
         """
 
         baseline_inputs = (
@@ -351,7 +360,14 @@ class TransformationsIntegrated:
             else None
         )
 
+        
+        ##  SET PROPERTIES
+        
         self.baseline_inputs = baseline_inputs
+        self.transformations_afolu.baseline_inputs = baseline_inputs
+        self.transformations_circular_economy.baseline_inputs = baseline_inputs
+        self.transformations_energy.baseline_inputs = baseline_inputs
+        self.transformations_ippu.baseline_inputs = baseline_inputs
 
         return None
 
@@ -820,7 +836,7 @@ class TransformationsIntegrated:
             self.transformations_afolu.transformation_agrc_reduce_supply_chain_losses,
             # self.transformation_lndu_integrated_transitions replaces:
             #   self.transformation_lndu_expand_silvopasture,
-            #   self.transformation_frst_stop_deforestation
+            #   self.transformation_lndu_stop_deforestation
             #self.transformations_afolu.transformation_lndu_integrated_transitions,
             self.transformations_afolu.transformation_lndu_reallocate_land,
             self.transformations_afolu.transformation_lsmm_improve_manure_management_cattle_pigs,
@@ -892,7 +908,7 @@ class TransformationsIntegrated:
             self.transformations_afolu.transformation_lndu_integrated_transitions
         )
         function_list_plur_no_silvopasture.append(
-            self.transformations_afolu.transformation_frst_stop_deforestation
+            self.transformations_afolu.transformation_lndu_stop_deforestation
         )
         
 
@@ -1000,7 +1016,7 @@ class TransformationsIntegrated:
             "PFLO:CHANGE_CONSUMPTION",
             [
                 self.transformation_pflo_healthier_diets,
-                self.transformations_afolu.transformation_frst_stop_deforestation,
+                self.transformations_afolu.transformation_lndu_stop_deforestation,
                 self.transformations_afolu.transformation_lndu_reallocate_land,
                 self.transformations_afolu.transformation_lvst_decrease_exports,
                 self.transformations_circular_economy.transformation_waso_decrease_food_waste,
@@ -1681,7 +1697,12 @@ class TransformationsIntegrated:
         - type_log: type of log to use
         - **kwargs: passed as logging.Logger.METHOD(msg, **kwargs)
         """
-        sf._optional_log(self.logger, msg, type_log = type_log, **kwargs)
+        sf._optional_log(
+            self.logger, 
+            msg, 
+            type_log = type_log, 
+            **kwargs
+        )
 
         return None
 

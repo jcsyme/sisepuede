@@ -1,5 +1,4 @@
 # imports
-import geo_classes as gc
 import geopandas as gpd
 import numpy as np
 import os, os.path
@@ -16,6 +15,37 @@ from typing import *
 ###########################
 #    PRIMARY FUNCTIONS    #
 ###########################
+
+def check_xarray_grid_equivalence(
+    xarray_1: 'xarray.DataArray',
+    xarray_2: 'xarray.DataArray',
+    round_equality: int = 6,
+) -> bool:
+    """
+    Check whether or not two gridded datasets are equivalent, or, probably 
+        equivalent.
+        
+    Function Arguments
+    ------------------
+    - xarray_1: first rio xarray to check
+    - xarray_2: second to compare
+    
+    Keyword Arguments
+    -----------------
+    - round_equality: number of digits to round lat/lon to to check bounds
+    """
+    
+    b1 = np.round(xarray_1.rio.bounds(), decimals = round_equality)
+    b2 = np.round(xarray_2.rio.bounds(), decimals = round_equality)
+    
+    # conditions for equality
+    equivalent = all(b1 == b2)
+    equivalent &= (xarray_1.rio.height == xarray_2.rio.height)
+    equivalent &= (xarray_1.rio.width == xarray_2.rio.width)
+    
+    return equivalent
+
+
 
 def cell_area_from_grid(
     lat_0: float,
@@ -59,8 +89,8 @@ def cell_area_from_grid(
 
 
 def get_low_res_indices_for_higher_res(
-    grid_low: gc.Grid,
-    grid_high: gc.Grid,
+    grid_low: 'geo_classes.Grid',
+    grid_high: 'geo_classes.Grid',
 ) -> Union[pd.DataFrame, Tuple[np.array]]:
     """
     Map gridded elements from a higher resolution data frame to a lower 
@@ -126,8 +156,8 @@ def get_low_res_indices_for_higher_res(
 
 
 def get_overlay_bounds(
-    grid_1: gc.Grid,
-    grid_2: gc.Grid,
+    grid_1: 'geo_classes.Grid',
+    grid_2: 'geo_classes.Grid',
 ) -> Tuple:
     """
     Return bounds to iterate over from two grids
@@ -192,8 +222,8 @@ def get_rioxarray_row_areas(
 
 
 def get_shared_bounds_and_indices(
-    grid_1: gc.Grid,
-    grid_2: gc.Grid,
+    grid_1: 'geo_classes.Grid',
+    grid_2: 'geo_classes.Grid',
 ) -> Dict[str, Tuple]:
     """
     For two grids, determine minimal boundaries within the range of
