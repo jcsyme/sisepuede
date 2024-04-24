@@ -1,12 +1,12 @@
-﻿copernicus_land_classification,``$CAT-LANDUSE$``,forest_type,includes_mangroves,copernicus_herbaceous_vegetation,copernicus_description
+﻿copernicus_land_classification,``$CAT-LANDUSE$``,forest_type,copernicus_grasslands,copernicus_herbaceous_wetlands,copernicus_description
 0,``other``,none,0,0,Unknown. No or not enough satellite data available.
 20,``other``,none,0,0,Shrubs. Woody perennial plants with persistent and woody stems and without any defined main stem being less than 5 m tall. The shrub foliage can be either evergreen or deciduous.
-30,``grasslands``,none,0,1,Herbaceous vegetation. Plants without persistent stem or shoots above ground and lacking definite firm structure. Tree and shrub cover is less than 10 %.
+30,``grasslands``,none,1,0,Herbaceous vegetation. Plants without persistent stem or shoots above ground and lacking definite firm structure. Tree and shrub cover is less than 10 %.
 40,``croplands``,none,0,0,"Cultivated and managed vegetation / agriculture. Lands covered with temporary crops followed by harvest and a bare soil period (e.g., single and multiple cropping systems). Note that perennial woody crops will be classified as the appropriate forest or shrub land cover type."
 60,``other``,none,0,0,"Bare / sparse vegetation. Lands with exposed soil, sand, or rocks and never has more than 10 % vegetated cover during any time of the year."
 70,``other``,none,0,0,Snow and ice. Lands under snow or ice cover throughout the year.
 80,``wetlands``,none,0,0,"Permanent water bodies. Lakes, reservoirs, and rivers. Can be either fresh or salt-water bodies."
-90,``wetlands``,none,1,0,"Herbaceous wetland. Lands with a permanent mixture of water and herbaceous or woody vegetation. The vegetation can be present in either salt, brackish, or fresh water."
+90,``wetlands``,none,0,1,"Herbaceous wetland. Lands with a permanent mixture of water and herbaceous or woody vegetation. The vegetation can be present in either salt, brackish, or fresh water."
 100,``grasslands``,none,0,0,Moss and lichen.
 111,none,high_density,0,0,"Closed forest, evergreen needle leaf. Tree canopy >70 %, almost all needle leaf trees remain green all year. Canopy is never without green foliage."
 112,none,high_density,0,0,"Closed forest, evergreen broad leaf. Tree canopy >70 %, almost all broadleaf trees remain green year round. Canopy is never without green foliage."
