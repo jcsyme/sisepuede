@@ -48,7 +48,7 @@ COPY ./julia ./julia
 
 # UPDATE AND GET KEY TOOLS
 RUN apt-get update \
-    && apt-get install -y curl git g++ gcc build-essential wget \
+    && apt-get install -y curl git g++ gcc vim build-essential wget \
     && rm -rf /var/lib/apt/lists/*
 
 # SETUP JULIA
@@ -58,12 +58,14 @@ RUN julia -e 'using Pkg; \
     Pkg.rm("NemoMod"); \
     Pkg.rm("Gurobi"); \
     Pkg.rm("GAMS"); \
-    Pkg.add(url = "https://github.com/sei-international/NemoMod.jl"); \
+    Pkg.add(url = "https://github.com/sei-international/NemoMod.jl", rev = "0db2ed2"); \
     Pkg.instantiate()'
 
 # ADD JULIA TO PYTHON (MAY SHIFT TO INSTALL PYCALL ABOVE)
+# add XlsxWriter here too b/c the environment file is unable to do it for some reason
 SHELL ["/bin/bash", "-c"]
 RUN source /venv/bin/activate \
+    && pip install XlsxWriter==3.2.0 \
     && pip install julia \
     && python -c "import julia; julia.install()"
 
