@@ -11,40 +11,41 @@
 1007,AGRC: Improve rice management,AGRC:DEC_CH4_RICE,0,Reduce :math:`\text{CH}_4` emissions from rice production by 45% due to improved management and reduced flooding.
 1008,AGRC: Reduce supply chain losses,AGRC:DEC_LOSSES_SUPPLY_CHAIN,0,Reduce waste food waste in the agricultural (crop) supply chain (pre-consumer)
 1009,AGRC: Reduce supply chain losses with partial land use reallocation,AGRC:DEC_LOSSES_SUPPLY_CHAIN_PLUR,0,
-1010,FRST: Stop deforestation,FRST:DEC_DEFORESTATION,0,Halt deforestation of primary and secondary forests
-1011,LNDU: Expand silvopasture,LNDU:INC_SILVOPASTURE,0,"Increase the use of silvopasture; modeled by shifting 30% of pasture (in final time period) to secondary forests over time; livestock carrying capacities increase to meet the change, while pasture fractions of grassland decrease."
-1012,LNDU: Expand silvopasture with partial land use reallocation,LNDU:INC_SILVOPASTURE_PLUR,0,"Increase the use of silvopasture; modeled by shifting 30% of pasture (in final time period) to secondary forests over time; livestock carrying capacities increase to meet the change, while pasture fractions of grassland decrease."
-1013,LNDU: Expand sustainable grazing practices,LNDU:INC_SUSTAINABLE_GRAZING,0," | Decrease soil organic carbon loss in grasslands through sustainable grazing practices
+1010,LNDU: Increase Reforestation,LNDU:INC_REFORESTATION,0,Increase reforestation (currently doubles target for secondary forest by final time period)
+1011,LNDU: Stop deforestation,LNDU:DEC_DEFORESTATION,0,Halt deforestation of primary and secondary forests
+1012,LNDU: Expand silvopasture,LNDU:INC_SILVOPASTURE,0,"Increase the use of silvopasture; modeled by shifting 30% of pasture (in final time period) to secondary forests over time; livestock carrying capacities increase to meet the change, while pasture fractions of grassland decrease."
+1013,LNDU: Expand silvopasture with partial land use reallocation,LNDU:INC_SILVOPASTURE_PLUR,0,"Increase the use of silvopasture; modeled by shifting 30% of pasture (in final time period) to secondary forests over time; livestock carrying capacities increase to meet the change, while pasture fractions of grassland decrease."
+1014,LNDU: Expand sustainable grazing practices,LNDU:INC_SUSTAINABLE_GRAZING,0," | Decrease soil organic carbon loss in grasslands through sustainable grazing practices
  | 
  | **Grasslands**: Increase :math:`F_{MG}` for ``grasslands`` to 1.157 (see V4, Chapter 6, Table 6.2 [2019R] for grasslands management factors :math:`F_{MG}` under different management regimes--mean of *Improved Grassland*)"
-1014,LNDU: Partial land use reallocation,LNDU:PLUR,0,Set land use reallocation factor to 0.5
-1015,LNDU: Rehabilitate degraded land,LNDU:INC_LAND_REHABILITIATION,0,
-1016,LSMM: Improve manure management for cattle and pigs,LSMM:INC_MANAGEMENT_CATTLE_PIGS,0," | 95% of manure from cattle (dairy and non-dairy) and pigs is treated. The manure treated is sent to the following pathways:
+1015,LNDU: Partial land use reallocation,LNDU:PLUR,0,Set land use reallocation factor to 0.5
+1016,LNDU: Rehabilitate degraded land,LNDU:INC_LAND_REHABILITIATION,0,
+1017,LSMM: Improve manure management for cattle and pigs,LSMM:INC_MANAGEMENT_CATTLE_PIGS,0," | 95% of manure from cattle (dairy and non-dairy) and pigs is treated. The manure treated is sent to the following pathways:
  |    37.5% to Anaerobic Digestion
  |    12.5% to Composting
  |    25.0% to Daily Spread
  |    12.5% to Deep Bedding
  |    12.5% to Solid Storage"
-1017,LSMM: Improve manure management for other animals,LSMM:INC_MANAGEMENT_OTHER,0," | 95% of manure from all other animals is treated. The manure treated is sent to the following pathways:
+1018,LSMM: Improve manure management for other animals,LSMM:INC_MANAGEMENT_OTHER,0," | 95% of manure from all other animals is treated. The manure treated is sent to the following pathways:
  |    37.5.% to Composting
  |    12.5% to Dry Lot
  |    25.0% to Daily Spread
  |    25.0% to Solid Storage"
-1018,LSMM: Improve manure management for poultry,LSMM:INC_MANAGEMENT_POULTRY,0," | 95% of manure from poultry (chickens) and pigs is treated. The manure treated is sent to the following pathways:
+1019,LSMM: Improve manure management for poultry,LSMM:INC_MANAGEMENT_POULTRY,0," | 95% of manure from poultry (chickens) and pigs is treated. The manure treated is sent to the following pathways:
  |    100% to Poultry Management"
-1019,LSMM: Increase biogas capture at anaerobic decomposition facilities,LSMM:INC_CAPTURE_BIOGAS,0,85% of Biogas captured at manure treated at Anaerobic Treatment facilities
-1020,LSMM: Manure management bundle,LSMM:BUNDLE_INC_MANAGEMENT,0,All livestock manure management transformations in addition to increased biogas collection
-1021,LVST: All transformations,LVST:ALL,0,
-1022,LVST: All transformations with partial land use reallocation,LVST:ALL_PLUR,0,
-1023,LVST: Decrease exports,LVST:DEC_EXPORTS,0,Decrease exports of livestock and livestock products by 50% (relative to final time period)
-1024,LVST: Increase livestock productivity,LVST:INC_PRODUCTIVITY,0,Increase inferred livestock carrying capacity by 20%
-1025,LVST: Increase livestock productivity with partial land use reallocation,LVST:INC_PRODUCTIVITY_PLUR,0,Increase inferred livestock carrying capacity by 20%
-1026,LVST: Reduce enteric fermentation,LVST:DEC_ENTERIC_FERMENTATION,0,Reduce enteric fermentation (20% in buffalo and cattle and 28% in goats and sheep)
-1027,SOIL: Improve fertilizer application,SOIL:DEC_N_APPLIED,0,Decrease total nitrogen applied to soils by 5% through more precise fertilizer use
-1028,SOIL: Improve lime application,SOIL:DEC_LIME_APPLIED,0,Decrease lime applied to soils by 5%
-1029,AF: All AFOLU transformations with partial land use reallocation and without stopping deforestation,AF:ALL_NO_STOPPING_DEFORESTATION_PLUR,0,
-1030,AF: All AFOLU transformations,AF:ALL,0,
-1031,AF: All AFOLU transformations with partial land use reallocation,AF:ALL_PLUR,0,
+1020,LSMM: Increase biogas capture at anaerobic decomposition facilities,LSMM:INC_CAPTURE_BIOGAS,0,85% of Biogas captured at manure treated at Anaerobic Treatment facilities
+1021,LSMM: Manure management bundle,LSMM:BUNDLE_INC_MANAGEMENT,0,All livestock manure management transformations in addition to increased biogas collection
+1022,LVST: All transformations,LVST:ALL,0,
+1023,LVST: All transformations with partial land use reallocation,LVST:ALL_PLUR,0,
+1024,LVST: Decrease exports,LVST:DEC_EXPORTS,0,Decrease exports of livestock and livestock products by 50% (relative to final time period)
+1025,LVST: Increase livestock productivity,LVST:INC_PRODUCTIVITY,0,Increase inferred livestock carrying capacity by 20%
+1026,LVST: Increase livestock productivity with partial land use reallocation,LVST:INC_PRODUCTIVITY_PLUR,0,Increase inferred livestock carrying capacity by 20%
+1027,LVST: Reduce enteric fermentation,LVST:DEC_ENTERIC_FERMENTATION,0,Reduce enteric fermentation (20% in buffalo and cattle and 28% in goats and sheep)
+1028,SOIL: Improve fertilizer application,SOIL:DEC_N_APPLIED,0,Decrease total nitrogen applied to soils by 5% through more precise fertilizer use
+1029,SOIL: Improve lime application,SOIL:DEC_LIME_APPLIED,0,Decrease lime applied to soils by 5%
+1030,AF: All AFOLU transformations with partial land use reallocation and without stopping deforestation,AF:ALL_NO_STOPPING_DEFORESTATION_PLUR,0,
+1031,AF: All AFOLU transformations,AF:ALL,0,
+1032,AF: All AFOLU transformations with partial land use reallocation,AF:ALL_PLUR,0,
 2001,TRWW: All wastewater treatment transformations,TRWW:ALL,0,
 2002,TRWW: Increase biogas capture,TRWW:INC_CAPTURE_BIOGAS,0,
 2003,TRWW: Increase septic compliance,TRWW:INC_COMPLIANCE_SEPTIC,0,

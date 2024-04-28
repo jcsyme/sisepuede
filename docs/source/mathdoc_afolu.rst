@@ -18,7 +18,7 @@ SISEPUEDE does not calculate a general equilibrium for land use demand. Instead,
 
       * :math:`L_v(0)` is the initial population of livestock cateogry *v* at time 0, given by the **Initial Livestock Head Count** variable.
 
-      * :math:`G_v(0)` is the area of grassland (or grazing land/pastures) allocated to each livestock of type *v* and is fixed over time. This is estimated using the **Daily Dry Matter Consumption** of each animal at time :math:`t = 0`, :math:`F_v(0)`; the population of livestock at :math:`t = 0`, :math:`L_v(0)` (and the vector :math:`L(0)`); and the initial area of grassland, :math:`x_g(0)`, where *g* is the index for grassland in the land use initial vector and :math:`x_g(0) = Ap_g(0)` , where :math:`p_j(0)` is the **Initial Land Use Area Proportion** of land use type *j* and *A* is specified as the **Area of Country**.
+      * :math:`G_v(0)` is the area of grassland (or grazing land/pastures) allocated to each livestock of type *v* and is fixed over time. This is estimated using the **Daily Dry Matter Consumption** of each animal at time :math:`t = 0`, :math:`F_v(0)`; the population of livestock at :math:`t = 0`, :math:`L_v(0)` (and the vector :math:`L(0)`); and the initial area of grassland, :math:`x_g(0)`, where *g* is the index for grassland in the land use initial vector and :math:`x_g(0) = Ap_g(0)` , where :math:`p_j(0)` is the **Initial Land Use Area Proportion** of land use type *j* and *A* is specified as the **Area of Region**.
 
       * The estimated carrying capacity of the land :math:`G_v(0) = G(0)\frac{L_v(0)F_v(0)}{L(0)\cdot F(0)}`.
 
