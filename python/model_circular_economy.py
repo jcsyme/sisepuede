@@ -291,6 +291,7 @@ class CircularEconomy:
 
         ##  SET PROPERTIES
 
+        self.is_sisepuede_model_circular_economy = True
         self.n_time_periods = n_time_periods
         self.subsec_name_gnrl = self.model_attributes.subsec_name_gnrl
         self.subsec_name_trww = self.model_attributes.subsec_name_trww
@@ -2188,8 +2189,40 @@ class CircularEconomy:
             )
         ]
 
+
         # concatenate and add subsector emission totals
-        df_out = sf.merge_output_df_list(df_out, self.model_attributes, merge_type = "concatenate")
-        self.model_attributes.add_subsector_emissions_aggregates(df_out, self.required_base_subsectors, False)
+        df_out = sf.merge_output_df_list(
+            df_out, 
+            self.model_attributes, 
+            merge_type = "concatenate",
+        )
+        
+        self.model_attributes.add_subsector_emissions_aggregates(
+            df_out, 
+            self.required_base_subsectors, 
+            False,
+        )
 
         return df_out
+
+
+
+
+
+###################################
+###                             ###
+###    SOME SIMPLE FUNCTIONS    ###
+###                             ###
+###################################
+
+
+def is_sisepuede_model_circular_economy(
+    obj: Any,
+) -> bool:
+    """
+    check if obj is a SISEPUEDE CircularEconomy model
+    """
+    out = hasattr(obj, "is_sisepuede_model_circular_economy")
+    out &= obj.is_sisepuede_model_circular_economy if out else False
+
+    return out

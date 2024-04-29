@@ -56,6 +56,7 @@ class NonElectricEnergy:
         self._initialize_input_output_components()
 
         # initialize model variables, categories, and fields
+        self._initialize_sector_vars_afolu()
         self._initialize_subsector_vars_ccsq()
         self._initialize_subsector_vars_enfu()
         self._initialize_subsector_vars_fgtv()
@@ -68,6 +69,8 @@ class NonElectricEnergy:
         self._initialize_models()
         self._initialize_other_properties()
         self._initialize_integrated_variables()
+
+        return None
     
 
 
@@ -345,14 +348,13 @@ class NonElectricEnergy:
         Initialize other properties that don't fit elsewhere. Sets the 
             following properties:
 
-            * self.modvar_agrc_yield
-            * self.modvar_lvst_total_animal_mass
+            * self.is_sisepuede_model_nfp_energy
             * self.n_time_periods
             * self.time_periods
             * self.valid_projection_subsecs
         """
         # valid subsectors in .project()
-        self.valid_projection_subsecs = [
+        valid_projection_subsecs = [
             self.subsec_name_ccsq,
             self.subsec_name_fgtv,
             self.subsec_name_inen,
@@ -360,17 +362,34 @@ class NonElectricEnergy:
             self.subsec_name_trns
         ]
 
+        # time variables
+        time_periods, n_time_periods = self.model_attributes.get_time_periods()
+
+
+        ##  SET PROPERTIES
+        
+        self.is_sisepuede_model_nfp_energy = True
+        self.n_time_periods = n_time_periods
+        self.time_periods = time_periods
+        self.valid_projection_subsecs = valid_projection_subsecs
+
+        return None
+    
+
+
+    def _initialize_sector_vars_afolu(self,
+    ) -> None:
+        """
+        Initialize sector variables associated with AFOLU (non-exhaustive). Sets
+            the following properties
+
+            * self.modvar_agrc_yield
+            * self.modvar_lvst_total_animal_mass
+        """
+
         # variables from other sectors (NOTE: AFOLU INTEGRATION VARIABLES MUST BE SET HERE, CANNOT INITIALIZE AFOLU CLASS DUE TO DAG)
         self.modvar_agrc_yield = "Crop Yield"
         self.modvar_lvst_total_animal_mass = "Total Domestic Animal Mass"
-
-
-        ##  TIME VARIABLES
-
-        time_periods, n_time_periods = self.model_attributes.get_time_periods()
-
-        self.time_periods = time_periods
-        self.n_time_periods = n_time_periods
 
         return None
 
@@ -4182,3 +4201,26 @@ class NonElectricEnergy:
 
         
         return df_out
+
+
+
+
+
+###################################
+###                             ###
+###    SOME SIMPLE FUNCTIONS    ###
+###                             ###
+###################################
+
+
+def is_sisepuede_model_nfp_energy(
+    obj: Any,
+) -> bool:
+    """
+    check if obj is a SISEPUEDE Non-Fuel Production Energy model
+    """
+
+    out = hasattr(obj, "is_sisepuede_model_nfp_energy")
+    out &= obj.is_sisepuede_model_nfp_energy if out else False
+
+    return out

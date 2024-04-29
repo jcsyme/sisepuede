@@ -67,6 +67,8 @@ class AFOLU:
         self._initialize_models()
         self._initialize_integrated_variables()
         self._initialize_other_properties()
+
+        return None
     
 
 
@@ -428,22 +430,31 @@ class AFOLU:
 
             * self.factor_c_to_co2
             * self.factor_n2on_to_n2o
+            * self.is_sisepuede_model_afolu
             * self.n_time_periods
             * self.time_dependence_stock_change
             * self.time_periods
         """
         
         # from IPCC docs
-        self.factor_c_to_co2 = float(11/3)
-        self.factor_n2on_to_n2o = float(11/7)
+        factor_c_to_co2 = float(11/3)
+        factor_n2on_to_n2o = float(11/7)
 
         # see IPCC 2006/2019R GNGHGI V4 CH2 FOR D = 20
-        self.time_dependence_stock_change = 20
+        time_dependence_stock_change = 20
 
         # time variables
         time_periods, n_time_periods = self.model_attributes.get_time_periods()
+
+
+        ##  SET PROPERTIES
+
+        self.factor_c_to_co2 = factor_c_to_co2
+        self.factor_n2on_to_n2o = factor_n2on_to_n2o
+        self.is_sisepuede_model_afolu = True
         self.time_periods = time_periods
         self.n_time_periods = n_time_periods
+        self.time_dependence_stock_change = time_dependence_stock_change
 
         return None
 
@@ -5343,9 +5354,6 @@ class AFOLU:
 
 
 
-
-
-
         df_out = pd.concat(df_out, axis = 1).reset_index(drop = True)
         self.model_attributes.add_subsector_emissions_aggregates(df_out, self.required_base_subsectors, False)
 
@@ -5353,3 +5361,25 @@ class AFOLU:
             return df_out
         else:
             return df_out, passthrough_tmp
+
+
+
+
+###################################
+###                             ###
+###    SOME SIMPLE FUNCTIONS    ###
+###                             ###
+###################################
+
+
+def is_sisepuede_model_afolu(
+    obj: Any,
+) -> bool:
+    """
+    check if obj is a SISEPUEDE AFOLU model
+    """
+
+    out = hasattr(obj, "is_sisepuede_model_afolu")
+    out &= obj.is_sisepuede_model_afolu if out else False
+
+    return out

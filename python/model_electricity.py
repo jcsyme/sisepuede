@@ -95,7 +95,9 @@ class ElectricEnergy:
         self._initialize_subsector_names()
         self._initialize_nemomod_fields()
         self._initialize_input_output_components()
-        self._initialize_other_properties(solver_time_limit = solver_time_limit)
+        self._initialize_other_properties(
+            solver_time_limit = solver_time_limit,
+        )
 
         # initialize subsectoral model variables, categories, and indices
         self._initialize_subsector_vars_enfu()
@@ -756,6 +758,7 @@ class ElectricEnergy:
             * self.direction_exchange_year_time_period
             * self.drop_flag_tech_capacities
             * self.include_supply_techs_for_all_fuels
+            * self.is_sisepuede_model_fuel_production
             * self.solver_time_limit
             * self.nemomod_time_period_as_year
             * self.units_energy_nemomod
@@ -805,6 +808,7 @@ class ElectricEnergy:
             else "time_period_to_year"
         )
         self.include_supply_techs_for_all_fuels = include_supply_techs_for_all_fuels
+        self.is_sisepuede_model_fuel_production = True
         self.units_energy_nemomod = self.model_attributes.configuration.get("energy_units_nemomod")
 
         return None
@@ -10189,3 +10193,25 @@ class ElectricEnergy:
 
 
         return df_out
+
+
+
+
+
+###################################
+###                             ###
+###    SOME SIMPLE FUNCTIONS    ###
+###                             ###
+###################################
+
+
+def is_sisepuede_model_fuel_production(
+    obj: Any,
+) -> bool:
+    """
+    check if obj is a SISEPUEDE FuelProduction model
+    """
+    out = hasattr(obj, "is_sisepuede_model_fuel_production")
+    out &= obj.is_sisepuede_model_fuel_production if out else False
+
+    return out

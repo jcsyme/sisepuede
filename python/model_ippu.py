@@ -57,6 +57,8 @@ class IPPU:
         self._initialize_other_properties()
         self._initialize_integrated_variables()
 
+        return None
+
 
     
     def __call__(self,
@@ -265,14 +267,20 @@ class IPPU:
         Initialize other properties that don't fit elsewhere. Sets the 
             following properties:
 
+            * self.is_sisepuede_model_ippu
             * self.n_time_periods
             * self.time_periods
         """
 
-        ##  TIME VARIABLES
+        # time variables
         time_periods, n_time_periods = self.model_attributes.get_time_periods()
-        self.time_periods = time_periods
+
+
+        ##  SET PROPERTIES
+
+        self.is_sisepuede_model_ippu = True
         self.n_time_periods = n_time_periods
+        self.time_periods = time_periods
 
         return None
 
@@ -1675,3 +1683,26 @@ class IPPU:
         self.model_attributes._add_specified_total_fields_to_emission_total(df_out, vars_additional_sum)
 
         return df_out
+
+
+
+
+
+###################################
+###                             ###
+###    SOME SIMPLE FUNCTIONS    ###
+###                             ###
+###################################
+
+
+def is_sisepuede_model_ippu(
+    obj: Any,
+) -> bool:
+    """
+    check if obj is a SISEPUEDE IPPU model
+    """
+
+    out = hasattr(obj, "is_sisepuede_model_ippu")
+    out &= obj.is_sisepuede_model_ippu if out else False
+
+    return out

@@ -46,6 +46,8 @@ class Socioeconomic:
 
         # initialize other properties
         self._initialize_other_properties()
+
+        return None
         
 
     
@@ -156,6 +158,7 @@ class Socioeconomic:
         Initialize other properties that don't fit elsewhere. Sets the 
             following properties:
 
+            * self.is_sisepuede_model_socioeconomic
             * self.n_time_periods
             * self.time_periods
         """
@@ -166,6 +169,7 @@ class Socioeconomic:
 
         ##  SET PROPERTIES
 
+        self.is_sisepuede_model_socioeconomic = True
         self.n_time_periods = n_time_periods
         self.time_periods = time_periods
 
@@ -411,5 +415,30 @@ class Socioeconomic:
             )
 
             out = (df_se_trajectories, df_se_internal_shared_variables)
+
         self.cols = list(df_se_trajectories.columns)
+
         return out
+
+
+
+
+
+###################################
+###                             ###
+###    SOME SIMPLE FUNCTIONS    ###
+###                             ###
+###################################
+
+
+def is_sisepuede_model_socioeconomic(
+    obj: Any,
+) -> bool:
+    """
+    check if obj is a SISEPUEDE Socioeconomic model
+    """
+
+    out = hasattr(obj, "is_sisepuede_model_socioeconomic")
+    out &= obj.is_sisepuede_model_socioeconomic if out else False
+
+    return out
