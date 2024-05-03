@@ -4910,6 +4910,45 @@ class ModelAttributes:
         ]
 
         return out
+    
+
+
+    def build_modvar_correspondence_dictionaruy(self,
+        modvar_key: str,
+        modvar_value: str,
+    ) -> Dict[str, str]:
+        """
+        Build a variable mapping field variables for modvar_key to modvar_value
+
+        Function Arguments
+        ------------------
+        - modvar_key: model variable forming keys in output dictionary
+        - modvar_value: model variable forming varlues in output dictionary
+
+        Keyword Arguments
+        -----------------
+        """
+        
+        # retrieve variables, return empty dictionary if one or more are invalid
+        modvar_key = self.get_variable(modvar_key)
+        modvar_value = self.get_variable(modvar_value)
+        if (modvar_key is None) | (modvar_value is None):
+            return {}
+        
+        dict_cats_to_fields_keys = self.get_category_replacement_field_dict(modvar_key)
+        dict_cats_to_fields_values = self.get_category_replacement_field_dict(modvar_value)
+        
+        # intiialize output dictionary and set keys to include
+        dict_out = {}
+        all_keys = list(set(dict_cats_to_fields_keys.keys()) & set(dict_cats_to_fields_values.keys()))
+        
+        for k in all_keys:
+            key = dict_cats_to_fields_keys.get(k)
+            val = dict_cats_to_fields_values.get(k)
+            dict_out.update({key: val})
+
+        
+        return dict_out
 
 
 
