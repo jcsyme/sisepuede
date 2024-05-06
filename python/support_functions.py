@@ -1439,6 +1439,57 @@ def get_cols_as_grouped_proportions(
 
 
 
+def get_delimited_elements_from_space(
+    vec_space: Union[List[str], np.ndarray, pd.Series],
+    elements: Union[str, None],
+    delim: str = "|",
+    flag_all: str = "all",
+) -> List[str]:
+    """
+    Read an element, specifed as a string or a delimited list, and check against 
+        the space of valid values.
+        
+
+    Function Arguments
+    ------------------
+    - vec: all elements in the space. Set to None to remove checks
+    - elements: either a string
+
+    Keyword Arguments
+    -----------------
+    - delim: used to split elements specified in the string
+    - flag_all: flag specifying that the space of elements should be returned
+    """
+    # return all elements defined if desired
+    all_elements = sorted(list(set(vec_space)))
+    if isinstance(elements, str):
+        if elements == flag_all:
+            return all_elements
+    
+    # otherwise, split and return validly specified elements
+    elements_try = (
+        elements.split(delim)
+        if isinstance(elements, str)
+        else elements
+    )
+
+    # if the space is not specified properly, assume that the elements that are passed are exhaustive
+    all_elements = (
+        elements_try
+        if not islistlike(all_elements)
+        else all_elements
+    )
+
+    elements_try = (
+        [x for x in elements_try if x in all_elements]
+        if islistlike(elements_try)
+        else None
+    )
+    
+    return elements_try
+
+
+
 def get_dict_from_lines(
     lines: List[str],
     splitter: Union[str, None] = None
@@ -2098,6 +2149,20 @@ def mix_tensors(
     out = v_0*(1 - v_alpha) + v_1*v_alpha
 
     return out
+
+
+
+def modcirc(
+    x: int, 
+    y: int,
+) -> int:
+    """
+    Return y if x mod y = 0, otherwise x mod y
+    """
+    cong = x%y
+    cong = y if (cong == 0) else cong
+    
+    return cong
 
 
 
@@ -3236,6 +3301,29 @@ def vector_limiter(
             np.put(v, w_sup, elems_new)
 
     return vecs
+
+
+
+def vector_norm(
+    vec: np.ndarray,
+) -> Union[float, None]:
+    """
+    Calculate the L2 norm of vec. If not list-like or containing numerical
+        elements, returns None
+    """
+    if not islistlike(vec):
+        return None
+    
+    try:
+        vec = np.array(vec).astype(float)
+    
+    except:
+        return None
+    
+    
+    val = (vec.dot(vec)**(0.5))
+    
+    return val
 
 
 

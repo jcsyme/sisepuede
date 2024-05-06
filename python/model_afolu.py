@@ -217,6 +217,9 @@ class AFOLU:
         )
         dict_frst_to_lndu = sf.reverse_dict(dict_lndu_to_frst)
         
+
+        ##  SET PROPERTIES
+        
         self.dict_cats_frst_to_cats_lndu = dict_frst_to_lndu
         self.dict_cats_lndu_to_cats_frst = dict_lndu_to_frst
 
