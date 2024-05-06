@@ -345,14 +345,25 @@ class IterativeDatabaseTable:
 					# try to remove the table
 					query_delete = f"drop table {self.table_name};"
 					try:
-						self._log(f"Trying to remove {self.table_name} with query: {query_delete}", type_log = "debug")
-						with engine.connect() as con:
-							con.execute(query_delete)
+						self._log(
+							f"Trying to remove {self.table_name} with query: {query_delete}", 
+							type_log = "debug",
+						)
 
-						self._log(f"Table {self.table_name} was found in sql connection and was successsfully removed. Columns will be initialized on the first write.", type_log = "info")
+						with engine.connect() as con:
+							con.execute(sqlalchemy.text(query_delete))
+							con.commit()
+
+						self._log(
+							f"Table {self.table_name} was found in sql connection and was successsfully removed. Columns will be initialized on the first write.", 
+							type_log = "info",
+						)
 
 					except Exception as e:
-						self._log(f"Query {query_delete} failed with error: {e}", type_log = "error")
+						self._log(
+							f"Query {query_delete} failed with error: {e}", 
+							type_log = "error",
+						)
 						query_delete = None
 
 					# update existence
@@ -626,11 +637,23 @@ class IterativeDatabaseTable:
 			# try to remove the table
 			query_delete = f"drop table {self.table_name};"
 			try:
-				self._log(f"Trying to remove {self.table_name} with query: {query_delete}", type_log = "debug")
+				self._log(
+					f"Trying to remove {self.table_name} with query: {query_delete}", 
+					type_log = "debug",
+				)
+
 				with self.engine.connect() as con:
-					con.execute(query_delete)
-				self._log(f"Table {self.table_name} was found in sql connection and was successsfully removed. Columns will be initialized on the first write.", type_log = "info")
+					con.execute(sqlalchemy.text(query_delete))
+					con.commit()
+                
+
+				self._log(
+					f"Table {self.table_name} was found in sql connection and was successsfully removed. Columns will be initialized on the first write.", 
+					type_log = "info",
+				)
+
 				delete_q = True
+
 
 			except Exception as e:
 				self._log(f"Query {query_delete} failed with error: {e}", type_log = "error")
@@ -643,7 +666,10 @@ class IterativeDatabaseTable:
 				delete_q = True
 
 			except Exception as e:
-				self._log(f"Attempt to remove table {self.fp_table} failed with error: {e}", type_log = "error")
+				self._log(
+					f"Attempt to remove table {self.fp_table} failed with error: {e}", 
+					type_log = "error",
+				)
 				return None
 
 		# update existence - only occurs if successful
@@ -698,7 +724,8 @@ class IterativeDatabaseTable:
 
 		try:
 			with self.engine.connect() as con:
-				con.execute(query)
+				con.execute(sqlalchemy.text(query))
+				con.commit()
 			
 			success = True
 
@@ -905,13 +932,18 @@ class IterativeDatabaseTable:
 
 			try:
 				with self.engine.connect() as con:
-					con.execute(query)
+					con.execute(sqlalchemy.text(query))
+					con.commit()
 
 				# if successful, output dataframe is entire data frame, and set_indices_to_write is overwritten to all
 				df_out = df_write
 				set_indices_to_write = set_new_indices
 
-				self._log(f"Successfully removed index rows for overwrite in {self.table_name} in SQL.", type_log = "info")
+				self._log(
+					f"Successfully removed index rows for overwrite in {self.table_name} in SQL.", 
+					type_log = "info",
+				)
+
 
 			except Exception as e:
 				self._log(
