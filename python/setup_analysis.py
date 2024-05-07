@@ -118,6 +118,7 @@ fp_csv_frac_no_till = os.path.join(dir_rbd_tillage, "agrc_frac_no_till.csv")
 # files for afolu transition probabilities
 fp_csv_transition_probability_estimation_annual = os.path.join(dir_rbd_baseline_transition_probs, "transition_probs_by_region_and_year.csv")
 fp_csv_transition_probability_estimation_annual_copernicus = os.path.join(dir_rbd_baseline_transition_probs, "transition_probs_by_region_and_year_copernicus.csv")
+fp_csv_transition_probability_estimation_annual_copernicus_adjusted = os.path.join(dir_rbd_baseline_transition_probs, "transition_probs_by_region_and_year_copernicus_adjusted.csv")
 fp_csv_transition_probability_estimation_mean = os.path.join(dir_rbd_baseline_transition_probs, "transition_probs_by_region_mean.csv")
 fp_csv_transition_probability_estimation_mean_recent = os.path.join(dir_rbd_baseline_transition_probs, "transition_probs_by_region_mean_recent_only.csv")
 fpt_csv_transition_probability_estimation_mean_with_growth = os.path.join(dir_rbd_baseline_transition_probs, "transition_probs_by_region_mean_with_target_growth-%s.csv")
