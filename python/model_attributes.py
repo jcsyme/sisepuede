@@ -823,20 +823,10 @@ class ModelAttributes:
             fields for SISEPUEDE. Sets the following properties:
 
             * self.substr_analytical_parameters
-            * self.substr_categories
-            * self.substr_dimensions
             * self.substr_experimental_parameters
-            * self.substr_varreqs
-            * self.substr_varreqs_allcats
-            * self.substr_varreqs_partialcats
         """
         self.substr_analytical_parameters = "analytical_parameters"
         self.substr_experimental_parameters = "experimental_parameters"
-        self.substr_dimensions = "attribute_dim_"
-        self.substr_categories = "attribute_"
-        self.substr_varreqs = "table_varreqs_by_"
-        self.substr_varreqs_allcats = f"{self.substr_varreqs}category_"
-        self.substr_varreqs_partialcats = f"{self.substr_varreqs}partial_category_"
 
         return None
 

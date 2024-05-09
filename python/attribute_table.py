@@ -39,6 +39,29 @@ class AttributeTable:
             clean_table_fields = clean_table_fields,
         )
 
+        return None
+    
+
+
+    def __repr__(self,
+    ) -> str:
+        """
+        Call data frame's method
+        """
+        return self.table.__repr__()
+
+
+    
+    def _repr_html_(self
+    ) -> Union[str, None]:
+        """
+        Return a html representation for a particular DataFrame, mainly for 
+            IPython notebook. NOTE: this method is shortcut to same method in 
+            pd.DataFrame()
+        """
+
+        return self.table._repr_html_()
+
 
 
     ##################################

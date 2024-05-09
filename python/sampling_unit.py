@@ -178,6 +178,7 @@ class SamplingUnit:
 			xl_type = xl_type,
 		)
 
+		return None
 
 
 
@@ -186,534 +187,6 @@ class SamplingUnit:
 	##################################
 	#	INITIALIZATION FUNCTIONS	#
 	##################################
-
-	def check_input_data_frame(self,
-		df_in: pd.DataFrame,
-		drop_duplicates: bool = True,
-		fields_req: Union[List[str], None] = None,
-		field_req_variable_trajectory_group_trajectory_type: Union[str, None] = None,
-	) -> pd.DataFrame:
-		"""
-		Check df_in for required fields. Returns a data frame with variable
-			definitions.
-
-		Function Arguments
-		------------------
-		- df_in: data frame to check
-
-		Keyword Arguments
-		-----------------
-		- drop_duplicates: drop duplicate rows? Set to False if input DataFrame
-			is assured to contain unique rows (can be faster in batch
-			implentation)
-		- field_req_variable_trajectory_group_trajectory_type: field used to
-			denote the variable trajectory group trajectory type
-		- fields_req: fields that the dataframe is required to contain
-		"""
-		# some standardized fields to require
-		field_req_variable_trajectory_group_trajectory_type = (
-			self.field_variable_trajgroup_type 
-			if (field_req_variable_trajectory_group_trajectory_type is None) 
-			else field_req_variable_trajectory_group_trajectory_type
-		)
-		fields_req = self.required_fields if fields_req is None else fields_req
-
-		# raise an error if any required fields are missing
-		if not set(fields_req).issubset(set(df_in.columns)):
-			fields_missing = list(set(fields_req) - (set(fields_req) & set(df_in.columns)))
-			fields_missing.sort()
-			str_missing = ", ".join([f"'{x}'" for x in fields_missing])
-			raise ValueError(f"Error: one or more columns are missing from the data frame. Columns {str_missing} not found")
-
-		# some cleaning
-		df_out = df_in.drop_duplicates() if drop_duplicates else df_in
-		df_out[field_req_variable_trajectory_group_trajectory_type].replace({np.nan: None}, inplace = True)
-
-		return df_out
-
-
-
-	def _initialize_time_start_uncertainty(self,
-		t0: int
-	) -> None:
-		"""
-		Initialize the following properties:
-
-			* self.time_period_end_certainty
-
-		Function Arguments
-		------------------
-		- t0: input integer secifying start time for uncertainty
-		"""
-		self.time_period_end_certainty = max(t0, 1)
-
-		return None
-
-
-
-	def generate_indexing_data_frame(self,
-		df_id_coords: Union[pd.DataFrame, None] = None,
-		dict_additional_fields: Dict[str, Union[float, int, str]] = None,
-		field_primary_key_id_coords: Union[str, None] = None,
-		field_time_period: Union[str, None] = None
-	) -> pd.DataFrame:
-
-		"""
-		Generate an data frame long by time period and all id coordinates 
-			included in the sample unit.
-
-		Keyword Arguments
-		-----------------
-		- df_id_coords: data frame containing id coordinates + primary key (in 
-			field_primary_key_id_coords)
-			* If None, default to self.df_coordinates_id
-		- dict_additional_fields: dictionary mapping additional fields to values 
-			to add
-			* If None, no additional fields are added
-		- field_primary_key_id_coords: field in df_id_coords denoting the 
-			primary key
-			* If None, default to self.primary_key_id_coordinates
-		- field_time_period: field to use for data frame
-			* If None, default to self.field_time_period
-		"""
-
-		df_id_coords = self.df_coordinates_id if (df_id_coords is None) else df_id_coords
-		field_primary_key_id_coords = self.primary_key_id_coordinates if (field_primary_key_id_coords is None) else field_primary_key_id_coords
-		field_time_period = self.field_time_period if (field_time_period is None) else field_time_period
-
-		# build array of coordinates x time periods
-		df_coords_by_future = np.array([
-			np.repeat(
-				df_id_coords[field_primary_key_id_coords],
-				len(self.time_periods)
-			),
-			np.concatenate(
-				np.repeat(
-					[self.time_periods],
-					len(self.df_coordinates_id),
-					axis = 0
-				)
-			)
-		]).transpose()
-
-		# convert to data frame
-		df_coords_by_future = pd.DataFrame(
-			df_coords_by_future,
-			columns = [field_primary_key_id_coords, field_time_period]
-		)
-
-		df_coords_by_future = pd.merge(
-			df_coords_by_future,
-			df_id_coords,
-			how = "left"
-		).sort_values(
-			by = [field_primary_key_id_coords, field_time_period]
-		).reset_index(
-			drop = True
-		).drop(
-			field_primary_key_id_coords, axis = 1
-		)
-
-		if dict_additional_fields is not None:
-			df_coords_by_future = sf.add_data_frame_fields_from_dict(
-				df_coords_by_future,
-				dict_additional_fields
-			)
-
-		return df_coords_by_future
-
-
-
-	def get_all_vs(self,
-		df_in: pd.DataFrame,
-	) -> List:
-		"""
-		Get all variable schema associated with input template df_in
-		"""
-		if not self.field_variable in df_in.columns:
-			raise ValueError(f"Field '{self.field_variable}' not found in data frame.")
-		all_vs = sorted(list(df_in[self.field_variable].unique()))
-
-		return all_vs
-
-
-
-	def get_coords(self,
-		field_ans_key: Union[str, None] = None,
-		field_id_key: Union[str, None] = None,
-		field_vvt_key: Union[str, None] = None,
-		fields_ans: Union[list, None] = None,
-		fields_id: Union[list, None] = None,
-		fields_vvt: Union[list, None] = None,
-		tups_id: Union[List[Tuple], None] = None,
-		tups_vvt: Union[List[Tuple], None] = None,
-	) -> List[Tuple]:
-		"""
-		Get the coordinates for sorting by strategy (used in strategy info).
-			Returns a tuple with the following elements:
-
-			df_ans_key, df_id_key, df_vvt_key, tups_ans, tups_id, tups_vvt
-
-		Keyword Arguments
-		-----------------
-		- fields_ans: fields used to define coordinates_ans
-		- fields_id: id fields included in df_in
-		- fields_vvt: variable and variable trajgroup type fields, used to index
-			arrays for comparison against base strategy.
-		- field_ans_key: field used as a key for direct product of all
-			field dimensions without strategy
-		- field_id_key: field used as a key for direct product of ID values
-		- field_vvt_key: field used as a key for direct product of variable and
-			variable trajgroup type fields combinations
-		- tups_id: ordered list of ID coordinates as tuples (ordered by
-			self.fields_id)
-		- tups_vvt: ordered list of VVT coordinates as tuples (ordered by
-			self.fields_vvt_coodinates)
-		"""
-
-		field_ans_key = self.primary_key_ans_coordinates if (field_ans_key is None) else field_ans_key
-		field_id_key = self.primary_key_id_coordinates if (field_id_key is None) else field_id_key
-		field_vvt_key = self.primary_key_vvt_coordinates if (field_vvt_key is None) else field_vvt_key
-		fields_ans = self.fields_ans_coordinates if not isinstance(fields_ans, list) else fields_ans
-		fields_id = self.fields_id if not isinstance(fields_id, list) else fields_id
-		fields_vvt = self.fields_vvt_coordinates if not isinstance(fields_vvt, list) else fields_vvt
-
-		##  BUILD ANS (ALL NO-STRAT) COORDS
-
-		# ensure sorting of input ID/VVT coords
-		tups_id = sorted(list(tups_id))
-		tups_vvt = sorted(list(tups_vvt))
-		n_vvt = len(tups_vvt)
-
-		# initialize components for
-		ind_filt = self.fields_id.index(self.key_strategy) # tuple index to filter in tups_id
-		tups_ans = []
-		tups_drop = []
-
-		# initialize iterator vars
-		ind_id = 0
-
-		# iterate over tups_id: drop strategy index, then expand against tups_vvt. If already done, skip to next row
-		for tup in enumerate(tups_id):
-			i, tup = tup
-			tup_keep = sf.filter_tuple(tup, ind_filt)
-
-			if tup_keep not in tups_drop:
-				tups_ans += [tup_keep + x for x in tups_vvt]
-				tups_drop.append(tup_keep)
-
-
-		##  GET ID COORDINATES DATAFRAMES
-
-		df_id_key = pd.DataFrame(tups_id, columns = fields_id)
-		df_id_key[field_id_key] = range(len(df_id_key))
-		dict_id_key = dict(zip(tups_id, range(len(df_id_key))))
-		def fun_id_key(
-			tup_in: Union[Tuple, np.ndarray, List]
-		) -> Union[int, None]:
-			return dict_id_key.get(tuple(tup_in))
-
-		df_vvt_key = pd.DataFrame(tups_vvt, columns = fields_vvt)
-		df_vvt_key[field_vvt_key] = range(len(df_vvt_key))
-		dict_vvt_key = dict(zip(tups_vvt, range(len(df_vvt_key))))
-		def fun_vvt_key(
-			tup_in: Union[Tuple, np.ndarray, List]
-		) -> Union[int, None]:
-			return dict_vvt_key.get(tuple(tup_in))
-
-		df_ans_key = pd.DataFrame(tups_ans, columns = fields_ans)
-		df_ans_key[field_ans_key] = range(len(df_ans_key))
-		dict_ans_key = dict(zip(tups_ans, range(len(df_ans_key))))
-		def fun_ans_key(
-			tup_in: Union[Tuple, np.ndarray, List]
-		) -> Union[int, None]:
-			return dict_ans_key.get(tuple(tup_in))
-
-		# organize output tuple
-		out = (
-			df_ans_key, 
-			df_id_key, 
-			df_vvt_key, 
-			fun_ans_key, 
-			fun_id_key, 
-			fun_vvt_key, 
-			tups_ans, 
-			tups_id, 
-			tups_vvt
-		)
-
-		return out
-
-
-
-	def get_id_fields(self,
-		regex_id: re.Pattern,
-		df_in: Union[pd.DataFrame, None] = None
-	) -> List:
-		"""
-		Get all id fields associated with input template df_in.
-
-		Function Arguments
-		------------------
-		- regex_id: regular expression used to identify id fields
-
-		Keyword Arguments
-		-----------------
-		- df_in: data frame to use to find id fields. If None, use
-			self.df_variable_definitions
-
-		"""
-
-		if not isinstance(regex_id, re.Pattern):
-			fields_out = []
-		else:
-			df_in = self.df_variable_definitions if (df_in is None) else df_in
-			fields_out = sorted(
-				[x for x in df_in.columns if (regex_id.match(x) is not None)]
-			)
-
-		if len(fields_out) == 0:
-			raise ValueError(f"No id fields found in data frame.")
-
-		return fields_out
-
-
-
-	def get_scalar_time_period(self,
-		regex_max: re.Pattern,
-		regex_min: re.Pattern,
-		df_in:Union[pd.DataFrame, None] = None
-	) -> Tuple[str, str, int]:
-		"""
-		Determine final time period (tp_final) as well as the fields associated 
-			with the minimum and maximum scalars (field_min/field_max) using 
-			input template df_in. Returns a tuple with the following elements:
-
-			* field_min
-			* field_max
-			* tp_final
-
-		Function Arguments
-		------------------
-		- regex_max: re.Pattern (compiled regular expression) used to match the
-			field storing the maximum scalar values at the final time period
-		- regex_min: re.Pattern used to match the field storing the minimum 
-			scalar values at the final time period
-
-		Keyword Arguments
-		-----------------
-		- df_in: input data frame defining variable specifications. If None,
-			uses self.df_variable_definitions
-		"""
-
-		df_in = self.df_variable_definitions if (df_in is None) else df_in
-
-		field_min = [x for x in df_in.columns if (regex_min.match(x) is not None)]
-		if len(field_min) == 0:
-			raise ValueError("No field associated with a minimum scalar value found in data frame.")
-
-		field_min = field_min[0]
-
-		# determine max field/time period
-		field_max = [x for x in df_in.columns if (regex_max.match(x) is not None)]
-		if len(field_max) == 0:
-			raise ValueError("No field associated with a maximum scalar value found in data frame.")
-			
-		field_max = field_max[0]
-
-		tp_min = int(field_min.split("_")[1])
-		tp_max = int(field_max.split("_")[1])
-		if (tp_min != tp_max) | (tp_min is None):
-			raise ValueError(f"Fields '{tp_min}' and '{tp_max}' imply asymmetric final time periods.")
-
-		tp_out = tp_min
-
-		return (field_min, field_max, tp_out)
-
-
-
-	def get_scenario_values(self,
-		dict_baseline_ids: Dict[str, int],
-		df_in: Union[pd.DataFrame, None] = None,
-		fields_id: Union[list, None] = None,
-	) -> Tuple[Dict, Dict]:
-		"""
-		Get scenario index values by scenario dimension and verifies baseline
-			values. Returns a tuple:
-
-			dict_id_values, dict_baseline_ids
-
-		where `dict_id_values` maps each dimensional key (str) to a list of
-			values and `dict_baseline_ids` maps each dimensional key (str) to a
-			baseline scenario index
-
-		Function Arguments
-		------------------
-		- df_in: data frame containing the input template
-		- fields_id: list of id fields
-		- dict_baseline_ids: dictionary mapping each dimensional key to nominal
-			baseline
-
-		Function Arguments
-		------------------
-		"""
-
-		df_in = self.df_variable_definitions if not isinstance(df_in, pd.DataFrame) else df_in
-		fields_id = self.fields_id if not isinstance(fields_id, list) else fields_id
-		#
-		dict_id_values = {}
-		dict_id_baselines = dict_baseline_ids.copy()
-
-		for fld in fields_id:
-			dict_id_values.update({fld: list(df_in[fld].unique())})
-			dict_id_values[fld].sort()
-
-			# check if baseline for field is determined
-			if fld in dict_id_baselines.keys():
-				bv = int(dict_id_baselines[fld])
-
-				if bv not in dict_id_values[fld]:
-					if fld == self.key_strategy:
-						raise ValueError(f"Error: baseline {self.key_strategy} scenario index '{bv}' not found in the variable trajectory input sheet. Please ensure the basline strategy is specified correctly.")
-					else:
-						msg_warning = f"The baseline id for dimension {fld} not found. The experimental design will not include futures along this dimension of analysis."
-						warnings.warn(msg_warning)
-			else:
-				# assume minimum >= 0
-				bv = min([x for x in dict_id_values[fld] if x >= 0])
-				dict_id_baselines.update({fld: bv})
-				msg_warning = f"No baseline scenario index found for {fld}. It will be assigned to '{bv}', the lowest non-negative integer."
-				warnings.warn(msg_warning)
-
-		return dict_id_values, dict_id_baselines
-
-
-
-	def get_strategy_to_coordinate_rows_dict(self,
-		df_coordinates_id: Union[pd.DataFrame, None] = None,
-		dict_id_values: Union[Dict, None] = None,
-		key_strategy: Union[str, None] = None
-	) -> Dict[str, List[int]]:
-		"""
-		Build a dictionary mapping strategy key values to row indices in
-			self.df_coordinates_id.
-
-		Keyword Arguments
-		-----------------
-		- df_coordinates_id: data frame of id coordinates to use as reference
-		- key_strategy: strategy key
-		"""
-
-		df_coordinates_id = self.df_coordinates_id if (df_coordinates_id is None) else df_coordinates_id
-		dict_id_values = self.dict_id_values if (dict_id_values is None) else dict_id_values
-		key_strategy = self.key_strategy if (key_strategy is None) else field_key_strategy
-
-		dict_strategy_id_to_coordinate_rows = dict((x, []) for x in dict_id_values.get(key_strategy))
-		vec_strats_in_df_coords = list(df_coordinates_id[key_strategy])
-		for i in range(len(df_coordinates_id)):
-			strat = vec_strats_in_df_coords[i]
-			dict_strategy_id_to_coordinate_rows[strat].append(i)
-
-		return dict_strategy_id_to_coordinate_rows
-
-
-
-	def get_time_periods(self,
-		regex_tp: re.Pattern,
-		df_in:Union[pd.DataFrame, None] = None
-	) -> Tuple[List, List]:
-		"""
-		Get fields associated with time periods in the template as well as time
-			periods defined in input template df_in. Returns the following
-			elements:
-
-			fields_time_periods, time_periods
-
-			where
-
-			* fields_time_periods: nominal fields in df_in containing time
-				periods
-			* time_periods: ordered list of integer time periods
-
-		Function Arguments
-		-----------------
-		- regex_tp: re.Pattern used to match the field storing data values for
-			each time period
-
-		Keyword Arguments
-		-----------------
-		- df_in: input data frame defining variable specifications. If None,
-			uses self.
-
-		"""
-
-		df_in = self.df_variable_definitions if (df_in is None) else df_in
-
-		#fields_time_periods = [x for x in df_in.columns if x.isnumeric()]
-		#fields_time_periods = [x for x in fields_time_periods if int(x) == float(x)]
-		fields_time_periods = [str(x) for x in df_in.columns if (regex_tp.match(str(x)) is not None)]
-		if len(fields_time_periods) == 0:
-			raise ValueError("No time periods found in data frame.")
-
-		time_periods = sorted([int(x) for x in fields_time_periods])
-		fields_time_periods = [str(x) for x in time_periods]
-
-		return fields_time_periods, time_periods
-
-
-
-	def get_trajgroup(self,
-		df_in:Union[pd.DataFrame, None] = None,
-	) -> Union[int, None]:
-		"""
-		Get the trajectory group for the sampling unit from df_in.
-
-		Keyword Arguments
-		-----------------
-		- df_in: input data frame defining variable specifications.
-		"""
-
-		df_in = self.df_variable_definitions if (df_in is None) else df_in
-		if not self.field_variable_trajgroup in df_in.columns:
-			raise ValueError(f"Field '{self.field_variable_trajgroup}' not found in data frame.")
-
-		# determine if this is associated with a trajectory group		
-		out = (
-			(
-				int(list(df_in[self.field_variable_trajgroup].unique())[0])
-				if len(self.get_all_vs(df_in)) > 1
-				else None
-			)
-			if len(df_in[df_in[self.field_variable_trajgroup] > self.missing_trajgroup_flag]) > 0
-			else None
-		)
-
-		return out
-
-
-
-	def get_trajgroup_vary_q(self,
-		df_in:Union[pd.DataFrame, None] = None,
-	) -> Union[int, None]:
-		"""
-		Get the trajectory group for the sampling unit from df_in.
-
-		Keyword Arguments
-		-----------------
-		- df_in: input data frame defining variable specifications. If None,
-			uses self.
-		"""
-
-		df_in = self.df_variable_definitions if (df_in is None) else df_in
-
-		if not self.field_trajgroup_no_vary_q in df_in.columns:
-			raise ValueError(f"Field '{self.field_trajgroup_no_vary_q}' not found in data frame.")
-		# determine if this is associated with a trajectory group
-		out = (len(df_in[df_in[self.field_trajgroup_no_vary_q] == 1]) == 0)
-
-		return out
-
-
 
 	def _initialize_attributes_from_table(self,
 		df_variable_definition: pd.DataFrame,
@@ -820,40 +293,6 @@ class SamplingUnit:
 
 
 
-	def initialize_dict_sda(self,
-		array_data: np.ndarray,
-		vec_scale_max: np.ndarray,
-		vec_scale_min: np.ndarray
-	) -> Dict[str, Dict]:
-		"""
-		Initialize a dictionary for scalar diff arrays
-		"""
-		dict_out = {
-			"max_tp_end_delta": array_data[:,-1]*(vec_scale_max - 1),
-			"min_tp_end_delta": array_data[:,-1]*(vec_scale_min - 1),
-		}
-
-		return dict_out
-
-
-
-	def initialize_dict_vi(self,
-	) -> Dict[str, Dict]:
-		"""
-		Initialize the dictionary of variable information
-		"""
-		dict_out = {
-			"max_scalar": {},
-			"min_scalar": {},
-			"trajectories": {},
-			"uniform_scaling_q": {}
-		}
-
-		return dict_out
-
-
-
-
 	def _initialize_parameters(self,
 		missing_trajgroup_flag: int,
 	) -> None:
@@ -892,6 +331,49 @@ class SamplingUnit:
 		}
 		self.required_tg_specs = list(self.dict_required_tg_spec_fields.values())
 		
+		return None
+	
+
+
+	def _initialize_properties(self,
+		group: Union[int, None] = None,
+	) -> None:
+		"""
+		Initialize properties definining whether or not the trajectory can vary
+			with LHS trials or uncertainty assessment. Sets the following
+			properties:
+
+			* self.group
+			* self.x_varies
+
+		Keyword Arguments
+		-----------------
+		- group: optional group id to use for tracking collections of sampling 
+			units 
+		"""
+
+		# check whether or not there will be variation
+		df = self.df_variable_definitions
+		field_max = self.field_max_scalar
+		field_min = self.field_min_scalar
+
+		s_max = set(df[field_max].astype(float))
+		s_min = set(df[field_min].astype(float))
+		x_varies = not (
+			len(df[[field_max, field_min]].drop_duplicates()) == 1
+			& (s_max == s_min)
+			& (s_max == set({1.0}))
+		)
+
+		# check the group specification
+		group = int(group) if sf.isnumber(group) else None
+
+
+		##  SET PROPERTIES
+		
+		self.group = group
+		self.x_varies = x_varies
+
 		return None
 
 
@@ -1043,6 +525,24 @@ class SamplingUnit:
 		self.fun_vvt_key = fun_vvt_key
 		self.num_scenarios = len(tups_id)
 		self.variable_specifications = var_specs
+
+		return None
+	
+
+
+	def _initialize_time_start_uncertainty(self,
+		t0: int
+	) -> None:
+		"""
+		Initialize the following properties:
+
+			* self.time_period_end_certainty
+
+		Function Arguments
+		------------------
+		- t0: input integer secifying start time for uncertainty
+		"""
+		self.time_period_end_certainty = max(t0, 1)
 
 		return None
 
@@ -1269,7 +769,7 @@ class SamplingUnit:
 			
 			# initialize dictionary components
 			(
-				dict_var_info.update({tup_vvt: self.initialize_dict_vi()}) 
+				dict_var_info.update({tup_vvt: self.get_dict_vi()}) 
 				if (dict_var_info.get(tup_vvt) is None) 
 				else None
 			)
@@ -1312,7 +812,7 @@ class SamplingUnit:
 		# get by VVT group
 		for k in dict_ordered_traj_arrays.keys():
 			dict_scalar_diff_arrays.update({
-				k: self.initialize_dict_sda(
+				k: self.get_dict_sda(
 					dict_ordered_traj_arrays.get(k),
 					dict_ordered_vec_max_scalars.get(k),
 					dict_ordered_vec_min_scalars.get(k)
@@ -1352,57 +852,573 @@ class SamplingUnit:
 		self.xl_type = type_out
 
 		return None
-	
 
 
-	def _initialize_properties(self,
-		group: Union[int, None] = None,
-	) -> None:
+
+	###########################
+	#    SUPPORT FUNCTIONS    #
+	###########################
+
+	def check_input_data_frame(self,
+		df_in: pd.DataFrame,
+		drop_duplicates: bool = True,
+		fields_req: Union[List[str], None] = None,
+		field_req_variable_trajectory_group_trajectory_type: Union[str, None] = None,
+	) -> pd.DataFrame:
 		"""
-		Initialize properties definining whether or not the trajectory can vary
-			with LHS trials or uncertainty assessment. Sets the following
-			properties:
+		Check df_in for required fields. Returns a data frame with variable
+			definitions.
 
-			* self.group
-			* self.x_varies
+		Function Arguments
+		------------------
+		- df_in: data frame to check
 
 		Keyword Arguments
 		-----------------
-		- group: optional group id to use for tracking collections of sampling 
-			units 
+		- drop_duplicates: drop duplicate rows? Set to False if input DataFrame
+			is assured to contain unique rows (can be faster in batch
+			implentation)
+		- field_req_variable_trajectory_group_trajectory_type: field used to
+			denote the variable trajectory group trajectory type
+		- fields_req: fields that the dataframe is required to contain
+		"""
+		# some standardized fields to require
+		field_req_variable_trajectory_group_trajectory_type = (
+			self.field_variable_trajgroup_type 
+			if (field_req_variable_trajectory_group_trajectory_type is None) 
+			else field_req_variable_trajectory_group_trajectory_type
+		)
+		fields_req = self.required_fields if fields_req is None else fields_req
+
+		# raise an error if any required fields are missing
+		if not set(fields_req).issubset(set(df_in.columns)):
+			fields_missing = list(set(fields_req) - (set(fields_req) & set(df_in.columns)))
+			fields_missing.sort()
+			str_missing = ", ".join([f"'{x}'" for x in fields_missing])
+			raise ValueError(f"Error: one or more columns are missing from the data frame. Columns {str_missing} not found")
+
+		# some cleaning
+		df_out = df_in.drop_duplicates() if drop_duplicates else df_in
+		df_out[field_req_variable_trajectory_group_trajectory_type].replace({np.nan: None}, inplace = True)
+
+		return df_out
+
+
+
+	def generate_indexing_data_frame(self,
+		df_id_coords: Union[pd.DataFrame, None] = None,
+		dict_additional_fields: Dict[str, Union[float, int, str]] = None,
+		field_primary_key_id_coords: Union[str, None] = None,
+		field_time_period: Union[str, None] = None
+	) -> pd.DataFrame:
+
+		"""
+		Generate an data frame long by time period and all id coordinates 
+			included in the sample unit.
+
+		Keyword Arguments
+		-----------------
+		- df_id_coords: data frame containing id coordinates + primary key (in 
+			field_primary_key_id_coords)
+			* If None, default to self.df_coordinates_id
+		- dict_additional_fields: dictionary mapping additional fields to values 
+			to add
+			* If None, no additional fields are added
+		- field_primary_key_id_coords: field in df_id_coords denoting the 
+			primary key
+			* If None, default to self.primary_key_id_coordinates
+		- field_time_period: field to use for data frame
+			* If None, default to self.field_time_period
 		"""
 
-		# check whether or not there will be variation
-		df = self.df_variable_definitions
-		field_max = self.field_max_scalar
-		field_min = self.field_min_scalar
-
-		s_max = set(df[field_max].astype(float))
-		s_min = set(df[field_min].astype(float))
-		x_varies = not (
-			len(df[[field_max, field_min]].drop_duplicates()) == 1
-			& (s_max == s_min)
-			& (s_max == set({1.0}))
+		df_id_coords = (
+			self.df_coordinates_id 
+			if (df_id_coords is None) 
+			else df_id_coords
+		)
+		field_primary_key_id_coords = (
+			self.primary_key_id_coordinates 
+			if (field_primary_key_id_coords is None) 
+			else field_primary_key_id_coords
+		)
+		field_time_period = (
+			self.field_time_period 
+			if (field_time_period is None) 
+			else field_time_period
 		)
 
-		# check the group specification
-		group = int(group) if sf.isnumber(group) else None
+		# build array of coordinates x time periods
+		df_coords_by_future = np.array([
+			np.repeat(
+				df_id_coords[field_primary_key_id_coords],
+				len(self.time_periods)
+			),
+			np.concatenate(
+				np.repeat(
+					[self.time_periods],
+					len(self.df_coordinates_id),
+					axis = 0
+				)
+			)
+		]).transpose()
+
+		# convert to data frame
+		df_coords_by_future = pd.DataFrame(
+			df_coords_by_future,
+			columns = [field_primary_key_id_coords, field_time_period]
+		)
+
+		df_coords_by_future = (
+			pd.merge(
+				df_coords_by_future,
+				df_id_coords,
+				how = "left"
+			)
+			.sort_values(
+				by = [field_primary_key_id_coords, field_time_period]
+			)
+			.reset_index(drop = True)
+			.drop(field_primary_key_id_coords, axis = 1)
+		)
+
+		if dict_additional_fields is not None:
+			df_coords_by_future = sf.add_data_frame_fields_from_dict(
+				df_coords_by_future,
+				dict_additional_fields
+			)
+
+		return df_coords_by_future
 
 
-		##  SET PROPERTIES
-		
-		self.group = group
-		self.x_varies = x_varies
 
-		return None
+	def get_all_vs(self,
+		df_in: pd.DataFrame,
+	) -> List:
+		"""
+		Get all variable schema associated with input template df_in
+		"""
+		if not self.field_variable in df_in.columns:
+			raise ValueError(f"Field '{self.field_variable}' not found in data frame.")
+		all_vs = sorted(list(df_in[self.field_variable].unique()))
+
+		return all_vs
 
 
 
+	def get_coords(self,
+		field_ans_key: Union[str, None] = None,
+		field_id_key: Union[str, None] = None,
+		field_vvt_key: Union[str, None] = None,
+		fields_ans: Union[list, None] = None,
+		fields_id: Union[list, None] = None,
+		fields_vvt: Union[list, None] = None,
+		tups_id: Union[List[Tuple], None] = None,
+		tups_vvt: Union[List[Tuple], None] = None,
+	) -> List[Tuple]:
+		"""
+		Get the coordinates for sorting by strategy (used in strategy info).
+			Returns a tuple with the following elements:
+
+			df_ans_key, df_id_key, df_vvt_key, tups_ans, tups_id, tups_vvt
+
+		Keyword Arguments
+		-----------------
+		- fields_ans: fields used to define coordinates_ans
+		- fields_id: id fields included in df_in
+		- fields_vvt: variable and variable trajgroup type fields, used to index
+			arrays for comparison against base strategy.
+		- field_ans_key: field used as a key for direct product of all
+			field dimensions without strategy
+		- field_id_key: field used as a key for direct product of ID values
+		- field_vvt_key: field used as a key for direct product of variable and
+			variable trajgroup type fields combinations
+		- tups_id: ordered list of ID coordinates as tuples (ordered by
+			self.fields_id)
+		- tups_vvt: ordered list of VVT coordinates as tuples (ordered by
+			self.fields_vvt_coodinates)
+		"""
+
+		field_ans_key = self.primary_key_ans_coordinates if (field_ans_key is None) else field_ans_key
+		field_id_key = self.primary_key_id_coordinates if (field_id_key is None) else field_id_key
+		field_vvt_key = self.primary_key_vvt_coordinates if (field_vvt_key is None) else field_vvt_key
+		fields_ans = self.fields_ans_coordinates if not isinstance(fields_ans, list) else fields_ans
+		fields_id = self.fields_id if not isinstance(fields_id, list) else fields_id
+		fields_vvt = self.fields_vvt_coordinates if not isinstance(fields_vvt, list) else fields_vvt
+
+		##  BUILD ANS (ALL NO-STRAT) COORDS
+
+		# ensure sorting of input ID/VVT coords
+		tups_id = sorted(list(tups_id))
+		tups_vvt = sorted(list(tups_vvt))
+		n_vvt = len(tups_vvt)
+
+		# initialize components for
+		ind_filt = self.fields_id.index(self.key_strategy) # tuple index to filter in tups_id
+		tups_ans = []
+		tups_drop = []
+
+		# initialize iterator vars
+		ind_id = 0
+
+		# iterate over tups_id: drop strategy index, then expand against tups_vvt. If already done, skip to next row
+		for tup in enumerate(tups_id):
+			i, tup = tup
+			tup_keep = sf.filter_tuple(tup, ind_filt)
+
+			if tup_keep not in tups_drop:
+				tups_ans += [tup_keep + x for x in tups_vvt]
+				tups_drop.append(tup_keep)
 
 
-	############################
-	#    CORE FUNCTIONALITY    #
-	############################
+		##  GET ID COORDINATES DATAFRAMES
+
+		df_id_key = pd.DataFrame(tups_id, columns = fields_id)
+		df_id_key[field_id_key] = range(len(df_id_key))
+		dict_id_key = dict(zip(tups_id, range(len(df_id_key))))
+		def fun_id_key(
+			tup_in: Union[Tuple, np.ndarray, List]
+		) -> Union[int, None]:
+			return dict_id_key.get(tuple(tup_in))
+
+		df_vvt_key = pd.DataFrame(tups_vvt, columns = fields_vvt)
+		df_vvt_key[field_vvt_key] = range(len(df_vvt_key))
+		dict_vvt_key = dict(zip(tups_vvt, range(len(df_vvt_key))))
+		def fun_vvt_key(
+			tup_in: Union[Tuple, np.ndarray, List]
+		) -> Union[int, None]:
+			return dict_vvt_key.get(tuple(tup_in))
+
+		df_ans_key = pd.DataFrame(tups_ans, columns = fields_ans)
+		df_ans_key[field_ans_key] = range(len(df_ans_key))
+		dict_ans_key = dict(zip(tups_ans, range(len(df_ans_key))))
+		def fun_ans_key(
+			tup_in: Union[Tuple, np.ndarray, List]
+		) -> Union[int, None]:
+			return dict_ans_key.get(tuple(tup_in))
+
+		# organize output tuple
+		out = (
+			df_ans_key, 
+			df_id_key, 
+			df_vvt_key, 
+			fun_ans_key, 
+			fun_id_key, 
+			fun_vvt_key, 
+			tups_ans, 
+			tups_id, 
+			tups_vvt
+		)
+
+		return out
+	
+
+
+	def get_dict_sda(self,
+		array_data: np.ndarray,
+		vec_scale_max: np.ndarray,
+		vec_scale_min: np.ndarray
+	) -> Dict[str, Dict]:
+		"""
+		Initialize a dictionary for scalar diff arrays
+		"""
+		dict_out = {
+			"max_tp_end_delta": array_data[:,-1]*(vec_scale_max - 1),
+			"min_tp_end_delta": array_data[:,-1]*(vec_scale_min - 1),
+		}
+
+		return dict_out
+
+
+
+	def get_dict_vi(self,
+	) -> Dict[str, Dict]:
+		"""
+		Initialize the dictionary of variable information
+		"""
+		dict_out = {
+			"max_scalar": {},
+			"min_scalar": {},
+			"trajectories": {},
+			"uniform_scaling_q": {}
+		}
+
+		return dict_out
+
+
+
+	def get_id_fields(self,
+		regex_id: re.Pattern,
+		df_in: Union[pd.DataFrame, None] = None
+	) -> List:
+		"""
+		Get all id fields associated with input template df_in.
+
+		Function Arguments
+		------------------
+		- regex_id: regular expression used to identify id fields
+
+		Keyword Arguments
+		-----------------
+		- df_in: data frame to use to find id fields. If None, use
+			self.df_variable_definitions
+
+		"""
+
+		if not isinstance(regex_id, re.Pattern):
+			fields_out = []
+		else:
+			df_in = self.df_variable_definitions if (df_in is None) else df_in
+			fields_out = sorted(
+				[x for x in df_in.columns if (regex_id.match(x) is not None)]
+			)
+
+		if len(fields_out) == 0:
+			raise ValueError(f"No id fields found in data frame.")
+
+		return fields_out
+
+
+
+	def get_scalar_time_period(self,
+		regex_max: re.Pattern,
+		regex_min: re.Pattern,
+		df_in:Union[pd.DataFrame, None] = None
+	) -> Tuple[str, str, int]:
+		"""
+		Determine final time period (tp_final) as well as the fields associated 
+			with the minimum and maximum scalars (field_min/field_max) using 
+			input template df_in. Returns a tuple with the following elements:
+
+			* field_min
+			* field_max
+			* tp_final
+
+		Function Arguments
+		------------------
+		- regex_max: re.Pattern (compiled regular expression) used to match the
+			field storing the maximum scalar values at the final time period
+		- regex_min: re.Pattern used to match the field storing the minimum 
+			scalar values at the final time period
+
+		Keyword Arguments
+		-----------------
+		- df_in: input data frame defining variable specifications. If None,
+			uses self.df_variable_definitions
+		"""
+
+		df_in = self.df_variable_definitions if (df_in is None) else df_in
+
+		field_min = [x for x in df_in.columns if (regex_min.match(x) is not None)]
+		if len(field_min) == 0:
+			raise ValueError("No field associated with a minimum scalar value found in data frame.")
+
+		field_min = field_min[0]
+
+		# determine max field/time period
+		field_max = [x for x in df_in.columns if (regex_max.match(x) is not None)]
+		if len(field_max) == 0:
+			raise ValueError("No field associated with a maximum scalar value found in data frame.")
+			
+		field_max = field_max[0]
+
+		tp_min = int(field_min.split("_")[1])
+		tp_max = int(field_max.split("_")[1])
+		if (tp_min != tp_max) | (tp_min is None):
+			raise ValueError(f"Fields '{tp_min}' and '{tp_max}' imply asymmetric final time periods.")
+
+		tp_out = tp_min
+
+		return (field_min, field_max, tp_out)
+
+
+
+	def get_scenario_values(self,
+		dict_baseline_ids: Dict[str, int],
+		df_in: Union[pd.DataFrame, None] = None,
+		fields_id: Union[list, None] = None,
+	) -> Tuple[Dict, Dict]:
+		"""
+		Get scenario index values by scenario dimension and verifies baseline
+			values. Returns a tuple:
+
+			dict_id_values, dict_baseline_ids
+
+		where `dict_id_values` maps each dimensional key (str) to a list of
+			values and `dict_baseline_ids` maps each dimensional key (str) to a
+			baseline scenario index
+
+		Function Arguments
+		------------------
+		- df_in: data frame containing the input template
+		- fields_id: list of id fields
+		- dict_baseline_ids: dictionary mapping each dimensional key to nominal
+			baseline
+
+		Function Arguments
+		------------------
+		"""
+
+		df_in = self.df_variable_definitions if not isinstance(df_in, pd.DataFrame) else df_in
+		fields_id = self.fields_id if not isinstance(fields_id, list) else fields_id
+		#
+		dict_id_values = {}
+		dict_id_baselines = dict_baseline_ids.copy()
+
+		for fld in fields_id:
+			dict_id_values.update({fld: list(df_in[fld].unique())})
+			dict_id_values[fld].sort()
+
+			# check if baseline for field is determined
+			if fld in dict_id_baselines.keys():
+				bv = int(dict_id_baselines[fld])
+
+				if bv not in dict_id_values[fld]:
+					if fld == self.key_strategy:
+						msg = f"""
+						Error: baseline {self.key_strategy} scenario index '{bv}' not 
+						found in the variable trajectory input sheet. Please ensure the 
+						basline strategy is specified correctly.
+						"""
+						raise ValueError(msg)
+					else:
+						msg_warning = f"The baseline id for dimension {fld} not found. The experimental design will not include futures along this dimension of analysis."
+						warnings.warn(msg_warning)
+			else:
+				# assume minimum >= 0
+				bv = min([x for x in dict_id_values[fld] if x >= 0])
+				dict_id_baselines.update({fld: bv})
+				msg_warning = f"No baseline scenario index found for {fld}. It will be assigned to '{bv}', the lowest non-negative integer."
+				warnings.warn(msg_warning)
+
+		return dict_id_values, dict_id_baselines
+
+
+
+	def get_strategy_to_coordinate_rows_dict(self,
+		df_coordinates_id: Union[pd.DataFrame, None] = None,
+		dict_id_values: Union[Dict, None] = None,
+		key_strategy: Union[str, None] = None
+	) -> Dict[str, List[int]]:
+		"""
+		Build a dictionary mapping strategy key values to row indices in
+			self.df_coordinates_id.
+
+		Keyword Arguments
+		-----------------
+		- df_coordinates_id: data frame of id coordinates to use as reference
+		- key_strategy: strategy key
+		"""
+
+		df_coordinates_id = self.df_coordinates_id if (df_coordinates_id is None) else df_coordinates_id
+		dict_id_values = self.dict_id_values if (dict_id_values is None) else dict_id_values
+		key_strategy = self.key_strategy if (key_strategy is None) else field_key_strategy
+
+		dict_strategy_id_to_coordinate_rows = dict((x, []) for x in dict_id_values.get(key_strategy))
+		vec_strats_in_df_coords = list(df_coordinates_id[key_strategy])
+		for i in range(len(df_coordinates_id)):
+			strat = vec_strats_in_df_coords[i]
+			dict_strategy_id_to_coordinate_rows[strat].append(i)
+
+		return dict_strategy_id_to_coordinate_rows
+
+
+
+	def get_time_periods(self,
+		regex_tp: re.Pattern,
+		df_in:Union[pd.DataFrame, None] = None
+	) -> Tuple[List, List]:
+		"""
+		Get fields associated with time periods in the template as well as time
+			periods defined in input template df_in. Returns the following
+			elements:
+
+			fields_time_periods, time_periods
+
+			where
+
+			* fields_time_periods: nominal fields in df_in containing time
+				periods
+			* time_periods: ordered list of integer time periods
+
+		Function Arguments
+		-----------------
+		- regex_tp: re.Pattern used to match the field storing data values for
+			each time period
+
+		Keyword Arguments
+		-----------------
+		- df_in: input data frame defining variable specifications. If None,
+			uses self.
+
+		"""
+
+		df_in = self.df_variable_definitions if (df_in is None) else df_in
+
+		#fields_time_periods = [x for x in df_in.columns if x.isnumeric()]
+		#fields_time_periods = [x for x in fields_time_periods if int(x) == float(x)]
+		fields_time_periods = [str(x) for x in df_in.columns if (regex_tp.match(str(x)) is not None)]
+		if len(fields_time_periods) == 0:
+			raise ValueError("No time periods found in data frame.")
+
+		time_periods = sorted([int(x) for x in fields_time_periods])
+		fields_time_periods = [str(x) for x in time_periods]
+
+		return fields_time_periods, time_periods
+
+
+
+	def get_trajgroup(self,
+		df_in:Union[pd.DataFrame, None] = None,
+	) -> Union[int, None]:
+		"""
+		Get the trajectory group for the sampling unit from df_in.
+
+		Keyword Arguments
+		-----------------
+		- df_in: input data frame defining variable specifications.
+		"""
+
+		df_in = self.df_variable_definitions if (df_in is None) else df_in
+		if not self.field_variable_trajgroup in df_in.columns:
+			raise ValueError(f"Field '{self.field_variable_trajgroup}' not found in data frame.")
+
+		# determine if this is associated with a trajectory group		
+		out = (
+			(
+				int(list(df_in[self.field_variable_trajgroup].unique())[0])
+				if len(self.get_all_vs(df_in)) > 1
+				else None
+			)
+			if len(df_in[df_in[self.field_variable_trajgroup] > self.missing_trajgroup_flag]) > 0
+			else None
+		)
+
+		return out
+
+
+
+	def get_trajgroup_vary_q(self,
+		df_in:Union[pd.DataFrame, None] = None,
+	) -> Union[int, None]:
+		"""
+		Get the trajectory group for the sampling unit from df_in.
+
+		Keyword Arguments
+		-----------------
+		- df_in: input data frame defining variable specifications. If None,
+			uses self.
+		"""
+
+		df_in = self.df_variable_definitions if (df_in is None) else df_in
+
+		if not self.field_trajgroup_no_vary_q in df_in.columns:
+			raise ValueError(f"Field '{self.field_trajgroup_no_vary_q}' not found in data frame.")
+		# determine if this is associated with a trajectory group
+		out = (len(df_in[df_in[self.field_trajgroup_no_vary_q] == 1]) == 0)
+
+		return out
+	
+
 
 	def ordered_by_ota_from_fid_dict(self,
 		dict_in: dict,
@@ -1418,6 +1434,11 @@ class SamplingUnit:
 		return arr_out
 
 
+
+
+	############################
+	#    CORE FUNCTIONALITY    #
+	############################
 
 	## UNCERTAINY FAN FUNCTIONS
 
@@ -2816,14 +2837,22 @@ class FutureTrajectories:
 		- drop_duplicates: drop duplicates in the input dataframe?
 		- sample_unit_id: optional id to pass for error troubleshooting
 		"""
-		dict_all_dims = self.dict_all_dimensional_values if (dict_all_dims is None) else dict_all_dims
+		dict_all_dims = (
+			self.dict_all_dimensional_values 
+			if (dict_all_dims is None) 
+			else dict_all_dims
+		)
 		if not isinstance(dict_all_dims, dict):
 			return df_su_input
 
 
 		##  CHECK BASELINES DEFINED
 
-		dict_baseline_ids = self.dict_baseline_ids if not isinstance(dict_baseline_ids, dict) else dict_baseline_ids
+		dict_baseline_ids = (
+			self.dict_baseline_ids 
+			if not isinstance(dict_baseline_ids, dict) 
+			else dict_baseline_ids
+		)
 		df_su_base = sf.subset_df(
 			df_su_input,
 			dict_baseline_ids
@@ -2845,8 +2874,13 @@ class FutureTrajectories:
 		n_req_baseline = np.prod([len(v) for v in dict_expand_vars.values()])
 		if len(df_su_base) != n_req_baseline:
 			sg = "" if (sample_unit_id is not None) else f" {sample_unit_id}"
-			msg = f"Unable to initialize sample group{sg}: one or more variables and/or variable trajectory group types are missing. Check the input data frame."
+			msg = f"""
+			Unable to initialize sample group{sg}: one or more variables and/or 
+			variable trajectory group types are missing. Check the input data 
+			frame.
+			"""
 			self._log(msg, type_log = "error")
+			
 			raise RuntimeError(msg)
 
 
