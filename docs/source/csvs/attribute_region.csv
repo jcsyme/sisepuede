@@ -188,6 +188,7 @@ Suriname,suriname,SUR,SR,740,207,Latin America and Caribbean,Latin America and t
 Sweden,sweden,SWE,SE,752,210,Western Europe,Western Europe,Europe,Northern Europe,Europe & Central Asia,58.81397895,15.54058239
 Switzerland,switzerland,CHE,CH,756,211,Western Europe,Western Europe,Europe,Western Europe,Europe & Central Asia,47.01950723,7.949050312
 Syrian Arab Republic,syrian_arab_republic,SYR,SY,760,212,Middle East and North Africa,Near East (Middle East) and North Africa,Asia,Western Asia,Middle East & North Africa,35.04964496,37.30191918
+Taiwan,taiwan,TWN,TW,158,-1,-,-,-,-,-,-180,-180
 Tajikistan,tajikistan,TJK,TJ,762,208,Economies in Transition,Eastern Europe,Asia,Central Asia,Europe & Central Asia,38.71141633,69.21200904
 Thailand,thailand,THA,TH,764,216,South-East Asia and Pacific,East Asia and South-East Asia,Asia,South-eastern Asia,East Asia & Pacific,14.12056022,101.0186239
 Timor-Leste,timor_leste,TLS,TL,626,176,South-East Asia and Pacific,East Asia and South-East Asia,Asia,South-eastern Asia,East Asia & Pacific,-8.756684887,125.6518684
@@ -204,8 +205,8 @@ Ukraine,ukraine,UKR,UA,804,230,Economies in Transition,Eastern Europe,Europe,Eas
 United Arab Emirates,united_arab_emirates,ARE,AE,784,225,Middle East and North Africa,Near East (Middle East) and North Africa,Asia,Western Asia,Middle East & North Africa,24.67232462,55.13985814
 United Kingdom,united_kingdom,GBR,GB,826,229,Western Europe,Western Europe,Europe,Northern Europe,Europe & Central Asia,52.71028084,-1.637988333
 United Republic of Tanzania,united_republic_of_tanzania,TZA,TZ,834,215,Sub Saharan Africa,Sub-Saharan Africa,Africa,Sub-Saharan Africa,Sub-Saharan Africa,-5.472089042,35.23931051
-United States Virgin Islands,united_states_virgin_islands,VIR,VI,850,240,Latin America and Caribbean,Latin America and the Caribbean,Americas,Latin America and the Caribbean,Latin America & Caribbean,18.05955201,-64.84935225
 United States of America,united_states_of_america,USA,US,840,231,North America,North America,Americas,Northern America,North America,37.30389874,-92.451674
+United States Virgin Islands,united_states_virgin_islands,VIR,VI,850,240,Latin America and Caribbean,Latin America and the Caribbean,Americas,Latin America and the Caribbean,Latin America & Caribbean,18.05955201,-64.84935225
 Uruguay,uruguay,URY,UY,858,234,Latin America and Caribbean,Latin America and the Caribbean,Americas,Latin America and the Caribbean,Latin America & Caribbean,-34.06979219,-56.21358359
 Uzbekistan,uzbekistan,UZB,UZ,860,235,Economies in Transition,Eastern Europe,Asia,Central Asia,Europe & Central Asia,40.46444715,67.65315914
 Vanuatu,vanuatu,VUT,VU,548,155,South-East Asia and Pacific,Oceania,Oceania,Melanesia,East Asia & Pacific,-16.8258443,168.0428996
