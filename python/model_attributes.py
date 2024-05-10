@@ -4903,7 +4903,7 @@ class ModelAttributes:
     
     
 
-    def build_modvar_correspondence_dictionaruy(self,
+    def build_modvar_correspondence_dictionary(self,
         modvar_key: str,
         modvar_value: str,
     ) -> Dict[str, str]:
