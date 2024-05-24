@@ -1402,7 +1402,7 @@ class TransformationsAFOLU:
         df_out = tba.transformation_agrc_increase_crop_productivity(
             df_input,
             # CHANGEDFORINDIA - ORIG 0.2
-            0.4, # can be specified as dictionary to affect different crops differently 
+            0.3, # can be specified as dictionary to affect different crops differently 
             self.vec_implementation_ramp,
             self.model_attributes,
             model_afolu = self.model_afolu,
@@ -1726,8 +1726,6 @@ class TransformationsAFOLU:
 
 
         
-        
-
 
     ##############################
     #    LSMM TRANSFORMATIONS    #
@@ -1983,9 +1981,9 @@ class TransformationsAFOLU:
         df_out = tba.transformation_lvst_reduce_enteric_fermentation(
             df_input,
             {
-                "buffalo": 0.5, # CHANGEDFORINDIA 0.4
-                "cattle_dairy": 0.5, # CHANGEDFORINDIA 0.4
-                "cattle_nondairy": 0.5, # CHANGEDFORINDIA 0.4
+                "buffalo": 0.4, # CHANGEDFORINDIA 0.4
+                "cattle_dairy": 0.4, # CHANGEDFORINDIA 0.4
+                "cattle_nondairy": 0.4, # CHANGEDFORINDIA 0.4
                 "goats": 0.56,
                 "sheep": 0.56
             },

@@ -430,6 +430,7 @@ def check_path(
     Function Arguments
     ------------------
     - fp: path (directory or file) to check
+
     Keyword Arguments
     -----------------
     - create_q: create a directory if it does not exist?
@@ -446,16 +447,17 @@ def check_path(
 
     if os.path.exists(fp):
         return fp
-    elif create_q:
+
+    if create_q:
         os.makedirs(fp, exist_ok = True)
         return fp
-    else:
-        msg = f"Path '{fp}' not found. It will not be created."
-        if not throw_error_q:
-            warnings.warn(msg)
-            return None
-        else:
-            raise RuntimeError(msg)
+
+    msg = f"Path '{fp}' not found. It will not be created."
+    if not throw_error_q:
+        warnings.warn(msg)
+        return None
+
+    raise RuntimeError(msg)
 
 
 

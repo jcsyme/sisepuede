@@ -11,6 +11,7 @@ import numpy as np
 import os, os.path
 import pandas as pd
 import setup_analysis as sa
+import shutil
 import sisepuede_file_structure as sfs
 import support_classes as sc
 import support_functions as sf
@@ -110,6 +111,8 @@ class TransformationsIntegrated:
         * NOTE: if passing, ensure that the ModelAttributes objects used to 
             instantiate the model + what is passed to the model_attributes
             argument are the same.
+    - use_demo_template_on_missing: tries to instantiate a blank template if
+        a template for a target region is missing. 
     - **kwargs 
     """
     
@@ -121,14 +124,24 @@ class TransformationsIntegrated:
         logger: Union[logging.Logger, None] = None,
         regex_template_prepend: str = "sisepuede_run",
         regions: Union[List[str], None] = None,
+        use_demo_template_on_missing: bool = True,
         **kwargs
     ):
 
         self.logger = logger
 
-        self._initialize_file_structure(regex_template_prepend = regex_template_prepend)
-        self._initialize_attributes(field_region)
-        self._initialize_base_input_database(regions = regions)
+        self._initialize_file_structure(
+            regex_template_prepend = regex_template_prepend,
+        )
+
+        self._initialize_attributes(
+            field_region,
+        )
+        self._initialize_base_input_database(
+            regions = regions,
+            use_demo_template_on_missing = use_demo_template_on_missing,
+        )
+
         self._initialize_config(dict_config = dict_config)
         self._initialize_parameters()
         self._initialize_ramp()
@@ -143,6 +156,8 @@ class TransformationsIntegrated:
         self._initialize_transformations()
         self._initialize_templates()
         
+        return None
+
 
 
 
@@ -259,7 +274,7 @@ class TransformationsIntegrated:
         self.key_region = field_region
         self.key_strategy = attribute_strategy.key
         self.time_periods = time_periods
-        self.regions = regions
+        self.regions_manager = regions
 
         return None
 
@@ -267,6 +282,7 @@ class TransformationsIntegrated:
 
     def _initialize_base_input_database(self,
         regions: Union[List[str], None] = None,
+        use_demo_template_on_missing: bool = True,
     ) -> None:
         """
         Initialize the BaseInputDatabase class used to construct future
@@ -283,6 +299,8 @@ class TransformationsIntegrated:
         - regions: list of regions to run experiment for
             * If None, will attempt to initialize all regions defined in
                 ModelAttributes
+        - use_demo_template_on_missing: tries to instantiate a blank template if
+            a template for a target region is missing. 
         """
 
         self._log("Initializing BaseInputDatabase", type_log = "info")
@@ -290,22 +308,6 @@ class TransformationsIntegrated:
         dir_templates = self.file_struct.dict_data_mode_to_template_directory.get("calibrated")
         dir_templates_demo = self.file_struct.dict_data_mode_to_template_directory.get("demo")
         
-        # try building base input database for all
-        try:
-            base_input_database = ing.BaseInputDatabase(
-                dir_templates,
-                self.model_attributes,
-                regions,
-                demo_q = False,
-                logger = self.logger
-            )
-
-        except Exception as e:
-            msg = f"Error initializing BaseInputDatabase -- {e}"
-            self._log(msg, type_log = "error")
-            raise RuntimeError(msg)
-
-
         # trying building for demo
         try:
             base_input_database_demo = ing.BaseInputDatabase(
@@ -320,6 +322,38 @@ class TransformationsIntegrated:
             msg = f"Error initializing BaseInputDatabase for demo -- {e}"
             self._log(msg, type_log = "error")
             raise RuntimeError(msg)
+
+
+        # try building base input database for all
+        # first, try to copy templates (if necessary and desired) fom demo to new region
+        self._try_template_init_from_demo(
+            base_input_database_demo,
+            regions,
+            fp_templates_target = dir_templates,
+            try_instantiating_templates = use_demo_template_on_missing,
+        )
+
+
+        try:
+            base_input_database = ing.BaseInputDatabase(
+                dir_templates,
+                self.model_attributes,
+                regions,
+                create_export_dir = True,
+                demo_q = False,
+                logger = self.logger
+            )
+
+        except Exception as e:
+            
+            # first, try building 
+
+            msg = f"Error initializing BaseInputDatabase -- {e}"
+            self._log(msg, type_log = "error")
+            raise RuntimeError(msg)
+
+
+        
 
 
         self.base_input_database = base_input_database
@@ -1095,6 +1129,80 @@ class TransformationsIntegrated:
         self.dict_transformations = dict_transformations
         self.transformation_id_baseline = transformation_id_baseline
 
+        return None
+    
+
+
+    def _try_template_init_from_demo(self,
+        base_input_database_demo: Union[ing.BaseInputDatabase, None],
+        regions: List[str],
+        fp_templates_target: Union[str, None] = None,
+        try_instantiating_templates: bool = True,
+    ) -> None:
+        """
+        Try initializing templates for each sector using the demo templates. 
+
+        Function Arguments
+        ------------------
+        - base_input_database_demo: Base input database for demo. If None, tries
+            to call self.base_input_database_demo
+        - regions: list of regions to init for. If None, tries self.regions
+
+
+        Keyword Arguments
+        -----------------
+        - fp_templates_target: optional path to templates to try. Need to 
+            specify for regions if base_input_database_demo is being used to 
+            build paths for region templates
+        - try_instantiating_templates: base functionality; if True, tries
+            initializing new templates from demo
+        """
+        
+        ##  SOME INITIALIZATION
+
+        try:
+            base_input_database_demo = (
+                self.base_input_database_demo
+                if base_input_database_demo is None
+                else base_input_database_demo
+            )
+
+            regions = self.regions if (regions is None) else regions
+
+        except Exception as e:
+            return None
+
+        if not try_instantiating_templates:
+            return None
+
+
+        ##  ITERATE OVER REGIONS TO BUILD TEMPLATES IF NEEDED
+
+        for region in regions:
+            for sector in self.model_attributes.all_sectors:
+
+                # try to build regional path
+                fp_region = base_input_database_demo.get_template_path(
+                    region,
+                    sector,
+                    demo_q = False,
+                    fp_templates = fp_templates_target, 
+                )
+
+                if os.path.exists(fp_region):
+                    continue
+
+                # otherwise, get demo path and copy over
+                fp_demo = base_input_database_demo.get_template_path(
+                    None,
+                    sector,
+                )
+                
+                shutil.copyfile(
+                    fp_demo,
+                    fp_region
+                )
+        
         return None
 
 

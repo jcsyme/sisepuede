@@ -142,6 +142,8 @@ class InputTemplate:
 		self._set_regex_sheet_name()
 		self._initialize_template(template)
 
+		return None
+
 
 
 	def template_from_inputs(self,
@@ -539,6 +541,7 @@ class InputTemplate:
 					self._log(msg, type_log = "info")
 
 		elif (attribute_strategy is None) and (self.filter_invalid_strategies):
+
 			key_try = self.model_attributes.dim_strategy_id
 			out = self.model_attributes.get_dimensional_attribute_table(key_try)
 			if out is None:
@@ -645,6 +648,8 @@ class InputTemplate:
 			self.field_req_uniform_scaling_q
 		]
 
+		return None
+
 
 
 	def _initialize_model_attributes(self,
@@ -684,6 +689,8 @@ class InputTemplate:
 		self.regex_template_min = regex_min if isinstance(regex_min, re.Pattern) else re.compile("min_(\d*$)")
 		self.regex_template_time_period = regex_tp if isinstance(regex_tp, re.Pattern) else re.compile("(\d*$)")
 
+		return None
+
 
 
 	def _initialize_template(self,
@@ -716,6 +723,8 @@ class InputTemplate:
 				self.field_min,
 				self.fields_tp
 			) = template_tuple
+		
+		return None
 
 
 
@@ -739,14 +748,21 @@ class InputTemplate:
 		"""
 		sf._optional_log(self.logger, msg, type_log = type_log, **kwargs)
 
+		return None
+
 
 
 	def _set_regex_sheet_name(self,
-	) -> re.Pattern:
+	) -> None:
 		"""
-		Set the regular expression for input sheets to match
+		Set the regular expression for input sheets to match. Sets the following
+			properties:
+
+			* self.regex_sheet_name
 		"""
 		self.regex_sheet_name = re.compile(f"{self.model_attributes.dim_strategy_id}-(\d*$)")
+
+		return None
 
 
 
@@ -862,6 +878,7 @@ class InputTemplate:
 		if isinstance(template_input, str):
 			fp_read = sf.check_path(template_input, False)
 			dict_inputs = pd.read_excel(template_input, sheet_name = None)
+
 		elif not isinstance(template_input, dict):
 			return None
 		else:
@@ -944,7 +961,16 @@ class InputTemplate:
 				type_log = "warning"
 			)
 
-		return dict_outputs, dict_strategy_to_sheet, field_max, field_min, fields_tp
+
+		tup_out = (
+			dict_outputs, 
+			dict_strategy_to_sheet, 
+			field_max, 
+			field_min, 
+			fields_tp
+		)
+
+		return tup_out
 
 
 
@@ -1231,63 +1257,63 @@ class InputTemplate:
 
 class BaseInputDatabase:
 	"""
-		The BaseInputDatabase class is used to combine InputTemplates from
-			multiple sectors into a single input for
+	The BaseInputDatabase class is used to combine InputTemplates from multiple 
+		sectors into a single input for
 
-		Initialization Arguments
-		------------------------
-		- fp_templates: file path to directory containing input Excel templates
-		- model_attributes: ModelAttributes object used to define sectors and
-			check templates
-		- regions: regions to include
-			* If None, then try to initialize all input regions
+	Initialization Arguments
+	------------------------
+	- fp_templates: file path to directory containing input Excel templates
+	- model_attributes: ModelAttributes object used to define sectors and check 
+		templates
+	- regions: regions to include
+		* If None, then try to initialize all input regions
 
-		Optional Arguments
-		--------=---------
-		- demo_q: whether or not the database is run as a demo
-			* If run as demo, then `fp_templates` does not need to include
-				subdirectories for each region specified
-		- sectors: sectors to include
-			* If None, then try to initialize all input sectors
-		- attribute_strategy: strategy attribute used to filter out invalid or
-			undefined strategies
+	Optional Arguments
+	--------=---------
+	- demo_q: whether or not the database is run as a demo
+		* If run as demo, then `fp_templates` does not need to include 
+			subdirectories for each region specified
+	- sectors: sectors to include
+		* If None, then try to initialize all input sectors
+	- attribute_strategy: strategy attribute used to filter out invalid or
+		undefined strategies
 
-		Keyword Arguments
-		-----------------
-		The following keyword arguments are passed to the InputTemplate classes
-			used to Instantiate a BaseInputDatabase
-		- field_req_normalize_group: Required field used to specify whether or
-			not to normalize a group (ensures always sums to 1)
-		- field_req_subsector: Required field used to define the subsector
-			associated with a variable
-		- field_req_trajgroup_no_vary_q: Required field used to determine
-			whether or not a trajectory group may vary
-			* Note: all values in the same trajectory group must be the same
-		- field_req_uniform_scaling_q: Required field used to determine whether
-			or not a variable trjaectory should be scaled uniformly over all
-			time periods
-			* E.g., many biophysical parameters may be uncertain but not change
-				over time
-		- field_req_variable: Required field used name the variable
-			* Trajectory groups require special naming convention used to define
-				all parts:
-				(INFO HERE)
-		- field_req_variable_trajectory_group: Field used to explicitly add
-			trajectory group (added after import)
-		- field_req_variable_trajectory_group_trajectory_type: Field used to
-			explicitly add trajectory group type
-			for variables in a trajectory group (added after import)
-		- filter_invalid_strategies: filter strategies that are not defined in
-			the attribute_strategy input table
-		- logger: optional logging object to pass
+	Keyword Arguments
+	-----------------
+	The following keyword arguments are passed to the InputTemplate classes used 
+		to Instantiate a BaseInputDatabase
+	- field_req_normalize_group: Required field used to specify whether or not 
+		to normalize a group (ensures always sums to 1)
+	- field_req_subsector: Required field used to define the subsector 
+		associated with a variable
+	- field_req_trajgroup_no_vary_q: Required field used to determine whether or 
+		not a trajectory group may vary
+		* Note: all values in the same trajectory group must be the same
+	- field_req_uniform_scaling_q: Required field used to determine whether or 
+		not a variable trjaectory should be scaled uniformly over all
+		time periods
+		* E.g., many biophysical parameters may be uncertain but not change
+			over time
+	- field_req_variable: Required field used name the variable
+		* Trajectory groups require special naming convention used to define
+			all parts:
+			(INFO HERE)
+	- field_req_variable_trajectory_group: Field used to explicitly add
+		trajectory group (added after import)
+	- field_req_variable_trajectory_group_trajectory_type: Field used to
+		explicitly add trajectory group type
+		for variables in a trajectory group (added after import)
+	- filter_invalid_strategies: filter strategies that are not defined in
+		the attribute_strategy input table
+	- logger: optional logging object to pass
+	- **kwargs: passed to self.get_template_path()
 	"""
 	def __init__(self,
 		fp_templates: str,
 		model_attributes: ma.ModelAttributes,
 		regions: Union[list, None],
-		demo_q: bool = True,
-		sectors: Union[list, None] = None,
 		attribute_strategy: Union[AttributeTable, str, None] = None,
+		demo_q: bool = True,
 		field_req_normalize_group: str = "normalize_group",
 		field_req_subsector: str = "subsector",
 		field_req_trajgroup_no_vary_q: str = "trajgroup_no_vary_q",
@@ -1296,7 +1322,9 @@ class BaseInputDatabase:
 		field_req_variable_trajectory_group: str = "variable_trajectory_group",
 		field_req_variable_trajectory_group_trajectory_type: str = "variable_trajectory_group_trajectory_type",
 		filter_invalid_strategies: bool = True,
-		logger: Union[logging.Logger, None] = None
+		logger: Union[logging.Logger, None] = None,
+		sectors: Union[list, None] = None,
+		**kwargs,
 	):
 		self.demo_q = demo_q
 		self.fp_templates = fp_templates
@@ -1318,7 +1346,13 @@ class BaseInputDatabase:
 
 		self.regions = self.get_regions(regions)
 		self.sectors = self.get_sectors(sectors)
-		self.database = self.generate_database()
+		self.database = self.generate_database(
+			**kwargs,
+		)
+
+		return None
+
+
 
 
 	##################################
@@ -1335,6 +1369,7 @@ class BaseInputDatabase:
 
 		if regions is None:
 			regions_out = attr_region.key_values
+
 		else:
 			regions_out = [self.model_attributes.clean_region(region) for region in regions]
 			regions_out = [region for region in regions_out if region in attr_region.key_values]
@@ -1396,7 +1431,7 @@ class BaseInputDatabase:
 	def generate_database(self,
 		regions: Union[list, None] = None,
 		sectors: Union[list, None] = None,
-		**kwargs
+		**kwargs,
 	) -> Union[pd.DataFrame, None]:
 		"""
 		Load templates and generate a base input database.
@@ -1427,12 +1462,15 @@ class BaseInputDatabase:
 
 				# read the input database for the sector
 				try:
+					
+					path = self.get_template_path(
+						region,
+						sector,
+						**kwargs
+					)
+					
 					template_cur = InputTemplate(
-						self.get_template_path(
-							region,
-							sector,
-							**kwargs
-						),
+						path,
 						self.model_attributes,
 						attribute_strategy = self.attribute_strategy,
 						field_req_normalize_group = self.field_req_normalize_group,
@@ -1447,19 +1485,27 @@ class BaseInputDatabase:
 					)
 
 					# update strategy attribute (will be same for all InputTemplates)
-					self.attribute_strategy = template_cur.attribute_strategy if (self.attribute_strategy is None) else self.attribute_strategy
+					self.attribute_strategy = (
+						template_cur.attribute_strategy 
+						if (self.attribute_strategy is None) 
+						else self.attribute_strategy
+					)
 					self.baseline_strategy = template_cur.baseline_strategy
 
 					df_template_db = template_cur.build_inputs_by_strategy()
 
 				except Exception as e:
+
+					msg = f"Warning in generate_database--template read for sector '{sector}' in region '{region}' failed. The following error was returned: {e}"
+
 					self._log(
-						f"Warning in generate_database--template read for sector '{sector}' in region '{region}' failed. The following error was returned: {e}", 
+						msg, 
 						type_log = "warning"
 					)
 					df_template_db = None
 
 				if df_template_db is not None:
+
 					# check time period fields
 					set_template_cols = set(df_template_db.columns)
 					if all_fields is not None:
@@ -1479,16 +1525,23 @@ class BaseInputDatabase:
 				# update dataframe list
 				if (len(df_out_region) == 0) and (df_template_db is not None):
 					df_out_region = [df_template_db for x in range(len(self.sectors))]
+
 				elif len(df_out_region) > 0:
 					df_out_region[j] = df_template_db
 
 			# add region
-			df_out_region = pd.concat(
-				df_out_region,
-				axis = 0
-			).reset_index(
-				drop = True
-			) if (len(df_out_region) > 0) else None
+			df_out_region = (
+				(
+					pd.concat(
+						df_out_region,
+						axis = 0
+					)
+					.reset_index(drop = True) 
+				)
+				if (len(df_out_region) > 0) 
+				else None
+			)
+				
 
 			df_out_region = self.model_attributes.add_index_fields(
 				df_out_region,
@@ -1501,7 +1554,14 @@ class BaseInputDatabase:
 			elif len(df_out) > 0:
 				df_out[i] = df_out_region
 
-		df_out = pd.concat(df_out, axis = 0).reset_index(drop = True) if (len(df_out) > 0) else None
+		df_out = (
+			(
+				pd.concat(df_out, axis = 0)
+				.reset_index(drop = True) 
+			)
+			if (len(df_out) > 0) 
+			else None
+		)
 
 		return df_out
 
@@ -1512,7 +1572,9 @@ class BaseInputDatabase:
 		sector: str,
 		append_base_directory: bool = True,
 		create_export_dir: bool = False,
-		template_base_str: str = "model_input_variables"
+		demo_q: Union[bool, None] = None,
+		fp_templates: Union[str, None] = None,
+		template_base_str: str = "model_input_variables",
 	) -> str:
 		"""
 		Generate a path for an input template based on a sector, region, a 
@@ -1535,40 +1597,63 @@ class BaseInputDatabase:
 				`model_input_variables_{region}_{abv_sector}.xlsx`
 		- create_export_dir: boolean indicating whether or not to create a 
 			directory specified in dict_valid_types if it does not exist.
+		- demo_q: initialize as demo? If None, defaults to self.demo_q
+		- fp_templates: optional specificaiton of a path to templates. If None,
+			defaults to self.fp_templates
 		- template_base_str: baseline string for naming templates
 		"""
+		
+		##  INITIALIZATION AND CHECKS
 
 		attr_region = self.model_attributes.get_other_attribute_table(self.model_attributes.dim_region)
 
 		# check sector
-		if sector in self.model_attributes.all_sectors:
-			abv_sector = self.model_attributes.get_sector_attribute(sector, "abbreviation_sector")
-		else:
+		if sector not in self.model_attributes.all_sectors:
 			valid_sectors = sf.format_print_list(self.model_attributes.all_sectors)
 			raise ValueError(f"Invalid sector '{sector}' specified: valid sectors are {valid_sectors}.")
 
+		abv_sector = self.model_attributes.get_sector_attribute(sector, "abbreviation_sector")
+
+		# initialize some parameters
+		demo_q = self.demo_q if not isinstance(demo_q, bool) else demo_q
+		fp_templates = self.fp_templates if not isinstance(fp_templates, str) else fp_templates
+
 		# check region
-		if not self.demo_q:
+		if not demo_q:
+
 			# check
 			if region is None:
-				raise ValueError(f"Invalid specification of region: a region must be specified unless the database is initialized in demo mode.")
+				msg = f"Invalid specification of region: a region must be specified unless the database is initialized in demo mode."
+				raise ValueError(msg)
 
 			region_lower = self.model_attributes.clean_region(region)
+			region_str = f"_{region_lower}"
+
 			# check region and create export directory if necessary
 			if region_lower not in attr_region.key_values:
 				valid_regions = sf.format_print_list(attr_region.key_values)
-				raise ValueError(f"Invalid region '{region}' specified: valid regions are {valid_regions}.")
+				msg = f"Invalid region '{region}' specified: valid regions are {valid_regions}."
+				raise ValueError(msg)
 
-			dir_exp = sf.check_path(os.path.join(self.fp_templates, region_lower), create_export_dir)
-			region_str = f"_{region_lower}"
+			# 
+			dir_exp = sf.check_path(
+				os.path.join(
+					fp_templates, 
+					region_lower
+				), 
+				create_q = create_export_dir,
+			)
+			
+			
 		else:
 			region_str = ""
 			dir_exp = self.fp_templates
 
 		# check appendage
 		if append_base_directory:
-			append_str = os.path.basename(self.fp_templates)
+			append_str = os.path.basename(fp_templates)
 			append_str = f"_{append_str}"
+
 		else:
 			append_str = ""
 
