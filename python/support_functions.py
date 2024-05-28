@@ -1810,6 +1810,19 @@ def isnumber(
 
 
 
+def isnumeric_str(
+    x: str,
+) -> bool:
+    """
+    Check if a string is numeric or not. Allows for floats.
+    """
+    out = tryparse_str_to_num(x, return_integer_if_round = False)
+    out = not isinstance(out, str)
+
+    return out
+
+
+
 def list_dict_keys_with_same_values(
     dict_in: dict,
     delim: str = "; "
@@ -2229,6 +2242,73 @@ def _optional_log(
 
     elif warn_if_none:
         warnings.warn(f"Warning passed from optional_log: {msg}.")
+
+
+
+def ordered_blend(
+    df: pd.DataFrame,
+    fields_blend_ordered: List[str],
+    decay_time: int,
+) -> Union[np.ndarray, None]: 
+    """
+    NOTE: INCOMPLETE FUNCTION!!!
+
+
+    Blend fields `fields_blend_ordered`. The fields are visited in order,
+        keeping values where available. Once the field i yields NAs, it
+        switches to next field j. The decay_time gives the number of periods
+        to blend linearly between field i and j. Setting to 0 will yield
+        immediate switching. 
+    
+    Function Arguments
+    ------------------
+    - df: data frame containing vectors to blend
+    - fields_blend_ordered: fields to blend on
+    - decay_time: number of periods to blend on
+    
+    Keyword Arguments
+    -----------------
+    """
+    
+    fields = [x for x in fields_blend_ordered if x in df.columns]
+    if len(fields) == 0:
+        return None
+    
+    n = len(df)
+    vecs_ordered = [df[x].to_numpy() for x in fields if len(df[x].dropna()) > 0]
+    vec_new = vecs_ordered[0].copy()
+    
+    i = 0
+    j = 0
+    decay_cur = decay_time
+    factor = 1/(decay_time + 1)
+    
+    while (i < n) & (j < len(vecs_ordered)):
+        if not np.isnan(vec_new[i]):
+            continue
+        
+        # switch vectors
+        cont = True
+        ind = i - 1
+        j += 1
+        alpha = vec_new[i - 1]
+        
+        while cont:
+            beta = vecs_ordered[j][i]
+            if np.isnan(beta):
+                j += 1
+                continue
+            
+            coeff = (decay_time + ind - i + 1)*factor
+            if coeff < 0:
+                cont = False
+                continue
+            
+            vec_new[i] = alpha*(1 - coeff) + beta*coeff
+            i += 1
+
+
+    return "INCOMPLETE"
 
 
 
@@ -2967,6 +3047,95 @@ def setup_logger(
     logger.addHandler(ch)
 
     return logger
+
+
+
+def shift_and_mix(
+    df: pd.DataFrame,
+    field_0: str,
+    field_1: str,
+    decay_time: int,
+    abs_bound_1: Union[int, float, None] = None,
+    fill_1_on_missing: bool = False,
+) -> Union[np.ndarray, None]: 
+    """
+    Shift `field_1` to meet `field_0` when it becomes na; then, mix the 
+        revised vector back to its original state in decay time.
+    
+    Function Arguments
+    ------------------
+    - df: data frame containing vectors to blend
+    - field_0: field with ending point that will be matched
+    - field_1: field that will match, then blend
+    - decay_time: number of periods to blend on
+    
+    Keyword Arguments
+    -----------------
+    - abs_bound_1: optional maximum (absolute) bound to apply to field_1 
+        projections. Applied only to growth rates in field_1
+    - fill_1_on_missing: if field_1 is all NA, fill with the last value from 
+        field_0?
+    """
+    
+    n = len(df)
+    
+    # check none?
+    none_q = (field_0 not in df.columns) | (field_1 not in df.columns)
+    vecs_ordered = []
+    
+    if not none_q:
+        
+        # add the first vector; if no data are available, default to second
+        (
+            vecs_ordered.append(df[field_0].to_numpy())
+            if len(df[field_0].dropna()) > 0
+            else vecs_ordered.append(df[field_1].to_numpy())
+        )
+        
+        # for the second vectors, check if filling from 1
+        if (len(df[field_1].dropna()) == 0) & fill_1_on_missing:
+            df[field_1] = df[field_0].copy()
+            df[field_1].interpolate(
+                how = "ffill",
+                inplace = True,
+            )
+        
+        (
+            vecs_ordered.append(df[field_1].to_numpy())
+            if (len(df[field_1].dropna()) > 0)
+            else None
+        )
+
+    none_q |= len(vecs_ordered) != 2      
+    if none_q:
+        return None
+    
+    # check for NAs in field_0
+    w0 = np.where(~np.isnan(vecs_ordered[0]))[0]
+    if len(w0) == n:
+        return vecs_ordered[0]
+    
+    # bound vec_1?
+    if isnumber(abs_bound_1):
+        abs_bound_1 = np.abs(abs_bound_1)
+        vecs_ordered[1] = vec_bounds(vecs_ordered[1], (-abs_bound_1, abs_bound_1))
+
+    # get information for 
+    i = max(w0)
+    delta = vecs_ordered[0][i] - vecs_ordered[1][i]
+    vec_shift = vecs_ordered[1] + delta
+    vec_mix = np.array(
+        [
+            min(max((i + 1 + decay_time - k)/(decay_time + 1), 0), 1)
+            for k in range(n)
+        ]
+    )
+
+    # new vector
+    vec_new = vec_shift*vec_mix + vecs_ordered[1]*(1 - vec_mix)
+    vec_new[0:(i + 1)] = vecs_ordered[0][0:(i + 1)]
+
+    return vecs_ordered[0], vecs_ordered[1], vec_new
 
 
 
