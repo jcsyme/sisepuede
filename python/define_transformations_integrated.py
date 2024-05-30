@@ -938,12 +938,13 @@ class TransformationsIntegrated:
 
         function_list_plur_no_silvopasture = function_list_plur.copy()
         # drop the integrated transitions and add the stoppage of deforestation back in
-        function_list_plur_no_silvopasture.remove(
-            self.transformations_afolu.transformation_lndu_integrated_transitions
-        )
-        function_list_plur_no_silvopasture.append(
-            self.transformations_afolu.transformation_lndu_stop_deforestation
-        )
+        if self.transformations_afolu.transformation_lndu_integrated_transitions in function_list_plur_no_silvopasture:
+            function_list_plur_no_silvopasture.remove(
+                self.transformations_afolu.transformation_lndu_integrated_transitions
+            )
+            function_list_plur_no_silvopasture.append(
+                self.transformations_afolu.transformation_lndu_stop_deforestation
+            )
         
 
         self.pflo_all_with_partial_reallocation_no_silvopasture = sc.Transformation(

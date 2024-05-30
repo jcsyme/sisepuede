@@ -492,8 +492,8 @@ class TransformationsAFOLU:
                 self.transformation_agrc_reduce_supply_chain_losses,
                 # self.transformation_lndu_integrated_transitions replaces:
                 #   self.transformation_lndu_expand_silvopasture,
-                #   self.transformation_lndu_stop_deforestation
-                self.transformation_lndu_integrated_transitions,
+                self.transformation_lndu_stop_deforestation,
+                #self.transformation_lndu_integrated_transitions,
                 self.transformation_lndu_increase_reforestation, #INDIA - must come AFTER silvopasture
                 self.transformation_lsmm_improve_manure_management_cattle_pigs,
                 self.transformation_lsmm_improve_manure_management_other,
@@ -520,8 +520,8 @@ class TransformationsAFOLU:
                 self.transformation_agrc_reduce_supply_chain_losses,
                 # self.transformation_lndu_integrated_transitions replaces:
                 #   self.transformation_lndu_expand_silvopasture,
-                #   self.transformation_lndu_stop_deforestation
-                self.transformation_lndu_integrated_transitions,
+                self.transformation_lndu_stop_deforestation,
+                #self.transformation_lndu_integrated_transitions,
                 self.transformation_lndu_increase_reforestation, #INDIA - must come AFTER silvopasture
                 self.transformation_lndu_reallocate_land,
                 self.transformation_lsmm_improve_manure_management_cattle_pigs,
