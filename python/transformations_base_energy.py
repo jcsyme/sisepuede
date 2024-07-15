@@ -2445,7 +2445,7 @@ def transformation_trns_fuel_shift_to_target(
         else [x for x in regions_apply if x in all_regions]
     )
 
-    # model variables to explore
+    # model variables to explore--should pull these from attributes HEREHERE
     modvars = [
         model_energy.modvar_trns_fuel_fraction_biofuels,
         model_energy.modvar_trns_fuel_fraction_diesel,

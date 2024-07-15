@@ -1,0 +1,10 @@
+identifiers:
+  code: "TR:TRNS.MODESHIFT.PUBLIC_PRIVATE" # add a transformation code here
+  name: Public and Private Transportation Mode Shift
+parameters:
+  function_code: # function code here; something that maps to tbe.transformation_trns_fuel_shift_to_target
+  # keyword arguments can be passed here
+  # dict_modvar_specs
+  # magnitude_type
+  # 
+

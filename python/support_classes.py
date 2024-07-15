@@ -2145,6 +2145,7 @@ class YAMLConfiguration:
     def get(self,
         key: str,
         delim: str = ".",
+        return_on_none: Any = None,
     ) -> Any:
         """
         Allow for recursive retrieval of dictionary values. Nested keys
@@ -2164,6 +2165,7 @@ class YAMLConfiguration:
         Keyword Arguments
         -----------------
         - delim: delimeter to use in get
+        - return_on_none: optional value to return on missing value. 
         """
         
         return_none = not (isinstance(key, str) & isinstance(delim, str))
@@ -2184,8 +2186,8 @@ class YAMLConfiguration:
         
         value = (
             value
-            if key == keys_nested[-1]
-            else None
+            if (key == keys_nested[-1]) & (value is not None)
+            else return_on_none
         )
 
         return value

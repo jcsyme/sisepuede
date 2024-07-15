@@ -944,7 +944,7 @@ Energy,Energy Fuels,ef_enfu_combustion_tonne_co2_per_tj_fuel_gasoline,0.0,0.0,0,
 Energy,Energy Fuels,ef_enfu_combustion_tonne_co2_per_tj_fuel_geothermal,0.0,0.0,0,0.0,1.0,1.0,1.0,0.0,0.0,0.0,0
 Energy,Energy Fuels,ef_enfu_combustion_tonne_co2_per_tj_fuel_hydrocarbon_gas_liquids,0.0,0.0,0,0.0,1.0,0.976228209191759,1.03961965134706,63.1,61.599999999999994,65.59999999999948,0
 Energy,Energy Fuels,ef_enfu_combustion_tonne_co2_per_tj_fuel_hydrogen,0.0,0.0,0,0.0,1.0,1.0,1.0,0.0,0.0,0.0,0
-Energy,Energy Fuels,ef_enfu_combustion_tonne_co2_per_tj_fuel_hydropower,0.0,0.0,0,0.0,1.0,1.0,1.0,0.0,0.0,0.0,0
+Energy,Energy Fuels,ef_enfu_combustion_tonne_co2_per_tj_fuel_water,0.0,0.0,0,0.0,1.0,1.0,1.0,0.0,0.0,0.0,0
 Energy,Energy Fuels,ef_enfu_combustion_tonne_co2_per_tj_fuel_kerosene,0.0,0.0,0,0.0,1.0,0.972105997210599,1.03765690376569,71.7,69.69999999999995,74.39999999999998,0
 Energy,Energy Fuels,ef_enfu_combustion_tonne_co2_per_tj_fuel_natural_gas,0.0,0.0,0,0.0,1.0,0.902743142144638,1.17040731504571,60.15,54.299999999999976,70.39999999999945,0
 Energy,Energy Fuels,ef_enfu_combustion_tonne_co2_per_tj_fuel_natural_gas_unprocessed,0.0,0.0,0,0.0,1.0,0.902743142144638,1.17040731504571,60.15,54.299999999999976,70.39999999999945,0
@@ -969,7 +969,7 @@ Energy,Energy Fuels,ef_enfu_stationary_combustion_tonne_ch4_per_tj_fuel_gasoline
 Energy,Energy Fuels,ef_enfu_stationary_combustion_tonne_ch4_per_tj_fuel_geothermal,0.0,0.0,0,0.0,1.0,1.0,1.0,0.0,0.0,0.0,0
 Energy,Energy Fuels,ef_enfu_stationary_combustion_tonne_ch4_per_tj_fuel_hydrocarbon_gas_liquids,0.0,0.0,0,0.0,1.0,0.3,3.0,0.001,0.0003,0.003,0
 Energy,Energy Fuels,ef_enfu_stationary_combustion_tonne_ch4_per_tj_fuel_hydrogen,0.0,0.0,0,0.0,1.0,1.0,1.0,0.0,0.0,0.0,0
-Energy,Energy Fuels,ef_enfu_stationary_combustion_tonne_ch4_per_tj_fuel_hydropower,0.0,0.0,0,0.0,1.0,1.0,1.0,0.0,0.0,0.0,0
+Energy,Energy Fuels,ef_enfu_stationary_combustion_tonne_ch4_per_tj_fuel_water,0.0,0.0,0,0.0,1.0,1.0,1.0,0.0,0.0,0.0,0
 Energy,Energy Fuels,ef_enfu_stationary_combustion_tonne_ch4_per_tj_fuel_kerosene,0.0,0.0,0,0.0,1.0,0.333333333333333,3.33333333333333,0.003,0.000999999999999999,0.00999999999999999,0
 Energy,Energy Fuels,ef_enfu_stationary_combustion_tonne_ch4_per_tj_fuel_natural_gas,0.0,0.0,0,0.0,1.0,0.15,5.0,0.002,0.0003,0.01,0
 Energy,Energy Fuels,ef_enfu_stationary_combustion_tonne_ch4_per_tj_fuel_natural_gas_unprocessed,0.0,0.0,0,0.0,1.0,0.15,5.0,0.002,0.0003,0.01,0
@@ -994,7 +994,7 @@ Energy,Energy Fuels,ef_enfu_stationary_combustion_tonne_n2o_per_tj_fuel_gasoline
 Energy,Energy Fuels,ef_enfu_stationary_combustion_tonne_n2o_per_tj_fuel_geothermal,0.0,0.0,0,0.0,1.0,1.0,1.0,0.0,0.0,0.0,0
 Energy,Energy Fuels,ef_enfu_stationary_combustion_tonne_n2o_per_tj_fuel_hydrocarbon_gas_liquids,0.0,0.0,0,0.0,1.0,0.299999999999999,3.0,0.0001,2.99999999999999e-05,0.00030000000000000003,0
 Energy,Energy Fuels,ef_enfu_stationary_combustion_tonne_n2o_per_tj_fuel_hydrogen,0.0,0.0,0,0.0,1.0,1.0,1.0,0.0,0.0,0.0,0
-Energy,Energy Fuels,ef_enfu_stationary_combustion_tonne_n2o_per_tj_fuel_hydropower,0.0,0.0,0,0.0,1.0,1.0,1.0,0.0,0.0,0.0,0
+Energy,Energy Fuels,ef_enfu_stationary_combustion_tonne_n2o_per_tj_fuel_water,0.0,0.0,0,0.0,1.0,1.0,1.0,0.0,0.0,0.0,0
 Energy,Energy Fuels,ef_enfu_stationary_combustion_tonne_n2o_per_tj_fuel_kerosene,0.0,0.0,0,0.0,1.0,0.333333333333333,3.33333333333333,0.0006,0.00019999999999999977,0.001999999999999998,0
 Energy,Energy Fuels,ef_enfu_stationary_combustion_tonne_n2o_per_tj_fuel_natural_gas,0.0,0.0,0,0.0,1.0,0.0857142857142857,5.71428571428571,0.00035,2.9999999999999994e-05,0.0019999999999999983,0
 Energy,Energy Fuels,ef_enfu_stationary_combustion_tonne_n2o_per_tj_fuel_natural_gas_unprocessed,0.0,0.0,0,0.0,1.0,0.0857142857142857,5.71428571428571,0.00035,2.9999999999999994e-05,0.0019999999999999983,0

@@ -2360,7 +2360,7 @@ def orient_df_by_reference_vector(
 def pivot_df_clean(
     df_pivot: pd.DataFrame,
     fields_column: List[str],
-    fields_value: List[str]
+    fields_value: List[str],
 ) -> pd.DataFrame:
     """
     Perform a pivot that resets indices and names columns. Assumes all
@@ -2376,17 +2376,21 @@ def pivot_df_clean(
     fields_column = [x for x in fields_column if x in df_pivot.columns]
     fields_value = [x for x in fields_value if x in df_pivot.columns]
     fields_ind = [x for x in df_pivot.columns if x not in fields_column + fields_value]
+    
     # return if empty
     if min([len(x) for x in [fields_column, fields_ind, fields_value]]) == 0:
         return None
 
     # pivot and clean indices
-    df_piv = pd.pivot(
-        df_pivot,
-        index = fields_ind,
-        columns = fields_column,
-        values = fields_value,
-    ).reset_index()
+    df_piv = (
+        pd.pivot(
+            df_pivot,
+            index = fields_ind,
+            columns = fields_column,
+            values = fields_value,
+        )
+        .reset_index()
+    )
 
     df_piv.columns = [
         x[0] if (x[1] == "") else x[1] for x in df_piv.columns.to_flat_index()
@@ -3361,8 +3365,13 @@ def vec_bounds(
         are entered as a vector
     """
     # check bounds
-    if (bounds is None) or (vec is None):
+    return_none = bounds is None
+    return_none |= not islistlike(vec)
+    return_none |= (len(vec) == 0) if not return_none else return_none
+    if return_none:
         return vec
+    
+    vec = np.array(vec)
 
     # initialize bools -- using paried vector + is there a vector of bounds?
     paired_vector_check = False # later depends on use_bounding_vec
@@ -3389,23 +3398,33 @@ def vec_bounds(
         # check element types
         if len(bounds) == len(vec):
             use_bounding_vec = True
+
         elif cycle_vector_bounds_q:
             use_bounding_vec = True
             n_b = len(bounds)
             n_v = len(vec)
             bounds = bounds[0:n_v] if (n_b > n_v) else sum([bounds for x in range(int(np.ceil(n_v/n_b)))], [])[0:n_v]
+
         elif not error_q:
             bounds = bounds[0]
             use_bounding_vec = False
         #
         if error_q:
-            raise ValueError(f"Invalid bounds specified in vec_bounds:\n\t- Bounds should be a tuple or a vector of tuples.\n\t- If the bounding vector does not match length of the input vector, set cycle_vector_bounds_q = True to force cycling.")
+            msg = f"""
+            Invalid bounds specified in vec_bounds:\n\t- Bounds should be a 
+            tuple or a vector of tuples.\n\t- If the bounding vector does not 
+            match length of the input vector, set cycle_vector_bounds_q = True 
+            to force cycling.
+            """
+            raise ValueError(msg)
+
 
     if not use_bounding_vec:
         def f(x):
             return scalar_bounds(x, bounds)
         f_z = np.vectorize(f)
         vec_out = f_z(vec).astype(float)
+
     else:
         vec_out = [scalar_bounds(x[0], x[1]) for x in zip(vec, bounds)]
         vec_out = np.array(vec_out) if isinstance(vec, np.ndarray) else vec_out

@@ -4816,7 +4816,7 @@ class ElectricEnergy:
             .drop([field_gnrl_ccf_hydropower], axis = 1)
             .sort_index()
         )
-
+        self.df_tmp = df_out.copy()
         # ensure capacity factors are properly specified
         df_out[self.field_nemomod_value] = sf.vec_bounds(
             np.array(df_out[self.field_nemomod_value]), 
