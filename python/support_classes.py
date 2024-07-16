@@ -17,6 +17,175 @@ import support_functions as sf
 ##################################
 
 
+class Strategies:
+    """
+    Leverage some simple strategy actions based on model attributes. Supports 
+        the following actions for data:
+
+        * Switching between strategy codes
+        * And more
+
+    The Strategies class is designed to provide convenient support for 
+        information surrounding strategies. This class is not used within 
+        SISEPUEDE, but it is designed to improve the ability to conduct many 
+        data operations.
+
+
+    Initialization Arguments
+    ------------------------
+    - model_attributes: ModelAttributes object used to coordinate attributes and
+        variables
+
+    Optional Arguments
+    ------------------
+    - field_baseline_strategy: string in attribute table storing the binary
+        flag determining whether or not the stratey is the baseline. If None,
+        defaults to f"baseline_{self.key}"
+    - field_description: string in attribute table storing the strategy 
+        description
+    - field_strategy: field in attribute table storing the strategy name
+    - field_strategy_code: field in attribute table storing the strategy code
+    """
+
+    def __init__(self,
+        model_attributes: ModelAttributes,
+        field_baseline_strategy: Union[str, None] = None,
+        field_description: str = "description",
+        field_strategy: str = "strategy",
+        field_strategy_code: str = "strategy_code",
+    ):
+
+        self._initialize_attributes(
+            model_attributes, 
+        )
+
+        self._initialize_fields(
+            field_baseline_strategy = field_baseline_strategy,
+            field_description = field_description,
+            field_strategy = field_strategy,
+            field_strategy_code = field_strategy_code,
+        )
+
+        return None
+
+
+
+    ##################################
+    #    INITIALIZATION FUNCTIONS    #
+    ##################################
+
+    def _initialize_attributes(self,
+        model_attributes: ModelAttributes,
+    ) -> None:
+        """
+        Initialize attributes for use in strategy evaluation. Sets the following
+            properties:
+            
+            * self.attributes
+            * self.key
+        """
+
+        # verify input type
+        if not is_model_attributes(model_attributes):
+            tp = str(type(model_attributes))
+            msg = f"Error instantiating Strategies: invalid type '{tp}' of model_attributes. The object should be a ModelAttributes."
+            raise RuntimeError(msg)
+
+        # try to get attributes table
+        try:
+            attributes = model_attributes.get_dimensional_attribute_table(
+                model_attributes.dim_strategy_id,
+            )
+
+        except Excption as e:
+            msg = f"Error retrieving strategy attribute table in Strategies instantiation: {e}"
+            raise RuntimeError(msg)
+
+
+        ##  SET PROPERTIES
+
+        self.attributes = attributes
+        self.key = attributes.key
+
+        return None
+    
+
+
+    def _initialize_fields(self,
+        field_baseline_strategy: Union[str, None] = None,
+        field_description: str = "description",
+        field_strategy: str = "strategy",
+        field_strategy_code: str = "strategy_code",
+    ) -> None:
+        """
+        Set some fields in the attribute table. Sets the following fields:
+            
+            * self.field_baseline_strategy
+            * self.field_description
+            * self.field_strategy
+            * self.field_strategy_code
+        """
+
+        field_baseline_strategy = (
+            f"baseline_{self.key}"
+            if not isinstance(field_baseline_strategy, str)
+            else field_baseline_strategy
+        )
+
+
+        ##  SET PROPERTIES
+
+        self.field_baseline_strategy = field_baseline_strategy
+        self.field_description = field_description
+        self.field_strategy = field_strategy
+        self.field_strategy_code = field_strategy_code
+
+        return None
+    
+
+
+    ############################
+    #    CORE FUNCTIONALITY    #
+    ############################
+
+    def get_strategies_from_codes(self,
+        strategy_codes: Union[List[str], str],
+    ) -> Union[List[int], None]:
+        """
+        Map codes to id as input
+        """
+        attr_strat = self.attributes
+        dict_map = attr_strat.field_maps.get(f"{self.field_strategy_code}_to_{attr_strat.key}")
+        
+        # check specification of codes
+        strategy_codes = (
+            [strategy_codes] 
+            if isinstance(strategy_codes, str)
+            else (
+                strategy_codes
+                if sf.islistlike(strategy_codes)
+                else None
+            )
+        )
+        
+        if strategy_codes is None:
+            return None
+        
+        # get ids to build
+        strategies_build = [dict_map.get(x) for x in strategy_codes]
+        strategies_build = [x for x in strategies_build if x is not None]
+        out = (
+            None
+            if len(strategies_build) == 0
+            else strategies_build
+        )
+        
+        return out
+
+
+
+
+
 class Regions:
     """
     Leverage some simple region actions based on model attributes. Supports the
@@ -179,10 +348,16 @@ class Regions:
         dict_iso_numeric_to_region = attributes.field_maps.get(f"{field_iso_numeric}_to_{attributes.key}")
         dict_region_to_iso = attributes.field_maps.get(f"{attributes.key}_to_{field_iso}")
         dict_region_to_iso_numeric = attributes.field_maps.get(f"{attributes.key}_to_{field_iso_numeric}")
-    
+
         # check numeric codes
-        dict_iso_numeric_to_region = dict((int(k), v) for k, v in dict_iso_numeric_to_region.items())
-        dict_region_to_iso_numeric = dict((k, int(v)) for k, v in dict_region_to_iso_numeric.items())
+        dict_iso_numeric_to_region = dict(
+            (int(k), v) for k, v in dict_iso_numeric_to_region.items()
+            if sf.isnumber(k, integer = True, skip_nan = True, )
+        )
+        dict_region_to_iso_numeric = dict(
+            (k, int(v)) for k, v in dict_region_to_iso_numeric.items()
+            if sf.isnumber(v, integer = True, skip_nan = True, )
+        )
 
         # set up some sets
         all_isos = sorted(list(dict_iso_to_region.keys()))

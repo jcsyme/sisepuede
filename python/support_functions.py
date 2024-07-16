@@ -1,5 +1,6 @@
 import inspect
 import logging
+import math
 import munch
 import numpy as np
 import os, os.path
@@ -1804,7 +1805,7 @@ def isnumber(
 
     # check type and verify whether or not np.nan matters
     out = isinstance(x, types_check)
-    out = (not np.isnan(x)) if (out & skip_nan) else out
+    out = (not (np.isnan(x) | math.isnan(x))) if (out & skip_nan) else out
 
     return out
 
