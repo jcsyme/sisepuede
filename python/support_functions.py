@@ -3366,8 +3366,8 @@ def vec_bounds(
     """
     # check bounds
     return_none = bounds is None
-    return_none |= not islistlike(vec)
-    return_none |= (len(vec) == 0) if not return_none else return_none
+    return_none |= vec is None
+    return_none |= (len(vec) == 0) if ((not return_none) & islistlike(vec)) else return_none
     if return_none:
         return vec
     
