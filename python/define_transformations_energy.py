@@ -2327,6 +2327,7 @@ class TransformationsEnergy:
         frac_shift_hh_hydrogen = self.frac_inen_high_temp_elec_hydg
         frac_shift_hh_hydrogen /= self.frac_inen_shift_denom
 
+        print(f"frac_shift_hh_elec = {frac_shift_hh_elec}\nfrac_shift_hh_hydrogen = {frac_shift_hh_hydrogen}\n\n")
 
         # HIGH HEAT CATS ONLY
         # Fuel switch high-temp thermal processes + Fuel switch low-temp thermal processes to industrial heat pumps

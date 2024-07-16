@@ -1938,6 +1938,7 @@ def transformation_inen_shift_modvars(
         n_tp = len(df_in)
 
         if region in regions_apply:
+            
             for cat in cats_all:
 
                 fields = [
@@ -1952,10 +1953,26 @@ def transformation_inen_shift_modvars(
                 vec_initial_distribution = np.nan_to_num(vec_initial_vals/vec_initial_vals.sum(), 1.0, posinf = 1.0)
 
                 # get the current total value of fractions
-                vec_final_vals = np.array(df_in[fields].iloc[n_tp - 1]).astype(float)
-                val_final_target = sum(vec_final_vals)
+                vec_final_vals = (
+                    df_in[fields]
+                    .iloc[-1]
+                    .to_numpy()
+                    .astype(float)
+                )
+                val_final_target = vec_final_vals.sum()
 
-                target_value = float(sf.vec_bounds(magnitude + val_initial_target, (0.0, 1.0)))#*dict_modvar_specs.get(modvar_target)
+                target_value = float(
+                    sf.vec_bounds(
+                        magnitude + val_initial_target, 
+                        (0.0, 1.0)
+                    )
+                )#*dict_modvar_specs.get(modvar_target)
+                if cat == "other_product_manufacturing":
+                    print(f"val_final_target:\t{val_final_target}")
+                    print(f"val_initial_target:\t{val_initial_target}")
+                    print(f"magnitude:\t{magnitude}")
+                    print(f"target_value:\t{target_value}")
+
                 scale_non_elec = np.nan_to_num((1 - target_value)/(1 - val_final_target), 0.0, posinf = 0.0)
 
                 target_distribution = magnitude*np.array([dict_modvar_specs.get(x) for x in modvars_target]) + val_initial_target*vec_initial_distribution
@@ -1963,11 +1980,20 @@ def transformation_inen_shift_modvars(
                 target_distribution = np.nan_to_num(target_distribution, 0.0, posinf = 0.0)
 
                 dict_target_distribution = dict((x, target_distribution[i]) for i, x in enumerate(modvars_target))
-
+                
                 modvars_adjust = []
                 for modvar in modvars:
-                    modvars_adjust.append(modvar) if cat in model_attributes.get_variable_categories(modvar) else None
-
+                    (
+                        modvars_adjust.append(modvar) 
+                        if cat in model_attributes.get_variable_categories(modvar) 
+                        else None
+                    )
+                
+                if False:#cat == "other_product_manufacturing":
+                    print(f"\nmodvars_adjust:\t{modvars_adjust}\n")
+                    ll = sorted(list(dict_target_distribution.keys()))
+                    print(f"dict_target_distribution:\t{dict_target_distribution}")
+                    print(f"scale_non_elec:\t{scale_non_elec}")
                 # loop over adjustment variables to build new trajectories
                 for modvar in modvars_adjust:
                     field_cur = model_attributes.build_variable_fields(
