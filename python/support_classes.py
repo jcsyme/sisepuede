@@ -1950,7 +1950,7 @@ class Transformation:
         attr_strategy: Union[AttributeTable, None],
         field_strategy_code: str = "strategy_code",
         field_strategy_name: str = "strategy",
-    ):
+    ) -> None:
         
         self._initialize_function(func)
         self._initialize_code(
@@ -1959,6 +1959,8 @@ class Transformation:
             field_strategy_code,
             field_strategy_name
         )
+
+        return Noe
         
     
     
