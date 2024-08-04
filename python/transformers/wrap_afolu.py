@@ -1251,19 +1251,6 @@ class TransformationsAFOLU:
     #    AGRC TRANSFORMATIONS    #
     ##############################
 
-    def get_vec_implementation_ramp(
-        df_input: pd.DataFrame,
-        vec_implementation_ramp: Union[np.ndarray, None] = None,
-        vec_implementation_ramp_default: np.ndarray,
-    ) -> np.ndarray:
-        """
-        Check an implmentation ramp against a default.
-        """
-
-        return None
-
-
-
     def transformation_agrc_decrease_exports(self,
         df_input: Union[pd.DataFrame, None] = None,
         magnitude: float = 0.5,
@@ -1301,6 +1288,8 @@ class TransformationsAFOLU:
             if not isinstance(df_input, pd.DataFrame) 
             else df_input
         )
+
+        magnitude = 0.5 if not isinstance(magnitude, float) else magnitude
 
         # check implementation ramp
         vec_implementation_ramp = self.check_implementation_ramp(
@@ -1472,6 +1461,18 @@ class TransformationsAFOLU:
             else df_input
         )
 
+        # set the magnitude in case of none
+        magnitude_burned = (
+            0.0 
+            if not isinstance(magnitude_burned, float) 
+            else magnitude_burned
+        )
+        magnitude_removed = (
+            0.0 
+            if not isinstance(magnitude_removed, float) 
+            else magnitude_removed
+        )
+
         # check implementation ramp
         vec_implementation_ramp = self.check_implementation_ramp(
             vec_implementation_ramp,
@@ -1496,6 +1497,7 @@ class TransformationsAFOLU:
 
     def transformation_agrc_improve_rice_management(self,
         df_input: Union[pd.DataFrame, None] = None,
+        magnitude: float = 0.45,
         strat: Union[int, None] = None,
         vec_implementation_ramp: Union[np.ndarray, None] = None,
     ) -> pd.DataFrame:
@@ -1509,6 +1511,8 @@ class TransformationsAFOLU:
         Keyword Arguments
         -----------------
         - df_input: data frame containing trajectories to modify
+        - magnitude: minimum target fraction of rice production under improved 
+            management.
         - strat: optional strategy value to specify for the transformation
         - vec_implementation_ramp: optional vector specifying the implementation
             scalar ramp for the transformation. If None, defaults to a uniform 
@@ -1521,6 +1525,9 @@ class TransformationsAFOLU:
             else df_input
         )
 
+        # set the magnitude in case of none
+        magnitude = 0.45 if not isinstance(magnitude, float) else magnitude
+
         # check implementation ramp
         vec_implementation_ramp = self.check_implementation_ramp(
             vec_implementation_ramp,
@@ -1529,7 +1536,7 @@ class TransformationsAFOLU:
         
         df_out = tba.transformation_agrc_improve_rice_management(
             df_input,
-            0.6, # CHANGEDFORINDIA 0.45
+            magnitude, # INDIA VALUE 0.6
             vec_implementation_ramp,
             self.model_attributes,
             model_afolu = self.model_afolu,
@@ -1543,6 +1550,7 @@ class TransformationsAFOLU:
     
     def transformation_agrc_increase_crop_productivity(self,
         df_input: Union[pd.DataFrame, None] = None,
+        magnitude: Union[float, Dict[str, float]] = 0.2,
         strat: Union[int, None] = None,
         vec_implementation_ramp: Union[np.ndarray, None] = None,
     ) -> pd.DataFrame:
@@ -1556,6 +1564,12 @@ class TransformationsAFOLU:
         Keyword Arguments
         -----------------
         - df_input: data frame containing trajectories to modify
+        - magnitude: magnitude of productivity increase; can be specified as
+            * a float: apply a single scalar increase to productivity for all
+                crops
+            * a dictionary: specify crop productivity increases individually,
+                with each key being a crop and the associated value being the
+                productivity increase
         - strat: optional strategy value to specify for the transformation
         - vec_implementation_ramp: optional vector specifying the implementation
             scalar ramp for the transformation. If None, defaults to a uniform 
@@ -1568,6 +1582,13 @@ class TransformationsAFOLU:
             else df_input
         )
 
+        # set the magnitude in case of none
+        magnitude = (
+            0.2 
+            if not (isinstance(magnitude, float) | isinstance(magnitude, dict)) 
+            else magnitude
+        )
+
         # check implementation ramp
         vec_implementation_ramp = self.check_implementation_ramp(
             vec_implementation_ramp,
@@ -1577,8 +1598,8 @@ class TransformationsAFOLU:
         
         df_out = tba.transformation_agrc_increase_crop_productivity(
             df_input,
-            # CHANGEDFORINDIA - ORIG 0.2
-            0.3, # can be specified as dictionary to affect different crops differently 
+            # CHANGEDFORINDIA - ORIG 0.2 INDIAVAL 0.3
+            magnitude, # can be specified as dictionary to affect different crops differently 
             vec_implementation_ramp,
             self.model_attributes,
             model_afolu = self.model_afolu,
@@ -1663,6 +1684,7 @@ class TransformationsAFOLU:
 
     def transformation_agrc_reduce_supply_chain_losses(self,
         df_input: Union[pd.DataFrame, None] = None,
+        magnitude: float = 0.3,
         strat: Union[int, None] = None,
         vec_implementation_ramp: Union[np.ndarray, None] = None,
     ) -> pd.DataFrame:
@@ -1676,6 +1698,8 @@ class TransformationsAFOLU:
         Keyword Arguments
         -----------------
         - df_input: data frame containing trajectories to modify
+        - magnitude: magnitude of reduction in supply chain losses. Specified
+            as a fraction (e.g., a 30% reduction is specified as 0.3)
         - strat: optional strategy value to specify for the transformation
         - vec_implementation_ramp: optional vector specifying the implementation
             scalar ramp for the transformation. If None, defaults to a uniform 
@@ -1688,6 +1712,9 @@ class TransformationsAFOLU:
             else df_input
         )
 
+        # set the magnitude in case of none
+        magnitude = 0.3 if not isinstance(magnitude, float) else magnitude
+
         # check implementation ramp
         vec_implementation_ramp = self.check_implementation_ramp(
             vec_implementation_ramp,
@@ -1697,7 +1724,7 @@ class TransformationsAFOLU:
         
         df_out = tba.transformation_agrc_reduce_supply_chain_losses(
             df_input,
-            0.3,
+            magnitude,
             vec_implementation_ramp,
             self.model_attributes,
             model_afolu = self.model_afolu,
@@ -1715,6 +1742,8 @@ class TransformationsAFOLU:
 
     def transformation_lndu_increase_reforestation(self,
         df_input: Union[pd.DataFrame, None] = None,
+        cats_inflow_restriction: Union[List[str], None] = ["croplands", "other"],
+        magnitude: float = 0.2,
         strat: Union[int, None] = None,
         vec_implementation_ramp: Union[np.ndarray, None] = None,
     ) -> pd.DataFrame:
@@ -1727,7 +1756,11 @@ class TransformationsAFOLU:
 
         Keyword Arguments
         -----------------
+        - cats_inflow_restriction: categories to allow to transition into 
+            secondary forest; don't specify categories that cannot be reforested 
         - df_input: data frame containing trajectories to modify
+        - magnitude: fractional increase in secondary forest area to specify.
+            E.g., a 10% increase in secondary forests is specified as 0.1
         - strat: optional strategy value to specify for the transformation
         - vec_implementation_ramp: optional vector specifying the implementation
             scalar ramp for the transformation. If None, defaults to a uniform 
@@ -1740,6 +1773,9 @@ class TransformationsAFOLU:
             else df_input
         )
         
+        # set the magnitude in case of none
+        magnitude = 0.2 if not isinstance(magnitude, float) else magnitude
+
         # check implementation ramp
         vec_implementation_ramp = self.check_implementation_ramp(
             vec_implementation_ramp,
@@ -1749,10 +1785,10 @@ class TransformationsAFOLU:
 
         df_out = tba.transformation_frst_increase_reforestation(
             df_input, 
-            0.1, # double forests INDIA
+            magnitude, # double forests INDIA
             vec_implementation_ramp,
             self.model_attributes,
-            cats_inflow_restriction = ["croplands", "other"], # SET FOR INDIA--NEED A BETTER WAY TO DETERMINE
+            cats_inflow_restriction = cats_inflow_restriction, # SET FOR INDIA--NEED A BETTER WAY TO DETERMINE
             field_region = self.key_region,
             model_afolu = self.model_afolu,
             strategy_id = strat,
@@ -1764,6 +1800,7 @@ class TransformationsAFOLU:
 
     def transformation_lndu_stop_deforestation(self,
         df_input: Union[pd.DataFrame, None] = None,
+        magnitude: float = 0.99999,
         strat: Union[int, None] = None,
         vec_implementation_ramp: Union[np.ndarray, None] = None,
     ) -> pd.DataFrame:
@@ -1777,6 +1814,8 @@ class TransformationsAFOLU:
         Keyword Arguments
         -----------------
         - df_input: data frame containing trajectories to modify
+        - magnitude: magnitude of final primary forest transition probability
+            into itself; higher magnitudes indicate less deforestation.
         - strat: optional strategy value to specify for the transformation
         - vec_implementation_ramp: optional vector specifying the implementation
             scalar ramp for the transformation. If None, defaults to a uniform 
@@ -1788,6 +1827,9 @@ class TransformationsAFOLU:
             if not isinstance(df_input, pd.DataFrame) 
             else df_input
         )
+
+        # set the magnitude in case of none
+        magnitude = 0.99999 if not isinstance(magnitude, float) else magnitude
 
         # check implementation ramp
         vec_implementation_ramp = self.check_implementation_ramp(
@@ -1810,7 +1852,7 @@ class TransformationsAFOLU:
 
         df_out = tba.transformation_frst_reduce_deforestation(
             df_input,
-            0.99999,
+            magnitude,
             vec_ramp,#self.vec_implementation_ramp,
             self.model_attributes,
             field_region = self.key_region,
@@ -1828,6 +1870,7 @@ class TransformationsAFOLU:
 
     def transformation_lndu_expand_silvopasture(self,
         df_input: Union[pd.DataFrame, None] = None,
+        magnitude: float = 0.1,
         strat: Union[int, None] = None,
         vec_implementation_ramp: Union[np.ndarray, None] = None,
     ) -> pd.DataFrame:
@@ -1846,6 +1889,8 @@ class TransformationsAFOLU:
         Keyword Arguments
         -----------------
         - df_input: data frame containing trajectories to modify
+        - magnitude: magnitude of increase in fraction of pastures subject to 
+            silvopasture
         - strat: optional strategy value to specify for the transformation
         - vec_implementation_ramp: optional vector specifying the implementation
             scalar ramp for the transformation. If None, defaults to a uniform 
@@ -1858,6 +1903,9 @@ class TransformationsAFOLU:
             else df_input
         )
 
+        # set the magnitude in case of none
+        magnitude = 0.1 if not isinstance(magnitude, float) else magnitude
+
         # check implementation ramp
         vec_implementation_ramp = self.check_implementation_ramp(
             vec_implementation_ramp,
@@ -1867,7 +1915,7 @@ class TransformationsAFOLU:
 
         df_out = tba.transformation_lndu_increase_silvopasture(
             df_input,
-            0.1, # CHANGEDFORINDIA - ORIG 0.1
+            magnitude, # CHANGEDFORINDIA - ORIG 0.1
             vec_implementation_ramp,
             self.model_attributes,
             field_region = self.key_region,
@@ -1877,10 +1925,11 @@ class TransformationsAFOLU:
         
         return df_out
     
-
+    
 
     def transformation_lndu_expand_sustainable_grazing(self,
         df_input: Union[pd.DataFrame, None] = None,
+        magnitude: float = 0.95,
         strat: Union[int, None] = None,
         vec_implementation_ramp: Union[np.ndarray, None] = None,
     ) -> pd.DataFrame:
@@ -1897,6 +1946,10 @@ class TransformationsAFOLU:
         Keyword Arguments
         -----------------
         - df_input: data frame containing trajectories to modify
+        - magnitude: fraction of pastures subject to improved pasture 
+            management. This value acts as a floor, so that if the existing
+            value is greater than is specified by the transformation, the 
+            existing value will be maintained. 
         - strat: optional strategy value to specify for the transformation
         - vec_implementation_ramp: optional vector specifying the implementation
             scalar ramp for the transformation. If None, defaults to a uniform 
@@ -1909,6 +1962,9 @@ class TransformationsAFOLU:
             else df_input
         )
         
+        # set the magnitude in case of none
+        magnitude = 0.95 if not isinstance(magnitude, float) else magnitude
+
         # check implementation ramp
         vec_implementation_ramp = self.check_implementation_ramp(
             vec_implementation_ramp,
@@ -1922,7 +1978,7 @@ class TransformationsAFOLU:
             {
                 self.model_afolu.modvar_lndu_frac_pastures_improved: {
                     "bounds": (0.0, 1.0),
-                    "magnitude": 0.95,
+                    "magnitude": magnitude,
                     "magnitude_type": "final_value_floor",
                     "vec_ramp": vec_implementation_ramp
                 }
@@ -1937,6 +1993,8 @@ class TransformationsAFOLU:
 
     def transformation_lndu_integrated_transitions(self,
         df_input: Union[pd.DataFrame, None] = None,
+        magnitude_deforestation: Union[float, None] = None,
+        magnitude_silvopasture: Union[float, None] = None,
         strat: Union[int, None] = None,
         vec_implementation_ramp: Union[np.ndarray, None] = None,
     ) -> pd.DataFrame:
@@ -1955,6 +2013,11 @@ class TransformationsAFOLU:
         Keyword Arguments
         -----------------
         - df_input: data frame containing trajectories to modify
+        - magnitude_deforestation: magnitude to apply to deforestation 
+            (transition probability from primary forest into self). If None, 
+            uses default.
+        - magnitude_silvopasture: magnitude passed to silvopasture 
+            transformation. If None, uses silvopasture magnitude default. 
         - strat: optional strategy value to specify for the transformation
         - vec_implementation_ramp: optional vector specifying the implementation
             scalar ramp for the transformation. If None, defaults to a uniform 
@@ -1977,12 +2040,14 @@ class TransformationsAFOLU:
         # silvopasture must come first
         df_out = self.transformation_lndu_expand_silvopasture(
             df_input,
+            magnitude = magnitude_silvopasture,
             strat = strat,
             vec_implementation_ramp = vec_implementation_ramp,
         )
         # then deforestation
         df_out = self.transformation_lndu_stop_deforestation(
             df_out,
+            magnitude = magnitude_deforestation,
             strat = strat,
             vec_implementation_ramp = vec_implementation_ramp,
         )
@@ -1993,7 +2058,8 @@ class TransformationsAFOLU:
     
     def transformation_lndu_reallocate_land(self,HEREHERE
         df_input: Union[pd.DataFrame, None] = None,
-        baseline_with_plur: Union[bool, None] = None,s
+        baseline_with_plur: Union[bool, None] = None,
+        magnitude: Union[float, None] = 0.5,
         strat: Union[int, None] = None,
         vec_implementation_ramp: Union[np.ndarray, None] = None,
     ) -> pd.DataFrame:
@@ -2007,6 +2073,8 @@ class TransformationsAFOLU:
         Keyword Arguments
         -----------------
         - df_input: data frame containing trajectories to modify
+        - magnitude: land use reallocation factor value with implementation
+            ramp vector
         - strat: optional strategy value to specify for the transformation
         - vec_implementation_ramp: optional vector specifying the implementation
             scalar ramp for the transformation. If None, defaults to a uniform 
@@ -2027,6 +2095,9 @@ class TransformationsAFOLU:
             else df_input
         )
 
+        # set the magnitude in case of none
+        magnitude = 0.5 if not isinstance(magnitude, float) else magnitude
+
         # check implementation ramp
         vec_implementation_ramp = self.check_implementation_ramp(
             vec_implementation_ramp,
@@ -2042,7 +2113,7 @@ class TransformationsAFOLU:
                 {
                     self.model_afolu.modvar_lndu_reallocation_factor: {
                         "bounds": (0.0, 1),
-                        "magnitude": 0.5,
+                        "magnitude": magnitude,
                         "magnitude_type": "final_value",
                         "vec_ramp": vec_implementation_ramp
                     }
@@ -2062,7 +2133,9 @@ class TransformationsAFOLU:
 
     def transformation_lsmm_improve_manure_management_cattle_pigs(self,
         df_input: Union[pd.DataFrame, None] = None,
+        dict_lsmm_pathways: Union[dict, None] = None,
         strat: Union[int, None] = None,
+        vec_cats_lvst: Union[List[str], None] = None,
         vec_implementation_ramp: Union[np.ndarray, None] = None,
     ) -> pd.DataFrame:
         """
@@ -2075,7 +2148,24 @@ class TransformationsAFOLU:
         Keyword Arguments
         -----------------
         - df_input: data frame containing trajectories to modify
+        - dict_lsmm_pathways: dictionary allocating treatment to LSMM categories
+            as fractional targets (must sum to <= 1). If None, defaults to
+
+            dict_lsmm_pathways = {
+                "anaerobic_digester": 0.59375, # 0.625*0.95,
+                "composting": 0.11875, # 0.125*0.95,
+                "daily_spread": 0.2375, # 0.25*0.95,
+            }
+
         - strat: optional strategy value to specify for the transformation
+        - vec_cats_lvst: LVST categories receiving treatment in this 
+            transformation. Default (if None) is
+
+            [
+                "cattle_dairy",
+                "cattle_nondairy",
+                "pigs"
+            ]
         - vec_implementation_ramp: optional vector specifying the implementation
             scalar ramp for the transformation. If None, defaults to a uniform 
             ramp that starts at the time specified in the configuration.
@@ -2094,20 +2184,31 @@ class TransformationsAFOLU:
         )
 
 
-        # some key transformation components
+        # allocation across manure management options
         frac_managed = 0.95
-        dict_lsmm_pathways = {
-            "anaerobic_digester": 0.625*frac_managed,
-            "composting": 0.125*frac_managed,
-            "daily_spread": 0.25*frac_managed,
-            #"solid_storage": 0.125*frac_managed
-        }
-        vec_lvst_cats = [
-            "cattle_dairy",
-            "cattle_nondairy",
-            "pigs",
-        ]
+        dict_lsmm_pathways = (
+            {
+                "anaerobic_digester": 0.625*frac_managed,
+                "composting": 0.125*frac_managed,
+                "daily_spread": 0.25*frac_managed,
+                #"solid_storage": 0.125*frac_managed
+            }
+            if not isinstance(dict_lsmm_pathways, dict)
+            else dict_lsmm_pathways
+        )
+        
+        # get categories to apply management paradigm to
+        vec_lvst_cats = (
+            [
+                "cattle_dairy",
+                "cattle_nondairy",
+                "pigs",
+            ]
+            if not sf.islistlike(vec_cats_lvst)
+            else list(vec_cats_lvst)
+        )
 
+        # 
         df_out = tba.transformation_lsmm_improve_manure_management(
             df_input,
             dict_lsmm_pathways,
@@ -2125,7 +2226,9 @@ class TransformationsAFOLU:
 
     def transformation_lsmm_improve_manure_management_other(self,
         df_input: Union[pd.DataFrame, None] = None,
+        dict_lsmm_pathways: Union[dict, None] = None,
         strat: Union[int, None] = None,
+        vec_cats_lvst: Union[List[str], None] = None,
         vec_implementation_ramp: Union[np.ndarray, None] = None,
     ) -> pd.DataFrame:
         """
@@ -2138,7 +2241,28 @@ class TransformationsAFOLU:
         Keyword Arguments
         -----------------
         - df_input: data frame containing trajectories to modify
+        - dict_lsmm_pathways: dictionary allocating treatment to LSMM categories
+            as fractional targets (must sum to <= 1). If None, defaults to
+
+            dict_lsmm_pathways = {
+                "anaerobic_digester": 0.475, # 0.5*0.95,
+                "composting": 0.2375, # 0.25*0.95,
+                "dry_lot": 0.11875, # 0.125*0.95,
+                "daily_spread": 0.11875, # 0.125*0.95,
+            }
+
         - strat: optional strategy value to specify for the transformation
+        - vec_cats_lvst: LVST categories receiving treatment in this 
+            transformation. Default (if None) is
+
+            [
+                "buffalo",
+                "goats",
+                "horses",
+                "mules",
+                "sheep",
+            ]
+
         - vec_implementation_ramp: optional vector specifying the implementation
             scalar ramp for the transformation. If None, defaults to a uniform 
             ramp that starts at the time specified in the configuration.
@@ -2157,21 +2281,33 @@ class TransformationsAFOLU:
         )
 
 
-        # some key transformation components
+        # allocation across manure management options
         frac_managed = 0.95
-        dict_lsmm_pathways = {
-            "anaerobic_digester": 0.50*frac_managed,
-            "composting": 0.25*frac_managed,
-            "dry_lot": 0.125*frac_managed,
-            "daily_spread": 0.125*frac_managed,
-        }
-        vec_lvst_cats = [
-            "buffalo",
-            "goats",
-            "horses",
-            "mules",
-            "sheep",
-        ]
+        dict_lsmm_pathways = (
+            {
+                "anaerobic_digester": 0.50*frac_managed,
+                "composting": 0.25*frac_managed,
+                "dry_lot": 0.125*frac_managed,
+                "daily_spread": 0.125*frac_managed,
+            }
+            if not isinstance(dict_lsmm_pathways, dict)
+            else dict_lsmm_pathways
+        )
+        
+        # get categories to apply management paradigm to
+        vec_lvst_cats = (
+            [
+                "buffalo",
+                "goats",
+                "horses",
+                "mules",
+                "sheep",
+            ]
+            if not sf.islistlike(vec_cats_lvst)
+            else list(vec_cats_lvst)
+        )
+
+
 
         df_out = tba.transformation_lsmm_improve_manure_management(
             df_input,
@@ -2190,7 +2326,9 @@ class TransformationsAFOLU:
 
     def transformation_lsmm_improve_manure_management_poultry(self,
         df_input: Union[pd.DataFrame, None] = None,
+        dict_lsmm_pathways: Union[dict, None] = None,
         strat: Union[int, None] = None,
+        vec_cats_lvst: Union[List[str], None] = None,
         vec_implementation_ramp: Union[np.ndarray, None] = None,
     ) -> pd.DataFrame:
         """
@@ -2203,7 +2341,22 @@ class TransformationsAFOLU:
         Keyword Arguments
         -----------------
         - df_input: data frame containing trajectories to modify
+        - dict_lsmm_pathways: dictionary allocating treatment to LSMM categories
+            as fractional targets (must sum to <= 1). If None, defaults to
+
+            dict_lsmm_pathways = {
+                "anaerobic_digester": 0.475, # 0.5*0.95,
+                "poultry_manure": 0.475, # 0.5*0.95,
+            }
+
         - strat: optional strategy value to specify for the transformation
+        - vec_cats_lvst: LVST categories receiving treatment in this 
+            transformation. Default (if None) is
+
+            [
+                "chickens",
+            ]
+
         - vec_implementation_ramp: optional vector specifying the implementation
             scalar ramp for the transformation. If None, defaults to a uniform 
             ramp that starts at the time specified in the configuration.
@@ -2221,16 +2374,26 @@ class TransformationsAFOLU:
             df_input,
         )
 
-
-        # some key transformation components
+        # allocation across manure management options
         frac_managed = 0.95
-        dict_lsmm_pathways = {
-            "anaerobic_digester": 0.50*frac_managed,
-            "poultry_manure": 0.5*frac_managed
-        }
-        vec_lvst_cats = [
-            "chickens"
-        ]
+        dict_lsmm_pathways = (
+            {
+                "anaerobic_digester": 0.50*frac_managed,
+                "poultry_manure": 0.5*frac_managed,
+            }
+            if not isinstance(dict_lsmm_pathways, dict)
+            else dict_lsmm_pathways
+        )
+        
+        # get categories to apply management paradigm to
+        vec_lvst_cats = (
+            [
+                "chickens"
+            ]
+            if not sf.islistlike(vec_cats_lvst)
+            else list(vec_cats_lvst)
+        )
+        
 
         df_out = tba.transformation_lsmm_improve_manure_management(
             df_input,
@@ -2249,6 +2412,7 @@ class TransformationsAFOLU:
 
     def transformation_lsmm_increase_biogas_capture(self,
         df_input: Union[pd.DataFrame, None] = None,
+        magnitude: Union[float, None] = 0.9,
         strat: Union[int, None] = None,
         vec_implementation_ramp: Union[np.ndarray, None] = None,
     ) -> pd.DataFrame:
@@ -2262,6 +2426,8 @@ class TransformationsAFOLU:
         Keyword Arguments
         -----------------
         - df_input: data frame containing trajectories to modify
+        - magnitude: target minimum fraction of biogas that is captured at
+            anerobic decomposition facilities.
         - strat: optional strategy value to specify for the transformation
         - vec_implementation_ramp: optional vector specifying the implementation
             scalar ramp for the transformation. If None, defaults to a uniform 
@@ -2274,12 +2440,14 @@ class TransformationsAFOLU:
             else df_input
         )
 
+        # set the magnitude in case of none
+        magnitude = 0.9 if not isinstance(magnitude, float) else magnitude
+
         # check implementation ramp
         vec_implementation_ramp = self.check_implementation_ramp(
             vec_implementation_ramp,
             df_input,
         )
-
             
         # update the biogas recovery factor
         df_out = tbg.transformation_general(
@@ -2288,7 +2456,7 @@ class TransformationsAFOLU:
             {
                 self.model_afolu.modvar_lsmm_rf_biogas: {
                     "bounds": (0.0, 1),
-                    "magnitude": 1.0, # CHANGEDFORINDIA 0.9
+                    "magnitude": magnitude, # CHANGEDFORINDIA 0.9
                     "magnitude_type": "final_value_floor",
                     "vec_ramp": vec_implementation_ramp
                 }
@@ -2307,6 +2475,7 @@ class TransformationsAFOLU:
 
     def transformation_lvst_decrease_exports(self,
         df_input: Union[pd.DataFrame, None] = None,
+        magnitude: Union[float, None] = 0.5,
         strat: Union[int, None] = None,
         vec_implementation_ramp: Union[np.ndarray, None] = None,
     ) -> pd.DataFrame:
@@ -2320,6 +2489,8 @@ class TransformationsAFOLU:
         Keyword Arguments
         -----------------
         - df_input: data frame containing trajectories to modify
+        - magnitude: fractional reduction in exports applied directly to time
+            periods (reaches 100% implementation when ramp reaches 1)
         - strat: optional strategy value to specify for the transformation
         - vec_implementation_ramp: optional vector specifying the implementation
             scalar ramp for the transformation. If None, defaults to a uniform 
@@ -2331,6 +2502,9 @@ class TransformationsAFOLU:
             if not isinstance(df_input, pd.DataFrame) 
             else df_input
         )
+
+        # set the magnitude in case of none
+        magnitude = 0.5 if not isinstance(magnitude, float) else magnitude
 
         # check implementation ramp
         vec_implementation_ramp = self.check_implementation_ramp(
@@ -2345,7 +2519,7 @@ class TransformationsAFOLU:
             {
                 self.model_afolu.modvar_lvst_equivalent_exports: {
                     "bounds": (0.0, np.inf),
-                    "magnitude": 0.5,
+                    "magnitude": magnitude,
                     "magnitude_type": "baseline_scalar",
                     "vec_ramp": vec_implementation_ramp
                 },
@@ -2360,6 +2534,7 @@ class TransformationsAFOLU:
 
     def transformation_lvst_increase_productivity(self,
         df_input: Union[pd.DataFrame, None] = None,
+        magnitude: Union[float, None] = 0.3,
         strat: Union[int, None] = None,
         vec_implementation_ramp: Union[np.ndarray, None] = None,
     ) -> pd.DataFrame:
@@ -2373,6 +2548,8 @@ class TransformationsAFOLU:
         Keyword Arguments
         -----------------
         - df_input: data frame containing trajectories to modify
+        - magnitude: fractional increase in productivity applied to carrying
+            capcity for livestock
         - strat: optional strategy value to specify for the transformation
         - vec_implementation_ramp: optional vector specifying the implementation
             scalar ramp for the transformation. If None, defaults to a uniform 
@@ -2385,6 +2562,9 @@ class TransformationsAFOLU:
             else df_input
         )
 
+        # set the magnitude in case of none
+        magnitude = 0.3 if not isinstance(magnitude, float) else magnitude
+
         # check implementation ramp
         vec_implementation_ramp = self.check_implementation_ramp(
             vec_implementation_ramp,
@@ -2394,7 +2574,7 @@ class TransformationsAFOLU:
         
         df_out = tba.transformation_lvst_increase_productivity(
             df_input,
-            0.3, # CHANGEDFORINDIA 0.2
+            magnitude, # CHANGEDFORINDIA 0.2
             vec_implementation_ramp,
             self.model_attributes,
             field_region = self.key_region,
@@ -2408,6 +2588,7 @@ class TransformationsAFOLU:
 
     def transformation_lvst_reduce_enteric_fermentation(self,
         df_input: Union[pd.DataFrame, None] = None,
+        dict_lvst_reductions: Union[dict, None] = None,
         strat: Union[int, None] = None,
         vec_implementation_ramp: Union[np.ndarray, None] = None,
     ) -> pd.DataFrame:
@@ -2421,6 +2602,18 @@ class TransformationsAFOLU:
         Keyword Arguments
         -----------------
         - df_input: data frame containing trajectories to modify
+        - dict_lvst_reductions: dictionary allocating mapping livestock 
+            categories to associated reductions in enteric fermentation. If 
+            None, defaults to
+
+            {
+                "buffalo": 0.4,
+                "cattle_dairy": 0.4,
+                "cattle_nondairy": 0.4,
+                "goats": 0.56,
+                "sheep": 0.56
+            }
+
         - strat: optional strategy value to specify for the transformation
         - vec_implementation_ramp: optional vector specifying the implementation
             scalar ramp for the transformation. If None, defaults to a uniform 
@@ -2438,17 +2631,24 @@ class TransformationsAFOLU:
             vec_implementation_ramp,
             df_input,
         )
-        
-        
-        df_out = tba.transformation_lvst_reduce_enteric_fermentation(
-            df_input,
+
+        dict_lvst_reductions = (
             {
                 "buffalo": 0.4, # CHANGEDFORINDIA 0.4
                 "cattle_dairy": 0.4, # CHANGEDFORINDIA 0.4
                 "cattle_nondairy": 0.4, # CHANGEDFORINDIA 0.4
                 "goats": 0.56,
                 "sheep": 0.56
-            },
+            }
+            if not isinstance(dict_lvst_reductions, dict)
+            else dict_lvst_reductions
+
+        )
+
+        
+        df_out = tba.transformation_lvst_reduce_enteric_fermentation(
+            df_input,
+            dict_lvst_reductions,
             vec_implementation_ramp,
             self.model_attributes,
             field_region = self.key_region,
@@ -2466,6 +2666,7 @@ class TransformationsAFOLU:
 
     def transformation_soil_reduce_excess_fertilizer(self,
         df_input: Union[pd.DataFrame, None] = None,
+        magnitude: Unione[float, None] = 0.2,
         strat: Union[int, None] = None,
         vec_implementation_ramp: Union[np.ndarray, None] = None,
     ) -> pd.DataFrame:
@@ -2479,6 +2680,8 @@ class TransformationsAFOLU:
         Keyword Arguments
         -----------------
         - df_input: data frame containing trajectories to modify
+        - magnitude: fractional reduction in fertilier N to achieve in
+            accordane with vec_implementation_ramp
         - strat: optional strategy value to specify for the transformation
         - vec_implementation_ramp: optional vector specifying the implementation
             scalar ramp for the transformation. If None, defaults to a uniform 
@@ -2491,6 +2694,9 @@ class TransformationsAFOLU:
             else df_input
         )
 
+        # set the magnitude in case of none
+        magnitude = 0.2 if not isinstance(magnitude, float) else magnitude
+
         # check implementation ramp
         vec_implementation_ramp = self.check_implementation_ramp(
             vec_implementation_ramp,
@@ -2501,7 +2707,7 @@ class TransformationsAFOLU:
         df_out = tba.transformation_soil_reduce_excess_fertilizer(
             df_input,
             {
-                "fertilizer_n": 0.2
+                "fertilizer_n": magnitude,
             },
             vec_implementation_ramp,
             self.model_attributes,
@@ -2516,6 +2722,7 @@ class TransformationsAFOLU:
 
     def transformation_soil_reduce_excess_lime(self,
         df_input: Union[pd.DataFrame, None] = None,
+        magnitude: Unione[float, None] = 0.2,
         strat: Union[int, None] = None,
         vec_implementation_ramp: Union[np.ndarray, None] = None,
     ) -> pd.DataFrame:
@@ -2529,6 +2736,8 @@ class TransformationsAFOLU:
         Keyword Arguments
         -----------------
         - df_input: data frame containing trajectories to modify
+        - magnitude: fractional reduction in lime application to achieve in
+            accordane with vec_implementation_ramp
         - strat: optional strategy value to specify for the transformation
         - vec_implementation_ramp: optional vector specifying the implementation
             scalar ramp for the transformation. If None, defaults to a uniform 
@@ -2541,6 +2750,9 @@ class TransformationsAFOLU:
             else df_input
         )
 
+        # set the magnitude in case of none
+        magnitude = 0.2 if not isinstance(magnitude, float) else magnitude
+
         # check implementation ramp
         vec_implementation_ramp = self.check_implementation_ramp(
             vec_implementation_ramp,
@@ -2551,7 +2763,7 @@ class TransformationsAFOLU:
         df_out = tba.transformation_soil_reduce_excess_fertilizer(
             df_input,
             {
-                "lime": 0.2
+                "lime": magnitude,
             },
             vec_implementation_ramp,
             self.model_attributes,
