@@ -1699,6 +1699,34 @@ class TransformationsEnergy:
         )
 
         return df_out
+    
+
+
+    def check_implementation_ramp(self,
+        vec_implementation_ramp: np.ndarray,
+        df_input: Union[pd.DataFrame, None] = None,
+    ) -> Union[np.ndarray, None]:
+        """
+        Check that vector `vec_implementation_ramp` ramp is the same length as 
+            `df_input` and that it meets specifications for an implementation
+            vector. If `df_input` is not specified, use `self.baseline_inputs`. 
+        
+        If anything fails, return `self.vec_implementation_ramp`.
+        """
+
+        df_input = (
+            self.baseline_inputs 
+            if not isinstance(df_input, pd.DataFrame)
+            else df_input
+        )
+
+        out = tbg.check_implementation_ramp(
+            vec_implementation_ramp,
+            df_input,
+            self,
+        )
+
+        return out
 
         
 
@@ -1860,6 +1888,7 @@ class TransformationsEnergy:
     def transformation_en_baseline(self,
         df_input: pd.DataFrame,
         strat: Union[int, None] = None,
+        vec_implementation_ramp: Union[np.ndarray, None] = None,
         **kwargs,
     ) -> pd.DataFrame:
         """
@@ -1867,6 +1896,13 @@ class TransformationsEnergy:
             (ENERGY only). **kwargs are passed to 
             transformations_base_energy.transformation_entc_renewable_target()
         """
+
+        # check implementation ramp
+        vec_implementation_ramp = self.check_implementation_ramp(
+            vec_implementation_ramp,
+            df_input,
+        )
+
         # NOTE: SET TO PULL FROM CONFIGURATION
         cats_to_cap = ["pp_hydropower", "pp_nuclear"]
 
@@ -1874,6 +1910,7 @@ class TransformationsEnergy:
             df_input,
             cats_to_cap,
             strat = strat,
+            vec_implementation_ramp = vec_implementation_ramp,
         )
 
 
@@ -1894,7 +1931,7 @@ class TransformationsEnergy:
         df_out = tbe.transformation_entc_renewable_target(
             df_out,
             target_renewables_value_min,
-            self.vec_implementation_ramp,
+            vec_implementation_ramp,
             self.model_electricity,
             dict_cats_entc_max_investment = self.dict_entc_renewable_target_cats_max_investment,
             field_region = self.key_region,
@@ -1917,10 +1954,22 @@ class TransformationsEnergy:
     def transformation_ccsq_increase_air_capture(self,
         df_input: Union[pd.DataFrame, None] = None,
         strat: Union[int, None] = None,
+        vec_implementation_ramp: Union[np.ndarray, None] = None,
     ) -> pd.DataFrame:
         """
         Implement the "Increase Direct Air Capture" CCSQ transformation on input 
             DataFrame df_input
+        
+        Function Arguments
+        ------------------
+
+        Keyword Arguments
+        -----------------
+        - df_input: data frame containing trajectories to modify
+        - strat: optional strategy value to specify for the transformation
+        - vec_implementation_ramp: optional vector specifying the implementation
+            scalar ramp for the transformation. If None, defaults to a uniform 
+            ramp that starts at the time specified in the configuration.
         """
         # check input dataframe
         df_input = (
@@ -1929,10 +1978,17 @@ class TransformationsEnergy:
             else df_input
         )
 
+        # check implementation ramp
+        vec_implementation_ramp = self.check_implementation_ramp(
+            vec_implementation_ramp,
+            df_input,
+        )
+
+
         df_strat_cur = tbe.transformation_ccsq_increase_direct_air_capture(
             df_input,
             50,
-            self.vec_implementation_ramp,
+            vec_implementation_ramp,
             self.model_attributes,
             field_region = self.key_region,
             model_energy = self.model_energy,
@@ -1950,10 +2006,22 @@ class TransformationsEnergy:
     def transformation_entc_least_cost(self,
         df_input: Union[pd.DataFrame, None] = None,
         strat: Union[int, None] = None,
+        vec_implementation_ramp: Union[np.ndarray, None] = None,
     ) -> pd.DataFrame:
         """
         Implement the "Least Cost" ENTC transformation on input DataFrame
             df_input
+        
+        Function Arguments
+        ------------------
+
+        Keyword Arguments
+        -----------------
+        - df_input: data frame containing trajectories to modify
+        - strat: optional strategy value to specify for the transformation
+        - vec_implementation_ramp: optional vector specifying the implementation
+            scalar ramp for the transformation. If None, defaults to a uniform 
+            ramp that starts at the time specified in the configuration.
         """
         # check input dataframe
         df_input = (
@@ -1961,9 +2029,17 @@ class TransformationsEnergy:
             if not isinstance(df_input, pd.DataFrame) 
             else df_input
         )
+
+        # check implementation ramp
+        vec_implementation_ramp = self.check_implementation_ramp(
+            vec_implementation_ramp,
+            df_input,
+        )
+
+
         df_strat_cur = tbe.transformation_entc_least_cost_solution(
             df_input,
-            self.vec_implementation_ramp,
+            vec_implementation_ramp,
             self.model_attributes,
             field_region = self.key_region,
             model_electricity = self.model_electricity,
@@ -1977,10 +2053,22 @@ class TransformationsEnergy:
     def transformation_entc_reduce_transmission_losses(self,
         df_input: Union[pd.DataFrame, None] = None,
         strat: Union[int, None] = None,
+        vec_implementation_ramp: Union[np.ndarray, None] = None,
     ) -> pd.DataFrame:
         """
         Implement the "Reduce Transmission Losses" ENTC transformation on input 
             DataFrame df_input
+        
+        Function Arguments
+        ------------------
+
+        Keyword Arguments
+        -----------------
+        - df_input: data frame containing trajectories to modify
+        - strat: optional strategy value to specify for the transformation
+        - vec_implementation_ramp: optional vector specifying the implementation
+            scalar ramp for the transformation. If None, defaults to a uniform 
+            ramp that starts at the time specified in the configuration.
         """
         # check input dataframe
         df_input = (
@@ -1988,11 +2076,18 @@ class TransformationsEnergy:
             if not isinstance(df_input, pd.DataFrame) 
             else df_input
         )
+
+        # check implementation ramp
+        vec_implementation_ramp = self.check_implementation_ramp(
+            vec_implementation_ramp,
+            df_input,
+        )
+
         
         df_strat_cur = tbe.transformation_entc_specify_transmission_losses(
             df_input,
             0.06,
-            self.vec_implementation_ramp,
+            vec_implementation_ramp,
             self.model_attributes,
             self.model_electricity,
             field_region = self.key_region,
@@ -2006,10 +2101,22 @@ class TransformationsEnergy:
     def transformation_entc_renewables_target(self,
         df_input: Union[pd.DataFrame, None] = None,
         strat: Union[int, None] = None,
+        vec_implementation_ramp: Union[np.ndarray, None] = None,
     ) -> pd.DataFrame:
         """
         Implement the "renewables target" transformation (shared repeatability),
             which includes 95% renewable energy target and green hydrogen
+        
+        Function Arguments
+        ------------------
+
+        Keyword Arguments
+        -----------------
+        - df_input: data frame containing trajectories to modify
+        - strat: optional strategy value to specify for the transformation
+        - vec_implementation_ramp: optional vector specifying the implementation
+            scalar ramp for the transformation. If None, defaults to a uniform 
+            ramp that starts at the time specified in the configuration.
         """
         # check input dataframe
         df_input = (
@@ -2018,10 +2125,17 @@ class TransformationsEnergy:
             else df_input
         )
 
+        # check implementation ramp
+        vec_implementation_ramp = self.check_implementation_ramp(
+            vec_implementation_ramp,
+            df_input,
+        )
+
+
         df_strat_cur = tbe.transformation_entc_renewable_target(
             df_input,
             0.95,
-            self.vec_implementation_ramp,
+            vec_implementation_ramp,
             self.model_electricity,
             dict_cats_entc_max_investment = self.dict_entc_renewable_target_cats_max_investment,
             field_region = self.key_region,
@@ -2037,6 +2151,7 @@ class TransformationsEnergy:
         df_input: Union[pd.DataFrame, None],
         cats_to_cap: Union[List[str], None],
         strat: Union[int, None] = None,
+        vec_implementation_ramp: Union[np.ndarray, None] = None,
         **kwargs,
     ) -> pd.DataFrame:
         """
@@ -2083,14 +2198,17 @@ class TransformationsEnergy:
 
         Function Arguments
         ------------------
-        - df_input: input data frame containing baseline trajectories
 
         Keyword Arguments
         -----------------
+        - df_input: data frame containing trajectories to modify
         - cats_to_cap: list of categories to cap using the transformation
             implementation vector self.vec_implementation_ramp. If None, 
             defaults to pp_hydropower
         - strat: strategy number to pass
+        - vec_implementation_ramp: optional vector specifying the implementation
+            scalar ramp for the transformation. If None, defaults to a uniform 
+            ramp that starts at the time specified in the configuration.
         - **kwargs: passed to ade.transformations_general()
         """
        
@@ -2099,6 +2217,13 @@ class TransformationsEnergy:
             if not isinstance(df_input, pd.DataFrame) 
             else df_input
         )
+
+        # check implementation ramp
+        vec_implementation_ramp = self.check_implementation_ramp(
+            vec_implementation_ramp,
+            df_input,
+        )
+
 
         # CHECK CATEGORIES TO CAP
 
@@ -2126,7 +2251,7 @@ class TransformationsEnergy:
             self.model_electricity,
             drop_flag = self.model_electricity.drop_flag_tech_capacities,
             field_region = self.key_region,
-            vec_ramp = self.vec_implementation_ramp,
+            vec_ramp = vec_implementation_ramp,
             strategy_id = strat,
             **kwargs
         )
@@ -2134,17 +2259,29 @@ class TransformationsEnergy:
         return df_out
 
 
-
+    # FLAG TO PASS VEC IMPLEMENTATION RAMP
     def transformation_support_entc_clean_grid(self,
         df_input: Union[pd.DataFrame, None] = None,
-        strat: Union[int, None] = None,
         include_hydrogen = True,
+        strat: Union[int, None] = None,
+        vec_implementation_ramp: Union[np.ndarray, None] = None,
     ) -> pd.DataFrame:
         """
         Function used to implement "clean grid" transformation (shared 
             repeatability), which includes 95% renewable energy target and green 
             hydrogen. Shared across numerous ENTC and EN functions. Set
             `include_hydrogen = False` to exclude the green hydrogen component.
+        
+        Function Arguments
+        ------------------
+
+        Keyword Arguments
+        -----------------
+        - df_input: data frame containing trajectories to modify
+        - strat: optional strategy value to specify for the transformation
+        - vec_implementation_ramp: optional vector specifying the implementation
+            scalar ramp for the transformation. If None, defaults to a uniform 
+            ramp that starts at the time specified in the configuration.
         """
         # check input dataframe
         df_input = (
@@ -2152,16 +2289,28 @@ class TransformationsEnergy:
             if not isinstance(df_input, pd.DataFrame) 
             else df_input
         )
+
+        # check implementation ramp
+        vec_implementation_ramp = self.check_implementation_ramp(
+            vec_implementation_ramp,
+            df_input,
+        )
+
         
         # ENTC: 95% of today's fossil-fuel electricity is generated by renewables in 2050
         df_strat_cur = self.transformation_entc_renewables_target(
             df_input,
-            strat
+            strat = strat, 
+            vec_implementation_ramp = vec_implementation_ramp,
         )
 
         # ENTC: add green hydrogen
         df_strat_cur = (
-            self.transformation_support_entc_green_hydrogen(df_strat_cur, strat)
+            self.transformation_support_entc_green_hydrogen(
+                df_strat_cur, 
+                strat = strat,
+                vec_implementation_ramp = vec_implementation_ramp,
+            )
             if include_hydrogen
             else df_strat_cur
         )
@@ -2173,10 +2322,22 @@ class TransformationsEnergy:
     def transformation_support_entc_green_hydrogen(self,
         df_input: Union[pd.DataFrame, None] = None,
         strat: Union[int, None] = None,
+        vec_implementation_ramp: Union[np.ndarray, None] = None,
     ) -> pd.DataFrame:
         """
         Implement "green hydrogen" transformation requirements by forcing at 
             least 95% of hydrogen production to come from electrolysis.
+        
+        Function Arguments
+        ------------------
+
+        Keyword Arguments
+        -----------------
+        - df_input: data frame containing trajectories to modify
+        - strat: optional strategy value to specify for the transformation
+        - vec_implementation_ramp: optional vector specifying the implementation
+            scalar ramp for the transformation. If None, defaults to a uniform 
+            ramp that starts at the time specified in the configuration.
         """
         # check input dataframe
         df_input = (
@@ -2185,10 +2346,17 @@ class TransformationsEnergy:
             else df_input
         )
 
+        # check implementation ramp
+        vec_implementation_ramp = self.check_implementation_ramp(
+            vec_implementation_ramp,
+            df_input,
+        )
+
+
         df_strat_cur = tbe.transformation_entc_hydrogen_electrolysis(
             df_input,
             0.95,
-            self.vec_implementation_ramp,
+            vec_implementation_ramp,
             self.model_attributes,
             self.model_electricity,
             field_region = self.key_region,
@@ -2206,10 +2374,22 @@ class TransformationsEnergy:
     def transformation_fgtv_maximize_flaring(self,
         df_input: Union[pd.DataFrame, None] = None,
         strat: Union[int, None] = None,
+        vec_implementation_ramp: Union[np.ndarray, None] = None,
     ) -> pd.DataFrame:
         """
         Implement the "Maximize Flaring" FGTV transformation on input DataFrame
             df_input
+        
+        Function Arguments
+        ------------------
+
+        Keyword Arguments
+        -----------------
+        - df_input: data frame containing trajectories to modify
+        - strat: optional strategy value to specify for the transformation
+        - vec_implementation_ramp: optional vector specifying the implementation
+            scalar ramp for the transformation. If None, defaults to a uniform 
+            ramp that starts at the time specified in the configuration.
         """
         # check input dataframe
         df_input = (
@@ -2217,11 +2397,18 @@ class TransformationsEnergy:
             if not isinstance(df_input, pd.DataFrame) 
             else df_input
         )
+
+        # check implementation ramp
+        vec_implementation_ramp = self.check_implementation_ramp(
+            vec_implementation_ramp,
+            df_input,
+        )
+
         
         df_strat_cur = tbe.transformation_fgtv_maximize_flaring(
             df_input,
             0.8, 
-            self.vec_implementation_ramp,
+            vec_implementation_ramp,
             self.model_attributes,
             field_region = self.key_region,
             model_energy = self.model_energy,
@@ -2235,10 +2422,22 @@ class TransformationsEnergy:
     def transformation_fgtv_minimize_leaks(self,
         df_input: Union[pd.DataFrame, None] = None,
         strat: Union[int, None] = None,
+        vec_implementation_ramp: Union[np.ndarray, None] = None,
     ) -> pd.DataFrame:
         """
         Implement the "Minimize Leaks" FGTV transformation on input DataFrame
             df_input
+        
+        Function Arguments
+        ------------------
+
+        Keyword Arguments
+        -----------------
+        - df_input: data frame containing trajectories to modify
+        - strat: optional strategy value to specify for the transformation
+        - vec_implementation_ramp: optional vector specifying the implementation
+            scalar ramp for the transformation. If None, defaults to a uniform 
+            ramp that starts at the time specified in the configuration.
         """
         # check input dataframe
         df_input = (
@@ -2246,11 +2445,18 @@ class TransformationsEnergy:
             if not isinstance(df_input, pd.DataFrame) 
             else df_input
         )
+
+        # check implementation ramp
+        vec_implementation_ramp = self.check_implementation_ramp(
+            vec_implementation_ramp,
+            df_input,
+        )
+
         
         df_strat_cur = tbe.transformation_fgtv_reduce_leaks(
             df_input,
             0.8, 
-            self.vec_implementation_ramp,
+            vec_implementation_ramp,
             self.model_attributes,
             field_region = self.key_region,
             model_energy = self.model_energy,
@@ -2268,11 +2474,23 @@ class TransformationsEnergy:
     def transformation_inen_fuel_switch_high_temp(self,
         df_input: Union[pd.DataFrame, None] = None,
         strat: Union[int, None] = None,
+        vec_implementation_ramp: Union[np.ndarray, None] = None,
     ) -> pd.DataFrame:
         """
         Implement the "Fuel switch medium and high-temp thermal processes to 
             hydrogen and electricity" INEN transformation on input DataFrame 
             df_input
+        
+        Function Arguments
+        ------------------
+
+        Keyword Arguments
+        -----------------
+        - df_input: data frame containing trajectories to modify
+        - strat: optional strategy value to specify for the transformation
+        - vec_implementation_ramp: optional vector specifying the implementation
+            scalar ramp for the transformation. If None, defaults to a uniform 
+            ramp that starts at the time specified in the configuration.
         """
         # check input dataframe
         df_input = (
@@ -2280,11 +2498,18 @@ class TransformationsEnergy:
             if not isinstance(df_input, pd.DataFrame) 
             else df_input
         )
+
+        # check implementation ramp
+        vec_implementation_ramp = self.check_implementation_ramp(
+            vec_implementation_ramp,
+            df_input,
+        )
+
         
         df_strat_cur = tbe.transformation_inen_shift_modvars(
             df_input,
             2*self.frac_inen_high_temp_elec_hydg,
-            self.vec_implementation_ramp,
+            vec_implementation_ramp,
             self.model_attributes,
             categories = self.cats_inen_high_heat,
             dict_modvar_specs = {
@@ -2304,6 +2529,7 @@ class TransformationsEnergy:
     def transformation_inen_fuel_switch_low_and_high_temp(self,
         df_input: Union[pd.DataFrame, None] = None,
         strat: Union[int, None] = None,
+        vec_implementation_ramp: Union[np.ndarray, None] = None,
     ) -> pd.DataFrame:
         """
         Implement the "Fuel switch low-temp thermal processes to industrial heat 
@@ -2312,6 +2538,17 @@ class TransformationsEnergy:
             df_input (note: these must be combined in a new function instead of
             as a composition due to the electricity shift in high-heat 
             categories)
+        
+        Function Arguments
+        ------------------
+
+        Keyword Arguments
+        -----------------
+        - df_input: data frame containing trajectories to modify
+        - strat: optional strategy value to specify for the transformation
+        - vec_implementation_ramp: optional vector specifying the implementation
+            scalar ramp for the transformation. If None, defaults to a uniform 
+            ramp that starts at the time specified in the configuration.
         """
         # check input dataframe
         df_input = (
@@ -2319,6 +2556,13 @@ class TransformationsEnergy:
             if not isinstance(df_input, pd.DataFrame) 
             else df_input
         )
+
+        # check implementation ramp
+        vec_implementation_ramp = self.check_implementation_ramp(
+            vec_implementation_ramp,
+            df_input,
+        )
+
         
         # set up fractions 
         frac_shift_hh_elec = self.frac_inen_low_temp_elec + self.frac_inen_high_temp_elec_hydg
@@ -2333,7 +2577,7 @@ class TransformationsEnergy:
         df_out = tbe.transformation_inen_shift_modvars(
             df_input,
             self.frac_inen_shift_denom,
-            self.vec_implementation_ramp, 
+            vec_implementation_ramp, 
             self.model_attributes,
             categories = self.cats_inen_high_heat,
             dict_modvar_specs = {
@@ -2350,7 +2594,7 @@ class TransformationsEnergy:
         df_out = tbe.transformation_inen_shift_modvars(
             df_out,
             self.frac_inen_shift_denom,
-            self.vec_implementation_ramp, 
+            vec_implementation_ramp, 
             self.model_attributes,
             categories = self.cats_inen_not_high_heat,
             dict_modvar_specs = {
@@ -2369,10 +2613,22 @@ class TransformationsEnergy:
     def transformation_inen_fuel_switch_low_temp_to_heat_pump(self,
         df_input: Union[pd.DataFrame, None] = None,
         strat: Union[int, None] = None,
+        vec_implementation_ramp: Union[np.ndarray, None] = None,
     ) -> pd.DataFrame:
         """
         Implement the "Fuel switch low-temp thermal processes to industrial heat 
             pumps" INEN transformation on input DataFrame df_input
+        
+        Function Arguments
+        ------------------
+
+        Keyword Arguments
+        -----------------
+        - df_input: data frame containing trajectories to modify
+        - strat: optional strategy value to specify for the transformation
+        - vec_implementation_ramp: optional vector specifying the implementation
+            scalar ramp for the transformation. If None, defaults to a uniform 
+            ramp that starts at the time specified in the configuration.
         """
         # check input dataframe
         df_input = (
@@ -2380,11 +2636,18 @@ class TransformationsEnergy:
             if not isinstance(df_input, pd.DataFrame) 
             else df_input
         )
+
+        # check implementation ramp
+        vec_implementation_ramp = self.check_implementation_ramp(
+            vec_implementation_ramp,
+            df_input,
+        )
+
         
         df_strat_cur = tbe.transformation_inen_shift_modvars(
             df_input,
             self.frac_inen_low_temp_elec,
-            self.vec_implementation_ramp,
+            vec_implementation_ramp,
             self.model_attributes,
             dict_modvar_specs = {
                 self.model_energy.modvar_inen_frac_en_electricity: 1.0
@@ -2402,10 +2665,22 @@ class TransformationsEnergy:
     def transformation_inen_maximize_efficiency_energy(self,
         df_input: Union[pd.DataFrame, None] = None,
         strat: Union[int, None] = None,
+        vec_implementation_ramp: Union[np.ndarray, None] = None,
     ) -> pd.DataFrame:
         """
         Implement the "Maximize Industrial Energy Efficiency" INEN 
             transformation on input DataFrame df_input
+        
+        Function Arguments
+        ------------------
+
+        Keyword Arguments
+        -----------------
+        - df_input: data frame containing trajectories to modify
+        - strat: optional strategy value to specify for the transformation
+        - vec_implementation_ramp: optional vector specifying the implementation
+            scalar ramp for the transformation. If None, defaults to a uniform 
+            ramp that starts at the time specified in the configuration.
         """
         # check input dataframe
         df_input = (
@@ -2413,11 +2688,18 @@ class TransformationsEnergy:
             if not isinstance(df_input, pd.DataFrame) 
             else df_input
         )
+
+        # check implementation ramp
+        vec_implementation_ramp = self.check_implementation_ramp(
+            vec_implementation_ramp,
+            df_input,
+        )
+
         
         df_strat_cur = tbe.transformation_inen_maximize_energy_efficiency(
             df_input,
             0.3, 
-            self.vec_implementation_ramp,
+            vec_implementation_ramp,
             self.model_attributes,
             field_region = self.key_region,
             model_energy = self.model_energy,
@@ -2431,10 +2713,22 @@ class TransformationsEnergy:
     def transformation_inen_maximize_efficiency_production(self,
         df_input: Union[pd.DataFrame, None] = None,
         strat: Union[int, None] = None,
+        vec_implementation_ramp: Union[np.ndarray, None] = None,
     ) -> pd.DataFrame:
         """
         Implement the "Maximize Industrial Production Efficiency" INEN 
             transformation on input DataFrame df_input
+        
+        Function Arguments
+        ------------------
+
+        Keyword Arguments
+        -----------------
+        - df_input: data frame containing trajectories to modify
+        - strat: optional strategy value to specify for the transformation
+        - vec_implementation_ramp: optional vector specifying the implementation
+            scalar ramp for the transformation. If None, defaults to a uniform 
+            ramp that starts at the time specified in the configuration.
         """
         # check input dataframe
         df_input = (
@@ -2442,11 +2736,18 @@ class TransformationsEnergy:
             if not isinstance(df_input, pd.DataFrame) 
             else df_input
         )
+
+        # check implementation ramp
+        vec_implementation_ramp = self.check_implementation_ramp(
+            vec_implementation_ramp,
+            df_input,
+        )
+
         
         df_strat_cur = tbe.transformation_inen_maximize_production_efficiency(
             df_input,
             0.4, 
-            self.vec_implementation_ramp,
+            vec_implementation_ramp,
             self.model_attributes,
             field_region = self.key_region,
             model_energy = self.model_energy,
@@ -2464,10 +2765,22 @@ class TransformationsEnergy:
     def transformation_scoe_fuel_switch_electrify(self,
         df_input: Union[pd.DataFrame, None] = None,
         strat: Union[int, None] = None,
+        vec_implementation_ramp: Union[np.ndarray, None] = None,
     ) -> pd.DataFrame:
         """
         Implement the "Switch to electricity for heat using heat pumps, electric 
             stoves, etc." INEN transformation on input DataFrame df_input
+        
+        Function Arguments
+        ------------------
+
+        Keyword Arguments
+        -----------------
+        - df_input: data frame containing trajectories to modify
+        - strat: optional strategy value to specify for the transformation
+        - vec_implementation_ramp: optional vector specifying the implementation
+            scalar ramp for the transformation. If None, defaults to a uniform 
+            ramp that starts at the time specified in the configuration.
         """
         # check input dataframe
         df_input = (
@@ -2475,11 +2788,18 @@ class TransformationsEnergy:
             if not isinstance(df_input, pd.DataFrame) 
             else df_input
         )
+
+        # check implementation ramp
+        vec_implementation_ramp = self.check_implementation_ramp(
+            vec_implementation_ramp,
+            df_input,
+        )
+
         
         df_strat_cur = tbe.transformation_scoe_electrify_category_to_target(
             df_input,
             0.95,
-            self.vec_implementation_ramp,
+            vec_implementation_ramp,
             self.model_attributes,
             field_region = self.key_region,
             model_energy = self.model_energy,
@@ -2493,10 +2813,22 @@ class TransformationsEnergy:
     def transformation_scoe_reduce_heat_energy_demand(self,
         df_input: Union[pd.DataFrame, None] = None,
         strat: Union[int, None] = None,
+        vec_implementation_ramp: Union[np.ndarray, None] = None,
     ) -> pd.DataFrame:
         """
         Implement the "Reduce end-use demand for heat energy by improving 
             building shell" SCOE transformation on input DataFrame df_input
+        
+        Function Arguments
+        ------------------
+
+        Keyword Arguments
+        -----------------
+        - df_input: data frame containing trajectories to modify
+        - strat: optional strategy value to specify for the transformation
+        - vec_implementation_ramp: optional vector specifying the implementation
+            scalar ramp for the transformation. If None, defaults to a uniform 
+            ramp that starts at the time specified in the configuration.
         """
         # check input dataframe
         df_input = (
@@ -2504,11 +2836,18 @@ class TransformationsEnergy:
             if not isinstance(df_input, pd.DataFrame) 
             else df_input
         )
+
+        # check implementation ramp
+        vec_implementation_ramp = self.check_implementation_ramp(
+            vec_implementation_ramp,
+            df_input,
+        )
+
         
         df_strat_cur = tbe.transformation_scoe_reduce_demand_for_heat_energy(
             df_input,
             0.5,
-            self.vec_implementation_ramp,
+            vec_implementation_ramp,
             self.model_attributes,
             field_region = self.key_region,
             model_energy = self.model_energy,
@@ -2522,10 +2861,22 @@ class TransformationsEnergy:
     def transformation_scoe_increase_applicance_efficiency(self,
         df_input: Union[pd.DataFrame, None] = None,
         strat: Union[int, None] = None,
+        vec_implementation_ramp: Union[np.ndarray, None] = None,
     ) -> pd.DataFrame:
         """
         Implement the "Increase appliance efficiency" SCOE transformation on 
             input DataFrame df_input
+        
+        Function Arguments
+        ------------------
+
+        Keyword Arguments
+        -----------------
+        - df_input: data frame containing trajectories to modify
+        - strat: optional strategy value to specify for the transformation
+        - vec_implementation_ramp: optional vector specifying the implementation
+            scalar ramp for the transformation. If None, defaults to a uniform 
+            ramp that starts at the time specified in the configuration.
         """
         # check input dataframe
         df_input = (
@@ -2533,11 +2884,18 @@ class TransformationsEnergy:
             if not isinstance(df_input, pd.DataFrame) 
             else df_input
         )
+
+        # check implementation ramp
+        vec_implementation_ramp = self.check_implementation_ramp(
+            vec_implementation_ramp,
+            df_input,
+        )
+
         
         df_strat_cur = tbe.transformation_scoe_reduce_demand_for_appliance_energy(
             df_input,
             0.5,
-            self.vec_implementation_ramp,
+            vec_implementation_ramp,
             self.model_attributes,
             field_region = self.key_region,
             model_energy = self.model_energy,
@@ -2555,10 +2913,22 @@ class TransformationsEnergy:
     def transformation_trde_reduce_demand(self,
         df_input: pd.DataFrame = None,
         strat: Union[int, None] = None,
+        vec_implementation_ramp: Union[np.ndarray, None] = None,
     ) -> pd.DataFrame:
         """
         Implement the "Reduce Demand" TRDE transformation on input DataFrame
             df_input
+        
+        Function Arguments
+        ------------------
+
+        Keyword Arguments
+        -----------------
+        - df_input: data frame containing trajectories to modify
+        - strat: optional strategy value to specify for the transformation
+        - vec_implementation_ramp: optional vector specifying the implementation
+            scalar ramp for the transformation. If None, defaults to a uniform 
+            ramp that starts at the time specified in the configuration.
         """
         # check input dataframe
         df_input = (
@@ -2567,10 +2937,17 @@ class TransformationsEnergy:
             else df_input
         )
 
+        # check implementation ramp
+        vec_implementation_ramp = self.check_implementation_ramp(
+            vec_implementation_ramp,
+            df_input,
+        )
+
+
         df_out = tbe.transformation_trde_reduce_demand(
             df_input,
             0.25, 
-            self.vec_implementation_ramp,
+            vec_implementation_ramp,
             self.model_attributes,
             field_region = self.key_region,
             model_energy = self.model_energy,
@@ -2584,10 +2961,22 @@ class TransformationsEnergy:
     def transformation_trns_electrify_road_light_duty(self,
         df_input: Union[pd.DataFrame, None] = None,
         strat: Union[int, None] = None,
+        vec_implementation_ramp: Union[np.ndarray, None] = None,
     ) -> pd.DataFrame:
         """
         Implement the "Electrify Light-Duty" TRNS transformation on input 
             DataFrame df_input
+        
+        Function Arguments
+        ------------------
+
+        Keyword Arguments
+        -----------------
+        - df_input: data frame containing trajectories to modify
+        - strat: optional strategy value to specify for the transformation
+        - vec_implementation_ramp: optional vector specifying the implementation
+            scalar ramp for the transformation. If None, defaults to a uniform 
+            ramp that starts at the time specified in the configuration.
         """
         # check input dataframe
         df_input = (
@@ -2596,10 +2985,17 @@ class TransformationsEnergy:
             else df_input
         )
 
+        # check implementation ramp
+        vec_implementation_ramp = self.check_implementation_ramp(
+            vec_implementation_ramp,
+            df_input,
+        )
+
+
         df_out = tbe.transformation_trns_fuel_shift_to_target(
             df_input,
             0.7,
-            self.vec_implementation_ramp,
+            vec_implementation_ramp,
             self.model_attributes,
             categories = ["road_light"],
             dict_modvar_specs = {
@@ -2619,10 +3015,22 @@ class TransformationsEnergy:
     def transformation_trns_electrify_rail(self,
         df_input: Union[pd.DataFrame, None] = None,
         strat: Union[int, None] = None,
+        vec_implementation_ramp: Union[np.ndarray, None] = None,
     ) -> pd.DataFrame:
         """
         Implement the "Electrify Rail" TRNS transformation on input DataFrame
             df_input
+        
+        Function Arguments
+        ------------------
+
+        Keyword Arguments
+        -----------------
+        - df_input: data frame containing trajectories to modify
+        - strat: optional strategy value to specify for the transformation
+        - vec_implementation_ramp: optional vector specifying the implementation
+            scalar ramp for the transformation. If None, defaults to a uniform 
+            ramp that starts at the time specified in the configuration.
         """
         # check input dataframe
         df_input = (
@@ -2633,10 +3041,17 @@ class TransformationsEnergy:
         
         model_energy = self.model_energy
 
+        # check implementation ramp
+        vec_implementation_ramp = self.check_implementation_ramp(
+            vec_implementation_ramp,
+            df_input,
+        )
+
+
         df_out = tbe.transformation_trns_fuel_shift_to_target(
             df_input,
             0.25,
-            self.vec_implementation_ramp,
+            vec_implementation_ramp,
             self.model_attributes,
             categories = ["rail_freight", "rail_passenger"],
             dict_modvar_specs = {
@@ -2656,10 +3071,22 @@ class TransformationsEnergy:
     def transformation_trns_fuel_switch_maritime(self,
         df_input: Union[pd.DataFrame, None] = None,
         strat: Union[int, None] = None,
+        vec_implementation_ramp: Union[np.ndarray, None] = None,
     ) -> pd.DataFrame:
         """
         Implement the "Fuel-Swich Maritime" TRNS transformation on input 
             DataFrame df_input
+        
+        Function Arguments
+        ------------------
+
+        Keyword Arguments
+        -----------------
+        - df_input: data frame containing trajectories to modify
+        - strat: optional strategy value to specify for the transformation
+        - vec_implementation_ramp: optional vector specifying the implementation
+            scalar ramp for the transformation. If None, defaults to a uniform 
+            ramp that starts at the time specified in the configuration.
         """
         # check input dataframe
         df_input = (
@@ -2670,11 +3097,18 @@ class TransformationsEnergy:
         
         model_energy = self.model_energy
 
+        # check implementation ramp
+        vec_implementation_ramp = self.check_implementation_ramp(
+            vec_implementation_ramp,
+            df_input,
+        )
+
+
         # transfer 70% of diesel + gasoline to hydrogen
         df_out = tbe.transformation_trns_fuel_shift_to_target(
             df_input,
             0.7,
-            self.vec_implementation_ramp,
+            vec_implementation_ramp,
             self.model_attributes,
             categories = ["water_borne"],
             dict_modvar_specs = {
@@ -2694,7 +3128,7 @@ class TransformationsEnergy:
         df_out = tbe.transformation_trns_fuel_shift_to_target(
             df_out,
             1.0,
-            self.vec_implementation_ramp,
+            vec_implementation_ramp,
             self.model_attributes,
             categories = ["water_borne"],
             dict_modvar_specs = {
@@ -2717,10 +3151,22 @@ class TransformationsEnergy:
     def transformation_trns_fuel_switch_road_medium_duty(self,
         df_input: Union[pd.DataFrame, None] = None,
         strat: Union[int, None] = None,
+        vec_implementation_ramp: Union[np.ndarray, None] = None,
     ) -> pd.DataFrame:
         """
         Implement the "Fuel-Switch Medium Duty" TRNS transformation on input 
             DataFrame df_input
+        
+        Function Arguments
+        ------------------
+
+        Keyword Arguments
+        -----------------
+        - df_input: data frame containing trajectories to modify
+        - strat: optional strategy value to specify for the transformation
+        - vec_implementation_ramp: optional vector specifying the implementation
+            scalar ramp for the transformation. If None, defaults to a uniform 
+            ramp that starts at the time specified in the configuration.
         """
         # check input dataframe
         df_input = (
@@ -2731,11 +3177,18 @@ class TransformationsEnergy:
         
         model_energy = self.model_energy
 
+        # check implementation ramp
+        vec_implementation_ramp = self.check_implementation_ramp(
+            vec_implementation_ramp,
+            df_input,
+        )
+
+
         # transfer 70% of diesel + gasoline to electricity
         df_out = tbe.transformation_trns_fuel_shift_to_target(
             df_input,
             0.7,
-            self.vec_implementation_ramp,
+            vec_implementation_ramp,
             self.model_attributes,
             categories = ["road_heavy_freight", "road_heavy_regional", "public"],
             dict_modvar_specs = {
@@ -2755,7 +3208,7 @@ class TransformationsEnergy:
         df_out = tbe.transformation_trns_fuel_shift_to_target(
             df_out,
             1.0,
-            self.vec_implementation_ramp,
+            vec_implementation_ramp,
             self.model_attributes,
             categories = ["road_heavy_freight", "road_heavy_regional", "public"],
             dict_modvar_specs = {
@@ -2778,10 +3231,22 @@ class TransformationsEnergy:
     def transformation_trns_increase_efficiency_electric(self,
         df_input: Union[pd.DataFrame, None] = None,
         strat: Union[int, None] = None,
+        vec_implementation_ramp: Union[np.ndarray, None] = None,
     ) -> pd.DataFrame:
         """
         Implement the "Increase Electric Efficiency" TRNS transformation on 
             input DataFrame df_input
+        
+        Function Arguments
+        ------------------
+
+        Keyword Arguments
+        -----------------
+        - df_input: data frame containing trajectories to modify
+        - strat: optional strategy value to specify for the transformation
+        - vec_implementation_ramp: optional vector specifying the implementation
+            scalar ramp for the transformation. If None, defaults to a uniform 
+            ramp that starts at the time specified in the configuration.
         """
         # check input dataframe
         df_input = (
@@ -2789,11 +3254,18 @@ class TransformationsEnergy:
             if not isinstance(df_input, pd.DataFrame) 
             else df_input
         )
+
+        # check implementation ramp
+        vec_implementation_ramp = self.check_implementation_ramp(
+            vec_implementation_ramp,
+            df_input,
+        )
+
         
         df_out = tbe.transformation_trns_increase_energy_efficiency_electric(
             df_input,
             0.25, 
-            self.vec_implementation_ramp,
+            vec_implementation_ramp,
             self.model_attributes,
             field_region = self.key_region,
             model_energy = self.model_energy,
@@ -2807,10 +3279,22 @@ class TransformationsEnergy:
     def transformation_trns_increase_efficiency_non_electric(self,
         df_input: Union[pd.DataFrame, None] = None,
         strat: Union[int, None] = None,
+        vec_implementation_ramp: Union[np.ndarray, None] = None,
     ) -> pd.DataFrame:
         """
         Implement the "Increase Non-Electric Efficiency" TRNS transformation on 
             input DataFrame df_input
+        
+        Function Arguments
+        ------------------
+
+        Keyword Arguments
+        -----------------
+        - df_input: data frame containing trajectories to modify
+        - strat: optional strategy value to specify for the transformation
+        - vec_implementation_ramp: optional vector specifying the implementation
+            scalar ramp for the transformation. If None, defaults to a uniform 
+            ramp that starts at the time specified in the configuration.
         """
         # check input dataframe
         df_input = (
@@ -2818,11 +3302,18 @@ class TransformationsEnergy:
             if not isinstance(df_input, pd.DataFrame) 
             else df_input
         )
+
+        # check implementation ramp
+        vec_implementation_ramp = self.check_implementation_ramp(
+            vec_implementation_ramp,
+            df_input,
+        )
+
         
         df_out = tbe.transformation_trns_increase_energy_efficiency_non_electric(
             df_input,
             0.25, 
-            self.vec_implementation_ramp,
+            vec_implementation_ramp,
             self.model_attributes,
             field_region = self.key_region,
             model_energy = self.model_energy,
@@ -2836,10 +3327,22 @@ class TransformationsEnergy:
     def transformation_trns_increase_occupancy_light_duty(self,
         df_input: Union[pd.DataFrame, None] = None,
         strat: Union[int, None] = None,
+        vec_implementation_ramp: Union[np.ndarray, None] = None,
     ) -> pd.DataFrame:
         """
         Implement the "Increase Vehicle Occupancy" TRNS transformation on input 
             DataFrame df_input
+        
+        Function Arguments
+        ------------------
+
+        Keyword Arguments
+        -----------------
+        - df_input: data frame containing trajectories to modify
+        - strat: optional strategy value to specify for the transformation
+        - vec_implementation_ramp: optional vector specifying the implementation
+            scalar ramp for the transformation. If None, defaults to a uniform 
+            ramp that starts at the time specified in the configuration.
         """
         # check input dataframe
         df_input = (
@@ -2848,10 +3351,17 @@ class TransformationsEnergy:
             else df_input
         )
 
+        # check implementation ramp
+        vec_implementation_ramp = self.check_implementation_ramp(
+            vec_implementation_ramp,
+            df_input,
+        )
+
+
         df_out = tbe.transformation_trns_increase_vehicle_occupancy(
             df_input,
             0.25, 
-            self.vec_implementation_ramp,
+            vec_implementation_ramp,
             self.model_attributes,
             field_region = self.key_region,
             model_energy = self.model_energy,
@@ -2865,10 +3375,22 @@ class TransformationsEnergy:
     def transformation_trns_mode_shift_freight(self,
         df_input: Union[pd.DataFrame, None] = None,
         strat: Union[int, None] = None,
+        vec_implementation_ramp: Union[np.ndarray, None] = None,
     ) -> pd.DataFrame:
         """
         Implement the "Mode Shift Freight" TRNS transformation on input 
             DataFrame df_input
+        
+        Function Arguments
+        ------------------
+
+        Keyword Arguments
+        -----------------
+        - df_input: data frame containing trajectories to modify
+        - strat: optional strategy value to specify for the transformation
+        - vec_implementation_ramp: optional vector specifying the implementation
+            scalar ramp for the transformation. If None, defaults to a uniform 
+            ramp that starts at the time specified in the configuration.
         """
         # check input dataframe
         df_input = (
@@ -2876,6 +3398,13 @@ class TransformationsEnergy:
             if not isinstance(df_input, pd.DataFrame) 
             else df_input
         )
+
+        # check implementation ramp
+        vec_implementation_ramp = self.check_implementation_ramp(
+            vec_implementation_ramp,
+            df_input,
+        )
+
         
         df_out = tbe.transformation_general(
             df_input,
@@ -2889,7 +3418,7 @@ class TransformationsEnergy:
                     "categories_target": {
                         "rail_freight": 1.0
                     },
-                    "vec_ramp": self.vec_implementation_ramp
+                    "vec_ramp": vec_implementation_ramp
                 }
             },
             field_region = self.key_region,
@@ -2903,10 +3432,22 @@ class TransformationsEnergy:
     def transformation_trns_mode_shift_public_private(self,
         df_input: Union[pd.DataFrame, None] = None,
         strat: Union[int, None] = None,
+        vec_implementation_ramp: Union[np.ndarray, None] = None,
     ) -> pd.DataFrame:
         """
         Implement the "Mode Shift Passenger Vehicles to Others" TRNS 
             transformation on input DataFrame df_input
+        
+        Function Arguments
+        ------------------
+
+        Keyword Arguments
+        -----------------
+        - df_input: data frame containing trajectories to modify
+        - strat: optional strategy value to specify for the transformation
+        - vec_implementation_ramp: optional vector specifying the implementation
+            scalar ramp for the transformation. If None, defaults to a uniform 
+            ramp that starts at the time specified in the configuration.
         """
         # check input dataframe
         df_input = (
@@ -2914,6 +3455,13 @@ class TransformationsEnergy:
             if not isinstance(df_input, pd.DataFrame) 
             else df_input
         )
+
+        # check implementation ramp
+        vec_implementation_ramp = self.check_implementation_ramp(
+            vec_implementation_ramp,
+            df_input,
+        )
+
 
         df_out = tbe.transformation_general(
             df_input,
@@ -2929,7 +3477,7 @@ class TransformationsEnergy:
                         "powered_bikes": (2/6),
                         "public": 0.5
                     },
-                    "vec_ramp": self.vec_implementation_ramp
+                    "vec_ramp": vec_implementation_ramp
                 }
             },
             field_region = self.key_region,
@@ -2943,16 +3491,34 @@ class TransformationsEnergy:
     def transformation_trns_mode_shift_regional(self,
         df_input: Union[pd.DataFrame, None] = None,
         strat: Union[int, None] = None,
+        vec_implementation_ramp: Union[np.ndarray, None] = None,
     ) -> pd.DataFrame:
         """
         Implement the "Mode Shift Regional Travel" TRNS transformation on input 
             DataFrame df_input
+        
+        Function Arguments
+        ------------------
+
+        Keyword Arguments
+        -----------------
+        - df_input: data frame containing trajectories to modify
+        - strat: optional strategy value to specify for the transformation
+        - vec_implementation_ramp: optional vector specifying the implementation
+            scalar ramp for the transformation. If None, defaults to a uniform 
+            ramp that starts at the time specified in the configuration.
         """
         # check input dataframe
         df_input = (
             self.baseline_inputs
             if not isinstance(df_input, pd.DataFrame) 
             else df_input
+        )
+
+        # check implementation ramp
+        vec_implementation_ramp = self.check_implementation_ramp(
+            vec_implementation_ramp,
+            df_input,
         )
         
         """
@@ -2988,7 +3554,7 @@ class TransformationsEnergy:
                     "categories_target": {
                         "road_heavy_regional": 1.0
                     },
-                    "vec_ramp": self.vec_implementation_ramp
+                    "vec_ramp": vec_implementation_ramp
                 }
             },
             field_region = self.key_region,
@@ -3007,7 +3573,7 @@ class TransformationsEnergy:
                     "categories_target": {
                         "road_heavy_regional": 1.0
                     },
-                    "vec_ramp": self.vec_implementation_ramp
+                    "vec_ramp": vec_implementation_ramp
                 }
             },
             field_region = self.key_region,

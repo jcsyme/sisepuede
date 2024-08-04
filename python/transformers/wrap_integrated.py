@@ -1734,6 +1734,34 @@ class TransformationsIntegrated:
 
         # return output
         return dict_exogenous_grouped
+    
+
+
+    def check_implementation_ramp(self,
+        vec_implementation_ramp: np.ndarray,
+        df_input: Union[pd.DataFrame, None] = None,
+    ) -> Union[np.ndarray, None]:
+        """
+        Check that vector `vec_implementation_ramp` ramp is the same length as 
+            `df_input` and that it meets specifications for an implementation
+            vector. If `df_input` is not specified, use `self.baseline_inputs`. 
+        
+        If anything fails, return `self.vec_implementation_ramp`.
+        """
+
+        df_input = (
+            self.baseline_inputs 
+            if not isinstance(df_input, pd.DataFrame)
+            else df_input
+        )
+
+        out = tbg.check_implementation_ramp(
+            vec_implementation_ramp,
+            df_input,
+            self,
+        )
+
+        return out
 
         
 
@@ -1884,10 +1912,22 @@ class TransformationsIntegrated:
     def transformation_pflo_healthier_diets(self,
         df_input: Union[pd.DataFrame, None] = None,
         strat: Union[int, None] = None,
+        vec_implementation_ramp: Union[np.ndarray, None] = None,
     ) -> pd.DataFrame:
         """
         Implement the "Healthier Diets" transformation on input DataFrame
             df_input (affects IPPU and INEN).
+        
+        Function Arguments
+        ------------------
+
+        Keyword Arguments
+        -----------------
+        - df_input: data frame containing trajectories to modify
+        - strat: optional strategy value to specify for the transformation
+        - vec_implementation_ramp: optional vector specifying the implementation
+            scalar ramp for the transformation. If None, defaults to a uniform 
+            ramp that starts at the time specified in the configuration.
         """
         # check input dataframe
         df_input = (
@@ -1895,6 +1935,13 @@ class TransformationsIntegrated:
             if not isinstance(df_input, pd.DataFrame) 
             else df_input
         )
+
+        # check implementation ramp
+        vec_implementation_ramp = self.check_implementation_ramp(
+            vec_implementation_ramp,
+            df_input,
+        )
+
         
         df_out = tbg.transformation_general(
             df_input,
@@ -1904,7 +1951,7 @@ class TransformationsIntegrated:
                     "bounds": (0, 1),
                     "magnitude": 0.5,
                     "magnitude_type": "final_value_ceiling",
-                    "vec_ramp": self.vec_implementation_ramp
+                    "vec_ramp": vec_implementation_ramp
                 },
 
                 # TEMPORARY UNTIL A DEMAND SCALAR CAN BE ADDED IN
@@ -1913,7 +1960,7 @@ class TransformationsIntegrated:
                     "categories": ["sugar_cane"],
                     "magnitude": -0.2,
                     "magnitude_type": "final_value_ceiling",
-                    "vec_ramp": self.vec_implementation_ramp
+                    "vec_ramp": vec_implementation_ramp
                 },
             },
             field_region = self.key_region,
@@ -1927,10 +1974,22 @@ class TransformationsIntegrated:
     def transformation_pflo_industrial_ccs(self,
         df_input: Union[pd.DataFrame, None] = None,
         strat: Union[int, None] = None,
+        vec_implementation_ramp: Union[np.ndarray, None] = None,
     ) -> pd.DataFrame:
         """
         Implement the "Industrial Point of Capture" transformation on input 
             DataFrame df_input (affects IPPU and INEN).
+        
+        Function Arguments
+        ------------------
+
+        Keyword Arguments
+        -----------------
+        - df_input: data frame containing trajectories to modify
+        - strat: optional strategy value to specify for the transformation
+        - vec_implementation_ramp: optional vector specifying the implementation
+            scalar ramp for the transformation. If None, defaults to a uniform 
+            ramp that starts at the time specified in the configuration.
         """
         # check input dataframe
         df_input = (
@@ -1938,6 +1997,13 @@ class TransformationsIntegrated:
             if not isinstance(df_input, pd.DataFrame) 
             else df_input
         )
+
+        # check implementation ramp
+        vec_implementation_ramp = self.check_implementation_ramp(
+            vec_implementation_ramp,
+            df_input,
+        )
+
 
         dict_magnitude_eff = None
         dict_magnitude_prev = {
@@ -1952,7 +2018,7 @@ class TransformationsIntegrated:
             df_input,
             dict_magnitude_eff,
             dict_magnitude_prev,
-            self.vec_implementation_ramp,
+            vec_implementation_ramp,
             self.model_attributes,
             model_ippu = self.model_ippu,
             field_region = self.key_region,

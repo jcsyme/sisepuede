@@ -22,6 +22,36 @@ from typing import *
 ###                         ###
 ###############################
 
+def check_implementation_ramp(
+    vec_implementation_ramp: np.ndarray,
+    df_input: pd.DataFrame,
+    obj: Any,
+) -> Union[np.ndarray, None]:
+    """
+    In object `obj`, check that the implementation ramp is the same length as 
+        df_input. If anything fails, return `obj.vec_implementation_ramp`.
+    """
+    
+    return_obj = not (
+        isinstance(vec_implementation_ramp, np.ndarray)
+        & isinstance(df_input, pd.DataFrame)
+    )
+    
+    if not return_obj:
+        return_obj |= vec_implementation_ramp.shape[0] != df_inupt.shape[0]
+        return_obj |= vec_implementation_ramp.max() > 1.0
+        return_obj |= vec_implementation_ramp.max() < 0.0
+    
+    out = (
+        vec_implementation_ramp 
+        if not return_obj 
+        else getattr(obj, "vec_implementation_ramp")
+    )
+    
+    return out
+
+
+
 def get_time_period(
     model_attributes: ma.ModelAttributes,
     return_type: str = "max",
@@ -116,6 +146,13 @@ def prepare_demand_scalars(
 
     return df_out
 
+
+
+
+
+##################################
+#    TRANSFORMATION FUNCTIONS    #
+##################################
 
 
 def transformation_general(

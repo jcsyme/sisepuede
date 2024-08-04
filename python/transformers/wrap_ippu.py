@@ -668,7 +668,35 @@ class TransformationsIPPU:
         )
 
         return df_out
+    
 
+
+    def check_implementation_ramp(self,
+        vec_implementation_ramp: np.ndarray,
+        df_input: Union[pd.DataFrame, None] = None,
+    ) -> Union[np.ndarray, None]:
+        """
+        Check that vector `vec_implementation_ramp` ramp is the same length as 
+            `df_input` and that it meets specifications for an implementation
+            vector. If `df_input` is not specified, use `self.baseline_inputs`. 
+        
+        If anything fails, return `self.vec_implementation_ramp`.
+        """
+
+        df_input = (
+            self.baseline_inputs 
+            if not isinstance(df_input, pd.DataFrame)
+            else df_input
+        )
+
+        out = tbg.check_implementation_ramp(
+            vec_implementation_ramp,
+            df_input,
+            self,
+        )
+
+        return out
+        
         
 
     def get_strategy(self,
@@ -804,10 +832,22 @@ class TransformationsIPPU:
     def transformation_ippu_reduce_cement_clinker(self,
         df_input: Union[pd.DataFrame, None] = None,
         strat: Union[int, None] = None,
+        vec_implementation_ramp: Union[np.ndarray, None] = None,
     ) -> pd.DataFrame:
         """
         Implement the "Reduce cement clinker" IPPU transformation on input 
             DataFrame df_input. Reduces industrial production.
+        
+        Function Arguments
+        ------------------
+
+        Keyword Arguments
+        -----------------
+        - df_input: data frame containing trajectories to modify
+        - strat: optional strategy value to specify for the transformation
+        - vec_implementation_ramp: optional vector specifying the implementation
+            scalar ramp for the transformation. If None, defaults to a uniform 
+            ramp that starts at the time specified in the configuration.
         """
         # check input dataframe
         df_input = (
@@ -815,6 +855,13 @@ class TransformationsIPPU:
             if not isinstance(df_input, pd.DataFrame) 
             else df_input
         )
+
+        # check implementation ramp
+        vec_implementation_ramp = self.check_implementation_ramp(
+            vec_implementation_ramp,
+            df_input,
+        )
+
         
         df_out = tbg.transformation_general(
             df_input,
@@ -824,7 +871,7 @@ class TransformationsIPPU:
                     "bounds": (0, 1),
                     "magnitude": 0.5,
                     "magnitude_type": "final_value_ceiling",
-                    "vec_ramp": self.vec_implementation_ramp
+                    "vec_ramp": vec_implementation_ramp
                 }
             },
             field_region = self.key_region,
@@ -838,10 +885,22 @@ class TransformationsIPPU:
     def transformation_ippu_reduce_demand(self,
         df_input: Union[pd.DataFrame, None] = None,
         strat: Union[int, None] = None,
+        vec_implementation_ramp: Union[np.ndarray, None] = None,
     ) -> pd.DataFrame:
         """
         Implement the "Demand Management" IPPU transformation on input DataFrame 
             df_input. Reduces industrial production.
+        
+        Function Arguments
+        ------------------
+
+        Keyword Arguments
+        -----------------
+        - df_input: data frame containing trajectories to modify
+        - strat: optional strategy value to specify for the transformation
+        - vec_implementation_ramp: optional vector specifying the implementation
+            scalar ramp for the transformation. If None, defaults to a uniform 
+            ramp that starts at the time specified in the configuration.
         """
         # check input dataframe
         df_input = (
@@ -850,10 +909,17 @@ class TransformationsIPPU:
             else df_input
         )
 
+        # check implementation ramp
+        vec_implementation_ramp = self.check_implementation_ramp(
+            vec_implementation_ramp,
+            df_input,
+        )
+
+
         df_out = tbi.transformation_ippu_reduce_demand(
             df_input,
             0.3,
-            self.vec_implementation_ramp,
+            vec_implementation_ramp,
             self.model_attributes,
             field_region = self.key_region,
             model_ippu = self.model_ippu,
@@ -867,10 +933,22 @@ class TransformationsIPPU:
     def transformation_ippu_reduce_hfcs(self,
         df_input: Union[pd.DataFrame, None] = None,
         strat: Union[int, None] = None,
+        vec_implementation_ramp: Union[np.ndarray, None] = None,
     ) -> pd.DataFrame:
         """
         Implement the "Reduces HFCs" IPPU transformation on input DataFrame 
             df_input
+        
+        Function Arguments
+        ------------------
+
+        Keyword Arguments
+        -----------------
+        - df_input: data frame containing trajectories to modify
+        - strat: optional strategy value to specify for the transformation
+        - vec_implementation_ramp: optional vector specifying the implementation
+            scalar ramp for the transformation. If None, defaults to a uniform 
+            ramp that starts at the time specified in the configuration.
         """
         # check input dataframe
         df_input = (
@@ -879,10 +957,17 @@ class TransformationsIPPU:
             else df_input
         )
 
+        # check implementation ramp
+        vec_implementation_ramp = self.check_implementation_ramp(
+            vec_implementation_ramp,
+            df_input,
+        )
+
+
         df_out = tbi.transformation_ippu_scale_emission_factor(
             df_input,
             {"hfc": 0.1}, # applies to all HFC emission factors
-            self.vec_implementation_ramp,
+            vec_implementation_ramp,
             self.model_attributes,
             field_region = self.key_region,
             model_ippu = self.model_ippu,
@@ -896,10 +981,22 @@ class TransformationsIPPU:
     def transformation_ippu_reduce_n2o(self,
         df_input: Union[pd.DataFrame, None] = None,
         strat: Union[int, None] = None,
+        vec_implementation_ramp: Union[np.ndarray, None] = None,
     ) -> pd.DataFrame:
         """
         Implement the "Reduces N2O" IPPU transformation on input DataFrame 
             df_input
+        
+        Function Arguments
+        ------------------
+
+        Keyword Arguments
+        -----------------
+        - df_input: data frame containing trajectories to modify
+        - strat: optional strategy value to specify for the transformation
+        - vec_implementation_ramp: optional vector specifying the implementation
+            scalar ramp for the transformation. If None, defaults to a uniform 
+            ramp that starts at the time specified in the configuration.
         """
         # check input dataframe
         df_input = (
@@ -908,13 +1005,20 @@ class TransformationsIPPU:
             else df_input
         )
 
+        # check implementation ramp
+        vec_implementation_ramp = self.check_implementation_ramp(
+            vec_implementation_ramp,
+            df_input,
+        )
+
+
         df_out = tbi.transformation_ippu_scale_emission_factor(
             df_input,
             {
                 self.model_ippu.modvar_ippu_ef_n2o_per_gdp_process : 0.1,
                 self.model_ippu.modvar_ippu_ef_n2o_per_prod_process : 0.1,
             },
-            self.vec_implementation_ramp,
+            vec_implementation_ramp,
             self.model_attributes,
             field_region = self.key_region,
             model_ippu = self.model_ippu,
@@ -928,10 +1032,22 @@ class TransformationsIPPU:
     def transformation_ippu_reduce_other_fcs(self,
         df_input: Union[pd.DataFrame, None] = None,
         strat: Union[int, None] = None,
+        vec_implementation_ramp: Union[np.ndarray, None] = None,
     ) -> pd.DataFrame:
         """
         Implement the "Reduces Other FCs" IPPU transformation on input DataFrame 
             df_input
+        
+        Function Arguments
+        ------------------
+
+        Keyword Arguments
+        -----------------
+        - df_input: data frame containing trajectories to modify
+        - strat: optional strategy value to specify for the transformation
+        - vec_implementation_ramp: optional vector specifying the implementation
+            scalar ramp for the transformation. If None, defaults to a uniform 
+            ramp that starts at the time specified in the configuration.
         """
         # check input dataframe
         df_input = (
@@ -940,10 +1056,17 @@ class TransformationsIPPU:
             else df_input
         )
 
+        # check implementation ramp
+        vec_implementation_ramp = self.check_implementation_ramp(
+            vec_implementation_ramp,
+            df_input,
+        )
+
+
         df_out = tbi.transformation_ippu_scale_emission_factor(
             df_input,
             {"other_fc": 0.1}, # applies to all Other Fluorinated Compound emission factors
-            self.vec_implementation_ramp,
+            vec_implementation_ramp,
             self.model_attributes,
             field_region = self.key_region,
             model_ippu = self.model_ippu,
@@ -957,10 +1080,22 @@ class TransformationsIPPU:
     def transformation_ippu_reduce_pfcs(self,
         df_input: Union[pd.DataFrame, None] = None,
         strat: Union[int, None] = None,
+        vec_implementation_ramp: Union[np.ndarray, None] = None,
     ) -> pd.DataFrame:
         """
         Implement the "Reduces Other FCs" IPPU transformation on input DataFrame 
             df_input
+        
+        Function Arguments
+        ------------------
+
+        Keyword Arguments
+        -----------------
+        - df_input: data frame containing trajectories to modify
+        - strat: optional strategy value to specify for the transformation
+        - vec_implementation_ramp: optional vector specifying the implementation
+            scalar ramp for the transformation. If None, defaults to a uniform 
+            ramp that starts at the time specified in the configuration.
         """
         # check input dataframe
         df_input = (
@@ -969,10 +1104,17 @@ class TransformationsIPPU:
             else df_input
         )
 
+        # check implementation ramp
+        vec_implementation_ramp = self.check_implementation_ramp(
+            vec_implementation_ramp,
+            df_input,
+        )
+
+
         df_out = tbi.transformation_ippu_scale_emission_factor(
             df_input,
             {"pfc": 0.1}, # applies to all PFC emission factors
-            self.vec_implementation_ramp,
+            vec_implementation_ramp,
             self.model_attributes,
             field_region = self.key_region,
             model_ippu = self.model_ippu,
