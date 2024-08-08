@@ -1,4 +1,5 @@
 ﻿Category Name,``$CAT-FUEL$``,Description,Data Source,Hyperlink,Notes,Biogas Fuel Category,Biomass Demand Category ,Electricity Demand Category,Hydrogen Fuel Category,Hydropower Fuel Category,Upstream to Fuel Category,Waste Fuel Category
+Ammonia,``fuel_ammonia``,"Ammonia, generally derived from hydrogen and nitgrogen. ",,,,0,0,0,0,0,none,0
 Biogas,``fuel_biogas``,"Includes landfill gas, sludge gas, and other biomass gasses (integrated from the waste sector and as definined in Table 2.2, V2, C2)",,,,1,0,0,0,0,none,0
 Biomass,``fuel_biomass``,"Solid biomass, includiing wood, sulphite lyes, charcoal, and other primary solid biomass (as definined in Table 2.2, V2, C2 2006/2019R IPCC GNGHGI)",,,,0,1,0,0,0,none,0
 Coal,``fuel_coal``,"Coal, including anthracite, coking coal, sub-bituminous coal, and other coals (as definined in Table 2.2, V2, C2)",,,,0,0,0,0,0,none,0
@@ -12,15 +13,17 @@ Gasoline,``fuel_gasoline``,"Gasoline (including motor, aviation, and jet gasolin
 Geothermal,``fuel_geothermal``,Geothermal energy production,,,,0,0,0,0,0,none,0
 Hydrocarbon Gas Liquids,``fuel_hydrocarbon_gas_liquids``,"Liquified petroleoum gases, including propane, butane, and ethane. Produced in petroleum refinement and natural gas processing.",,,,0,0,0,0,0,none,0
 Hydrogen,``fuel_hydrogen``,Hydrogen energy,,,,0,0,0,1,0,none,0
-Hydropower,``fuel_hydropower``,Power available from hydropower,,,,0,0,0,0,1,none,0
 Kerosene,``fuel_kerosene``,"Kerosene, including jet and other (as definined in Table 2.2, V2, C2)",,,,0,0,0,0,0,none,0
-Liquid Biofuels,``fuel_biofuels``,"Biodiesel, ethanol, and biogasoline",,,,0,0,0,0,0,none,0
+Liquid Biofuels,``fuel_biofuels``," | Biodiesel, biogasoline, hydrotreated vegetable oil (HVO), and other waste oil-derived fuels. Includes sustainable aviation fuel.
+ | 
+ | EXCLUDES ETHANOL, which has a lower energy density.",,,,0,0,0,0,0,none,0
 Natural Gas,``fuel_natural_gas``,Natural gas,,,,0,0,0,0,0,none,0
 Nuclear,``fuel_nuclear``,Nuclear fuel,,,,0,0,0,0,0,none,0
-Ocean,``fuel_ocean``,Ocean energy,,,,0,0,0,0,0,none,0
+Ocean,``fuel_ocean``,Ocean tidal energy,,,,0,0,0,0,0,none,0
 Oil,``fuel_oil``,"Other refined oil products, including fuel oil",,,,0,0,0,0,0,none,0
 Other,``fuel_other``,Other fuel sources,,,,0,0,0,0,0,none,0
 Solar,``fuel_solar``,Solar energy,,,,0,0,0,0,0,none,0
 Unprocessed Natural Gas,``fuel_natural_gas_unprocessed``,Unprocessed natural gas. Used in NemoMod as a dummy fuel to support natural gas electrification. ,,,,0,0,0,0,0,``fuel_natural_gas``,0
 Waste,``fuel_waste``,Waste burned,,,,0,0,0,0,0,none,1
+Water,``fuel_water``,"Water, used to power hydropower, drive electrolysis, and other water accounting. ",,,,0,0,0,0,1,none,0
 Wind,``fuel_wind``,Wind energy,,,,0,0,0,0,0,none,0
