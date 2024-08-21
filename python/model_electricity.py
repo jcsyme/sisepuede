@@ -1,3 +1,9 @@
+# import Julia packages
+# load this first to avoid issue with libstdc++:
+#   https://juliapy.github.io/PythonCall.jl/stable/faq/
+
+import juliapkg
+
 from attribute_table import AttributeTable
 import logging
 import importlib
@@ -16,7 +22,7 @@ import time
 from typing import *
 
 ##  import the julia api
-from julia.api import Julia
+#from julia.api import Julia
 
 
 
@@ -113,6 +119,8 @@ class ElectricEnergy:
         self._initialize_models()
         self._initialize_integrated_variables()
         self._initialize_julia(dir_jl, initialize_julia = initialize_julia)
+
+        return None
 
 
 
@@ -358,10 +366,185 @@ class ElectricEnergy:
         self.required_variables.sort()
 
         return None
+    
+
+
+    def _initialize_julia_environment(self,
+    ) -> None:
+        """
+        Initialize the julia environment
+        """
+
+        # build configuration elements here
+        juliapkg.require_julia("1.10.4")
+
+        dict_packages = {
+            "Cbc": "9961bab8-2fa3-5c5a-9d89-47fab24efd76",
+            "Clp": "e2554f3b-3117-50c0-817c-e040a3ddf72d",
+            "DataFrames": "a93c6f00-e57d-5684-b7b6-d8193f3e46c0",
+            "GLPK": "60bf3e95-4087-53dc-ae20-288a0d20c6a6",
+            "HiGHS": "87dc4568-4c63-4d18-b0c0-bb2238e4078b",
+            "Ipopt": "b6b21f68-93f8-5de0-b562-5493be1d77c9",
+            "JuMP": "4076af6c-e467-56ae-b986-b466b2749572",
+            "NemoMod": {
+                "uuid": "a3c327a0-d2f0-11e8-37fd-d12fd35c3c72",
+                "url": "https://github.com/sei-international/NemoMod.jl.git",
+                "rev": "61e63e0",
+            },
+            "SQLite": "0aa819cd-b072-5ff4-a722-6bc24af294d9",
+        }
+
+
+        # iterate over dictionary elements to add
+        for k, v in dict_packages.items():
+            
+            dict_kwargs = {}
+
+            if isinstance(v, dict):
+                dict_kwargs = dict(
+                    (k, v) for (k, v) in v.items() if (k != "uuid")
+                )
+
+                v = v.get("uuid")
+                if v is None:
+                    continue
+
+            juliapkg.add(
+                k, v, **dict_kwargs
+            )
+
+        return None
+
+
+
+    def _initialize_julia(self,
+        dir_jl: str,
+        initialize_julia: bool = True,
+        module_sisepuede_support_functions_jl: str = "SISEPUEDEPJSF",
+        solver: Union[str, None] = None,
+    ) -> None:
+        """
+        Import packages and choose the solver from what is available
+            (see SISEPUEDEPJSF for solver hierarchy). Sets the
+            following properties:
+
+            * self.dict_solver_to_julia_package
+            * self.dir_jl
+            * self.fp_pyjulia_support_functions
+            * self.solver
+            * self.solver_module
+            * self.solver_package
+
+        Function Arguments
+        ------------------
+        - dir_jl: SISEPUEDE directory containing Julia environment (with NemoMod) and
+            associated modules
+            * Must contain f"{module_sisepuede_support_functions_jl}.jl"
+
+        Optional Arguments
+        ------------------
+        - solver: optional solver to specify. If None, defaults to configuration
+        - module_sisepuede_support_functions_jl: name of the Julia module in dir_jl
+            containing support functions to use in communication with Julia
+            * NOTE: Should not include the jl extension
+        """
+
+        if not initialize_julia:
+            return None
+
+
+        ##  CHECK DIRECTORIES AND REQUIRED FILES
+
+        self.dir_jl = dir_jl
+        if not os.path.exists(dir_jl):
+            self.dir_jl = None
+
+            msg = f"Path to Julia '{dir_jl}' not found. The fuel production model cannot be run."
+            self._log(msg, type_log = "error", )
+            raise RuntimeError()
+
+
+        self.fp_pyjulia_support_functions = os.path.join(self.dir_jl, f"{module_sisepuede_support_functions_jl}.jl")
+        if not os.path.exists(self.fp_pyjulia_support_functions):
+            self.fp_pyjulia_support_functions = None
+            msg = f"Path to support module '{self.fp_pyjulia_support_functions}' not found. The fuel production model cannot be run."
+            self._log(msg, type_log = "error", )
+            raise RuntimeError(msg)
+
+
+        ##  SET THE PACKAGE REQUIREMENTS AND ENVIRONMENT
+
+        self._initialize_julia_environment()
+        
+
+        ##  LOAD SOME PACKAGES
+
+        self._log(f"Importing Julia...", type_log = "info")
+        from juliacall import Main as julia_main
+        self.julia_main = julia_main
+        # self.julia_main = importlib.import_module("juliacall", package = "Main")
+        
+        # import into Main required packages
+        self.julia_main.seval("using NemoMod")
+        self.julia_main.seval("using JuMP")
+
+        
+        ##  CHECK AND LOAD SOLVER
+
+        # next, try to instantiate solvers - map solvers to
+        self.dict_solver_to_julia_package = {
+            "cbc": "Cbc",
+            "clp": "Clp",
+            "cplex": "CPLEX",
+            "gams_cplex": "GAMS",
+            "glpk": "GLPK",
+            "gurobi": "Gurobi",
+            "highs": "HiGHS",
+            "ipopt": "Ipopt",
+        }
+        self.dict_julia_package_to_solver = sf.reverse_dict(self.dict_solver_to_julia_package)
+
+        # check solver specification in configuration
+        solver = self.model_attributes.configuration.get("nemomod_solver") if (solver is None) else solver
+        sf.check_set_values([solver], self.model_attributes.configuration.valid_solver)
+
+        if solver not in self.dict_solver_to_julia_package.keys():
+            self._log(f"""
+                Solver '{solver}' not found in _initialize_julia(); 
+                check self.dict_solver_to_julia_package to ensure it lines up with 
+                configuration.valid_solver. Resetting to best available...""", 
+                type_log = "warning"
+            )
+            solver = "ANYSOLVER" # non-existant solver; SISEPUEDEPJSF.check_solvers will check for best available
+
+        # check solver specification in julia, and reassign solver to dependent on Julia's specification
+        self.julia_main.include(self.fp_pyjulia_support_functions)
+        self.solver_package = self.julia_main.SISEPUEDEPJSF.check_solvers(
+            self.dict_solver_to_julia_package.get(solver)
+        )
+        self.solver = self.dict_julia_package_to_solver.get(self.solver_package)
+
+        # load
+        try:
+            self.julia_main.seval(f"using {self.solver_package}")
+            self.solver_module = getattr(self.julia_main, self.solver_package)
+
+            self._log(
+                f"Successfully initialized JuMP optimizer from solver module {self.solver_package}.", 
+                type_log = "info",
+            )
+
+        except Exception as e:
+            self._log(
+                f"An error occured while trying to initialize the JuMP optimizer from package: {e}", 
+                type_log = "error",
+            )
+
+        return None
 
         
 
-    def _initialize_julia(self,
+    def _initialize_julia_legacy(self,
         dir_jl: str,
         initialize_julia: bool = True,
         module_sisepuede_support_functions_jl: str = "SISEPUEDEPJSF",
@@ -3321,7 +3504,7 @@ class ElectricEnergy:
 
         # convert  
         df_gnrl_ccf_hydropower[self.field_nemomod_year] = self.transform_field_year_nemomod(
-        df_gnrl_ccf_hydropower[self.model_attributes.dim_time_period], 
+            df_gnrl_ccf_hydropower[self.model_attributes.dim_time_period], 
             time_period_as_year = self.nemomod_time_period_as_year,
         )
         (
@@ -3439,8 +3622,8 @@ class ElectricEnergy:
         solver: Union[str, None] = None,
     ) -> "Pycall.jlwrap":
         """
-        Retrieve the optimizer for NemoMod. Use to set any parameters 
-            related to the solver (e.g., NumericFocus in Gurobi)
+        Retrieve the optimizer for NemoMod. Use to set any parameters related to 
+            the solver (e.g., NumericFocus in Gurobi)
 
         Returns an optimizer object. 
 
@@ -3454,28 +3637,28 @@ class ElectricEnergy:
         
         # set optimizer
         solver = self.solver if (solver is None) else solver
-        optimizer = self.julia_jump.Model(self.solver_module.Optimizer)
+        optimizer = self.julia_main.JuMP.Model(self.solver_module.Optimizer)
 
         # set some generic properties
-        self.julia_jump.set_time_limit_sec(optimizer, self.solver_time_limit)
-        self.julia_jump.set_silent(optimizer)
+        self.julia_main.JuMP.set_time_limit_sec(optimizer, self.solver_time_limit)
+        self.julia_main.JuMP.set_silent(optimizer)
 
 
         ##  SOLVER SPECIFIC PROPERTIES (setup from config for later)
 
         # gams/cplex parameters
         if (solver == "gams_cplex"):
-            self.julia_jump.set_optimizer_attribute(optimizer, "Solver", "cplex")
+            self.julia_main.JuMP.set_optimizer_attribute(optimizer, "Solver", "cplex")
 
         # gurobi parameters            
         if (solver == "gurobi"):
             # see https://www.gurobi.com/documentation/9.5/refman/numericfocus.html#parameter:NumericFocus
-            self.julia_jump.set_optimizer_attribute(optimizer, "NumericFocus", 2)
+            self.julia_main.JuMP.set_optimizer_attribute(optimizer, "NumericFocus", 2)
 
         # HiGHS parameters            
         if (solver == "highs"):
             # see https://www.gurobi.com/documentation/9.5/refman/numericfocus.html#parameter:NumericFocus
-            self.julia_jump.set_optimizer_attribute(optimizer, "solver", "simplex")
+            self.julia_main.JuMP.set_optimizer_attribute(optimizer, "solver", "simplex")
             
         return optimizer
 
@@ -10020,7 +10203,7 @@ class ElectricEnergy:
         recreate_engine_q = False
         if not os.path.exists(fp_database):
             self._log(f"\tPath to temporary NemoMod database '{fp_database}' not found. Creating...", type_log = "info")
-            self.julia_nemomod.createnemodb(fp_database)
+            self.julia_main.NemoMod.createnemodb(fp_database)
             recreate_engine_q = True
 
         # check the engine and respecify if the original database, for whatever reason, no longer exists
@@ -10064,21 +10247,24 @@ class ElectricEnergy:
             else [x for x in attr_time_period.key_values if x in vector_calc_time_periods]
         )
         vector_calc_time_periods = self.transform_field_year_nemomod(vector_calc_time_periods)
-        
+        vector_calc_time_periods = self.julia_main.Vector[self.julia_main.Int64](vector_calc_time_periods)
+
+        """
         self.julia_main.vector_calc_time_periods = vector_calc_time_periods
         self.julia_main.eval("vector_calc_time_periods = Int64.(collect(vector_calc_time_periods))")
-        
+        """
+
         # get the optimizer (must reset each time) and vars to save
         optimizer = self.get_nemomod_optimizer(solver)
         vars_to_save = ", ".join(self.required_nemomod_output_tables)
 
         try:
             # call nemo mod
-            result = self.julia_nemomod.calculatescenario(
+            result = self.julia_main.NemoMod.calculatescenario(
                 fp_database,
                 jumpmodel = optimizer,
                 numprocs = 1,
-                calcyears = self.julia_main.vector_calc_time_periods,#vector_calc_time_periods
+                calcyears = vector_calc_time_periods,#vector_calc_time_periods
                 reportzeros = False,
                 varstosave = vars_to_save,
                 quiet = True
@@ -10086,7 +10272,10 @@ class ElectricEnergy:
 
         except Exception as e:
             # LOG THE ERROR HERE
-            self._log(f"Error in ElectricEnergy when trying to run NemoMod: {e}", type_log = "error")
+            self._log(
+                f"Error in ElectricEnergy when trying to run NemoMod: {e}", 
+                type_log = "error",
+            )
             result = None
 
 
@@ -10102,7 +10291,7 @@ class ElectricEnergy:
                     self.retrieve_output_tables_from_sql(
                         engine, 
                         df_elec_trajectories, 
-                        tuple_enfu_production_and_demands = tuple_enfu_production_and_demands
+                        tuple_enfu_production_and_demands = tuple_enfu_production_and_demands,
                     )
                 ]
 
@@ -10129,8 +10318,12 @@ class ElectricEnergy:
                 ) for modvar in modvars_instantiate
             ]
 
-        msg = f"NemoMod ran successfully with the following status: {result}" if successful_run_q else f"NemoMod run failed with result {result}. Populating missing data with value {missing_vals_on_error}."
-        self._log(msg, type_log = "info")
+        msg = (
+            f"NemoMod ran successfully with the following status: {result}" 
+            if successful_run_q 
+            else f"NemoMod run failed with result {result}. Populating missing data with value {missing_vals_on_error}."
+        )
+        self._log(msg, type_log = "info", )
 
 
         ##  ADD IN UNUSED FUEL

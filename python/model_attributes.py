@@ -698,8 +698,10 @@ class ModelAttributes:
         self.table_nemomod_ts_group_1 = "TSGROUP1"
         self.table_nemomod_ts_group_2 = "TSGROUP2"
         self.table_nemomod_year = "YEAR"
+        
         # nemomod shared tables - parameters
         self.table_nemomod_annual_emission_limit = "AnnualEmissionLimit"
+        self.table_nemomod_availability_factor = "AvailabilityFactor"
         self.table_nemomod_capacity_factor = "CapacityFactor"
         self.table_nemomod_capacity_to_activity_unit = "CapacityToActivityUnit"
         self.table_nemomod_capital_cost = "CapitalCost"

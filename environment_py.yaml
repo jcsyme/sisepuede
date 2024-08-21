@@ -6,6 +6,8 @@ dependencies:
 # - julia=0.6.0 -- have to install after julia, performed in Docker multi-stage build
   - geopandas=0.14.3
   - geopy=2.1.0
+  - juliacall=0.9.22
+  - juliapkg=0.1.13
   - munch=2.5.0
   - numpy=1.23.5
   - openpyxl=3.1.2
