@@ -48,7 +48,7 @@ class ElectricEnergy:
     - nemomod_reference_files: dictionary of input reference dataframes OR 
         directory containing required CSVs
         * Required keys or CSVs (without extension):
-            (1) CapacityFactor
+            (1) AvailabilityFactor
             (2) SpecifiedDemandProfile
 
     Optional Arguments
@@ -254,7 +254,7 @@ class ElectricEnergy:
         """
 
         self.dict_tables_required_to_required_fields = {
-            "CapacityFactor": [
+            "AvailabilityFactor": [
                 self.field_nemomod_region,
                 self.field_nemomod_time_slice
             ],
@@ -640,7 +640,7 @@ class ElectricEnergy:
         - nemomod_reference_files: file path of reference CSV files *OR* 
             dictionary. Required keys/files (without .csv extension):
 
-            * CapacityFactor
+            * AvailabilityFactor
             * SpecifiedDemandProfile
 
         Keyword Arguments
@@ -733,9 +733,11 @@ class ElectricEnergy:
                     missing_vals = sf.print_setdiff(set(attr_time_slice.key_values), set(df_filt[self.field_nemomod_time_slice]))
                     raise RuntimeError(f"Initialization error in ElectricEnergy: field {self.field_nemomod_time_slice} in table {k} is missing time_slices {missing_vals} .")
 
-        # check fields in CapacityFactor
+        # check fields in AvailabilityFactor
         sf.check_set_values(
-            [x for x in dict_out[self.model_attributes.table_nemomod_capacity_factor].columns if (x not in [self.field_nemomod_region, self.field_nemomod_time_slice])],
+            [
+                x for x in dict_out[self.model_attributes.table_nemomod_availability_factor].columns if (x not in [self.field_nemomod_region, self.field_nemomod_time_slice])
+            ],
             attr_technology.key_values
         )
 
@@ -4709,22 +4711,22 @@ class ElectricEnergy:
 
 
 
-    def format_nemomod_table_capacity_factor(self,
+    def format_nemomod_table_availability_factor(self,
         df_elec_trajectories: pd.DataFrame,
-        df_reference_capacity_factor: pd.DataFrame,
+        df_reference_availability_factor: pd.DataFrame,
         attribute_technology: AttributeTable = None,
         attribute_region: AttributeTable = None,
         regions: Union[List[str], None] = None
     ) -> pd.DataFrame:
         """
-        Format the CapacityFactor input table for NemoMod based on SISEPUEDE 
+        Format the AvailabilityFactor input table for NemoMod based on SISEPUEDE 
             configuration parameters, input variables, integrated model outputs, 
             and reference tables.
 
         Function Arguments
         ------------------
         - df_elec_trajectories: data frame of model variable input trajectories
-        - df_reference_capacity_factor: data frame of regional capacity factors 
+        - df_reference_availability_factor: data frame of regional capacity factors 
             for technologies that vary (others revert to default)
 
         Keyword Arguments
@@ -4740,7 +4742,7 @@ class ElectricEnergy:
 
         # check fields
         fields_req = [self.field_nemomod_region, self.field_nemomod_time_slice]
-        sf.check_fields(df_reference_capacity_factor, fields_req)
+        sf.check_fields(df_reference_availability_factor, fields_req)
 
         # attribute tables
         attribute_technology = (
@@ -4775,16 +4777,16 @@ class ElectricEnergy:
         
         regions_keep = set(attribute_region.key_values) & set(regions)
         regions_keep = (
-            (regions_keep & set(df_reference_capacity_factor[self.field_nemomod_region])) 
-            if (self.field_nemomod_region in df_reference_capacity_factor.columns) 
+            (regions_keep & set(df_reference_availability_factor[self.field_nemomod_region])) 
+            if (self.field_nemomod_region in df_reference_availability_factor.columns) 
             else regions_keep
         )
 
         # reshape to long
-        fields_melt = [x for x in df_reference_capacity_factor.columns if (x in attribute_technology.key_values)]
+        fields_melt = [x for x in df_reference_availability_factor.columns if (x in attribute_technology.key_values)]
         df_out = pd.melt(
-            df_reference_capacity_factor[
-                df_reference_capacity_factor[self.field_nemomod_region].isin(regions_keep)
+            df_reference_availability_factor[
+                df_reference_availability_factor[self.field_nemomod_region].isin(regions_keep)
             ],
             [self.field_nemomod_region, self.field_nemomod_time_slice],
             fields_melt,
@@ -4833,7 +4835,7 @@ class ElectricEnergy:
             (0, 1)
         )
         dict_return = {
-            self.model_attributes.table_nemomod_capacity_factor: df_out
+            self.model_attributes.table_nemomod_availability_factor: df_out
         }
 
         return dict_return
@@ -9456,7 +9458,7 @@ class ElectricEnergy:
 
     def generate_input_tables_for_sql(self,
         df_elec_trajectories: pd.DataFrame,
-        df_reference_capacity_factor: pd.DataFrame,
+        df_reference_availability_factor: pd.DataFrame,
         df_reference_specified_demand_profile: pd.DataFrame,
         dict_attributes: Dict[str, pd.DataFrame] = {},
         regions: Union[List[str], None] = None,
@@ -9474,8 +9476,8 @@ class ElectricEnergy:
         ------------------
         - df_elec_trajectories: input of required variabels passed from other 
             SISEPUEDE sectors.
-        - df_reference_capacity_factor: reference data frame containing capacity 
-            factors
+        - df_reference_availability_factor: reference data frame containing 
+            capacity factors
         - df_reference_specified_demand_profile:r eference data frame containing 
             the specified demand profile by region
 
@@ -9782,12 +9784,12 @@ class ElectricEnergy:
             )
             
 
-        # CapacityFactor
-        if df_reference_capacity_factor is not None:
+        # AvailabilityFactor
+        if df_reference_availability_factor is not None:
             dict_out.update(
-                self.format_nemomod_table_capacity_factor(
+                self.format_nemomod_table_availability_factor(
                     df_elec_trajectories,
-                    df_reference_capacity_factor,
+                    df_reference_availability_factor,
                     attribute_technology = attribute_technology,
                     attribute_region = attribute_region,
                     regions = regions,
@@ -9993,7 +9995,7 @@ class ElectricEnergy:
         # check the dictionary of reference tables
         dict_ref_tables = self.dict_nemomod_reference_tables if (dict_ref_tables is None) else dict_ref_tables
         sf.check_keys(dict_ref_tables, [
-            self.model_attributes.table_nemomod_capacity_factor,
+            self.model_attributes.table_nemomod_availability_factor,
             self.model_attributes.table_nemomod_specified_demand_profile
         ])
 
@@ -10034,7 +10036,7 @@ class ElectricEnergy:
         # get data for the database
         dict_to_sql = self.generate_input_tables_for_sql(
             df_elec_trajectories,
-            dict_ref_tables.get(self.model_attributes.table_nemomod_capacity_factor),
+            dict_ref_tables.get(self.model_attributes.table_nemomod_availability_factor),
             dict_ref_tables.get(self.model_attributes.table_nemomod_specified_demand_profile),
             regions = regions,
             tuple_enfu_production_and_demands = tuple_enfu_production_and_demands,
