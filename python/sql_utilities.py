@@ -424,19 +424,27 @@ def sql_table_to_df(
 
     # build the query
     if fields_select is not None:
-        fields_select_str = ", ".join(fields_select) if isinstance(fields_select, list) else fields_select
+        fields_select_str = (
+            ", ".join(fields_select) 
+            if isinstance(fields_select, list) 
+            else fields_select
+        )
+
     else:
         fields_select_str = "*"
+
     query_append = "" if (query_append is None) else f" {query_append}"
     query = f"select {fields_select_str} from {table_name}{query_append};"
 
-    # try the connection
+
+    # try the connection and return output
     with engine.connect() as con:
         try:
             df_out = pd.read_sql_query(query, con)
         except Exception as e:
             # LOGHERE
             raise RuntimeError(f"Error in sql_table_to_df: the service returned error '{e}'.\n\nQuery:\n\t'{query}'.")
+
 
     return df_out
 

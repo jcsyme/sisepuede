@@ -408,7 +408,7 @@ class ElectricEnergy:
         self.fp_pyjulia_support_functions = os.path.join(self.dir_jl, f"{module_sisepuede_support_functions_jl}.jl")
         if not os.path.exists(self.fp_pyjulia_support_functions):
             self.fp_pyjulia_support_functions = None
-            self._log(f"Path to support module '{self.fp_pyjulia_support_functions}' not found. The electricity cannot be run.", type_log = "error")
+            self._log(f"Path to support module '{self.fp_pyjulia_support_functions}' not found. The electricity model cannot be run.", type_log = "error")
             raise RuntimeError()
 
 
@@ -961,9 +961,11 @@ class ElectricEnergy:
         self.modvar_entc_fuelprod_input_activity_ratio_diesel = "Fuel Production NemoMod InputActivityRatio Diesel"
         self.modvar_entc_fuelprod_input_activity_ratio_electricity = "Fuel Production NemoMod InputActivityRatio Electricity"
         self.modvar_entc_fuelprod_input_activity_ratio_gasoline = "Fuel Production NemoMod InputActivityRatio Gasoline"
+        self.modvar_entc_fuelprod_input_activity_ratio_hydrogen = "Fuel Production NemoMod InputActivityRatio Hydrogen"
         self.modvar_entc_fuelprod_input_activity_ratio_natural_gas = "Fuel Production NemoMod InputActivityRatio Natural Gas"
         self.modvar_entc_fuelprod_input_activity_ratio_natural_gas_unprocessed = "Fuel Production NemoMod InputActivityRatio Natural Gas Unprocessed"
         self.modvar_entc_fuelprod_input_activity_ratio_oil = "Fuel Production NemoMod InputActivityRatio Oil"
+        self.modvar_entc_fuelprod_input_activity_ratio_water = "Fuel Production NemoMod InputActivityRatio Water"
         self.modvar_entc_fuelprod_output_activity_ratio_coal = "Fuel Production NemoMod OutputActivityRatio Coal"
         self.modvar_entc_fuelprod_output_activity_ratio_diesel = "Fuel Production NemoMod OutputActivityRatio Diesel"
         self.modvar_entc_fuelprod_output_activity_ratio_gasoline = "Fuel Production NemoMod OutputActivityRatio Gasoline"
@@ -1446,7 +1448,12 @@ class ElectricEnergy:
         # if id is in the table and we are adding other fields, rename it
         field_id_rnm = f"subtable_{self.field_nemomod_id}"
         if len([x for x in fields_to_add if (x != self.field_nemomod_id)]) > 0:
-            df_input.rename(columns = {self.field_nemomod_id: field_id_rnm}, inplace = True) if (self.field_nemomod_id in df_input.columns) else None
+            (
+                df_input.rename(columns = {self.field_nemomod_id: field_id_rnm}, inplace = True) 
+                if (self.field_nemomod_id in df_input.columns) 
+                else None
+            )
+
         # ordered additions
         df_input = (
             self.add_index_field_technology(df_input) 
@@ -3462,13 +3469,12 @@ class ElectricEnergy:
         if (solver == "gurobi"):
             # see https://www.gurobi.com/documentation/9.5/refman/numericfocus.html#parameter:NumericFocus
             self.julia_jump.set_optimizer_attribute(optimizer, "NumericFocus", 2)
-            #print(self.julia_base.propertynames(optimizer))
 
         # HiGHS parameters            
         if (solver == "highs"):
             # see https://www.gurobi.com/documentation/9.5/refman/numericfocus.html#parameter:NumericFocus
             self.julia_jump.set_optimizer_attribute(optimizer, "solver", "simplex")
-            #TRUYING
+            
         return optimizer
 
 
@@ -4762,7 +4768,11 @@ class ElectricEnergy:
     
 
         # regions to keep
-        regions = self.model_attributes.get_region_list_filtered(regions, attribute_region = attribute_region)
+        regions = self.model_attributes.get_region_list_filtered(
+            regions,
+            attribute_region = attribute_region,
+        )
+        
         regions_keep = set(attribute_region.key_values) & set(regions)
         regions_keep = (
             (regions_keep & set(df_reference_capacity_factor[self.field_nemomod_region])) 
