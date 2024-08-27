@@ -178,11 +178,11 @@ class InputTemplate:
 		Keyword Arguments
 		-----------------
 		- df_trajgroup: optional dataframe mapping each field variable to 
-            trajectory groups. 
-            * Must contain field_subsector, field_variable, and 
-                field_variable_trajectory_group as fields
-            * Overrides include_simplex_group_as_trajgroup if specified and 
-                conflicts occur
+			trajectory groups. 
+			* Must contain field_subsector, field_variable, and 
+				field_variable_trajectory_group as fields
+			* Overrides include_simplex_group_as_trajgroup if specified and 
+				conflicts occur
 		- field_key_strategy: strategy key included in df_input--used to pivot
 			templates (template sheets are indexed by strategy key when defined)
 		- field_prepend_req_attr_baseline_scenario: prepandage applied to
@@ -308,18 +308,19 @@ class InputTemplate:
 		# add baseline strategy
 		if (field_key_strategy not in df_input_merge.columns):
 			df_input_merge[field_key_strategy] = self.baseline_strategy
+
 		all_strategies = sorted(list(set(df_input_merge[field_key_strategy])))
+
 
 		# split up by strategy
 		dict_inputs_by_strat = {}
 		df_input_merge = df_input_merge.groupby([field_key_strategy])
 
-		global dfi
-		global dfb
-
-		dfi = df_input_merge
-		dfb = df_base.copy()
-
+		# global dfi
+		# global dfb
+		# dfi = df_input_merge
+		# dfb = df_base.copy()
+			
 		for strat, df in df_input_merge:
 
 			strat = strat[0] if isinstance(strat, tuple) else strat
@@ -353,8 +354,8 @@ class InputTemplate:
 				df.drop([field_key_strategy], axis = 1, inplace = True)
 				dict_inputs_by_strat.update({strat: df})
 
-		global dict_is
-		dict_is = dict_inputs_by_strat
+		# global dict_is
+		# dict_is = dict_inputs_by_strat
 
 
 		##  CHECK THE VARIABLE INFORMATION DATA FRAME AND ADD COLUMNS

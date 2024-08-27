@@ -1530,8 +1530,8 @@ class TransformationsIntegrated:
                     .reset_index(drop = True)
                 )
 
-                global dc
-                dc = df_cur.copy()
+                # global dc
+                # dc = df_cur.copy()
         
                 # split the current transformation into 
                 dict_cur = self.build_templates_dictionary_from_current_transformation(

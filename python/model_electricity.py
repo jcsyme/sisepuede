@@ -10263,7 +10263,7 @@ class ElectricEnergy:
             result = self.julia_main.NemoMod.calculatescenario(
                 fp_database,
                 jumpmodel = optimizer,
-                numprocs = 1,
+                numprocs = self.julia_main.Threads.nthreads(),
                 calcyears = vector_calc_time_periods,#vector_calc_time_periods
                 reportzeros = False,
                 varstosave = vars_to_save,

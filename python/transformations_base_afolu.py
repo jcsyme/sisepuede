@@ -678,7 +678,7 @@ def transformation_frst_increase_reforestation(
             model_attributes,
             cats_stable = cats_stable,
             model_afolu = model_afolu,
-            #**kwargs
+            **kwargs
         )
 
         

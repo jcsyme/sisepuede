@@ -122,7 +122,7 @@ class NonElectricEnergy:
         df_neenergy_trajectories: pd.DataFrame,
         subsector: str = "All",
         var_type: str = "input",
-        msg_prepend: str = None
+        msg_prepend: str = None,
     ) -> None:
         """
         Check for presence of subsector fields in df_neenergy_trajectories. If
@@ -137,9 +137,17 @@ class NonElectricEnergy:
             self.model_attributes.check_subsector(subsector)
 
             if var_type == "input":
-                check_fields, ignore_fields = self.model_attributes.get_input_output_fields([self.subsec_name_econ, self.subsec_name_gnrl, subsector])
+                check_fields, ignore_fields = self.model_attributes.get_input_output_fields(
+                    [
+                        self.subsec_name_econ, 
+                        self.subsec_name_gnrl, 
+                        subsector
+                    ]
+                )
+
             elif var_type == "output":
                 ignore_fields, check_fields = self.model_attributes.get_input_output_fields([subsector])
+
             else:
                 raise ValueError(f"Invalid var_type '{var_type}' in check_df_fields: valid types are 'input', 'output'")
 
@@ -155,7 +163,8 @@ class NonElectricEnergy:
 
 
 
-    def get_required_subsectors(self):
+    def get_required_subsectors(self,
+    ):
         ## TEMPORARY
         subsectors = [
             self.subsec_name_ccsq,
@@ -168,12 +177,13 @@ class NonElectricEnergy:
         ]#self.subsec_name_enfu,#self.model_attributes.get_setor_subsectors("Energy")
         subsectors_base = subsectors.copy()
         subsectors += [self.subsec_name_econ, self.subsec_name_gnrl]
+
         return subsectors, subsectors_base
 
 
 
-
-    def get_neenergy_input_output_fields(self):
+    def get_neenergy_input_output_fields(self,
+    ):
         required_doa = [self.model_attributes.dim_time_period]
         required_vars, output_vars = self.model_attributes.get_input_output_fields(self.required_subsectors)
 
@@ -181,7 +191,6 @@ class NonElectricEnergy:
 
 
 
-    # get subsector specification
     def get_projection_subsectors(self,
         subsectors_project: Union[list, str, None] = None,
         delim: str = "|",
