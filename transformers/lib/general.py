@@ -1,17 +1,12 @@
-import sisepuede.core.model_attributes as ma
-import sisepuede.models.afolu as mafl
-import sisepuede.models.ippu as mi
-import sisepuede.models.circular_economy as mc
-import sisepuede.models.energy_production as ml
-import sisepuede.models.energy_consumption as me
-import sisepuede.models.socioeconomic as se
+
 import numpy as np
 import pandas as pd
-import sisepuede.core.support_classes as sc
-import sisepuede.utilities.support_functions as sf
 from typing import *
 
 
+import sisepuede.core.model_attributes as ma
+import sisepuede.core.support_classes as sc
+import sisepuede.utilities.support_functions as sf
 
 
 

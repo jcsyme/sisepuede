@@ -1,20 +1,20 @@
-from sisepuede.core.attribute_table import AttributeTable
-import sisepuede.data_management.ingestion as ing
+
 import logging
-import sisepuede.models.afolu as mafl
-import sisepuede.core.model_attributes as ma
 import numpy as np
-import os, os.path
 import pandas as pd
-import setup_analysis as sa
-from sisepuede.manager.sisepuede_file_structure import *
-import sisepuede.core.support_classes as sc
-import sisepuede.utilities.support_functions as sf
 import time
-import transformations_base_afolu as tba
-import transformations_base_general as tbg
-from typing import Union
-import warnings
+from typing import *
+
+
+import sisepuede.core.model_attributes as ma
+import sisepuede.core.support_classes as sc
+#import sisepuede.legacy.transformations_base_afolu as tba
+#import sisepuede.legacy.transformations_base_general as tbg
+import sisepuede.models.afolu as mafl
+import sisepuede.transformers.lib.afolu as tba
+import sisepuede.transformers.lib.general as tbg
+import sisepuede.utilities.support_functions as sf
+
 
 
 

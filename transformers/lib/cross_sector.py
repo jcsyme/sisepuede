@@ -1,11 +1,14 @@
-import sisepuede.core.model_attributes as ma
-import sisepuede.models.ippu as mi
-import sisepuede.models.socioeconomic as se
+
 import numpy as np
 import pandas as pd
-import sisepuede.utilities.support_functions as sf
-from transformations_base_general import *
 from typing import *
+
+
+from sisepuede.transformers.lib.general import *
+import sisepuede.core.model_attributes as ma
+import sisepuede.core.support_classes as sc
+import sisepuede.models.ippu as mi
+import sisepuede.utilities.support_functions as sf
 
 
 

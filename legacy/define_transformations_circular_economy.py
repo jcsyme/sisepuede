@@ -1,20 +1,19 @@
-from sisepuede.core.attribute_table import AttributeTable
-import sisepuede.data_management.ingestion as ing
+
 import logging
-import sisepuede.models.afolu as mafl
-import sisepuede.core.model_attributes as ma
-import sisepuede.models.circular_economy as mc
 import numpy as np
 import os, os.path
 import pandas as pd
-import setup_analysis as sa
-from sisepuede.manager.sisepuede_file_structure import *
-import sisepuede.core.support_classes as sc
-import sisepuede.utilities.support_functions as sf
 import time
-import transformations_base_circular_economy as tbc
-from typing import Union
-import warnings
+from typing import *
+
+
+import sisepuede.core.model_attributes as ma
+import sisepuede.core.support_classes as sc
+#import sisepuede.legacy.transformations_base_circular_economy as tbc
+import sisepuede.models.circular_economy as mc
+import sisepuede.transformers.lib.circular_economy as tbc
+import sisepuede.utilities.support_functions as sf
+
 
 
 
@@ -763,34 +762,6 @@ class TransformationsCircularEconomy:
         )
 
         return df_out
-    
-
-
-    def check_implementation_ramp(self,
-        vec_implementation_ramp: np.ndarray,
-        df_input: Union[pd.DataFrame, None] = None,
-    ) -> Union[np.ndarray, None]:
-        """
-        Check that vector `vec_implementation_ramp` ramp is the same length as 
-            `df_input` and that it meets specifications for an implementation
-            vector. If `df_input` is not specified, use `self.baseline_inputs`. 
-        
-        If anything fails, return `self.vec_implementation_ramp`.
-        """
-
-        df_input = (
-            self.baseline_inputs 
-            if not isinstance(df_input, pd.DataFrame)
-            else df_input
-        )
-
-        out = tbg.check_implementation_ramp(
-            vec_implementation_ramp,
-            df_input,
-            self,
-        )
-
-        return out
 
         
 
@@ -921,22 +892,10 @@ class TransformationsCircularEconomy:
     def transformation_trww_increase_biogas_capture(self,
         df_input: Union[pd.DataFrame, None] = None,
         strat: Union[int, None] = None,
-        vec_implementation_ramp: Union[np.ndarray, None] = None,
     ) -> pd.DataFrame:
         """
         Implement the "Increase Biogas Capture at Wastewater Treatment Plants" 
             TRWW transformation on input DataFrame df_input
-        
-        Function Arguments
-        ------------------
-
-        Keyword Arguments
-        -----------------
-        - df_input: data frame containing trajectories to modify
-        - strat: optional strategy value to specify for the transformation
-        - vec_implementation_ramp: optional vector specifying the implementation
-            scalar ramp for the transformation. If None, defaults to a uniform 
-            ramp that starts at the time specified in the configuration.
         """
         # check input dataframe
         df_input = (
@@ -945,19 +904,12 @@ class TransformationsCircularEconomy:
             else df_input
         )
 
-        # check implementation ramp
-        vec_implementation_ramp = self.check_implementation_ramp(
-            vec_implementation_ramp,
-            df_input,
-        )
-
-
         df_out = tbc.transformation_trww_increase_gas_capture(
             df_input,
             # as float, applies to both landfill and biogas; specify as dict to break out; 
             # e.g., {"treated_advanced_anaerobic": 0.85, "treated_secondary_anaerobic": 0.5}
             1.0, # CHANGEDFORINDIA 0.85
-            vec_implementation_ramp,
+            self.vec_implementation_ramp,
             self.model_attributes,
             field_region = self.key_region,
             model_circecon = self.model_circecon,
@@ -971,22 +923,10 @@ class TransformationsCircularEconomy:
     def transformation_trww_increase_septic_compliance(self,
         df_input: Union[pd.DataFrame, None] = None,
         strat: Union[int, None] = None,
-        vec_implementation_ramp: Union[np.ndarray, None] = None,
     ) -> pd.DataFrame:
         """
         Implement the "Increase Compliance" TRWW transformation on input 
             DataFrame df_input
-        
-        Function Arguments
-        ------------------
-
-        Keyword Arguments
-        -----------------
-        - df_input: data frame containing trajectories to modify
-        - strat: optional strategy value to specify for the transformation
-        - vec_implementation_ramp: optional vector specifying the implementation
-            scalar ramp for the transformation. If None, defaults to a uniform 
-            ramp that starts at the time specified in the configuration.
         """
         # check input dataframe
         df_input = (
@@ -995,17 +935,10 @@ class TransformationsCircularEconomy:
             else df_input
         )
 
-        # check implementation ramp
-        vec_implementation_ramp = self.check_implementation_ramp(
-            vec_implementation_ramp,
-            df_input,
-        )
-
-
         df_out = tbc.transformation_trww_increase_septic_compliance(
             df_input,
             0.9, 
-            vec_implementation_ramp,
+            self.vec_implementation_ramp,
             self.model_attributes,
             field_region = self.key_region,
             model_circecon = self.model_circecon,
@@ -1023,22 +956,10 @@ class TransformationsCircularEconomy:
     def transformation_wali_improve_sanitation_industrial(self,
         df_input: Union[pd.DataFrame, None] = None,
         strat: Union[int, None] = None,
-        vec_implementation_ramp: Union[np.ndarray, None] = None,
     ) -> pd.DataFrame:
         """
         Implement the "Improve Industrial Sanitation" WALI transformation on 
             input DataFrame df_input
-        
-        Function Arguments
-        ------------------
-
-        Keyword Arguments
-        -----------------
-        - df_input: data frame containing trajectories to modify
-        - strat: optional strategy value to specify for the transformation
-        - vec_implementation_ramp: optional vector specifying the implementation
-            scalar ramp for the transformation. If None, defaults to a uniform 
-            ramp that starts at the time specified in the configuration.
         """
         # check input dataframe
         df_input = (
@@ -1046,13 +967,6 @@ class TransformationsCircularEconomy:
             if not isinstance(df_input, pd.DataFrame) 
             else df_input
         )
-
-        # check implementation ramp
-        vec_implementation_ramp = self.check_implementation_ramp(
-            vec_implementation_ramp,
-            df_input,
-        )
-
 
         # get categories and dictionary to specify parameters (move to config eventually)
         df_out = tbc.transformation_wali_improve_sanitation(
@@ -1063,7 +977,7 @@ class TransformationsCircularEconomy:
                 "treated_secondary_aerobic": 0.1,
                 "treated_secondary_anaerobic": 0.1,
             },
-            vec_implementation_ramp,
+            self.vec_implementation_ramp,
             self.model_attributes,
             field_region = self.key_region,
             model_circecon = self.model_circecon,
@@ -1078,22 +992,10 @@ class TransformationsCircularEconomy:
     def transformation_wali_improve_sanitation_rural(self,
         df_input: Union[pd.DataFrame, None] = None,
         strat: Union[int, None] = None,
-        vec_implementation_ramp: Union[np.ndarray, None] = None,
     ) -> pd.DataFrame:
         """
         Implement the "Improve Rural Sanitation" WALI transformation on 
             input DataFrame df_input
-
-        Function Arguments
-        ------------------
-
-        Keyword Arguments
-        -----------------
-        - df_input: data frame containing trajectories to modify
-        - strat: optional strategy value to specify for the transformation
-        - vec_implementation_ramp: optional vector specifying the implementation
-            scalar ramp for the transformation. If None, defaults to a uniform 
-            ramp that starts at the time specified in the configuration.
         """
         # check input dataframe
         df_input = (
@@ -1102,13 +1004,6 @@ class TransformationsCircularEconomy:
             else df_input
         )
 
-        # check implementation ramp
-        vec_implementation_ramp = self.check_implementation_ramp(
-            vec_implementation_ramp,
-            df_input,
-        )
-
-
         # get categories and dictionary to specify parameters (move to config eventually)
         df_out = tbc.transformation_wali_improve_sanitation(
             df_input,
@@ -1116,7 +1011,7 @@ class TransformationsCircularEconomy:
             {
                 "treated_septic": 1.0, 
             },
-            vec_implementation_ramp,
+            self.vec_implementation_ramp,
             self.model_attributes,
             field_region = self.key_region,
             model_circecon = self.model_circecon,
@@ -1131,22 +1026,10 @@ class TransformationsCircularEconomy:
     def transformation_wali_improve_sanitation_urban(self,
         df_input: Union[pd.DataFrame, None] = None,
         strat: Union[int, None] = None,
-        vec_implementation_ramp: Union[np.ndarray, None] = None,
     ) -> pd.DataFrame:
         """
         Implement the "Improve Urban Sanitation" WALI transformation on 
             input DataFrame df_input
-        
-        Function Arguments
-        ------------------
-
-        Keyword Arguments
-        -----------------
-        - df_input: data frame containing trajectories to modify
-        - strat: optional strategy value to specify for the transformation
-        - vec_implementation_ramp: optional vector specifying the implementation
-            scalar ramp for the transformation. If None, defaults to a uniform 
-            ramp that starts at the time specified in the configuration.
         """
         # check input dataframe
         df_input = (
@@ -1154,13 +1037,6 @@ class TransformationsCircularEconomy:
             if not isinstance(df_input, pd.DataFrame) 
             else df_input
         )
-
-        # check implementation ramp
-        vec_implementation_ramp = self.check_implementation_ramp(
-            vec_implementation_ramp,
-            df_input,
-        )
-
 
         # get categories and dictionary to specify parameters (move to config eventually)
         df_out = tbc.transformation_wali_improve_sanitation(
@@ -1172,7 +1048,7 @@ class TransformationsCircularEconomy:
                 "treated_secondary_aerobic": 0.2,
                 "treated_secondary_anaerobic": 0.2,
             },
-            vec_implementation_ramp,
+            self.vec_implementation_ramp,
             self.model_attributes,
             field_region = self.key_region,
             model_circecon = self.model_circecon,
@@ -1190,22 +1066,10 @@ class TransformationsCircularEconomy:
     def transformation_waso_decrease_food_waste(self,
         df_input: Union[pd.DataFrame, None] = None,
         strat: Union[int, None] = None,
-        vec_implementation_ramp: Union[np.ndarray, None] = None,
     ) -> pd.DataFrame:
         """
         Implement the "Decrease Municipal Solid Waste" WASO transformation on 
             input DataFrame df_input
-        
-        Function Arguments
-        ------------------
-
-        Keyword Arguments
-        -----------------
-        - df_input: data frame containing trajectories to modify
-        - strat: optional strategy value to specify for the transformation
-        - vec_implementation_ramp: optional vector specifying the implementation
-            scalar ramp for the transformation. If None, defaults to a uniform 
-            ramp that starts at the time specified in the configuration.
         """
         # check input dataframe
         df_input = (
@@ -1213,13 +1077,6 @@ class TransformationsCircularEconomy:
             if not isinstance(df_input, pd.DataFrame) 
             else df_input
         )
-
-        # check implementation ramp
-        vec_implementation_ramp = self.check_implementation_ramp(
-            vec_implementation_ramp,
-            df_input,
-        )
-
 
         # get categories and dictionary to specify parameters (move to config eventually)
         categories = self.model_attributes.get_attribute_table(self.model_attributes.subsec_name_waso).key_values
@@ -1230,7 +1087,7 @@ class TransformationsCircularEconomy:
         df_out = tbc.transformation_waso_decrease_municipal_waste(
             df_input,
             dict_specify,
-            vec_implementation_ramp,
+            self.vec_implementation_ramp,
             self.model_attributes,
             field_region = self.key_region,
             model_circecon = self.model_circecon,
@@ -1244,22 +1101,10 @@ class TransformationsCircularEconomy:
     def transformation_waso_increase_anaerobic_treatment_and_composting(self,
         df_input: Union[pd.DataFrame, None] = None,
         strat: Union[int, None] = None,
-        vec_implementation_ramp: Union[np.ndarray, None] = None,
     ) -> pd.DataFrame:
         """
         Implement the "Increase Anaerobic Treatment and Composting" WASO 
             transformation on input DataFrame df_input
-        
-        Function Arguments
-        ------------------
-
-        Keyword Arguments
-        -----------------
-        - df_input: data frame containing trajectories to modify
-        - strat: optional strategy value to specify for the transformation
-        - vec_implementation_ramp: optional vector specifying the implementation
-            scalar ramp for the transformation. If None, defaults to a uniform 
-            ramp that starts at the time specified in the configuration.
         """
         # check input dataframe
         df_input = (
@@ -1268,18 +1113,11 @@ class TransformationsCircularEconomy:
             else df_input
         )
 
-        # check implementation ramp
-        vec_implementation_ramp = self.check_implementation_ramp(
-            vec_implementation_ramp,
-            df_input,
-        )
-
-
         df_out = tbc.transformation_waso_increase_anaerobic_treatment_and_composting(
             df_input,
             0.475,
             0.475,
-            vec_implementation_ramp,
+            self.vec_implementation_ramp,
             self.model_attributes,
             field_region = self.key_region,
             model_circecon = self.model_circecon,
@@ -1293,22 +1131,10 @@ class TransformationsCircularEconomy:
     def transformation_waso_increase_biogas_capture(self,
         df_input: Union[pd.DataFrame, None] = None,
         strat: Union[int, None] = None,
-        vec_implementation_ramp: Union[np.ndarray, None] = None,
     ) -> pd.DataFrame:
         """
         Implement the "Increase Biogas Capture at Anaerobic Treatment Facilities
             and Landfills" WASO transformation on input DataFrame df_input
-        
-        Function Arguments
-        ------------------
-
-        Keyword Arguments
-        -----------------
-        - df_input: data frame containing trajectories to modify
-        - strat: optional strategy value to specify for the transformation
-        - vec_implementation_ramp: optional vector specifying the implementation
-            scalar ramp for the transformation. If None, defaults to a uniform 
-            ramp that starts at the time specified in the configuration.
         """
         # check input dataframe
         df_input = (
@@ -1317,17 +1143,10 @@ class TransformationsCircularEconomy:
             else df_input
         )
 
-        # check implementation ramp
-        vec_implementation_ramp = self.check_implementation_ramp(
-            vec_implementation_ramp,
-            df_input,
-        )
-
-
         df_out = tbc.transformation_waso_increase_gas_capture(
             df_input,
             1.0, # as float, applies to both landfill and biogas; specify as dict to break out # CHANGEDFORINDIA 0.85
-            vec_implementation_ramp,
+            self.vec_implementation_ramp,
             self.model_attributes,
             field_region = self.key_region,
             model_circecon = self.model_circecon,
@@ -1341,22 +1160,10 @@ class TransformationsCircularEconomy:
     def transformation_waso_increase_energy_from_biogas(self,
         df_input: Union[pd.DataFrame, None] = None,
         strat: Union[int, None] = None,
-        vec_implementation_ramp: Union[np.ndarray, None] = None,
     ) -> pd.DataFrame:
         """
         Implement the "Energy from Captured Biogas" WASO transformation on input 
             DataFrame df_input
-        
-        Function Arguments
-        ------------------
-
-        Keyword Arguments
-        -----------------
-        - df_input: data frame containing trajectories to modify
-        - strat: optional strategy value to specify for the transformation
-        - vec_implementation_ramp: optional vector specifying the implementation
-            scalar ramp for the transformation. If None, defaults to a uniform 
-            ramp that starts at the time specified in the configuration.
         """
         # check input dataframe
         df_input = (
@@ -1365,17 +1172,10 @@ class TransformationsCircularEconomy:
             else df_input
         )
 
-        # check implementation ramp
-        vec_implementation_ramp = self.check_implementation_ramp(
-            vec_implementation_ramp,
-            df_input,
-        )
-
-
         df_out = tbc.transformation_waso_increase_energy_from_biogas(
             df_input,
             0.85,
-            vec_implementation_ramp,
+            self.vec_implementation_ramp,
             self.model_attributes,
             field_region = self.key_region,
             model_circecon = self.model_circecon,
@@ -1389,22 +1189,10 @@ class TransformationsCircularEconomy:
     def transformation_waso_increase_energy_from_incineration(self,
         df_input: Union[pd.DataFrame, None] = None,
         strat: Union[int, None] = None,
-        vec_implementation_ramp: Union[np.ndarray, None] = None,s
     ) -> pd.DataFrame:
         """
         Implement the "Energy from Solid Waste Incineration" WASO transformation 
             on input DataFrame df_input
-        
-        Function Arguments
-        ------------------
-
-        Keyword Arguments
-        -----------------
-        - df_input: data frame containing trajectories to modify
-        - strat: optional strategy value to specify for the transformation
-        - vec_implementation_ramp: optional vector specifying the implementation
-            scalar ramp for the transformation. If None, defaults to a uniform 
-            ramp that starts at the time specified in the configuration.
         """
         # check input dataframe
         df_input = (
@@ -1413,17 +1201,10 @@ class TransformationsCircularEconomy:
             else df_input
         )
 
-        # check implementation ramp
-        vec_implementation_ramp = self.check_implementation_ramp(
-            vec_implementation_ramp,
-            df_input,
-        )
-
-
         df_out = tbc.transformation_waso_increase_energy_from_incineration(
             df_input,
             0.85,
-            vec_implementation_ramp,
+            self.vec_implementation_ramp,
             self.model_attributes,
             field_region = self.key_region,
             model_circecon = self.model_circecon,
@@ -1437,22 +1218,10 @@ class TransformationsCircularEconomy:
     def transformation_waso_increase_landfilling(self,
         df_input: Union[pd.DataFrame, None] = None,
         strat: Union[int, None] = None,
-        vec_implementation_ramp: Union[np.ndarray, None] = None,
     ) -> pd.DataFrame:
         """
         Implement the "Increase Landfilling" WASO transformation on input 
             DataFrame df_input
-        
-        Function Arguments
-        ------------------
-
-        Keyword Arguments
-        -----------------
-        - df_input: data frame containing trajectories to modify
-        - strat: optional strategy value to specify for the transformation
-        - vec_implementation_ramp: optional vector specifying the implementation
-            scalar ramp for the transformation. If None, defaults to a uniform 
-            ramp that starts at the time specified in the configuration.
         """
         # check input dataframe
         df_input = (
@@ -1461,17 +1230,10 @@ class TransformationsCircularEconomy:
             else df_input
         )
 
-        # check implementation ramp
-        vec_implementation_ramp = self.check_implementation_ramp(
-            vec_implementation_ramp,
-            df_input,
-        )
-
-
         df_out = tbc.transformation_waso_increase_landfilling(
             df_input,
             1.0,
-            vec_implementation_ramp,
+            self.vec_implementation_ramp,
             self.model_attributes,
             field_region = self.key_region,
             model_circecon = self.model_circecon,
@@ -1485,22 +1247,10 @@ class TransformationsCircularEconomy:
     def transformation_waso_increase_recycling(self,
         df_input: Union[pd.DataFrame, None] = None,
         strat: Union[int, None] = None,
-        vec_implementation_ramp: Union[np.ndarray, None] = None,
     ) -> pd.DataFrame:
         """
         Implement the "Increase Recycling" WASO transformation on input 
             DataFrame df_input
-
-        Function Arguments
-        ------------------
-
-        Keyword Arguments
-        -----------------
-        - df_input: data frame containing trajectories to modify
-        - strat: optional strategy value to specify for the transformation
-        - vec_implementation_ramp: optional vector specifying the implementation
-            scalar ramp for the transformation. If None, defaults to a uniform 
-            ramp that starts at the time specified in the configuration.
         """
         # check input dataframe
         df_input = (
@@ -1509,17 +1259,10 @@ class TransformationsCircularEconomy:
             else df_input
         )
 
-        # check implementation ramp
-        vec_implementation_ramp = self.check_implementation_ramp(
-            vec_implementation_ramp,
-            df_input,
-        )
-
-
         df_out = tbc.transformation_waso_increase_recycling(
             df_input,
             0.95,
-            vec_implementation_ramp,
+            self.vec_implementation_ramp,
             self.model_attributes,
             field_region = self.key_region,
             model_circecon = self.model_circecon,

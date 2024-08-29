@@ -1,25 +1,29 @@
-from sisepuede.core.attribute_table import AttributeTable
-import define_transformations_afolu as dta
-import define_transformations_circular_economy as dtc
-import define_transformations_energy as dte
-import define_transformations_ippu as dti
-import sisepuede.data_management.ingestion as ing
+
 import logging
-import sisepuede.core.model_attributes as ma
-import sisepuede.models.ippu as mi
 import numpy as np
 import os, os.path
 import pandas as pd
-import setup_analysis as sa
 import shutil
-import sisepuede.manager.sisepuede_file_structure as sfs
-import sisepuede.core.support_classes as sc
-import sisepuede.utilities.support_functions as sf
 import time
-import transformations_base_general as tbg
-import transformations_base_cross_sector as tbc
 from typing import *
-import warnings
+
+
+from sisepuede.core.attribute_table import AttributeTable
+import sisepuede.core.model_attributes as ma
+import sisepuede.core.support_classes as sc
+import sisepuede.data_management.ingestion as ing
+import sisepuede.legacy.define_transformations_afolu as dta
+import sisepuede.legacy.define_transformations_circular_economy as dtc
+import sisepuede.legacy.define_transformations_energy as dte
+import sisepuede.legacy.define_transformations_ippu as dti
+#import sisepuede.legacy.transformations_base_general as tbg
+#import sisepuede.legacy.transformations_base_cross_sector as tbc
+import sisepuede.manager.sisepuede_file_structure as sfs
+import sisepuede.models.ippu as mi
+import sisepuede.transformers.lib.cross_sector as tbc
+import sisepuede.transformers.lib.general as tbg
+import sisepuede.utilities.support_functions as sf
+
 
 
 
