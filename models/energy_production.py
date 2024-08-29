@@ -66,18 +66,17 @@ class EnergyProduction:
 
     Requirements
     ------------
-    - Julia 1.7+
-    - Python PyJulia package
-    - NemoMod (see https://sei-international.github.io/NemoMod.jl/stable/ for 
-        the latest stable release)
+    - Julia 1.10+ (autoinstalled by juliapkg if not included, managed by 
+        juliacall)
+    - NemoMod (2.0+, managed by juliapkg)
     - At least one of the following solver packages (^ denotes open source):
-        * Cbc^
-        * Clp^
+        * Cbc^ (included in default)
+        * Clp^ (included in default)
         * CPLEX
         * GAMS (to access GAMS solvers)
-        * GPLK^
+        * GPLK^ (included in default)
         * Gurobi
-        * HiGHS^ (at least one)
+        * HiGHS^ (included in default)
     """
 
     def __init__(self,
