@@ -6,7 +6,7 @@ import re
 from typing import *
 
 
-from sispsuede.core.analysis_id import AnalysisID
+from sisepuede.core.analysis_id import AnalysisID
 from sisepuede.core.model_attributes import ModelAttributes
 from sisepuede.models.energy_production import ElectricEnergy
 import sisepuede.utilities.support_functions as sf
@@ -148,16 +148,16 @@ class SISEPUEDEFileStructure:
 			* self.dir_attribute_tables
 			* self.dir_docs
 			* self.dir_jl
+			* self.dir_manager
 			* self.dir_proj
-			* self.dir_py
 			* self.dir_ref
 			* self.dir_ref_nemo
 			* self.fp_config
 		"""
 
 		# initialize base paths
-		self.dir_py = os.path.dirname(os.path.realpath(__file__))
-		self.dir_proj = os.path.dirname(self.dir_py)
+		self.dir_manager = os.path.dirname(os.path.realpath(__file__))
+		self.dir_proj = os.path.dirname(self.dir_manager)
 
 		# initialize error message
 		count_errors = 0
@@ -173,7 +173,12 @@ class SISEPUEDEFileStructure:
 
 
 		# check docs path
-		self.dir_docs = os.path.join(os.path.dirname(self.dir_py), "docs", "source") if (self.dir_py is not None) else ""
+		self.dir_docs = (
+			os.path.join(os.path.dirname(self.dir_manager), "docs", "source") 
+			if (self.dir_manager is not None) 
+			else ""
+		)
+
 		if not os.path.exists(self.dir_docs):
 			count_errors += 1
 			msg_error_dirs += f"\n\tDocs subdirectory '{self.dir_docs}' not found"
@@ -282,6 +287,7 @@ class SISEPUEDEFileStructure:
 		# output and temporary directories (can be created)
 		self.dir_out = None
 		self.dir_tmp = None
+
 		if self.dir_proj is not None:
 			self.dir_out = sf.check_path(
 				os.path.join(self.dir_proj, "out"), 
@@ -299,6 +305,7 @@ class SISEPUEDEFileStructure:
 		# batch data directories (not required to run SISEPUEDE, but required for Data Generation notebooks and routines)
 		self.dir_ref_batch_data = None
 		self.dir_ref_data_crosswalks = None
+
 		if self.dir_ref is not None:
 			self.dir_ref_batch_data = sf.check_path(
 				os.path.join(self.dir_ref, "batch_data_generation"), 
