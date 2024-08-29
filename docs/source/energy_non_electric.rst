@@ -161,7 +161,7 @@ Transportation consists of different categories (or modes) of transportation tha
 Known Issues
 ------------
 
-**Discuss how variables that are set in Transportation have to be added to the NonElectricEnergy class as well**
+**Discuss how variables that are set in Transportation have to be added to the EnergyConsumption class as well**
 
 
 Categories

@@ -69,7 +69,7 @@ class TransformationsEnergy:
         support modules
     - fp_nemomod_reference_files: directory housing reference files called by
 		NemoMod when running electricity model. Required to access data in 
-        ElectricEnergy. Needs the following CSVs:
+        EnergyProduction. Needs the following CSVs:
 
         * Required keys or CSVs (without extension):
             (1) CapacityFactor
@@ -84,7 +84,7 @@ class TransformationsEnergy:
         * If None, defaults to a temporary path sql database
     - logger: optional logger object
     - model_afolu: optional AFOLU object to pass for property and method access
-    - model_electricity: optional ElectricEnergy object to pass for property and
+    - model_electricity: optional EnergyProduction object to pass for property and
         method access
         * NOTE: If passing, `dir_jl` and `fp_nemomod_reference_files` are 
             ignored (can pass None to those arguments if passing 
@@ -101,7 +101,7 @@ class TransformationsEnergy:
 		fp_nemomod_temp_sqlite_db: Union[str, None] = None,
 		logger: Union[logging.Logger, None] = None,
         model_afolu: Union[mafl.AFOLU, None] = None,
-        model_electricity: Union[ml.ElectricEnergy, None] = None,
+        model_electricity: Union[ml.EnergyProduction, None] = None,
     ):
 
         self.logger = logger
@@ -592,7 +592,7 @@ class TransformationsEnergy:
         dir_jl: str,
         fp_nemomod_reference_files: str,
         model_afolu: Union[mafl.AFOLU, None] = None,
-        model_electricity: Union[ml.ElectricEnergy, None] = None,
+        model_electricity: Union[ml.EnergyProduction, None] = None,
     ) -> None:
         """
         Define model objects for use in variable access and base estimates.
@@ -603,7 +603,7 @@ class TransformationsEnergy:
         support modules
         - fp_nemomod_reference_files: directory housing reference files called 
             by NemoMod when running electricity model. Required to access data 
-            in ElectricEnergy. Needs the following CSVs:
+            in EnergyProduction. Needs the following CSVs:
 
             * Required keys or CSVs (without extension):
                 (1) CapacityFactor
@@ -616,7 +616,7 @@ class TransformationsEnergy:
             * NOTE: if passing, ensure that the ModelAttributes objects used to 
                 instantiate the model + what is passed to the model_attributes 
                 argument are the same.
-        - model_electricity: optional ElectricEnergy object to pass for property 
+        - model_electricity: optional EnergyProduction object to pass for property 
             and method access
             * NOTE: If passing, `dir_jl` and `fp_nemomod_reference_files` are 
                 ignored (can pass None to those arguments if passing 
@@ -633,7 +633,7 @@ class TransformationsEnergy:
         )
 
         model_electricity = (
-            ml.ElectricEnergy(
+            ml.EnergyProduction(
                 self.model_attributes, 
                 dir_jl,
                 fp_nemomod_reference_files,
@@ -2159,7 +2159,7 @@ class TransformationsEnergy:
             TotalTechnologyAnnualActivityLowerLimit if MinShareProduction is 
             Specified. 
 
-        This transformation will turn on the MSP Max method in ElectricEnergy,
+        This transformation will turn on the MSP Max method in EnergyProduction,
             which will cap electric production (for a given technology) at the 
             value estimated for the last non-engaged time period. 
             

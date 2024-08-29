@@ -16,7 +16,7 @@ from sisepuede.core.attribute_table import AttributeTable
 from sisepuede.core.model_attributes import *
 from sisepuede.models.afolu import AFOLU
 from sisepuede.models.circular_economy import CircularEconomy
-from sisepuede.models.energy_consumption import NonElectricEnergy
+from sisepuede.models.energy_consumption import EnergyConsumption
 from sisepuede.models.socioeconomic import Socioeconomic
 import sisepuede.utilities.sql_utilities as sqlutil
 import sisepuede.utilities.support_functions as sf
@@ -30,14 +30,14 @@ import sisepuede.utilities.support_functions as sf
 ###                     ###
 ###########################
 
-class ElectricEnergy:
+class EnergyProduction:
     """
-    Use ElectricEnergy to calculate emissions from electricity generation and 
+    Use EnergyProduction to calculate emissions from electricity generation and 
         fuel production--including coal mining, hydrogen production, natural gas
         processing, and petroleum refinement--using NemoMod. Integrates with the 
         SISEPUEDE integrated modeling framework.
 
-    For more information on the ElectricEnergy class, see the SISEPUEDE 
+    For more information on the EnergyProduction class, see the SISEPUEDE 
         readthedocs at
 
         https://sisepuede.readthedocs.io/en/latest/energy_electric.html
@@ -58,7 +58,7 @@ class ElectricEnergy:
     ------------------
     - initialize_julia: initialize the Julia connection? Required to run the 
         model.
-        * Set to False to access ElectricEnergy properties without initializing
+        * Set to False to access EnergyProduction properties without initializing
             the connection to Julia.
     - logger: optional logger object to use for event logging
     - solver_time_limit: run-time limit for solver in seconds. If None, defaults
@@ -561,7 +561,7 @@ class ElectricEnergy:
         
         self.model_afolu = AFOLU(self.model_attributes)
         self.model_circecon = CircularEconomy(self.model_attributes)
-        self.model_energy = NonElectricEnergy(self.model_attributes)
+        self.model_energy = EnergyConsumption(self.model_attributes)
         self.model_socioeconomic = Socioeconomic(self.model_attributes)
 
         return None
@@ -729,7 +729,7 @@ class ElectricEnergy:
 
             if not set_tables_required.issubset(set_tables_available):
                 set_missing = sf.print_setdiff(set_tables_required, set_tables_available)
-                raise RuntimeError(f"Initialization error in ElectricEnergy: required reference tables {set_missing} not found in {dir_nemomod_ref}.")
+                raise RuntimeError(f"Initialization error in EnergyProduction: required reference tables {set_missing} not found in {dir_nemomod_ref}.")
            
             # read in files
             for fbn in list(set_tables_required):
@@ -755,7 +755,7 @@ class ElectricEnergy:
 
                 df_filt = dict_out[k][dict_out[k][self.field_nemomod_region].isin(attr_region.key_values)]
                 if len(df_filt) == 0:
-                    raise RuntimeError(f"Error in ElectricEnergy._initialize_nemomod_reference_dict: no valid regions found in table {k}.")
+                    raise RuntimeError(f"Error in EnergyProduction._initialize_nemomod_reference_dict: no valid regions found in table {k}.")
 
                 if filter_regions_to_config:
                     regions_config = self.model_attributes.configuration.get("region")
@@ -766,7 +766,7 @@ class ElectricEnergy:
                     check_regions = (len(set(df_filt[self.field_nemomod_region])) == len(set(regions_config)))
                     if not check_regions:
                         missing_vals = sf.print_setdiff(set(regions_config), set(df_filt[self.field_nemomod_region]))
-                        raise RuntimeError(f"Initialization error in ElectricEnergy: field {self.field_nemomod_region} in table {k} is missing regions {missing_vals}.")
+                        raise RuntimeError(f"Initialization error in EnergyProduction: field {self.field_nemomod_region} in table {k} is missing regions {missing_vals}.")
 
                 dict_out.update({k: df_filt})
 
@@ -778,7 +778,7 @@ class ElectricEnergy:
 
                 if len(set(df_filt[self.field_nemomod_time_slice])) != len(attr_time_slice.key_values):
                     missing_vals = sf.print_setdiff(set(attr_time_slice.key_values), set(df_filt[self.field_nemomod_time_slice]))
-                    raise RuntimeError(f"Initialization error in ElectricEnergy: field {self.field_nemomod_time_slice} in table {k} is missing time_slices {missing_vals} .")
+                    raise RuntimeError(f"Initialization error in EnergyProduction: field {self.field_nemomod_time_slice} in table {k} is missing time_slices {missing_vals} .")
 
         # check fields in AvailabilityFactor
         sf.check_set_values(
@@ -1408,11 +1408,11 @@ class ElectricEnergy:
         - outer_prod: product against all years
         - restriction_years: subset of years to restrict addition to
         - time_period_as_year: If True, enter the time period as the year. If 
-            None, default to ElectricEnergy.nemomod_time_period_as_year
+            None, default to EnergyProduction.nemomod_time_period_as_year
         - override_time_period_transformation: In some cases, time periods 
             transformations can be applied multiple times from default 
             functions. Set override_time_period_transformation = True to remove 
-            the application of ElectricEnergy.transform_field_year_nemomod()
+            the application of EnergyProduction.transform_field_year_nemomod()
         """
 
         time_period_as_year = (
@@ -1478,8 +1478,8 @@ class ElectricEnergy:
             transformation step to prevent applying it twice
         - regions: regions to pass to add_index_field_region
         - time_period_as_year: enter values in field 
-            ElectricEnergy.field_nemomod_year as time periods? If None, default 
-            to ElectricEnergy.nemomod_time_period_as_year
+            EnergyProduction.field_nemomod_year as time periods? If None, default 
+            to EnergyProduction.nemomod_time_period_as_year
         """
 
         time_period_as_year = (
@@ -1572,12 +1572,12 @@ class ElectricEnergy:
         - dict_enfu_subsectors_to_energy_variables: dictionary mapping 
             subsectors to associated energy demand variables in ENFU (under key
             energy demand). See 
-            ElectricEnergy.dict_enfu_subsectors_to_energy_variables (default if
+            EnergyProduction.dict_enfu_subsectors_to_energy_variables (default if
             None) for structural example.
         - dict_entc_subsectors_to_emission_variables: dictionary mapping 
             subsectors to associated emission variables in ENTC (under key
             energy demand). See 
-            ElectricEnergy.dict_entc_subsectors_to_emission_variables (default
+            EnergyProduction.dict_entc_subsectors_to_emission_variables (default
             if None) for structural example.
         - modvar_entc_nemomod_emissions_export_ch4: model variable denoting 
             CH4 emissions attributable to exports.
@@ -2249,7 +2249,7 @@ class ElectricEnergy:
             table pulled from NemoMod database
         - vector_reference_time_period: reference time periods to use in 
             merge--e.g., 
-            df_elec_trajectories[ElectricEnergy.model_attributes.dim_time_period]
+            df_elec_trajectories[EnergyProduction.model_attributes.dim_time_period]
 
         Keyword Arguments
         -----------------
@@ -2352,7 +2352,7 @@ class ElectricEnergy:
             * UNITS: NEMO MOD UNITS (may need to adjust)
         - vector_reference_time_period: reference time periods to use in 
             merge--e.g., 
-            df_elec_trajectories[ElectricEnergy.model_attributes.dim_time_period]
+            df_elec_trajectories[EnergyProduction.model_attributes.dim_time_period]
 
         Keyword Arguments
         -----------------
@@ -2867,7 +2867,7 @@ class ElectricEnergy:
         - drop_flag: optional specification of a drop flag used to indicate 
             rows/variables for which the MSP Max Production constraint is not 
             applicable (see 
-            ElectricEnergy.get_entc_maxprod_increase_adjusted_msp for more 
+            EnergyProduction.get_entc_maxprod_increase_adjusted_msp for more 
             info). Defaults to self.drop_flag_tech_capacities if None.
         - modvar_maxprod_msp_increase: SISEPUEDE model variable storing the 
             maximum production increase (as a fraction of estimated last period
@@ -4603,7 +4603,7 @@ class ElectricEnergy:
         Keyword Arguments
         -----------------
         - time_period_as_year: enter years as time periods? If None, default to 
-            ElectricEnergy.nemomod_time_period_as_year
+            EnergyProduction.nemomod_time_period_as_year
         * Based off of values defined in the attribute_time_period.csv attribute 
             table
         """
@@ -5869,7 +5869,7 @@ class ElectricEnergy:
             MinShareProductions
         - modvar_import_fraction: SISEPUEDE model variable giving the import 
             fraction. If None, default to 
-            NonElectricEnergy.modvar_enfu_frac_fuel_demand_imported
+            EnergyConsumption.modvar_enfu_frac_fuel_demand_imported
         - regions: regions to specify. If None, defaults to configuration 
             regions
         - tuple_enfu_production_and_demands: optional tuple of energy fuel 
@@ -6835,7 +6835,7 @@ class ElectricEnergy:
 
         NOTE: Only should be used with integration technologies, not those that 
             are the results of adjustments to MSP (see 
-            ElectricEnergy.get_entc_maxprod_increase_adjusted_msp). 
+            EnergyProduction.get_entc_maxprod_increase_adjusted_msp). 
 
         Returns np.ndarray (vector) of TotalTechnologyAnnualActivityLowerLimit
             as a fraction of non-fuel production energy demands. Note that this 
@@ -7883,7 +7883,7 @@ class ElectricEnergy:
         - drop_flag: optional specification of a drop flag used to indicate 
             rows/variables for which the MSP Max Production constraint is not 
             applicable (see 
-            ElectricEnergy.get_entc_maxprod_increase_adjusted_msp for more 
+            EnergyProduction.get_entc_maxprod_increase_adjusted_msp for more 
             info). Defaults to self.drop_flag_tech_capacities if None.
         - regions: regions to specify. If None, defaults to configuration 
             regions
@@ -7984,7 +7984,7 @@ class ElectricEnergy:
         - drop_flag: optional specification of a drop flag used to indicate 
             rows/variables for which the MSP Max Production constraint is not 
             applicable (see 
-            ElectricEnergy.get_entc_maxprod_increase_adjusted_msp for more 
+            EnergyProduction.get_entc_maxprod_increase_adjusted_msp for more 
             info). Defaults to self.drop_flag_tech_capacities if None.
         - regions: regions to specify. If None, defaults to configuration 
             regions
@@ -8064,7 +8064,7 @@ class ElectricEnergy:
             adjusting for the implementation of the Max Production Inrease from
             MinShareProduction. 
 
-        NOTE: this table is called elsewhere in ElectricEnergy 
+        NOTE: this table is called elsewhere in EnergyProduction 
         
         In SISEPUEDE, this table is used in conjunction with 
             TotalTechnologyAnnualActivityUpperLimit to pass biogas and waste
@@ -8208,7 +8208,7 @@ class ElectricEnergy:
             adjusting for the implementation of the Max Production Inrease from
             MinShareProduction. 
 
-        NOTE: this table is called elsewhere in ElectricEnergy 
+        NOTE: this table is called elsewhere in EnergyProduction 
 
         In SISEPUEDE, this table is used in conjunction with 
             TotalTechnologyAnnualActivityUpperLimit to pass biogas and waste
@@ -8383,7 +8383,7 @@ class ElectricEnergy:
         - drop_flag: optional specification of a drop flag used to indicate 
             rows/variables for which the MSP Max Production constraint is not 
             applicable (see 
-            ElectricEnergy.get_entc_maxprod_increase_adjusted_msp for more 
+            EnergyProduction.get_entc_maxprod_increase_adjusted_msp for more 
             info). Defaults to self.drop_flag_tech_capacities if None.
         - key_ttal: key in dict_ttal that includes maps to the table to modify.
             If None, calls first key available (will not present any issues if 
@@ -8523,14 +8523,14 @@ class ElectricEnergy:
         Keyword Arguments
         ------------------
         - field_index: index field to preserve. If None, defaults to 
-            ElectricEnergy.field_nemomod_year
+            EnergyProduction.field_nemomod_year
         - field_values: field containing values. If None, defaults to 
-            ElectricEnergy.field_nemomod_value
+            EnergyProduction.field_nemomod_value
         - attribute_time_period: AttributeTable containing the time periods. If
              None, use ModelAttributes default.
         - field_year: field in attribute_time_period containing the year
         - time_period_as_year: are years time periods? If None, default to 
-            ElectricEnergy.nemomod_time_period_as_year
+            EnergyProduction.nemomod_time_period_as_year
         """
 
         field_index = self.field_nemomod_year if (field_index is None) else field_index
@@ -8592,7 +8592,7 @@ class ElectricEnergy:
         - engine: SQLalchemy Engine used to retrieve this table
         - vector_reference_time_period: reference time periods to use in 
             merge--e.g., 
-            df_elec_trajectories[ElectricEnergy.model_attributes.dim_time_period]
+            df_elec_trajectories[EnergyProduction.model_attributes.dim_time_period]
 
         Keyword Arguments
         -----------------
@@ -8638,7 +8638,7 @@ class ElectricEnergy:
         - engine: SQLalchemy Engine used to retrieve this table
         - vector_reference_time_period: reference time periods to use in 
             merge--e.g., 
-            df_elec_trajectories[ElectricEnergy.model_attributes.dim_time_period]
+            df_elec_trajectories[EnergyProduction.model_attributes.dim_time_period]
 
         Keyword Arguments
         -----------------
@@ -8683,7 +8683,7 @@ class ElectricEnergy:
         - engine: SQLalchemy Engine used to retrieve this table
         - vector_reference_time_period: reference time periods to use in 
             merge--e.g., 
-            df_elec_trajectories[ElectricEnergy.model_attributes.dim_time_period]
+            df_elec_trajectories[EnergyProduction.model_attributes.dim_time_period]
 
         Keyword Arguments
         -----------------
@@ -8723,7 +8723,7 @@ class ElectricEnergy:
         - engine: SQLalchemy Engine used to retrieve this table
         - vector_reference_time_period: reference time periods to use in 
             merge--e.g., 
-            df_elec_trajectories[ElectricEnergy.model_attributes.dim_time_period]
+            df_elec_trajectories[EnergyProduction.model_attributes.dim_time_period]
 
         Keyword Arguments
         -----------------
@@ -8763,7 +8763,7 @@ class ElectricEnergy:
         - engine: SQLalchemy Engine used to retrieve this table
         - vector_reference_time_period: reference time periods to use in 
             merge--e.g., 
-            df_elec_trajectories[ElectricEnergy.model_attributes.dim_time_period]
+            df_elec_trajectories[EnergyProduction.model_attributes.dim_time_period]
 
         Keyword Arguments
         -----------------
@@ -8839,8 +8839,8 @@ class ElectricEnergy:
             associated with model variables
 
                 (
-                    ElectricEnergy.modvar_enfu_energy_demand_by_fuel_entc, 
-                    ElectricEnergy.modvar_enfu_imports_fuel
+                    EnergyProduction.modvar_enfu_energy_demand_by_fuel_entc, 
+                    EnergyProduction.modvar_enfu_imports_fuel
                 )
 
 
@@ -8849,7 +8849,7 @@ class ElectricEnergy:
         - engine: SQLalchemy Engine used to retrieve this table
         - vector_reference_time_period: reference time periods to use in merge--
             e.g., 
-            df_elec_trajectories[ElectricEnergy.model_attributes.dim_time_period]
+            df_elec_trajectories[EnergyProduction.model_attributes.dim_time_period]
 
         Keyword Arguments
         -----------------
@@ -9023,7 +9023,7 @@ class ElectricEnergy:
         - engine: SQLalchemy Engine used to retrieve this table
         - vector_reference_time_period: reference time periods to use in 
             merge--e.g., 
-            df_elec_trajectories[ElectricEnergy.model_attributes.dim_time_period]
+            df_elec_trajectories[EnergyProduction.model_attributes.dim_time_period]
 
         Keyword Arguments
         -----------------
@@ -9069,9 +9069,9 @@ class ElectricEnergy:
         - engine: SQLalchemy Engine used to retrieve this table
         - vector_reference_time_period: reference time periods to use in 
             merge--e.g., 
-            df_elec_trajectories[ElectricEnergy.model_attributes.dim_time_period]
+            df_elec_trajectories[EnergyProduction.model_attributes.dim_time_period]
         - df_elec_trajectories: data frame containing trajectories of input
-            variables to SISEPUEDE for NonElectricEnergy. 
+            variables to SISEPUEDE for EnergyConsumption. 
             * NOTE: required for extracting transmission losses total fuel use
                 costs
 
@@ -9343,7 +9343,7 @@ class ElectricEnergy:
         - table_name: name in the database of the table to retrieve
         - vector_reference_time_period: reference time periods to use in merge--
             e.g., 
-            df_elec_trajectories[ElectricEnergy.model_attributes.dim_time_period]
+            df_elec_trajectories[EnergyProduction.model_attributes.dim_time_period]
 
         Keyword Arguments
         -----------------
@@ -9986,7 +9986,7 @@ class ElectricEnergy:
 
         """
         Project electricity emissions and costs using NemoMod. Primary method of 
-            ElectricEnergy.
+            EnergyProduction.
 
         Function Arguments
         ------------------
@@ -10001,7 +10001,7 @@ class ElectricEnergy:
             batch, a single engine is created and called multiple times)
         - dict_ref_tables: dictionary of reference tables required to prepare 
             data for NemoMod. If None, use 
-            ElectricEnergy.dict_nemomod_reference_tables (initialization data)
+            EnergyProduction.dict_nemomod_reference_tables (initialization data)
         - missing_vals_on_error: if a data frame is returned on an error, fill 
             with this value
         - regions: list of regions or str defining region to run. If None, 
@@ -10059,7 +10059,7 @@ class ElectricEnergy:
         # check engine/fp_database
         str_prepend_sqlite = "sqlite:///"
         if (engine is None) and (fp_database is None):
-            raise RuntimeError(f"Error in ElectricEnergy.project(): either 'engine' or 'fp_database' must be specified.")
+            raise RuntimeError(f"Error in EnergyProduction.project(): either 'engine' or 'fp_database' must be specified.")
         elif (fp_database is None):
             fp_database = str(engine.url).replace(str_prepend_sqlite, "")
 
@@ -10137,7 +10137,7 @@ class ElectricEnergy:
         except Exception as e:
             # LOG THE ERROR HERE
             self._log(
-                f"Error in ElectricEnergy when trying to run NemoMod: {e}", 
+                f"Error in EnergyProduction when trying to run NemoMod: {e}", 
                 type_log = "error",
             )
             result = None

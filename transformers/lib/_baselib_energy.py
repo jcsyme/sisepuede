@@ -27,7 +27,7 @@ import sisepuede.utilities.support_functions as sf
 
 def get_renewable_categories_from_inputs_final_tp(
     df_input: pd.DataFrame,
-    model_electricity: ml.ElectricEnergy,
+    model_electricity: ml.EnergyProduction,
 ) -> Union[Dict[str, float], None]:
     """
     Get renewable categories from the input DataFrame. Returns a
@@ -94,7 +94,7 @@ def transformation_ccsq_increase_direct_air_capture(
     magnitude: float,
     vec_ramp: np.ndarray,
     model_attributes: ma.ModelAttributes,
-    model_energy: Union[me.NonElectricEnergy, None] = None,
+    model_energy: Union[me.EnergyConsumption, None] = None,
     **kwargs
 ) -> pd.DataFrame:
     """
@@ -111,7 +111,7 @@ def transformation_ccsq_increase_direct_air_capture(
     Keyword Arguments
     -----------------
     - field_region: field in df_input that specifies the region
-    - model_energy: optional NonElectricEnergy object to pass for variable 
+    - model_energy: optional EnergyConsumption object to pass for variable 
         access
     - regions_apply: optional set of regions to use to define strategy. If None,
         applies to all regions.
@@ -157,7 +157,7 @@ def transformation_ccsq_increase_direct_air_capture(
 def transformation_entc_change_msp_max(
     df_input: pd.DataFrame,
     dict_cat_to_vector: Dict[str, float],
-    model_electricity: ml.ElectricEnergy,
+    model_electricity: ml.EnergyProduction,
     drop_flag: Union[int, float, None] = None,
     vec_ramp: Union[np.ndarray, None] = None,
     **kwargs
@@ -168,7 +168,7 @@ def transformation_entc_change_msp_max(
         TotalTechnologyAnnualActivityLowerLimit if MinShareProduction is 
         Specified. 
 
-    This transformation will turn on the MSP Max method in ElectricEnergy,
+    This transformation will turn on the MSP Max method in EnergyProduction,
         which will cap electric production (for a given technology) at the 
         value estimated for the last non-engaged time period. 
         
@@ -286,7 +286,7 @@ def transformation_entc_hydrogen_electrolysis(
     magnitude: float,
     vec_ramp: np.ndarray,
     model_attributes: ma.ModelAttributes,
-    model_electricity: ml.ElectricEnergy,
+    model_electricity: ml.EnergyProduction,
     cats_to_apply: List[str] = ["fp_hydrogen_electrolysis"],
     cats_response: List[str] = [
         "fp_hydrogen_gasification", 
@@ -303,7 +303,7 @@ def transformation_entc_hydrogen_electrolysis(
     - df_input: input data frame containing baseline trajectories
     - magnitude: magnitude of target value
     - model_attributes: ModelAttributes object used to call strategies/variables
-    - model_electricity: ElectricEnergy model used to define variables
+    - model_electricity: EnergyProduction model used to define variables
     - vec_ramp: implementation ramp vector
 
     Keyword Arguments
@@ -387,7 +387,7 @@ def transformation_entc_increase_efficiency_of_electricity_production(
     magnitude: float,
     vec_ramp: np.ndarray,
     model_attributes: ma.ModelAttributes,
-    model_electricity: ml.ElectricEnergy,
+    model_electricity: ml.EnergyProduction,
     bounds: Tuple = (0, 0.9),
     field_region: str = "nation",
     **kwargs
@@ -401,7 +401,7 @@ def transformation_entc_increase_efficiency_of_electricity_production(
     - magnitude: magnitude of increase to apply, as additive factor, to
         energy technology efficiency factors
     - model_attributes: ModelAttributes object used to call strategies/variables
-    - model_electricity: ElectricEnergy model used to define variables
+    - model_electricity: EnergyProduction model used to define variables
     - vec_ramp: implementation ramp vector
 
     Keyword Arguments
@@ -451,7 +451,7 @@ def transformation_entc_increase_renewables(
     magnitude: float,
     vec_ramp: np.ndarray,
     model_attributes: ma.ModelAttributes,
-    model_electricity: ml.ElectricEnergy,
+    model_electricity: ml.EnergyProduction,
     field_region: str = "nation",
     **kwargs
 ) -> pd.DataFrame:
@@ -465,7 +465,7 @@ def transformation_entc_increase_renewables(
         installed capacity. Entered as a scalar--for example, to double from
         existing (or planned) residual capacity, enter 2.
     - model_attributes: ModelAttributes object used to call strategies/variables
-    - model_electricity: ElectricEnergy model used to define variables
+    - model_electricity: EnergyProduction model used to define variables
     - vec_ramp: implementation ramp vector
 
     Keyword Arguments
@@ -538,7 +538,7 @@ def transformation_entc_least_cost_solution(
     df_input: pd.DataFrame,
     vec_ramp: np.ndarray,
     model_attributes: ma.ModelAttributes,
-    model_electricity: ml.ElectricEnergy,
+    model_electricity: ml.EnergyProduction,
     drop_flag: Union[int, float, None] = None,
     field_region: str = "nation",
     **kwargs
@@ -552,7 +552,7 @@ def transformation_entc_least_cost_solution(
     ------------------
     - df_input: input data frame containing baseline trajectories
     - model_attributes: ModelAttributes object used to call strategies/variables
-    - model_electricity: ElectricEnergy model used to define variables
+    - model_electricity: EnergyProduction model used to define variables
     - vec_ramp: implementation ramp vector
 
     Keyword Arguments
@@ -625,7 +625,7 @@ def transformation_entc_reduce_cost_of_renewables(
     magnitude: float,
     vec_ramp: np.ndarray,
     model_attributes: ma.ModelAttributes,
-    model_electricity: ml.ElectricEnergy,
+    model_electricity: ml.EnergyProduction,
     **kwargs
 ) -> pd.DataFrame:
     """
@@ -637,7 +637,7 @@ def transformation_entc_reduce_cost_of_renewables(
     - magnitude: fractional scalar of reduction applied to final period. For
         example, to reduce costs by 30% by the final time period, enter 0.3
     - model_attributes: ModelAttributes object used to call strategies/variables
-    - model_electricity: ElectricEnergy model used to define variables
+    - model_electricity: EnergyProduction model used to define variables
     - vec_ramp: ramp vec used for implementation
 
     Keyword Arguments
@@ -692,7 +692,7 @@ def transformation_entc_renewable_target(
     df_input: pd.DataFrame,
     magnitude_target: Union[float, str],
     vec_ramp: np.ndarray,
-    model_electricity: ml.ElectricEnergy,
+    model_electricity: ml.EnergyProduction,
     cats_entc_hydrogen: List[str] = [
         "fp_hydrogen_electrolysis",
         "fp_hydrogen_gasification",
@@ -721,7 +721,7 @@ def transformation_entc_renewable_target(
     - magnitude_target: magnitude of target to hit by 2050   OR   optional str 
         "VEC_FIRST_RAMP", which will set the magnitude to the mix of renewable
         capacity at the first time period where VEC_FIRST_RAMP != 0
-    - model_electricity: ElectricEnergy model used to define variables. Also 
+    - model_electricity: EnergyProduction model used to define variables. Also 
         defines the internal model_atrributes variable to preserve logical
         consistency
     - vec_ramp: implementation ramp vector
@@ -1454,7 +1454,7 @@ def transformation_entc_specify_transmission_losses(
     magnitude: float,
     vec_ramp: np.ndarray,
     model_attributes: ma.ModelAttributes,
-    model_electricity: ml.ElectricEnergy,
+    model_electricity: ml.EnergyProduction,
     field_region: str = "nation",
     magnitude_type: str = "final_value",
     min_loss: Union[float, None] = 0.02,
@@ -1470,7 +1470,7 @@ def transformation_entc_specify_transmission_losses(
         * scalar (if `magnitude_type == "basline_scalar"`)
         * final value (if `magnitude_type == "final_value"`)
     - model_attributes: ModelAttributes object used to call strategies/variables
-    - model_electricity: ElectricEnergy model used to define variables
+    - model_electricity: EnergyProduction model used to define variables
     - vec_ramp: ramp vec used for implementation
 
     Keyword Arguments
@@ -1562,7 +1562,7 @@ def transformation_entc_retire_fossil_fuel_early(
     df_input: pd.DataFrame,
     dict_categories_to_vec_ramp: Dict[str, np.ndarray],
     model_attributes: ma.ModelAttributes,
-    model_electricity: ml.ElectricEnergy,
+    model_electricity: ml.EnergyProduction,
     magnitude: float = 0.0,
     **kwargs
 ) -> pd.DataFrame:
@@ -1575,7 +1575,7 @@ def transformation_entc_retire_fossil_fuel_early(
     - dict_categories_to_vec_ramp: dictionary mapping categories to ramp vector
         to use for retirement
     - model_attributes: ModelAttributes object used to call strategies/variables
-    - model_electricity: ElectricEnergy model used to define variables
+    - model_electricity: EnergyProduction model used to define variables
 
     Keyword Arguments
     -----------------
@@ -1626,7 +1626,7 @@ def transformation_fgtv_maximize_flaring(
     magnitude: float,
     vec_ramp: np.ndarray,
     model_attributes: ma.ModelAttributes,
-    model_energy: me.NonElectricEnergy,
+    model_energy: me.EnergyConsumption,
     **kwargs
 ) -> pd.DataFrame:
     """
@@ -1638,7 +1638,7 @@ def transformation_fgtv_maximize_flaring(
     - magnitude: magnitude of increase in efficiency relative to time 0
         (interpreted as a magnitude change, not a scalar change).
     - model_attributes: ModelAttributes object used to call strategies/variables
-    - model_energy: optional NonElectricEnergy object to pass for variable 
+    - model_energy: optional EnergyConsumption object to pass for variable 
         access
     - vec_ramp: ramp vec used for implementation
 
@@ -1675,7 +1675,7 @@ def transformation_fgtv_reduce_leaks(
     magnitude: float,
     vec_ramp: np.ndarray,
     model_attributes: ma.ModelAttributes,
-    model_energy: Union[me.NonElectricEnergy, None] = None,
+    model_energy: Union[me.EnergyConsumption, None] = None,
     **kwargs
 ) -> pd.DataFrame:
     """
@@ -1691,7 +1691,7 @@ def transformation_fgtv_reduce_leaks(
     Keyword Arguments
     -----------------
     - field_region: field in df_input that specifies the region
-    - model_energy: optional NonElectricEnergy object to pass for variable 
+    - model_energy: optional EnergyConsumption object to pass for variable 
         access
     - regions_apply: optional set of regions to use to define strategy. If None,
         applies to all regions.
@@ -1729,7 +1729,7 @@ def transformation_inen_maximize_energy_efficiency(
     magnitude: float,
     vec_ramp: np.ndarray,
     model_attributes: ma.ModelAttributes,
-    model_energy: Union[me.NonElectricEnergy, None] = None,
+    model_energy: Union[me.EnergyConsumption, None] = None,
     **kwargs
 ) -> pd.DataFrame:
     """
@@ -1749,7 +1749,7 @@ def transformation_inen_maximize_energy_efficiency(
     Keyword Arguments
     -----------------
     - field_region: field in df_input that specifies the region
-    - model_energy: optional NonElectricEnergy object to pass for variable 
+    - model_energy: optional EnergyConsumption object to pass for variable 
         access
     - regions_apply: optional set of regions to use to define strategy. If None,
         applies to all regions.
@@ -1781,7 +1781,7 @@ def transformation_inen_maximize_production_efficiency(
     magnitude: float,
     vec_ramp: np.ndarray,
     model_attributes: ma.ModelAttributes,
-    model_energy: Union[me.NonElectricEnergy, None] = None,
+    model_energy: Union[me.EnergyConsumption, None] = None,
     **kwargs
 ) -> pd.DataFrame:
     """
@@ -1799,7 +1799,7 @@ def transformation_inen_maximize_production_efficiency(
     Keyword Arguments
     -----------------
     - field_region: field in df_input that specifies the region
-    - model_energy: optional NonElectricEnergy object to pass for variable 
+    - model_energy: optional EnergyConsumption object to pass for variable 
         access
     - regions_apply: optional set of regions to use to define strategy. If None,
         applies to all regions.
@@ -1835,7 +1835,7 @@ def transformation_inen_shift_modvars(
     dict_modvar_specs: Union[Dict[str, float], None] = None,
     field_region: str = "nation",
     magnitude_relative_to_baseline: bool = False,
-    model_energy: Union[me.NonElectricEnergy, None] = None,
+    model_energy: Union[me.EnergyConsumption, None] = None,
     regions_apply: Union[List[str], None] = None,
     return_modvars_only: bool = False,
     strategy_id: Union[int, None] = None,
@@ -1858,7 +1858,7 @@ def transformation_inen_shift_modvars(
         Sum of values must == 1.
     - field_region: field in df_input that specifies the region
     - magnitude_relative_to_baseline: apply the magnitude relative to baseline?
-    - model_energy: optional NonElectricEnergy object to pass for variable 
+    - model_energy: optional EnergyConsumption object to pass for variable 
         access
     - regions_apply: optional set of regions to use to define strategy. If None,
         applies to all regions.
@@ -1869,8 +1869,8 @@ def transformation_inen_shift_modvars(
 
     # model variables to explore
     model_energy = (
-        me.NonElectricEnergy(model_attributes) 
-        if not isinstance(model_energy, me.NonElectricEnergy) 
+        me.EnergyConsumption(model_attributes) 
+        if not isinstance(model_energy, me.EnergyConsumption) 
         else model_energy
     )
     modvars = model_energy.modvars_inen_list_fuel_fraction
@@ -2017,7 +2017,7 @@ def transformation_scoe_electrify_category_to_target(
     cats_elec: Union[List[str], None] = None,
     regions_apply: Union[List[str], None] = None,
     field_region = "nation",
-    model_energy: Union[me.NonElectricEnergy, None] = None,
+    model_energy: Union[me.EnergyConsumption, None] = None,
     strategy_id: Union[int, None] = None
 ) -> pd.DataFrame:
     """
@@ -2034,7 +2034,7 @@ def transformation_scoe_electrify_category_to_target(
     Keyword Arguments
     -----------------
     - field_region: field in df_input that specifies the region
-    - model_energy: optional NonElectricEnergy object to pass for variable 
+    - model_energy: optional EnergyConsumption object to pass for variable 
         access
     - regions_apply: optional set of regions to use to define strategy. If None,
         applies to all regions.
@@ -2044,8 +2044,8 @@ def transformation_scoe_electrify_category_to_target(
 
     # core vars (ordered)
     model_energy = (
-        me.NonElectricEnergy(model_attributes) 
-        if not isinstance(model_energy, me.NonElectricEnergy) 
+        me.EnergyConsumption(model_attributes) 
+        if not isinstance(model_energy, me.EnergyConsumption) 
         else model_energy
     )
     all_regions = sorted(list(set(df_input[field_region])))
@@ -2139,7 +2139,7 @@ def transformation_scoe_increase_energy_efficiency_heat(
     magnitude: float,
     vec_ramp: np.ndarray,
     model_attributes: ma.ModelAttributes,
-    model_energy: Union[me.NonElectricEnergy, None] = None,
+    model_energy: Union[me.EnergyConsumption, None] = None,
     **kwargs
 ) -> pd.DataFrame:
     """
@@ -2158,7 +2158,7 @@ def transformation_scoe_increase_energy_efficiency_heat(
     Keyword Arguments
     -----------------
     - field_region: field in df_input that specifies the region
-    - model_energy: optional NonElectricEnergy object to pass for variable 
+    - model_energy: optional EnergyConsumption object to pass for variable 
         access
     - regions_apply: optional set of regions to use to define strategy. If None,
         applies to all regions.
@@ -2206,7 +2206,7 @@ def transformation_scoe_reduce_demand_for_appliance_energy(
     magnitude: float,
     vec_ramp: np.ndarray,
     model_attributes: ma.ModelAttributes,
-    model_energy: Union[me.NonElectricEnergy, None] = None,
+    model_energy: Union[me.EnergyConsumption, None] = None,
     **kwargs
 ) -> pd.DataFrame:
     """
@@ -2225,7 +2225,7 @@ def transformation_scoe_reduce_demand_for_appliance_energy(
     Keyword Arguments
     -----------------
     - field_region: field in df_input that specifies the region
-    - model_energy: optional NonElectricEnergy object to pass for variable 
+    - model_energy: optional EnergyConsumption object to pass for variable 
         access
     - regions_apply: optional set of regions to use to define strategy. If None,
         applies to all regions.
@@ -2259,7 +2259,7 @@ def transformation_scoe_reduce_demand_for_heat_energy(
     magnitude: float,
     vec_ramp: np.ndarray,
     model_attributes: ma.ModelAttributes,
-    model_energy: Union[me.NonElectricEnergy, None] = None,
+    model_energy: Union[me.EnergyConsumption, None] = None,
     **kwargs
 ) -> pd.DataFrame:
     """
@@ -2278,7 +2278,7 @@ def transformation_scoe_reduce_demand_for_heat_energy(
     Keyword Arguments
     -----------------
     - field_region: field in df_input that specifies the region
-    - model_energy: optional NonElectricEnergy object to pass for variable 
+    - model_energy: optional EnergyConsumption object to pass for variable 
         access
     - regions_apply: optional set of regions to use to define strategy. If None,
         applies to all regions.
@@ -2317,7 +2317,7 @@ def transformation_trde_reduce_demand(
     magnitude: float,
     vec_ramp: np.ndarray,
     model_attributes: ma.ModelAttributes,
-    model_energy: Union[me.NonElectricEnergy, None] = None,
+    model_energy: Union[me.EnergyConsumption, None] = None,
     **kwargs
 ) -> pd.DataFrame:
     """
@@ -2336,7 +2336,7 @@ def transformation_trde_reduce_demand(
     Keyword Arguments
     -----------------
     - field_region: field in df_input that specifies the region
-    - model_energy: optional NonElectricEnergy object to pass for variable 
+    - model_energy: optional EnergyConsumption object to pass for variable 
         access
     - regions_apply: optional set of regions to use to define strategy. If None,
         applies to all regions.
@@ -2377,7 +2377,7 @@ def transformation_trns_fuel_shift_to_target(
     dict_modvar_specs: Union[Dict[str, float], None] = None,
     field_region: str = "nation",
     magnitude_type: str = "baseline_additive",
-    model_energy: Union[me.NonElectricEnergy, None] = None,
+    model_energy: Union[me.EnergyConsumption, None] = None,
     modvars_source: Union[List[str], None] = None,
     regions_apply: Union[List[str], None] = None,
     return_modvars_only: bool = False,
@@ -2412,7 +2412,7 @@ def transformation_trns_fuel_shift_to_target(
                 take (achieved in accordance with vec_ramp)
             * "transfer_scalar": apply scalar to outbound categories to
                 calculate final transfer magnitude. 
-    - model_energy: optional NonElectricEnergy object to pass for variable 
+    - model_energy: optional EnergyConsumption object to pass for variable 
         access
     - modvars_source: optional list of fuel fraction model variables to use as a
         source for transfering to target fuel. NOTE: must be specified within 
@@ -2426,8 +2426,8 @@ def transformation_trns_fuel_shift_to_target(
 
     # core vars (ordered)
     model_energy = (
-        me.NonElectricEnergy(model_attributes) 
-        if not isinstance(model_energy, me.NonElectricEnergy) 
+        me.EnergyConsumption(model_attributes) 
+        if not isinstance(model_energy, me.EnergyConsumption) 
         else model_energy
     )
     all_regions = sorted(list(set(df_input[field_region])))
@@ -2647,7 +2647,7 @@ def transformation_trns_electrify_category_to_target_old(
     cats_elec: Union[List[str], None] = None,
     regions_apply: Union[List[str], None] = None,
     field_region = "nation",
-    model_energy: Union[me.NonElectricEnergy, None] = None,
+    model_energy: Union[me.EnergyConsumption, None] = None,
     strategy_id: Union[int, None] = None
 ) -> pd.DataFrame:
     """
@@ -2664,7 +2664,7 @@ def transformation_trns_electrify_category_to_target_old(
     Keyword Arguments
     -----------------
     - field_region: field in df_input that specifies the region
-    - model_energy: optional NonElectricEnergy object to pass for variable 
+    - model_energy: optional EnergyConsumption object to pass for variable 
         access
     - regions_apply: optional set of regions to use to define strategy. If None,
         applies to all regions.
@@ -2674,8 +2674,8 @@ def transformation_trns_electrify_category_to_target_old(
 
     # core vars (ordered)
     model_energy = (
-        me.NonElectricEnergy(model_attributes) 
-        if not isinstance(model_energy, me.NonElectricEnergy) 
+        me.EnergyConsumption(model_attributes) 
+        if not isinstance(model_energy, me.EnergyConsumption) 
         else model_energy
     )
     all_regions = sorted(list(set(df_input[field_region])))
@@ -2777,7 +2777,7 @@ def transformation_trns_increase_energy_efficiency_electric(
     magnitude: float,
     vec_ramp: np.ndarray,
     model_attributes: ma.ModelAttributes,
-    model_energy: Union[me.NonElectricEnergy, None] = None,
+    model_energy: Union[me.EnergyConsumption, None] = None,
     **kwargs
 ) -> pd.DataFrame:
     """
@@ -2797,7 +2797,7 @@ def transformation_trns_increase_energy_efficiency_electric(
     Keyword Arguments
     -----------------
     - field_region: field in df_input that specifies the region
-    - model_energy: optional NonElectricEnergy object to pass for variable 
+    - model_energy: optional EnergyConsumption object to pass for variable 
         access
     - regions_apply: optional set of regions to use to define strategy. If None,
         applies to all regions.
@@ -2829,7 +2829,7 @@ def transformation_trns_increase_energy_efficiency_non_electric(
     magnitude: float,
     vec_ramp: np.ndarray,
     model_attributes: ma.ModelAttributes,
-    model_energy: Union[me.NonElectricEnergy, None] = None,
+    model_energy: Union[me.EnergyConsumption, None] = None,
     **kwargs
 ) -> pd.DataFrame:
     """
@@ -2849,7 +2849,7 @@ def transformation_trns_increase_energy_efficiency_non_electric(
     Keyword Arguments
     -----------------
     - field_region: field in df_input that specifies the region
-    - model_energy: optional NonElectricEnergy object to pass for variable 
+    - model_energy: optional EnergyConsumption object to pass for variable 
         access
     - regions_apply: optional set of regions to use to define strategy. If None,
         applies to all regions.
@@ -2894,7 +2894,7 @@ def transformation_trns_increase_vehicle_occupancy(
     vec_ramp: np.ndarray,
     model_attributes: ma.ModelAttributes,
     categories: List[str] = ["road_light"],
-    model_energy: Union[me.NonElectricEnergy, None] = None,
+    model_energy: Union[me.EnergyConsumption, None] = None,
     **kwargs
 ) -> pd.DataFrame:
     """
@@ -2914,7 +2914,7 @@ def transformation_trns_increase_vehicle_occupancy(
     Keyword Arguments
     -----------------
     - field_region: field in df_input that specifies the region
-    - model_energy: optional NonElectricEnergy object to pass for variable 
+    - model_energy: optional EnergyConsumption object to pass for variable 
         access
     - regions_apply: optional set of regions to use to define strategy. If None,
         applies to all regions.

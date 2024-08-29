@@ -76,7 +76,7 @@ class TransformationsIntegrated:
         support modules
     - fp_nemomod_reference_files: directory housing reference files called by
         NemoMod when running electricity model. Required to access data in 
-        ElectricEnergy. Needs the following CSVs:
+        EnergyProduction. Needs the following CSVs:
 
         * Required keys or CSVs (without extension):
             (1) CapacityFactor
@@ -104,7 +104,7 @@ class TransformationsIntegrated:
         * NOTE: if passing, ensure that the ModelAttributes objects used to 
             instantiate the model + what is passed to the model_attributes
             argument are the same.
-    - model_electricity: optional ElectricEnergy object to pass for property and 
+    - model_electricity: optional EnergyProduction object to pass for property and 
         method access.
         * NOTE: if passing, ensure that the ModelAttributes objects used to 
             instantiate the model + what is passed to the model_attributes
@@ -635,7 +635,7 @@ class TransformationsIntegrated:
         support modules
         - fp_nemomod_reference_files: directory housing reference files called 
             by NemoMod when running electricity model. Required to access data 
-            in ElectricEnergy. Needs the following CSVs:
+            in EnergyProduction. Needs the following CSVs:
 
             * Required keys or CSVs (without extension):
                 (1) CapacityFactor

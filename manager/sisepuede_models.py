@@ -10,8 +10,8 @@ from typing import *
 from sisepuede.core.model_attributes import ModelAttributes
 from sisepuede.models.afolu import AFOLU
 from sisepuede.models.circular_economy import CircularEconomy
-from sisepuede.models.energy_production import ElectricEnergy
-from sisepuede.models.energy_consumption import NonElectricEnergy
+from sisepuede.models.energy_production import EnergyProduction
+from sisepuede.models.energy_consumption import EnergyConsumption
 from sisepuede.models.ippu import IPPU
 from sisepuede.models.socioeconomic import Socioeconomic
 import sisepuede.core.support_classes as sc
@@ -113,14 +113,14 @@ class SISEPUEDEModels:
 
 		self.model_electricity = None
 		if self.allow_electricity_run:
-			self.model_electricity = ElectricEnergy(
+			self.model_electricity = EnergyProduction(
 				self.model_attributes,
 				self.fp_julia,
 				self.fp_nemomod_reference_files,
 				logger = self.logger
 			)
 
-		self.model_energy = NonElectricEnergy(
+		self.model_energy = EnergyConsumption(
 			self.model_attributes,
 			logger = self.logger
 		)
@@ -515,7 +515,7 @@ class SISEPUEDEModels:
 		if "Energy" in models_run:
 
 			self._log(
-				"Running Energy model (NonElectricEnergy without Fugitive Emissions)", 
+				"Running Energy model (EnergyConsumption without Fugitive Emissions)", 
 				type_log = "info",
 			)
 
@@ -534,12 +534,12 @@ class SISEPUEDEModels:
 					else df_return
 				)
 				self._log(
-					f"NonElectricEnergy without Fugitive Emissions model run successfully completed", type_log = "info",
+					f"EnergyConsumption without Fugitive Emissions model run successfully completed", type_log = "info",
 				)
 
 			except Exception as e:
 				self._log(
-					f"Error running NonElectricEnergy without Fugitive Emissions: {e}",
+					f"Error running EnergyConsumption without Fugitive Emissions: {e}",
 					type_log = "error",
 				)
 		
@@ -576,13 +576,13 @@ class SISEPUEDEModels:
 				)
 
 				self._log(
-					f"ElectricEnergy model run successfully completed", 
+					f"EnergyProduction model run successfully completed", 
 					type_log = "info",
 				)
 
 			except Exception as e:
 				self._log(
-					f"Error running ElectricEnergy model: {e}", 
+					f"Error running EnergyProduction model: {e}", 
 					type_log = "error",
 				)
 

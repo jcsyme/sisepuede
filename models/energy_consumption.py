@@ -17,9 +17,9 @@ import sisepuede.utilities.support_functions as sf
 ###                                         ###
 ###############################################
 
-class NonElectricEnergy:
+class EnergyConsumption:
     """
-    Use NonElectricEnergy to calculate emissions from energy production in
+    Use EnergyConsumption to calculate emissions from energy production in
         SISEPUEDE. Includes emissions from the following subsectors:
 
         * Carbon Capture and Sequestration (CCSQ)
@@ -198,13 +198,13 @@ class NonElectricEnergy:
         drop_fugitive_from_none_q: bool = True
     ) -> list:
         """
-            Check and retrieve valid projection subsectors to run in NonElectricEnergy.project()
+            Check and retrieve valid projection subsectors to run in EnergyConsumption.project()
 
             Keyword Arguments
             ------------------
-            - subsectors_project: list or string to run. If None, all valid subsectors (exludes NonElectricEnergy.subsec_name_fgtv if drop_fugitive_from_none_q = True)
+            - subsectors_project: list or string to run. If None, all valid subsectors (exludes EnergyConsumption.subsec_name_fgtv if drop_fugitive_from_none_q = True)
             - delim: delimiter to use in input strings
-            - drop_fugitive_from_none_q: drop NonElectricEnergy.subsec_name_fgtv if subsectors_project == None?
+            - drop_fugitive_from_none_q: drop EnergyConsumption.subsec_name_fgtv if subsectors_project == None?
         """
         # get subsector attribute
         attr_subsec = self.model_attributes.get_subsector_attribute_table()
@@ -335,7 +335,7 @@ class NonElectricEnergy:
             * self.model_socioeconomic
 
         NOTE: CANNOT INITIALIZE AFOLU CLASS BECAUSE IT REQUIRES ACCESS TO 
-            THE NonElectricEnergy CLASS (circular logic)
+            THE EnergyConsumption CLASS (circular logic)
 
         Keyword Arguments
         -----------------
@@ -1198,7 +1198,7 @@ class NonElectricEnergy:
             (energy/volume)
         - modvar_energy_density: model variable giving volumetric density (used 
             for units conversion). If none, defaults to 
-            NonElectricEnergy.modvar_enfu_energy_density_volumetric
+            EnergyConsumption.modvar_enfu_energy_density_volumetric
         """
         # check model variable input
         if modvar_cur is None:
@@ -1243,22 +1243,22 @@ class NonElectricEnergy:
         df_neenergy_trajectories: pd.DataFrame
     ) -> Tuple[pd.DataFrame]:
         """
-        Fugitive Emissions can be run downstream of all of NonElectricEnergy 
-            models OR downstream of ElectricEnergy. 
+        Fugitive Emissions can be run downstream of all of EnergyConsumption 
+            models OR downstream of EnergyProduction. 
             
-            * If run with ElectricEnergy, aggregate demands are taken from 
+            * If run with EnergyProduction, aggregate demands are taken from 
                 df_neenergy_trajectories. 
-            * If run without ElectricEnergy, aggregate demands (excluding ENTC), 
+            * If run without EnergyProduction, aggregate demands (excluding ENTC), 
                 imports, production, and adjusted exports (= Exports) are 
                 calculated internally and returned in a data frame. 
             
         This function checks for the presence of the following variables to
-            determine whether or not it was run downstream of ElectricEnergy:
+            determine whether or not it was run downstream of EnergyProduction:
 
-            - NonElectricEnergy.modvar_enfu_energy_demand_by_fuel_total
-            - NonElectricEnergy.modvar_enfu_exports_fuel_adjusted
-            - NonElectricEnergy.modvar_enfu_imports_fuel
-            - NonElectricEnergy.modvar_enfu_production_fuel
+            - EnergyConsumption.modvar_enfu_energy_demand_by_fuel_total
+            - EnergyConsumption.modvar_enfu_exports_fuel_adjusted
+            - EnergyConsumption.modvar_enfu_imports_fuel
+            - EnergyConsumption.modvar_enfu_production_fuel
 
         Returns a tuple of the form:
 
@@ -1286,7 +1286,7 @@ class NonElectricEnergy:
         arr_demands_distribution = None
         df_out = None
 
-        ##  TRY TO GET FROM df_neenergy_trajectories OUTPUTS FROM ElectricEnergy
+        ##  TRY TO GET FROM df_neenergy_trajectories OUTPUTS FROM EnergyProduction
 
         # demands
         arr_fgtv_demands = self.model_attributes.extract_model_variable(#
@@ -1352,7 +1352,7 @@ class NonElectricEnergy:
         """
         Get demands on distribution
         NOTE: If any of the previous variables are not found, then default to
-            the assumption that ElectricEnergy was *not* successfully run, so
+            the assumption that EnergyProduction was *not* successfully run, so
             the variables have to be added
         """
         generate_demands_distribution = (arr_fgtv_demands is not None)
@@ -1839,19 +1839,19 @@ class NonElectricEnergy:
             ModelAttributes default.
         - modvars_energy_demands: list of SISEPUEDE model variables to extract 
             for use as energy demands. If None, defaults to 
-            NonElectricEnergy.modvars_enfu_energy_demands_total
+            EnergyConsumption.modvars_enfu_energy_demands_total
        
         Keyword Arguments
         -----------------
         - modvars_energy_distribution_demands: list of SISEPUEDE model variables 
             to extract for use for distribution energy demands. If None, 
             defaults to 
-            NonElectricEnergy.modvars_enfu_energy_demands_distribution
+            EnergyConsumption.modvars_enfu_energy_demands_distribution
         - modvar_energy_exports: SISEPUEDE model variable giving exports. If 
-            None, default to NonElectricEnergy.modvar_enfu_exports_fuel
+            None, default to EnergyConsumption.modvar_enfu_exports_fuel
         - modvar_import_fraction: SISEPUEDE model variable giving the import 
             fraction. If None, default to 
-            NonElectricEnergy.modvar_enfu_frac_fuel_demand_imported
+            EnergyConsumption.modvar_enfu_frac_fuel_demand_imported
         - target_energy_units: target energy units to convert output to. If 
             None, default to ModelAttributes.configuration energy_units.
         """
@@ -2333,7 +2333,7 @@ class NonElectricEnergy:
         #    MODEL CALCULATIONS    #
         ############################
          
-        # get demands, exports, imports, and production, either from ElectricEnergy or from the rest of the energy sectors
+        # get demands, exports, imports, and production, either from EnergyProduction or from the rest of the energy sectors
         (
             arr_fgtv_demands, 
             arr_demands_distribution, 
@@ -2343,11 +2343,11 @@ class NonElectricEnergy:
             df_out
         ) = self.get_fgtv_demands_and_trade(df_neenergy_trajectories)
 
-        # initialize the output - if demands are from ElectricEnergy, df_out is None, so will disappear on pd.concat(); otherwise, sets those output variables
+        # initialize the output - if demands are from EnergyProduction, df_out is None, so will disappear on pd.concat(); otherwise, sets those output variables
         df_out = [df_out]
         
         """
-        # HERE--DEMANDS WILL HAVE TO COME FROM ElectricEnergy
+        # HERE--DEMANDS WILL HAVE TO COME FROM EnergyProduction
         # get all demands, imports, exports, and production in terms of configuration units
         arr_fgtv_demands, arr_demands_distribution, arr_fgtv_export, arr_fgtv_imports, arr_fgtv_production = self.project_enfu_production_and_demands(
             df_neenergy_trajectories
@@ -3304,7 +3304,7 @@ class NonElectricEnergy:
 
         """
         Calculate emissions from fuel combustion in TRNS (Transportation). 
-            Requires NonElectricEnergy.project_transportation_demand() and all 
+            Requires EnergyConsumption.project_transportation_demand() and all 
             output variables from TRDE (Transportation Demand) subsector.
 
         Function Arguments
@@ -4037,20 +4037,20 @@ class NonElectricEnergy:
         subsectors_project: Union[list, str, None] = None
     ) -> pd.DataFrame:
         """
-        Run the NonElectricEnergy model. Take a data frame of input variables 
+        Run the EnergyConsumption model. Take a data frame of input variables 
             (ordered by time series) and return a data frame of output variables 
             (model projections for energy--including carbon capture and 
             sequestration (CCSQ), fugitive emission (FGTV), industrial energy 
             (INEN), stationary combustion (SCOE), and transportation (TRNS)) the 
             same order.
 
-        NOTE: Fugitive Emissions requires output from ElectricEnergy to complete 
+        NOTE: Fugitive Emissions requires output from EnergyProduction to complete 
             a full accounting for fuel production and use. In SISEPUEDE, 
             integrated runs should be run in the order of:
 
-            * NonElectricEnergy.project(*args)
-            * ElectricEnergy.project(*args)
-            * NonElectricEnergy.project(*args, 
+            * EnergyConsumption.project(*args)
+            * EnergyProduction.project(*args)
+            * EnergyConsumption.project(*args, 
                 subsectors_project = "Fugitive Emissions")
 
         Function Arguments

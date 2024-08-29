@@ -8,7 +8,7 @@ from typing import *
 
 from sisepuede.core.analysis_id import AnalysisID
 from sisepuede.core.model_attributes import ModelAttributes
-from sisepuede.models.energy_production import ElectricEnergy
+from sisepuede.models.energy_production import EnergyProduction
 import sisepuede.utilities.support_functions as sf
 
 
@@ -353,7 +353,7 @@ class SISEPUEDEFileStructure:
 		if (self.dir_ref_nemo is not None) and (self.dir_jl is not None):
 
 			# nemo mod input files - specify required, run checks
-			model_electricity = ElectricEnergy(
+			model_electricity = EnergyProduction(
 				self.model_attributes,
 				self.dir_jl,
 				self.dir_ref_nemo,

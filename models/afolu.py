@@ -9,7 +9,7 @@ from typing import *
 
 from sisepuede.core.attribute_table import AttributeTable
 from sisepuede.core.model_attributes import *
-from sisepuede.models.energy_consumption import NonElectricEnergy
+from sisepuede.models.energy_consumption import EnergyConsumption
 from sisepuede.models.ippu import IPPU
 from sisepuede.models.socioeconomic import Socioeconomic
 import sisepuede.utilities.support_functions as sf
@@ -416,7 +416,7 @@ class AFOLU:
         model_attributes = self.model_attributes if (model_attributes is None) else model_attributes
 
         # add other model classes--required for integration variables
-        self.model_energy = NonElectricEnergy(model_attributes)
+        self.model_energy = EnergyConsumption(model_attributes)
         self.model_ippu = IPPU(model_attributes)
         self.model_socioeconomic = Socioeconomic(model_attributes)
 
