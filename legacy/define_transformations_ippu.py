@@ -11,8 +11,8 @@ import sisepuede.core.support_classes as sc
 # import sisepuede.legacy.transformations_base_general as tbg
 # import sisepuede.legacy.transformations_base_ippu as tbi
 import sisepuede.models.ippu as mi
-import sisepuede.transformers.lib.general as tbg
-import sisepuede.transformers.lib.ippu as tbi
+import sisepuede.transformers.lib._baselib_general as tbg
+import sisepuede.transformers.lib._baselib_ippu as tbi
 import sisepuede.utilities.support_functions as sf
 
 

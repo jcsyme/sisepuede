@@ -11,7 +11,7 @@ import sisepuede.core.model_attributes as ma
 import sisepuede.core.support_classes as sc
 #import sisepuede.legacy.transformations_base_circular_economy as tbc
 import sisepuede.models.circular_economy as mc
-import sisepuede.transformers.lib.circular_economy as tbc
+import sisepuede.transformers.lib._baselib_circular_economy as tbc
 import sisepuede.utilities.support_functions as sf
 
 

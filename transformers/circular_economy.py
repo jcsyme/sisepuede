@@ -1389,7 +1389,7 @@ class TransformationsCircularEconomy:
     def transformation_waso_increase_energy_from_incineration(self,
         df_input: Union[pd.DataFrame, None] = None,
         strat: Union[int, None] = None,
-        vec_implementation_ramp: Union[np.ndarray, None] = None,s
+        vec_implementation_ramp: Union[np.ndarray, None] = None,
     ) -> pd.DataFrame:
         """
         Implement the "Energy from Solid Waste Incineration" WASO transformation 

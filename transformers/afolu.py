@@ -2053,7 +2053,7 @@ class TransformationsAFOLU:
 
 
     
-    def transformation_lndu_reallocate_land(self,HEREHERE
+    def transformation_lndu_reallocate_land(self,
         df_input: Union[pd.DataFrame, None] = None,
         baseline_with_plur: Union[bool, None] = None,
         magnitude: Union[float, None] = 0.5,
@@ -2663,7 +2663,7 @@ class TransformationsAFOLU:
 
     def transformation_soil_reduce_excess_fertilizer(self,
         df_input: Union[pd.DataFrame, None] = None,
-        magnitude: Unione[float, None] = 0.2,
+        magnitude: Union[float, None] = 0.2,
         strat: Union[int, None] = None,
         vec_implementation_ramp: Union[np.ndarray, None] = None,
     ) -> pd.DataFrame:
@@ -2719,7 +2719,7 @@ class TransformationsAFOLU:
 
     def transformation_soil_reduce_excess_lime(self,
         df_input: Union[pd.DataFrame, None] = None,
-        magnitude: Unione[float, None] = 0.2,
+        magnitude: Union[float, None] = 0.2,
         strat: Union[int, None] = None,
         vec_implementation_ramp: Union[np.ndarray, None] = None,
     ) -> pd.DataFrame:

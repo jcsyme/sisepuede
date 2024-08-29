@@ -355,7 +355,7 @@ class AWSManager:
         if path_type == "julia":
             dir_target = self.file_struct.dir_jl
         elif path_type == "python":
-            dir_target = self.file_struct.dir_py
+            dir_target = self.file_struct.dir_manager
         elif path_type == "out":
             dir_target = self.file_struct.dir_out
         elif path_type == "ref":
@@ -913,6 +913,7 @@ class AWSManager:
             dir_docker_sisepuede_repo,
             self.get_sisepuede_relative_paths("out")
         )
+        raise RuntimeError("NOTICE! `dir_docker_sisepuede_python` deprecated as of 20240829 with reorganization. Review dependencies and update docker build accordingly.")
         dir_docker_sisepuede_python = os.path.join(
             dir_docker_sisepuede_repo,
             self.get_sisepuede_relative_paths("python")

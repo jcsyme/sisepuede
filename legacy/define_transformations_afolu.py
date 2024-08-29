@@ -11,8 +11,8 @@ import sisepuede.core.support_classes as sc
 #import sisepuede.legacy.transformations_base_afolu as tba
 #import sisepuede.legacy.transformations_base_general as tbg
 import sisepuede.models.afolu as mafl
-import sisepuede.transformers.lib.afolu as tba
-import sisepuede.transformers.lib.general as tbg
+import sisepuede.transformers.lib._baselib_afolu as tba
+import sisepuede.transformers.lib._baselib_general as tbg
 import sisepuede.utilities.support_functions as sf
 
 
