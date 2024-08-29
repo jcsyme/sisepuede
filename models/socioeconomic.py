@@ -27,7 +27,7 @@ class Socioeconomic:
 
     For additional information, see the SISEPUEDE readthedocs at:
 
-        https://sisepuede.readthedocs.io/en/latest/energy_non_electric.html
+        https://sisepuede.readthedocs.io/en/latest/energy_consumption.html
 
     
 

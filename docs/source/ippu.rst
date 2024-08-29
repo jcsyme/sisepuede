@@ -18,7 +18,7 @@ Industrial processes and product use is used exclusively to account for emission
 
 All industrial categorization is derived from the *2019 Refinement to the 2006 IPCC Guidelines for National Greenhouse Gas Inventories*, Volume 3, *Industrial Processes* (see Chapter 1, page 1.7 for a chart describing these categorizations). The entire guidance is available from the `Task Force on National Greenhouse Gas Inventories <https://www.ipcc-nggip.iges.or.jp/public/2019rf/index.html>`_
 
-.. note::Note that emissions from and energy use, as well as energy demands, from industrial activity (excluding fuel and energy production) are accounted for in `Industrial Energy <./energy_non_electric.html#industrial-energy-inen>`_. Emissions from fuel production, including electricity, coal mining, and natural gas exploration, extraction, and processing and refinement are accounted for in `Electricity and Fuel Production <./energy_electric.html>`_, which is constructed using NEMO. The categories enumerated below, however, are used to estimate those emissions and electrical demands.
+.. note::Note that emissions from and energy use, as well as energy demands, from industrial activity (excluding fuel and energy production) are accounted for in `Industrial Energy <./energy_consumption.html#industrial-energy-inen>`_. Emissions from fuel production, including electricity, coal mining, and natural gas exploration, extraction, and processing and refinement are accounted for in `Electricity and Fuel Production <./energy_production.html>`_, which is constructed using NEMO. The categories enumerated below, however, are used to estimate those emissions and electrical demands.
 
 
 Categories

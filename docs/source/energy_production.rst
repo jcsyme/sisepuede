@@ -1,6 +1,6 @@
-========================================
-Energy - Electricity and Fuel Production
-========================================
+===================================================
+Energy Production - Electricity and Fuel Production
+===================================================
 
 Electricity and Fuel Production is modeled using `Julia NemoMod <https://sei-international.github.io/NemoMod.jl/stable/>`_ (`access the Julia GitHub repository here <https://github.com/sei-international/NemoMod.jl/>`_), an energy framework developed by the `Stockholm Environmental Institute <https://www.sei.org>`_. Two key subsectors are exclusive to electricity and fuel production (* indicates non-emission subsector): 
 
@@ -76,9 +76,9 @@ Energy Technology (ENTC)
 The SISEPUEDE model (v1.0) uses NemoMod to model the production of energy, including:
 
 * Electricity generation technology
-* Fuel production and refinement, including petroleum and natural gas
-* Mining and raw materials extraction, including coal mining and natural gas and oil exploration and extraction (*excluding* fugitive emissions, which are estimated in the `Fugitive Emissions (FGTV) <../energy_non_electric.html#fugitive-emissions-fgtv>`_ subsector)
-
+* Fuel production and374585
+ refinement, including petroleum and natural gas
+* Mining and raw materials extraction, including coal mining and natural gas and oil exploration and extraction (*excluding* fugitive emissions, which are estimated in the `Fugitive Emissions (FGTV) <../energy_consumption.html#fugitive-emissions-fgtv>`_ subsector)
 
 Categories
 ----------
@@ -98,3 +98,9 @@ Variables associated with the Energy Technology subsector are shown below.
 .. csv-table:: Trajectories of the following variables are needed for the Energy Technology subsector. The categories that variables apply to are described in the ``category`` column.
    :file: ./csvs/variable_definitions_en_entc.csv
    :header-rows: 1
+
+
+Modeling Notes
+--------------
+
+Default input activity ratios are based on 

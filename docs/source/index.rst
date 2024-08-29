@@ -98,8 +98,8 @@ Contents
    general_data
    afolu
    circular_economy
-   energy_electric
-   energy_non_electric
+   energy_consumption
+   energy_production
    ippu
    socioeconomic
 

@@ -40,7 +40,7 @@ class EnergyProduction:
     For more information on the EnergyProduction class, see the SISEPUEDE 
         readthedocs at
 
-        https://sisepuede.readthedocs.io/en/latest/energy_electric.html
+        https://sisepuede.readthedocs.io/en/latest/energy_production.html
 
 
     Intialization Arguments

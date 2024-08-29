@@ -13,7 +13,7 @@ Fuels and Heat Energy
 
 In general, energy is produced by stationary or mobile combustion of different fuels. The combustion of fuels releases :math:`\text{CO}_2`, :math:`\text{CH}_4`, and :math:`\text{N}_2\text{O}` (and other gasses, which may not be captured). These fuels are utilized by different technologies, which may use fuels at different efficiencies. Energy can also be stored (specifically electricity). The term **fuel** is explicitly used in all energy subsectors, while **technology** and **storage** are used in the NemoMod electricity model.
 
-.. note:: Fuels are used in both non-electric energy and electric energy. However, since they are a required component of the NemoMod electricity model, variables and attributes associated with fuel are available in the `Energy - Electricity <./energy_electric.html>`_ section.
+.. note:: Fuels are used in both non-electric energy and electric energy. However, since they are a required component of the NemoMod electricity model, variables and attributes associated with fuel are available in the `Energy - Electricity <./energy_production.html>`_ section.
 
 The combination of fuel and efficiency is an important concept for entering input data. Energy use in SCOE and CCSQ both use a fraction of energy *demand at point of use* to project future changes in fuel mixtures. However, many empirical data that are used rely on energy *consumption*, and both SCOE and CCSQ take initial consumption as inputs to SISEPUEDE.
 
@@ -39,7 +39,7 @@ i.e., the point-of-use demand is the efficiency-weighted fraction of consumption
 Energy Fuels (ENFU)
 ===================
 
-Fuel is cross-cutting, affecting all energy sectors (including `Electricity <../energy_electric.htm>`_). **EXPAND DESCRIPTION**
+Fuel is cross-cutting, affecting all energy sectors (including `Electricity <../energy_production.htm>`_). **EXPAND DESCRIPTION**
 
 Categories
 ----------
@@ -73,7 +73,7 @@ Fugitive emissions includes emission from coal, natural gas, and oil production,
 Categories
 ----------
 
-Fugitive emissions relies on the `Energy Fuels <./energy_non_electric.html#energy-fuels-enfu>`_ category (``$CAT-FUEL$``) as the primary input category, but are limited to categories associated with coal, oil, and natural gas production--i.e., ``fuel_coal``, ``fuel_natural_gas``, and ``fuel_oil``. 
+Fugitive emissions relies on the `Energy Fuels <./energy_consumption.html#energy-fuels-enfu>`_ category (``$CAT-FUEL$``) as the primary input category, but are limited to categories associated with coal, oil, and natural gas production--i.e., ``fuel_coal``, ``fuel_natural_gas``, and ``fuel_oil``. 
 
 
 Variables
@@ -169,7 +169,7 @@ Categories
 
 Categories associated with Transportation are identified by the ``$CAT-TRANSPORTATION$`` variable schema element and shown in the category attribute table shown below. 
 
-.. note:: These categories are associated with different `Transportation Demand <./energy_non_electric.html#transportation-demand-trde>`_ categories, which govern mode-shifting.
+.. note:: These categories are associated with different `Transportation Demand <./energy_consumption.html#transportation-demand-trde>`_ categories, which govern mode-shifting.
 
 .. csv-table:: Other categories (``$CAT-TRANSPORTATION$`` attribute table)
    :file: ./csvs/attribute_cat_transportation.csv
