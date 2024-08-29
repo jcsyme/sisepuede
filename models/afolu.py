@@ -348,32 +348,32 @@ class AFOLU:
             ],
             # SCOE variables required for projecting changes to wood energy demand
             self.subsec_name_scoe: [
-                self.model_energy.modvar_scoe_consumpinit_energy_per_hh_elec,
-                self.model_energy.modvar_scoe_consumpinit_energy_per_hh_heat,
-                self.model_energy.modvar_scoe_consumpinit_energy_per_mmmgdp_elec,
-                self.model_energy.modvar_scoe_consumpinit_energy_per_mmmgdp_heat,
-                self.model_energy.modvar_scoe_efficiency_fact_heat_en_coal,
-                self.model_energy.modvar_scoe_efficiency_fact_heat_en_diesel,
-                self.model_energy.modvar_scoe_efficiency_fact_heat_en_electricity,
-                self.model_energy.modvar_scoe_efficiency_fact_heat_en_gasoline,
-                self.model_energy.modvar_scoe_efficiency_fact_heat_en_hgl,
-                self.model_energy.modvar_scoe_efficiency_fact_heat_en_hydrogen,
-                self.model_energy.modvar_scoe_efficiency_fact_heat_en_kerosene,
-                self.model_energy.modvar_scoe_efficiency_fact_heat_en_natural_gas,
-                self.model_energy.modvar_scoe_efficiency_fact_heat_en_solid_biomass,
-                self.model_energy.modvar_scoe_elasticity_hh_energy_demand_electric_to_gdppc,
-                self.model_energy.modvar_scoe_elasticity_hh_energy_demand_heat_to_gdppc,
-                self.model_energy.modvar_scoe_elasticity_mmmgdp_energy_demand_elec_to_gdppc,
-                self.model_energy.modvar_scoe_elasticity_mmmgdp_energy_demand_heat_to_gdppc,
-                self.model_energy.modvar_scoe_frac_heat_en_coal,
-                self.model_energy.modvar_scoe_frac_heat_en_diesel,
-                self.model_energy.modvar_scoe_frac_heat_en_electricity,
-                self.model_energy.modvar_scoe_frac_heat_en_gasoline,
-                self.model_energy.modvar_scoe_frac_heat_en_hgl,
-                self.model_energy.modvar_scoe_frac_heat_en_hydrogen,
-                self.model_energy.modvar_scoe_frac_heat_en_kerosene,
-                self.model_energy.modvar_scoe_frac_heat_en_natural_gas,
-                self.model_energy.modvar_scoe_frac_heat_en_solid_biomass
+                self.model_enercons.modvar_scoe_consumpinit_energy_per_hh_elec,
+                self.model_enercons.modvar_scoe_consumpinit_energy_per_hh_heat,
+                self.model_enercons.modvar_scoe_consumpinit_energy_per_mmmgdp_elec,
+                self.model_enercons.modvar_scoe_consumpinit_energy_per_mmmgdp_heat,
+                self.model_enercons.modvar_scoe_efficiency_fact_heat_en_coal,
+                self.model_enercons.modvar_scoe_efficiency_fact_heat_en_diesel,
+                self.model_enercons.modvar_scoe_efficiency_fact_heat_en_electricity,
+                self.model_enercons.modvar_scoe_efficiency_fact_heat_en_gasoline,
+                self.model_enercons.modvar_scoe_efficiency_fact_heat_en_hgl,
+                self.model_enercons.modvar_scoe_efficiency_fact_heat_en_hydrogen,
+                self.model_enercons.modvar_scoe_efficiency_fact_heat_en_kerosene,
+                self.model_enercons.modvar_scoe_efficiency_fact_heat_en_natural_gas,
+                self.model_enercons.modvar_scoe_efficiency_fact_heat_en_solid_biomass,
+                self.model_enercons.modvar_scoe_elasticity_hh_energy_demand_electric_to_gdppc,
+                self.model_enercons.modvar_scoe_elasticity_hh_energy_demand_heat_to_gdppc,
+                self.model_enercons.modvar_scoe_elasticity_mmmgdp_energy_demand_elec_to_gdppc,
+                self.model_enercons.modvar_scoe_elasticity_mmmgdp_energy_demand_heat_to_gdppc,
+                self.model_enercons.modvar_scoe_frac_heat_en_coal,
+                self.model_enercons.modvar_scoe_frac_heat_en_diesel,
+                self.model_enercons.modvar_scoe_frac_heat_en_electricity,
+                self.model_enercons.modvar_scoe_frac_heat_en_gasoline,
+                self.model_enercons.modvar_scoe_frac_heat_en_hgl,
+                self.model_enercons.modvar_scoe_frac_heat_en_hydrogen,
+                self.model_enercons.modvar_scoe_frac_heat_en_kerosene,
+                self.model_enercons.modvar_scoe_frac_heat_en_natural_gas,
+                self.model_enercons.modvar_scoe_frac_heat_en_solid_biomass
             ]
         }
 
@@ -396,7 +396,7 @@ class AFOLU:
         Initialize SISEPUEDE model classes for fetching variables and 
             accessing methods. Initializes the following properties:
 
-            * self.model_energy
+            * self.model_enercons
             * self.model_ippu
             * self.model_socioeconomic
 
@@ -416,7 +416,7 @@ class AFOLU:
         model_attributes = self.model_attributes if (model_attributes is None) else model_attributes
 
         # add other model classes--required for integration variables
-        self.model_energy = EnergyConsumption(model_attributes)
+        self.model_enercons = EnergyConsumption(model_attributes)
         self.model_ippu = IPPU(model_attributes)
         self.model_socioeconomic = Socioeconomic(model_attributes)
 
@@ -3030,7 +3030,7 @@ class AFOLU:
         if check_scoe is not None:
 
             # get changes in biomass energy demand for stationary emissions (largely driven by wood)
-            df_scoe = self.model_energy.project_scoe(
+            df_scoe = self.model_enercons.project_scoe(
                 df_afolu_trajectories,
                 vec_hh,
                 vec_gdp,
@@ -3045,7 +3045,7 @@ class AFOLU:
             ind_biomass = attr_enfu.get_key_value_index(self.cat_enfu_biomass)
             vec_scoe_biomass_fuel_demand = self.model_attributes.extract_model_variable(#
                 df_scoe,
-                self.model_energy.modvar_enfu_energy_demand_by_fuel_scoe,
+                self.model_enercons.modvar_enfu_energy_demand_by_fuel_scoe,
                 return_type = "array_base",
             )
 

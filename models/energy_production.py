@@ -548,7 +548,7 @@ class EnergyProduction:
 
             * self.model_afolu
             * self.model_circecon
-            * self.model_energy
+            * self.model_enercons
             * self.model_socioeconomic
 
         Keyword Arguments
@@ -561,7 +561,7 @@ class EnergyProduction:
         
         self.model_afolu = AFOLU(self.model_attributes)
         self.model_circecon = CircularEconomy(self.model_attributes)
-        self.model_energy = EnergyConsumption(self.model_attributes)
+        self.model_enercons = EnergyConsumption(self.model_attributes)
         self.model_socioeconomic = Socioeconomic(self.model_attributes)
 
         return None
@@ -2877,7 +2877,7 @@ class EnergyProduction:
             regions
         - tuple_enfu_production_and_demands: optional tuple of energy fuel 
             demands produced by 
-            self.model_energy.project_enfu_production_and_demands():
+            self.model_enercons.project_enfu_production_and_demands():
 
             (
                 arr_enfu_demands, 
@@ -3127,7 +3127,7 @@ class EnergyProduction:
         - modvar_msp: SISEPUEDE model variable storing the MinShareProduction
         - tuple_enfu_production_and_demands: optional tuple of energy fuel 
             demands produced by 
-            self.model_energy.project_enfu_production_and_demands():
+            self.model_enercons.project_enfu_production_and_demands():
 
             (
                 arr_enfu_demands, 
@@ -3200,7 +3200,7 @@ class EnergyProduction:
         
         # retrieve production (units do not matter since we'll work with adjusting fractions)
         tuple_enfu_production_and_demands = (
-            self.model_energy.project_enfu_production_and_demands(
+            self.model_enercons.project_enfu_production_and_demands(
                 df_elec_trajectories, 
                 target_energy_units = self.model_attributes.configuration.get("energy_units_nemomod")
             )
@@ -5061,7 +5061,7 @@ class EnergyProduction:
             self.modvar_entc_nemomod_variable_cost,
             self.model_attributes.varchar_str_unit_monetary
         )
-        arr_enfu_costs = self.model_energy.get_enfu_fuel_costs_per_energy(
+        arr_enfu_costs = self.model_enercons.get_enfu_fuel_costs_per_energy(
             df_elec_trajectories,
             modvar_for_units_energy = self.modvar_entc_nemomod_variable_cost,
             units_monetary = units_enfu_costs_monetary
@@ -5874,7 +5874,7 @@ class EnergyProduction:
             regions
         - tuple_enfu_production_and_demands: optional tuple of energy fuel 
             demands produced by 
-            self.model_energy.project_enfu_production_and_demands():
+            self.model_enercons.project_enfu_production_and_demands():
 
             (
                 arr_enfu_demands, 
@@ -5909,7 +5909,7 @@ class EnergyProduction:
             raise ValueError(f"Error in format_nemomod_table_min_share_production: tuple_enfu_production_and_demands and df_elec_trajectories cannot both be None.")
 
         tuple_enfu_production_and_demands = (
-            self.model_energy.project_enfu_production_and_demands(
+            self.model_enercons.project_enfu_production_and_demands(
                 df_elec_trajectories, 
                 target_energy_units = self.model_attributes.configuration.get("energy_units_nemomod")
             )
@@ -6853,7 +6853,7 @@ class EnergyProduction:
         -----------------
         - tuple_enfu_production_and_demands: optional tuple of energy fuel 
             demands produced by 
-            self.model_energy.project_enfu_production_and_demands():
+            self.model_enercons.project_enfu_production_and_demands():
 
             (
                 arr_enfu_demands, 
@@ -6877,7 +6877,7 @@ class EnergyProduction:
 
         # calculate total grid demand for electricity
         tuple_enfu_production_and_demands = (
-            self.model_energy.project_enfu_production_and_demands(
+            self.model_enercons.project_enfu_production_and_demands(
                 df_elec_trajectories, 
                 target_energy_units = self.model_attributes.configuration.get("energy_units_nemomod")
             ) 
@@ -6956,7 +6956,7 @@ class EnergyProduction:
             regions
         - tuple_enfu_production_and_demands: optional tuple of energy fuel 
             demands produced by 
-            self.model_energy.project_enfu_production_and_demands():
+            self.model_enercons.project_enfu_production_and_demands():
 
             (
                 arr_enfu_demands, 
@@ -6983,7 +6983,7 @@ class EnergyProduction:
 
         # calculate total grid demand for electricity
         tuple_enfu_production_and_demands = (
-            self.model_energy.project_enfu_production_and_demands(
+            self.model_enercons.project_enfu_production_and_demands(
                 df_elec_trajectories, 
                 target_energy_units = self.model_attributes.configuration.get("energy_units_nemomod")
             ) 
@@ -7896,7 +7896,7 @@ class EnergyProduction:
                  associated with the technology.
         - tuple_enfu_production_and_demands: optional tuple of energy fuel 
             demands produced by 
-            self.model_energy.project_enfu_production_and_demands():
+            self.model_enercons.project_enfu_production_and_demands():
 
             (
                 arr_enfu_demands, 
@@ -7997,7 +7997,7 @@ class EnergyProduction:
                  associated with the technology.
         - tuple_enfu_production_and_demands: optional tuple of energy fuel 
             demands produced by 
-            self.model_energy.project_enfu_production_and_demands():
+            self.model_enercons.project_enfu_production_and_demands():
 
             (
                 arr_enfu_demands, 
@@ -8399,7 +8399,7 @@ class EnergyProduction:
                  associated with the technology.
         - tuple_enfu_production_and_demands: optional tuple of energy fuel 
             demands produced by 
-            self.model_energy.project_enfu_production_and_demands():
+            self.model_enercons.project_enfu_production_and_demands():
 
             (
                 arr_enfu_demands, 
@@ -9089,7 +9089,7 @@ class EnergyProduction:
             back to SISEPUEDE terms?
         - tuple_enfu_production_and_demands: optional tuple of energy fuel 
             demands produced by 
-            self.model_energy.project_enfu_production_and_demands():
+            self.model_enercons.project_enfu_production_and_demands():
 
             (
                 arr_enfu_demands, 
@@ -9152,7 +9152,7 @@ class EnergyProduction:
 
         # get fuel production and demands (pre-entc)
         tuple_enfu_production_and_demands = (
-            self.model_energy.project_enfu_production_and_demands(df_elec_trajectories, target_energy_units = self.model_attributes.configuration.get("energy_units_nemomod")) 
+            self.model_enercons.project_enfu_production_and_demands(df_elec_trajectories, target_energy_units = self.model_attributes.configuration.get("energy_units_nemomod")) 
             if (tuple_enfu_production_and_demands is None) 
             else tuple_enfu_production_and_demands
         )
@@ -9257,7 +9257,7 @@ class EnergyProduction:
         # arr_entc_total_fuel_value is in 
         #  - configuration monetary units (get_enfu_fuel_costs_per_energy default) and 
         #  - units of modvar_enfu_energy_demand_by_fuel_entc
-        arr_entc_total_fuel_value = self.model_energy.get_enfu_fuel_costs_per_energy(
+        arr_entc_total_fuel_value = self.model_enercons.get_enfu_fuel_costs_per_energy(
             df_elec_trajectories,
             modvar_for_units_energy = self.modvar_enfu_energy_demand_by_fuel_entc
         )
@@ -9542,7 +9542,7 @@ class EnergyProduction:
         - regions: regions to generate input tables for
         - tuple_enfu_production_and_demands: optional tuple of energy fuel 
             demands produced by 
-            self.model_energy.project_enfu_production_and_demands():
+            self.model_enercons.project_enfu_production_and_demands():
 
             (
                 arr_enfu_demands, 
@@ -9569,7 +9569,7 @@ class EnergyProduction:
         # check specification of regions and check energy production and demand inputs
         regions = self.model_attributes.get_region_list_filtered(regions, attribute_region = attribute_region)
         tuple_enfu_production_and_demands = (
-            self.model_energy.project_enfu_production_and_demands(
+            self.model_enercons.project_enfu_production_and_demands(
                 df_elec_trajectories, 
                 target_energy_units = self.model_attributes.configuration.get("energy_units_nemomod")
             )
@@ -9885,7 +9885,7 @@ class EnergyProduction:
         -----------------
         - tuple_enfu_production_and_demands: optional tuple of energy fuel 
             demands produced by 
-            self.model_energy.project_enfu_production_and_demands():
+            self.model_enercons.project_enfu_production_and_demands():
 
             (
                 arr_enfu_demands, 
@@ -10075,7 +10075,7 @@ class EnergyProduction:
             engine = sqlalchemy.create_engine(f"{str_prepend_sqlite}{fp_database}")
 
         # get shared energy variables that are required before and after NemoMod runs
-        tuple_enfu_production_and_demands = self.model_energy.project_enfu_production_and_demands(
+        tuple_enfu_production_and_demands = self.model_enercons.project_enfu_production_and_demands(
             df_elec_trajectories, 
             target_energy_units = self.model_attributes.configuration.get("energy_units_nemomod")
         )

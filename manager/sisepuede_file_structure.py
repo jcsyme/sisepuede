@@ -353,13 +353,13 @@ class SISEPUEDEFileStructure:
 		if (self.dir_ref_nemo is not None) and (self.dir_jl is not None):
 
 			# nemo mod input files - specify required, run checks
-			model_electricity = EnergyProduction(
+			model_enerprod = EnergyProduction(
 				self.model_attributes,
 				self.dir_jl,
 				self.dir_ref_nemo,
 				initialize_julia = False
 			)
-			self.required_reference_tables_nemomod = model_electricity.required_reference_tables
+			self.required_reference_tables_nemomod = model_enerprod.required_reference_tables
 
 			# initialize dictionary of file paths
 			dict_nemomod_reference_tables_to_fp_csv = dict(zip(

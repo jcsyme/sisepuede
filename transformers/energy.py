@@ -84,11 +84,11 @@ class TransformationsEnergy:
         * If None, defaults to a temporary path sql database
     - logger: optional logger object
     - model_afolu: optional AFOLU object to pass for property and method access
-    - model_electricity: optional EnergyProduction object to pass for property and
+    - model_enerprod: optional EnergyProduction object to pass for property and
         method access
         * NOTE: If passing, `dir_jl` and `fp_nemomod_reference_files` are 
             ignored (can pass None to those arguments if passing 
-            model_electricity)
+            model_enerprod)
     """
     
     def __init__(self,
@@ -101,7 +101,7 @@ class TransformationsEnergy:
 		fp_nemomod_temp_sqlite_db: Union[str, None] = None,
 		logger: Union[logging.Logger, None] = None,
         model_afolu: Union[mafl.AFOLU, None] = None,
-        model_electricity: Union[ml.EnergyProduction, None] = None,
+        model_enerprod: Union[ml.EnergyProduction, None] = None,
     ):
 
         self.logger = logger
@@ -112,7 +112,7 @@ class TransformationsEnergy:
             dir_jl, 
             fp_nemomod_reference_files,
             model_afolu = model_afolu,
-            model_electricity = model_electricity,
+            model_enerprod = model_enerprod,
         )
         self._initialize_parameters(dict_config = dict_config)
         self._initialize_ramp()
@@ -592,7 +592,7 @@ class TransformationsEnergy:
         dir_jl: str,
         fp_nemomod_reference_files: str,
         model_afolu: Union[mafl.AFOLU, None] = None,
-        model_electricity: Union[ml.EnergyProduction, None] = None,
+        model_enerprod: Union[ml.EnergyProduction, None] = None,
     ) -> None:
         """
         Define model objects for use in variable access and base estimates.
@@ -616,11 +616,11 @@ class TransformationsEnergy:
             * NOTE: if passing, ensure that the ModelAttributes objects used to 
                 instantiate the model + what is passed to the model_attributes 
                 argument are the same.
-        - model_electricity: optional EnergyProduction object to pass for property 
+        - model_enerprod: optional EnergyProduction object to pass for property 
             and method access
             * NOTE: If passing, `dir_jl` and `fp_nemomod_reference_files` are 
                 ignored (can pass None to those arguments if passing 
-                model_electricity)
+                model_enerprod)
             * NOTE: if passing, ensure that the ModelAttributes objects used to 
                 instantiate the model + what is passed to the model_attributes 
                 argument are the same.
@@ -632,20 +632,20 @@ class TransformationsEnergy:
             else model_afolu
         )
 
-        model_electricity = (
+        model_enerprod = (
             ml.EnergyProduction(
                 self.model_attributes, 
                 dir_jl,
                 fp_nemomod_reference_files,
                 initialize_julia = False
             )
-            if model_electricity is None
-            else model_electricity
+            if model_enerprod is None
+            else model_enerprod
         )
 
         self.model_afolu = model_afolu
-        self.model_electricity = model_electricity
-        self.model_energy = model_electricity.model_energy
+        self.model_enerprod = model_enerprod
+        self.model_enercons = model_enerprod.model_enercons
 
         return None
 
@@ -1592,7 +1592,7 @@ class TransformationsEnergy:
 		-----------------
         """
         vec_out = np.array([
-            (self.model_electricity.drop_flag_tech_capacities if (x == 0) else 0) 
+            (self.model_enerprod.drop_flag_tech_capacities if (x == 0) else 0) 
             for x in vec_ramp
         ])
 
@@ -1931,7 +1931,7 @@ class TransformationsEnergy:
             df_out,
             target_renewables_value_min,
             vec_implementation_ramp,
-            self.model_electricity,
+            self.model_enerprod,
             dict_cats_entc_max_investment = self.dict_entc_renewable_target_cats_max_investment,
             field_region = self.key_region,
             include_target = False, # only want to adjust MSPs in line with this
@@ -1990,7 +1990,7 @@ class TransformationsEnergy:
             vec_implementation_ramp,
             self.model_attributes,
             field_region = self.key_region,
-            model_energy = self.model_energy,
+            model_enercons = self.model_enercons,
             strategy_id = strat
         )
 
@@ -2041,7 +2041,7 @@ class TransformationsEnergy:
             vec_implementation_ramp,
             self.model_attributes,
             field_region = self.key_region,
-            model_electricity = self.model_electricity,
+            model_enerprod = self.model_enerprod,
             strategy_id = strat
         )
 
@@ -2088,7 +2088,7 @@ class TransformationsEnergy:
             0.06,
             vec_implementation_ramp,
             self.model_attributes,
-            self.model_electricity,
+            self.model_enerprod,
             field_region = self.key_region,
             strategy_id = strat,
         )
@@ -2135,7 +2135,7 @@ class TransformationsEnergy:
             df_input,
             0.95,
             vec_implementation_ramp,
-            self.model_electricity,
+            self.model_enerprod,
             dict_cats_entc_max_investment = self.dict_entc_renewable_target_cats_max_investment,
             field_region = self.key_region,
             magnitude_renewables = self.dict_entc_renewable_target_msp,
@@ -2247,8 +2247,8 @@ class TransformationsEnergy:
         df_out = tbe.transformation_entc_change_msp_max(
             df_input,
             dict_cat_to_vector,
-            self.model_electricity,
-            drop_flag = self.model_electricity.drop_flag_tech_capacities,
+            self.model_enerprod,
+            drop_flag = self.model_enerprod.drop_flag_tech_capacities,
             field_region = self.key_region,
             vec_ramp = vec_implementation_ramp,
             strategy_id = strat,
@@ -2357,7 +2357,7 @@ class TransformationsEnergy:
             0.95,
             vec_implementation_ramp,
             self.model_attributes,
-            self.model_electricity,
+            self.model_enerprod,
             field_region = self.key_region,
             strategy_id = strat
         )
@@ -2410,7 +2410,7 @@ class TransformationsEnergy:
             vec_implementation_ramp,
             self.model_attributes,
             field_region = self.key_region,
-            model_energy = self.model_energy,
+            model_enercons = self.model_enercons,
             strategy_id = strat
         )
 
@@ -2458,7 +2458,7 @@ class TransformationsEnergy:
             vec_implementation_ramp,
             self.model_attributes,
             field_region = self.key_region,
-            model_energy = self.model_energy,
+            model_enercons = self.model_enercons,
             strategy_id = strat
         )
 
@@ -2512,12 +2512,12 @@ class TransformationsEnergy:
             self.model_attributes,
             categories = self.cats_inen_high_heat,
             dict_modvar_specs = {
-                self.model_energy.modvar_inen_frac_en_electricity: 0.5,
-                self.model_energy.modvar_inen_frac_en_hydrogen: 0.5,
+                self.model_enercons.modvar_inen_frac_en_electricity: 0.5,
+                self.model_enercons.modvar_inen_frac_en_hydrogen: 0.5,
             },
             field_region = self.key_region,
             magnitude_relative_to_baseline = True,
-            model_energy = self.model_energy,
+            model_enercons = self.model_enercons,
             strategy_id = strat
         )
 
@@ -2580,11 +2580,11 @@ class TransformationsEnergy:
             self.model_attributes,
             categories = self.cats_inen_high_heat,
             dict_modvar_specs = {
-                self.model_energy.modvar_inen_frac_en_electricity: frac_shift_hh_elec,
-                self.model_energy.modvar_inen_frac_en_hydrogen: frac_shift_hh_hydrogen,
+                self.model_enercons.modvar_inen_frac_en_electricity: frac_shift_hh_elec,
+                self.model_enercons.modvar_inen_frac_en_hydrogen: frac_shift_hh_hydrogen,
             },
             field_region = self.key_region,
-            model_energy = self.model_energy,
+            model_enercons = self.model_enercons,
             strategy_id = strat
         )
 
@@ -2597,11 +2597,11 @@ class TransformationsEnergy:
             self.model_attributes,
             categories = self.cats_inen_not_high_heat,
             dict_modvar_specs = {
-                self.model_energy.modvar_inen_frac_en_electricity: 1.0
+                self.model_enercons.modvar_inen_frac_en_electricity: 1.0
             },
             field_region = self.key_region,
             magnitude_relative_to_baseline = True,
-            model_energy = self.model_energy,
+            model_enercons = self.model_enercons,
             strategy_id = strat
         )
 
@@ -2649,11 +2649,11 @@ class TransformationsEnergy:
             vec_implementation_ramp,
             self.model_attributes,
             dict_modvar_specs = {
-                self.model_energy.modvar_inen_frac_en_electricity: 1.0
+                self.model_enercons.modvar_inen_frac_en_electricity: 1.0
             },
             field_region = self.key_region,
             magnitude_relative_to_baseline = True,
-            model_energy = self.model_energy,
+            model_enercons = self.model_enercons,
             strategy_id = strat
         )
 
@@ -2701,7 +2701,7 @@ class TransformationsEnergy:
             vec_implementation_ramp,
             self.model_attributes,
             field_region = self.key_region,
-            model_energy = self.model_energy,
+            model_enercons = self.model_enercons,
             strategy_id = strat
         )
 
@@ -2749,7 +2749,7 @@ class TransformationsEnergy:
             vec_implementation_ramp,
             self.model_attributes,
             field_region = self.key_region,
-            model_energy = self.model_energy,
+            model_enercons = self.model_enercons,
             strategy_id = strat
         )
 
@@ -2801,7 +2801,7 @@ class TransformationsEnergy:
             vec_implementation_ramp,
             self.model_attributes,
             field_region = self.key_region,
-            model_energy = self.model_energy,
+            model_enercons = self.model_enercons,
             strategy_id = strat
         )
 
@@ -2849,7 +2849,7 @@ class TransformationsEnergy:
             vec_implementation_ramp,
             self.model_attributes,
             field_region = self.key_region,
-            model_energy = self.model_energy,
+            model_enercons = self.model_enercons,
             strategy_id = strat
         )
 
@@ -2897,7 +2897,7 @@ class TransformationsEnergy:
             vec_implementation_ramp,
             self.model_attributes,
             field_region = self.key_region,
-            model_energy = self.model_energy,
+            model_enercons = self.model_enercons,
             strategy_id = strat
         )
 
@@ -2949,7 +2949,7 @@ class TransformationsEnergy:
             vec_implementation_ramp,
             self.model_attributes,
             field_region = self.key_region,
-            model_energy = self.model_energy,
+            model_enercons = self.model_enercons,
             strategy_id = strat
         )
         
@@ -2998,11 +2998,11 @@ class TransformationsEnergy:
             self.model_attributes,
             categories = ["road_light"],
             dict_modvar_specs = {
-                self.model_energy.modvar_trns_fuel_fraction_electricity: 1.0
+                self.model_enercons.modvar_trns_fuel_fraction_electricity: 1.0
             },
             field_region = self.key_region,
             magnitude_type = "transfer_scalar",
-            model_energy = self.model_energy,
+            model_enercons = self.model_enercons,
             strategy_id = strat
         )
         
@@ -3038,7 +3038,7 @@ class TransformationsEnergy:
             else df_input
         )
         
-        model_energy = self.model_energy
+        model_enercons = self.model_enercons
 
         # check implementation ramp
         vec_implementation_ramp = self.check_implementation_ramp(
@@ -3054,11 +3054,11 @@ class TransformationsEnergy:
             self.model_attributes,
             categories = ["rail_freight", "rail_passenger"],
             dict_modvar_specs = {
-                self.model_energy.modvar_trns_fuel_fraction_electricity: 1.0
+                self.model_enercons.modvar_trns_fuel_fraction_electricity: 1.0
             },
             field_region = self.key_region,
             magnitude_type = "transfer_scalar",
-            model_energy = self.model_energy,
+            model_enercons = self.model_enercons,
             strategy_id = strat
         )
         
@@ -3094,7 +3094,7 @@ class TransformationsEnergy:
             else df_input
         )
         
-        model_energy = self.model_energy
+        model_enercons = self.model_enercons
 
         # check implementation ramp
         vec_implementation_ramp = self.check_implementation_ramp(
@@ -3111,15 +3111,15 @@ class TransformationsEnergy:
             self.model_attributes,
             categories = ["water_borne"],
             dict_modvar_specs = {
-                self.model_energy.modvar_trns_fuel_fraction_hydrogen: 1.0
+                self.model_enercons.modvar_trns_fuel_fraction_hydrogen: 1.0
             },
             field_region = self.key_region,
             modvars_source = [
-                self.model_energy.modvar_trns_fuel_fraction_diesel,
-                self.model_energy.modvar_trns_fuel_fraction_gasoline
+                self.model_enercons.modvar_trns_fuel_fraction_diesel,
+                self.model_enercons.modvar_trns_fuel_fraction_gasoline
             ],
             magnitude_type = "transfer_scalar",
-            model_energy = self.model_energy,
+            model_enercons = self.model_enercons,
             strategy_id = strat
         )
 
@@ -3131,15 +3131,15 @@ class TransformationsEnergy:
             self.model_attributes,
             categories = ["water_borne"],
             dict_modvar_specs = {
-                self.model_energy.modvar_trns_fuel_fraction_electricity: 1.0
+                self.model_enercons.modvar_trns_fuel_fraction_electricity: 1.0
             },
             field_region = self.key_region,
             modvars_source = [
-                self.model_energy.modvar_trns_fuel_fraction_diesel,
-                self.model_energy.modvar_trns_fuel_fraction_gasoline
+                self.model_enercons.modvar_trns_fuel_fraction_diesel,
+                self.model_enercons.modvar_trns_fuel_fraction_gasoline
             ],
             magnitude_type = "transfer_scalar",
-            model_energy = self.model_energy,
+            model_enercons = self.model_enercons,
             strategy_id = strat
         )
         
@@ -3174,7 +3174,7 @@ class TransformationsEnergy:
             else df_input
         )
         
-        model_energy = self.model_energy
+        model_enercons = self.model_enercons
 
         # check implementation ramp
         vec_implementation_ramp = self.check_implementation_ramp(
@@ -3191,15 +3191,15 @@ class TransformationsEnergy:
             self.model_attributes,
             categories = ["road_heavy_freight", "road_heavy_regional", "public"],
             dict_modvar_specs = {
-                self.model_energy.modvar_trns_fuel_fraction_electricity: 1.0
+                self.model_enercons.modvar_trns_fuel_fraction_electricity: 1.0
             },
             field_region = self.key_region,
             modvars_source = [
-                self.model_energy.modvar_trns_fuel_fraction_diesel,
-                self.model_energy.modvar_trns_fuel_fraction_gasoline
+                self.model_enercons.modvar_trns_fuel_fraction_diesel,
+                self.model_enercons.modvar_trns_fuel_fraction_gasoline
             ],
             magnitude_type = "transfer_scalar",
-            model_energy = self.model_energy,
+            model_enercons = self.model_enercons,
             strategy_id = strat
         )
 
@@ -3211,15 +3211,15 @@ class TransformationsEnergy:
             self.model_attributes,
             categories = ["road_heavy_freight", "road_heavy_regional", "public"],
             dict_modvar_specs = {
-                self.model_energy.modvar_trns_fuel_fraction_hydrogen: 1.0
+                self.model_enercons.modvar_trns_fuel_fraction_hydrogen: 1.0
             },
             field_region = self.key_region,
             modvars_source = [
-                self.model_energy.modvar_trns_fuel_fraction_diesel,
-                self.model_energy.modvar_trns_fuel_fraction_gasoline
+                self.model_enercons.modvar_trns_fuel_fraction_diesel,
+                self.model_enercons.modvar_trns_fuel_fraction_gasoline
             ],
             magnitude_type = "transfer_scalar",
-            model_energy = self.model_energy,
+            model_enercons = self.model_enercons,
             strategy_id = strat
         )
     
@@ -3267,7 +3267,7 @@ class TransformationsEnergy:
             vec_implementation_ramp,
             self.model_attributes,
             field_region = self.key_region,
-            model_energy = self.model_energy,
+            model_enercons = self.model_enercons,
             strategy_id = strat
         )
         
@@ -3315,7 +3315,7 @@ class TransformationsEnergy:
             vec_implementation_ramp,
             self.model_attributes,
             field_region = self.key_region,
-            model_energy = self.model_energy,
+            model_enercons = self.model_enercons,
             strategy_id = strat
         )
         
@@ -3363,7 +3363,7 @@ class TransformationsEnergy:
             vec_implementation_ramp,
             self.model_attributes,
             field_region = self.key_region,
-            model_energy = self.model_energy,
+            model_enercons = self.model_enercons,
             strategy_id = strat
         )
         
@@ -3409,7 +3409,7 @@ class TransformationsEnergy:
             df_input,
             self.model_attributes,
             {
-                self.model_energy.modvar_trns_modeshare_freight: {
+                self.model_enercons.modvar_trns_modeshare_freight: {
                     "bounds": (0, 1),
                     "magnitude": 0.2,
                     "magnitude_type": "transfer_value_scalar",
@@ -3466,7 +3466,7 @@ class TransformationsEnergy:
             df_input,
             self.model_attributes,
             {
-                self.model_energy.modvar_trns_modeshare_public_private: {
+                self.model_enercons.modvar_trns_modeshare_public_private: {
                     "bounds": (0, 1),
                     "magnitude": 0.3,
                     "magnitude_type": "transfer_value_scalar",
@@ -3525,7 +3525,7 @@ class TransformationsEnergy:
             df_input,
             self.model_attributes,
             {
-                self.model_energy.modvar_trns_modeshare_regional: {
+                self.model_enercons.modvar_trns_modeshare_regional: {
                     "bounds": (0, 1),
                     "magnitude": 0.25,
                     "magnitude_type": "transfer_value_scalar",
@@ -3545,7 +3545,7 @@ class TransformationsEnergy:
             df_input,
             self.model_attributes,
             {
-                self.model_energy.modvar_trns_modeshare_regional: {
+                self.model_enercons.modvar_trns_modeshare_regional: {
                     "bounds": (0, 1),
                     "magnitude": 0.1,
                     "magnitude_type": "transfer_value_scalar",
@@ -3564,7 +3564,7 @@ class TransformationsEnergy:
             df_out,
             self.model_attributes,
             {
-                self.model_energy.modvar_trns_modeshare_regional: {
+                self.model_enercons.modvar_trns_modeshare_regional: {
                     "bounds": (0, 1),
                     "magnitude": 0.2,
                     "magnitude_type": "transfer_value_scalar",

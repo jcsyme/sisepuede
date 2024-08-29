@@ -104,7 +104,7 @@ class TransformationsIntegrated:
         * NOTE: if passing, ensure that the ModelAttributes objects used to 
             instantiate the model + what is passed to the model_attributes
             argument are the same.
-    - model_electricity: optional EnergyProduction object to pass for property and 
+    - model_enerprod: optional EnergyProduction object to pass for property and 
         method access.
         * NOTE: if passing, ensure that the ModelAttributes objects used to 
             instantiate the model + what is passed to the model_attributes
@@ -541,16 +541,16 @@ class TransformationsIntegrated:
 
             * self.model_afolu
             * self.model_circular_economy
-            * self.model_electricity
-            * self.model_energy
+            * self.model_enerprod
+            * self.model_enercons
             * self.model_ippu
             * self.model_socioeconomic
         """
 
         self.model_afolu = self.transformations_afolu.model_afolu
         self.model_circular_economy = self.transformations_circular_economy.model_circecon
-        self.model_electricity = self.transformations_energy.model_electricity
-        self.model_energy = self.transformations_energy.model_energy
+        self.model_enerprod = self.transformations_energy.model_enerprod
+        self.model_enercons = self.transformations_energy.model_enercons
         self.model_ippu = self.transformations_ippu.model_ippu
         self.model_socioeconomic = self.model_ippu.model_socioeconomic
 
@@ -682,7 +682,7 @@ class TransformationsIntegrated:
             field_region = self.key_region,
             logger = self.logger,
             model_afolu = kwargs.get("model_afolu"),
-            model_electricity = kwargs.get("model_electricity"),
+            model_enerprod = kwargs.get("model_enerprod"),
         )
 
         self.transformations_ippu = dti.TransformationsIPPU(

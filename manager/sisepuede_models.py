@@ -111,16 +111,16 @@ class SISEPUEDEModels:
 		self.model_afolu = AFOLU(self.model_attributes)
 		self.model_circecon = CircularEconomy(self.model_attributes)
 
-		self.model_electricity = None
+		self.model_enerprod = None
 		if self.allow_electricity_run:
-			self.model_electricity = EnergyProduction(
+			self.model_enerprod = EnergyProduction(
 				self.model_attributes,
 				self.fp_julia,
 				self.fp_nemomod_reference_files,
 				logger = self.logger
 			)
 
-		self.model_energy = EnergyConsumption(
+		self.model_enercons = EnergyConsumption(
 			self.model_attributes,
 			logger = self.logger
 		)
@@ -523,11 +523,11 @@ class SISEPUEDEModels:
 				df_input_data = self.model_attributes.transfer_df_variables(
 					df_input_data,
 					df_return[0],
-					self.model_energy.integration_variables_non_fgtv
+					self.model_enercons.integration_variables_non_fgtv
 				)
 
 			try:
-				df_return.append(self.model_energy.project(df_input_data))
+				df_return.append(self.model_enercons.project(df_input_data))
 				df_return = (
 					[sf.merge_output_df_list(df_return, self.model_attributes, merge_type = "concatenate")] 
 					if run_integrated 
@@ -557,13 +557,13 @@ class SISEPUEDEModels:
 				df_input_data = self.model_attributes.transfer_df_variables(
 					df_input_data,
 					df_return[0],
-					self.model_electricity.integration_variables
+					self.model_enerprod.integration_variables
 				)
 
 			# create the engine and try to run Electricity
 			engine = sqlalchemy.create_engine(f"sqlite:///{self.fp_nemomod_temp_sqlite_db}")
 			try:
-				df_elec = self.model_electricity.project(
+				df_elec = self.model_enerprod.project(
 					df_input_data, 
 					engine,
 					regions = regions
@@ -599,12 +599,12 @@ class SISEPUEDEModels:
 				df_input_data = self.model_attributes.transfer_df_variables(
 					df_input_data,
 					df_return[0],
-					self.model_energy.integration_variables_fgtv
+					self.model_enercons.integration_variables_fgtv
 				)
 
 			try:
 				df_return.append(
-					self.model_energy.project(
+					self.model_enercons.project(
 						df_input_data, 
 						subsectors_project = self.model_attributes.subsec_name_fgtv
 					)
