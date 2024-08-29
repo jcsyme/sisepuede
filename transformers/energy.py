@@ -8,8 +8,8 @@ from typing import *
 
 import sisepuede.core.model_attributes as ma
 import sisepuede.core.support_classes as sc
-import sisepuede.transformers.lib.energy as tbe
-import sisepuede.transformers.lib.general as tbg
+import sisepuede.transformers.lib._baselib_energy as tbe
+import sisepuede.transformers.lib._baselib_general as tbg
 import sisepuede.models.afolu as mafl
 import sisepuede.models.energy_consumption as me
 import sisepuede.models.energy_production as ml

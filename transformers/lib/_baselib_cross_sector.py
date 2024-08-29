@@ -4,7 +4,7 @@ import pandas as pd
 from typing import *
 
 
-from sisepuede.transformers.lib.general import *
+from sisepuede.transformers.lib._baselib_general import *
 import sisepuede.core.model_attributes as ma
 import sisepuede.core.support_classes as sc
 import sisepuede.models.ippu as mi
