@@ -1,9 +1,9 @@
-from attribute_table import AttributeTable
-from model_attributes import *
+from sisepuede.core.attribute_table import AttributeTable
+from sisepuede.core.model_attributes import *
 import numpy as np
 import os, os.path
 import pandas as pd
-import support_functions as sf
+import sisepuede.utilities.support_functions as sf
 
 
 ##  SETUP DIRECTORIES AND KEY FILES

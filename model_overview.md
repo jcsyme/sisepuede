@@ -71,7 +71,7 @@ The following variables are required for each country.
 
 | Variable | Information | Variable Schema |
 | --------- | --------- | ----------- |
-| Area of Country | Units: Hectares (ha). Total area of the country, including land and water. | `area_country_ha` |
+| Area of Region | Units: Hectares (ha). Total area of the country, including land and water. | `area_country_ha` |
 | Urban Population | Units: # of people | `population_urban` |
 | Rural Population | Units: # of people | `population_rural` |
 
@@ -387,7 +387,7 @@ etc.
 
 | Sector | Subsector | Variable | Information | Variable Schema | Varies by |
 | --------- | --------- | --------- | --------- | ----------- | ----------- |
-| All | - | Area of Country | Units: Hectares (ha) | `area_country_ha` | - |
+| All | - | Area of Region | Units: Hectares (ha) | `area_country_ha` | - |
 | All | - | Urban Population | Units: # of people | `population_urban` | - |
 | All | - | Rural Population | Units: # of people | `population_rural` | - |
 | AFOLU | Forestry | Area proportion by crop type | Proportion of total country area (%/100) | `frac_lu_$CAT-FOREST$` | `$CAT-FOREST$` |

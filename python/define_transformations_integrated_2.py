@@ -1,17 +1,17 @@
-from attribute_table import AttributeTable
+from sisepuede.core.attribute_table import AttributeTable
 import define_transformations_afolu as dta
 import define_transformations_circular_economy as dtc
 import define_transformations_energy as dte
 import define_transformations_ippu as dti
-import ingestion as ing
+import sisepuede.data_management.ingestion as ing
 import logging
 import numpy as np
 import os, os.path
 import pandas as pd
 import setup_analysis as sa
-from sisepuede_file_structure import *
-import support_classes as sc
-import support_functions as sf
+from sisepuede.manager.sisepuede_file_structure import *
+import sisepuede.core.support_classes as sc
+import sisepuede.utilities.support_functions as sf
 import time
 from typing import Union
 import warnings

@@ -1,9 +1,0 @@
-﻿Experimental Parameter,Configuration File Parameter,Default Value,Information,Notes
-Number of LHS Trials,num_lhc_samples,1000,"Number of Latin Hypercube samples to generate for the experiment. This number governs the number of plausible futures that are generated, which are indexed in most cases as **future_id**.",
-Output Method,output_method,SQLite," | Acceptable values are *CSV* or *SQLite* (case insensitive). 
- | 
-*CSV: export output tables and associated attribute tables to CSV files in the output directory (indexed by the analysis run id)
-* SQLite: export all tables to a single SQLite database.",
-LHC Random Seed,random_seed,,"Optional random seed to specify to generate trials; ensures reproducibility of trials if the number of factors is the same (sampling units). Recommended to specify if data management and space issues are present, as reproducibility ensures that input variables do not have to be stored in a database. ",
-Save Model Inputs,save_inputs,False,"Save model inputs for every run? Defaults to False. Note that inputs can be generated on the fly, saving space.",
-Uncertainty Starting Time Period,time_period_u0,1,"Time period in which uncertainty begins--note that, in uncertainty fans (spaghetti-plots), uncertainty trajectories will begin diverging at this point in time.",

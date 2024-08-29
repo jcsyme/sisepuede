@@ -1,0 +1,10 @@
+name: 
+id: 0
+code: BASELINE
+transformations: 
+  tx_1:
+    param1: val1
+    param2: val2
+    
+Increase Yields:
+  id: 1001

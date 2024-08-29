@@ -44,3 +44,9 @@ vignettes/*.pdf
 # Mac DStore
 *.DStore
 *.DS_Store
+**/.DStore
+**/.DS_Store
+
+# tmp and out
+/tmp/*
+/out/*

@@ -1,5 +1,0 @@
-﻿Monetary,``$UNIT-MONETARY$``,Name ,Monetary Equivalent usd,Monetary Equivalent m_usd,Monetary Equivalent mm_usd,Monetary Equivalent mmm_usd
-usd,``usd``,US Dollars,1,0.001,0.000001,0.000000001
-m_usd,``m_usd``,Thousand US Dollars,1000,1,0.001,0.000001
-mm_usd,``mm_usd``,Million US Dollars,1000000,1000,1,0.001
-mmm_usd,``mmm_usd``,Billion US Dollars,1000000000,1000000,1000,1

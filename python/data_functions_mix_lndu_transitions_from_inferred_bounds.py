@@ -1,11 +1,11 @@
-from attribute_table import AttributeTable
-import model_afolu as mafl
-import model_attributes as ma
+from sisepuede.core.attribute_table import AttributeTable
+import sisepuede.models.afolu as mafl
+import sisepuede.core.model_attributes as ma
 import numpy as np
 import os, os.path
 import pandas as pd
 import setup_analysis as sa
-import support_functions as sf
+import sisepuede.utilities.support_functions as sf
 from typing import *
 import warnings
 

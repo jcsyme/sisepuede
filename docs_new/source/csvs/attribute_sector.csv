@@ -1,6 +1,0 @@
-﻿﻿Sector,Sector Name,``$ABBREVIATION-SECTOR$``,Description
-AFOLU,"Agriculture, Forestry, and Land Use",``af``,Agricultural activity ....
-Circular Economy,Circular Economy,``ce``,"Activity (demand and emission) associated with emissions from domestic and industrial liquid and solid waste production, storage, and treatment"
-Energy,Energy,``en``,"Activity (demand and emission) associated with energy generation and consumption, including:  <ul><li>stationary emissions in commercial, municipal, and residential buildings;<li>electricity generation; <li>industrial energy use; and <li>transportation.</ul>"
-IPPU,Industrial Processes and Product Use,``ip``,Activity (demand and emission) associated with industrial processes and product use.
-Socioeconomic,Socioeconomic,``se``,Socioeconomic and demographic activity affecting all sectors; primary driver of emissions and energy demands.

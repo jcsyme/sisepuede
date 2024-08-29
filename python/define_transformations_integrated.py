@@ -1,20 +1,20 @@
-from attribute_table import AttributeTable
+from sisepuede.core.attribute_table import AttributeTable
 import define_transformations_afolu as dta
 import define_transformations_circular_economy as dtc
 import define_transformations_energy as dte
 import define_transformations_ippu as dti
-import ingestion as ing
+import sisepuede.data_management.ingestion as ing
 import logging
-import model_attributes as ma
-import model_ippu as mi
+import sisepuede.core.model_attributes as ma
+import sisepuede.models.ippu as mi
 import numpy as np
 import os, os.path
 import pandas as pd
 import setup_analysis as sa
 import shutil
-import sisepuede_file_structure as sfs
-import support_classes as sc
-import support_functions as sf
+import sisepuede.manager.sisepuede_file_structure as sfs
+import sisepuede.core.support_classes as sc
+import sisepuede.utilities.support_functions as sf
 import time
 import transformations_base_general as tbg
 import transformations_base_cross_sector as tbc

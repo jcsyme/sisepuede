@@ -1,3 +1,0 @@
-﻿Variable Type,Variable,Information,Variable Schema,Dashboard,Categories,Notes,Data Link,Reference,Internal Model Variable,Default LHS Scalar Minimum at Final Time Period,Default LHS Scalar Maximum at Final Time Period,Emissions Total by Gas Component,Simplex Group
-Input,GDP,GDP in billions of USD,``gdp_$UNIT-MONETARY$`` (``$UNIT-MONETARY$ = mmm_usd``),`GDP Dashboard <https://public.tableau.com/app/profile/fernando8493/viz/GDP_16423551657970/Dashboard1>`_ ,none,Exogenous GDP trajectory,,`World Bank GDP <https://data.worldbank.org/indicator/NY.GDP.MKTP.KD>`_,0,1,1,0,
-Output,GDP per Capita,GDP per Capita in dollars,``gdp_per_capita_$UNIT-MONETARY$`` (``$UNIT-MONETARY$ = usd``),,none,,,,1,1,1,0,

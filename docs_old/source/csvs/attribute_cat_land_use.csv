@@ -1,9 +1,0 @@
-﻿Category Name,``$CAT-LANDUSE$``,Definition,Data Source,Hyperlink,Notes,``$CAT-FOREST$``,Crop Category,Other Category,Pasture Category,Settlements Category,Wetlands Category,Mineralization in Land Use Conversion to Managed,Reallocation Transition Probability Exhaustion Category
-Croplands,``croplands``,"Area of land devoted to growing crops for consumption, export, and industrial use. Does not include pastures.",,,,none,1,0,0,0,0,0,0
-Forests - Mangroves,``forests_mangroves``,Area with mangroves,,,,``mangroves``,0,0,0,0,0,1,0
-Forests - Primary,``forests_primary``,"Area of land covered in primary forest (e.g., old growth)",,,,``primary``,0,0,0,0,0,1,1
-Forests - Secondary,``forests_secondary``,"Area of land covered in secondary forest, including plantations",,,,``secondary``,0,0,0,0,0,1,0
-Grasslands,``grasslands``,"Area of grasslands, including native and pastures (both degraded and improved)",,,,none,0,0,1,0,0,1,0
-Other,``other``,"Other land use categories (including savannah, shrublands, etc.)",,,,none,0,1,0,0,0,0,0
-Settlements,``settlements``,Area of land devoted to urban/suburban development. Assume no emissions from land use (primary emissions captured elsewhere).,,,,none,0,0,0,1,0,0,0
-Wetlands,``wetlands``,"Wetlands, which emit :math:`\text{CH}_4`",,,,none,0,0,0,0,1,0,0

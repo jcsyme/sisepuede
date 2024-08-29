@@ -1,16 +1,16 @@
-from attribute_table import AttributeTable
-import ingestion as ing
+from sisepuede.core.attribute_table import AttributeTable
+import sisepuede.data_management.ingestion as ing
 import logging
-import model_afolu as mafl
-import model_attributes as ma
-import model_circular_economy as mc
+import sisepuede.models.afolu as mafl
+import sisepuede.core.model_attributes as ma
+import sisepuede.models.circular_economy as mc
 import numpy as np
 import os, os.path
 import pandas as pd
 import setup_analysis as sa
-from sisepuede_file_structure import *
-import support_classes as sc
-import support_functions as sf
+from sisepuede.manager.sisepuede_file_structure import *
+import sisepuede.core.support_classes as sc
+import sisepuede.utilities.support_functions as sf
 import time
 import transformations_base_circular_economy as tbc
 from typing import Union

@@ -1,2 +1,0 @@
-﻿Variable Type,Variable,Information,Variable Schema,Dashboard,Notes,Data Link,Reference,Internal Model Variable,Default LHS Scalar Minimum at Final Time Period,Default LHS Scalar Maximum at Final Time Period,Emissions Total by Gas Component,Simplex Group
-Input,Soil Organic C Stocks,"See :math:`SOC_{REF}` in Table 2.3, used in Equation 2.25, for Equation 11.8, V4 IPCC GNGHGI (2019R)","``qty_soil_organic_c_stock_$CAT-SOIL-MANAGEMENT$_$UNIT-MASS$_per_$UNIT-AREA$`` (``$UNIT-MASS$ = tonne``, ``$UNIT-AREA$ = ha``)",,,,,0,1,1,0,

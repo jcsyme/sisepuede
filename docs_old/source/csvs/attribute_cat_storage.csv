@@ -1,5 +1,0 @@
-﻿Category Name,``$CAT-STORAGE$``,Description,Data Source,Hyperlink,Notes,Minimum Charge Fraction,netzeroyear,netzerotg1,netzerotg2,``$CAT-TECHNOLOGY$``
-Batteries,``st_batteries``,,,,,0.05,0,0,1,``st_batteries``
-Compressed Air,``st_compressed_air``,,,,,0,1,0,0,``st_compressed_air``
-Flywheels,``st_flywheels``,,,,,0,0,0,1,``st_flywheels``
-Pumped Hydro Storage,``st_pumped_hydro``,,,,,0,1,0,0,``st_pumped_hydro``

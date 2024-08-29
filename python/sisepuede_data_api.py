@@ -4,19 +4,19 @@
 
 import itertools
 import logging
-import model_attributes as ma
-import model_afolu as mafl
-import model_ippu as mi
-import model_circular_economy as mc
-import model_electricity as ml
-import model_energy as me
-import model_socioeconomic as se
+import sisepuede.core.model_attributes as ma
+import sisepuede.models.afolu as mafl
+import sisepuede.models.ippu as mi
+import sisepuede.models.circular_economy as mc
+import sisepuede.models.energy_production as ml
+import sisepuede.models.energy_consumption as me
+import sisepuede.models.socioeconomic as se
 import numpy as np
 import os, os.path
 import pandas as pd
 import re
-import support_classes as sc
-import support_functions as sf
+import sisepuede.core.support_classes as sc
+import sisepuede.utilities.support_functions as sf
 import time
 from typing import *
 import warnings

@@ -5,16 +5,17 @@
 #  
 #
 import argparse
-from model_attributes import ModelAttributes
 import numpy as np
 import os, os.path
 import pandas as pd
-import sisepuede as ssp
-import sisepuede_file_structure as sfs
-import support_classes as sc
-import support_functions as sf
 from typing import *
 import warnings
+
+from sisepuede.core.model_attributes import ModelAttributes
+import sisepuede.core.support_classes as sc
+import sisepuede.manager.sisepuede_file_structure as sfs
+import sisepuede.manager.sisepuede as ssp
+import sisepuede.utilities.support_functions as sf
 
 
 ###################################
