@@ -8,7 +8,7 @@ import sisepuede.models.socioeconomic as se
 import numpy as np
 import pandas as pd
 import sisepuede.core.support_classes as sc
-import sisepuede.utilities.support_functions as sf
+import sisepuede.utilities._toolbox as sf
 from typing import *
 
 

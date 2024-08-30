@@ -15,7 +15,7 @@ from sisepuede.models.energy_consumption import EnergyConsumption
 from sisepuede.models.ippu import IPPU
 from sisepuede.models.socioeconomic import Socioeconomic
 import sisepuede.core.support_classes as sc
-import sisepuede.utilities.support_functions as sf
+import sisepuede.utilities._toolbox as sf
 
 
 

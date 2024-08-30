@@ -3,7 +3,7 @@ import sisepuede.models.ippu as mi
 import sisepuede.models.socioeconomic as se
 import numpy as np
 import pandas as pd
-import sisepuede.utilities.support_functions as sf
+import sisepuede.utilities._toolbox as sf
 from transformations_base_general import *
 from typing import *
 

@@ -14,9 +14,9 @@ import setup_analysis as sa
 import shutil
 import sisepuede.manager.sisepuede as ssp
 import sisepuede.manager.sisepuede_file_structure as sfs
-import sisepuede.utilities.sql_utilities as squ
+import sisepuede.utilities._sql as squ
 import sisepuede.core.support_classes as sc
-import sisepuede.utilities.support_functions as sf
+import sisepuede.utilities._toolbox as sf
 import sys
 import time
 from typing import *

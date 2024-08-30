@@ -7,7 +7,7 @@ from typing import *
 
 
 import sisepuede.core.model_attributes as ma
-import sisepuede.utilities.support_functions as sf
+import sisepuede.utilities._toolbox as sf
 
 
 ############################

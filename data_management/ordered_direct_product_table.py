@@ -2,7 +2,7 @@ import numpy as np
 import pandas as pd
 from typing import *
 
-import sisepuede.utilities.support_functions as sf
+import sisepuede.utilities._toolbox as sf
 
 
 class OrderedDirectProductTable:

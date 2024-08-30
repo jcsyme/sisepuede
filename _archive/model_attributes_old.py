@@ -5,7 +5,7 @@ import sisepuede.core.model_variable as mv
 import numpy as np
 import os, os.path
 import pandas as pd
-import sisepuede.utilities.support_functions as sf
+import sisepuede.utilities._toolbox as sf
 from typing import *
 import warnings
 

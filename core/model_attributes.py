@@ -12,7 +12,7 @@ from sisepuede.core.attribute_table import *
 from sisepuede.core.configuration import *
 import sisepuede.core.model_variable as mv
 import sisepuede.core.units_manager as um
-import sisepuede.utilities.support_functions as sf
+import sisepuede.utilities._toolbox as sf
 
 
 
@@ -2701,12 +2701,44 @@ class ModelAttributes:
 
     def get_all_subsector_emission_total_fields(self,
         filter_on_emitting_only: bool = True,
-    ) -> List[str]:
+        return_type: str = "list",
+    ) -> Union[Dict[str, str], List[str]]:
         """
         Generate a list of all subsector emission total fields added to
-            model outputs. Set `filter_on_emitting_only = False` to include 
-            nominal fields for non-emitting subsectors.
+            model outputs. 
+        
+        Function Arguments
+        ------------------
+
+        Keyword Arguments
+        -----------------
+        - filter_on_emitting_only: set to `False` to include nominal fields for 
+            non-emitting subsectors.
+        - return_type: one of the following types
+            * "dict": dictionary mapping subsectors to its associated total
+                emission field
+            * "dict_abv": same as dict, but with subsector abbreviations instead
+                of subsectors
+            * "dict_inv": dictionary mapping each total emission field to its
+                subsector
+            * "dict_inv_abv": same as dict_inv, but with subsector abbreviations 
+                instead of subsectors
+            * "list": default. return a list of fields
         """
+        # check the return type is valid
+        valid_types = [
+            "dict",
+            "dict_abv",
+            "dict_inv", 
+            "dict_inv_abv",
+            "list"
+        ]
+        return_type = (
+            "list" 
+            if (return_type not in valid_types)
+            else return_type
+        )
+
         # get emission subsectors
         attr = self.get_subsector_attribute_table()
         subsectors_emission = (
@@ -2719,7 +2751,23 @@ class ModelAttributes:
             else self.all_subsectors
         )
 
+        
+        ##  INITIALIZE OUTPUT LIST
+
         out = [self.get_subsector_emission_total_field(x) for x in subsectors_emission]
+
+        # if returning a dictionary with subsector abbreviations, modify subsectors_emission
+        if return_type in ["dict_abv", "dict_inv_abv"]:
+            subsectors_emission = [
+                self.get_subsector_attribute(x, "abv_subsector")
+                for x in subsectors_emission
+            ]
+
+        # zip up if returning one of these types
+        if return_type in ["dict", "dict_abv"]:
+            out = dict(zip(subsectors_emission, out))
+        elif return_type in ["dict_inv", "dict_inv_abv"]:
+            out = dict(zip(out, subsectors_emission))
 
         return out
     
@@ -3408,6 +3456,61 @@ class ModelAttributes:
         fld_nam = f"{emission_total_schema_prepend}_{fld_nam}"
         
         return fld_nam
+    
+
+
+    def get_subsector_color_map(self,
+        field_color: str = "color_default",
+        field_subsector: str = "subsector",
+        key_type: str =  "emission_field",
+        reverse: bool = False,
+    ) -> Dict[str, str]:
+        """
+        Build a map of subsector names, abbreviations, or fields to colors
+        
+        
+        Keyword Arguments
+        -----------------
+        - field_color: field in subsector attribute table containing the default 
+            color
+        - field_subsector: field in subsector attribute table containing the 
+            subsector name
+        - key_type: one of the following
+            * "abbreviation": subsector abbreviations are keys
+            * "emission_field": subsector emission field are keys
+            * "subsector": subsector names are keys
+        - reverse: reverse the dictionary?
+        """
+        attr_subsector = self.get_subsector_attribute_table()
+        
+        # get the key
+        dict_subsec_abv_to_color = attr_subsector.field_maps.get(f"{attr_subsector.key}_to_{field_color}")
+        
+        # return output dictionary if no further actions are needed
+        if key_type == "abbreviation":
+            if reverse:
+                dict_subsec_abv_to_color = sf.reverse_dict(dict_subsec_abv_to_color)
+                
+            return dict_subsec_abv_to_color
+        
+        
+        # if necessary, map abbreivation to emission total fields
+        dict_subsec_field_to_abv = (
+            self.get_all_subsector_emission_total_fields(return_type = "dict_inv_abv", )
+            if (key_type == "emission_field")
+            else attr_subsector.field_maps.get(f"{field_subsector}_to_{attr_subsector.key}")
+        )
+
+        dict_subsec_field_to_color = dict(
+            (k, dict_subsec_abv_to_color.get(v)) for k, v in dict_subsec_field_to_abv.items()
+        )
+        
+
+        if reverse:
+            dict_subsec_field_to_color = sf.reverse_dict(dict_subsec_field_to_color, )
+        
+        
+        return dict_subsec_field_to_color
 
 
 

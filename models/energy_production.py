@@ -18,8 +18,8 @@ from sisepuede.models.afolu import AFOLU
 from sisepuede.models.circular_economy import CircularEconomy
 from sisepuede.models.energy_consumption import EnergyConsumption
 from sisepuede.models.socioeconomic import Socioeconomic
-import sisepuede.utilities.sql_utilities as sqlutil
-import sisepuede.utilities.support_functions as sf
+import sisepuede.utilities._sql as sqlutil
+import sisepuede.utilities._toolbox as sf
 
 
 

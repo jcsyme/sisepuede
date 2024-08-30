@@ -7,9 +7,9 @@ from typing import *
 
 
 from sisepuede.core.analysis_id import AnalysisID
-from sisepuede.core.model_attributes import ModelAttributes
 from sisepuede.models.energy_production import EnergyProduction
-import sisepuede.utilities.support_functions as sf
+import sisepuede.core.model_attributes as ma
+import sisepuede.utilities._toolbox as sf
 
 
 
@@ -538,7 +538,7 @@ class SISEPUEDEFileStructure:
 		create_from_id &= self.fp_config is not None
 		create_from_id &= not from_existing
 		if create_from_id:
-			model_attributes = ModelAttributes(self.dir_attribute_tables, self.fp_config)
+			model_attributes = ma.ModelAttributes(self.dir_attribute_tables, self.fp_config)
 			(
 				self._write_model_attributes_to_pickle(model_attributes)
 				if initialize_directories
@@ -553,19 +553,19 @@ class SISEPUEDEFileStructure:
 	def try_restore_model_attributes_from_pickle(self,
 		fp_pkl: Union[str, None] = None,
 		key_model_attributes: Union[str, None] = None
-	) -> Union[ModelAttributes, None]:
+	) -> Union[ma.ModelAttributes, None]:
 		"""
 		Load a model attributes object from a SISEPUEDE archived Python pickle.
-			Used to restore previous sessions. Returns a ModelAttributes object
+			Used to restore previous sessions. Returns a ma.ModelAttributes object
 			if the model_attributes object is successfully found in the pickle.
 			Called in self._initialize_model_attributes()
 
 		Keyword Arguments
 		-----------------
-		- fp_pkl: file path of the pickle to use to load the ModelAttributes
+		- fp_pkl: file path of the pickle to use to load the ma.ModelAttributes
 			object
 		- key_model_attributes: dictionary key to use in pickle to find
-			ModelAttributes object
+			ma.ModelAttributes object
 		"""
 
 		fp_pkl = (
@@ -595,7 +595,7 @@ class SISEPUEDEFileStructure:
 						out = pickle.load(f)
 						if isinstance(out, dict):
 							out = out.get(key_model_attributes)
-							if isinstance(out, ModelAttributes):
+							if isinstance(out, ma.ModelAttributes):
 								successfully_found_model_attributes = True
 					except EOFError:
 						break
@@ -618,26 +618,26 @@ class SISEPUEDEFileStructure:
 
 
 	def _write_model_attributes_to_pickle(self,
-		model_attributes: ModelAttributes,
+		model_attributes: ma.ModelAttributes,
 		fp_pkl: Union[str, None] = None,
 		key_model_attributes: Union[str, None] = None
 	) -> None:
 		"""
 		Write a model attributes object to a SISEPUEDE archived Python pickle.
 			Used to facilitate restoration of the session. Writes the
-			self.model_attributes ModelAttributes object to a pickle if that
+			self.model_attributes ma.ModelAttributes object to a pickle if that
 			path does not already exist.
 
 		Function Arguments
 		------------------
-		- model_attributes: ModelAttributes to pickle
+		- model_attributes: ma.ModelAttributes to pickle
 
 		Keyword Arguments
 		-----------------
-		- fp_pkl: file path of the pickle to use to load the ModelAttributes
+		- fp_pkl: file path of the pickle to use to load the ma.ModelAttributes
 			object
 		- key_model_attributes: dictionary key to use in pickle to find
-			ModelAttributes object
+			ma.ModelAttributes object
 		"""
 
 		fp_pkl = self.fp_pkl_model_attributes_archive if (fp_pkl is None) else fp_pkl

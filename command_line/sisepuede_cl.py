@@ -15,7 +15,7 @@ from sisepuede.core.model_attributes import ModelAttributes
 import sisepuede.core.support_classes as sc
 import sisepuede.manager.sisepuede_file_structure as sfs
 import sisepuede.manager.sisepuede as ssp
-import sisepuede.utilities.support_functions as sf
+import sisepuede.utilities._toolbox as sf
 
 
 ###################################
