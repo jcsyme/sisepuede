@@ -13,6 +13,7 @@ import sisepuede.core.support_classes as sc
 import sisepuede.models.ippu as mi
 import sisepuede.transformers.lib._baselib_general as tbg
 import sisepuede.transformers.lib._baselib_ippu as tbi
+import sisepuede.transformers.lib._classes as trl
 import sisepuede.utilities._toolbox as sf
 
 
@@ -48,12 +49,12 @@ class TransformationsIPPU:
                 through dict_config too if desired, but not done here)
 
             If using the composition of functions, can leverage the 
-            sc.Transformation composition functionality, which lets the user
-            enter lists of functions (see ?sc.Transformation for more 
+            trl.Transformation composition functionality, which lets the user
+            enter lists of functions (see ?trl.Transformation for more 
             information)
 
         3. Finally, define the Transformation object using the 
-            `sc.Transformation` class, which connects the function to the 
+            `trl.Transformation` class, which connects the function to the 
             Strategy name in attribute_strategy_id, assigns an id, and 
             simplifies the organization and running of strategies. 
 
@@ -390,7 +391,7 @@ class TransformationsIPPU:
     def _initialize_transformations(self,
     ) -> None:
         """
-        Initialize all sc.Transformation objects used to manage the construction
+        Initialize all trl.Transformation objects used to manage the construction
             of transformations. Note that each transformation == a strategy.
 
         NOTE: This is the key function mapping each function to a transformation
@@ -414,7 +415,7 @@ class TransformationsIPPU:
         #    BASELINE    #
         ##################
 
-        self.baseline = sc.Transformation(
+        self.baseline = trl.Transformation(
             "BASE", 
             self.transformation_ip_baseline, 
             attr_strategy
@@ -427,7 +428,7 @@ class TransformationsIPPU:
         #    IPPU TRANSFORMATIONS    #
         ##############################
 
-        self.ip_all = sc.Transformation(
+        self.ip_all = trl.Transformation(
             "IP:ALL", 
             [
                 self.transformation_ippu_reduce_cement_clinker,
@@ -442,7 +443,7 @@ class TransformationsIPPU:
         all_transformations.append(self.ip_all)
 
 
-        self.ippu_bundle_reduce_fgas = sc.Transformation(
+        self.ippu_bundle_reduce_fgas = trl.Transformation(
             "IPPU:BUNDLE_DEC_FGAS", 
             [
                 self.transformation_ippu_reduce_hfcs,
@@ -454,7 +455,7 @@ class TransformationsIPPU:
         all_transformations.append(self.ippu_bundle_reduce_fgas)
 
 
-        self.ippu_demand_managment = sc.Transformation(
+        self.ippu_demand_managment = trl.Transformation(
             "IPPU:DEC_DEMAND", 
             self.transformation_ippu_reduce_demand,
             attr_strategy
@@ -462,7 +463,7 @@ class TransformationsIPPU:
         all_transformations.append(self.ippu_demand_managment)
 
 
-        self.ippu_reduce_cement_clinker = sc.Transformation(
+        self.ippu_reduce_cement_clinker = trl.Transformation(
             "IPPU:DEC_CLINKER", 
             self.transformation_ippu_reduce_cement_clinker,
             attr_strategy
@@ -470,7 +471,7 @@ class TransformationsIPPU:
         all_transformations.append(self.ippu_reduce_cement_clinker)
 
 
-        self.ippu_reduce_hfcs = sc.Transformation(
+        self.ippu_reduce_hfcs = trl.Transformation(
             "IPPU:DEC_HFCS", 
             self.transformation_ippu_reduce_hfcs,
             attr_strategy
@@ -478,7 +479,7 @@ class TransformationsIPPU:
         all_transformations.append(self.ippu_reduce_hfcs)
 
 
-        self.ippu_reduce_other_fcs = sc.Transformation(
+        self.ippu_reduce_other_fcs = trl.Transformation(
             "IPPU:DEC_OTHER_FCS", 
             self.transformation_ippu_reduce_other_fcs,
             attr_strategy
@@ -486,7 +487,7 @@ class TransformationsIPPU:
         all_transformations.append(self.ippu_reduce_other_fcs)
 
 
-        self.ippu_reduce_n2o = sc.Transformation(
+        self.ippu_reduce_n2o = trl.Transformation(
             "IPPU:DEC_N2O", 
             self.transformation_ippu_reduce_n2o,
             attr_strategy
@@ -494,7 +495,7 @@ class TransformationsIPPU:
         all_transformations.append(self.ippu_reduce_n2o)
 
 
-        self.ippu_reduce_pfcs = sc.Transformation(
+        self.ippu_reduce_pfcs = trl.Transformation(
             "IPPU:DEC_PFCS", 
             self.transformation_ippu_reduce_pfcs,
             attr_strategy
@@ -680,7 +681,7 @@ class TransformationsIPPU:
         Get strategy `strat` based on strategy code, id, or name
         
         If strat is None or an invalid valid of strat is entered, returns None; 
-            otherwise, returns the sc.Transformation object. 
+            otherwise, returns the trl.Transformation object. 
             
         Function Arguments
         ------------------

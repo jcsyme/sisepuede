@@ -27,7 +27,7 @@ def is_valid_figtuple(
     is_valid = isinstance(figtuple, tuple)
     is_valid &= (len(figtuple) >= 2) if is_valid else False
     is_valid &= (
-        (isinstance(figtuple[0], Figure) & instance(figtuple[1], Axes)) 
+        (isinstance(figtuple[0], Figure) & isinstance(figtuple[1], Axes)) 
         if is_valid 
         else False
     )
@@ -73,34 +73,47 @@ def plot_stack(
         to pass formatting keywords for fields
 
     - field_x: optional field `x` in data frame to use for x axis
-    - figsize: figure size to use
+    - figsize: figure size to use. Only used if `figtuple` is not a valid 
+        (Figure, Axis) pair
     - figtuple: optional tuple of form `(fig, ax)` (result of plt.subplots) to 
         pass. Allows users to predefine information about the fig, ax outside of
         this function, then plot within those confines
-    - label_x: optional label to pass for x axis
-    - label_y: optional label to pass for y axis
-    - title: optional title to pass
+    - label_x: optional label to pass for x axis. Only used if `figtuple` is
+        not a valid (Figure, Axis) pair
+    - label_y: optional label to pass for y axis. Only used if `figtuple` is
+        not a valid (Figure, Axis) pair
+    - title: optional title to pass. Only used if `figtuple` is not a valid 
+        (Figure, Axis) pair
+    - **kwargs: passed to ax.stackplot, ax.set_xlabel, ax.set_ylabel, and 
+        ax.set_title
     """
     
-    # check fields
-    fields = [x for x in df.columns if x in fields]
+    # check field x
+    add_x = False
+    field_x = field_x if field_x in df.columns else None
+    if field_x is None:
+        field_x = "x"
+        add_x = True
+    
+    # check all fields
+    fields = [x for x in df.columns if x in fields and (x != field_x)]
     if len(fields) == 0:
         return None
     
-    df_plot = df[fields].copy()
-    
-    # verify field_x; if not present, add a dummy
-    field_x = field_x if field_x in df_plot.columns else None
-    if field_x is None:
-        field_x = "x"
+    if add_x:
+
+        # if adding a dummy, copy first, then add field x
+        df_plot = df[fields].copy()
         df_plot[field_x] = range(len(df_plot))
-    
-    fields = (
-        [x for x in fields if x != field_x] + [field_x]
-        if field_x is not None
-        else fields
-    )
-    
+        fields.append(field_x)
+
+    else:
+
+        # if field_x is in the df, add it to fields, then copy
+        fields.append(field_x)
+        df_plot = df[fields].copy()
+
+
     # check the color dictionary
     if not isinstance(dict_formatting, dict):
         dict_formatting = {}
@@ -141,21 +154,38 @@ def plot_stack(
     ##  SPECIFY AND FORMAT AXES
     
     # check if the figtuple specification is ok
-    accept_figtuple = is_valid_figtuple(figtuple, figsize = figsize, )
+    accept_figtuple = is_valid_figtuple(figtuple, )
     
-    if not accept_figtuple:
-        fig, ax = plt.subplots(1, 1, figsize = figsize, )
-
-        sf.call_with_varkwargs(
-            ax.set_xlabel,
-            field_x, 
-            *fields_plot,
-            dict_kwargs = dict_kwargs,
-        )
-        ax.set_xlabel(label)
+    if accept_figtuple:
+        fig, ax = figtuple
 
     else:
-        fig, ax = figtuple
+        fig, ax = plt.subplots(1, 1, figsize = figsize, )
+
+        # check label x
+        if isinstance(label_x, str):
+            sf.call_with_varkwargs(
+                ax.set_xlabel,
+                label_x,
+                dict_kwargs = dict_kwargs,
+            )
+        
+        # check label y
+        if isinstance(label_y, str):
+            sf.call_with_varkwargs(
+                ax.set_xlabel,
+                label_y,
+                dict_kwargs = dict_kwargs,
+            )
+        
+        # check title
+        if isinstance(title, str):
+            sf.call_with_varkwargs(
+                ax.set_title,
+                title,
+                dict_kwargs = dict_kwargs,
+            )
+
             
     
     ##  PLOT THE POSITIVE AND NEGATIVE COMPONENTS

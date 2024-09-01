@@ -8,6 +8,7 @@ import re
 from typing import *
 import warnings
 
+
 from sisepuede.core.attribute_table import *
 from sisepuede.core.configuration import *
 import sisepuede.core.model_variable as mv
@@ -19,8 +20,9 @@ import sisepuede.utilities._toolbox as sf
 
 class ModelAttributes:
     """
-    Create a centralized object for managing inter-sectoral objects, dimensions,
-        attributes, and variables.
+    A centralized object for managing inter-sectoral objects, dimensions,
+        attributes, variables, and units. The ModelAttributes is the core 
+        management system for SISEPUEDE.
 
     Initialization Arguments
     ------------------------

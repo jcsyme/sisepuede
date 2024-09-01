@@ -12,14 +12,15 @@ from sisepuede.core.attribute_table import AttributeTable
 import sisepuede.core.model_attributes as ma
 import sisepuede.core.support_classes as sc
 import sisepuede.data_management.ingestion as ing
+import sisepuede.manager.sisepuede_file_structure as sfs
+import sisepuede.models.ippu as mi
 import sisepuede.transformers.afolu as dta
 import sisepuede.transformers.circular_economy as dtc
 import sisepuede.transformers.energy as dte
 import sisepuede.transformers.ippu as dti
 import sisepuede.transformers.lib._baselib_cross_sector as tbc
 import sisepuede.transformers.lib._baselib_general as tbg
-import sisepuede.manager.sisepuede_file_structure as sfs
-import sisepuede.models.ippu as mi
+import sisepuede.transformers.lib._classes as trl
 import sisepuede.utilities._toolbox as sf
 
 
@@ -55,12 +56,12 @@ class TransformationsIntegrated:
                 through dict_config too if desired, but not done here)
 
             If using the composition of functions, can leverage the 
-            sc.Transformation composition functionality, which lets the user
-            enter lists of functions (see ?sc.Transformation for more 
+            trl.Transformation composition functionality, which lets the user
+            enter lists of functions (see ?trl.Transformation for more 
             information)
 
         3. Finally, define the Transformation object using the 
-            `sc.Transformation` class, which connects the function to the 
+            `trl.Transformation` class, which connects the function to the 
             Strategy name in attribute_strategy_id, assigns an id, and 
             simplifies the organization and running of strategies. 
 
@@ -757,7 +758,7 @@ class TransformationsIntegrated:
     def _initialize_transformations(self,
     ) -> None:
         """
-        Initialize all sc.Transformation objects used to manage the construction
+        Initialize all trl.Transformation objects used to manage the construction
             of transformations. Note that each transformation == a strategy.
 
         NOTE: This is the key function mapping each function to a transformation
@@ -787,7 +788,7 @@ class TransformationsIntegrated:
         #    BASELINE    #
         ##################
 
-        self.baseline = sc.Transformation(
+        self.baseline = trl.Transformation(
             "BASE", 
             self.transformation_pflo_baseline, 
             attr_strategy
@@ -817,7 +818,7 @@ class TransformationsIntegrated:
         function_list_plur_no_deforestation_stoppage = function_list.copy()
         function_list += self.transformations_afolu.af_all.function_list.copy()
 
-        self.pflo_all = sc.Transformation(
+        self.pflo_all = trl.Transformation(
             "PFLO:ALL", 
             function_list, 
             attr_strategy
@@ -834,7 +835,7 @@ class TransformationsIntegrated:
             .copy()
         )
 
-        self.pflo_all_with_partial_reallocation = sc.Transformation(
+        self.pflo_all_with_partial_reallocation = trl.Transformation(
             "PFLO:ALL_PLUR", 
             function_list_plur, 
             attr_strategy
@@ -850,7 +851,7 @@ class TransformationsIntegrated:
         ##  START WITH INDIA PLUR WITH CC
 
     
-        self.lndu_partial_reallocation_india_cc = sc.Transformation(
+        self.lndu_partial_reallocation_india_cc = trl.Transformation(
             "LNDU:PLUR_INDIA_CC", 
             [
                 self.transformations_afolu.transformation_lndu_reallocate_land,
@@ -892,7 +893,7 @@ class TransformationsIntegrated:
             if x != self.transformation_pflo_healthier_diets
         ]
         
-        self.pflo_ccdr_india_with_partial_reallocation = sc.Transformation(
+        self.pflo_ccdr_india_with_partial_reallocation = trl.Transformation(
             "PFLO:INDIA_CCDR_PLUR", 
             function_list_india_ccdr, 
             attr_strategy
@@ -907,7 +908,7 @@ class TransformationsIntegrated:
             self.transformations_afolu.transformation_agrc_decrease_climate_productivity_climate_india
         )
 
-        self.pflo_ccdr_india_with_partial_reallocation_india_cc = sc.Transformation(
+        self.pflo_ccdr_india_with_partial_reallocation_india_cc = trl.Transformation(
             "PFLO:INDIA_CCDR_PLUR_INDIA_CC", 
             function_list_india_ccdr_cc, 
             attr_strategy
@@ -922,7 +923,7 @@ class TransformationsIntegrated:
             self.transformations_afolu.transformation_agrc_decrease_climate_productivity_climate_india
         )
 
-        self.pflo_all_with_partial_reallocation_india_cc = sc.Transformation(
+        self.pflo_all_with_partial_reallocation_india_cc = trl.Transformation(
             "PFLO:ALL_PLUR_INDIA_CC", 
             function_list_plur, 
             attr_strategy
@@ -949,7 +950,7 @@ class TransformationsIntegrated:
             )
         
 
-        self.pflo_all_with_partial_reallocation_no_silvopasture = sc.Transformation(
+        self.pflo_all_with_partial_reallocation_no_silvopasture = trl.Transformation(
             "PFLO:ALL_PLUR_NO_SILVOPASTURE", 
             function_list_plur_no_silvopasture, 
             attr_strategy
@@ -966,7 +967,7 @@ class TransformationsIntegrated:
             .copy()
         )
 
-        self.pflo_all_with_deforestation_and_partial_reallocation = sc.Transformation(
+        self.pflo_all_with_deforestation_and_partial_reallocation = trl.Transformation(
             "PFLO:ALL_NO_STOPPING_DEFORESTATION_PLUR", 
             function_list_plur_no_deforestation_stoppage, 
             attr_strategy
@@ -985,7 +986,7 @@ class TransformationsIntegrated:
             .copy()
         )
 
-        self.pflo_all_no_lvst_export_reduction_with_partial_reallocation = sc.Transformation(
+        self.pflo_all_no_lvst_export_reduction_with_partial_reallocation = trl.Transformation(
             "PFLO:ALL_NO_LVST_EXPORT_REDUCTION_PLUR", 
             function_list_plur_no_lvst_exp_reduction, 
             attr_strategy
@@ -993,7 +994,7 @@ class TransformationsIntegrated:
         all_transformations.append(self.pflo_all_no_lvst_export_reduction_with_partial_reallocation)
         """;
 
-        self.pflo_better_baseline = sc.Transformation(
+        self.pflo_better_baseline = trl.Transformation(
             "PFLO:BETTER_BASE", 
             [
                 self.transformations_afolu.transformation_agrc_improve_rice_management,
@@ -1022,7 +1023,7 @@ class TransformationsIntegrated:
         all_transformations.append(self.pflo_better_baseline)
 
 
-        self.plfo_healthier_diets = sc.Transformation(
+        self.plfo_healthier_diets = trl.Transformation(
             "PFLO:BETTER_DIETS", 
             self.transformation_pflo_healthier_diets, 
             attr_strategy
@@ -1030,7 +1031,7 @@ class TransformationsIntegrated:
         all_transformations.append(self.plfo_healthier_diets)
 
 
-        self.plfo_healthier_diets_with_partial_reallocation = sc.Transformation(
+        self.plfo_healthier_diets_with_partial_reallocation = trl.Transformation(
             "PFLO:BETTER_DIETS_PLUR", 
             [
                 self.transformation_pflo_healthier_diets, 
@@ -1041,7 +1042,7 @@ class TransformationsIntegrated:
         all_transformations.append(self.plfo_healthier_diets_with_partial_reallocation)
 
 
-        self.pflo_industrial_ccs = sc.Transformation(
+        self.pflo_industrial_ccs = trl.Transformation(
             "PFLO:IND_INC_CCS", 
             self.transformation_pflo_industrial_ccs, 
             attr_strategy
@@ -1049,7 +1050,7 @@ class TransformationsIntegrated:
         all_transformations.append(self.pflo_industrial_ccs)
 
 
-        self.pflo_sociotechnical = sc.Transformation(
+        self.pflo_sociotechnical = trl.Transformation(
             "PFLO:CHANGE_CONSUMPTION",
             [
                 self.transformation_pflo_healthier_diets,
@@ -1068,7 +1069,7 @@ class TransformationsIntegrated:
         all_transformations.append(self.pflo_sociotechnical)
 
 
-        self.pflo_supply_side_technology = sc.Transformation(
+        self.pflo_supply_side_technology = trl.Transformation(
             "PFLO:SUPPLY_SIDE_TECH", 
             [
                 self.transformation_pflo_industrial_ccs, 
@@ -1776,7 +1777,7 @@ class TransformationsIntegrated:
         Get strategy `strat` based on strategy code, id, or name
         
         If strat is None or an invalid valid of strat is entered, returns None; 
-            otherwise, returns the sc.Transformation object. 
+            otherwise, returns the trl.Transformation object. 
             
         Function Arguments
         ------------------

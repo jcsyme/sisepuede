@@ -12,6 +12,7 @@ import sisepuede.legacy.transformations_base_energy as tbe
 import sisepuede.models.afolu as mafl
 import sisepuede.models.energy_consumption as me
 import sisepuede.models.energy_production as ml
+import sisepuede.transformers.lib._classes as trl
 import sisepuede.utilities._toolbox as sf
 
 
@@ -47,12 +48,12 @@ class TransformationsEnergy:
                 through dict_config too if desired, but not done here)
 
             If using the composition of functions, can leverage the 
-            sc.Transformation composition functionality, which lets the user
-            enter lists of functions (see ?sc.Transformation for more 
+            trl.Transformation composition functionality, which lets the user
+            enter lists of functions (see ?trl.Transformation for more 
             information)
 
         3. Finally, define the Transformation object using the 
-            `sc.Transformation` class, which connects the function to the 
+            `trl.Transformation` class, which connects the function to the 
             Strategy name in attribute_strategy_id, assigns an id, and 
             simplifies the organization and running of strategies. 
 
@@ -742,7 +743,7 @@ class TransformationsEnergy:
     def _initialize_transformations(self,
     ) -> None:
         """
-        Initialize all sc.Transformation objects used to manage the construction
+        Initialize all trl.Transformation objects used to manage the construction
             of transformations. Note that each transformation == a strategy.
 
         NOTE: This is the key function mapping each function to a transformation
@@ -765,7 +766,7 @@ class TransformationsEnergy:
         #    BASELINE    #
         ##################
 
-        self.baseline = sc.Transformation(
+        self.baseline = trl.Transformation(
             "BASE", 
             self.transformation_en_baseline, 
             attr_strategy
@@ -777,7 +778,7 @@ class TransformationsEnergy:
         #    ENERGY ALL    #
         ####################
 
-        self.en_all = sc.Transformation(
+        self.en_all = trl.Transformation(
             "EN:ALL", 
             [
                 #self.transformation_ccsq_increase_air_capture,
@@ -808,7 +809,7 @@ class TransformationsEnergy:
         all_transformations.append(self.en_all)
 
 
-        self.en_bundle_efficiency = sc.Transformation(
+        self.en_bundle_efficiency = trl.Transformation(
             "EN:BUNDLE_EFFICIENCY", 
             [
                 self.transformation_inen_fuel_switch_low_temp_to_heat_pump,
@@ -824,7 +825,7 @@ class TransformationsEnergy:
         all_transformations.append(self.en_bundle_efficiency)
 
 
-        self.en_bundle_efficiency_with_rep = sc.Transformation(
+        self.en_bundle_efficiency_with_rep = trl.Transformation(
             "EN:BUNDLE_EFFICIENCY_REP", 
             [
                 self.transformation_inen_fuel_switch_low_temp_to_heat_pump,
@@ -841,7 +842,7 @@ class TransformationsEnergy:
         all_transformations.append(self.en_bundle_efficiency_with_rep)
 
 
-        self.en_bundle_fuel_switch = sc.Transformation(
+        self.en_bundle_fuel_switch = trl.Transformation(
             "EN:BUNDLE_FUEL_SWITCH", 
             [
                 self.transformation_inen_fuel_switch_low_and_high_temp,
@@ -856,7 +857,7 @@ class TransformationsEnergy:
         all_transformations.append(self.en_bundle_fuel_switch)
 
 
-        self.en_bundle_fuel_switch_with_rep = sc.Transformation(
+        self.en_bundle_fuel_switch_with_rep = trl.Transformation(
             "EN:BUNDLE_FUEL_SWITCH_REP", 
             [
                 self.transformation_inen_fuel_switch_low_and_high_temp,
@@ -877,7 +878,7 @@ class TransformationsEnergy:
         #    CCSQ    #
         ##############
 
-        self.ccsq_increase_air_capture = sc.Transformation(
+        self.ccsq_increase_air_capture = trl.Transformation(
             "CCSQ:INCREASE_CAPTURE", 
             self.transformation_ccsq_increase_air_capture, 
             attr_strategy
@@ -885,7 +886,7 @@ class TransformationsEnergy:
         all_transformations.append(self.ccsq_increase_air_capture)
 
 
-        self.ccsq_increase_air_capture_with_rep = sc.Transformation(
+        self.ccsq_increase_air_capture_with_rep = trl.Transformation(
             "CCSQ:INCREASE_CAPTURE_REP", 
             [
                 self.transformation_ccsq_increase_air_capture,
@@ -901,7 +902,7 @@ class TransformationsEnergy:
         #    ENTC    #
         ##############
 
-        self.entc_least_cost = sc.Transformation(
+        self.entc_least_cost = trl.Transformation(
             "ENTC:LEAST_COST", 
             self.transformation_entc_least_cost, 
             attr_strategy
@@ -909,7 +910,7 @@ class TransformationsEnergy:
         all_transformations.append(self.entc_least_cost)
 
         
-        self.entc_reduce_transmission_losses = sc.Transformation(
+        self.entc_reduce_transmission_losses = trl.Transformation(
             "ENTC:DEC_LOSSES", 
             self.transformation_entc_reduce_transmission_losses, 
             attr_strategy
@@ -917,7 +918,7 @@ class TransformationsEnergy:
         all_transformations.append(self.entc_reduce_transmission_losses)
 
 
-        self.entc_reduce_transmission_losses_with_rep = sc.Transformation(
+        self.entc_reduce_transmission_losses_with_rep = trl.Transformation(
             "ENTC:DEC_LOSSES_REP",
             [
                 self.transformation_entc_reduce_transmission_losses,
@@ -928,7 +929,7 @@ class TransformationsEnergy:
         all_transformations.append(self.entc_reduce_transmission_losses_with_rep)
 
 
-        self.entc_renewable_electricity = sc.Transformation(
+        self.entc_renewable_electricity = trl.Transformation(
             "ENTC:TARGET_RENEWABLE_ELEC", 
             self.transformation_entc_renewables_target, 
             attr_strategy
@@ -941,7 +942,7 @@ class TransformationsEnergy:
         #    FGTV    #
         ##############
 
-        self.fgtv_all = sc.Transformation(
+        self.fgtv_all = trl.Transformation(
             "FGTV:ALL", 
             [
                 self.transformation_fgtv_maximize_flaring,
@@ -952,7 +953,7 @@ class TransformationsEnergy:
         all_transformations.append(self.fgtv_all)
 
 
-        self.fgtv_all_with_rep = sc.Transformation(
+        self.fgtv_all_with_rep = trl.Transformation(
             "FGTV:ALL_REP", 
             [
                 self.transformation_fgtv_maximize_flaring,
@@ -964,7 +965,7 @@ class TransformationsEnergy:
         all_transformations.append(self.fgtv_all_with_rep)
 
 
-        self.fgtv_maximize_flaring = sc.Transformation(
+        self.fgtv_maximize_flaring = trl.Transformation(
             "FGTV:INC_FLARE", 
             self.transformation_fgtv_maximize_flaring, 
             attr_strategy
@@ -972,7 +973,7 @@ class TransformationsEnergy:
         all_transformations.append(self.fgtv_maximize_flaring)
 
 
-        self.fgtv_maximize_flaring_with_rep = sc.Transformation(
+        self.fgtv_maximize_flaring_with_rep = trl.Transformation(
             "FGTV:INC_FLARE_REP", 
             [
                 self.transformation_fgtv_maximize_flaring,
@@ -983,7 +984,7 @@ class TransformationsEnergy:
         all_transformations.append(self.fgtv_maximize_flaring_with_rep)
 
 
-        self.fgtv_minimize_leaks = sc.Transformation(
+        self.fgtv_minimize_leaks = trl.Transformation(
             "FGTV:DEC_LEAKS", 
             self.transformation_fgtv_minimize_leaks, 
             attr_strategy
@@ -991,7 +992,7 @@ class TransformationsEnergy:
         all_transformations.append(self.fgtv_minimize_leaks)
 
 
-        self.fgtv_minimize_leaks_with_rep = sc.Transformation(
+        self.fgtv_minimize_leaks_with_rep = trl.Transformation(
             "FGTV:DEC_LEAKS_REP", 
             [
                 self.transformation_fgtv_minimize_leaks,
@@ -1007,7 +1008,7 @@ class TransformationsEnergy:
         #    INEN    #
         ##############
 
-        self.inen_all = sc.Transformation(
+        self.inen_all = trl.Transformation(
             "INEN:ALL", 
             [
                 self.transformation_inen_fuel_switch_low_and_high_temp, # use instead of both functions to avoid incorrect results w/func composition
@@ -1019,7 +1020,7 @@ class TransformationsEnergy:
         all_transformations.append(self.inen_all)
 
 
-        self.inen_all_with_rep = sc.Transformation(
+        self.inen_all_with_rep = trl.Transformation(
             "INEN:ALL_REP", 
             [
                 self.transformation_inen_fuel_switch_low_and_high_temp, # use instead of both functions to avoid incorrect results w/func composition
@@ -1032,7 +1033,7 @@ class TransformationsEnergy:
         all_transformations.append(self.inen_all_with_rep)
 
 
-        self.inen_fuel_switch_high_temp = sc.Transformation(
+        self.inen_fuel_switch_high_temp = trl.Transformation(
             "INEN:FUEL_SWITCH_HI_HEAT", 
             self.transformation_inen_fuel_switch_high_temp, 
             attr_strategy
@@ -1040,7 +1041,7 @@ class TransformationsEnergy:
         all_transformations.append(self.inen_fuel_switch_high_temp)
 
 
-        self.inen_fuel_switch_high_temp_with_rep = sc.Transformation(
+        self.inen_fuel_switch_high_temp_with_rep = trl.Transformation(
             "INEN:FUEL_SWITCH_HI_HEAT_REP", 
             [
                 self.transformation_inen_fuel_switch_high_temp,
@@ -1051,7 +1052,7 @@ class TransformationsEnergy:
         all_transformations.append(self.inen_fuel_switch_high_temp_with_rep)
         
 
-        self.inen_fuel_switch_low_temp_to_heat_pump = sc.Transformation(
+        self.inen_fuel_switch_low_temp_to_heat_pump = trl.Transformation(
             "INEN:FUEL_SWITCH_LO_HEAT", 
             self.transformation_inen_fuel_switch_low_temp_to_heat_pump, 
             attr_strategy
@@ -1059,7 +1060,7 @@ class TransformationsEnergy:
         all_transformations.append(self.inen_fuel_switch_low_temp_to_heat_pump)
 
 
-        self.inen_fuel_switch_low_temp_to_heat_pump_with_rep = sc.Transformation(
+        self.inen_fuel_switch_low_temp_to_heat_pump_with_rep = trl.Transformation(
             "INEN:FUEL_SWITCH_LO_HEAT_REP", 
             [
                 self.transformation_inen_fuel_switch_low_temp_to_heat_pump,
@@ -1070,7 +1071,7 @@ class TransformationsEnergy:
         all_transformations.append(self.inen_fuel_switch_low_temp_to_heat_pump_with_rep)
 
         
-        self.inen_maximize_energy_efficiency = sc.Transformation(
+        self.inen_maximize_energy_efficiency = trl.Transformation(
             "INEN:INC_EFFICIENCY_ENERGY", 
             self.transformation_inen_maximize_efficiency_energy, 
             attr_strategy
@@ -1078,7 +1079,7 @@ class TransformationsEnergy:
         all_transformations.append(self.inen_maximize_energy_efficiency)
 
 
-        self.inen_maximize_energy_efficiency_with_rep = sc.Transformation(
+        self.inen_maximize_energy_efficiency_with_rep = trl.Transformation(
             "INEN:INC_EFFICIENCY_ENERGY_REP", 
             [
                 self.transformation_inen_maximize_efficiency_energy,
@@ -1089,7 +1090,7 @@ class TransformationsEnergy:
         all_transformations.append(self.inen_maximize_energy_efficiency_with_rep)
         
 
-        self.inen_maximize_production_efficiency = sc.Transformation(
+        self.inen_maximize_production_efficiency = trl.Transformation(
             "INEN:INC_EFFICIENCY_PRODUCTION", 
             self.transformation_inen_maximize_efficiency_production, 
             attr_strategy
@@ -1097,7 +1098,7 @@ class TransformationsEnergy:
         all_transformations.append(self.inen_maximize_production_efficiency)
 
 
-        self.inen_maximize_production_efficiency_with_rep = sc.Transformation(
+        self.inen_maximize_production_efficiency_with_rep = trl.Transformation(
             "INEN:INC_EFFICIENCY_PRODUCTION_REP", 
             [
                 self.transformation_inen_maximize_efficiency_production,
@@ -1113,7 +1114,7 @@ class TransformationsEnergy:
         #    SCOE    #
         ##############
 
-        self.scoe_all = sc.Transformation(
+        self.scoe_all = trl.Transformation(
             "SCOE:ALL", 
             [
                 self.transformation_scoe_fuel_switch_electrify,
@@ -1125,7 +1126,7 @@ class TransformationsEnergy:
         all_transformations.append(self.scoe_all)
 
 
-        self.scoe_all_with_rep = sc.Transformation(
+        self.scoe_all_with_rep = trl.Transformation(
             "SCOE:ALL_REP", 
             [
                 self.transformation_scoe_fuel_switch_electrify,
@@ -1138,7 +1139,7 @@ class TransformationsEnergy:
         all_transformations.append(self.scoe_all_with_rep)
 
 
-        self.scoe_fuel_switch_electrify = sc.Transformation(
+        self.scoe_fuel_switch_electrify = trl.Transformation(
             "SCOE:FUEL_SWITCH_HEAT", 
             self.transformation_scoe_fuel_switch_electrify, 
             attr_strategy
@@ -1146,7 +1147,7 @@ class TransformationsEnergy:
         all_transformations.append(self.scoe_fuel_switch_electrify)
 
 
-        self.scoe_fuel_switch_electrify_with_rep = sc.Transformation(
+        self.scoe_fuel_switch_electrify_with_rep = trl.Transformation(
             "SCOE:FUEL_SWITCH_HEAT_REP", 
             [
                 self.transformation_scoe_fuel_switch_electrify,
@@ -1157,7 +1158,7 @@ class TransformationsEnergy:
         all_transformations.append(self.scoe_fuel_switch_electrify_with_rep)
         
 
-        self.scoe_increase_applicance_efficiency = sc.Transformation(
+        self.scoe_increase_applicance_efficiency = trl.Transformation(
             "SCOE:INC_EFFICIENCY_APPLIANCE", 
             self.transformation_scoe_increase_applicance_efficiency, 
             attr_strategy
@@ -1165,7 +1166,7 @@ class TransformationsEnergy:
         all_transformations.append(self.scoe_increase_applicance_efficiency)
 
 
-        self.scoe_increase_applicance_efficiency_with_rep = sc.Transformation(
+        self.scoe_increase_applicance_efficiency_with_rep = trl.Transformation(
             "SCOE:INC_EFFICIENCY_APPLIANCE_REP", 
             [
                 self.transformation_scoe_increase_applicance_efficiency,
@@ -1176,7 +1177,7 @@ class TransformationsEnergy:
         all_transformations.append(self.scoe_increase_applicance_efficiency_with_rep)
         
 
-        self.scoe_reduce_heat_energy_demand = sc.Transformation(
+        self.scoe_reduce_heat_energy_demand = trl.Transformation(
             "SCOE:DEC_DEMAND_HEAT", 
             self.transformation_scoe_reduce_heat_energy_demand, 
             attr_strategy
@@ -1184,7 +1185,7 @@ class TransformationsEnergy:
         all_transformations.append(self.scoe_reduce_heat_energy_demand)
 
 
-        self.scoe_reduce_heat_energy_demand_with_rep = sc.Transformation(
+        self.scoe_reduce_heat_energy_demand_with_rep = trl.Transformation(
             "SCOE:DEC_DEMAND_HEAT_REP", 
             [
                 self.transformation_scoe_reduce_heat_energy_demand,
@@ -1200,7 +1201,7 @@ class TransformationsEnergy:
         #    TRNS/TRDE    #
         ###################
 
-        self.trde_reduce_demand = sc.Transformation(
+        self.trde_reduce_demand = trl.Transformation(
             "TRDE:DEC_DEMAND", 
             self.transformation_trde_reduce_demand, 
             attr_strategy
@@ -1208,7 +1209,7 @@ class TransformationsEnergy:
         all_transformations.append(self.trde_reduce_demand)
 
 
-        self.trde_reduce_demand_with_rep = sc.Transformation(
+        self.trde_reduce_demand_with_rep = trl.Transformation(
             "TRDE:DEC_DEMAND_REP", 
             [
                 self.transformation_trde_reduce_demand,
@@ -1219,7 +1220,7 @@ class TransformationsEnergy:
         all_transformations.append(self.trde_reduce_demand_with_rep)
 
         
-        self.trns_all = sc.Transformation(
+        self.trns_all = trl.Transformation(
             "TRNS:ALL", 
             [
                 #self.transformation_trde_reduce_demand,
@@ -1239,7 +1240,7 @@ class TransformationsEnergy:
         all_transformations.append(self.trns_all)
 
 
-        self.trns_all_with_rep = sc.Transformation(
+        self.trns_all_with_rep = trl.Transformation(
             "TRNS:ALL_REP", 
             [
                 #self.transformation_trde_reduce_demand,
@@ -1260,7 +1261,7 @@ class TransformationsEnergy:
         all_transformations.append(self.trns_all_with_rep)
 
         
-        self.trns_bundle_demand_management = sc.Transformation(
+        self.trns_bundle_demand_management = trl.Transformation(
             "TRNS:BUNDLE_DEMAND_MANAGEMENT",
             [
                 self.transformation_trde_reduce_demand,
@@ -1271,7 +1272,7 @@ class TransformationsEnergy:
         all_transformations.append(self.trns_bundle_demand_management)
 
 
-        self.trns_bundle_demand_management_with_rep = sc.Transformation(
+        self.trns_bundle_demand_management_with_rep = trl.Transformation(
             "TRNS:BUNDLE_DEMAND_MANAGEMENT_REP", 
             [
                 self.transformation_trde_reduce_demand,
@@ -1283,7 +1284,7 @@ class TransformationsEnergy:
         all_transformations.append(self.trns_bundle_demand_management_with_rep)
 
 
-        self.trns_bundle_fuel_swtich = sc.Transformation(
+        self.trns_bundle_fuel_swtich = trl.Transformation(
             "TRNS:BUNDLE_FUEL_SWITCH", 
             [
                 self.transformation_trns_electrify_road_light_duty,
@@ -1296,7 +1297,7 @@ class TransformationsEnergy:
         all_transformations.append(self.trns_bundle_fuel_swtich)
 
 
-        self.trns_bundle_fuel_swtich_with_rep = sc.Transformation(
+        self.trns_bundle_fuel_swtich_with_rep = trl.Transformation(
             "TRNS:BUNDLE_FUEL_SWITCH_REP", 
             [
                 self.transformation_trns_electrify_road_light_duty,
@@ -1310,7 +1311,7 @@ class TransformationsEnergy:
         all_transformations.append(self.trns_bundle_fuel_swtich_with_rep)
 
         
-        self.trns_bundle_mode_shift = sc.Transformation(
+        self.trns_bundle_mode_shift = trl.Transformation(
             "TRNS:BUNDLE_MODE_SHIFT", 
             [
                 #self.transformation_trns_mode_shift_freight,
@@ -1322,7 +1323,7 @@ class TransformationsEnergy:
         all_transformations.append(self.trns_bundle_mode_shift)
 
 
-        self.trns_bundle_mode_shift_with_rep = sc.Transformation(
+        self.trns_bundle_mode_shift_with_rep = trl.Transformation(
             "TRNS:BUNDLE_MODE_SHIFT_REP", 
             [
                 #self.transformation_trns_mode_shift_freight,
@@ -1335,7 +1336,7 @@ class TransformationsEnergy:
         all_transformations.append(self.trns_bundle_mode_shift_with_rep)
 
         
-        self.trns_electrify_light_duty_road = sc.Transformation(
+        self.trns_electrify_light_duty_road = trl.Transformation(
             "TRNS:FUEL_SWITCH_LIGHT_DUTY", 
             self.transformation_trns_electrify_road_light_duty, 
             attr_strategy
@@ -1343,7 +1344,7 @@ class TransformationsEnergy:
         all_transformations.append(self.trns_electrify_light_duty_road)
 
 
-        self.trns_electrify_light_duty_road_with_rep = sc.Transformation(
+        self.trns_electrify_light_duty_road_with_rep = trl.Transformation(
             "TRNS:FUEL_SWITCH_LIGHT_DUTY_REP", 
             [
                 self.transformation_trns_electrify_road_light_duty,
@@ -1354,7 +1355,7 @@ class TransformationsEnergy:
         all_transformations.append(self.trns_electrify_light_duty_road_with_rep)
 
         
-        self.trns_electrify_rail = sc.Transformation(
+        self.trns_electrify_rail = trl.Transformation(
             "TRNS:FUEL_SWITCH_RAIL", 
             self.transformation_trns_electrify_rail, 
             attr_strategy
@@ -1362,7 +1363,7 @@ class TransformationsEnergy:
         all_transformations.append(self.trns_electrify_rail)
 
 
-        self.trns_electrify_rail_with_rep = sc.Transformation(
+        self.trns_electrify_rail_with_rep = trl.Transformation(
             "TRNS:FUEL_SWITCH_RAIL_REP", 
             [
                 self.transformation_trns_electrify_rail,
@@ -1373,7 +1374,7 @@ class TransformationsEnergy:
         all_transformations.append(self.trns_electrify_rail_with_rep)
 
         
-        self.trns_fuel_switch_maritime = sc.Transformation(
+        self.trns_fuel_switch_maritime = trl.Transformation(
             "TRNS:FUEL_SWITCH_MARITIME", 
             self.transformation_trns_fuel_switch_maritime, 
             attr_strategy
@@ -1381,7 +1382,7 @@ class TransformationsEnergy:
         all_transformations.append(self.trns_fuel_switch_maritime)
 
 
-        self.trns_fuel_switch_maritime_with_rep = sc.Transformation(
+        self.trns_fuel_switch_maritime_with_rep = trl.Transformation(
             "TRNS:FUEL_SWITCH_MARITIME_REP", 
             [
                 self.transformation_trns_fuel_switch_maritime,
@@ -1392,7 +1393,7 @@ class TransformationsEnergy:
         all_transformations.append(self.trns_fuel_switch_maritime_with_rep)
 
 
-        self.trns_fuel_switch_medium_duty_road = sc.Transformation(
+        self.trns_fuel_switch_medium_duty_road = trl.Transformation(
             "TRNS:FUEL_SWITCH_MEDIUM_DUTY", 
             self.transformation_trns_fuel_switch_road_medium_duty, 
             attr_strategy
@@ -1400,7 +1401,7 @@ class TransformationsEnergy:
         all_transformations.append(self.trns_fuel_switch_medium_duty_road)
 
 
-        self.trns_fuel_switch_medium_duty_road_with_rep = sc.Transformation(
+        self.trns_fuel_switch_medium_duty_road_with_rep = trl.Transformation(
             "TRNS:FUEL_SWITCH_MEDIUM_DUTY_REP", 
             [
                 self.transformation_trns_fuel_switch_road_medium_duty,
@@ -1411,7 +1412,7 @@ class TransformationsEnergy:
         all_transformations.append(self.trns_fuel_switch_medium_duty_road_with_rep)
 
 
-        self.trns_increase_efficiency = sc.Transformation(
+        self.trns_increase_efficiency = trl.Transformation(
             "TRNS:INC_EFFICIENCY", 
             [
                 self.transformation_trns_increase_efficiency_electric,
@@ -1422,7 +1423,7 @@ class TransformationsEnergy:
         all_transformations.append(self.trns_increase_efficiency)
 
 
-        self.trns_bundle_efficiency_with_rep = sc.Transformation(
+        self.trns_bundle_efficiency_with_rep = trl.Transformation(
             "TRNS:INC_EFFICIENCY_REP", 
             [
                 self.transformation_trns_increase_efficiency_electric,
@@ -1434,7 +1435,7 @@ class TransformationsEnergy:
         all_transformations.append(self.trns_bundle_efficiency_with_rep)
 
 
-        self.trns_increase_occupancy_light_duty = sc.Transformation(
+        self.trns_increase_occupancy_light_duty = trl.Transformation(
             "TRNS:INC_OCCUPANCY", 
             self.transformation_trns_increase_occupancy_light_duty, 
             attr_strategy
@@ -1442,7 +1443,7 @@ class TransformationsEnergy:
         all_transformations.append(self.trns_increase_occupancy_light_duty)
 
 
-        self.trns_increase_occupancy_light_duty_with_rep = sc.Transformation(
+        self.trns_increase_occupancy_light_duty_with_rep = trl.Transformation(
             "TRNS:INC_OCCUPANCY_REP", 
             [
                 self.transformation_trns_increase_occupancy_light_duty,
@@ -1453,7 +1454,7 @@ class TransformationsEnergy:
         all_transformations.append(self.trns_increase_occupancy_light_duty_with_rep)
 
 
-        self.trns_mode_shift_freight = sc.Transformation(
+        self.trns_mode_shift_freight = trl.Transformation(
             "TRNS:MODE_SHIFT_FREIGHT", 
             self.transformation_trns_mode_shift_freight, 
             attr_strategy
@@ -1461,7 +1462,7 @@ class TransformationsEnergy:
         all_transformations.append(self.trns_mode_shift_freight)
 
 
-        self.trns_mode_shift_freight_with_rep = sc.Transformation(
+        self.trns_mode_shift_freight_with_rep = trl.Transformation(
             "TRNS:MODE_SHIFT_FREIGHT_REP", 
             [
                 self.transformation_trns_mode_shift_freight,
@@ -1472,7 +1473,7 @@ class TransformationsEnergy:
         all_transformations.append(self.trns_mode_shift_freight_with_rep)
 
 
-        self.trns_mode_shift_public_private = sc.Transformation(
+        self.trns_mode_shift_public_private = trl.Transformation(
             "TRNS:MODE_SHIFT_PASSENGER", 
             self.transformation_trns_mode_shift_public_private, 
             attr_strategy
@@ -1480,7 +1481,7 @@ class TransformationsEnergy:
         all_transformations.append(self.trns_mode_shift_public_private)
 
 
-        self.trns_mode_shift_public_private_with_rep = sc.Transformation(
+        self.trns_mode_shift_public_private_with_rep = trl.Transformation(
             "TRNS:MODE_SHIFT_PASSENGER_REP", 
             [
                 self.transformation_trns_mode_shift_public_private,
@@ -1491,7 +1492,7 @@ class TransformationsEnergy:
         all_transformations.append(self.trns_mode_shift_public_private_with_rep)
 
 
-        self.trns_mode_shift_regional = sc.Transformation(
+        self.trns_mode_shift_regional = trl.Transformation(
             "TRNS:MODE_SHIFT_REGIONAL", 
             self.transformation_trns_mode_shift_regional, 
             attr_strategy
@@ -1499,7 +1500,7 @@ class TransformationsEnergy:
         all_transformations.append(self.trns_mode_shift_regional)
 
 
-        self.trns_mode_shift_regional_with_rep = sc.Transformation(
+        self.trns_mode_shift_regional_with_rep = trl.Transformation(
             "TRNS:MODE_SHIFT_REGIONAL_REP", 
             [
                 self.transformation_trns_mode_shift_regional,
@@ -1709,7 +1710,7 @@ class TransformationsEnergy:
         Get strategy `strat` based on strategy code, id, or name
         
         If strat is None or an invalid valid of strat is entered, returns None; 
-            otherwise, returns the sc.Transformation object. 
+            otherwise, returns the trl.Transformation object. 
             
         Function Arguments
         ------------------

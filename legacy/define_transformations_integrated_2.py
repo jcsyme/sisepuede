@@ -21,6 +21,7 @@ import sisepuede.manager.sisepuede_file_structure as sfs
 import sisepuede.models.ippu as mi
 import sisepuede.transformers.lib._baselib_cross_sector as tbc
 import sisepuede.transformers.lib._baselib_general as tbg
+import sisepuede.transformers.lib._classes as trl
 import sisepuede.utilities._toolbox as sf
 
 
@@ -56,12 +57,12 @@ class TransformationsIntegrated:
                 through dict_config too if desired, but not done here)
 
             If using the composition of functions, can leverage the 
-            sc.Transformation composition functionality, which lets the user
-            enter lists of functions (see ?sc.Transformation for more 
+            trl.Transformation composition functionality, which lets the user
+            enter lists of functions (see ?trl.Transformation for more 
             information)
 
         3. Finally, define the Transformation object using the 
-            `sc.Transformation` class, which connects the function to the 
+            `trl.Transformation` class, which connects the function to the 
             Strategy name in attribute_strategy_id, assigns an id, and 
             simplifies the organization and running of strategies. 
 
@@ -515,7 +516,7 @@ class TransformationsIntegrated:
     def _initialize_transformations(self,
     ) -> None:
         """
-        Initialize all sc.Transformation objects used to manage the construction
+        Initialize all trl.Transformation objects used to manage the construction
             of transformations. Note that each transformation == a strategy.
 
         NOTE: This is the key function mapping each function to a transformation
@@ -540,7 +541,7 @@ class TransformationsIntegrated:
         #    CCSQ    #
         ##############
 
-        self.ccsq_increase_air_capture = sc.Transformation(
+        self.ccsq_increase_air_capture = trl.Transformation(
             "CCSQ: Increase direct air capture", 
             self.transformation_ccsq_increase_air_capture, 
             attr_strategy
@@ -698,7 +699,7 @@ class TransformationsIntegrated:
         Get strategy `strat` based on name or id. 
         
         If strat is None or an invalid valid of strat is entered, returns None; 
-            otherwise, returns the sc.Transformation object. 
+            otherwise, returns the trl.Transformation object. 
             
         Function Arguments
         ------------------

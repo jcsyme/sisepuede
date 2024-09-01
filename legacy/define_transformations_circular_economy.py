@@ -12,6 +12,7 @@ import sisepuede.core.support_classes as sc
 #import sisepuede.legacy.transformations_base_circular_economy as tbc
 import sisepuede.models.circular_economy as mc
 import sisepuede.transformers.lib._baselib_circular_economy as tbc
+import sisepuede.transformers.lib._classes as trl
 import sisepuede.utilities._toolbox as sf
 
 
@@ -47,12 +48,12 @@ class TransformationsCircularEconomy:
                 through dict_config too if desired, but not done here)
 
             If using the composition of functions, can leverage the 
-            sc.Transformation composition functionality, which lets the user
-            enter lists of functions (see ?sc.Transformation for more 
+            trl.Transformation composition functionality, which lets the user
+            enter lists of functions (see ?trl.Transformation for more 
             information)
 
         3. Finally, define the Transformation object using the 
-            `sc.Transformation` class, which connects the function to the 
+            `trl.Transformation` class, which connects the function to the 
             Strategy name in attribute_strategy_id, assigns an id, and 
             simplifies the organization and running of strategies. 
 
@@ -391,7 +392,7 @@ class TransformationsCircularEconomy:
     def _initialize_transformations(self,
     ) -> None:
         """
-        Initialize all sc.Transformation objects used to manage the construction
+        Initialize all trl.Transformation objects used to manage the construction
             of transformations. Note that each transformation == a strategy.
 
         NOTE: This is the key function mapping each function to a transformation
@@ -415,7 +416,7 @@ class TransformationsCircularEconomy:
         #    BASELINE    #
         ##################
 
-        self.baseline = sc.Transformation(
+        self.baseline = trl.Transformation(
             "BASE", 
             self.transformation_ce_baseline, 
             attr_strategy
@@ -428,7 +429,7 @@ class TransformationsCircularEconomy:
         #    CircularEconomy SECTOR-WIDE TRANSFORMATIONS    #
         #####################################################
         
-        self.ce_all = sc.Transformation(
+        self.ce_all = trl.Transformation(
             "CE:ALL", 
             [
                 self.transformation_trww_increase_biogas_capture,
@@ -454,7 +455,7 @@ class TransformationsCircularEconomy:
         #    TRWW TRANSFORMATIONS    #
         ##############################
 
-        self.trww_all = sc.Transformation(
+        self.trww_all = trl.Transformation(
             "TRWW:ALL", 
             [
                 self.transformation_trww_increase_biogas_capture,
@@ -465,7 +466,7 @@ class TransformationsCircularEconomy:
         all_transformations.append(self.trww_all)
 
 
-        self.trww_increase_biogas_capture = sc.Transformation(
+        self.trww_increase_biogas_capture = trl.Transformation(
             "TRWW:INC_CAPTURE_BIOGAS", 
             self.transformation_trww_increase_biogas_capture,
             attr_strategy
@@ -473,7 +474,7 @@ class TransformationsCircularEconomy:
         all_transformations.append(self.trww_increase_biogas_capture)
 
 
-        self.trww_increase_septic_compliance = sc.Transformation(
+        self.trww_increase_septic_compliance = trl.Transformation(
             "TRWW:INC_COMPLIANCE_SEPTIC", 
             self.transformation_trww_increase_septic_compliance,
             attr_strategy
@@ -485,7 +486,7 @@ class TransformationsCircularEconomy:
         #    WALI TRANSFORMATIONS    #
         ##############################
 
-        self.wali_all = sc.Transformation(
+        self.wali_all = trl.Transformation(
             "WALI:ALL", 
             [
                 self.transformation_wali_improve_sanitation_industrial,
@@ -497,7 +498,7 @@ class TransformationsCircularEconomy:
         all_transformations.append(self.wali_all)
 
 
-        self.wali_improve_sanitation_industrial = sc.Transformation(
+        self.wali_improve_sanitation_industrial = trl.Transformation(
             "WALI:INC_TREATMENT_INDUSTRIAL", 
             self.transformation_wali_improve_sanitation_industrial,
             attr_strategy
@@ -505,7 +506,7 @@ class TransformationsCircularEconomy:
         all_transformations.append(self.wali_improve_sanitation_industrial)
 
 
-        self.wali_improve_sanitation_rural = sc.Transformation(
+        self.wali_improve_sanitation_rural = trl.Transformation(
             "WALI:INC_TREATMENT_RURAL", 
             self.transformation_wali_improve_sanitation_rural,
             attr_strategy
@@ -513,7 +514,7 @@ class TransformationsCircularEconomy:
         all_transformations.append(self.wali_improve_sanitation_rural)
 
 
-        self.wali_improve_sanitation_urban = sc.Transformation(
+        self.wali_improve_sanitation_urban = trl.Transformation(
             "WALI:INC_TREATMENT_URBAN", 
             self.transformation_wali_improve_sanitation_urban,
             attr_strategy
@@ -526,7 +527,7 @@ class TransformationsCircularEconomy:
         #    WASO TRANSFORMATIONS    #
         ##############################
 
-        self.waso_all = sc.Transformation(
+        self.waso_all = trl.Transformation(
             "WASO:ALL", 
             [
                 self.transformation_waso_decrease_food_waste,
@@ -542,7 +543,7 @@ class TransformationsCircularEconomy:
         all_transformations.append(self.waso_all)
 
 
-        self.waso_descrease_consumer_food_waste = sc.Transformation(
+        self.waso_descrease_consumer_food_waste = trl.Transformation(
             "WASO:DEC_CONSUMER_FOOD_WASTE",
             self.transformation_waso_decrease_food_waste, 
             attr_strategy
@@ -550,7 +551,7 @@ class TransformationsCircularEconomy:
         all_transformations.append(self.waso_descrease_consumer_food_waste)
 
         
-        self.waso_increase_anaerobic_treatment_and_composting = sc.Transformation(
+        self.waso_increase_anaerobic_treatment_and_composting = trl.Transformation(
             "WASO:INC_ANAEROBIC_AND_COMPOST", 
             self.transformation_waso_increase_anaerobic_treatment_and_composting, 
             attr_strategy
@@ -558,7 +559,7 @@ class TransformationsCircularEconomy:
         all_transformations.append(self.waso_increase_anaerobic_treatment_and_composting)
 
 
-        self.waso_increase_biogas_capture = sc.Transformation(
+        self.waso_increase_biogas_capture = trl.Transformation(
             "WASO:INC_CAPTURE_BIOGAS", 
             self.transformation_waso_increase_biogas_capture, 
             attr_strategy
@@ -566,7 +567,7 @@ class TransformationsCircularEconomy:
         all_transformations.append(self.waso_increase_biogas_capture)
 
 
-        self.waso_energy_from_biogas = sc.Transformation(
+        self.waso_energy_from_biogas = trl.Transformation(
             "WASO:INC_ENERGY_FROM_BIOGAS", 
             self.transformation_waso_increase_energy_from_biogas, 
             attr_strategy
@@ -574,7 +575,7 @@ class TransformationsCircularEconomy:
         all_transformations.append(self.waso_energy_from_biogas)
 
 
-        self.waso_energy_from_incineration = sc.Transformation(
+        self.waso_energy_from_incineration = trl.Transformation(
             "WASO:INC_ENERGY_FROM_INCINERATION", 
             self.transformation_waso_increase_energy_from_incineration, 
             attr_strategy
@@ -582,7 +583,7 @@ class TransformationsCircularEconomy:
         all_transformations.append(self.waso_energy_from_incineration)
 
 
-        self.waso_increase_landfilling = sc.Transformation(
+        self.waso_increase_landfilling = trl.Transformation(
             "WASO:INC_LANDFILLING", 
             self.transformation_waso_increase_landfilling, 
             attr_strategy
@@ -590,7 +591,7 @@ class TransformationsCircularEconomy:
         all_transformations.append(self.waso_increase_landfilling)
 
         
-        self.waso_increase_recycling = sc.Transformation(
+        self.waso_increase_recycling = trl.Transformation(
             "WASO:INC_RECYCLING", 
             self.transformation_waso_increase_recycling, 
             attr_strategy
@@ -774,7 +775,7 @@ class TransformationsCircularEconomy:
         Get strategy `strat` based on strategy code, id, or name
         
         If strat is None or an invalid valid of strat is entered, returns None; 
-            otherwise, returns the sc.Transformation object. 
+            otherwise, returns the trl.Transformation object. 
             
         Function Arguments
         ------------------
