@@ -57,12 +57,12 @@ class TransformationsIntegrated:
                 through dict_config too if desired, but not done here)
 
             If using the composition of functions, can leverage the 
-            trl.Transformation composition functionality, which lets the user
-            enter lists of functions (see ?trl.Transformation for more 
+            trl.Transformer composition functionality, which lets the user
+            enter lists of functions (see ?trl.Transformer for more 
             information)
 
         3. Finally, define the Transformation object using the 
-            `trl.Transformation` class, which connects the function to the 
+            `trl.Transformer` class, which connects the function to the 
             Strategy name in attribute_strategy_id, assigns an id, and 
             simplifies the organization and running of strategies. 
 
@@ -516,7 +516,7 @@ class TransformationsIntegrated:
     def _initialize_transformations(self,
     ) -> None:
         """
-        Initialize all trl.Transformation objects used to manage the construction
+        Initialize all trl.Transformer objects used to manage the construction
             of transformations. Note that each transformation == a strategy.
 
         NOTE: This is the key function mapping each function to a transformation
@@ -541,7 +541,7 @@ class TransformationsIntegrated:
         #    CCSQ    #
         ##############
 
-        self.ccsq_increase_air_capture = trl.Transformation(
+        self.ccsq_increase_air_capture = trl.Transformer(
             "CCSQ: Increase direct air capture", 
             self.transformation_ccsq_increase_air_capture, 
             attr_strategy
@@ -699,7 +699,7 @@ class TransformationsIntegrated:
         Get strategy `strat` based on name or id. 
         
         If strat is None or an invalid valid of strat is entered, returns None; 
-            otherwise, returns the trl.Transformation object. 
+            otherwise, returns the trl.Transformer object. 
             
         Function Arguments
         ------------------

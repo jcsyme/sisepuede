@@ -48,12 +48,12 @@ class TransformationsCircularEconomy:
                 through dict_config too if desired, but not done here)
 
             If using the composition of functions, can leverage the 
-            trl.Transformation composition functionality, which lets the user
-            enter lists of functions (see ?trl.Transformation for more 
+            trl.Transformer composition functionality, which lets the user
+            enter lists of functions (see ?trl.Transformer for more 
             information)
 
         3. Finally, define the Transformation object using the 
-            `trl.Transformation` class, which connects the function to the 
+            `trl.Transformer` class, which connects the function to the 
             Strategy name in attribute_strategy_id, assigns an id, and 
             simplifies the organization and running of strategies. 
 
@@ -392,7 +392,7 @@ class TransformationsCircularEconomy:
     def _initialize_transformations(self,
     ) -> None:
         """
-        Initialize all trl.Transformation objects used to manage the construction
+        Initialize all trl.Transformer objects used to manage the construction
             of transformations. Note that each transformation == a strategy.
 
         NOTE: This is the key function mapping each function to a transformation
@@ -416,7 +416,7 @@ class TransformationsCircularEconomy:
         #    BASELINE    #
         ##################
 
-        self.baseline = trl.Transformation(
+        self.baseline = trl.Transformer(
             "BASE", 
             self.transformation_ce_baseline, 
             attr_strategy
@@ -429,7 +429,7 @@ class TransformationsCircularEconomy:
         #    CircularEconomy SECTOR-WIDE TRANSFORMATIONS    #
         #####################################################
         
-        self.ce_all = trl.Transformation(
+        self.ce_all = trl.Transformer(
             "CE:ALL", 
             [
                 self.transformation_trww_increase_biogas_capture,
@@ -455,7 +455,7 @@ class TransformationsCircularEconomy:
         #    TRWW TRANSFORMATIONS    #
         ##############################
 
-        self.trww_all = trl.Transformation(
+        self.trww_all = trl.Transformer(
             "TRWW:ALL", 
             [
                 self.transformation_trww_increase_biogas_capture,
@@ -466,7 +466,7 @@ class TransformationsCircularEconomy:
         all_transformations.append(self.trww_all)
 
 
-        self.trww_increase_biogas_capture = trl.Transformation(
+        self.trww_increase_biogas_capture = trl.Transformer(
             "TRWW:INC_CAPTURE_BIOGAS", 
             self.transformation_trww_increase_biogas_capture,
             attr_strategy
@@ -474,7 +474,7 @@ class TransformationsCircularEconomy:
         all_transformations.append(self.trww_increase_biogas_capture)
 
 
-        self.trww_increase_septic_compliance = trl.Transformation(
+        self.trww_increase_septic_compliance = trl.Transformer(
             "TRWW:INC_COMPLIANCE_SEPTIC", 
             self.transformation_trww_increase_septic_compliance,
             attr_strategy
@@ -486,7 +486,7 @@ class TransformationsCircularEconomy:
         #    WALI TRANSFORMATIONS    #
         ##############################
 
-        self.wali_all = trl.Transformation(
+        self.wali_all = trl.Transformer(
             "WALI:ALL", 
             [
                 self.transformation_wali_improve_sanitation_industrial,
@@ -498,7 +498,7 @@ class TransformationsCircularEconomy:
         all_transformations.append(self.wali_all)
 
 
-        self.wali_improve_sanitation_industrial = trl.Transformation(
+        self.wali_improve_sanitation_industrial = trl.Transformer(
             "WALI:INC_TREATMENT_INDUSTRIAL", 
             self.transformation_wali_improve_sanitation_industrial,
             attr_strategy
@@ -506,7 +506,7 @@ class TransformationsCircularEconomy:
         all_transformations.append(self.wali_improve_sanitation_industrial)
 
 
-        self.wali_improve_sanitation_rural = trl.Transformation(
+        self.wali_improve_sanitation_rural = trl.Transformer(
             "WALI:INC_TREATMENT_RURAL", 
             self.transformation_wali_improve_sanitation_rural,
             attr_strategy
@@ -514,7 +514,7 @@ class TransformationsCircularEconomy:
         all_transformations.append(self.wali_improve_sanitation_rural)
 
 
-        self.wali_improve_sanitation_urban = trl.Transformation(
+        self.wali_improve_sanitation_urban = trl.Transformer(
             "WALI:INC_TREATMENT_URBAN", 
             self.transformation_wali_improve_sanitation_urban,
             attr_strategy
@@ -527,7 +527,7 @@ class TransformationsCircularEconomy:
         #    WASO TRANSFORMATIONS    #
         ##############################
 
-        self.waso_all = trl.Transformation(
+        self.waso_all = trl.Transformer(
             "WASO:ALL", 
             [
                 self.transformation_waso_decrease_food_waste,
@@ -543,7 +543,7 @@ class TransformationsCircularEconomy:
         all_transformations.append(self.waso_all)
 
 
-        self.waso_descrease_consumer_food_waste = trl.Transformation(
+        self.waso_descrease_consumer_food_waste = trl.Transformer(
             "WASO:DEC_CONSUMER_FOOD_WASTE",
             self.transformation_waso_decrease_food_waste, 
             attr_strategy
@@ -551,7 +551,7 @@ class TransformationsCircularEconomy:
         all_transformations.append(self.waso_descrease_consumer_food_waste)
 
         
-        self.waso_increase_anaerobic_treatment_and_composting = trl.Transformation(
+        self.waso_increase_anaerobic_treatment_and_composting = trl.Transformer(
             "WASO:INC_ANAEROBIC_AND_COMPOST", 
             self.transformation_waso_increase_anaerobic_treatment_and_composting, 
             attr_strategy
@@ -559,7 +559,7 @@ class TransformationsCircularEconomy:
         all_transformations.append(self.waso_increase_anaerobic_treatment_and_composting)
 
 
-        self.waso_increase_biogas_capture = trl.Transformation(
+        self.waso_increase_biogas_capture = trl.Transformer(
             "WASO:INC_CAPTURE_BIOGAS", 
             self.transformation_waso_increase_biogas_capture, 
             attr_strategy
@@ -567,7 +567,7 @@ class TransformationsCircularEconomy:
         all_transformations.append(self.waso_increase_biogas_capture)
 
 
-        self.waso_energy_from_biogas = trl.Transformation(
+        self.waso_energy_from_biogas = trl.Transformer(
             "WASO:INC_ENERGY_FROM_BIOGAS", 
             self.transformation_waso_increase_energy_from_biogas, 
             attr_strategy
@@ -575,7 +575,7 @@ class TransformationsCircularEconomy:
         all_transformations.append(self.waso_energy_from_biogas)
 
 
-        self.waso_energy_from_incineration = trl.Transformation(
+        self.waso_energy_from_incineration = trl.Transformer(
             "WASO:INC_ENERGY_FROM_INCINERATION", 
             self.transformation_waso_increase_energy_from_incineration, 
             attr_strategy
@@ -583,7 +583,7 @@ class TransformationsCircularEconomy:
         all_transformations.append(self.waso_energy_from_incineration)
 
 
-        self.waso_increase_landfilling = trl.Transformation(
+        self.waso_increase_landfilling = trl.Transformer(
             "WASO:INC_LANDFILLING", 
             self.transformation_waso_increase_landfilling, 
             attr_strategy
@@ -591,7 +591,7 @@ class TransformationsCircularEconomy:
         all_transformations.append(self.waso_increase_landfilling)
 
         
-        self.waso_increase_recycling = trl.Transformation(
+        self.waso_increase_recycling = trl.Transformer(
             "WASO:INC_RECYCLING", 
             self.transformation_waso_increase_recycling, 
             attr_strategy
@@ -775,7 +775,7 @@ class TransformationsCircularEconomy:
         Get strategy `strat` based on strategy code, id, or name
         
         If strat is None or an invalid valid of strat is entered, returns None; 
-            otherwise, returns the trl.Transformation object. 
+            otherwise, returns the trl.Transformer object. 
             
         Function Arguments
         ------------------
