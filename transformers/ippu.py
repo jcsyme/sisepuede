@@ -47,12 +47,12 @@ class TransformersIPPU:
                 through dict_config too if desired, but not done here)
 
             If using the composition of functions, can leverage the 
-            trl.Transfomer composition functionality, which lets the user
-            enter lists of functions (see ?trl.Transfomer for more 
+            trl.Transformer composition functionality, which lets the user
+            enter lists of functions (see ?trl.Transformer for more 
             information)
 
         3. Finally, define the Transformer object using the 
-            `trl.Transfomer` class, which connects the function to the 
+            `trl.Transformer` class, which connects the function to the 
             Strategy name in attribute_strategy_id, assigns an id, and 
             simplifies the organization and running of strategies. 
 
@@ -389,7 +389,7 @@ class TransformersIPPU:
     def _initialize_transformations(self,
     ) -> None:
         """
-        Initialize all trl.Transfomer objects used to manage the construction
+        Initialize all trl.Transformer objects used to manage the construction
             of transformations. Note that each transformation == a strategy.
 
         NOTE: This is the key function mapping each function to a transformation
@@ -413,7 +413,7 @@ class TransformersIPPU:
         #    BASELINE    #
         ##################
 
-        self.baseline = trl.Transfomer(
+        self.baseline = trl.Transformer(
             "BASE", 
             self.transformation_ip_baseline, 
             attr_strategy
@@ -426,7 +426,7 @@ class TransformersIPPU:
         #    IPPU TRANSFORMATIONS    #
         ##############################
 
-        self.ip_all = trl.Transfomer(
+        self.ip_all = trl.Transformer(
             "IP:ALL", 
             [
                 self.transformation_ippu_reduce_cement_clinker,
@@ -441,7 +441,7 @@ class TransformersIPPU:
         all_transformations.append(self.ip_all)
 
 
-        self.ippu_bundle_reduce_fgas = trl.Transfomer(
+        self.ippu_bundle_reduce_fgas = trl.Transformer(
             "IPPU:BUNDLE_DEC_FGAS", 
             [
                 self.transformation_ippu_reduce_hfcs,
@@ -453,7 +453,7 @@ class TransformersIPPU:
         all_transformations.append(self.ippu_bundle_reduce_fgas)
 
 
-        self.ippu_demand_managment = trl.Transfomer(
+        self.ippu_demand_managment = trl.Transformer(
             "IPPU:DEC_DEMAND", 
             self.transformation_ippu_reduce_demand,
             attr_strategy
@@ -461,7 +461,7 @@ class TransformersIPPU:
         all_transformations.append(self.ippu_demand_managment)
 
 
-        self.ippu_reduce_cement_clinker = trl.Transfomer(
+        self.ippu_reduce_cement_clinker = trl.Transformer(
             "IPPU:DEC_CLINKER", 
             self.transformation_ippu_reduce_cement_clinker,
             attr_strategy
@@ -469,7 +469,7 @@ class TransformersIPPU:
         all_transformations.append(self.ippu_reduce_cement_clinker)
 
 
-        self.ippu_reduce_hfcs = trl.Transfomer(
+        self.ippu_reduce_hfcs = trl.Transformer(
             "IPPU:DEC_HFCS", 
             self.transformation_ippu_reduce_hfcs,
             attr_strategy
@@ -477,7 +477,7 @@ class TransformersIPPU:
         all_transformations.append(self.ippu_reduce_hfcs)
 
 
-        self.ippu_reduce_other_fcs = trl.Transfomer(
+        self.ippu_reduce_other_fcs = trl.Transformer(
             "IPPU:DEC_OTHER_FCS", 
             self.transformation_ippu_reduce_other_fcs,
             attr_strategy
@@ -485,7 +485,7 @@ class TransformersIPPU:
         all_transformations.append(self.ippu_reduce_other_fcs)
 
 
-        self.ippu_reduce_n2o = trl.Transfomer(
+        self.ippu_reduce_n2o = trl.Transformer(
             "IPPU:DEC_N2O", 
             self.transformation_ippu_reduce_n2o,
             attr_strategy
@@ -493,7 +493,7 @@ class TransformersIPPU:
         all_transformations.append(self.ippu_reduce_n2o)
 
 
-        self.ippu_reduce_pfcs = trl.Transfomer(
+        self.ippu_reduce_pfcs = trl.Transformer(
             "IPPU:DEC_PFCS", 
             self.transformation_ippu_reduce_pfcs,
             attr_strategy
@@ -707,7 +707,7 @@ class TransformersIPPU:
         Get strategy `strat` based on strategy code, id, or name
         
         If strat is None or an invalid valid of strat is entered, returns None; 
-            otherwise, returns the trl.Transfomer object. 
+            otherwise, returns the trl.Transformer object. 
             
         Function Arguments
         ------------------

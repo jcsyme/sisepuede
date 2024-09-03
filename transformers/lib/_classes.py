@@ -1,6 +1,8 @@
+import logging
 import numpy as np
 import pandas as pd
-import re
+import time
+from typing import *
 
 
 from sisepuede.core.attribute_table import *
@@ -200,3 +202,23 @@ class Transformer:
         self.function_list = function_list
         
         return None
+
+
+
+class Transformers:
+    """
+    Super class for the collections of transformers
+    """
+
+    def __init__(self,
+    ):
+
+        return None
+
+
+
+
+
+
+
+

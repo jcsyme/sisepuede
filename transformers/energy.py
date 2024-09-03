@@ -49,12 +49,12 @@ class TransformersEnergy:
                 through dict_config too if desired, but not done here)
 
             If using the composition of functions, can leverage the 
-            trl.Transfomer composition functionality, which lets the user
-            enter lists of functions (see ?trl.Transfomer for more 
+            trl.Transformer composition functionality, which lets the user
+            enter lists of functions (see ?trl.Transformer for more 
             information)
 
         3. Finally, define the Transformer object using the 
-            `trl.Transfomer` class, which connects the function to the 
+            `trl.Transformer` class, which connects the function to the 
             Strategy name in attribute_strategy_id, assigns an id, and 
             simplifies the organization and running of strategies. 
 
@@ -744,7 +744,7 @@ class TransformersEnergy:
     def _initialize_transformations(self,
     ) -> None:
         """
-        Initialize all trl.Transfomer objects used to manage the construction
+        Initialize all trl.Transformer objects used to manage the construction
             of transformations. Note that each transformation == a strategy.
 
         NOTE: This is the key function mapping each function to a transformation
@@ -767,7 +767,7 @@ class TransformersEnergy:
         #    BASELINE    #
         ##################
 
-        self.baseline = trl.Transfomer(
+        self.baseline = trl.Transformer(
             "BASE", 
             self.transformation_en_baseline, 
             attr_strategy
@@ -779,7 +779,7 @@ class TransformersEnergy:
         #    ENERGY ALL    #
         ####################
 
-        self.en_all = trl.Transfomer(
+        self.en_all = trl.Transformer(
             "EN:ALL", 
             [
                 #self.transformation_ccsq_increase_air_capture,
@@ -810,7 +810,7 @@ class TransformersEnergy:
         all_transformations.append(self.en_all)
 
 
-        self.en_bundle_efficiency = trl.Transfomer(
+        self.en_bundle_efficiency = trl.Transformer(
             "EN:BUNDLE_EFFICIENCY", 
             [
                 self.transformation_inen_fuel_switch_low_temp_to_heat_pump,
@@ -826,7 +826,7 @@ class TransformersEnergy:
         all_transformations.append(self.en_bundle_efficiency)
 
 
-        self.en_bundle_efficiency_with_rep = trl.Transfomer(
+        self.en_bundle_efficiency_with_rep = trl.Transformer(
             "EN:BUNDLE_EFFICIENCY_REP", 
             [
                 self.transformation_inen_fuel_switch_low_temp_to_heat_pump,
@@ -843,7 +843,7 @@ class TransformersEnergy:
         all_transformations.append(self.en_bundle_efficiency_with_rep)
 
 
-        self.en_bundle_fuel_switch = trl.Transfomer(
+        self.en_bundle_fuel_switch = trl.Transformer(
             "EN:BUNDLE_FUEL_SWITCH", 
             [
                 self.transformation_inen_fuel_switch_low_and_high_temp,
@@ -858,7 +858,7 @@ class TransformersEnergy:
         all_transformations.append(self.en_bundle_fuel_switch)
 
 
-        self.en_bundle_fuel_switch_with_rep = trl.Transfomer(
+        self.en_bundle_fuel_switch_with_rep = trl.Transformer(
             "EN:BUNDLE_FUEL_SWITCH_REP", 
             [
                 self.transformation_inen_fuel_switch_low_and_high_temp,
@@ -879,7 +879,7 @@ class TransformersEnergy:
         #    CCSQ    #
         ##############
 
-        self.ccsq_increase_air_capture = trl.Transfomer(
+        self.ccsq_increase_air_capture = trl.Transformer(
             "CCSQ:INCREASE_CAPTURE", 
             self.transformation_ccsq_increase_air_capture, 
             attr_strategy
@@ -887,7 +887,7 @@ class TransformersEnergy:
         all_transformations.append(self.ccsq_increase_air_capture)
 
 
-        self.ccsq_increase_air_capture_with_rep = trl.Transfomer(
+        self.ccsq_increase_air_capture_with_rep = trl.Transformer(
             "CCSQ:INCREASE_CAPTURE_REP", 
             [
                 self.transformation_ccsq_increase_air_capture,
@@ -903,7 +903,7 @@ class TransformersEnergy:
         #    ENTC    #
         ##############
 
-        self.entc_least_cost = trl.Transfomer(
+        self.entc_least_cost = trl.Transformer(
             "ENTC:LEAST_COST", 
             self.transformation_entc_least_cost, 
             attr_strategy
@@ -911,7 +911,7 @@ class TransformersEnergy:
         all_transformations.append(self.entc_least_cost)
 
         
-        self.entc_reduce_transmission_losses = trl.Transfomer(
+        self.entc_reduce_transmission_losses = trl.Transformer(
             "ENTC:DEC_LOSSES", 
             self.transformation_entc_reduce_transmission_losses, 
             attr_strategy
@@ -919,7 +919,7 @@ class TransformersEnergy:
         all_transformations.append(self.entc_reduce_transmission_losses)
 
 
-        self.entc_reduce_transmission_losses_with_rep = trl.Transfomer(
+        self.entc_reduce_transmission_losses_with_rep = trl.Transformer(
             "ENTC:DEC_LOSSES_REP",
             [
                 self.transformation_entc_reduce_transmission_losses,
@@ -930,7 +930,7 @@ class TransformersEnergy:
         all_transformations.append(self.entc_reduce_transmission_losses_with_rep)
 
 
-        self.entc_renewable_electricity = trl.Transfomer(
+        self.entc_renewable_electricity = trl.Transformer(
             "ENTC:TARGET_RENEWABLE_ELEC", 
             self.transformation_entc_renewables_target, 
             attr_strategy
@@ -943,7 +943,7 @@ class TransformersEnergy:
         #    FGTV    #
         ##############
 
-        self.fgtv_all = trl.Transfomer(
+        self.fgtv_all = trl.Transformer(
             "FGTV:ALL", 
             [
                 self.transformation_fgtv_maximize_flaring,
@@ -954,7 +954,7 @@ class TransformersEnergy:
         all_transformations.append(self.fgtv_all)
 
 
-        self.fgtv_all_with_rep = trl.Transfomer(
+        self.fgtv_all_with_rep = trl.Transformer(
             "FGTV:ALL_REP", 
             [
                 self.transformation_fgtv_maximize_flaring,
@@ -966,7 +966,7 @@ class TransformersEnergy:
         all_transformations.append(self.fgtv_all_with_rep)
 
 
-        self.fgtv_maximize_flaring = trl.Transfomer(
+        self.fgtv_maximize_flaring = trl.Transformer(
             "FGTV:INC_FLARE", 
             self.transformation_fgtv_maximize_flaring, 
             attr_strategy
@@ -974,7 +974,7 @@ class TransformersEnergy:
         all_transformations.append(self.fgtv_maximize_flaring)
 
 
-        self.fgtv_maximize_flaring_with_rep = trl.Transfomer(
+        self.fgtv_maximize_flaring_with_rep = trl.Transformer(
             "FGTV:INC_FLARE_REP", 
             [
                 self.transformation_fgtv_maximize_flaring,
@@ -985,7 +985,7 @@ class TransformersEnergy:
         all_transformations.append(self.fgtv_maximize_flaring_with_rep)
 
 
-        self.fgtv_minimize_leaks = trl.Transfomer(
+        self.fgtv_minimize_leaks = trl.Transformer(
             "FGTV:DEC_LEAKS", 
             self.transformation_fgtv_minimize_leaks, 
             attr_strategy
@@ -993,7 +993,7 @@ class TransformersEnergy:
         all_transformations.append(self.fgtv_minimize_leaks)
 
 
-        self.fgtv_minimize_leaks_with_rep = trl.Transfomer(
+        self.fgtv_minimize_leaks_with_rep = trl.Transformer(
             "FGTV:DEC_LEAKS_REP", 
             [
                 self.transformation_fgtv_minimize_leaks,
@@ -1009,7 +1009,7 @@ class TransformersEnergy:
         #    INEN    #
         ##############
 
-        self.inen_all = trl.Transfomer(
+        self.inen_all = trl.Transformer(
             "INEN:ALL", 
             [
                 self.transformation_inen_fuel_switch_low_and_high_temp, # use instead of both functions to avoid incorrect results w/func composition
@@ -1021,7 +1021,7 @@ class TransformersEnergy:
         all_transformations.append(self.inen_all)
 
 
-        self.inen_all_with_rep = trl.Transfomer(
+        self.inen_all_with_rep = trl.Transformer(
             "INEN:ALL_REP", 
             [
                 self.transformation_inen_fuel_switch_low_and_high_temp, # use instead of both functions to avoid incorrect results w/func composition
@@ -1034,7 +1034,7 @@ class TransformersEnergy:
         all_transformations.append(self.inen_all_with_rep)
 
 
-        self.inen_fuel_switch_high_temp = trl.Transfomer(
+        self.inen_fuel_switch_high_temp = trl.Transformer(
             "INEN:FUEL_SWITCH_HI_HEAT", 
             self.transformation_inen_fuel_switch_high_temp, 
             attr_strategy
@@ -1042,7 +1042,7 @@ class TransformersEnergy:
         all_transformations.append(self.inen_fuel_switch_high_temp)
 
 
-        self.inen_fuel_switch_high_temp_with_rep = trl.Transfomer(
+        self.inen_fuel_switch_high_temp_with_rep = trl.Transformer(
             "INEN:FUEL_SWITCH_HI_HEAT_REP", 
             [
                 self.transformation_inen_fuel_switch_high_temp,
@@ -1053,7 +1053,7 @@ class TransformersEnergy:
         all_transformations.append(self.inen_fuel_switch_high_temp_with_rep)
         
 
-        self.inen_fuel_switch_low_temp_to_heat_pump = trl.Transfomer(
+        self.inen_fuel_switch_low_temp_to_heat_pump = trl.Transformer(
             "INEN:FUEL_SWITCH_LO_HEAT", 
             self.transformation_inen_fuel_switch_low_temp_to_heat_pump, 
             attr_strategy
@@ -1061,7 +1061,7 @@ class TransformersEnergy:
         all_transformations.append(self.inen_fuel_switch_low_temp_to_heat_pump)
 
 
-        self.inen_fuel_switch_low_temp_to_heat_pump_with_rep = trl.Transfomer(
+        self.inen_fuel_switch_low_temp_to_heat_pump_with_rep = trl.Transformer(
             "INEN:FUEL_SWITCH_LO_HEAT_REP", 
             [
                 self.transformation_inen_fuel_switch_low_temp_to_heat_pump,
@@ -1072,7 +1072,7 @@ class TransformersEnergy:
         all_transformations.append(self.inen_fuel_switch_low_temp_to_heat_pump_with_rep)
 
         
-        self.inen_maximize_energy_efficiency = trl.Transfomer(
+        self.inen_maximize_energy_efficiency = trl.Transformer(
             "INEN:INC_EFFICIENCY_ENERGY", 
             self.transformation_inen_maximize_efficiency_energy, 
             attr_strategy
@@ -1080,7 +1080,7 @@ class TransformersEnergy:
         all_transformations.append(self.inen_maximize_energy_efficiency)
 
 
-        self.inen_maximize_energy_efficiency_with_rep = trl.Transfomer(
+        self.inen_maximize_energy_efficiency_with_rep = trl.Transformer(
             "INEN:INC_EFFICIENCY_ENERGY_REP", 
             [
                 self.transformation_inen_maximize_efficiency_energy,
@@ -1091,7 +1091,7 @@ class TransformersEnergy:
         all_transformations.append(self.inen_maximize_energy_efficiency_with_rep)
         
 
-        self.inen_maximize_production_efficiency = trl.Transfomer(
+        self.inen_maximize_production_efficiency = trl.Transformer(
             "INEN:INC_EFFICIENCY_PRODUCTION", 
             self.transformation_inen_maximize_efficiency_production, 
             attr_strategy
@@ -1099,7 +1099,7 @@ class TransformersEnergy:
         all_transformations.append(self.inen_maximize_production_efficiency)
 
 
-        self.inen_maximize_production_efficiency_with_rep = trl.Transfomer(
+        self.inen_maximize_production_efficiency_with_rep = trl.Transformer(
             "INEN:INC_EFFICIENCY_PRODUCTION_REP", 
             [
                 self.transformation_inen_maximize_efficiency_production,
@@ -1115,7 +1115,7 @@ class TransformersEnergy:
         #    SCOE    #
         ##############
 
-        self.scoe_all = trl.Transfomer(
+        self.scoe_all = trl.Transformer(
             "SCOE:ALL", 
             [
                 self.transformation_scoe_fuel_switch_electrify,
@@ -1127,7 +1127,7 @@ class TransformersEnergy:
         all_transformations.append(self.scoe_all)
 
 
-        self.scoe_all_with_rep = trl.Transfomer(
+        self.scoe_all_with_rep = trl.Transformer(
             "SCOE:ALL_REP", 
             [
                 self.transformation_scoe_fuel_switch_electrify,
@@ -1140,7 +1140,7 @@ class TransformersEnergy:
         all_transformations.append(self.scoe_all_with_rep)
 
 
-        self.scoe_fuel_switch_electrify = trl.Transfomer(
+        self.scoe_fuel_switch_electrify = trl.Transformer(
             "SCOE:FUEL_SWITCH_HEAT", 
             self.transformation_scoe_fuel_switch_electrify, 
             attr_strategy
@@ -1148,7 +1148,7 @@ class TransformersEnergy:
         all_transformations.append(self.scoe_fuel_switch_electrify)
 
 
-        self.scoe_fuel_switch_electrify_with_rep = trl.Transfomer(
+        self.scoe_fuel_switch_electrify_with_rep = trl.Transformer(
             "SCOE:FUEL_SWITCH_HEAT_REP", 
             [
                 self.transformation_scoe_fuel_switch_electrify,
@@ -1159,7 +1159,7 @@ class TransformersEnergy:
         all_transformations.append(self.scoe_fuel_switch_electrify_with_rep)
         
 
-        self.scoe_increase_applicance_efficiency = trl.Transfomer(
+        self.scoe_increase_applicance_efficiency = trl.Transformer(
             "SCOE:INC_EFFICIENCY_APPLIANCE", 
             self.transformation_scoe_increase_applicance_efficiency, 
             attr_strategy
@@ -1167,7 +1167,7 @@ class TransformersEnergy:
         all_transformations.append(self.scoe_increase_applicance_efficiency)
 
 
-        self.scoe_increase_applicance_efficiency_with_rep = trl.Transfomer(
+        self.scoe_increase_applicance_efficiency_with_rep = trl.Transformer(
             "SCOE:INC_EFFICIENCY_APPLIANCE_REP", 
             [
                 self.transformation_scoe_increase_applicance_efficiency,
@@ -1178,7 +1178,7 @@ class TransformersEnergy:
         all_transformations.append(self.scoe_increase_applicance_efficiency_with_rep)
         
 
-        self.scoe_reduce_heat_energy_demand = trl.Transfomer(
+        self.scoe_reduce_heat_energy_demand = trl.Transformer(
             "SCOE:DEC_DEMAND_HEAT", 
             self.transformation_scoe_reduce_heat_energy_demand, 
             attr_strategy
@@ -1186,7 +1186,7 @@ class TransformersEnergy:
         all_transformations.append(self.scoe_reduce_heat_energy_demand)
 
 
-        self.scoe_reduce_heat_energy_demand_with_rep = trl.Transfomer(
+        self.scoe_reduce_heat_energy_demand_with_rep = trl.Transformer(
             "SCOE:DEC_DEMAND_HEAT_REP", 
             [
                 self.transformation_scoe_reduce_heat_energy_demand,
@@ -1202,7 +1202,7 @@ class TransformersEnergy:
         #    TRNS/TRDE    #
         ###################
 
-        self.trde_reduce_demand = trl.Transfomer(
+        self.trde_reduce_demand = trl.Transformer(
             "TRDE:DEC_DEMAND", 
             self.transformation_trde_reduce_demand, 
             attr_strategy
@@ -1210,7 +1210,7 @@ class TransformersEnergy:
         all_transformations.append(self.trde_reduce_demand)
 
 
-        self.trde_reduce_demand_with_rep = trl.Transfomer(
+        self.trde_reduce_demand_with_rep = trl.Transformer(
             "TRDE:DEC_DEMAND_REP", 
             [
                 self.transformation_trde_reduce_demand,
@@ -1221,7 +1221,7 @@ class TransformersEnergy:
         all_transformations.append(self.trde_reduce_demand_with_rep)
 
         
-        self.trns_all = trl.Transfomer(
+        self.trns_all = trl.Transformer(
             "TRNS:ALL", 
             [
                 #self.transformation_trde_reduce_demand,
@@ -1241,7 +1241,7 @@ class TransformersEnergy:
         all_transformations.append(self.trns_all)
 
 
-        self.trns_all_with_rep = trl.Transfomer(
+        self.trns_all_with_rep = trl.Transformer(
             "TRNS:ALL_REP", 
             [
                 #self.transformation_trde_reduce_demand,
@@ -1262,7 +1262,7 @@ class TransformersEnergy:
         all_transformations.append(self.trns_all_with_rep)
 
         
-        self.trns_bundle_demand_management = trl.Transfomer(
+        self.trns_bundle_demand_management = trl.Transformer(
             "TRNS:BUNDLE_DEMAND_MANAGEMENT",
             [
                 self.transformation_trde_reduce_demand,
@@ -1273,7 +1273,7 @@ class TransformersEnergy:
         all_transformations.append(self.trns_bundle_demand_management)
 
 
-        self.trns_bundle_demand_management_with_rep = trl.Transfomer(
+        self.trns_bundle_demand_management_with_rep = trl.Transformer(
             "TRNS:BUNDLE_DEMAND_MANAGEMENT_REP", 
             [
                 self.transformation_trde_reduce_demand,
@@ -1285,7 +1285,7 @@ class TransformersEnergy:
         all_transformations.append(self.trns_bundle_demand_management_with_rep)
 
 
-        self.trns_bundle_fuel_swtich = trl.Transfomer(
+        self.trns_bundle_fuel_swtich = trl.Transformer(
             "TRNS:BUNDLE_FUEL_SWITCH", 
             [
                 self.transformation_trns_electrify_road_light_duty,
@@ -1298,7 +1298,7 @@ class TransformersEnergy:
         all_transformations.append(self.trns_bundle_fuel_swtich)
 
 
-        self.trns_bundle_fuel_swtich_with_rep = trl.Transfomer(
+        self.trns_bundle_fuel_swtich_with_rep = trl.Transformer(
             "TRNS:BUNDLE_FUEL_SWITCH_REP", 
             [
                 self.transformation_trns_electrify_road_light_duty,
@@ -1312,7 +1312,7 @@ class TransformersEnergy:
         all_transformations.append(self.trns_bundle_fuel_swtich_with_rep)
 
         
-        self.trns_bundle_mode_shift = trl.Transfomer(
+        self.trns_bundle_mode_shift = trl.Transformer(
             "TRNS:BUNDLE_MODE_SHIFT", 
             [
                 #self.transformation_trns_mode_shift_freight,
@@ -1324,7 +1324,7 @@ class TransformersEnergy:
         all_transformations.append(self.trns_bundle_mode_shift)
 
 
-        self.trns_bundle_mode_shift_with_rep = trl.Transfomer(
+        self.trns_bundle_mode_shift_with_rep = trl.Transformer(
             "TRNS:BUNDLE_MODE_SHIFT_REP", 
             [
                 #self.transformation_trns_mode_shift_freight,
@@ -1337,7 +1337,7 @@ class TransformersEnergy:
         all_transformations.append(self.trns_bundle_mode_shift_with_rep)
 
         
-        self.trns_electrify_light_duty_road = trl.Transfomer(
+        self.trns_electrify_light_duty_road = trl.Transformer(
             "TRNS:FUEL_SWITCH_LIGHT_DUTY", 
             self.transformation_trns_electrify_road_light_duty, 
             attr_strategy
@@ -1345,7 +1345,7 @@ class TransformersEnergy:
         all_transformations.append(self.trns_electrify_light_duty_road)
 
 
-        self.trns_electrify_light_duty_road_with_rep = trl.Transfomer(
+        self.trns_electrify_light_duty_road_with_rep = trl.Transformer(
             "TRNS:FUEL_SWITCH_LIGHT_DUTY_REP", 
             [
                 self.transformation_trns_electrify_road_light_duty,
@@ -1356,7 +1356,7 @@ class TransformersEnergy:
         all_transformations.append(self.trns_electrify_light_duty_road_with_rep)
 
         
-        self.trns_electrify_rail = trl.Transfomer(
+        self.trns_electrify_rail = trl.Transformer(
             "TRNS:FUEL_SWITCH_RAIL", 
             self.transformation_trns_electrify_rail, 
             attr_strategy
@@ -1364,7 +1364,7 @@ class TransformersEnergy:
         all_transformations.append(self.trns_electrify_rail)
 
 
-        self.trns_electrify_rail_with_rep = trl.Transfomer(
+        self.trns_electrify_rail_with_rep = trl.Transformer(
             "TRNS:FUEL_SWITCH_RAIL_REP", 
             [
                 self.transformation_trns_electrify_rail,
@@ -1375,7 +1375,7 @@ class TransformersEnergy:
         all_transformations.append(self.trns_electrify_rail_with_rep)
 
         
-        self.trns_fuel_switch_maritime = trl.Transfomer(
+        self.trns_fuel_switch_maritime = trl.Transformer(
             "TRNS:FUEL_SWITCH_MARITIME", 
             self.transformation_trns_fuel_switch_maritime, 
             attr_strategy
@@ -1383,7 +1383,7 @@ class TransformersEnergy:
         all_transformations.append(self.trns_fuel_switch_maritime)
 
 
-        self.trns_fuel_switch_maritime_with_rep = trl.Transfomer(
+        self.trns_fuel_switch_maritime_with_rep = trl.Transformer(
             "TRNS:FUEL_SWITCH_MARITIME_REP", 
             [
                 self.transformation_trns_fuel_switch_maritime,
@@ -1394,7 +1394,7 @@ class TransformersEnergy:
         all_transformations.append(self.trns_fuel_switch_maritime_with_rep)
 
 
-        self.trns_fuel_switch_medium_duty_road = trl.Transfomer(
+        self.trns_fuel_switch_medium_duty_road = trl.Transformer(
             "TRNS:FUEL_SWITCH_MEDIUM_DUTY", 
             self.transformation_trns_fuel_switch_road_medium_duty, 
             attr_strategy
@@ -1402,7 +1402,7 @@ class TransformersEnergy:
         all_transformations.append(self.trns_fuel_switch_medium_duty_road)
 
 
-        self.trns_fuel_switch_medium_duty_road_with_rep = trl.Transfomer(
+        self.trns_fuel_switch_medium_duty_road_with_rep = trl.Transformer(
             "TRNS:FUEL_SWITCH_MEDIUM_DUTY_REP", 
             [
                 self.transformation_trns_fuel_switch_road_medium_duty,
@@ -1413,7 +1413,7 @@ class TransformersEnergy:
         all_transformations.append(self.trns_fuel_switch_medium_duty_road_with_rep)
 
 
-        self.trns_increase_efficiency = trl.Transfomer(
+        self.trns_increase_efficiency = trl.Transformer(
             "TRNS:INC_EFFICIENCY", 
             [
                 self.transformation_trns_increase_efficiency_electric,
@@ -1424,7 +1424,7 @@ class TransformersEnergy:
         all_transformations.append(self.trns_increase_efficiency)
 
 
-        self.trns_bundle_efficiency_with_rep = trl.Transfomer(
+        self.trns_bundle_efficiency_with_rep = trl.Transformer(
             "TRNS:INC_EFFICIENCY_REP", 
             [
                 self.transformation_trns_increase_efficiency_electric,
@@ -1436,7 +1436,7 @@ class TransformersEnergy:
         all_transformations.append(self.trns_bundle_efficiency_with_rep)
 
 
-        self.trns_increase_occupancy_light_duty = trl.Transfomer(
+        self.trns_increase_occupancy_light_duty = trl.Transformer(
             "TRNS:INC_OCCUPANCY", 
             self.transformation_trns_increase_occupancy_light_duty, 
             attr_strategy
@@ -1444,7 +1444,7 @@ class TransformersEnergy:
         all_transformations.append(self.trns_increase_occupancy_light_duty)
 
 
-        self.trns_increase_occupancy_light_duty_with_rep = trl.Transfomer(
+        self.trns_increase_occupancy_light_duty_with_rep = trl.Transformer(
             "TRNS:INC_OCCUPANCY_REP", 
             [
                 self.transformation_trns_increase_occupancy_light_duty,
@@ -1455,7 +1455,7 @@ class TransformersEnergy:
         all_transformations.append(self.trns_increase_occupancy_light_duty_with_rep)
 
 
-        self.trns_mode_shift_freight = trl.Transfomer(
+        self.trns_mode_shift_freight = trl.Transformer(
             "TRNS:MODE_SHIFT_FREIGHT", 
             self.transformation_trns_mode_shift_freight, 
             attr_strategy
@@ -1463,7 +1463,7 @@ class TransformersEnergy:
         all_transformations.append(self.trns_mode_shift_freight)
 
 
-        self.trns_mode_shift_freight_with_rep = trl.Transfomer(
+        self.trns_mode_shift_freight_with_rep = trl.Transformer(
             "TRNS:MODE_SHIFT_FREIGHT_REP", 
             [
                 self.transformation_trns_mode_shift_freight,
@@ -1474,7 +1474,7 @@ class TransformersEnergy:
         all_transformations.append(self.trns_mode_shift_freight_with_rep)
 
 
-        self.trns_mode_shift_public_private = trl.Transfomer(
+        self.trns_mode_shift_public_private = trl.Transformer(
             "TRNS:MODE_SHIFT_PASSENGER", 
             self.transformation_trns_mode_shift_public_private, 
             attr_strategy
@@ -1482,7 +1482,7 @@ class TransformersEnergy:
         all_transformations.append(self.trns_mode_shift_public_private)
 
 
-        self.trns_mode_shift_public_private_with_rep = trl.Transfomer(
+        self.trns_mode_shift_public_private_with_rep = trl.Transformer(
             "TRNS:MODE_SHIFT_PASSENGER_REP", 
             [
                 self.transformation_trns_mode_shift_public_private,
@@ -1493,7 +1493,7 @@ class TransformersEnergy:
         all_transformations.append(self.trns_mode_shift_public_private_with_rep)
 
 
-        self.trns_mode_shift_regional = trl.Transfomer(
+        self.trns_mode_shift_regional = trl.Transformer(
             "TRNS:MODE_SHIFT_REGIONAL", 
             self.transformation_trns_mode_shift_regional, 
             attr_strategy
@@ -1501,7 +1501,7 @@ class TransformersEnergy:
         all_transformations.append(self.trns_mode_shift_regional)
 
 
-        self.trns_mode_shift_regional_with_rep = trl.Transfomer(
+        self.trns_mode_shift_regional_with_rep = trl.Transformer(
             "TRNS:MODE_SHIFT_REGIONAL_REP", 
             [
                 self.transformation_trns_mode_shift_regional,
@@ -1739,7 +1739,7 @@ class TransformersEnergy:
         Get strategy `strat` based on strategy code, id, or name
         
         If strat is None or an invalid valid of strat is entered, returns None; 
-            otherwise, returns the trl.Transfomer object. 
+            otherwise, returns the trl.Transformer object. 
             
         Function Arguments
         ------------------

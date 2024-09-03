@@ -56,12 +56,12 @@ class TransformersIntegrated:
                 through dict_config too if desired, but not done here)
 
             If using the composition of functions, can leverage the 
-            trl.Transfomer composition functionality, which lets the user
-            enter lists of functions (see ?trl.Transfomer for more 
+            trl.Transformer composition functionality, which lets the user
+            enter lists of functions (see ?trl.Transformer for more 
             information)
 
         3. Finally, define the Transformer object using the 
-            `trl.Transfomer` class, which connects the function to the 
+            `trl.Transformer` class, which connects the function to the 
             Strategy name in attribute_strategy_id, assigns an id, and 
             simplifies the organization and running of strategies. 
 
@@ -758,7 +758,7 @@ class TransformersIntegrated:
     def _initialize_transformations(self,
     ) -> None:
         """
-        Initialize all trl.Transfomer objects used to manage the construction
+        Initialize all trl.Transformer objects used to manage the construction
             of transformations. Note that each transformation == a strategy.
 
         NOTE: This is the key function mapping each function to a transformation
@@ -788,7 +788,7 @@ class TransformersIntegrated:
         #    BASELINE    #
         ##################
 
-        self.baseline = trl.Transfomer(
+        self.baseline = trl.Transformer(
             "BASE", 
             self.transformation_pflo_baseline, 
             attr_strategy
@@ -818,7 +818,7 @@ class TransformersIntegrated:
         function_list_plur_no_deforestation_stoppage = function_list.copy()
         function_list += self.transformations_afolu.af_all.function_list.copy()
 
-        self.pflo_all = trl.Transfomer(
+        self.pflo_all = trl.Transformer(
             "PFLO:ALL", 
             function_list, 
             attr_strategy
@@ -835,7 +835,7 @@ class TransformersIntegrated:
             .copy()
         )
 
-        self.pflo_all_with_partial_reallocation = trl.Transfomer(
+        self.pflo_all_with_partial_reallocation = trl.Transformer(
             "PFLO:ALL_PLUR", 
             function_list_plur, 
             attr_strategy
@@ -851,7 +851,7 @@ class TransformersIntegrated:
         ##  START WITH INDIA PLUR WITH CC
 
     
-        self.lndu_partial_reallocation_india_cc = trl.Transfomer(
+        self.lndu_partial_reallocation_india_cc = trl.Transformer(
             "LNDU:PLUR_INDIA_CC", 
             [
                 self.transformations_afolu.transformation_lndu_reallocate_land,
@@ -893,7 +893,7 @@ class TransformersIntegrated:
             if x != self.transformation_pflo_healthier_diets
         ]
         
-        self.pflo_ccdr_india_with_partial_reallocation = trl.Transfomer(
+        self.pflo_ccdr_india_with_partial_reallocation = trl.Transformer(
             "PFLO:INDIA_CCDR_PLUR", 
             function_list_india_ccdr, 
             attr_strategy
@@ -908,7 +908,7 @@ class TransformersIntegrated:
             self.transformations_afolu.transformation_agrc_decrease_climate_productivity_climate_india
         )
 
-        self.pflo_ccdr_india_with_partial_reallocation_india_cc = trl.Transfomer(
+        self.pflo_ccdr_india_with_partial_reallocation_india_cc = trl.Transformer(
             "PFLO:INDIA_CCDR_PLUR_INDIA_CC", 
             function_list_india_ccdr_cc, 
             attr_strategy
@@ -923,7 +923,7 @@ class TransformersIntegrated:
             self.transformations_afolu.transformation_agrc_decrease_climate_productivity_climate_india
         )
 
-        self.pflo_all_with_partial_reallocation_india_cc = trl.Transfomer(
+        self.pflo_all_with_partial_reallocation_india_cc = trl.Transformer(
             "PFLO:ALL_PLUR_INDIA_CC", 
             function_list_plur, 
             attr_strategy
@@ -950,7 +950,7 @@ class TransformersIntegrated:
             )
         
 
-        self.pflo_all_with_partial_reallocation_no_silvopasture = trl.Transfomer(
+        self.pflo_all_with_partial_reallocation_no_silvopasture = trl.Transformer(
             "PFLO:ALL_PLUR_NO_SILVOPASTURE", 
             function_list_plur_no_silvopasture, 
             attr_strategy
@@ -967,7 +967,7 @@ class TransformersIntegrated:
             .copy()
         )
 
-        self.pflo_all_with_deforestation_and_partial_reallocation = trl.Transfomer(
+        self.pflo_all_with_deforestation_and_partial_reallocation = trl.Transformer(
             "PFLO:ALL_NO_STOPPING_DEFORESTATION_PLUR", 
             function_list_plur_no_deforestation_stoppage, 
             attr_strategy
@@ -986,7 +986,7 @@ class TransformersIntegrated:
             .copy()
         )
 
-        self.pflo_all_no_lvst_export_reduction_with_partial_reallocation = trl.Transfomer(
+        self.pflo_all_no_lvst_export_reduction_with_partial_reallocation = trl.Transformer(
             "PFLO:ALL_NO_LVST_EXPORT_REDUCTION_PLUR", 
             function_list_plur_no_lvst_exp_reduction, 
             attr_strategy
@@ -994,7 +994,7 @@ class TransformersIntegrated:
         all_transformations.append(self.pflo_all_no_lvst_export_reduction_with_partial_reallocation)
         """;
 
-        self.pflo_better_baseline = trl.Transfomer(
+        self.pflo_better_baseline = trl.Transformer(
             "PFLO:BETTER_BASE", 
             [
                 self.transformations_afolu.transformation_agrc_improve_rice_management,
@@ -1023,7 +1023,7 @@ class TransformersIntegrated:
         all_transformations.append(self.pflo_better_baseline)
 
 
-        self.plfo_healthier_diets = trl.Transfomer(
+        self.plfo_healthier_diets = trl.Transformer(
             "PFLO:BETTER_DIETS", 
             self.transformation_pflo_healthier_diets, 
             attr_strategy
@@ -1031,7 +1031,7 @@ class TransformersIntegrated:
         all_transformations.append(self.plfo_healthier_diets)
 
 
-        self.plfo_healthier_diets_with_partial_reallocation = trl.Transfomer(
+        self.plfo_healthier_diets_with_partial_reallocation = trl.Transformer(
             "PFLO:BETTER_DIETS_PLUR", 
             [
                 self.transformation_pflo_healthier_diets, 
@@ -1042,7 +1042,7 @@ class TransformersIntegrated:
         all_transformations.append(self.plfo_healthier_diets_with_partial_reallocation)
 
 
-        self.pflo_industrial_ccs = trl.Transfomer(
+        self.pflo_industrial_ccs = trl.Transformer(
             "PFLO:IND_INC_CCS", 
             self.transformation_pflo_industrial_ccs, 
             attr_strategy
@@ -1050,7 +1050,7 @@ class TransformersIntegrated:
         all_transformations.append(self.pflo_industrial_ccs)
 
 
-        self.pflo_sociotechnical = trl.Transfomer(
+        self.pflo_sociotechnical = trl.Transformer(
             "PFLO:CHANGE_CONSUMPTION",
             [
                 self.transformation_pflo_healthier_diets,
@@ -1069,7 +1069,7 @@ class TransformersIntegrated:
         all_transformations.append(self.pflo_sociotechnical)
 
 
-        self.pflo_supply_side_technology = trl.Transfomer(
+        self.pflo_supply_side_technology = trl.Transformer(
             "PFLO:SUPPLY_SIDE_TECH", 
             [
                 self.transformation_pflo_industrial_ccs, 
@@ -1777,7 +1777,7 @@ class TransformersIntegrated:
         Get strategy `strat` based on strategy code, id, or name
         
         If strat is None or an invalid valid of strat is entered, returns None; 
-            otherwise, returns the trl.Transfomer object. 
+            otherwise, returns the trl.Transformer object. 
             
         Function Arguments
         ------------------
