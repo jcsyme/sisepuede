@@ -22,7 +22,6 @@ class Strategy:
     
 
 
-
 class Transformer:
     """
     Create a Transformation class to support construction in sectoral 
