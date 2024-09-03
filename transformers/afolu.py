@@ -16,7 +16,7 @@ import sisepuede.utilities._toolbox as sf
 
 
 
-class TransformationsAFOLU:
+class TransformersAFOLU:
     """
     Build energy transformations using general transformations defined in
         auxiliary_definitions_transformations. Wraps more general forms from 
@@ -46,12 +46,12 @@ class TransformationsAFOLU:
                 through dict_config too if desired, but not done here)
 
             If using the composition of functions, can leverage the 
-            trl.Transformation composition functionality, which lets the user
-            enter lists of functions (see ?trl.Transformation for more 
+            trl.Transfomer composition functionality, which lets the user
+            enter lists of functions (see ?trl.Transfomer for more 
             information)
 
-        3. Finally, define the Transformation object using the 
-            `trl.Transformation` class, which connects the function to the 
+        3. Finally, define the Transformer object using the 
+            `trl.Transfomer` class, which connects the function to the 
             Strategy name in attribute_strategy_id, assigns an id, and 
             simplifies the organization and running of strategies. 
 
@@ -61,7 +61,7 @@ class TransformationsAFOLU:
 	- model_attributes: ModelAttributes object used to manage variables and
 		coordination
     - dict_config: configuration dictionary used to pass parameters to 
-        transformations. See ?TransformationEnergy._initialize_parameters() for
+        transformations. See ?TransformerEnergy._initialize_parameters() for
         more information on requirements.
     - dir_jl: location of Julia directory containing Julia environment and 
         support modules
@@ -217,7 +217,7 @@ class TransformationsAFOLU:
         error_q = False
         error_q = error_q | (model_attributes is None)
         if error_q:
-            raise RuntimeError(f"Error: invalid specification of model_attributes in TransformationsIPPU")
+            raise RuntimeError(f"Error: invalid specification of model_attributes in TransformersAFOLU")
 
         # get strategy attribute, baseline strategy, and some fields
         attribute_strategy = model_attributes.get_dimensional_attribute_table(
@@ -443,7 +443,7 @@ class TransformationsAFOLU:
     def _initialize_transformations(self,
     ) -> None:
         """
-        Initialize all trl.Transformation objects used to manage the construction
+        Initialize all trl.Transfomer objects used to manage the construction
             of transformations. Note that each transformation == a strategy.
 
         NOTE: This is the key function mapping each function to a transformation
@@ -467,7 +467,7 @@ class TransformationsAFOLU:
         #    BASELINE    #
         ##################
 
-        self.baseline = trl.Transformation(
+        self.baseline = trl.Transfomer(
             "BASE", 
             self.transformation_af_baseline, 
             attr_strategy
@@ -480,7 +480,7 @@ class TransformationsAFOLU:
         #    AFOLU TRANSFORMATION BUNDLES    #
         ######################################
 
-        self.af_all = trl.Transformation(
+        self.af_all = trl.Transfomer(
             "AF:ALL", 
             [
                 #self.transformation_agrc_decrease_exports,
@@ -508,7 +508,7 @@ class TransformationsAFOLU:
         all_transformations.append(self.af_all)
 
 
-        self.af_all_with_partial_reallocation = trl.Transformation(
+        self.af_all_with_partial_reallocation = trl.Transfomer(
             "AF:ALL_PLUR", 
             [
                 #self.transformation_agrc_decrease_exports,
@@ -537,7 +537,7 @@ class TransformationsAFOLU:
         all_transformations.append(self.af_all_with_partial_reallocation)
 
 
-        self.af_all_with_deforestation_and_partial_reallocation = trl.Transformation(
+        self.af_all_with_deforestation_and_partial_reallocation = trl.Transfomer(
             "AF:ALL_NO_STOPPING_DEFORESTATION_PLUR", 
             [
                 #self.transformation_agrc_decrease_exports,
@@ -565,7 +565,7 @@ class TransformationsAFOLU:
         all_transformations.append(self.af_all_with_deforestation_and_partial_reallocation)
 
         """
-        self.af_all_no_lvst_export_reduction_with_partial_reallocation = trl.Transformation(
+        self.af_all_no_lvst_export_reduction_with_partial_reallocation = trl.Transfomer(
             "AF:ALL_NO_LVST_EXPORT_REDUCTION_PLUR", 
             [
                 #self.transformation_agrc_decrease_exports,
@@ -598,7 +598,7 @@ class TransformationsAFOLU:
         #    AGRC TRANSFORMATIONS    #
         ##############################
 
-        self.agrc_all = trl.Transformation(
+        self.agrc_all = trl.Transfomer(
             "AGRC:ALL", 
             [
                 #self.transformation_agrc_decrease_exports,
@@ -612,7 +612,7 @@ class TransformationsAFOLU:
         all_transformations.append(self.agrc_all)
 
 
-        self.agrc_all_with_partial_reallocation = trl.Transformation(
+        self.agrc_all_with_partial_reallocation = trl.Transfomer(
             "AGRC:ALL_PLUR", 
             [
                 #self.transformation_agrc_decrease_exports,
@@ -627,7 +627,7 @@ class TransformationsAFOLU:
         all_transformations.append(self.agrc_all_with_partial_reallocation)
         
 
-        self.agrc_improve_rice_management = trl.Transformation(
+        self.agrc_improve_rice_management = trl.Transfomer(
             "AGRC:DEC_CH4_RICE", 
             self.transformation_agrc_improve_rice_management,
             attr_strategy
@@ -635,7 +635,7 @@ class TransformationsAFOLU:
         all_transformations.append(self.agrc_improve_rice_management)
 
 
-        self.agrc_decrease_exports = trl.Transformation(
+        self.agrc_decrease_exports = trl.Transfomer(
             "AGRC:DEC_EXPORTS", 
             self.transformation_agrc_decrease_exports,
             attr_strategy
@@ -643,7 +643,7 @@ class TransformationsAFOLU:
         all_transformations.append(self.agrc_decrease_exports)
 
 
-        self.agrc_expand_conservation_agriculture = trl.Transformation(
+        self.agrc_expand_conservation_agriculture = trl.Transfomer(
             "AGRC:INC_CONSERVATION_AGRICULTURE", 
             self.transformation_agrc_expand_conservation_agriculture,
             attr_strategy
@@ -651,7 +651,7 @@ class TransformationsAFOLU:
         all_transformations.append(self.agrc_expand_conservation_agriculture)
 
 
-        self.agrc_increase_crop_productivity = trl.Transformation(
+        self.agrc_increase_crop_productivity = trl.Transfomer(
             "AGRC:INC_PRODUCTIVITY", 
             self.transformation_agrc_increase_crop_productivity,
             attr_strategy
@@ -659,7 +659,7 @@ class TransformationsAFOLU:
         all_transformations.append(self.agrc_increase_crop_productivity)
 
 
-        self.agrc_increase_crop_productivity_with_partial_reallocation = trl.Transformation(
+        self.agrc_increase_crop_productivity_with_partial_reallocation = trl.Transfomer(
             "AGRC:INC_PRODUCTIVITY_PLUR", 
             [
                 self.transformation_agrc_increase_crop_productivity,
@@ -670,7 +670,7 @@ class TransformationsAFOLU:
         all_transformations.append(self.agrc_increase_crop_productivity_with_partial_reallocation)
 
 
-        self.agrc_reduce_supply_chain_losses = trl.Transformation(
+        self.agrc_reduce_supply_chain_losses = trl.Transfomer(
             "AGRC:DEC_LOSSES_SUPPLY_CHAIN", 
             self.transformation_agrc_reduce_supply_chain_losses,
             attr_strategy
@@ -678,7 +678,7 @@ class TransformationsAFOLU:
         all_transformations.append(self.agrc_reduce_supply_chain_losses)
 
 
-        self.agrc_reduce_supply_chain_losses_with_partial_reallocation = trl.Transformation(
+        self.agrc_reduce_supply_chain_losses_with_partial_reallocation = trl.Transfomer(
             "AGRC:DEC_LOSSES_SUPPLY_CHAIN_PLUR", 
             [
                 self.transformation_agrc_reduce_supply_chain_losses,
@@ -701,7 +701,7 @@ class TransformationsAFOLU:
         #    LNDU TRANSFORMATIONS    #
         ##############################
 
-        self.lndu_expand_silvopasture = trl.Transformation(
+        self.lndu_expand_silvopasture = trl.Transfomer(
             "LNDU:INC_SILVOPASTURE", 
             self.transformation_lndu_expand_silvopasture,
             attr_strategy
@@ -709,7 +709,7 @@ class TransformationsAFOLU:
         all_transformations.append(self.lndu_expand_silvopasture)
 
 
-        self.lndu_expand_sustainable_grazing = trl.Transformation(
+        self.lndu_expand_sustainable_grazing = trl.Transfomer(
             "LNDU:INC_SUSTAINABLE_GRAZING", 
             self.transformation_lndu_expand_sustainable_grazing,
             attr_strategy
@@ -717,7 +717,7 @@ class TransformationsAFOLU:
         all_transformations.append(self.lndu_expand_sustainable_grazing)
 
 
-        self.lndu_increase_reforestation = trl.Transformation(
+        self.lndu_increase_reforestation = trl.Transfomer(
             "LNDU:INC_REFORESTATION", 
             self.transformation_lndu_increase_reforestation,
             attr_strategy
@@ -725,7 +725,7 @@ class TransformationsAFOLU:
         all_transformations.append(self.lndu_increase_reforestation)
 
 
-        self.lndu_partial_reallocation = trl.Transformation(
+        self.lndu_partial_reallocation = trl.Transfomer(
             "LNDU:PLUR", 
             self.transformation_lndu_reallocate_land,
             attr_strategy
@@ -733,7 +733,7 @@ class TransformationsAFOLU:
         all_transformations.append(self.lndu_partial_reallocation)
 
 
-        self.lndu_expand_silvopasture_with_partial_reallocation = trl.Transformation(
+        self.lndu_expand_silvopasture_with_partial_reallocation = trl.Transfomer(
             "LNDU:INC_SILVOPASTURE_PLUR", 
             [
                 self.transformation_lndu_expand_silvopasture,
@@ -744,7 +744,7 @@ class TransformationsAFOLU:
         all_transformations.append(self.lndu_expand_silvopasture_with_partial_reallocation)
 
 
-        self.lndu_stop_deforestation = trl.Transformation(
+        self.lndu_stop_deforestation = trl.Transfomer(
             "LNDU:DEC_DEFORESTATION", 
             self.transformation_lndu_stop_deforestation,
             attr_strategy
@@ -757,7 +757,7 @@ class TransformationsAFOLU:
         #    LSMM TRANSFORMATIONS    #
         ##############################
 
-        self.lsmm_bundle_manure_management = trl.Transformation(
+        self.lsmm_bundle_manure_management = trl.Transfomer(
             "LSMM:BUNDLE_INC_MANAGEMENT", 
             [
                 self.transformation_lsmm_improve_manure_management_cattle_pigs,
@@ -770,7 +770,7 @@ class TransformationsAFOLU:
         all_transformations.append(self.lsmm_bundle_manure_management)
 
 
-        self.lsmm_improve_manure_management_cattle_pigs = trl.Transformation(
+        self.lsmm_improve_manure_management_cattle_pigs = trl.Transfomer(
             "LSMM:INC_MANAGEMENT_CATTLE_PIGS", 
             self.transformation_lsmm_improve_manure_management_cattle_pigs,
             attr_strategy
@@ -778,7 +778,7 @@ class TransformationsAFOLU:
         all_transformations.append(self.lsmm_improve_manure_management_cattle_pigs)
 
 
-        self.lsmm_improve_manure_management_other = trl.Transformation(
+        self.lsmm_improve_manure_management_other = trl.Transfomer(
             "LSMM:INC_MANAGEMENT_OTHER", 
             self.transformation_lsmm_improve_manure_management_other,
             attr_strategy
@@ -786,7 +786,7 @@ class TransformationsAFOLU:
         all_transformations.append(self.lsmm_improve_manure_management_other)
         
 
-        self.lsmm_improve_manure_management_poultry = trl.Transformation(
+        self.lsmm_improve_manure_management_poultry = trl.Transfomer(
             "LSMM:INC_MANAGEMENT_POULTRY", 
             self.transformation_lsmm_improve_manure_management_poultry,
             attr_strategy
@@ -794,7 +794,7 @@ class TransformationsAFOLU:
         all_transformations.append(self.lsmm_improve_manure_management_poultry)
 
 
-        self.lsmm_increase_biogas_capture = trl.Transformation(
+        self.lsmm_increase_biogas_capture = trl.Transfomer(
             "LSMM:INC_CAPTURE_BIOGAS", 
             self.transformation_lsmm_increase_biogas_capture,
             attr_strategy
@@ -807,7 +807,7 @@ class TransformationsAFOLU:
         #    LVST TRANSFORMATIONS    #
         ##############################
       
-        self.lvst_all = trl.Transformation(
+        self.lvst_all = trl.Transfomer(
             "LVST:ALL", 
             [
                 self.transformation_lvst_decrease_exports,
@@ -819,7 +819,7 @@ class TransformationsAFOLU:
         all_transformations.append(self.lvst_all)
 
 
-        self.lvst_all_with_partial_reallocation = trl.Transformation(
+        self.lvst_all_with_partial_reallocation = trl.Transfomer(
             "LVST:ALL_PLUR", 
             [
                 self.transformation_lvst_decrease_exports,
@@ -832,7 +832,7 @@ class TransformationsAFOLU:
         all_transformations.append(self.lvst_all_with_partial_reallocation)
 
 
-        self.lvst_decrease_exports = trl.Transformation(
+        self.lvst_decrease_exports = trl.Transfomer(
             "LVST:DEC_EXPORTS", 
             self.transformation_lvst_decrease_exports,
             attr_strategy
@@ -840,7 +840,7 @@ class TransformationsAFOLU:
         all_transformations.append(self.lvst_decrease_exports)
 
 
-        self.lvst_increase_productivity = trl.Transformation(
+        self.lvst_increase_productivity = trl.Transfomer(
             "LVST:INC_PRODUCTIVITY", 
             self.transformation_lvst_increase_productivity,
             attr_strategy
@@ -848,7 +848,7 @@ class TransformationsAFOLU:
         all_transformations.append(self.lvst_increase_productivity)
 
 
-        self.lvst_increase_productivity_with_partial_reallocation = trl.Transformation(
+        self.lvst_increase_productivity_with_partial_reallocation = trl.Transfomer(
             "LVST:INC_PRODUCTIVITY_PLUR", 
             [
                 self.transformation_lvst_increase_productivity,
@@ -859,7 +859,7 @@ class TransformationsAFOLU:
         all_transformations.append(self.lvst_increase_productivity_with_partial_reallocation)
         
 
-        self.lvst_reduce_enteric_fermentation = trl.Transformation(
+        self.lvst_reduce_enteric_fermentation = trl.Transfomer(
             "LVST:DEC_ENTERIC_FERMENTATION", 
             self.transformation_lvst_reduce_enteric_fermentation,
             attr_strategy
@@ -872,7 +872,7 @@ class TransformationsAFOLU:
         #    SOIL TRANSFORMATIONS    #
         ##############################
         
-        self.soil_reduce_excess_fertilizer = trl.Transformation(
+        self.soil_reduce_excess_fertilizer = trl.Transfomer(
             "SOIL:DEC_N_APPLIED", 
             self.transformation_soil_reduce_excess_fertilizer,
             attr_strategy
@@ -880,7 +880,7 @@ class TransformationsAFOLU:
         all_transformations.append(self.soil_reduce_excess_fertilizer)
 
 
-        self.soil_reduce_excess_liming = trl.Transformation(
+        self.soil_reduce_excess_liming = trl.Transfomer(
             "SOIL:DEC_LIME_APPLIED", 
             self.transformation_soil_reduce_excess_lime,
             attr_strategy
@@ -996,7 +996,7 @@ class TransformationsAFOLU:
         
         t0 = time.time()
         self._log(
-            f"TransformationsAFOLU.build_strategies_long() starting build of {n} strategies...",
+            f"TransformersAFOLU.build_strategies_long() starting build of {n} strategies...",
             type_log = "info"
         )
         
@@ -1042,7 +1042,7 @@ class TransformationsAFOLU:
             else:
                 df_out[i + iter_shift] = None
                 self._log(
-                    f"\tTransformation {self.key_strategy} not found: check that a support_classes.Transformation object has been defined associated with the code.",
+                    f"\tTransformer {self.key_strategy} not found: check that a support_classes.Transformer object has been defined associated with the code.",
                     type_log = "warning"
                 )
 
@@ -1055,7 +1055,7 @@ class TransformationsAFOLU:
 
         t_elapse = sf.get_time_elapsed(t0)
         self._log(
-            f"TransformationsAFOLU.build_strategies_long() build complete in {t_elapse} seconds.",
+            f"TransformersAFOLU.build_strategies_long() build complete in {t_elapse} seconds.",
             type_log = "info"
         )
 
@@ -1100,7 +1100,7 @@ class TransformationsAFOLU:
         Get strategy `strat` based on strategy code, id, or name
         
         If strat is None or an invalid valid of strat is entered, returns None; 
-            otherwise, returns the trl.Transformation object. 
+            otherwise, returns the trl.Transfomer object. 
             
         Function Arguments
         ------------------
@@ -1180,7 +1180,7 @@ class TransformationsAFOLU:
     """
     NOTE: needed for certain modeling approaches; e.g., preventing new hydro 
         from being built. The baseline can be preserved as the input DataFrame 
-        by the Transformation as a passthrough (e.g., return input DataFrame) 
+        by the Transformer as a passthrough (e.g., return input DataFrame) 
 
     NOTE: modifications to input variables should ONLY affect IPPU variables
     """

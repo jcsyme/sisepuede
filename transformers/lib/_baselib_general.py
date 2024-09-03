@@ -33,7 +33,7 @@ def check_implementation_ramp(
     )
     
     if not return_obj:
-        return_obj |= vec_implementation_ramp.shape[0] != df_inupt.shape[0]
+        return_obj |= vec_implementation_ramp.shape[0] != df_input.shape[0]
         return_obj |= vec_implementation_ramp.max() > 1.0
         return_obj |= vec_implementation_ramp.max() < 0.0
     

@@ -9,6 +9,19 @@ Transformations are outcomes that can be acheieved through the implementation of
 Transformations are defined in `Transformation` classes in python. Collections of transformations are called **strategies** (link).
 
 
+Transformers vs. Transformations
+================================
+
+SISEPUEDE uses simlar terms to refer to two different components of the framework for modifying  
+
+**Transformers** are pre-defined callable classes in Python that modify a base set of trajectories to reflect a desired outcome. These classes, which include default values, can be called with different functional specifications that are defined in configuration files to allow for flexibility in applying the transformation. 
+
+Transformer Code: 
+
+.. note:: Example: Transformer ``TX:AGRC_INC_CONSERVATION_AGRICULTURE``
+
+
+
 Predefined Transformations
 ==========================
 
@@ -24,6 +37,7 @@ Transformation Nomenclature
 
 
 `magnitude_type`
+----------------
 
 - `baseline_additive`: add the magnitude to the baseline
 - `baseline_scalar`: multiply baseline value by magnitude
@@ -53,4 +67,10 @@ Transformation Nomenclature
     Must specify "categories_source" & "categories_target" in
     dict_modvar_specs. See description below in OPTIONAL for
     information on specifying this.
-* `vector_specification`: simply enter a vector to use for region
+- `vector_specification`: simply enter a vector to use for region
+
+
+`vec_implementation_ramp`
+-------------------------
+
+The implementation ramp vector is a vector that defines the fractional implementation of a policy over time periods.

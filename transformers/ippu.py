@@ -17,7 +17,7 @@ import sisepuede.utilities._toolbox as sf
 
 
 
-class TransformationsIPPU:
+class TransformersIPPU:
     """
     Build energy transformations using general transformations defined in
         auxiliary_definitions_transformations. Wraps more general forms from 
@@ -47,12 +47,12 @@ class TransformationsIPPU:
                 through dict_config too if desired, but not done here)
 
             If using the composition of functions, can leverage the 
-            trl.Transformation composition functionality, which lets the user
-            enter lists of functions (see ?trl.Transformation for more 
+            trl.Transfomer composition functionality, which lets the user
+            enter lists of functions (see ?trl.Transfomer for more 
             information)
 
-        3. Finally, define the Transformation object using the 
-            `trl.Transformation` class, which connects the function to the 
+        3. Finally, define the Transformer object using the 
+            `trl.Transfomer` class, which connects the function to the 
             Strategy name in attribute_strategy_id, assigns an id, and 
             simplifies the organization and running of strategies. 
 
@@ -62,7 +62,7 @@ class TransformationsIPPU:
 	- model_attributes: ModelAttributes object used to manage variables and
 		coordination
     - dict_config: configuration dictionary used to pass parameters to 
-        transformations. See ?TransformationEnergy._initialize_parameters() for
+        transformations. See ?TransformerEnergy._initialize_parameters() for
         more information on requirements.
     - dir_jl: location of Julia directory containing Julia environment and 
         support modules
@@ -194,7 +194,7 @@ class TransformationsIPPU:
         error_q = False
         error_q = error_q | (model_attributes is None)
         if error_q:
-            raise RuntimeError(f"Error: invalid specification of model_attributes in TransformationsIPPU")
+            raise RuntimeError(f"Error: invalid specification of model_attributes in TransformersIPPU")
 
         # get strategy attribute, baseline strategy, and some fields
         attribute_strategy = model_attributes.get_dimensional_attribute_table(model_attributes.dim_strategy_id)
@@ -389,7 +389,7 @@ class TransformationsIPPU:
     def _initialize_transformations(self,
     ) -> None:
         """
-        Initialize all trl.Transformation objects used to manage the construction
+        Initialize all trl.Transfomer objects used to manage the construction
             of transformations. Note that each transformation == a strategy.
 
         NOTE: This is the key function mapping each function to a transformation
@@ -413,7 +413,7 @@ class TransformationsIPPU:
         #    BASELINE    #
         ##################
 
-        self.baseline = trl.Transformation(
+        self.baseline = trl.Transfomer(
             "BASE", 
             self.transformation_ip_baseline, 
             attr_strategy
@@ -426,7 +426,7 @@ class TransformationsIPPU:
         #    IPPU TRANSFORMATIONS    #
         ##############################
 
-        self.ip_all = trl.Transformation(
+        self.ip_all = trl.Transfomer(
             "IP:ALL", 
             [
                 self.transformation_ippu_reduce_cement_clinker,
@@ -441,7 +441,7 @@ class TransformationsIPPU:
         all_transformations.append(self.ip_all)
 
 
-        self.ippu_bundle_reduce_fgas = trl.Transformation(
+        self.ippu_bundle_reduce_fgas = trl.Transfomer(
             "IPPU:BUNDLE_DEC_FGAS", 
             [
                 self.transformation_ippu_reduce_hfcs,
@@ -453,7 +453,7 @@ class TransformationsIPPU:
         all_transformations.append(self.ippu_bundle_reduce_fgas)
 
 
-        self.ippu_demand_managment = trl.Transformation(
+        self.ippu_demand_managment = trl.Transfomer(
             "IPPU:DEC_DEMAND", 
             self.transformation_ippu_reduce_demand,
             attr_strategy
@@ -461,7 +461,7 @@ class TransformationsIPPU:
         all_transformations.append(self.ippu_demand_managment)
 
 
-        self.ippu_reduce_cement_clinker = trl.Transformation(
+        self.ippu_reduce_cement_clinker = trl.Transfomer(
             "IPPU:DEC_CLINKER", 
             self.transformation_ippu_reduce_cement_clinker,
             attr_strategy
@@ -469,7 +469,7 @@ class TransformationsIPPU:
         all_transformations.append(self.ippu_reduce_cement_clinker)
 
 
-        self.ippu_reduce_hfcs = trl.Transformation(
+        self.ippu_reduce_hfcs = trl.Transfomer(
             "IPPU:DEC_HFCS", 
             self.transformation_ippu_reduce_hfcs,
             attr_strategy
@@ -477,7 +477,7 @@ class TransformationsIPPU:
         all_transformations.append(self.ippu_reduce_hfcs)
 
 
-        self.ippu_reduce_other_fcs = trl.Transformation(
+        self.ippu_reduce_other_fcs = trl.Transfomer(
             "IPPU:DEC_OTHER_FCS", 
             self.transformation_ippu_reduce_other_fcs,
             attr_strategy
@@ -485,7 +485,7 @@ class TransformationsIPPU:
         all_transformations.append(self.ippu_reduce_other_fcs)
 
 
-        self.ippu_reduce_n2o = trl.Transformation(
+        self.ippu_reduce_n2o = trl.Transfomer(
             "IPPU:DEC_N2O", 
             self.transformation_ippu_reduce_n2o,
             attr_strategy
@@ -493,7 +493,7 @@ class TransformationsIPPU:
         all_transformations.append(self.ippu_reduce_n2o)
 
 
-        self.ippu_reduce_pfcs = trl.Transformation(
+        self.ippu_reduce_pfcs = trl.Transfomer(
             "IPPU:DEC_PFCS", 
             self.transformation_ippu_reduce_pfcs,
             attr_strategy
@@ -609,7 +609,7 @@ class TransformationsIPPU:
         
         t0 = time.time()
         self._log(
-            f"TransformationsIPPU.build_strategies_long() starting build of {n} strategies...",
+            f"TransformersIPPU.build_strategies_long() starting build of {n} strategies...",
             type_log = "info"
         )
         
@@ -653,7 +653,7 @@ class TransformationsIPPU:
             else:
                 df_out[i + iter_shift] = None
                 self._log(
-                    f"\tTransformation {self.key_strategy} not found: check that a support_classes.Transformation object has been defined associated with the code.",
+                    f"\tTransformer {self.key_strategy} not found: check that a support_classes.Transformer object has been defined associated with the code.",
                     type_log = "warning"
                 )
 
@@ -662,7 +662,7 @@ class TransformationsIPPU:
 
         t_elapse = sf.get_time_elapsed(t0)
         self._log(
-            f"TransformationsIPPU.build_strategies_long() build complete in {t_elapse} seconds.",
+            f"TransformersIPPU.build_strategies_long() build complete in {t_elapse} seconds.",
             type_log = "info"
         )
 
@@ -707,7 +707,7 @@ class TransformationsIPPU:
         Get strategy `strat` based on strategy code, id, or name
         
         If strat is None or an invalid valid of strat is entered, returns None; 
-            otherwise, returns the trl.Transformation object. 
+            otherwise, returns the trl.Transfomer object. 
             
         Function Arguments
         ------------------
@@ -787,7 +787,7 @@ class TransformationsIPPU:
     """
     NOTE: needed for certain modeling approaches; e.g., preventing new hydro 
         from being built. The baseline can be preserved as the input DataFrame 
-        by the Transformation as a passthrough (e.g., return input DataFrame) 
+        by the Transformer as a passthrough (e.g., return input DataFrame) 
 
     NOTE: modifications to input variables should ONLY affect IPPU variables
     """

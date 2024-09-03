@@ -26,7 +26,7 @@ import sisepuede.utilities._toolbox as sf
 
 
 
-class TransformationsIntegrated:
+class TransformersIntegrated:
     """
     Build energy transformations using general transformations defined in
         auxiliary_definitions_transformations. Wraps more general forms from 
@@ -56,12 +56,12 @@ class TransformationsIntegrated:
                 through dict_config too if desired, but not done here)
 
             If using the composition of functions, can leverage the 
-            trl.Transformation composition functionality, which lets the user
-            enter lists of functions (see ?trl.Transformation for more 
+            trl.Transfomer composition functionality, which lets the user
+            enter lists of functions (see ?trl.Transfomer for more 
             information)
 
-        3. Finally, define the Transformation object using the 
-            `trl.Transformation` class, which connects the function to the 
+        3. Finally, define the Transformer object using the 
+            `trl.Transfomer` class, which connects the function to the 
             Strategy name in attribute_strategy_id, assigns an id, and 
             simplifies the organization and running of strategies. 
 
@@ -71,7 +71,7 @@ class TransformationsIntegrated:
     - model_attributes: ModelAttributes object used to manage variables and
         coordination
     - dict_config: configuration dictionary used to pass parameters to 
-        transformations. See ?TransformationEnergy._initialize_parameters() for
+        transformations. See ?TransformerEnergy._initialize_parameters() for
         more information on requirements.
     - dir_jl: location of Julia directory containing Julia environment and 
         support modules
@@ -86,7 +86,7 @@ class TransformationsIntegrated:
     Optional Arguments
     ------------------
     - baseline_with_plur: set to True to let the baseline include partial land
-        use reallocation in the baseline--passed to TransformationsAFOLU as
+        use reallocation in the baseline--passed to TransformersAFOLU as
         a keyword argument.
         * NOTE: If True, then transformation_lndu_reallocate_land() 
             has no effect.
@@ -246,7 +246,7 @@ class TransformationsIntegrated:
         error_q = False
         error_q = error_q | (self.model_attributes is None)
         if error_q:
-            raise RuntimeError(f"Error: invalid specification of model_attributes in TransformationsIPPU")
+            raise RuntimeError(f"Error: invalid specification of model_attributes in TransformersIPPU")
 
         # get strategy attribute, baseline strategy, and some fields
         attribute_strategy = self.model_attributes.get_dimensional_attribute_table(
@@ -379,7 +379,7 @@ class TransformationsIntegrated:
             * self.baseline_inputs
 
         NOTE: Additionally, to preserve consistency when calling transformations
-            from the TransformationsIntegrated object, this overwrites baseline
+            from the TransformersIntegrated object, this overwrites baseline
             inputs for all component transformations, i.e., also resets
 
             * self.transformations_afolu.baseline_inputs
@@ -615,7 +615,7 @@ class TransformationsIntegrated:
         **kwargs,
     ) -> None:
         """
-        Initialize other TransformationXXXX classes for use here.
+        Initialize other TransformerXXXX classes for use here.
             
         Sets the following properties:
 
@@ -655,7 +655,7 @@ class TransformationsIntegrated:
         # initialize all transformations with df_input
         # then use those functions to set baseline_inputs
 
-        self.transformations_afolu = dta.TransformationsAFOLU(
+        self.transformations_afolu = dta.TransformersAFOLU(
             self.model_attributes,
             dict_config,
             baseline_with_plur = baseline_with_plur,
@@ -665,7 +665,7 @@ class TransformationsIntegrated:
             model_afolu = kwargs.get("model_afolu"),
         )
 
-        self.transformations_circular_economy = dtc.TransformationsCircularEconomy(
+        self.transformations_circular_economy = dtc.TransformersCircularEconomy(
             self.model_attributes,
             dict_config,
             df_input = df_input,
@@ -674,7 +674,7 @@ class TransformationsIntegrated:
             model_circecon = kwargs.get("model_circecon"),
         )
 
-        self.transformations_energy = dte.TransformationsEnergy(
+        self.transformations_energy = dte.TransformersEnergy(
             self.model_attributes,
             dict_config,
             self.file_struct.dir_jl,
@@ -686,7 +686,7 @@ class TransformationsIntegrated:
             model_enerprod = kwargs.get("model_enerprod"),
         )
 
-        self.transformations_ippu = dti.TransformationsIPPU(
+        self.transformations_ippu = dti.TransformersIPPU(
             self.model_attributes,
             dict_config,
             df_input = df_input,
@@ -758,7 +758,7 @@ class TransformationsIntegrated:
     def _initialize_transformations(self,
     ) -> None:
         """
-        Initialize all trl.Transformation objects used to manage the construction
+        Initialize all trl.Transfomer objects used to manage the construction
             of transformations. Note that each transformation == a strategy.
 
         NOTE: This is the key function mapping each function to a transformation
@@ -788,7 +788,7 @@ class TransformationsIntegrated:
         #    BASELINE    #
         ##################
 
-        self.baseline = trl.Transformation(
+        self.baseline = trl.Transfomer(
             "BASE", 
             self.transformation_pflo_baseline, 
             attr_strategy
@@ -818,7 +818,7 @@ class TransformationsIntegrated:
         function_list_plur_no_deforestation_stoppage = function_list.copy()
         function_list += self.transformations_afolu.af_all.function_list.copy()
 
-        self.pflo_all = trl.Transformation(
+        self.pflo_all = trl.Transfomer(
             "PFLO:ALL", 
             function_list, 
             attr_strategy
@@ -835,7 +835,7 @@ class TransformationsIntegrated:
             .copy()
         )
 
-        self.pflo_all_with_partial_reallocation = trl.Transformation(
+        self.pflo_all_with_partial_reallocation = trl.Transfomer(
             "PFLO:ALL_PLUR", 
             function_list_plur, 
             attr_strategy
@@ -851,7 +851,7 @@ class TransformationsIntegrated:
         ##  START WITH INDIA PLUR WITH CC
 
     
-        self.lndu_partial_reallocation_india_cc = trl.Transformation(
+        self.lndu_partial_reallocation_india_cc = trl.Transfomer(
             "LNDU:PLUR_INDIA_CC", 
             [
                 self.transformations_afolu.transformation_lndu_reallocate_land,
@@ -893,7 +893,7 @@ class TransformationsIntegrated:
             if x != self.transformation_pflo_healthier_diets
         ]
         
-        self.pflo_ccdr_india_with_partial_reallocation = trl.Transformation(
+        self.pflo_ccdr_india_with_partial_reallocation = trl.Transfomer(
             "PFLO:INDIA_CCDR_PLUR", 
             function_list_india_ccdr, 
             attr_strategy
@@ -908,7 +908,7 @@ class TransformationsIntegrated:
             self.transformations_afolu.transformation_agrc_decrease_climate_productivity_climate_india
         )
 
-        self.pflo_ccdr_india_with_partial_reallocation_india_cc = trl.Transformation(
+        self.pflo_ccdr_india_with_partial_reallocation_india_cc = trl.Transfomer(
             "PFLO:INDIA_CCDR_PLUR_INDIA_CC", 
             function_list_india_ccdr_cc, 
             attr_strategy
@@ -923,7 +923,7 @@ class TransformationsIntegrated:
             self.transformations_afolu.transformation_agrc_decrease_climate_productivity_climate_india
         )
 
-        self.pflo_all_with_partial_reallocation_india_cc = trl.Transformation(
+        self.pflo_all_with_partial_reallocation_india_cc = trl.Transfomer(
             "PFLO:ALL_PLUR_INDIA_CC", 
             function_list_plur, 
             attr_strategy
@@ -950,7 +950,7 @@ class TransformationsIntegrated:
             )
         
 
-        self.pflo_all_with_partial_reallocation_no_silvopasture = trl.Transformation(
+        self.pflo_all_with_partial_reallocation_no_silvopasture = trl.Transfomer(
             "PFLO:ALL_PLUR_NO_SILVOPASTURE", 
             function_list_plur_no_silvopasture, 
             attr_strategy
@@ -967,7 +967,7 @@ class TransformationsIntegrated:
             .copy()
         )
 
-        self.pflo_all_with_deforestation_and_partial_reallocation = trl.Transformation(
+        self.pflo_all_with_deforestation_and_partial_reallocation = trl.Transfomer(
             "PFLO:ALL_NO_STOPPING_DEFORESTATION_PLUR", 
             function_list_plur_no_deforestation_stoppage, 
             attr_strategy
@@ -986,7 +986,7 @@ class TransformationsIntegrated:
             .copy()
         )
 
-        self.pflo_all_no_lvst_export_reduction_with_partial_reallocation = trl.Transformation(
+        self.pflo_all_no_lvst_export_reduction_with_partial_reallocation = trl.Transfomer(
             "PFLO:ALL_NO_LVST_EXPORT_REDUCTION_PLUR", 
             function_list_plur_no_lvst_exp_reduction, 
             attr_strategy
@@ -994,7 +994,7 @@ class TransformationsIntegrated:
         all_transformations.append(self.pflo_all_no_lvst_export_reduction_with_partial_reallocation)
         """;
 
-        self.pflo_better_baseline = trl.Transformation(
+        self.pflo_better_baseline = trl.Transfomer(
             "PFLO:BETTER_BASE", 
             [
                 self.transformations_afolu.transformation_agrc_improve_rice_management,
@@ -1023,7 +1023,7 @@ class TransformationsIntegrated:
         all_transformations.append(self.pflo_better_baseline)
 
 
-        self.plfo_healthier_diets = trl.Transformation(
+        self.plfo_healthier_diets = trl.Transfomer(
             "PFLO:BETTER_DIETS", 
             self.transformation_pflo_healthier_diets, 
             attr_strategy
@@ -1031,7 +1031,7 @@ class TransformationsIntegrated:
         all_transformations.append(self.plfo_healthier_diets)
 
 
-        self.plfo_healthier_diets_with_partial_reallocation = trl.Transformation(
+        self.plfo_healthier_diets_with_partial_reallocation = trl.Transfomer(
             "PFLO:BETTER_DIETS_PLUR", 
             [
                 self.transformation_pflo_healthier_diets, 
@@ -1042,7 +1042,7 @@ class TransformationsIntegrated:
         all_transformations.append(self.plfo_healthier_diets_with_partial_reallocation)
 
 
-        self.pflo_industrial_ccs = trl.Transformation(
+        self.pflo_industrial_ccs = trl.Transfomer(
             "PFLO:IND_INC_CCS", 
             self.transformation_pflo_industrial_ccs, 
             attr_strategy
@@ -1050,7 +1050,7 @@ class TransformationsIntegrated:
         all_transformations.append(self.pflo_industrial_ccs)
 
 
-        self.pflo_sociotechnical = trl.Transformation(
+        self.pflo_sociotechnical = trl.Transfomer(
             "PFLO:CHANGE_CONSUMPTION",
             [
                 self.transformation_pflo_healthier_diets,
@@ -1069,7 +1069,7 @@ class TransformationsIntegrated:
         all_transformations.append(self.pflo_sociotechnical)
 
 
-        self.pflo_supply_side_technology = trl.Transformation(
+        self.pflo_supply_side_technology = trl.Transfomer(
             "PFLO:SUPPLY_SIDE_TECH", 
             [
                 self.transformation_pflo_industrial_ccs, 
@@ -1286,7 +1286,7 @@ class TransformationsIntegrated:
         
         t0 = time.time()
         self._log(
-            f"TransformationsIPPU.build_strategies_long() starting build of {n} strategies...",
+            f"TransformersIPPU.build_strategies_long() starting build of {n} strategies...",
             type_log = "info"
         )
         
@@ -1330,7 +1330,7 @@ class TransformationsIntegrated:
             else:
                 df_out[i + iter_shift] = None
                 self._log(
-                    f"\tTransformation {self.key_strategy} not found: check that a support_classes.Transformation object has been defined associated with the code.",
+                    f"\tTransformer {self.key_strategy} not found: check that a support_classes.Transformer object has been defined associated with the code.",
                     type_log = "warning"
                 )
 
@@ -1339,7 +1339,7 @@ class TransformationsIntegrated:
 
         t_elapse = sf.get_time_elapsed(t0)
         self._log(
-            f"TransformationsIPPU.build_strategies_long() build complete in {t_elapse} seconds.",
+            f"TransformersIPPU.build_strategies_long() build complete in {t_elapse} seconds.",
             type_log = "info"
         )
 
@@ -1498,7 +1498,7 @@ class TransformationsIntegrated:
 
                 if transformation is None:
                     self._log(
-                        f"\tTransformation {self.key_strategy} not found: check that a support_classes.Transformation object has been defined associated with the code.",
+                        f"\tTransformer {self.key_strategy} not found: check that a support_classes.Transformer object has been defined associated with the code.",
                         type_log = "warning"
                     )
                     continue
@@ -1777,7 +1777,7 @@ class TransformationsIntegrated:
         Get strategy `strat` based on strategy code, id, or name
         
         If strat is None or an invalid valid of strat is entered, returns None; 
-            otherwise, returns the trl.Transformation object. 
+            otherwise, returns the trl.Transfomer object. 
             
         Function Arguments
         ------------------
@@ -1862,7 +1862,7 @@ class TransformationsIntegrated:
     """
     NOTE: needed for certain modeling approaches; e.g., preventing new hydro 
         from being built. The baseline can be preserved as the input DataFrame 
-        by the Transformation as a passthrough (e.g., return input DataFrame) 
+        by the Transformer as a passthrough (e.g., return input DataFrame) 
 
     NOTE: modifications to input variables should ONLY affect IPPU variables
     """

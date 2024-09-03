@@ -6,7 +6,7 @@ import re
 from sisepuede.core.attribute_table import *
 from sisepuede.core.model_attributes import *
 import sisepuede.utilities._toolbox as sf
-
+ 
 
 
 
@@ -23,7 +23,7 @@ class Strategy:
 
 
 
-class Transformation:
+class Transformer:
     """
     Create a Transformation class to support construction in sectoral 
         transformations. 
