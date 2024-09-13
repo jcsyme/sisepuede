@@ -704,7 +704,9 @@ class TransformersEnergy:
     
 
 
-    def _initialize_ramp(self,
+    def get_ramp(self,
+        n_tp_ramp: Union[int, None] = None,
+        tp_0: Union[int, None] = None,
     ) -> None: 
         """
         Initialize the ramp vector for implementing transformations. Sets the 
@@ -714,12 +716,29 @@ class TransformersEnergy:
             * self.vec_implementation_ramp
             * self.vec_implementation_ramp_renewable_cap
             * self.vec_msp_resolution_cap
+        
+        Function Arguments
+		------------------
+
+        Keyword Arguments
+		-----------------
+        - n_tp_ramp: number of years to go from 0 to 1
+        - tp_0: last time period without change from baseline
         """
         
-        vec_implementation_ramp = self.build_implementation_ramp_vector()
-        vec_implementation_ramp_renewable_cap = self.get_vir_max_capacity(vec_implementation_ramp)
-        vec_msp_resolution_cap = self.build_msp_cap_vector(vec_implementation_ramp)
+        # build implementation ramp vector, ramp cap on renewables, and resolution cap
+        vec_implementation_ramp = self.build_implementation_ramp_vector(
+            n_tp_ramp = n_tp_ramp,
+            tp_0 = tp_0,
 
+        )
+        vec_implementation_ramp_renewable_cap = self.get_vir_max_capacity(
+            vec_implementation_ramp,
+        )
+        vec_msp_resolution_cap = self.build_msp_cap_vector(
+            vec_implementation_ramp,
+        )
+        
         dict_entc_renewable_target_cats_max_investment = dict(
             (
                 x, 
@@ -1551,8 +1570,8 @@ class TransformersEnergy:
     ################################################
                         
     def build_implementation_ramp_vector(self,
-        year_0: Union[int, None] = None,
-        n_years_ramp: Union[int, None] = None,
+        n_tp_ramp: Union[int, None] = None,
+        tp_0: Union[int, None] = None,
     ) -> np.ndarray:
         """
         Build the implementation ramp vector
@@ -1562,16 +1581,15 @@ class TransformersEnergy:
 
         Keyword Arguments
 		-----------------
-		- year_0: last year without change from baseline
-        - n_years_ramp: number of years to go from 0 to 1
+        - n_tp_ramp: number of years to go from 0 to 1
+        - tp_0: last time period without change from baseline
         """
-        year_0 = self.year_0_ramp if (year_0 is None) else year_0
-        n_years_ramp = self.n_tp_ramp if (n_years_ramp is None) else n_years_ramp
+        tp_0 = self.tp_0_ramp if (tp_0 is None) else tp_0
+        n_tp_ramp = self.n_tp_ramp if (n_tp_ramp is None) else n_tp_ramp
 
-        tp_0 = self.time_periods.year_to_tp(year_0)
         n_tp = len(self.time_periods.all_time_periods)
 
-        vec_out = np.array([max(0, min((x - tp_0)/n_years_ramp, 1)) for x in range(n_tp)])
+        vec_out = np.array([max(0, min((x - tp_0)/n_tp_ramp, 1)) for x in range(n_tp)])
 
         return vec_out
 
