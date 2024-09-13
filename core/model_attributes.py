@@ -440,7 +440,7 @@ class ModelAttributes:
         dict_attribute_group_to_regex.update(
             {attribute_group_protected_other: re.compile(f"attribute_(.*).csv")}
         )
-        
+
         regex_vardef = re.compile(f"{variable_definition_key}_(.*).csv")
 
 
@@ -464,6 +464,7 @@ class ModelAttributes:
         attribute_experimental_parameters = None
 
         for att in all_types:
+
             fp = os.path.join(dir_att, att)
 
             # check variable specification first
@@ -479,12 +480,12 @@ class ModelAttributes:
             elif (self.substr_experimental_parameters in att):
                 attribute_experimental_parameters = AttributeTable(fp, "experimental_parameter")
                 continue
-
+            
 
             ##  CASE WHERE ATTRIBUTE TABLES BELONG TO ONE OF THE GROUPS
 
             try:
-               self._iat_support_update_grouped_attributes(
+                self._iat_support_update_grouped_attributes(
                     fp,
                     attribute_groups_ordered,
                     dict_attribute_group_to_regex,
@@ -562,11 +563,12 @@ class ModelAttributes:
             * self.dim_design_id
             * self.dim_future_id
             * self.dim_mode
+            * self.dim_primary_id
             * self.dim_region
             * self.dim_strategy_id
             * self.dim_time_period
             * self.dim_time_series_id
-            * self.dim_primary_id
+            * self.dim_transformer_code
             * self.field_dim_year
             * self.sort_ordered_dimensions_of_analysis
 
@@ -579,6 +581,7 @@ class ModelAttributes:
         self.dim_strategy_id = "strategy_id"
         self.dim_time_period = "time_period"
         self.dim_time_series_id = "time_series_id"
+        self.dim_transformer_code = "transformer_code"
         self.dim_primary_id = "primary_id"
 
         # setup dtypes

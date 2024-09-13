@@ -40,6 +40,9 @@ class SISEPUEDEModels:
 	- fp_nemomod_temp_sqlite_db: optional file path to use for SQLite database
 		used in Julia NemoMod Electricity model
 		* If None, defaults to a temporary path sql database
+	- initialize_julia: initialize julia? If False, only initializes non-julia
+		EnergyProduction methods and properties, which is often useful for
+		accesing methods and variables, but does not allow the model to run.
 	- logger: optional logging.Logger object used to log model events
 	"""
 	def __init__(self,
@@ -48,6 +51,7 @@ class SISEPUEDEModels:
 		fp_julia: Union[str, None] = None,
 		fp_nemomod_reference_files: Union[str, None] = None,
 		fp_nemomod_temp_sqlite_db: Union[str, None] = None,
+		initialize_julia: bool = True,
 		logger: Union[logging.Logger, None] = None,
 	):
 		# initialize input objects
@@ -66,7 +70,11 @@ class SISEPUEDEModels:
 		self._initialize_path_julia(fp_julia)
 
 		# initialize models
-		self._initialize_models()
+		self._initialize_models(
+			initialize_julia = initialize_julia,
+		)
+
+		return None
 
 
 
@@ -99,6 +107,7 @@ class SISEPUEDEModels:
 
 
 	def _initialize_models(self,
+		initialize_julia: bool = True,
 	) -> None:
 		"""
 		Initialize the path to NemoMod reference files required for ingestion. Initializes
@@ -117,7 +126,8 @@ class SISEPUEDEModels:
 				self.model_attributes,
 				self.fp_julia,
 				self.fp_nemomod_reference_files,
-				logger = self.logger
+				initialize_julia = initialize_julia,
+				logger = self.logger,
 			)
 
 		self.model_enercons = EnergyConsumption(

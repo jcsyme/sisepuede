@@ -21,7 +21,7 @@ class Strategy:
     ) -> None:
 
         return None
-    
+
 
 
 class Transformer:
@@ -31,43 +31,47 @@ class Transformer:
 
     Initialization Arguments
     ------------------------
-    - code: strategy code associated with the transformation. Must be defined in 
-        attr_strategy.table[field_strategy_code]
+    - code: transformer code used to map the transformer to the attribute table. 
+        Must be defined in attr_transfomers.table[attr_transfomers.key]
     - func: the function associated with the transformation OR an ordered list 
         of functions representing compositional order, e.g., 
 
         [f1, f2, f3, ... , fn] -> fn(f{n-1}(...(f2(f1(x))))))
 
-    - attr_strategy: AttributeTable usd to define strategies from 
+    - attr_transformers: AttributeTable usd to define transformers from 
         ModelAttributes
 
     Keyword Arguments
     -----------------
-    - field_strategy_code: field in attr_strategy.table containing the strategy
-        codes
-    - field_strategy_name: field in attr_strategy.table containing the strategy
-        name
+    - code_baseline: transformer code that stores the baseline code, which is 
+        applied to raw data.
+    - field_transformer_id: field in attr_transfomer.table containing the
+        transformer index
+    - field_transformer_name: field in attr_transfomer.table containing the
+        transformer name
     """
     
     def __init__(self,
         code: str,
         func: Union[Callable, List[Callable]],
-        attr_strategy: Union[AttributeTable, None],
-        field_strategy_code: str = "strategy_code",
-        field_strategy_name: str = "strategy",
+        attr_transfomer: Union[AttributeTable, None],
+        code_baseline: str = "TX:BASE",
+        field_transformer_id: str = "transformer_id",
+        field_transformer_name: str = "transformer",
     ) -> None:
-        
+
         self._initialize_function(func)
         self._initialize_code(
             code, 
-            attr_strategy, 
-            field_strategy_code,
-            field_strategy_name,
+            code_baseline,
+            attr_transfomer, 
+            field_transformer_id,
+            field_transformer_name,
         )
 
         return None
         
-    
+
     
     def __call__(self,
         *args,
@@ -76,7 +80,7 @@ class Transformer:
         
         val = self.function(
             *args,
-            strat = self.id,
+            # strat = self.id,
             **kwargs
         )
 
@@ -84,56 +88,54 @@ class Transformer:
 
 
 
-
     def _initialize_code(self,
         code: str,
-        attr_strategy: Union[AttributeTable, None],
-        field_strategy_code: str,
-        field_strategy_name: str,
+        code_baseline: str,
+        attr_transfomer: Union[AttributeTable, None],
+        field_transformer_id: str,
+        field_transformer_name: str,
     ) -> None:
         """
-        Initialize the transformation name. Sets the following
-            properties:
+        Initialize transfomer identifiers, including the code (key), name, and
+            ID. Sets the following properties:
 
-            * self.baseline 
-                - bool indicating whether or not it represents the baseline 
-                    strategy
+            * self.baseline
             * self.code
             * self.id
             * self.name
         """
         
+        # check code
+        if code not in attr_transfomer.key_values:
+            raise KeyError(f"Invalid Transformer code '{code}': code not found in attribute table.")
+
         # initialize and check code/id num
         id_num = (
-            attr_strategy.field_maps.get(f"{field_strategy_code}_to_{attr_strategy.key}")
-            if attr_strategy is not None
+            attr_transfomer
+            .field_maps
+            .get(f"{attr_transfomer.key}_to_{field_transformer_id}")
+            if attr_transfomer is not None
             else None
         )
         id_num = id_num.get(code) if (id_num is not None) else -1
 
-        if id_num is None:
-            raise ValueError(f"Invalid strategy code '{code}' specified in support_classes.Transformation: strategy not found.")
-
-        id_num = id_num if (id_num is not None) else -1
 
         # initialize and check name/id num
         name = (
-            attr_strategy.field_maps.get(f"{attr_strategy.key}_to_{field_strategy_name}")
-            if attr_strategy is not None
+            attr_transfomer
+            .field_maps
+            .get(f"{attr_transfomer.key}_to_{field_transformer_name}")
+            if attr_transfomer is not None
             else None
         )
-        name = name.get(id_num) if (name is not None) else ""
+        name = name.get(code) if (name is not None) else ""
+
 
         # check baseline
-        baseline = (
-            attr_strategy.field_maps.get(f"{attr_strategy.key}_to_baseline_{attr_strategy.key}")
-            if attr_strategy is not None
-            else None
-        )
-        baseline = (baseline.get(id_num, 0) == 1)
+        baseline = (code == code_baseline)
 
 
-        ##  set properties
+        ##  SET PROPERTIES
 
         self.baseline = bool(baseline)
         self.code = str(code)
@@ -171,7 +173,7 @@ class Transformer:
                     **kwargs
                 ) -> Any:
                     f"""
-                    Composite Transformation function for {self.name}
+                    Composite Transformer function for {self.name}
                     """
                     out = None
                     if len(args) > 0:
@@ -204,16 +206,6 @@ class Transformer:
         return None
 
 
-
-class Transformers:
-    """
-    Super class for the collections of transformers
-    """
-
-    def __init__(self,
-    ):
-
-        return None
 
 
 

@@ -107,251 +107,25 @@ class Transformers:
         field_region: Union[str, None] = None,
 		fp_nemomod_temp_sqlite_db: Union[str, None] = None,
 		logger: Union[logging.Logger, None] = None,
-        model_afolu: Union[mafl.AFOLU, None] = None,
-        model_enerprod: Union[ml.EnergyProduction, None] = None,
     ):
 
         self.logger = logger
 
         self._initialize_attributes(field_region, model_attributes)
         self._initialize_config(dict_config = dict_config)
-        self._initialize_models(
-            dir_jl, 
-            fp_nemomod_reference_files,
-            model_afolu = model_afolu,
-            model_enerprod = model_enerprod,
-        )
+    
         self._initialize_parameters(dict_config = dict_config)
         self._initialize_ramp()
         self._initialize_baseline_inputs(df_input)
         self._initialize_transformations()
 
+        return None
 
 
 
     ##################################
     #    INITIALIZATION FUNCTIONS    #
     ##################################
-    
-    def get_entc_cats_max_investment_ramp(self,
-        dict_config: Union[Dict, None] = None,
-    ) -> List[str]:
-        """
-        Set categories to which a cap on maximum investment is applied in the 
-            renewables target shift.  If dict_config is None, uses self.config.
-        
-        Keyword Arguments
-        -----------------
-        - dict_config: dictionary mapping input configuration arguments to key 
-            values. Must include the following keys:
-
-            * categories_max_investment_ramp: list of categories to tag as 
-                renewable for the Renewable Targets transformation.
-        """
-        dict_config = self.config if not isinstance(dict_config, dict) else dict_config
-
-        cats_entc_max_investment_ramp = self.config.get(self.key_config_cats_entc_max_investment_ramp)
-        cats_entc_max_investment_ramp = (
-            list(cats_entc_max_investment_ramp)
-            if isinstance(cats_entc_max_investment_ramp, list) or isinstance(cats_entc_max_investment_ramp, np.ndarray)
-            else [
-                "pp_geothermal",
-                "pp_nuclear"
-            ]
-        )
-
-        return cats_entc_max_investment_ramp
-
-
-
-    def get_entc_cats_renewable(self,
-        dict_config: Union[Dict, None] = None,
-    ) -> List[str]:
-        """
-        Set renewable categories based on the input dictionary dict_config. If 
-            dict_config is None, uses self.config.
-        
-        Keyword Arguments
-        -----------------
-        - dict_config: dictionary mapping input configuration arguments to key 
-            values. Must include the following keys:
-
-            * categories_entc_renewable: list of categories to tag as renewable 
-                for the Renewable Targets transformation.
-        """
-        dict_config = self.config if not isinstance(dict_config, dict) else dict_config
-
-        cats_renewable = dict_config.get(self.key_config_cats_entc_renewable)
-        cats_renewable = (
-            list(cats_renewable)
-            if isinstance(cats_renewable, list) or isinstance(cats_renewable, np.ndarray)
-            else [
-                "pp_geothermal",
-                "pp_hydropower",
-                "pp_ocean",
-                "pp_solar",
-                "pp_wind"
-            ]
-        )
-
-        return cats_renewable
-
-
-    
-    def get_entc_dict_renewable_target_msp(self,
-        cats_renewable: Union[List[str], None], 
-        dict_config: Union[Dict, None] = None,
-    ) -> List[str]:
-        """
-        Set any targets for renewable energy categories. Relies on 
-            cats_renewable to verify keys in renewable_target_entc
-        
-        Keyword Arguments
-        -----------------
-        - dict_config: dictionary mapping input configuration arguments to key 
-            values. Must include the following keys:
-
-            * dict_entc_renewable_target_msp: dictionary of renewable energy
-                categories mapped to MSP targets under the renewable target
-                transformation
-        """
-        attr_tech = self.model_attributes.get_attribute_table("Energy Technology")
-        dict_config = self.config if not isinstance(dict_config, dict) else dict_config
-        cats_renewable = [x for x in cats_renewable if x in attr_tech.key_values]
-
-        dict_entc_renewable_target_msp = dict_config.get(self.key_config_dict_entc_renewable_target_msp)
-        dict_entc_renewable_target_msp = (
-            {}
-            if not isinstance(dict_entc_renewable_target_msp, dict)
-            else dict(
-                (k, v) for k, v in dict_entc_renewable_target_msp.items() 
-                if (k in cats_renewable) and (sf.isnumber(v))
-            )
-        )
-
-        return dict_entc_renewable_target_msp
-
-
-
-    def get_inen_parameters(self,
-        dict_config: Union[Dict, None] = None,
-    ) -> List[str]:
-        """
-        Get parameters for the implementation of transformations. Returns a 
-            tuple with the following elements (dictionary keys, if present, are 
-            shown within after comments; otherwise, calculated internally):
-
-            (
-                cats_inen_high_heat, # key "categories_inen_high_heat",
-                cats_inen_not_high_heat,
-                frac_inen_high_temp_elec_hydg, # key "frac_inen_low_temp_elec"
-                frac_inen_low_temp_elec, # key "frac_inen_low_temp_elec"
-                frac_inen_shift_denom, 
-            )
-        
-        If dict_config is None, uses self.config.
-
-        NOTE: Requires keys in dict_config to set. If not found, will set the 
-            following defaults:
-                * cats_inen_high_heat: [
-                    "cement", 
-                    "chemicals", 
-                    "glass", 
-                    "lime_and_carbonite", 
-                    "metals"
-                ]
-                * cats_inen_not_high_heat: derived from INEN Fuel Fraction 
-                    variables and cats_inen_high_heat (complement)
-                * frac_inen_high_temp_elec_hydg: (electrification and hydrogen
-                    potential fractionation of industrial energy demand, 
-                    targeted at high temperature demands: 50% of 1/2 of 90% of 
-                    total INEN energy demand for each fuel)
-                * frac_inen_low_temp_elec: 0.95*0.45 (electrification potential 
-                    fractionation of industrial energy demand, targeted at low 
-                    temperature demands: 95% of 1/2 of 90% of total INEN energy 
-                    demand)
-            
-            The value of `frac_inen_shift_denom` is 
-                frac_inen_low_temp_elec + 2*frac_inen_high_temp_elec_hydg
-
-
-        Keyword Arguments
-        -----------------
-        - dict_config: dictionary mapping input configuration arguments to key 
-            values. Must include the following keys:
-
-            * categories_entc_renewable: list of categories to tag as renewable 
-                for the Renewable Targets transformation.
-        """
-
-        attr_industry = self.model_attributes.get_attribute_table("IPPU")
-        dict_config = self.config if not isinstance(dict_config, dict) else dict_config
-
-
-        # INEN high heat and non-high heat categories
-        default_cats_inen_high_heat = [
-            x for x in attr_industry.key_values 
-            if x in [
-                "cement", 
-                "chemicals", 
-                "glass", 
-                "lime_and_carbonite", 
-                "metals"
-            ]
-        ]
-        cats_inen_high_heat = dict_config.get(self.key_config_cats_inen_high_heat)
-        cats_inen_high_heat = (
-            default_cats_inen_high_heat
-            if cats_inen_high_heat is None
-            else [x for x in cats_inen_high_heat if x in attr_industry.key_values]
-        )
-
-        # get categories without high heat
-        modvars_inen_fuel_switching = tbe.transformation_inen_shift_modvars(
-            None,
-            None,
-            None,
-            self.model_attributes,
-            return_modvars_only = True
-        )
-        cats_inen_fuel_switching = set({})
-        for modvar in modvars_inen_fuel_switching:
-            cats_inen_fuel_switching = cats_inen_fuel_switching | set(self.model_attributes.get_variable_categories(modvar))
-        cats_inen_not_high_heat = sorted(list(cats_inen_fuel_switching - set(cats_inen_high_heat))) 
-
-        # fraction of energy that can be moved to electric/hydrogen, representing high heat transfer
-        default_frac_inen_high_temp_elec_hydg = 0.5*0.45
-        frac_inen_high_temp_elec_hydg = dict_config.get(self.key_config_frac_inen_high_temp_elec_hydg)
-        frac_inen_high_temp_elec_hydg = (
-            default_frac_inen_high_temp_elec_hydg
-            if not sf.isnumber(frac_inen_high_temp_elec_hydg)
-            else frac_inen_high_temp_elec_hydg
-        )
-
-        # fraction of energy that can be moved to electric, representing low heat transfer
-        default_frac_inen_low_temp_elec = 0.95*0.45
-        frac_inen_low_temp_elec = dict_config.get(self.key_config_frac_inen_low_temp_elec)
-        frac_inen_low_temp_elec = (
-            default_frac_inen_low_temp_elec
-            if not sf.isnumber(frac_inen_low_temp_elec)
-            else frac_inen_low_temp_elec
-        )
-
-        frac_inen_shift_denom = frac_inen_low_temp_elec + 2*frac_inen_high_temp_elec_hydg
-
-        
-        # setup return
-        tup_out = (
-            cats_inen_high_heat,
-            cats_inen_not_high_heat,
-            frac_inen_high_temp_elec_hydg,
-            frac_inen_low_temp_elec,
-            frac_inen_shift_denom,
-        )
-        
-        return tup_out
-
-
 
     def get_ramp_characteristics(self,
         dict_config: Union[Dict, None] = None,
@@ -446,8 +220,7 @@ class Transformers:
         Initialize the model attributes object. Checks implementation and throws
             an error if issues arise. Sets the following properties
 
-            * self.attribute_strategy
-            * self.attribute_technology
+            * self.attribute_transformer
             * self.key_region
             * self.model_attributes
             * self.regions (support_classes.Regions object)
@@ -461,8 +234,8 @@ class Transformers:
             raise RuntimeError(f"Error: invalid specification of model_attributes in transformations_energy")
 
         # get strategy attribute, baseline strategy, and some fields
-        attribute_strategy = model_attributes.get_dimensional_attribute_table(
-            model_attributes.dim_strategy_id
+        attribute_transformer = model_attributes.get_other_attribute_table(
+            model_attributes.dim_transformer_code
         )
 
         baseline_strategy = int(
@@ -514,7 +287,7 @@ class Transformers:
         """
 
         baseline_inputs = (
-            self.transformation_en_baseline(df_inputs, strat = self.baseline_strategy) 
+            self.transformation_baseline(df_inputs, strat = self.baseline_strategy) 
             if isinstance(df_inputs, pd.DataFrame) 
             else None
         )
@@ -540,37 +313,9 @@ class Transformers:
         - dict_config: dictionary mapping input configuration arguments to key 
             values. Can include the following keys:
 
-            * "categories_entc_max_investment_ramp": list of categories to apply
-                self.vec_implementation_ramp_renewable_cap to with a maximum
-                investment cap (implemented *after* turning on renewable target)
-            * "categories_entc_renewable": list of categories to tag as 
-                renewable for the Renewable Targets transformation (sets 
-                self.cats_renewable)
-            * "dict_entc_renewable_target_msp": optional dictionary mapping 
-                renewable ENTC categories to MSP fractions to use in the 
-                Renewable Targets trasnsformationl. Can be used to ensure some
-                minimum contribution of certain renewables--e.g.,
-
-                    {
-                        "pp_hydropower": 0.1,
-                        "pp_solar": 0.15
-                    }
-
-                will ensure that hydropower is at least 10% of the mix and solar
-                is at least 15%. 
-
             * "n_tp_ramp": number of time periods to use to ramp up. If None or
                 not specified, builds to full implementation by the final time
                 period
-            * "vir_renewable_cap_delta_frac": change (applied downward from 
-                "vir_renewable_cap_max_frac") in cap for for new technology
-                capacities available to build in time period while transitioning
-                to renewable capacties. Default is 0.01 (will decline by 1% each
-                time period after "year_0_ramp")
-            * "vir_renewable_cap_max_frac": cap for for new technology 
-                capacities available to build in time period while transitioning
-                to renewable capacties; entered as a fraction of estimated
-                capacity in "year_0_ramp". Default is 0.05
             * "year_0_ramp": last year with no diversion from baseline strategy
                 (baseline for implementation ramp)
         """
@@ -579,82 +324,11 @@ class Transformers:
 
         # set parameters
         self.config = dict_config
-
-        self.key_config_cats_entc_max_investment_ramp = "categories_entc_max_investment_ramp"
-        self.key_config_cats_entc_renewable = "categories_entc_renewable"
-        self.key_config_cats_inen_high_heat = "categories_inen_high_heat",
-        self.key_config_dict_entc_renewable_target_msp = "dict_entc_renewable_target_msp"
-        self.key_config_frac_inen_high_temp_elec_hydg = "frac_inen_high_temp_elec_hydg"
-        self.key_config_frac_inen_low_temp_elec = "frac_inen_low_temp_elec"
         self.key_config_n_tp_ramp = "n_tp_ramp"
-        self.key_config_vir_renewable_cap_delta_frac = "vir_renewable_cap_delta_frac"
-        self.key_config_vir_renewable_cap_max_frac = "vir_renewable_cap_max_frac"
         self.key_config_year_0_ramp = "year_0_ramp" 
 
         return None
 
-
-
-    def _initialize_models(self,
-        dir_jl: str,
-        fp_nemomod_reference_files: str,
-        model_afolu: Union[mafl.AFOLU, None] = None,
-        model_enerprod: Union[ml.EnergyProduction, None] = None,
-    ) -> None:
-        """
-        Define model objects for use in variable access and base estimates.
-
-        Function Arguments
-        ------------------
-        - dir_jl: location of Julia directory containing Julia environment and 
-        support modules
-        - fp_nemomod_reference_files: directory housing reference files called 
-            by NemoMod when running electricity model. Required to access data 
-            in EnergyProduction. Needs the following CSVs:
-
-            * Required keys or CSVs (without extension):
-                (1) CapacityFactor
-                (2) SpecifiedDemandProfile
-
-        Keyword Arguments
-        -----------------
-        - model_afolu: optional AFOLU object to pass for property and method 
-            access
-            * NOTE: if passing, ensure that the ModelAttributes objects used to 
-                instantiate the model + what is passed to the model_attributes 
-                argument are the same.
-        - model_enerprod: optional EnergyProduction object to pass for property 
-            and method access
-            * NOTE: If passing, `dir_jl` and `fp_nemomod_reference_files` are 
-                ignored (can pass None to those arguments if passing 
-                model_enerprod)
-            * NOTE: if passing, ensure that the ModelAttributes objects used to 
-                instantiate the model + what is passed to the model_attributes 
-                argument are the same.
-        """
-
-        model_afolu = (
-            mafl.AFOLU(self.model_attributes)
-            if model_afolu is None
-            else model_afolu
-        )
-
-        model_enerprod = (
-            ml.EnergyProduction(
-                self.model_attributes, 
-                dir_jl,
-                fp_nemomod_reference_files,
-                initialize_julia = False
-            )
-            if model_enerprod is None
-            else model_enerprod
-        )
-
-        self.model_afolu = model_afolu
-        self.model_enerprod = model_enerprod
-        self.model_enercons = model_enerprod.model_enercons
-
-        return None
 
 
     
@@ -667,43 +341,22 @@ class Transformers:
       
         """
 
-        dict_config = self.config if not isinstance(dict_config, dict) else dict_config
+        dict_config = (
+            self.config 
+            if not isinstance(dict_config, dict) 
+            else dict_config
+        )
 
         # get parameters from configuration dictionary
-        cats_entc_max_investment_ramp = self.get_entc_cats_max_investment_ramp()
-        cats_renewable = self.get_entc_cats_renewable()
         (
             n_tp_ramp,
-            vir_renewable_cap_delta_frac,
-            vir_renewable_cap_max_frac,
             year_0_ramp
         ) = self.get_ramp_characteristics()
-
-        dict_entc_renewable_target_msp = self.get_entc_dict_renewable_target_msp(cats_renewable)
-
-        # get some INEN paraemeters ()
-        (
-            cats_inen_high_heat,
-            cats_inen_not_high_heat,
-            frac_inen_high_temp_elec_hydg,
-            frac_inen_low_temp_elec,
-            frac_inen_shift_denom,
-        ) = self.get_inen_parameters()
 
 
         ##  SET PROPERTIES
 
-        self.cats_entc_max_investment_ramp = cats_entc_max_investment_ramp
-        self.cats_inen_high_heat = cats_inen_high_heat
-        self.cats_inen_not_high_heat = cats_inen_not_high_heat
-        self.cats_renewable = cats_renewable
-        self.dict_entc_renewable_target_msp = dict_entc_renewable_target_msp
-        self.frac_inen_high_temp_elec_hydg = frac_inen_high_temp_elec_hydg
-        self.frac_inen_low_temp_elec = frac_inen_low_temp_elec
-        self.frac_inen_shift_denom = frac_inen_shift_denom
         self.n_tp_ramp = n_tp_ramp
-        self.vir_renewable_cap_delta_frac = vir_renewable_cap_delta_frac
-        self.vir_renewable_cap_max_frac = vir_renewable_cap_max_frac
         self.year_0_ramp = year_0_ramp
 
         return None
@@ -716,837 +369,17 @@ class Transformers:
         Initialize the ramp vector for implementing transformations. Sets the 
             following properties:
 
-            * self.dict_entc_renewable_target_cats_max_investment
             * self.vec_implementation_ramp
-            * self.vec_implementation_ramp_renewable_cap
-            * self.vec_msp_resolution_cap
         """
         
         vec_implementation_ramp = self.build_implementation_ramp_vector()
-        vec_implementation_ramp_renewable_cap = self.get_vir_max_capacity(vec_implementation_ramp)
-        vec_msp_resolution_cap = self.build_msp_cap_vector(vec_implementation_ramp)
-
-        dict_entc_renewable_target_cats_max_investment = dict(
-            (
-                x, 
-                {
-                    "vec": vec_implementation_ramp_renewable_cap,
-                    "type": "scalar"
-                }
-            ) for x in self.cats_entc_max_investment_ramp
-        )
         
 
         ##  SET PROPERTIES
-        self.dict_entc_renewable_target_cats_max_investment = dict_entc_renewable_target_cats_max_investment
+
         self.vec_implementation_ramp = vec_implementation_ramp
-        self.vec_implementation_ramp_renewable_cap = vec_implementation_ramp_renewable_cap
-        self.vec_msp_resolution_cap = vec_msp_resolution_cap
 
         return None
-
-
-
-    def _initialize_transformations(self,
-    ) -> None:
-        """
-        Initialize all trl.Transformer objects used to manage the construction
-            of transformations. Note that each transformation == a strategy.
-
-        NOTE: This is the key function mapping each function to a transformation
-            name.
-            
-        Sets the following properties:
-
-            * self.all_transformations
-            * self.all_transformations_non_baseline
-            * self.dict_transformations
-            * self.transformation_id_baseline
-            * self.transformation_***
-        """
-
-        attr_strategy = self.attribute_strategy
-        all_transformations = []
-        dict_transformations = {}
-
-        ##################
-        #    BASELINE    #
-        ##################
-
-        self.baseline = trl.Transformer(
-            "BASE", 
-            self.transformation_en_baseline, 
-            attr_strategy
-        )
-        all_transformations.append(self.baseline)
-
-
-        ####################
-        #    ENERGY ALL    #
-        ####################
-
-        self.en_all = trl.Transformer(
-            "EN:ALL", 
-            [
-                #self.transformation_ccsq_increase_air_capture,
-                self.transformation_entc_reduce_transmission_losses,
-                self.transformation_fgtv_maximize_flaring,
-                self.transformation_fgtv_minimize_leaks,
-                self.transformation_inen_fuel_switch_low_and_high_temp, # required instead of the two separate functions
-                self.transformation_inen_maximize_efficiency_energy,
-                #self.transformation_inen_maximize_efficiency_production,
-                self.transformation_scoe_fuel_switch_electrify,
-                self.transformation_scoe_increase_applicance_efficiency,
-                self.transformation_scoe_reduce_heat_energy_demand,
-                #self.transformation_trde_reduce_demand,
-                self.transformation_trns_electrify_road_light_duty,
-                self.transformation_trns_electrify_rail,
-                self.transformation_trns_fuel_switch_maritime,
-                self.transformation_trns_fuel_switch_road_medium_duty,
-                self.transformation_trns_increase_efficiency_electric,
-                self.transformation_trns_increase_efficiency_non_electric,
-                self.transformation_trns_increase_occupancy_light_duty,
-                #self.transformation_trns_mode_shift_freight,
-                self.transformation_trns_mode_shift_public_private,
-                self.transformation_trns_mode_shift_regional,
-                self.transformation_support_entc_clean_grid
-            ], 
-            attr_strategy
-        )
-        all_transformations.append(self.en_all)
-
-
-        self.en_bundle_efficiency = trl.Transformer(
-            "EN:BUNDLE_EFFICIENCY", 
-            [
-                self.transformation_inen_fuel_switch_low_temp_to_heat_pump,
-                self.transformation_inen_maximize_efficiency_energy,
-                self.transformation_scoe_fuel_switch_electrify,
-                self.transformation_scoe_increase_applicance_efficiency,
-                self.transformation_scoe_reduce_heat_energy_demand,
-                self.transformation_trns_increase_efficiency_electric,
-                self.transformation_trns_increase_efficiency_non_electric
-            ], 
-            attr_strategy
-        )
-        all_transformations.append(self.en_bundle_efficiency)
-
-
-        self.en_bundle_efficiency_with_rep = trl.Transformer(
-            "EN:BUNDLE_EFFICIENCY_REP", 
-            [
-                self.transformation_inen_fuel_switch_low_temp_to_heat_pump,
-                self.transformation_inen_maximize_efficiency_energy,
-                self.transformation_scoe_fuel_switch_electrify,
-                self.transformation_scoe_increase_applicance_efficiency,
-                self.transformation_scoe_reduce_heat_energy_demand,
-                self.transformation_trns_increase_efficiency_electric,
-                self.transformation_trns_increase_efficiency_non_electric,
-                self.transformation_support_entc_clean_grid
-            ], 
-            attr_strategy
-        )
-        all_transformations.append(self.en_bundle_efficiency_with_rep)
-
-
-        self.en_bundle_fuel_switch = trl.Transformer(
-            "EN:BUNDLE_FUEL_SWITCH", 
-            [
-                self.transformation_inen_fuel_switch_low_and_high_temp,
-                self.transformation_scoe_fuel_switch_electrify,
-                self.transformation_trns_electrify_road_light_duty,
-                self.transformation_trns_electrify_rail,
-                self.transformation_trns_fuel_switch_maritime,
-                self.transformation_trns_fuel_switch_road_medium_duty
-            ], 
-            attr_strategy
-        )
-        all_transformations.append(self.en_bundle_fuel_switch)
-
-
-        self.en_bundle_fuel_switch_with_rep = trl.Transformer(
-            "EN:BUNDLE_FUEL_SWITCH_REP", 
-            [
-                self.transformation_inen_fuel_switch_low_and_high_temp,
-                self.transformation_scoe_fuel_switch_electrify,
-                self.transformation_trns_electrify_road_light_duty,
-                self.transformation_trns_electrify_rail,
-                self.transformation_trns_fuel_switch_maritime,
-                self.transformation_trns_fuel_switch_road_medium_duty,
-                self.transformation_support_entc_clean_grid
-            ], 
-            attr_strategy
-        )
-        all_transformations.append(self.en_bundle_fuel_switch_with_rep)
-
-
-
-        ##############
-        #    CCSQ    #
-        ##############
-
-        self.ccsq_increase_air_capture = trl.Transformer(
-            "CCSQ:INCREASE_CAPTURE", 
-            self.transformation_ccsq_increase_air_capture, 
-            attr_strategy
-        )
-        all_transformations.append(self.ccsq_increase_air_capture)
-
-
-        self.ccsq_increase_air_capture_with_rep = trl.Transformer(
-            "CCSQ:INCREASE_CAPTURE_REP", 
-            [
-                self.transformation_ccsq_increase_air_capture,
-                self.transformation_support_entc_clean_grid
-            ],
-            attr_strategy
-        )
-        all_transformations.append(self.ccsq_increase_air_capture_with_rep)
-
-
-
-        ##############
-        #    ENTC    #
-        ##############
-
-        self.entc_least_cost = trl.Transformer(
-            "ENTC:LEAST_COST", 
-            self.transformation_entc_least_cost, 
-            attr_strategy
-        )
-        all_transformations.append(self.entc_least_cost)
-
-        
-        self.entc_reduce_transmission_losses = trl.Transformer(
-            "ENTC:DEC_LOSSES", 
-            self.transformation_entc_reduce_transmission_losses, 
-            attr_strategy
-        )
-        all_transformations.append(self.entc_reduce_transmission_losses)
-
-
-        self.entc_reduce_transmission_losses_with_rep = trl.Transformer(
-            "ENTC:DEC_LOSSES_REP",
-            [
-                self.transformation_entc_reduce_transmission_losses,
-                self.transformation_support_entc_clean_grid
-            ],
-            attr_strategy
-        )
-        all_transformations.append(self.entc_reduce_transmission_losses_with_rep)
-
-
-        self.entc_renewable_electricity = trl.Transformer(
-            "ENTC:TARGET_RENEWABLE_ELEC", 
-            self.transformation_entc_renewables_target, 
-            attr_strategy
-        )
-        all_transformations.append(self.entc_renewable_electricity)
-
-
-
-        ##############
-        #    FGTV    #
-        ##############
-
-        self.fgtv_all = trl.Transformer(
-            "FGTV:ALL", 
-            [
-                self.transformation_fgtv_maximize_flaring,
-                self.transformation_fgtv_minimize_leaks
-            ], 
-            attr_strategy
-        )
-        all_transformations.append(self.fgtv_all)
-
-
-        self.fgtv_all_with_rep = trl.Transformer(
-            "FGTV:ALL_REP", 
-            [
-                self.transformation_fgtv_maximize_flaring,
-                self.transformation_fgtv_minimize_leaks,
-                self.transformation_support_entc_clean_grid
-            ], 
-            attr_strategy
-        )
-        all_transformations.append(self.fgtv_all_with_rep)
-
-
-        self.fgtv_maximize_flaring = trl.Transformer(
-            "FGTV:INC_FLARE", 
-            self.transformation_fgtv_maximize_flaring, 
-            attr_strategy
-        )
-        all_transformations.append(self.fgtv_maximize_flaring)
-
-
-        self.fgtv_maximize_flaring_with_rep = trl.Transformer(
-            "FGTV:INC_FLARE_REP", 
-            [
-                self.transformation_fgtv_maximize_flaring,
-		        self.transformation_support_entc_clean_grid
-            ], 
-            attr_strategy
-        )
-        all_transformations.append(self.fgtv_maximize_flaring_with_rep)
-
-
-        self.fgtv_minimize_leaks = trl.Transformer(
-            "FGTV:DEC_LEAKS", 
-            self.transformation_fgtv_minimize_leaks, 
-            attr_strategy
-        )
-        all_transformations.append(self.fgtv_minimize_leaks)
-
-
-        self.fgtv_minimize_leaks_with_rep = trl.Transformer(
-            "FGTV:DEC_LEAKS_REP", 
-            [
-                self.transformation_fgtv_minimize_leaks,
-		        self.transformation_support_entc_clean_grid
-            ], 
-            attr_strategy
-        )
-        all_transformations.append(self.fgtv_minimize_leaks_with_rep)
-
-
-
-        ##############
-        #    INEN    #
-        ##############
-
-        self.inen_all = trl.Transformer(
-            "INEN:ALL", 
-            [
-                self.transformation_inen_fuel_switch_low_and_high_temp, # use instead of both functions to avoid incorrect results w/func composition
-                self.transformation_inen_maximize_efficiency_energy,
-                #self.transformation_inen_maximize_efficiency_production
-            ], 
-            attr_strategy
-        )
-        all_transformations.append(self.inen_all)
-
-
-        self.inen_all_with_rep = trl.Transformer(
-            "INEN:ALL_REP", 
-            [
-                self.transformation_inen_fuel_switch_low_and_high_temp, # use instead of both functions to avoid incorrect results w/func composition
-                self.transformation_inen_maximize_efficiency_energy,
-                #self.transformation_inen_maximize_efficiency_production,
-		        self.transformation_support_entc_clean_grid
-            ], 
-            attr_strategy
-        )
-        all_transformations.append(self.inen_all_with_rep)
-
-
-        self.inen_fuel_switch_high_temp = trl.Transformer(
-            "INEN:FUEL_SWITCH_HI_HEAT", 
-            self.transformation_inen_fuel_switch_high_temp, 
-            attr_strategy
-        )
-        all_transformations.append(self.inen_fuel_switch_high_temp)
-
-
-        self.inen_fuel_switch_high_temp_with_rep = trl.Transformer(
-            "INEN:FUEL_SWITCH_HI_HEAT_REP", 
-            [
-                self.transformation_inen_fuel_switch_high_temp,
-		        self.transformation_support_entc_clean_grid
-            ], 
-            attr_strategy
-        )
-        all_transformations.append(self.inen_fuel_switch_high_temp_with_rep)
-        
-
-        self.inen_fuel_switch_low_temp_to_heat_pump = trl.Transformer(
-            "INEN:FUEL_SWITCH_LO_HEAT", 
-            self.transformation_inen_fuel_switch_low_temp_to_heat_pump, 
-            attr_strategy
-        )
-        all_transformations.append(self.inen_fuel_switch_low_temp_to_heat_pump)
-
-
-        self.inen_fuel_switch_low_temp_to_heat_pump_with_rep = trl.Transformer(
-            "INEN:FUEL_SWITCH_LO_HEAT_REP", 
-            [
-                self.transformation_inen_fuel_switch_low_temp_to_heat_pump,
-		        self.transformation_support_entc_clean_grid
-            ], 
-            attr_strategy
-        )
-        all_transformations.append(self.inen_fuel_switch_low_temp_to_heat_pump_with_rep)
-
-        
-        self.inen_maximize_energy_efficiency = trl.Transformer(
-            "INEN:INC_EFFICIENCY_ENERGY", 
-            self.transformation_inen_maximize_efficiency_energy, 
-            attr_strategy
-        )
-        all_transformations.append(self.inen_maximize_energy_efficiency)
-
-
-        self.inen_maximize_energy_efficiency_with_rep = trl.Transformer(
-            "INEN:INC_EFFICIENCY_ENERGY_REP", 
-            [
-                self.transformation_inen_maximize_efficiency_energy,
-		        self.transformation_support_entc_clean_grid
-            ], 
-            attr_strategy
-        )
-        all_transformations.append(self.inen_maximize_energy_efficiency_with_rep)
-        
-
-        self.inen_maximize_production_efficiency = trl.Transformer(
-            "INEN:INC_EFFICIENCY_PRODUCTION", 
-            self.transformation_inen_maximize_efficiency_production, 
-            attr_strategy
-        )
-        all_transformations.append(self.inen_maximize_production_efficiency)
-
-
-        self.inen_maximize_production_efficiency_with_rep = trl.Transformer(
-            "INEN:INC_EFFICIENCY_PRODUCTION_REP", 
-            [
-                self.transformation_inen_maximize_efficiency_production,
-		        self.transformation_support_entc_clean_grid
-            ], 
-            attr_strategy
-        )
-        all_transformations.append(self.inen_maximize_production_efficiency_with_rep)
-        
-
-
-        ##############
-        #    SCOE    #
-        ##############
-
-        self.scoe_all = trl.Transformer(
-            "SCOE:ALL", 
-            [
-                self.transformation_scoe_fuel_switch_electrify,
-                self.transformation_scoe_increase_applicance_efficiency,
-                self.transformation_scoe_reduce_heat_energy_demand,
-            ], 
-            attr_strategy
-        )
-        all_transformations.append(self.scoe_all)
-
-
-        self.scoe_all_with_rep = trl.Transformer(
-            "SCOE:ALL_REP", 
-            [
-                self.transformation_scoe_fuel_switch_electrify,
-                self.transformation_scoe_increase_applicance_efficiency,
-                self.transformation_scoe_reduce_heat_energy_demand,
-		        self.transformation_support_entc_clean_grid
-            ], 
-            attr_strategy
-        )
-        all_transformations.append(self.scoe_all_with_rep)
-
-
-        self.scoe_fuel_switch_electrify = trl.Transformer(
-            "SCOE:FUEL_SWITCH_HEAT", 
-            self.transformation_scoe_fuel_switch_electrify, 
-            attr_strategy
-        )
-        all_transformations.append(self.scoe_fuel_switch_electrify)
-
-
-        self.scoe_fuel_switch_electrify_with_rep = trl.Transformer(
-            "SCOE:FUEL_SWITCH_HEAT_REP", 
-            [
-                self.transformation_scoe_fuel_switch_electrify,
-		        self.transformation_support_entc_clean_grid
-            ], 
-            attr_strategy
-        )
-        all_transformations.append(self.scoe_fuel_switch_electrify_with_rep)
-        
-
-        self.scoe_increase_applicance_efficiency = trl.Transformer(
-            "SCOE:INC_EFFICIENCY_APPLIANCE", 
-            self.transformation_scoe_increase_applicance_efficiency, 
-            attr_strategy
-        )
-        all_transformations.append(self.scoe_increase_applicance_efficiency)
-
-
-        self.scoe_increase_applicance_efficiency_with_rep = trl.Transformer(
-            "SCOE:INC_EFFICIENCY_APPLIANCE_REP", 
-            [
-                self.transformation_scoe_increase_applicance_efficiency,
-		        self.transformation_support_entc_clean_grid
-            ], 
-            attr_strategy
-        )
-        all_transformations.append(self.scoe_increase_applicance_efficiency_with_rep)
-        
-
-        self.scoe_reduce_heat_energy_demand = trl.Transformer(
-            "SCOE:DEC_DEMAND_HEAT", 
-            self.transformation_scoe_reduce_heat_energy_demand, 
-            attr_strategy
-        )
-        all_transformations.append(self.scoe_reduce_heat_energy_demand)
-
-
-        self.scoe_reduce_heat_energy_demand_with_rep = trl.Transformer(
-            "SCOE:DEC_DEMAND_HEAT_REP", 
-            [
-                self.transformation_scoe_reduce_heat_energy_demand,
-		        self.transformation_support_entc_clean_grid
-            ], 
-            attr_strategy
-        )
-        all_transformations.append(self.scoe_reduce_heat_energy_demand_with_rep)
-
-
-
-        ###################
-        #    TRNS/TRDE    #
-        ###################
-
-        self.trde_reduce_demand = trl.Transformer(
-            "TRDE:DEC_DEMAND", 
-            self.transformation_trde_reduce_demand, 
-            attr_strategy
-        )
-        all_transformations.append(self.trde_reduce_demand)
-
-
-        self.trde_reduce_demand_with_rep = trl.Transformer(
-            "TRDE:DEC_DEMAND_REP", 
-            [
-                self.transformation_trde_reduce_demand,
-		        self.transformation_support_entc_clean_grid
-            ], 
-            attr_strategy
-        )
-        all_transformations.append(self.trde_reduce_demand_with_rep)
-
-        
-        self.trns_all = trl.Transformer(
-            "TRNS:ALL", 
-            [
-                #self.transformation_trde_reduce_demand,
-                self.transformation_trns_electrify_road_light_duty,
-                self.transformation_trns_electrify_rail,
-                self.transformation_trns_fuel_switch_maritime,
-                self.transformation_trns_fuel_switch_road_medium_duty,
-                self.transformation_trns_increase_efficiency_electric,
-                self.transformation_trns_increase_efficiency_non_electric,
-                self.transformation_trns_increase_occupancy_light_duty,
-                #self.transformation_trns_mode_shift_freight,
-                self.transformation_trns_mode_shift_public_private,
-                self.transformation_trns_mode_shift_regional
-            ], 
-            attr_strategy
-        )
-        all_transformations.append(self.trns_all)
-
-
-        self.trns_all_with_rep = trl.Transformer(
-            "TRNS:ALL_REP", 
-            [
-                #self.transformation_trde_reduce_demand,
-                self.transformation_trns_electrify_road_light_duty,
-                self.transformation_trns_electrify_rail,
-                self.transformation_trns_fuel_switch_maritime,
-                self.transformation_trns_fuel_switch_road_medium_duty,
-                self.transformation_trns_increase_efficiency_electric,
-                self.transformation_trns_increase_efficiency_non_electric,
-                self.transformation_trns_increase_occupancy_light_duty,
-                #self.transformation_trns_mode_shift_freight,
-                self.transformation_trns_mode_shift_public_private,
-                self.transformation_trns_mode_shift_regional,
-		        self.transformation_support_entc_clean_grid
-            ], 
-            attr_strategy
-        )
-        all_transformations.append(self.trns_all_with_rep)
-
-        
-        self.trns_bundle_demand_management = trl.Transformer(
-            "TRNS:BUNDLE_DEMAND_MANAGEMENT",
-            [
-                self.transformation_trde_reduce_demand,
-                self.transformation_trns_increase_occupancy_light_duty
-            ],
-            attr_strategy
-        )
-        all_transformations.append(self.trns_bundle_demand_management)
-
-
-        self.trns_bundle_demand_management_with_rep = trl.Transformer(
-            "TRNS:BUNDLE_DEMAND_MANAGEMENT_REP", 
-            [
-                self.transformation_trde_reduce_demand,
-                self.transformation_trns_increase_occupancy_light_duty,
-		        self.transformation_support_entc_clean_grid
-            ],
-            attr_strategy
-        )
-        all_transformations.append(self.trns_bundle_demand_management_with_rep)
-
-
-        self.trns_bundle_fuel_swtich = trl.Transformer(
-            "TRNS:BUNDLE_FUEL_SWITCH", 
-            [
-                self.transformation_trns_electrify_road_light_duty,
-                self.transformation_trns_electrify_rail,
-                self.transformation_trns_fuel_switch_maritime,
-                self.transformation_trns_fuel_switch_road_medium_duty
-            ], 
-            attr_strategy
-        )
-        all_transformations.append(self.trns_bundle_fuel_swtich)
-
-
-        self.trns_bundle_fuel_swtich_with_rep = trl.Transformer(
-            "TRNS:BUNDLE_FUEL_SWITCH_REP", 
-            [
-                self.transformation_trns_electrify_road_light_duty,
-                self.transformation_trns_electrify_rail,
-                self.transformation_trns_fuel_switch_maritime,
-                self.transformation_trns_fuel_switch_road_medium_duty,
-                self.transformation_support_entc_clean_grid
-            ], 
-            attr_strategy
-        )
-        all_transformations.append(self.trns_bundle_fuel_swtich_with_rep)
-
-        
-        self.trns_bundle_mode_shift = trl.Transformer(
-            "TRNS:BUNDLE_MODE_SHIFT", 
-            [
-                #self.transformation_trns_mode_shift_freight,
-                self.transformation_trns_mode_shift_public_private,
-                self.transformation_trns_mode_shift_regional
-            ], 
-            attr_strategy
-        )
-        all_transformations.append(self.trns_bundle_mode_shift)
-
-
-        self.trns_bundle_mode_shift_with_rep = trl.Transformer(
-            "TRNS:BUNDLE_MODE_SHIFT_REP", 
-            [
-                #self.transformation_trns_mode_shift_freight,
-                self.transformation_trns_mode_shift_public_private,
-                self.transformation_trns_mode_shift_regional,
-                self.transformation_support_entc_clean_grid
-            ], 
-            attr_strategy
-        )
-        all_transformations.append(self.trns_bundle_mode_shift_with_rep)
-
-        
-        self.trns_electrify_light_duty_road = trl.Transformer(
-            "TRNS:FUEL_SWITCH_LIGHT_DUTY", 
-            self.transformation_trns_electrify_road_light_duty, 
-            attr_strategy
-        )
-        all_transformations.append(self.trns_electrify_light_duty_road)
-
-
-        self.trns_electrify_light_duty_road_with_rep = trl.Transformer(
-            "TRNS:FUEL_SWITCH_LIGHT_DUTY_REP", 
-            [
-                self.transformation_trns_electrify_road_light_duty,
-		        self.transformation_support_entc_clean_grid
-            ], 
-            attr_strategy
-        )
-        all_transformations.append(self.trns_electrify_light_duty_road_with_rep)
-
-        
-        self.trns_electrify_rail = trl.Transformer(
-            "TRNS:FUEL_SWITCH_RAIL", 
-            self.transformation_trns_electrify_rail, 
-            attr_strategy
-        )
-        all_transformations.append(self.trns_electrify_rail)
-
-
-        self.trns_electrify_rail_with_rep = trl.Transformer(
-            "TRNS:FUEL_SWITCH_RAIL_REP", 
-            [
-                self.transformation_trns_electrify_rail,
-		        self.transformation_support_entc_clean_grid
-            ], 
-            attr_strategy
-        )
-        all_transformations.append(self.trns_electrify_rail_with_rep)
-
-        
-        self.trns_fuel_switch_maritime = trl.Transformer(
-            "TRNS:FUEL_SWITCH_MARITIME", 
-            self.transformation_trns_fuel_switch_maritime, 
-            attr_strategy
-        )
-        all_transformations.append(self.trns_fuel_switch_maritime)
-
-
-        self.trns_fuel_switch_maritime_with_rep = trl.Transformer(
-            "TRNS:FUEL_SWITCH_MARITIME_REP", 
-            [
-                self.transformation_trns_fuel_switch_maritime,
-		        self.transformation_support_entc_clean_grid
-            ], 
-            attr_strategy
-        )
-        all_transformations.append(self.trns_fuel_switch_maritime_with_rep)
-
-
-        self.trns_fuel_switch_medium_duty_road = trl.Transformer(
-            "TRNS:FUEL_SWITCH_MEDIUM_DUTY", 
-            self.transformation_trns_fuel_switch_road_medium_duty, 
-            attr_strategy
-        )
-        all_transformations.append(self.trns_fuel_switch_medium_duty_road)
-
-
-        self.trns_fuel_switch_medium_duty_road_with_rep = trl.Transformer(
-            "TRNS:FUEL_SWITCH_MEDIUM_DUTY_REP", 
-            [
-                self.transformation_trns_fuel_switch_road_medium_duty,
-		        self.transformation_support_entc_clean_grid
-            ], 
-            attr_strategy
-        )
-        all_transformations.append(self.trns_fuel_switch_medium_duty_road_with_rep)
-
-
-        self.trns_increase_efficiency = trl.Transformer(
-            "TRNS:INC_EFFICIENCY", 
-            [
-                self.transformation_trns_increase_efficiency_electric,
-                self.transformation_trns_increase_efficiency_non_electric
-            ],
-            attr_strategy
-        )
-        all_transformations.append(self.trns_increase_efficiency)
-
-
-        self.trns_bundle_efficiency_with_rep = trl.Transformer(
-            "TRNS:INC_EFFICIENCY_REP", 
-            [
-                self.transformation_trns_increase_efficiency_electric,
-                self.transformation_trns_increase_efficiency_non_electric,
-                self.transformation_support_entc_clean_grid
-            ],
-            attr_strategy
-        )
-        all_transformations.append(self.trns_bundle_efficiency_with_rep)
-
-
-        self.trns_increase_occupancy_light_duty = trl.Transformer(
-            "TRNS:INC_OCCUPANCY", 
-            self.transformation_trns_increase_occupancy_light_duty, 
-            attr_strategy
-        )
-        all_transformations.append(self.trns_increase_occupancy_light_duty)
-
-
-        self.trns_increase_occupancy_light_duty_with_rep = trl.Transformer(
-            "TRNS:INC_OCCUPANCY_REP", 
-            [
-                self.transformation_trns_increase_occupancy_light_duty,
-		        self.transformation_support_entc_clean_grid
-            ], 
-            attr_strategy
-        )
-        all_transformations.append(self.trns_increase_occupancy_light_duty_with_rep)
-
-
-        self.trns_mode_shift_freight = trl.Transformer(
-            "TRNS:MODE_SHIFT_FREIGHT", 
-            self.transformation_trns_mode_shift_freight, 
-            attr_strategy
-        )
-        all_transformations.append(self.trns_mode_shift_freight)
-
-
-        self.trns_mode_shift_freight_with_rep = trl.Transformer(
-            "TRNS:MODE_SHIFT_FREIGHT_REP", 
-            [
-                self.transformation_trns_mode_shift_freight,
-		        self.transformation_support_entc_clean_grid
-            ], 
-            attr_strategy
-        )
-        all_transformations.append(self.trns_mode_shift_freight_with_rep)
-
-
-        self.trns_mode_shift_public_private = trl.Transformer(
-            "TRNS:MODE_SHIFT_PASSENGER", 
-            self.transformation_trns_mode_shift_public_private, 
-            attr_strategy
-        )
-        all_transformations.append(self.trns_mode_shift_public_private)
-
-
-        self.trns_mode_shift_public_private_with_rep = trl.Transformer(
-            "TRNS:MODE_SHIFT_PASSENGER_REP", 
-            [
-                self.transformation_trns_mode_shift_public_private,
-		        self.transformation_support_entc_clean_grid
-            ], 
-            attr_strategy
-        )
-        all_transformations.append(self.trns_mode_shift_public_private_with_rep)
-
-
-        self.trns_mode_shift_regional = trl.Transformer(
-            "TRNS:MODE_SHIFT_REGIONAL", 
-            self.transformation_trns_mode_shift_regional, 
-            attr_strategy
-        )
-        all_transformations.append(self.trns_mode_shift_regional)
-
-
-        self.trns_mode_shift_regional_with_rep = trl.Transformer(
-            "TRNS:MODE_SHIFT_REGIONAL_REP", 
-            [
-                self.transformation_trns_mode_shift_regional,
-		        self.transformation_support_entc_clean_grid
-            ], 
-            attr_strategy
-        )
-        all_transformations.append(self.trns_mode_shift_regional_with_rep)
-
-    
-        ## specify dictionary of transformations and get all transformations + baseline/non-baseline
-
-        dict_transformations = dict(
-            (x.id, x) 
-            for x in all_transformations
-            if x.id in attr_strategy.key_values
-        )
-        all_transformations = sorted(list(dict_transformations.keys()))
-        all_transformations_non_baseline = [
-            x for x in all_transformations 
-            if not dict_transformations.get(x).baseline
-        ]
-
-        transformation_id_baseline = [
-            x for x in all_transformations 
-            if x not in all_transformations_non_baseline
-        ]
-        transformation_id_baseline = transformation_id_baseline[0] if (len(transformation_id_baseline) > 0) else None
-
-
-        # SET ADDDITIONAL PROPERTIES
-
-        self.all_transformations = all_transformations
-        self.all_transformations_non_baseline = all_transformations_non_baseline
-        self.dict_transformations = dict_transformations
-        self.transformation_id_baseline = transformation_id_baseline
-
-        return None
-
 
 
 
@@ -1576,8 +409,12 @@ class Transformers:
 
         tp_0 = self.time_periods.year_to_tp(year_0)
         n_tp = len(self.time_periods.all_time_periods)
+        
+        # use ramp vector function
+        params = (0, 2, 1)
+        vec_out = sf.ramp_vector(n_tmp, *params, r_0 = tp_0, )
 
-        vec_out = np.array([max(0, min((x - tp_0)/n_years_ramp, 1)) for x in range(n_tp)])
+        #vec_out = np.array([max(0, min((x - tp_0)/n_years_ramp, 1)) for x in range(n_tp)])
 
         return vec_out
 
@@ -1653,7 +490,7 @@ class Transformers:
         
         # initialize baseline
         df_out = (
-            self.transformation_en_baseline(df_input)
+            self.transformation_baseline(df_input)
             if df_input is not None
             else (
                 self.baseline_inputs
@@ -1700,7 +537,7 @@ class Transformers:
 
         t_elapse = sf.get_time_elapsed(t0)
         self._log(
-            f"TransformersEnergy.build_strategies_long() build complete in {t_elapse} seconds.",
+            f"build_strategies_long() build complete in {t_elapse} seconds.",
             type_log = "info"
         )
 
@@ -1736,37 +573,38 @@ class Transformers:
 
         
 
-    def get_strategy(self,
-        strat: Union[int, str, None],
-        field_strategy_code: str = "strategy_code",
-        field_strategy_name: str = "strategy",
+    def get(self,
+        transformer: Union[int, str, None],
+        field_transformer_code: str = "transformer_code",
+        field_transformer_name: str = "transformer",
     ) -> None:
         """
-        Get strategy `strat` based on strategy code, id, or name
+        Get `transformer` based on transformer code, id, or name
         
         If strat is None or an invalid valid of strat is entered, returns None; 
             otherwise, returns the trl.Transformer object. 
+
             
         Function Arguments
         ------------------
-        - strat: strategy id, strategy name, or strategy code to use to retrieve 
-            sc.Trasnformation object
+        - transformer: transformer_id, transformer name, or transformer code to 
+            use to retrieve sc.Trasnformation object
             
         Keyword Arguments
         ------------------
-        - field_strategy_code: field in strategy_id attribute table containing
-            the strategy code
-        - field_strategy_name: field in strategy_id attribute table containing
-            the strategy name
+        - field_transformer_code: field in transformer attribute table 
+            containing the transformer code
+        - field_transformer_name: field in transformer attribute table 
+            containing the transformer name
         """
 
-        if not (sf.isnumber(strat, integer = True) | isinstance(strat, str)):
+        if not (sf.isnumber(transformer, integer = True) | isinstance(strat, str)):
             return None
 
-        dict_code_to_strat = self.attribute_strategy.field_maps.get(
+        dict_code_to_strat = self.attribute_transformer.field_maps.get(
             f"{field_strategy_code}_to_{self.attribute_strategy.key}"
         )
-        dict_name_to_strat = self.attribute_strategy.field_maps.get(
+        dict_name_to_strat = self.attribute_transformer.field_maps.get(
             f"{field_strategy_name}_to_{self.attribute_strategy.key}"
         )
 
@@ -1795,7 +633,8 @@ class Transformers:
 		**kwargs
 	) -> None:
         """
-		Clean implementation of sf._optional_log in-line using default logger. See ?sf._optional_log for more information
+		Clean implementation of sf._optional_log in-line using default logger. 
+            See ?sf._optional_log for more information
 
 		Function Arguments
 		------------------

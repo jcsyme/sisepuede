@@ -1476,7 +1476,14 @@ class SamplingUnit:
 			
 
 
-	def f_fan(self, x, n, a, b, c, d):
+	def f_fan(self, 
+		x: float,
+		n: int, 
+		a: float, 
+		b: float, 
+		c: float, 
+		d: float,
+	) -> float:
 		"""
 		Basic function that determines the shape of the uncertainty fan; based 
 			on a generalization of the sigmoid (includes linear option).

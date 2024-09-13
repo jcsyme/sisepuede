@@ -1,8 +1,8 @@
 from sisepuede.core.attribute_table import AttributeTable
-from sisepuede.core.model_attributes import *
 import numpy as np
 import os, os.path
 import pandas as pd
+import sisepuede.core.model_attributes as ma
 import sisepuede.utilities._toolbox as sf
 
 
@@ -12,6 +12,7 @@ import sisepuede.utilities._toolbox as sf
 dir_legacy = os.path.dirname(os.path.realpath(__file__))
 dir_proj = os.path.dirname(dir_legacy)
 fp_config = os.path.join(dir_proj, "sisepuede.config")
+
 # key subdirectories for the project
 dir_jl = sf.check_path(os.path.join(dir_proj, "julia"), False)
 dir_out = sf.check_path(os.path.join(dir_proj, "out"), True)
@@ -24,7 +25,7 @@ dir_tmp = sf.check_path(os.path.join(dir_proj, "tmp"), True)
 dir_docs = sf.check_path(os.path.join(os.path.dirname(dir_legacy), "docs", "source"), False)
 dir_attribute_tables = sf.check_path(os.path.join(dir_docs, "csvs"), False)
 # get model attributes
-model_attributes = ModelAttributes(dir_attribute_tables, fp_config)
+model_attributes = ma.ModelAttributes(dir_attribute_tables, fp_config)
 
 
 ##  INGESTION DATA STRUCTURE (DEPENDS ON ATTRIBUTES)

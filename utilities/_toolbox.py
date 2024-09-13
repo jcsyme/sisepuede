@@ -2569,25 +2569,112 @@ def prepend_first_element(
 
 
 
-def ramp_generic(
+def ramp_value(
     x: Union[float, int], 
     n: int, 
     a: int, 
     b: int, 
     c: Union[float, int],
     d: Union[float, int, None] = None,
+    r_0: int = 0,
+    r_1: Union[int, None] = None,
 ) -> float:
     """
+    Calculate the value of a ramp function at time x given:
+        - n periods
+        - r_0 final 0 period
+        - parameters a, b, c, and d
+
     *defaults*
 
     for linear:
-    set a = 0, b = 2, c = 1, d = n/2
+    set a = 0, b = 2, c = 1, d = r_0 + (n - r_0 - r_1)/2
+
     for sigmoid:
-    set a = 1, b = 0, c = math.e, d = n/2
+    set a = 1, b = 0, c = math.e, d = r_0 + (n - r_0 - r_1)/2
+
+
+    Function Arguments
+    ------------------
+    - x: period to calculate
+    - n: number of time periods (total)
+    - a: sigmoid magnitude parameter; set to 0 for linear, 1 for full sigmoid
+    - b: linear coefficient; set to 2 for linear (div by 2) or 0 for sigmoid
+    - c: denominator exponee--in linear, set to 1 (adds term 1 + 1 to 
+        denominator); for sigmoid, set to np.e (1 + e)
+
+
+    Keyword Arguments
+    -----------------
+    - d: centroid for sigmoid/linear function. If using a sigmoid, this is the
+        position of 0.5 in years >= r_0
+    - r_0: last period == 0; e.g., if r_0 = 4 and n = 10, then in a linear 
+        function, we have
+    - r_1: first period == 1. If None, defaults to n
+    """
+    # set r_1
+    r_1 = n if not isinstance(r_1, int) else r_1
+
+    if (r_0 >= r_1):
+        raise RuntimeError(f"Invalid values found in ramp_value(): r_0 = {r_0} and r_1 = {r_1}; r_1 > r_0")
+
+    # check value of r_0 & r_1
+    if (r_0 >= n) | (x <= r_0):
+        return 0.0
+
+    if (x >= r_1):
+        return 1.0
+
+    #n - r_0 - (n - r_1)
+    # shift vars
+    n_ramp = r_1 - r_0#n - r_0 + r_1
+    x_ramp = x - r_0# + r_1
+
+    d = n_ramp/2 if (d is None) else d
+    out = (a*n_ramp + b*x_ramp)/(n_ramp*(1 + c**(d - x_ramp)))
+    out = min(1.0, max(out, 0.0))
+
+    return out
+
+
+
+def ramp_vector(
+    n: int, 
+    *args,
+    **kwargs,
+) -> float:
+    """
+    Build a ramp vector for n time periods
+
+    *defaults*
+
+    for linear:
+    set a = 0, b = 2, c = 1, d = r_0 + (n - r_0 - r_1)/2
+
+    for sigmoid:
+    set a = 1, b = 0, c = math.e, d = r_0 + (n - r_0 - r_1)/2
+
+
+    Function Arguments
+    ------------------
+    - n: number of time periods (total)
+    - a: sigmoid magnitude parameter; set to 0 for linear, 1 for full sigmoid
+    - b: linear coefficient; set to 2 for linear (div by 2) or 0 for sigmoid
+    - c: denominator exponee--in linear, set to 1 (adds term 1 + 1 to 
+        denominator); for sigmoid, set to np.e (1 + e)
+
+
+    Keyword Arguments
+    -----------------
+    - d: centroid for sigmoid/linear function. If using a sigmoid, this is the
+        position of 0.5 in years >= r_0
+    - r_0: last period == 0; e.g., if r_0 = 4 and n = 10, then in a linear 
+        function, we have
+    - r_1: first period == 1. If None, defaults to n
     """
 
-    d = n/2 if (d is None) else d
-    out = (a*n + b*x)/(n*(1 + c**(d - x)))
+    out = [ramp_value(x, n, *args, **kwargs) for x in range(n)]
+    out = np.array(out)
 
     return out
 

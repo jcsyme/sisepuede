@@ -5,7 +5,7 @@ identifiers:
     in the Transportation subsector."
   name: Public and Private Transportation Mode Shift # display name
 parameters:
-  function_code: "TX:TRNS:MODE_SHIFT_PUBLIC_PRIVATE" # function code here; this is associated with a transformation code that is programmed in 
+  transformer_code: "TX:TRNS:MODE_SHIFT_PUBLIC_PRIVATE" # function code here; this is associated with a transformation code that is programmed in 
   # transformation_trns_fuel_shift_to_target
   # keyword arguments can be passed here
   # dict_modvar_specs

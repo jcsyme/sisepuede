@@ -1707,6 +1707,47 @@ class TimePeriods:
     
 
 
+    def get_closest_time_period(self,
+        t: int,
+    ) -> int:
+        """
+        Return the closest available time period in time periods. If t is in the 
+            time periods, returns t
+        """
+
+        if t in self.all_time_periods:
+            return t
+
+        # get distances and find first that is closest
+        t_dists = np.abs(np.array(self.all_time_periods) - t)
+        pos = np.argmin(t_dists)
+
+        t_out = self.all_time_periods[pos]
+
+        return t_out
+
+
+
+    def get_closest_year(self,
+        y: int,
+    ) -> int:
+        """
+        Return the closest available year in time periods. If y is in the time 
+            periods, returns y
+        """
+
+        if y in self.all_years:
+            return y
+
+        # get distances and find first that is closest
+        y_dists = np.abs(np.array(self.all_years) - y)
+        pos = np.argmin(y_dists)
+
+        y_out = self.all_years[pos]
+
+        return y_out
+
+
     def get_time_period_df(self,
         include_year: bool = False,
         time_periods: Union[List[int], None] = None,
