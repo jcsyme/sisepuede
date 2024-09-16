@@ -1471,7 +1471,7 @@ class TransformersCircularEconomy:
 
         df_out = tbc.transformation_waso_increase_landfilling(
             df_input,
-            1.0,
+            magnitude,
             vec_implementation_ramp,
             self.model_attributes,
             field_region = self.key_region,

@@ -22,12 +22,12 @@ import sisepuede.core.support_classes as sc
 import sisepuede.data_management.ingestion as ing
 import sisepuede.manager.sisepuede_file_structure as sfs
 import sisepuede.manager.sisepuede_models as sm
-import sisepuede.transformers.afolu as dta
-import sisepuede.transformers.circular_economy as dtc
-import sisepuede.transformers.energy as dte
-import sisepuede.transformers.ippu as dti
-import sisepuede.transformers.lib._baselib_cross_sector as tbc
+import sisepuede.transformers.lib._baselib_afolu as tba
+import sisepuede.transformers.lib._baselib_circular_economy as tbc
+import sisepuede.transformers.lib._baselib_cross_sector as tbs
+import sisepuede.transformers.lib._baselib_energy as tbe
 import sisepuede.transformers.lib._baselib_general as tbg
+import sisepuede.transformers.lib._baselib_ippu as tbi
 import sisepuede.transformers.lib._classes as trl
 import sisepuede.utilities._toolbox as sf
 
@@ -44,19 +44,18 @@ def get_dict_config_default(
     Retrieve the dictionary of default configuration values for transformers.
     """
     dict_out = {
-        # ENTC categories that are capped to 0 investment
-        "categories_entc_max_investment_ramp": [
-            "pp_hydropower"
-        ],
+        #
+        # ENTC categories that are capped to 0 investment--default to include 
+        #"categories_entc_max_investment_ramp": [
+        #    "pp_hydropower"
+        #],
+        #[
+        #        "pp_geothermal",
+        #        "pp_nuclear"
+        #    ]
 
-        # ENTC categories considered renewable sources
-        "categories_entc_renewable": [
-            "pp_geothermal",
-            "pp_hydropower",
-            "pp_ocean",
-            "pp_solar",
-            "pp_wind"
-        ],
+        # ENTC categories considered renewable sources--defaults to attribute table specs if not defined
+        #"categories_entc_renewable": []
 
         # INEN categories that have high heat
         "categories_inen_high_heat": [
@@ -68,11 +67,11 @@ def get_dict_config_default(
         ],
 
         # Target minimum share of production fractions for power plants in the renewable target tranformation
-        "dict_entc_renewable_target_msp": {
-            "pp_solar": 0.15,
-            "pp_geothermal": 0.1,
-            "pp_wind": 0.15
-        },
+        #"dict_entc_renewable_target_msp": {
+        #    "pp_solar": 0.15,
+        #    "pp_geothermal": 0.1,
+        #    "pp_wind": 0.15
+        #},
 
         # fraction of high heat that can be electrified and hydrogenized
         "frac_inen_high_temp_elec_hydg": 0.5*0.45,
@@ -81,14 +80,14 @@ def get_dict_config_default(
         "frac_inen_low_temp_elec": 0.95*0.45,
 
         # number of time periods in the ramp
-        "n_tp_ramp": None,
+        # "n_tp_ramp": None,
 
         # shape values for implementing caps on new technologies (description below)
         "vir_renewable_cap_delta_frac": 0.0075,
         "vir_renewable_cap_max_frac": 0.125,
 
         # first year to start transformations--default is to 2 years from present
-        "year_0_ramp": dt.datetime.now().year + 2
+        # "year_0_ramp": dt.datetime.now().year + 2
     }
 
     return dict_out
@@ -169,6 +168,7 @@ class Transformers:
         self._initialize_file_structure(
             regex_template_prepend = regex_template_prepend, 
         )
+        self._initialize_models()
         self._initialize_attributes(field_region, )
 
         self._initialize_config(dict_config = dict_config, )
@@ -177,7 +177,7 @@ class Transformers:
 
         # set transformations by sector, models (which come from sectoral transformations)
         self._initialize_baseline_inputs(df_input, )
-        self._initialize_models()
+        
         self._initialize_transformers()
         
         return None
@@ -208,12 +208,21 @@ class Transformers:
         if error_q:
             raise RuntimeError(f"Error: invalid specification of model_attributes in Transformers")
 
-        # get strategy attribute, baseline strategy, and some fields
+        # get transformer attribute, technology attribute
         attribute_transformer_code = (
             self.model_attributes
-            .get_dimensional_attribute_table(
+            .get_other_attribute_table(
                 self.model_attributes
                 .dim_transformer_code
+            )
+        )
+
+        # add technology attribute
+        attribute_technology = (
+            self.model_attributes
+            .get_attribute_table(
+                self.model_attributes
+                .subsec_name_entc
             )
         )
 
@@ -230,6 +239,7 @@ class Transformers:
 
         ##  SET PROPERTIES
         
+        self.attribute_technology = attribute_technology
         self.attribute_transformer_code = attribute_transformer_code
         self.key_region = field_region
         self.key_transformer_code = attribute_transformer_code.key
@@ -315,18 +325,22 @@ class Transformers:
                 "vir_renewable_cap_max_frac") in cap for for new technology
                 capacities available to build in time period while transitioning
                 to renewable capacties. Default is 0.01 (will decline by 1% each
-                time period after "year_0_ramp")
+                time period after "tp_0_ramp")
             * "vir_renewable_cap_max_frac": cap for for new technology 
                 capacities available to build in time period while transitioning
                 to renewable capacties; entered as a fraction of estimated
-                capacity in "year_0_ramp". Default is 0.05
+                capacity in "tp_0_ramp". Default is 0.05
             
         """
+        # build config; start with default and overwrite as necessary
+        config = get_dict_config_default()
+        if isinstance(dict_config, dict):
+            config.update(dict_config)
 
-        dict_config = {} if not isinstance(dict_config, dict) else dict_config
 
-        # set parameters
-        self.config = dict_config
+        ##  SET PARAMETERS
+
+        self.config = config
 
         self.key_config_cats_entc_max_investment_ramp = "categories_entc_max_investment_ramp"
         self.key_config_cats_entc_pps_to_cap = "categories_entc_pps_to_cap"
@@ -419,10 +433,10 @@ class Transformers:
 
         models = sm.SISEPUEDEModels(
             self.model_attributes,
-            allow_electricity_run = False,
+            allow_electricity_run = True,
             fp_julia = self.file_struct.dir_jl,
             fp_nemomod_reference_files = self.file_struct.dir_ref_nemo,
-            fp_nemomod_temp_sqlite_db = self.file_struct.fp_nemomod_temp_sqlite_db,
+            fp_nemomod_temp_sqlite_db = self.file_struct.fp_sqlite_tmp_nemomod_intermediate,
             initialize_julia = False,
             logger = self.logger,
         )
@@ -430,7 +444,7 @@ class Transformers:
         # check AFOLU
         model_afolu = kwargs.get("model_afolu")
         if not is_sisepuede_model_afolu(model_afolu):
-            model_afolu = models.afolu
+            model_afolu = models.model_afolu
 
 
         # check CircularEconomy
@@ -488,7 +502,12 @@ class Transformers:
         )
         
         # get parameters from configuration dictionary if specified
-        n_tp_ramp, tp_0_ramp = self.get_ramp_characteristics(
+        (
+            n_tp_ramp, 
+            tp_0_ramp,  
+            vir_renewable_cap_delta_frac,
+            vir_renewable_cap_max_frac,
+        ) = self.get_ramp_characteristics(
             n_tp_ramp = dict_config.get(self.key_config_n_tp_ramp),
             tp_0_ramp = dict_config.get(self.key_config_tp_0_ramp),
         )
@@ -498,6 +517,8 @@ class Transformers:
 
         self.n_tp_ramp = n_tp_ramp
         self.tp_0_ramp = tp_0_ramp
+        self.vir_renewable_cap_delta_frac = vir_renewable_cap_delta_frac
+        self.vir_renewable_cap_max_frac = vir_renewable_cap_max_frac
 
         return None
     
@@ -563,40 +584,40 @@ class Transformers:
 
         self.agrc_improve_rice_management = trl.Transformer(
             "TX:AGRC:DEC_CH4_RICE", 
-            self.transformation_agrc_improve_rice_management,
-            attr_strategy
+            self._trfunc_agrc_improve_rice_management,
+            attr_transformer_code
         )
         all_transformers.append(self.agrc_improve_rice_management)
 
 
         self.agrc_decrease_exports = trl.Transformer(
             "TX:AGRC:DEC_EXPORTS", 
-            self.transformation_agrc_decrease_exports,
-            attr_strategy
+            self._trfunc_agrc_decrease_exports,
+            attr_transformer_code
         )
         all_transformers.append(self.agrc_decrease_exports)
 
 
         self.agrc_expand_conservation_agriculture = trl.Transformer(
             "TX:AGRC:INC_CONSERVATION_AGRICULTURE", 
-            self.transformation_agrc_expand_conservation_agriculture,
-            attr_strategy
+            self._trfunc_agrc_expand_conservation_agriculture,
+            attr_transformer_code
         )
         all_transformers.append(self.agrc_expand_conservation_agriculture)
 
 
         self.agrc_increase_crop_productivity = trl.Transformer(
             "TX:AGRC:INC_PRODUCTIVITY", 
-            self.transformation_agrc_increase_crop_productivity,
-            attr_strategy
+            self._trfunc_agrc_increase_crop_productivity,
+            attr_transformer_code
         )
         all_transformers.append(self.agrc_increase_crop_productivity)
 
 
         self.agrc_reduce_supply_chain_losses = trl.Transformer(
             "TX:AGRC:DEC_LOSSES_SUPPLY_CHAIN", 
-            self.transformation_agrc_reduce_supply_chain_losses,
-            attr_strategy
+            self._trfunc_agrc_reduce_supply_chain_losses,
+            attr_transformer_code
         )
         all_transformers.append(self.agrc_reduce_supply_chain_losses)
 
@@ -608,40 +629,40 @@ class Transformers:
 
         self.lndu_expand_silvopasture = trl.Transformer(
             "TX:LNDU:INC_SILVOPASTURE", 
-            self.transformation_lndu_expand_silvopasture,
-            attr_strategy
+            self._trfunc_lndu_expand_silvopasture,
+            attr_transformer_code
         )
         all_transformers.append(self.lndu_expand_silvopasture)
 
 
         self.lndu_expand_sustainable_grazing = trl.Transformer(
-            "TX:LNDU:INC_SUSTAINABLE_GRAZING", 
-            self.transformation_lndu_expand_sustainable_grazing,
-            attr_strategy
+            "TX:LNDU:DEC_SOC_LOSS_PASTURES", 
+            self._trfunc_lndu_expand_sustainable_grazing,
+            attr_transformer_code
         )
         all_transformers.append(self.lndu_expand_sustainable_grazing)
 
 
         self.lndu_increase_reforestation = trl.Transformer(
             "TX:LNDU:INC_REFORESTATION", 
-            self.transformation_lndu_increase_reforestation,
-            attr_strategy
+            self._trfunc_lndu_increase_reforestation,
+            attr_transformer_code
         )
         all_transformers.append(self.lndu_increase_reforestation)
 
 
         self.lndu_partial_reallocation = trl.Transformer(
             "TX:LNDU:PLUR", 
-            self.transformation_lndu_reallocate_land,
-            attr_strategy
+            self._trfunc_lndu_reallocate_land,
+            attr_transformer_code
         )
         all_transformers.append(self.lndu_partial_reallocation)
 
 
         self.lndu_stop_deforestation = trl.Transformer(
             "TX:LNDU:DEC_DEFORESTATION", 
-            self.transformation_lndu_stop_deforestation,
-            attr_strategy
+            self._trfunc_lndu_stop_deforestation,
+            attr_transformer_code
         )
         all_transformers.append(self.lndu_stop_deforestation)
 
@@ -650,32 +671,32 @@ class Transformers:
 
         self.lsmm_improve_manure_management_cattle_pigs = trl.Transformer(
             "TX:LSMM:INC_MANAGEMENT_CATTLE_PIGS", 
-            self.transformation_lsmm_improve_manure_management_cattle_pigs,
-            attr_strategy
+            self._trfunc_lsmm_improve_manure_management_cattle_pigs,
+            attr_transformer_code
         )
         all_transformers.append(self.lsmm_improve_manure_management_cattle_pigs)
 
 
         self.lsmm_improve_manure_management_other = trl.Transformer(
             "TX:LSMM:INC_MANAGEMENT_OTHER", 
-            self.transformation_lsmm_improve_manure_management_other,
-            attr_strategy
+            self._trfunc_lsmm_improve_manure_management_other,
+            attr_transformer_code
         )
         all_transformers.append(self.lsmm_improve_manure_management_other)
         
 
         self.lsmm_improve_manure_management_poultry = trl.Transformer(
             "TX:LSMM:INC_MANAGEMENT_POULTRY", 
-            self.transformation_lsmm_improve_manure_management_poultry,
-            attr_strategy
+            self._trfunc_lsmm_improve_manure_management_poultry,
+            attr_transformer_code
         )
         all_transformers.append(self.lsmm_improve_manure_management_poultry)
 
 
         self.lsmm_increase_biogas_capture = trl.Transformer(
             "TX:LSMM:INC_CAPTURE_BIOGAS", 
-            self.transformation_lsmm_increase_biogas_capture,
-            attr_strategy
+            self._trfunc_lsmm_increase_biogas_capture,
+            attr_transformer_code
         )
         all_transformers.append(self.lsmm_increase_biogas_capture)
 
@@ -684,24 +705,24 @@ class Transformers:
       
         self.lvst_decrease_exports = trl.Transformer(
             "TX:LVST:DEC_EXPORTS", 
-            self.transformation_lvst_decrease_exports,
-            attr_strategy
+            self._trfunc_lvst_decrease_exports,
+            attr_transformer_code
         )
         all_transformers.append(self.lvst_decrease_exports)
 
 
         self.lvst_increase_productivity = trl.Transformer(
             "TX:LVST:INC_PRODUCTIVITY", 
-            self.transformation_lvst_increase_productivity,
-            attr_strategy
+            self._trfunc_lvst_increase_productivity,
+            attr_transformer_code
         )
         all_transformers.append(self.lvst_increase_productivity)
 
 
         self.lvst_reduce_enteric_fermentation = trl.Transformer(
             "TX:LVST:DEC_ENTERIC_FERMENTATION", 
-            self.transformation_lvst_reduce_enteric_fermentation,
-            attr_strategy
+            self._trfunc_lvst_reduce_enteric_fermentation,
+            attr_transformer_code
         )
         all_transformers.append(self.lvst_reduce_enteric_fermentation)
         
@@ -710,20 +731,120 @@ class Transformers:
         
         self.soil_reduce_excess_fertilizer = trl.Transformer(
             "TX:SOIL:DEC_N_APPLIED", 
-            self.transformation_soil_reduce_excess_fertilizer,
-            attr_strategy
+            self._trfunc_soil_reduce_excess_fertilizer,
+            attr_transformer_code
         )
         all_transformers.append(self.soil_reduce_excess_fertilizer)
 
 
         self.soil_reduce_excess_liming = trl.Transformer(
             "TX:SOIL:DEC_LIME_APPLIED", 
-            self.transformation_soil_reduce_excess_lime,
-            attr_strategy
+            self._trfunc_soil_reduce_excess_lime,
+            attr_transformer_code
         )
         all_transformers.append(self.soil_reduce_excess_liming)
 
 
+        ##  TRWW TRANSFORMERS
+
+        self.trww_increase_biogas_capture = trl.Transformer(
+            "TX:TRWW:INC_CAPTURE_BIOGAS", 
+            self._trfunc_trww_increase_biogas_capture,
+            attr_transformer_code
+        )
+        all_transformers.append(self.trww_increase_biogas_capture)
+
+
+        self.trww_increase_septic_compliance = trl.Transformer(
+            "TX:TRWW:INC_COMPLIANCE_SEPTIC", 
+            self._trfunc_trww_increase_septic_compliance,
+            attr_transformer_code
+        )
+        all_transformers.append(self.trww_increase_septic_compliance)
+
+
+        ##  WALI TRANSFORMERS
+ 
+        self.wali_improve_sanitation_industrial = trl.Transformer(
+            "TX:WALI:INC_TREATMENT_INDUSTRIAL", 
+            self._trfunc_wali_improve_sanitation_industrial,
+            attr_transformer_code
+        )
+        all_transformers.append(self.wali_improve_sanitation_industrial)
+
+
+        self.wali_improve_sanitation_rural = trl.Transformer(
+            "TX:WALI:INC_TREATMENT_RURAL", 
+            self._trfunc_wali_improve_sanitation_rural,
+            attr_transformer_code
+        )
+        all_transformers.append(self.wali_improve_sanitation_rural)
+
+
+        self.wali_improve_sanitation_urban = trl.Transformer(
+            "TX:WALI:INC_TREATMENT_URBAN", 
+            self._trfunc_wali_improve_sanitation_urban,
+            attr_transformer_code
+        )
+        all_transformers.append(self.wali_improve_sanitation_urban)
+
+
+        ##  WASO TRANSFORMERS
+
+        self.waso_descrease_consumer_food_waste = trl.Transformer(
+            "TX:WASO:DEC_CONSUMER_FOOD_WASTE",
+            self._trfunc_waso_decrease_food_waste, 
+            attr_transformer_code
+        )
+        all_transformers.append(self.waso_descrease_consumer_food_waste)
+
+        
+        self.waso_increase_anaerobic_treatment_and_composting = trl.Transformer(
+            "TX:WASO:INC_ANAEROBIC_AND_COMPOST", 
+            self._trfunc_waso_increase_anaerobic_treatment_and_composting, 
+            attr_transformer_code
+        )
+        all_transformers.append(self.waso_increase_anaerobic_treatment_and_composting)
+
+
+        self.waso_increase_biogas_capture = trl.Transformer(
+            "TX:WASO:INC_CAPTURE_BIOGAS", 
+            self._trfunc_waso_increase_biogas_capture, 
+            attr_transformer_code
+        )
+        all_transformers.append(self.waso_increase_biogas_capture)
+
+
+        self.waso_energy_from_biogas = trl.Transformer(
+            "TX:WASO:INC_ENERGY_FROM_BIOGAS", 
+            self._trfunc_waso_increase_energy_from_biogas, 
+            attr_transformer_code
+        )
+        all_transformers.append(self.waso_energy_from_biogas)
+
+
+        self.waso_energy_from_incineration = trl.Transformer(
+            "TX:WASO:INC_ENERGY_FROM_INCINERATION", 
+            self._trfunc_waso_increase_energy_from_incineration, 
+            attr_transformer_code
+        )
+        all_transformers.append(self.waso_energy_from_incineration)
+
+
+        self.waso_increase_landfilling = trl.Transformer(
+            "TX:WASO:INC_LANDFILLING", 
+            self._trfunc_waso_increase_landfilling, 
+            attr_transformer_code
+        )
+        all_transformers.append(self.waso_increase_landfilling)
+
+        
+        self.waso_increase_recycling = trl.Transformer(
+            "TX:WASO:INC_RECYCLING", 
+            self._trfunc_waso_increase_recycling, 
+            attr_transformer_code
+        )
+        all_transformers.append(self.waso_increase_recycling)
 
 
 
@@ -733,7 +854,7 @@ class Transformers:
 
 
         self.plfo_healthier_diets = trl.Transformer(
-            "TX:PFLO:BETTER_DIETS", 
+            "TX:PFLO:HEALTHIER_DIETS", 
             self._trfunc_pflo_healthier_diets, 
             attr_transformer_code
         )
@@ -742,7 +863,7 @@ class Transformers:
 
 
         self.pflo_industrial_ccs = trl.Transformer(
-            "PFLO:IND_INC_CCS", 
+            "TX:PFLO:INC_IND_CCS", 
             self._trfunc_pflo_industrial_ccs, 
             attr_transformer_code
         )
@@ -809,33 +930,50 @@ class Transformers:
         - tp_0_ramp: last time period without change from baseline
         **kwargs: passed to sisepuede.utilities._toolbox.ramp_vector()
         """
-
-        # pull ramp characteristics
-        n_tp_ramp = (
-            self.n_tp_ramp 
-            if (not sf.isnumber(n_tp_ramp, integer = True)) 
-            else n_tp_ramp
-        )
-        tp_0_ramp = (
-            self.tp_0_ramp 
-            if (not sf.isnumber(tp_0_ramp, integer = True)) 
-            else tp_0_ramp
-        )
-
-        # 
+        
+        # some init
+        #int_n_q = sf.isnumber(n_tp_ramp, integer = True)
+        #int_t_q = sf.isnumber(tp_0_ramp, integer = True)
         n_tp = len(self.time_periods.all_time_periods)
-        n_tp_ramp, tp_0_ramp = self.get_ramp_characteristics(
+
+        """
+        ##  SET n_tp_ramp AND tp_0_ramp ON A CASE BASIS
+
+        if not (int_n_q & int_t_q):
+            # if both are not set, use defaults
+            n_tp_ramp = self.n_tp_ramp 
+            tp_0_ramp = self.tp_0_ramp 
+        
+        elif not int_n_q:
+            # here, tp_0_ramp is specified, but we have to recalculate n_tp_ramp
+            n_tp_ramp = n_tp - tp_0_ramp - 1
+        
+        elif not int_t_q:
+            # here, the number of time periods is specifed; we check for tp_0_ramp
+            n_tp_ramp = max(min(n_tp_ramp, n_tp - 1), 1)
+            tp_0_ramp = n_tp - n_tp_ramp - 1
+        """
+
+        # verify the values
+        n_tp_ramp, tp_0_ramp, _, _ = self.get_ramp_characteristics(
             n_tp_ramp = n_tp_ramp,
             tp_0_ramp = tp_0_ramp,
         )
-
+        
+        # get some shape parameters
+        a = kwargs.get("a", 0)
+        b = kwargs.get("b", 2)
+        c = kwargs.get("c", 1)
+        d = kwargs.get("d") # default is None
+ 
         vec_out = sf.ramp_vector(
             n_tp, 
-            a = 0, 
-            b = 2, 
-            c = 1, 
-            r_0 = tp_0,
-            r_1 = tp_0 + n_tp_ramp,
+            a = a, 
+            b = b, 
+            c = c, 
+            d = d,
+            r_0 = tp_0_ramp,
+            r_1 = tp_0_ramp + n_tp_ramp,
         )
 
         return vec_out
@@ -893,8 +1031,9 @@ class Transformers:
 
             try:
                 vec_implementation_ramp = self.build_implementation_ramp_vector(
-                    n_tp_ramp = n_tp_ramp,
-                    tp_0_ramp = tp_0_ramp,
+                    **vec_implementation_ramp
+                    #n_tp_ramp = n_tp_ramp,
+                    #tp_0_ramp = tp_0_ramp,
                 )
 
             except Exception as e:
@@ -908,6 +1047,35 @@ class Transformers:
         )
 
         return out
+    
+
+
+    def get_entc_cats_max_investment_ramp(self,
+        cats_entc_max_investment_ramp: Union[List[str], None] = None,
+    ) -> List[str]:
+        """
+        Set categories to which a cap on maximum investment is applied in the 
+            renewables target shift.  If dict_config is None, uses self.config.
+        
+        Keyword Arguments
+        -----------------
+        - cats_entc_max_investment_ramp: list of categories to apply a maximum
+            investment capacity to
+        """
+
+        cats_entc_max_investment_ramp = (
+            self.model_attributes.get_valid_categories(
+                cats_entc_max_investment_ramp,
+                self.model_attributes.subsec_name_entc,
+            )
+            if sf.islistlike(cats_entc_max_investment_ramp)
+            else self.config.get(
+                self.key_config_cats_entc_max_investment_ramp,
+                [],
+            )
+        )
+        
+        return cats_entc_max_investment_ramp
     
 
 
@@ -973,13 +1141,15 @@ class Transformers:
             (
                 n_tp_ramp,
                 tp_0_ramp, 
+                vir_renewable_cap_delta_frac,
+                vir_renewable_cap_max_frac,
             )
         
         If dict_config is None, uses self.config.
 
         NOTE: Requires those keys in dict_config to set. If not found, will set
             the following defaults:
-                * year_0_ramp: 9th year (10th time period)
+                * tp_0_ramp: current year (computational run time) + 2
                 * n_tp_ramp: n_tp - t0_ramp - 1 (ramps to 1 at final time 
                     period)
 
@@ -1013,17 +1183,32 @@ class Transformers:
             if not sf.isnumber(n_tp_ramp, integer = True)
             else min(default_tp_ramp, n_tp_ramp)
         )
+
+
+        ##  GET PARAMETERS USED TO MODIFY MSPs IN CONJUNCTION WITH vec_implementation_ramp
+
+        # get VIR (get_vir_max_capacity) delta_frac
+        # default_vir_renewable_cap_delta_frac = 0.01
+        vir_renewable_cap_delta_frac = self.config.get(self.key_config_vir_renewable_cap_delta_frac)
+        vir_renewable_cap_delta_frac = float(sf.vec_bounds(vir_renewable_cap_delta_frac, (0.0, 1.0)))
+
+        # get VIR (get_vir_max_capacity) max_frac
+        # default_vir_renewable_cap_max_frac = 0.05
+        vir_renewable_cap_max_frac = self.config.get(self.key_config_vir_renewable_cap_max_frac)
+        vir_renewable_cap_max_frac = float(sf.vec_bounds(vir_renewable_cap_max_frac, (0.0, 1.0)))
        
         tup_out = (
             n_tp_ramp,
-            year_0_ramp, 
+            tp_0_ramp,
+            vir_renewable_cap_delta_frac,
+            vir_renewable_cap_max_frac, 
         )
 
         return tup_out
 
         
 
-     def get_transformer(self,
+    def get_transformer(self,
         transformer: Union[int, str, None],
         field_transformer_id: str = "transformer_id",
         field_transformer_name: str = "transformer",
@@ -1069,7 +1254,7 @@ class Transformers:
         if isinstance(transformer, str):
             code = (
                 transformer
-                if transformer in attribute_transformer_code.key_values
+                if transformer in self.attribute_transformer_code.key_values
                 else dict_name_to_code.get(transformer)
             )
         
@@ -1091,7 +1276,8 @@ class Transformers:
 
 
     def get_vectors_for_ramp_and_cap(self,
-        **kwargs,
+        categories_entc_max_investment_ramp: Union[List[str], None] = None,
+        vec_implementation_ramp: Union[np.ndarray, Dict[str, int], None] = None,
     ) -> Tuple: 
         """
         Get ramp vector and associated vectors for capping, including (in order)
@@ -1103,16 +1289,24 @@ class Transformers:
         
         Keyword Arguments
         -----------------
-        **kwargs: passed to build_implementation_ramp_vector(); if 
-            vec_implementation_ramp is passed as a keyword argument, will use
-            this to derive renewable and MSP caps
+        - categories_entc_max_investment_ramp: categories to cap investments in
+        - vec_implementation_ramp: optional vector specifying the implementation
+            scalar ramp for the transformation. If None, defaults to a uniform 
+            ramp that starts at the time specified in the configuration.
         """
-        
-        if "vec_implementation_ramp" not in kwargs.keys():
+
+        # get the implementation ramp
+        if vec_implementation_ramp is None:
             vec_implementation_ramp = self.build_implementation_ramp_vector(**kwargs)
 
+        # build renwewable cap for MSP
         vec_implementation_ramp_renewable_cap = self.get_vir_max_capacity(vec_implementation_ramp)
         vec_msp_resolution_cap = self.build_msp_cap_vector(vec_implementation_ramp)
+
+        # get max investment ramp categories 
+        cats_entc_max_investment_ramp = self.get_entc_cats_max_investment_ramp(
+            cats_entc_max_investment_ramp = categories_entc_max_investment_ramp,
+        )
 
         dict_entc_renewable_target_cats_max_investment = dict(
             (
@@ -1121,7 +1315,7 @@ class Transformers:
                     "vec": vec_implementation_ramp_renewable_cap,
                     "type": "scalar"
                 }
-            ) for x in self.cats_entc_max_investment_ramp
+            ) for x in cats_entc_max_investment_ramp
         )
         
         
@@ -1357,6 +1551,7 @@ class Transformers:
 
     def _trfunc_baseline(self,
         df_input: pd.DataFrame,
+        categories_entc_max_investment_ramp: Union[List[str], None] = None,
         categories_entc_pps_to_cap: Union[List[str], None] = None,
         categories_entc_renewable: Union[List[str], None] = None,
         dict_entc_renewable_target_msp_baseline: dict = {},
@@ -1364,6 +1559,7 @@ class Transformers:
         n_tp_ramp: Union[int, None] = None,
         tp_0_ramp: Union[int, None] = None,
         strat: Union[int, None] = None,
+        vec_implementation_ramp: Union[np.ndarray, Dict[str, int], None] = None,
     ) -> pd.DataFrame:
         """
         Implement the "Baseline" from which other transformations deviate 
@@ -1375,6 +1571,7 @@ class Transformers:
 
         Keyword Arguments
         -----------------
+        - categories_entc_max_investment_ramp: categories to cap investments in
         - categories_entc_pps_to_cap: ENTC categories to cap at current levels 
             when projecting minimum share of production (MSP) forward.
         - categories_entc_renewable: power plant energy technologies considered
@@ -1441,6 +1638,7 @@ class Transformers:
             vec_implementation_ramp_renewable_cap,
             vec_msp_resolution_cap,
         ) = self.get_vectors_for_ramp_and_cap(
+            categories_entc_max_investment_ramp = categories_entc_max_investment_ramp,
             vec_implementation_ramp = vec_implementation_ramp,
         )
 
@@ -1494,7 +1692,7 @@ class Transformers:
             magnitude_renewables = dict_entc_renewable_target_msp_baseline,
             scale_non_renewables_to_match_surplus_msp = True,
             strategy_id = strat,
-            **kwargs,
+            #**kwargs,
         )
 
 
@@ -1804,7 +2002,11 @@ class Transformers:
         )
 
         # set the magnitude in case of none
-        magnitude = 0.45 if not isinstance(magnitude, float) else magnitude
+        magnitude = magnitude = (
+            0.45
+            if not isinstance(magnitude, float) 
+            else max(min(magnitude, 1.0), 0.0)
+        )
 
         # check implementation ramp
         vec_implementation_ramp = self.check_implementation_ramp(
@@ -1919,7 +2121,11 @@ class Transformers:
         )
 
         # set the magnitude in case of none
-        magnitude = 0.3 if not isinstance(magnitude, float) else magnitude
+        magnitude = (
+            0.3
+            if not isinstance(magnitude, float) 
+            else max(min(magnitude, 1.0), 0.0)
+        )
 
         # check implementation ramp
         vec_implementation_ramp = self.check_implementation_ramp(
@@ -1980,7 +2186,11 @@ class Transformers:
         )
         
         # set the magnitude in case of none
-        magnitude = 0.2 if not isinstance(magnitude, float) else magnitude
+        magnitude = (
+            0.2 
+            if not isinstance(magnitude, float) 
+            else max(min(magnitude, 1.0), 0.0)
+        )
 
         # check implementation ramp
         vec_implementation_ramp = self.check_implementation_ramp(
@@ -2979,6 +3189,784 @@ class Transformers:
         )
         
         return df_out
+    
+
+
+
+    ##########################################
+    #    CIRCULAR ECONOMY TRANSFORMATIONS    #
+    ##########################################
+
+    ##  TRWW TRANSFORMATIONS
+    
+    def _trfunc_trww_increase_biogas_capture(self,
+        df_input: Union[pd.DataFrame, None] = None,
+        magnitude: float = 0.85,
+        strat: Union[int, None] = None,
+        vec_implementation_ramp: Union[np.ndarray, None] = None,
+    ) -> pd.DataFrame:
+        """
+        Implement the "Increase Biogas Capture at Wastewater Treatment Plants" 
+            TRWW transformation on input DataFrame df_input
+        
+        Function Arguments
+        ------------------
+
+        Keyword Arguments
+        -----------------
+        - df_input: data frame containing trajectories to modify
+        - magnitude: final magnitude of biogas capture at TRWW facilties.
+            NOTE: If specified as a float, the same value applies to both 
+                landfill and biogas. Specify as a dictionary to specifiy 
+                different capture fractions by TRWW technology, e.g., 
+                
+                magnitude = {
+                    "treated_advanced_anaerobic": 0.85, 
+                    "treated_secondary_anaerobic": 0.5
+                }
+                
+        - strat: optional strategy value to specify for the transformation
+        - vec_implementation_ramp: optional vector specifying the implementation
+            scalar ramp for the transformation. If None, defaults to a uniform 
+            ramp that starts at the time specified in the configuration.
+        """
+        # check input dataframe
+        df_input = (
+            self.baseline_inputs
+            if not isinstance(df_input, pd.DataFrame) 
+            else df_input
+        )
+
+        # check implementation ramp
+        vec_implementation_ramp = self.check_implementation_ramp(
+            vec_implementation_ramp,
+            df_input,
+        )
+
+
+        df_out = tbc.transformation_trww_increase_gas_capture(
+            df_input,
+            magnitude,
+            vec_implementation_ramp,
+            self.model_attributes,
+            field_region = self.key_region,
+            model_circecon = self.model_circecon,
+            strategy_id = strat
+        )
+
+        return df_out
+
+
+    
+    def _trfunc_trww_increase_septic_compliance(self,
+        df_input: Union[pd.DataFrame, None] = None,
+        magnitude: float = 0.9,
+        strat: Union[int, None] = None,
+        vec_implementation_ramp: Union[np.ndarray, None] = None,
+    ) -> pd.DataFrame:
+        """
+        Implement the "Increase Compliance" TRWW transformation on input 
+            DataFrame df_input
+        
+        Function Arguments
+        ------------------
+
+        Keyword Arguments
+        -----------------
+        - df_input: data frame containing trajectories to modify
+        - magnitude: final magnitude of compliance at septic tanks that are
+            installed
+        - strat: optional strategy value to specify for the transformation
+        - vec_implementation_ramp: optional vector specifying the implementation
+            scalar ramp for the transformation. If None, defaults to a uniform 
+            ramp that starts at the time specified in the configuration.
+        """
+        # check input dataframe
+        df_input = (
+            self.baseline_inputs
+            if not isinstance(df_input, pd.DataFrame) 
+            else df_input
+        )
+
+        # check implementation ramp
+        vec_implementation_ramp = self.check_implementation_ramp(
+            vec_implementation_ramp,
+            df_input,
+        )
+
+
+        df_out = tbc.transformation_trww_increase_septic_compliance(
+            df_input,
+            magnitude,
+            vec_implementation_ramp,
+            self.model_attributes,
+            field_region = self.key_region,
+            model_circecon = self.model_circecon,
+            strategy_id = strat
+        )
+
+        return df_out
+
+
+
+    ##############################
+    #    WALI TRANSFORMATIONS    #
+    ##############################
+
+    def _trfunc_wali_improve_sanitation_industrial(self,
+        df_input: Union[pd.DataFrame, None] = None,
+        dict_magnitude: Union[Dict[str, float], None] = None,
+        strat: Union[int, None] = None,
+        vec_implementation_ramp: Union[np.ndarray, None] = None,
+    ) -> pd.DataFrame:
+        """
+        Implement the "Improve Industrial Sanitation" WALI transformation on 
+            input DataFrame df_input
+        
+        Function Arguments
+        ------------------
+
+        Keyword Arguments
+        -----------------
+        - df_input: data frame containing trajectories to modify
+        - dict_magnitude: target allocation, across TRWW (Wastewater Treatment) 
+            categories (categories are keys), of treatment as total fraction. 
+            * E.g., to acheive 80% of treatment from advanced anaerobic and 10% 
+            from scondary aerobic by the final time period, the following 
+            dictionary would be specified:
+
+            dict_magnitude = {
+                "treated_advanced_anaerobic": 0.8,
+                "treated_secondary_anaerobic": 0.1
+            }
+
+            If None, defaults to:
+
+            {
+                "treated_advanced_anaerobic": 0.8,
+                "treated_secondary_aerobic": 0.1,
+                "treated_secondary_anaerobic": 0.1,
+            }
+
+        - strat: optional strategy value to specify for the transformation
+        - vec_implementation_ramp: optional vector specifying the implementation
+            scalar ramp for the transformation. If None, defaults to a uniform 
+            ramp that starts at the time specified in the configuration.
+        """
+        # check input dataframe
+        df_input = (
+            self.baseline_inputs
+            if not isinstance(df_input, pd.DataFrame) 
+            else df_input
+        )
+
+        # check implementation ramp
+        vec_implementation_ramp = self.check_implementation_ramp(
+            vec_implementation_ramp,
+            df_input,
+        )
+
+
+        ##  CHECK DICTIONARY
+
+        if not isinstance(dict_magnitude, dict):
+            dict_magnitude = {
+                "treated_advanced_anaerobic": 0.8,
+                "treated_secondary_aerobic": 0.1,
+                "treated_secondary_anaerobic": 0.1,
+            }
+        
+        attr = self.model_attributes.get_attribute_table(
+            self.model_attributes.subsec_name_trww,
+        )
+        dict_magnitude = dict(
+            (k, v) for k, v in dict_magnitude.items()
+            if k in attr.key_values
+        )
+
+
+        # get categories and dictionary to specify parameters (move to config eventually)
+        df_out = tbc.transformation_wali_improve_sanitation(
+            df_input,
+            "ww_industrial",
+            dict_magnitude,
+            vec_implementation_ramp,
+            self.model_attributes,
+            field_region = self.key_region,
+            model_circecon = self.model_circecon,
+            strategy_id = strat,
+        )
+
+
+        return df_out
+
+
+
+    def _trfunc_wali_improve_sanitation_rural(self,
+        df_input: Union[pd.DataFrame, None] = None,
+        dict_magnitude: Union[Dict[str, float], None] = None,
+        strat: Union[int, None] = None,
+        vec_implementation_ramp: Union[np.ndarray, None] = None,
+    ) -> pd.DataFrame:
+        """
+        Implement the "Improve Rural Sanitation" WALI transformation on 
+            input DataFrame df_input
+
+        Function Arguments
+        ------------------
+
+        Keyword Arguments
+        -----------------
+        - df_input: data frame containing trajectories to modify
+        - dict_magnitude: target allocation, across TRWW (Wastewater Treatment) 
+            categories (categories are keys), of treatment as total fraction. 
+            * E.g., to acheive 80% of treatment from advanced anaerobic and 10% 
+            from scondary aerobic by the final time period, the following 
+            dictionary would be specified:
+
+            dict_magnitude = {
+                "treated_advanced_anaerobic": 0.8,
+                "treated_secondary_anaerobic": 0.1
+            }
+
+            If None, defaults to:
+
+            {
+                "treated_septic": 1.0,
+            }
+        - strat: optional strategy value to specify for the transformation
+        - vec_implementation_ramp: optional vector specifying the implementation
+            scalar ramp for the transformation. If None, defaults to a uniform 
+            ramp that starts at the time specified in the configuration.
+        """
+        # check input dataframe
+        df_input = (
+            self.baseline_inputs
+            if not isinstance(df_input, pd.DataFrame) 
+            else df_input
+        )
+
+        # check implementation ramp
+        vec_implementation_ramp = self.check_implementation_ramp(
+            vec_implementation_ramp,
+            df_input,
+        )
+
+
+        ##  CHECK DICTIONARY
+
+        if not isinstance(dict_magnitude, dict):
+            dict_magnitude = {
+                "treated_septic": 1.0, 
+            }
+        
+        attr = self.model_attributes.get_attribute_table(
+            self.model_attributes.subsec_name_trww,
+        )
+        dict_magnitude = dict(
+            (k, v) for k, v in dict_magnitude.items()
+            if k in attr.key_values
+        )
+
+
+        # get categories and dictionary to specify parameters (move to config eventually)
+        df_out = tbc.transformation_wali_improve_sanitation(
+            df_input,
+            "ww_domestic_rural",
+            dict_magnitude,
+            vec_implementation_ramp,
+            self.model_attributes,
+            field_region = self.key_region,
+            model_circecon = self.model_circecon,
+            strategy_id = strat,
+        )
+
+
+        return df_out
+
+
+
+    def _trfunc_wali_improve_sanitation_urban(self,
+        df_input: Union[pd.DataFrame, None] = None,
+        dict_magnitude: Union[Dict[str, float], None] = None,
+        strat: Union[int, None] = None,
+        vec_implementation_ramp: Union[np.ndarray, None] = None,
+    ) -> pd.DataFrame:
+        """
+        Implement the "Improve Urban Sanitation" WALI transformation on 
+            input DataFrame df_input
+        
+        Function Arguments
+        ------------------
+
+        Keyword Arguments
+        -----------------
+        - df_input: data frame containing trajectories to modify
+        - dict_magnitude: target allocation, across TRWW (Wastewater Treatment) 
+            categories (categories are keys), of treatment as total fraction. 
+            * E.g., to acheive 80% of treatment from advanced anaerobic and 10% 
+            from scondary aerobic by the final time period, the following 
+            dictionary would be specified:
+
+            dict_magnitude = {
+                "treated_advanced_anaerobic": 0.8,
+                "treated_secondary_anaerobic": 0.1
+            }
+
+            If None, defaults to:
+
+            {
+                "treated_advanced_aerobic": 0.3,
+                "treated_advanced_anaerobic": 0.3,
+                "treated_secondary_aerobic": 0.2,
+                "treated_secondary_anaerobic": 0.2,
+            }
+
+        - strat: optional strategy value to specify for the transformation
+        - vec_implementation_ramp: optional vector specifying the implementation
+            scalar ramp for the transformation. If None, defaults to a uniform 
+            ramp that starts at the time specified in the configuration.
+        """
+        # check input dataframe
+        df_input = (
+            self.baseline_inputs
+            if not isinstance(df_input, pd.DataFrame) 
+            else df_input
+        )
+
+        # check implementation ramp
+        vec_implementation_ramp = self.check_implementation_ramp(
+            vec_implementation_ramp,
+            df_input,
+        )
+
+
+        ##  CHECK DICTIONARY
+
+        if not isinstance(dict_magnitude, dict):
+            dict_magnitude = {
+                "treated_advanced_aerobic": 0.3,
+                "treated_advanced_anaerobic": 0.3,
+                "treated_secondary_aerobic": 0.2,
+                "treated_secondary_anaerobic": 0.2,
+            }
+        
+        attr = self.model_attributes.get_attribute_table(
+            self.model_attributes.subsec_name_trww,
+        )
+        dict_magnitude = dict(
+            (k, v) for k, v in dict_magnitude.items()
+            if k in attr.key_values
+        )
+
+        # get categories and dictionary to specify parameters (move to config eventually)
+        df_out = tbc.transformation_wali_improve_sanitation(
+            df_input,
+            "ww_domestic_urban",
+            dict_magnitude,
+            vec_implementation_ramp,
+            self.model_attributes,
+            field_region = self.key_region,
+            model_circecon = self.model_circecon,
+            strategy_id = strat,
+        )
+
+        return df_out
+
+
+
+    ##############################
+    #    WASO TRANSFORMATIONS    #
+    ##############################
+
+    def _trfunc_waso_decrease_food_waste(self,
+        df_input: Union[pd.DataFrame, None] = None,
+        magnitude: float = 0.3,
+        strat: Union[int, None] = None,
+        vec_implementation_ramp: Union[np.ndarray, None] = None,
+    ) -> pd.DataFrame:
+        """
+        Implement the "Decrease Municipal Solid Waste" WASO transformation on 
+            input DataFrame df_input
+        
+        Function Arguments
+        ------------------
+
+        Keyword Arguments
+        -----------------
+        - df_input: data frame containing trajectories to modify
+        - magnitude: reduction in food waste sent to munipal solid waste
+            treatment stream
+        - strat: optional strategy value to specify for the transformation
+        - vec_implementation_ramp: optional vector specifying the implementation
+            scalar ramp for the transformation. If None, defaults to a uniform 
+            ramp that starts at the time specified in the configuration.
+        """
+        # check input dataframe
+        df_input = (
+            self.baseline_inputs
+            if not isinstance(df_input, pd.DataFrame) 
+            else df_input
+        )
+
+        # check implementation ramp
+        vec_implementation_ramp = self.check_implementation_ramp(
+            vec_implementation_ramp,
+            df_input,
+        )
+
+
+        # get categories and dictionary to specify parameters (move to config eventually)
+        categories = (
+            self.model_attributes
+            .get_attribute_table(
+                self.model_attributes.subsec_name_waso
+            )
+            .key_values
+        )
+
+        #dict_specify = dict((x, 0.25) for x in categories)
+        #dict_specify.update({"food": 0.3})
+        dict_specify = {
+            "food": min(max(magnitude, 0.0), 1.0),
+        }
+
+        df_out = tbc.transformation_waso_decrease_municipal_waste(
+            df_input,
+            dict_specify,
+            vec_implementation_ramp,
+            self.model_attributes,
+            field_region = self.key_region,
+            model_circecon = self.model_circecon,
+            strategy_id = strat
+        )
+
+        return df_out
+
+
+
+    def _trfunc_waso_increase_anaerobic_treatment_and_composting(self,
+        df_input: Union[pd.DataFrame, None] = None,
+        magnitude_biogas: float = 0.475,
+        magnitude_compost: float = 0.475,
+        strat: Union[int, None] = None,
+        vec_implementation_ramp: Union[np.ndarray, None] = None,
+    ) -> pd.DataFrame:
+        """
+        Implement the "Increase Anaerobic Treatment and Composting" WASO 
+            transformation on input DataFrame df_input. 
+
+        Note that 0 <= magnitude_biogas + magnitude_compost should be <= 1; 
+            if they exceed 1, they will be scaled proportionally to sum to 1
+        
+        Function Arguments
+        ------------------
+
+        Keyword Arguments
+        -----------------
+        - df_input: data frame containing trajectories to modify
+        - magnitude_biogas: proportion of organic solid waste that is treated 
+            using anaerobic treatment
+        - magnitude_compost: proportion of organic solid waste that is treated 
+            using compost
+        - strat: optional strategy value to specify for the transformation
+        - vec_implementation_ramp: optional vector specifying the implementation
+            scalar ramp for the transformation. If None, defaults to a uniform 
+            ramp that starts at the time specified in the configuration.
+        """
+        # check input dataframe
+        df_input = (
+            self.baseline_inputs
+            if not isinstance(df_input, pd.DataFrame) 
+            else df_input
+        )
+
+        # check implementation ramp
+        vec_implementation_ramp = self.check_implementation_ramp(
+            vec_implementation_ramp,
+            df_input,
+        )
+
+
+        df_out = tbc.transformation_waso_increase_anaerobic_treatment_and_composting(
+            df_input,
+            magnitude_biogas,
+            magnitude_compost,
+            vec_implementation_ramp,
+            self.model_attributes,
+            field_region = self.key_region,
+            model_circecon = self.model_circecon,
+            strategy_id = strat
+        )
+
+        return df_out
+
+
+    
+    def _trfunc_waso_increase_biogas_capture(self,
+        df_input: Union[pd.DataFrame, None] = None,
+        magnitude: Union[float, Dict[str, float]] = 0.85,
+        strat: Union[int, None] = None,
+        vec_implementation_ramp: Union[np.ndarray, None] = None,
+    ) -> pd.DataFrame:
+        """
+        Implement the "Increase Biogas Capture at Anaerobic Treatment Facilities
+            and Landfills" WASO transformation on input DataFrame df_input
+        
+        Function Arguments
+        ------------------
+
+        Keyword Arguments
+        -----------------
+        - df_input: data frame containing trajectories to modify
+        - magnitude: final magnitude of biogas capture at landfill and anaerobic
+            digestion facilties.
+            NOTE: If specified as a float, the same value applies to both 
+                landfill and biogas. Specify as a dictionary to specifiy 
+                different capture fractions by WASO technology, e.g., 
+                
+                magnitude = {
+                    "landfill": 0.85, 
+                    "biogas": 0.5
+                }
+
+        - strat: optional strategy value to specify for the transformation
+        - vec_implementation_ramp: optional vector specifying the implementation
+            scalar ramp for the transformation. If None, defaults to a uniform 
+            ramp that starts at the time specified in the configuration.
+        """
+        # check input dataframe
+        df_input = (
+            self.baseline_inputs
+            if not isinstance(df_input, pd.DataFrame) 
+            else df_input
+        )
+
+        # check implementation ramp
+        vec_implementation_ramp = self.check_implementation_ramp(
+            vec_implementation_ramp,
+            df_input,
+        )
+
+
+        df_out = tbc.transformation_waso_increase_gas_capture(
+            df_input,
+            magnitude,
+            vec_implementation_ramp,
+            self.model_attributes,
+            field_region = self.key_region,
+            model_circecon = self.model_circecon,
+            strategy_id = strat
+        )
+
+        return df_out
+
+
+    
+    def _trfunc_waso_increase_energy_from_biogas(self,
+        df_input: Union[pd.DataFrame, None] = None,
+        magnitude: float = 0.85,
+        strat: Union[int, None] = None,
+        vec_implementation_ramp: Union[np.ndarray, None] = None,
+    ) -> pd.DataFrame:
+        """
+        Implement the "Energy from Captured Biogas" WASO transformation on input 
+            DataFrame df_input
+        
+        Function Arguments
+        ------------------
+
+        Keyword Arguments
+        -----------------
+        - df_input: data frame containing trajectories to modify
+        - magnitude: final magnitude of energy use from captured biogas. 
+        - strat: optional strategy value to specify for the transformation
+        - vec_implementation_ramp: optional vector specifying the implementation
+            scalar ramp for the transformation. If None, defaults to a uniform 
+            ramp that starts at the time specified in the configuration.
+        """
+        # check input dataframe
+        df_input = (
+            self.baseline_inputs
+            if not isinstance(df_input, pd.DataFrame) 
+            else df_input
+        )
+
+        # check implementation ramp
+        vec_implementation_ramp = self.check_implementation_ramp(
+            vec_implementation_ramp,
+            df_input,
+        )
+
+        magnitude = min(max(magnitude, 0.0), 1.0)
+
+        df_out = tbc.transformation_waso_increase_energy_from_biogas(
+            df_input,
+            magnitude,
+            vec_implementation_ramp,
+            self.model_attributes,
+            field_region = self.key_region,
+            model_circecon = self.model_circecon,
+            strategy_id = strat
+        )
+
+        return df_out
+    
+
+
+    def _trfunc_waso_increase_energy_from_incineration(self,
+        df_input: Union[pd.DataFrame, None] = None,
+        magnitude: float = 0.85,
+        strat: Union[int, None] = None,
+        vec_implementation_ramp: Union[np.ndarray, None] = None,
+    ) -> pd.DataFrame:
+        """
+        Implement the "Energy from Solid Waste Incineration" WASO transformation 
+            on input DataFrame df_input
+        
+        Function Arguments
+        ------------------
+
+        Keyword Arguments
+        -----------------
+        - df_input: data frame containing trajectories to modify
+        - magnitude: final magnitude of waste that is incinerated that is
+            recovered for energy use
+        - strat: optional strategy value to specify for the transformation
+        - vec_implementation_ramp: optional vector specifying the implementation
+            scalar ramp for the transformation. If None, defaults to a uniform 
+            ramp that starts at the time specified in the configuration.
+        """
+        # check input dataframe
+        df_input = (
+            self.baseline_inputs
+            if not isinstance(df_input, pd.DataFrame) 
+            else df_input
+        )
+
+        # check implementation ramp
+        vec_implementation_ramp = self.check_implementation_ramp(
+            vec_implementation_ramp,
+            df_input,
+        )
+
+        magnitude = min(max(magnitude, 0.0), 1.0)
+
+        df_out = tbc.transformation_waso_increase_energy_from_incineration(
+            df_input,
+            magnitude,
+            vec_implementation_ramp,
+            self.model_attributes,
+            field_region = self.key_region,
+            model_circecon = self.model_circecon,
+            strategy_id = strat
+        )
+
+        return df_out
+
+
+    
+    def _trfunc_waso_increase_landfilling(self,
+        df_input: Union[pd.DataFrame, None] = None,
+        magnitude: float = 1.0,
+        strat: Union[int, None] = None,
+        vec_implementation_ramp: Union[np.ndarray, None] = None,
+    ) -> pd.DataFrame:
+        """
+        Implement the "Increase Landfilling" WASO transformation on input 
+            DataFrame df_input
+        
+        Function Arguments
+        ------------------
+
+        Keyword Arguments
+        -----------------
+        - df_input: data frame containing trajectories to modify
+        - magnitude: fraction of non-recycled solid waste (including composting 
+            and anaerobic digestion) sent to landfills
+        - strat: optional strategy value to specify for the transformation
+        - vec_implementation_ramp: optional vector specifying the implementation
+            scalar ramp for the transformation. If None, defaults to a uniform 
+            ramp that starts at the time specified in the configuration.
+        """
+        # check input dataframe
+        df_input = (
+            self.baseline_inputs
+            if not isinstance(df_input, pd.DataFrame) 
+            else df_input
+        )
+
+        # check implementation ramp
+        vec_implementation_ramp = self.check_implementation_ramp(
+            vec_implementation_ramp,
+            df_input,
+        )
+
+        magnitude = min(max(magnitude, 0.0), 1.0)
+
+        df_out = tbc.transformation_waso_increase_landfilling(
+            df_input,
+            magnitude,
+            vec_implementation_ramp,
+            self.model_attributes,
+            field_region = self.key_region,
+            model_circecon = self.model_circecon,
+            strategy_id = strat
+        )
+
+        return df_out
+
+
+
+    def _trfunc_waso_increase_recycling(self,
+        df_input: Union[pd.DataFrame, None] = None,
+        magnitude: float = 0.95,
+        strat: Union[int, None] = None,
+        vec_implementation_ramp: Union[np.ndarray, None] = None,
+    ) -> pd.DataFrame:
+        """
+        Implement the "Increase Recycling" WASO transformation on input 
+            DataFrame df_input
+
+        Function Arguments
+        ------------------
+
+        Keyword Arguments
+        -----------------
+        - df_input: data frame containing trajectories to modify
+        - magnitude: magnitude of recylables that are recycled  
+        - strat: optional strategy value to specify for the transformation
+        - vec_implementation_ramp: optional vector specifying the implementation
+            scalar ramp for the transformation. If None, defaults to a uniform 
+            ramp that starts at the time specified in the configuration.
+        """
+        # check input dataframe
+        df_input = (
+            self.baseline_inputs
+            if not isinstance(df_input, pd.DataFrame) 
+            else df_input
+        )
+
+        # check implementation ramp
+        vec_implementation_ramp = self.check_implementation_ramp(
+            vec_implementation_ramp,
+            df_input,
+        )
+
+
+        magnitude = min(max(magnitude, 0.0), 1.0)
+
+        df_out = tbc.transformation_waso_increase_recycling(
+            df_input,
+            magnitude,
+            vec_implementation_ramp,
+            self.model_attributes,
+            field_region = self.key_region,
+            model_circecon = self.model_circecon,
+            strategy_id = strat
+        )
+
+        return df_out
 
 
 
@@ -3097,7 +4085,7 @@ class Transformers:
         }
 
         # increase prevalence of capture
-        df_out = tbc.transformation_mlti_industrial_carbon_capture(
+        df_out = tbs.transformation_mlti_industrial_carbon_capture(
             df_input,
             dict_magnitude_eff,
             dict_magnitude_prev,
