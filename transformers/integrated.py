@@ -1914,6 +1914,7 @@ class TransformersIntegrated:
 
     def transformation_pflo_healthier_diets(self,
         df_input: Union[pd.DataFrame, None] = None,
+        magnitude_red_meat: float = 0.5,
         strat: Union[int, None] = None,
         vec_implementation_ramp: Union[np.ndarray, None] = None,
     ) -> pd.DataFrame:
@@ -1927,6 +1928,10 @@ class TransformersIntegrated:
         Keyword Arguments
         -----------------
         - df_input: data frame containing trajectories to modify
+        - magnitude_red_meat: final period maximum fraction of per capita red 
+            meat consumption relative to baseline (e.g., 0.5 means that people
+            eat 50% as much red meat as they would have without the 
+            intervention)
         - strat: optional strategy value to specify for the transformation
         - vec_implementation_ramp: optional vector specifying the implementation
             scalar ramp for the transformation. If None, defaults to a uniform 
@@ -1952,7 +1957,7 @@ class TransformersIntegrated:
             {
                 self.model_socioeconomic.modvar_gnrl_frac_eating_red_meat: {
                     "bounds": (0, 1),
-                    "magnitude": 0.5,
+                    "magnitude": magnitude_red_meat,
                     "magnitude_type": "final_value_ceiling",
                     "vec_ramp": vec_implementation_ramp
                 },
@@ -1960,7 +1965,7 @@ class TransformersIntegrated:
                 # TEMPORARY UNTIL A DEMAND SCALAR CAN BE ADDED IN
                 self.model_afolu.modvar_agrc_elas_crop_demand_income: {
                     "bounds": (-2, 2),
-                    "categories": ["sugar_cane"],
+                   "categories": ["sugar_cane"],
                     "magnitude": -0.2,
                     "magnitude_type": "final_value_ceiling",
                     "vec_ramp": vec_implementation_ramp

@@ -127,8 +127,8 @@ class Transformers:
         a keyword argument.
         * NOTE: If True, then transformation_lndu_reallocate_land() 
             has no effect.
-        * NOTE: this is set in both `self.transformation_af_baseline()` and
-            `self.transformation_lndu_reallocate_land()` separately
+        * NOTE: this is set in both `self._trfunc_af_baseline()` and
+            `self._trfunc_lndu_reallocate_land()` separately
     - fp_nemomod_temp_sqlite_db: optional file path to use for SQLite database
         used in Julia NemoMod Electricity model
         * If None, defaults to a temporary path sql database
@@ -151,8 +151,6 @@ class Transformers:
         * NOTE: if passing, ensure that the ModelAttributes objects used to 
             instantiate the model + what is passed to the model_attributes
             argument are the same.
-    - use_demo_template_on_missing: tries to instantiate a blank template if
-        a template for a target region is missing. 
     - **kwargs 
     """
     
@@ -163,33 +161,24 @@ class Transformers:
         field_region: Union[str, None] = None,
         logger: Union[logging.Logger, None] = None,
         regex_template_prepend: str = "sisepuede_run",
-        regions: Union[List[str], None] = None,
-        use_demo_template_on_missing: bool = True,
         **kwargs
     ):
 
         self.logger = logger
 
         self._initialize_file_structure(
-            regex_template_prepend = regex_template_prepend,
+            regex_template_prepend = regex_template_prepend, 
         )
+        self._initialize_attributes(field_region, )
 
-        self._initialize_attributes(
-            field_region,
-        )
-
-        self._initialize_config(dict_config = dict_config)
+        self._initialize_config(dict_config = dict_config, )
         self._initialize_parameters()
         self._initialize_ramp()
 
         # set transformations by sector, models (which come from sectoral transformations)
-        self._initialize_sectoral_transformations(
-            df_input = df_input,
-            magnitude_lurf = magnitude_lurf,
-            **kwargs,
-        )
+        self._initialize_baseline_inputs(df_input, )
         self._initialize_models()
-        self._initialize_transformations()
+        self._initialize_transformers()
         
         return None
 
@@ -199,67 +188,6 @@ class Transformers:
     ##################################
     #    INITIALIZATION FUNCTIONS    #
     ##################################
-
-    def get_ramp_characteristics(self,
-        n_tp_ramp: Union[int, None] = None,
-        tp_0_ramp: Union[int, None] = None,
-    ) -> List[str]:
-        """
-        Get parameters for the implementation of transformations. Returns a 
-            tuple with the following elements:
-
-            (
-                n_tp_ramp,
-                tp_0_ramp, 
-            )
-        
-        If dict_config is None, uses self.config.
-
-        NOTE: Requires those keys in dict_config to set. If not found, will set
-            the following defaults:
-                * year_0_ramp: 9th year (10th time period)
-                * n_tp_ramp: n_tp - t0_ramp - 1 (ramps to 1 at final time 
-                    period)
-
-        Keyword Arguments
-        -----------------
-        - n_tp_ramp: number of time periods to increase to full implementation. 
-            If None, defaults to final time period
-        - tp_0_ramp: first time period of ramp (last == 0)
-        """
-
-
-        n_tp = len(self.time_periods.all_time_periods)
-        
-        # set y0 default if not specified correctly
-        if not sf.isnumber(tp_0_ramp, integer = True):
-
-            year_0_ramp = dt.datetime.now().year + 2
-            tp_0_ramp = self.time_periods.year_to_tp(year_0_ramp)
-
-            if tp_0_ramp is None:
-                msg = f"Error setting default time period: year {year_0_ramp} undefined. Explicitly specify tp_0_ramp in Transformers"
-                raise RuntimeError(msg)
-
-        # ensure it's in the set of defined time periods
-        tp_0_ramp = self.time_periods.get_closest_time_period(tp_0_ramp)
-
-        # shift by 2--1 to account for baseline having no uncertainty, 1 for py reindexing
-        default_tp_ramp = n_tp - tp_0_ramp - 1
-        n_tp_ramp = (
-            default_tp_ramp
-            if not sf.isnumber(n_tp_ramp, integer = True)
-            else min(default_tp_ramp, n_tp_ramp)
-        )
-       
-        tup_out = (
-            n_tp_ramp,
-            year_0_ramp, 
-        )
-
-        return tup_out
-
-
 
     def _initialize_attributes(self,
         field_region: Union[str, None],
@@ -278,11 +206,15 @@ class Transformers:
         error_q = False
         error_q = error_q | (self.model_attributes is None)
         if error_q:
-            raise RuntimeError(f"Error: invalid specification of model_attributes in TransformersIPPU")
+            raise RuntimeError(f"Error: invalid specification of model_attributes in Transformers")
 
         # get strategy attribute, baseline strategy, and some fields
-        attribute_transformer_code = self.model_attributes.get_dimensional_attribute_table(
-            self.model_attributes.dim_transformer_code
+        attribute_transformer_code = (
+            self.model_attributes
+            .get_dimensional_attribute_table(
+                self.model_attributes
+                .dim_transformer_code
+            )
         )
 
         field_region = (
@@ -293,7 +225,7 @@ class Transformers:
 
         # set some useful classes
         time_periods = sc.TimePeriods(self.model_attributes)
-        regions = sc.Regions(self.model_attributes)
+        regions_manager = sc.Regions(self.model_attributes)
 
 
         ##  SET PROPERTIES
@@ -302,7 +234,7 @@ class Transformers:
         self.key_region = field_region
         self.key_transformer_code = attribute_transformer_code.key
         self.time_periods = time_periods
-        self.regions_manager = regions
+        self.regions_manager = regions_manager
 
         return None
 
@@ -321,7 +253,7 @@ class Transformers:
         """
 
         baseline_inputs = (
-            self.transformer_baseline(
+            self._trfunc_baseline(
                 df_inputs, 
                 strat = None,
             ) 
@@ -549,23 +481,23 @@ class Transformers:
     
         """
 
-        dict_config = dict_config = (
+        dict_config = (
             self.config 
             if dict_config is None
             else dict_config
         )
-
-        # get parameters from configuration dictionary
-        (
-            n_tp_ramp,
-            year_0_ramp
-        ) = self.get_ramp_characteristics()
+        
+        # get parameters from configuration dictionary if specified
+        n_tp_ramp, tp_0_ramp = self.get_ramp_characteristics(
+            n_tp_ramp = dict_config.get(self.key_config_n_tp_ramp),
+            tp_0_ramp = dict_config.get(self.key_config_tp_0_ramp),
+        )
 
 
         ##  SET PROPERTIES
 
         self.n_tp_ramp = n_tp_ramp
-        self.year_0_ramp = year_0_ramp
+        self.tp_0_ramp = tp_0_ramp
 
         return None
     
@@ -586,67 +518,10 @@ class Transformers:
         self.vec_implementation_ramp = vec_implementation_ramp
 
         return None
-    
 
 
-    def _initialize_sectoral_transformations(self,
-        baseline_with_plur: bool = False,
-        df_input: Union[pd.DataFrame, None] = None,
-        dict_config: Union[Dict, None] = None,
-        **kwargs,
-    ) -> None:
-        """
-        Initialize other TransformerXXXX classes for use here.
-            
-        Sets the following properties:
 
-            * self.transformations_afolu
-            * self.transformations_circular_economy
-            * self.transformations_energy
-            * self.transformations_ippu
-
-        Function Arguments
-        ------------------
-        - baseline_with_plur: set to True to let the baseline include partial 
-            land use reallocation. 
-        * NOTE: If True, then transformation_lndu_reallocate_land() 
-            has no effect.
-        * NOTE: this is set in both `self.transformation_af_baseline()` and
-            `self.transformation_lndu_reallocate_land()` separately
-        - dir_jl: location of Julia directory containing Julia environment and 
-        support modules
-        - fp_nemomod_reference_files: directory housing reference files called 
-            by NemoMod when running electricity model. Required to access data 
-            in EnergyProduction. Needs the following CSVs:
-
-            * Required keys or CSVs (without extension):
-                (1) CapacityFactor
-                (2) SpecifiedDemandProfile
-
-        Kewyord Arguments
-        ------------------
-        - dict_config: configuration dictionary passed to objects
-        """
-
-        dict_config = (
-            self.config 
-            if dict_config is None
-            else dict_config
-        )
-        # initialize all transformations with df_input
-        # then use those functions to set baseline_inputs
-
-        ##  Finally -- initialize baseline using the data frame
-        self._initialize_baseline_inputs(
-            df_input,
-        )
-
-        return None
-
-    
-
-
-    def _initialize_transformations(self,
+    def _initialize_transformers(self,
     ) -> None:
         """
         Initialize all trl.Transformer objects used to build transformations.
@@ -654,18 +529,17 @@ class Transformers:
      
         Sets the following properties:
 
-            * self.all_transformations
-            * self.all_transformations_non_baseline
-            * self.dict_transformations
-            * self.transformation_id_baseline
-            * self.transformation_***
+            * self.all_transformers
+            * self.all_transformers_non_baseline
+            * self.dict_transformers
+            * self.transformer_id_baseline
+            * self._trfunc_***
         """
 
         attr_transformer_code = self.attribute_transformer_code
-        all_transformations = []
+        all_transformers = []
 
-        dict_transformations = {}
-
+        dict_transformers = {}
 
 
 
@@ -674,349 +548,239 @@ class Transformers:
         ##################
 
         self.baseline = trl.Transformer(
-            "BASE", 
-            self.transformer_baseline, 
+            "TX:BASE", 
+            self._trfunc_baseline, 
+            attr_transformer_code
+        )
+        all_transformers.append(self.baseline)
+
+
+        ###############
+        #    AFOLU    #
+        ###############
+
+        ##  AGRC TRANSFORMERS
+
+        self.agrc_improve_rice_management = trl.Transformer(
+            "TX:AGRC:DEC_CH4_RICE", 
+            self.transformation_agrc_improve_rice_management,
             attr_strategy
         )
-        all_transformations.append(self.baseline)
+        all_transformers.append(self.agrc_improve_rice_management)
 
 
-
-        #################################
-        #    CROSS-SECTOR PORTFOLIOS    #
-        #################################
-
-
-        ##  FOR ALL, CALL ALL FUNCTIONS FROM SUBSECTORS
-
-        function_list = self.transformations_circular_economy.ce_all.function_list.copy()
-        function_list += self.transformations_energy.en_all.function_list.copy()
-        function_list += self.transformations_ippu.ip_all.function_list.copy()
-        function_list += [
-            self.transformation_pflo_industrial_ccs,
-            self.transformation_pflo_healthier_diets
-        ]
-
-        # break out before adding AFOLU so that w & w/o reallocation can be sent to different transformations
-        function_list_plur = function_list.copy()
-        function_list_india_ccdr = function_list.copy()
-        function_list_plur_no_deforestation_stoppage = function_list.copy()
-        function_list += self.transformations_afolu.af_all.function_list.copy()
-
-        self.pflo_all = trl.Transformer(
-            "PFLO:ALL", 
-            function_list, 
+        self.agrc_decrease_exports = trl.Transformer(
+            "TX:AGRC:DEC_EXPORTS", 
+            self.transformation_agrc_decrease_exports,
             attr_strategy
         )
-        all_transformations.append(self.pflo_all)
+        all_transformers.append(self.agrc_decrease_exports)
 
 
-        ##  FOR PLUR, ENSURE PLUR IS ON
+        self.agrc_expand_conservation_agriculture = trl.Transformer(
+            "TX:AGRC:INC_CONSERVATION_AGRICULTURE", 
+            self.transformation_agrc_expand_conservation_agriculture,
+            attr_strategy
+        )
+        all_transformers.append(self.agrc_expand_conservation_agriculture)
+
+
+        self.agrc_increase_crop_productivity = trl.Transformer(
+            "TX:AGRC:INC_PRODUCTIVITY", 
+            self.transformation_agrc_increase_crop_productivity,
+            attr_strategy
+        )
+        all_transformers.append(self.agrc_increase_crop_productivity)
+
+
+        self.agrc_reduce_supply_chain_losses = trl.Transformer(
+            "TX:AGRC:DEC_LOSSES_SUPPLY_CHAIN", 
+            self.transformation_agrc_reduce_supply_chain_losses,
+            attr_strategy
+        )
+        all_transformers.append(self.agrc_reduce_supply_chain_losses)
+
+
+        ##  FRST TRANSFORMERS
+
         
-        function_list_plur += (
-            self.transformations_afolu
-            .af_all_with_partial_reallocation
-            .function_list
-            .copy()
-        )
+        ##  LNDU TRANSFORMERS
 
-        self.pflo_all_with_partial_reallocation = trl.Transformer(
-            "PFLO:ALL_PLUR", 
-            function_list_plur, 
+        self.lndu_expand_silvopasture = trl.Transformer(
+            "TX:LNDU:INC_SILVOPASTURE", 
+            self.transformation_lndu_expand_silvopasture,
             attr_strategy
         )
-        all_transformations.append(self.pflo_all_with_partial_reallocation)
+        all_transformers.append(self.lndu_expand_silvopasture)
 
 
-
-        ##################################################
-        #    TEMP: ADD INDIA SPECIFIC TRANSFORMATIONS    #
-        ##################################################
-
-        ##  START WITH INDIA PLUR WITH CC
-
-    
-        self.lndu_partial_reallocation_india_cc = trl.Transformer(
-            "LNDU:PLUR_INDIA_CC", 
-            [
-                self.transformations_afolu.transformation_lndu_reallocate_land,
-                self.transformations_afolu.transformation_agrc_decrease_climate_productivity_climate_india
-            ],
+        self.lndu_expand_sustainable_grazing = trl.Transformer(
+            "TX:LNDU:INC_SUSTAINABLE_GRAZING", 
+            self.transformation_lndu_expand_sustainable_grazing,
             attr_strategy
         )
-        all_transformations.append(self.lndu_partial_reallocation_india_cc)
+        all_transformers.append(self.lndu_expand_sustainable_grazing)
 
 
-        ##  BUILD INDIA CCDR
-
-        function_list_india_ccdr += [
-            #self.transformation_agrc_decrease_exports,
-            self.transformations_afolu.transformation_agrc_expand_conservation_agriculture,
-            self.transformations_afolu.transformation_agrc_improve_rice_management,
-            self.transformations_afolu.transformation_agrc_increase_crop_productivity,
-            self.transformations_afolu.transformation_agrc_reduce_supply_chain_losses,
-            self.transformations_afolu.transformation_agrc_reduce_supply_chain_losses,
-            # self.transformation_lndu_integrated_transitions replaces:
-            #   self.transformation_lndu_expand_silvopasture,
-            #   self.transformation_lndu_stop_deforestation
-            #self.transformations_afolu.transformation_lndu_integrated_transitions,
-            self.transformations_afolu.transformation_lndu_reallocate_land,
-            self.transformations_afolu.transformation_lsmm_improve_manure_management_cattle_pigs,
-            self.transformations_afolu.transformation_lsmm_improve_manure_management_other,
-            self.transformations_afolu.transformation_lsmm_improve_manure_management_poultry,
-            self.transformations_afolu.transformation_lsmm_increase_biogas_capture,
-            #self.transformations_afolu.transformation_lvst_decrease_exports,
-            #self.transformations_afolu.transformation_lvst_increase_productivity,
-            self.transformations_afolu.transformation_lvst_reduce_enteric_fermentation,
-            self.transformations_afolu.transformation_soil_reduce_excess_fertilizer,
-            self.transformations_afolu.transformation_soil_reduce_excess_lime
-        ]
-
-        # drop healthier diets
-        function_list_india_ccdr = [
-            x for x in function_list_india_ccdr 
-            if x != self.transformation_pflo_healthier_diets
-        ]
-        
-        self.pflo_ccdr_india_with_partial_reallocation = trl.Transformer(
-            "PFLO:INDIA_CCDR_PLUR", 
-            function_list_india_ccdr, 
+        self.lndu_increase_reforestation = trl.Transformer(
+            "TX:LNDU:INC_REFORESTATION", 
+            self.transformation_lndu_increase_reforestation,
             attr_strategy
         )
-        all_transformations.append(self.pflo_ccdr_india_with_partial_reallocation)
+        all_transformers.append(self.lndu_increase_reforestation)
 
 
-        ##  BUILD INDIA CCDR THAT INCLUDES CLIMATE (FLAG:INDIA)
-        
-        function_list_india_ccdr_cc = function_list_india_ccdr.copy()
-        function_list_india_ccdr_cc.append(
-            self.transformations_afolu.transformation_agrc_decrease_climate_productivity_climate_india
-        )
-
-        self.pflo_ccdr_india_with_partial_reallocation_india_cc = trl.Transformer(
-            "PFLO:INDIA_CCDR_PLUR_INDIA_CC", 
-            function_list_india_ccdr_cc, 
+        self.lndu_partial_reallocation = trl.Transformer(
+            "TX:LNDU:PLUR", 
+            self.transformation_lndu_reallocate_land,
             attr_strategy
         )
-        all_transformations.append(self.pflo_ccdr_india_with_partial_reallocation_india_cc)
+        all_transformers.append(self.lndu_partial_reallocation)
 
 
-        ##  BUILD AN INDIA PLUR THAT INCLUDES CLIMATE (FLAG:INDIA)
-        
-        function_list_plur_india = function_list_plur.copy()
-        function_list_plur_india.append(
-            self.transformations_afolu.transformation_agrc_decrease_climate_productivity_climate_india
-        )
-
-        self.pflo_all_with_partial_reallocation_india_cc = trl.Transformer(
-            "PFLO:ALL_PLUR_INDIA_CC", 
-            function_list_plur, 
+        self.lndu_stop_deforestation = trl.Transformer(
+            "TX:LNDU:DEC_DEFORESTATION", 
+            self.transformation_lndu_stop_deforestation,
             attr_strategy
         )
-        all_transformations.append(self.pflo_all_with_partial_reallocation_india_cc)
-        
-        ###################
-        #    END INDIA    #
-        ###################
+        all_transformers.append(self.lndu_stop_deforestation)
 
 
+        ##  LSMM TRANSFORMATIONS
+
+        self.lsmm_improve_manure_management_cattle_pigs = trl.Transformer(
+            "TX:LSMM:INC_MANAGEMENT_CATTLE_PIGS", 
+            self.transformation_lsmm_improve_manure_management_cattle_pigs,
+            attr_strategy
+        )
+        all_transformers.append(self.lsmm_improve_manure_management_cattle_pigs)
 
 
-        ##  EXPLORE ALL W/O SILVOPASTURE (EXPLORATORY ONLY)
-
-        function_list_plur_no_silvopasture = function_list_plur.copy()
-        # drop the integrated transitions and add the stoppage of deforestation back in
-        if self.transformations_afolu.transformation_lndu_integrated_transitions in function_list_plur_no_silvopasture:
-            function_list_plur_no_silvopasture.remove(
-                self.transformations_afolu.transformation_lndu_integrated_transitions
-            )
-            function_list_plur_no_silvopasture.append(
-                self.transformations_afolu.transformation_lndu_stop_deforestation
-            )
+        self.lsmm_improve_manure_management_other = trl.Transformer(
+            "TX:LSMM:INC_MANAGEMENT_OTHER", 
+            self.transformation_lsmm_improve_manure_management_other,
+            attr_strategy
+        )
+        all_transformers.append(self.lsmm_improve_manure_management_other)
         
 
-        self.pflo_all_with_partial_reallocation_no_silvopasture = trl.Transformer(
-            "PFLO:ALL_PLUR_NO_SILVOPASTURE", 
-            function_list_plur_no_silvopasture, 
+        self.lsmm_improve_manure_management_poultry = trl.Transformer(
+            "TX:LSMM:INC_MANAGEMENT_POULTRY", 
+            self.transformation_lsmm_improve_manure_management_poultry,
             attr_strategy
         )
-        all_transformations.append(self.pflo_all_with_partial_reallocation_no_silvopasture)
+        all_transformers.append(self.lsmm_improve_manure_management_poultry)
 
 
-        ##  PROVIDE ALL W/O PREVENTING DEFORESTATION
-
-        function_list_plur_no_deforestation_stoppage += (
-            self.transformations_afolu
-            .af_all_with_deforestation_and_partial_reallocation
-            .function_list
-            .copy()
-        )
-
-        self.pflo_all_with_deforestation_and_partial_reallocation = trl.Transformer(
-            "PFLO:ALL_NO_STOPPING_DEFORESTATION_PLUR", 
-            function_list_plur_no_deforestation_stoppage, 
+        self.lsmm_increase_biogas_capture = trl.Transformer(
+            "TX:LSMM:INC_CAPTURE_BIOGAS", 
+            self.transformation_lsmm_increase_biogas_capture,
             attr_strategy
         )
-        all_transformations.append(self.pflo_all_with_deforestation_and_partial_reallocation)
+        all_transformers.append(self.lsmm_increase_biogas_capture)
 
-
-        """
-        ##  PROVIDE ONE W/O LVST EXPORTS
-
-        # NOTE: would have to reinstantiate above if uncommenting
-        function_list_plur_no_lvst_exp_reduction += (
-            self.transformations_afolu
-            .af_all_no_lvst_export_reduction_with_partial_reallocation
-            .function_list
-            .copy()
-        )
-
-        self.pflo_all_no_lvst_export_reduction_with_partial_reallocation = trl.Transformer(
-            "PFLO:ALL_NO_LVST_EXPORT_REDUCTION_PLUR", 
-            function_list_plur_no_lvst_exp_reduction, 
+        
+        ##  LVST TRANSFORMERS
+      
+        self.lvst_decrease_exports = trl.Transformer(
+            "TX:LVST:DEC_EXPORTS", 
+            self.transformation_lvst_decrease_exports,
             attr_strategy
         )
-        all_transformations.append(self.pflo_all_no_lvst_export_reduction_with_partial_reallocation)
-        """;
+        all_transformers.append(self.lvst_decrease_exports)
 
-        self.pflo_better_baseline = trl.Transformer(
-            "PFLO:BETTER_BASE", 
-            [
-                self.transformations_afolu.transformation_agrc_improve_rice_management,
-                self.transformations_afolu.transformation_agrc_increase_crop_productivity,
-                self.transformations_afolu.transformation_agrc_reduce_supply_chain_losses,
-                self.transformations_afolu.transformation_agrc_expand_conservation_agriculture,
-                self.transformations_afolu.transformation_lndu_reallocate_land,
-                self.transformations_afolu.transformation_lvst_increase_productivity,
-                self.transformations_afolu.transformation_soil_reduce_excess_fertilizer,
-                self.transformations_circular_economy.transformation_wali_improve_sanitation_industrial,
-                self.transformations_circular_economy.transformation_wali_improve_sanitation_rural,
-                self.transformations_circular_economy.transformation_wali_improve_sanitation_urban,
-                self.transformations_circular_economy.transformation_waso_increase_landfilling,
-                self.transformations_circular_economy.transformation_waso_increase_recycling,
-                self.transformations_energy.transformation_entc_reduce_transmission_losses,
-                self.transformations_energy.transformation_fgtv_maximize_flaring,
-                self.transformations_energy.transformation_inen_maximize_efficiency_energy,
-                self.transformations_energy.transformation_scoe_increase_applicance_efficiency,
-                self.transformations_energy.transformation_scoe_reduce_heat_energy_demand,
-                self.transformations_energy.transformation_trns_increase_efficiency_electric,
-                self.transformations_energy.transformation_trns_increase_efficiency_non_electric,
-                self.transformations_ippu.transformation_ippu_reduce_cement_clinker
-            ], 
+
+        self.lvst_increase_productivity = trl.Transformer(
+            "TX:LVST:INC_PRODUCTIVITY", 
+            self.transformation_lvst_increase_productivity,
             attr_strategy
         )
-        all_transformations.append(self.pflo_better_baseline)
+        all_transformers.append(self.lvst_increase_productivity)
+
+
+        self.lvst_reduce_enteric_fermentation = trl.Transformer(
+            "TX:LVST:DEC_ENTERIC_FERMENTATION", 
+            self.transformation_lvst_reduce_enteric_fermentation,
+            attr_strategy
+        )
+        all_transformers.append(self.lvst_reduce_enteric_fermentation)
+        
+
+        ##  SOIL TRANSFORMERS
+        
+        self.soil_reduce_excess_fertilizer = trl.Transformer(
+            "TX:SOIL:DEC_N_APPLIED", 
+            self.transformation_soil_reduce_excess_fertilizer,
+            attr_strategy
+        )
+        all_transformers.append(self.soil_reduce_excess_fertilizer)
+
+
+        self.soil_reduce_excess_liming = trl.Transformer(
+            "TX:SOIL:DEC_LIME_APPLIED", 
+            self.transformation_soil_reduce_excess_lime,
+            attr_strategy
+        )
+        all_transformers.append(self.soil_reduce_excess_liming)
+
+
+
+
+
+        ######################################
+        #    CROSS-SECTOR TRANSFORMATIONS    #
+        ######################################
 
 
         self.plfo_healthier_diets = trl.Transformer(
-            "PFLO:BETTER_DIETS", 
-            self.transformation_pflo_healthier_diets, 
-            attr_strategy
+            "TX:PFLO:BETTER_DIETS", 
+            self._trfunc_pflo_healthier_diets, 
+            attr_transformer_code
         )
-        all_transformations.append(self.plfo_healthier_diets)
+        all_transformers.append(self.plfo_healthier_diets)
 
-
-        self.plfo_healthier_diets_with_partial_reallocation = trl.Transformer(
-            "PFLO:BETTER_DIETS_PLUR", 
-            [
-                self.transformation_pflo_healthier_diets, 
-                self.transformations_afolu.transformation_lndu_reallocate_land
-            ],
-            attr_strategy
-        )
-        all_transformations.append(self.plfo_healthier_diets_with_partial_reallocation)
 
 
         self.pflo_industrial_ccs = trl.Transformer(
             "PFLO:IND_INC_CCS", 
-            self.transformation_pflo_industrial_ccs, 
-            attr_strategy
+            self._trfunc_pflo_industrial_ccs, 
+            attr_transformer_code
         )
-        all_transformations.append(self.pflo_industrial_ccs)
+        all_transformers.append(self.pflo_industrial_ccs)
 
-
-        self.pflo_sociotechnical = trl.Transformer(
-            "PFLO:CHANGE_CONSUMPTION",
-            [
-                self.transformation_pflo_healthier_diets,
-                self.transformations_afolu.transformation_lndu_stop_deforestation,
-                self.transformations_afolu.transformation_lndu_reallocate_land,
-                self.transformations_afolu.transformation_lvst_decrease_exports,
-                self.transformations_circular_economy.transformation_waso_decrease_food_waste,
-                self.transformations_circular_economy.transformation_waso_increase_anaerobic_treatment_and_composting,
-                self.transformations_energy.transformation_trns_electrify_road_light_duty,
-                self.transformations_energy.transformation_trns_increase_occupancy_light_duty,
-                self.transformations_energy.transformation_trns_mode_shift_public_private,
-                self.transformations_energy.transformation_trns_mode_shift_regional
-            ],
-            attr_strategy
-        )
-        all_transformations.append(self.pflo_sociotechnical)
-
-
-        self.pflo_supply_side_technology = trl.Transformer(
-            "PFLO:SUPPLY_SIDE_TECH", 
-            [
-                self.transformation_pflo_industrial_ccs, 
-                self.transformations_afolu.transformation_lndu_expand_silvopasture,
-                self.transformations_afolu.transformation_lndu_reallocate_land,
-                self.transformations_afolu.transformation_lsmm_improve_manure_management_cattle_pigs,
-                self.transformations_afolu.transformation_lsmm_improve_manure_management_other,
-                self.transformations_afolu.transformation_lsmm_improve_manure_management_poultry,
-                self.transformations_afolu.transformation_lsmm_increase_biogas_capture,
-                self.transformations_afolu.transformation_lvst_reduce_enteric_fermentation,
-                self.transformations_circular_economy.transformation_trww_increase_biogas_capture,
-                self.transformations_circular_economy.transformation_waso_increase_biogas_capture,
-                self.transformations_circular_economy.transformation_waso_increase_energy_from_biogas,
-                self.transformations_circular_economy.transformation_waso_increase_energy_from_incineration,
-                self.transformations_energy.transformation_fgtv_minimize_leaks,
-                self.transformations_energy.transformation_inen_fuel_switch_low_and_high_temp,
-                self.transformations_energy.transformation_scoe_fuel_switch_electrify,
-                self.transformations_energy.transformation_trns_electrify_rail,
-                self.transformations_energy.transformation_trns_fuel_switch_maritime,
-                self.transformations_energy.transformation_trns_fuel_switch_road_medium_duty,
-                self.transformations_energy.transformation_trns_mode_shift_freight,
-                self.transformations_energy.transformation_support_entc_clean_grid,
-                self.transformations_ippu.transformation_ippu_reduce_demand,
-                self.transformations_ippu.transformation_ippu_reduce_hfcs,
-                self.transformations_ippu.transformation_ippu_reduce_n2o,
-                self.transformations_ippu.transformation_ippu_reduce_other_fcs,
-                self.transformations_ippu.transformation_ippu_reduce_pfcs
-            ], 
-            attr_strategy
-        )
-        all_transformations.append(self.pflo_supply_side_technology)
-
-        
 
         ## specify dictionary of transformations and get all transformations + baseline/non-baseline
 
-        dict_transformations.update(
+        dict_transformers.update(
             dict(
-                (x.id, x) 
-                for x in all_transformations
-                if x.id in attr_strategy.key_values
+                (x.code, x) 
+                for x in all_transformers
+                if x.code in attr_transformer_code.key_values
             )
         )
-        all_transformations = sorted(list(dict_transformations.keys()))
-        all_transformations_non_baseline = [
-            x for x in all_transformations 
-            if not dict_transformations.get(x).baseline
+        all_transformers = sorted(list(dict_transformers.keys()))
+        all_transformers_non_baseline = [
+            x for x in all_transformers 
+            if not dict_transformers.get(x).baseline
         ]
 
-        transformation_id_baseline = [
-            x for x in all_transformations 
-            if x not in all_transformations_non_baseline
+        transformer_id_baseline = [
+            x for x in all_transformers 
+            if x not in all_transformers_non_baseline
         ]
-        transformation_id_baseline = transformation_id_baseline[0] if (len(transformation_id_baseline) > 0) else None
+        transformer_id_baseline = (
+            transformer_id_baseline[0] 
+            if (len(transformer_id_baseline) > 0) 
+            else None
+        )
 
 
         # SET ADDDITIONAL PROPERTIES
 
-        self.all_transformations = all_transformations
-        self.all_transformations_non_baseline = all_transformations_non_baseline
-        self.dict_transformations = dict_transformations
-        self.transformation_id_baseline = transformation_id_baseline
+        self.all_transformers = all_transformers
+        self.all_transformers_non_baseline = all_transformers_non_baseline
+        self.dict_transformers = dict_transformers
+        self.transformer_id_baseline = transformer_id_baseline
 
         return None
     
@@ -1029,8 +793,9 @@ class Transformers:
     ################################################
 
     def build_implementation_ramp_vector(self,
-        year_0: Union[int, None] = None,
-        n_years_ramp: Union[int, None] = None,
+        n_tp_ramp: Union[int, None] = None,
+        tp_0_ramp: Union[int, None] = None,
+        **kwargs,
     ) -> np.ndarray:
         """
         Build the implementation ramp vector
@@ -1040,60 +805,69 @@ class Transformers:
 
         Keyword Arguments
         -----------------
-        - year_0: last year without change from baseline
-        - n_years_ramp: number of years to go from 0 to 1
+        - n_tp_ramp: number of years to go from 0 to 1
+        - tp_0_ramp: last time period without change from baseline
+        **kwargs: passed to sisepuede.utilities._toolbox.ramp_vector()
         """
-        year_0 = self.year_0_ramp if (year_0 is None) else year_0
-        n_years_ramp = self.n_tp_ramp if (n_years_ramp is None) else n_years_ramp
 
-        tp_0 = self.time_periods.year_to_tp(year_0) #10
-        n_tp = len(self.time_periods.all_time_periods) #25
+        # pull ramp characteristics
+        n_tp_ramp = (
+            self.n_tp_ramp 
+            if (not sf.isnumber(n_tp_ramp, integer = True)) 
+            else n_tp_ramp
+        )
+        tp_0_ramp = (
+            self.tp_0_ramp 
+            if (not sf.isnumber(tp_0_ramp, integer = True)) 
+            else tp_0_ramp
+        )
 
-        vec_out = np.array([max(0, min((x - tp_0)/n_years_ramp, 1)) for x in range(n_tp)])
+        # 
+        n_tp = len(self.time_periods.all_time_periods)
+        n_tp_ramp, tp_0_ramp = self.get_ramp_characteristics(
+            n_tp_ramp = n_tp_ramp,
+            tp_0_ramp = tp_0_ramp,
+        )
+
+        vec_out = sf.ramp_vector(
+            n_tp, 
+            a = 0, 
+            b = 2, 
+            c = 1, 
+            r_0 = tp_0,
+            r_1 = tp_0 + n_tp_ramp,
+        )
 
         return vec_out
     
 
 
-    def build_(self,
-    ) -> None: 
+    def build_msp_cap_vector(self,
+        vec_ramp: np.ndarray,
+    ) -> np.ndarray:
         """
-        Initialize the ramp vector for implementing transformations. Sets the 
-            following properties:
+        Build the cap vector for MSP adjustments. Derived from 
+            vec_implementation_ramp
 
-            * self.dict_entc_renewable_target_cats_max_investment
-            * self.vec_implementation_ramp
-            * self.vec_implementation_ramp_renewable_cap
-            * self.vec_msp_resolution_cap
+        Function Arguments
+		------------------
+        - vec_ramp: implementation ramp vector to use. Will set cap at first 
+            non-zero period
+
+        Keyword Arguments
+		-----------------
         """
-        
-        vec_implementation_ramp = self.build_implementation_ramp_vector()
-        vec_implementation_ramp_renewable_cap = self.get_vir_max_capacity(vec_implementation_ramp)
-        vec_msp_resolution_cap = self.build_msp_cap_vector(vec_implementation_ramp)
+        vec_out = np.array([
+            (self.model_enerprod.drop_flag_tech_capacities if (x == 0) else 0) 
+            for x in vec_ramp
+        ])
 
-        dict_entc_renewable_target_cats_max_investment = dict(
-            (
-                x, 
-                {
-                    "vec": vec_implementation_ramp_renewable_cap,
-                    "type": "scalar"
-                }
-            ) for x in self.cats_entc_max_investment_ramp
-        )
-        
-
-        ##  SET PROPERTIES
-        self.dict_entc_renewable_target_cats_max_investment = dict_entc_renewable_target_cats_max_investment
-        self.vec_implementation_ramp = vec_implementation_ramp
-        self.vec_implementation_ramp_renewable_cap = vec_implementation_ramp_renewable_cap
-        self.vec_msp_resolution_cap = vec_msp_resolution_cap
-
-        return None
+        return vec_out
     
 
 
     def check_implementation_ramp(self,
-        vec_implementation_ramp: np.ndarray,
+        vec_implementation_ramp: Union[np.ndarray, Dict[str, int], None],
         df_input: Union[pd.DataFrame, None] = None,
     ) -> Union[np.ndarray, None]:
         """
@@ -1104,11 +878,28 @@ class Transformers:
         If anything fails, return `self.vec_implementation_ramp`.
         """
 
+        # pull input dataframe
         df_input = (
             self.baseline_inputs 
             if not isinstance(df_input, pd.DataFrame)
             else df_input
         )
+
+        # if dictionary, try to build as vector
+        if isinstance(vec_implementation_ramp, dict):
+            
+            n_tp_ramp = vec_implementation_ramp.get("n_tp_ramp")
+            tp_0_ramp = vec_implementation_ramp.get("tp_0_ramp")
+
+            try:
+                vec_implementation_ramp = self.build_implementation_ramp_vector(
+                    n_tp_ramp = n_tp_ramp,
+                    tp_0_ramp = tp_0_ramp,
+                )
+
+            except Exception as e:
+                None
+                
 
         out = tbg.check_implementation_ramp(
             vec_implementation_ramp,
@@ -1117,10 +908,122 @@ class Transformers:
         )
 
         return out
+    
+
+
+    def get_entc_cats_renewable(self,
+        cats_renewable: Union[List[str], None] = None,
+        key_renewable_default: str = "renewable_default",
+    ) -> List[str]:
+
+        # filter and return
+        cats_renewable = self.model_attributes.get_valid_categories(
+            cats_renewable,
+            self.model_attributes.subsec_name_entc,
+        )
+
+        if not sf.islistlike(cats_renewable):
+            cats_renewable = self.model_attributes.filter_keys_by_attribute(
+                self.model_attributes.subsec_name_entc,
+                {key_renewable_default: 1}
+            )
+
+        return cats_renewable
+    
+   
+
+    def get_entc_dict_renewable_target_msp(self,
+        cats_renewable: Union[List[str], None], 
+        dict_entc_renewable_target_msp: dict,
+    ) -> List[str]:
+        """
+        Set any targets for renewable energy categories. Relies on 
+            cats_renewable to verify keys in renewable_target_entc
+        
+        Keyword Arguments
+        -----------------
+        - dict_config: dictionary mapping input configuration arguments to key 
+            values. Must include the following keys:
+
+            * dict_entc_renewable_target_msp: dictionary of renewable energy
+                categories mapped to MSP targets under the renewable target
+                transformation
+        """
+        dict_entc_renewable_target_msp = (
+            {}
+            if not isinstance(dict_entc_renewable_target_msp, dict)
+            else dict(
+                (k, v) for k, v in dict_entc_renewable_target_msp.items() 
+                if (k in cats_renewable) and (sf.isnumber(v))
+            )
+        )
+
+        return dict_entc_renewable_target_msp
+    
+
+
+    def get_ramp_characteristics(self,
+        n_tp_ramp: Union[int, None] = None,
+        tp_0_ramp: Union[int, None] = None,
+    ) -> List[str]:
+        """
+        Get parameters for the implementation of transformations. Returns a 
+            tuple with the following elements:
+
+            (
+                n_tp_ramp,
+                tp_0_ramp, 
+            )
+        
+        If dict_config is None, uses self.config.
+
+        NOTE: Requires those keys in dict_config to set. If not found, will set
+            the following defaults:
+                * year_0_ramp: 9th year (10th time period)
+                * n_tp_ramp: n_tp - t0_ramp - 1 (ramps to 1 at final time 
+                    period)
+
+        Keyword Arguments
+        -----------------
+        - n_tp_ramp: number of time periods to increase to full implementation. 
+            If None, defaults to final time period
+        - tp_0_ramp: first time period of ramp (last == 0)
+        """
+
+
+        n_tp = len(self.time_periods.all_time_periods)
+        
+        # set y0 default if not specified correctly
+        if not sf.isnumber(tp_0_ramp, integer = True):
+
+            year_0_ramp = dt.datetime.now().year + 2
+            tp_0_ramp = self.time_periods.year_to_tp(year_0_ramp)
+
+            if tp_0_ramp is None:
+                msg = f"Error setting default time period: year {year_0_ramp} undefined. Explicitly specify tp_0_ramp in Transformers"
+                raise RuntimeError(msg)
+
+        # ensure it's in the set of defined time periods
+        tp_0_ramp = self.time_periods.get_closest_time_period(tp_0_ramp)
+
+        # shift by 2--1 to account for baseline having no uncertainty, 1 for py reindexing
+        default_tp_ramp = n_tp - tp_0_ramp - 1
+        n_tp_ramp = (
+            default_tp_ramp
+            if not sf.isnumber(n_tp_ramp, integer = True)
+            else min(default_tp_ramp, n_tp_ramp)
+        )
+       
+        tup_out = (
+            n_tp_ramp,
+            year_0_ramp, 
+        )
+
+        return tup_out
 
         
 
-     def get(self,
+     def get_transformer(self,
         transformer: Union[int, str, None],
         field_transformer_id: str = "transformer_id",
         field_transformer_name: str = "transformer",
@@ -1181,60 +1084,118 @@ class Transformers:
             return code
 
 
-        out = self.dict_transformations.get(code)
+        out = self.dict_transformers.get(code)
         
         return out
     
 
 
-    def get_entc_cats_renewable(self,
-        cats_renewable: Union[List[str], None] = None,
-        key_renewable_default: str = "renewable_default",
-    ) -> List[str]:
-
-        # filter and return
-        cats_renewable = self.model_attributes.get_valid_categories(
-            cats_renewable,
-            self.model_attributes.subsec_name_entc,
-        )
-
-        if not sf.islistlike(cats_renewable):
-            cats_renewable = self.model_attributes.filter_keys_by_attribute(
-                self.model_attributes.subsec_name_entc,
-                {key_renewable_default: 1}
-            )
-
-        return cats_renewable
-        
-   
-
-    def get_entc_dict_renewable_target_msp(self,
-        cats_renewable: Union[List[str], None], 
-        dict_entc_renewable_target_msp: dict,
-    ) -> List[str]:
+    def get_vectors_for_ramp_and_cap(self,
+        **kwargs,
+    ) -> Tuple: 
         """
-        Set any targets for renewable energy categories. Relies on 
-            cats_renewable to verify keys in renewable_target_entc
+        Get ramp vector and associated vectors for capping, including (in order)
+
+            * dict_entc_renewable_target_cats_max_investment
+            * vec_implementation_ramp
+            * vec_implementation_ramp_renewable_cap
+            * vec_msp_resolution_cap
         
         Keyword Arguments
         -----------------
-        - dict_config: dictionary mapping input configuration arguments to key 
-            values. Must include the following keys:
-
-            * dict_entc_renewable_target_msp: dictionary of renewable energy
-                categories mapped to MSP targets under the renewable target
-                transformation
+        **kwargs: passed to build_implementation_ramp_vector(); if 
+            vec_implementation_ramp is passed as a keyword argument, will use
+            this to derive renewable and MSP caps
         """
-        dict_entc_renewable_target_msp = (
-            {}
-            if not isinstance(dict_entc_renewable_target_msp, dict)
-            else dict(
-                (k, v) for k, v in dict_entc_renewable_target_msp.items() 
-                if (k in cats_renewable) and (sf.isnumber(v))
-            )
+        
+        if "vec_implementation_ramp" not in kwargs.keys():
+            vec_implementation_ramp = self.build_implementation_ramp_vector(**kwargs)
+
+        vec_implementation_ramp_renewable_cap = self.get_vir_max_capacity(vec_implementation_ramp)
+        vec_msp_resolution_cap = self.build_msp_cap_vector(vec_implementation_ramp)
+
+        dict_entc_renewable_target_cats_max_investment = dict(
+            (
+                x, 
+                {
+                    "vec": vec_implementation_ramp_renewable_cap,
+                    "type": "scalar"
+                }
+            ) for x in self.cats_entc_max_investment_ramp
+        )
+        
+        
+        ##  RETURN AS TUPLE
+
+        tuple_out = (
+            dict_entc_renewable_target_cats_max_investment,
+            vec_implementation_ramp,
+            vec_implementation_ramp_renewable_cap,
+            vec_msp_resolution_cap,
         )
 
-        return dict_entc_renewable_target_msp
+        return tuple_out
+    
+    
+
+    def get_vir_max_capacity(self,
+        vec_implementation_ramp: np.ndarray,
+        delta_frac: Union[float, None] = None,
+        dict_values_to_inds: Union[Dict, None] = None,
+        max_frac: Union[float, None] = None,
+    ) -> np.ndarray:
+        """
+        Buil a new value for the max_capacity based on vec_implementation_ramp.
+            Starts with max_frac of a technicology's maximum residual capacity
+            in the first period when vec_implementation_ramp != 0, then declines
+            by delta_frac the specified number of time periods. Ramp down a cap 
+            based on the renewable energy target.
+
+        Function Arguments
+        ------------------
+        - vec_implementation_ramp: vector of lever implementation ramp to use as
+            reference
+
+        Keyword Arguments
+        -----------------
+        - delta_frac: delta to apply at each time period after the first time
+            non-0 vec_implementation_ramp time_period. Defaults to 
+            self.vir_renewable_cap_delta_frac if unspecified
+        - dict_values_to_inds: optional dictionary mapping a value to row 
+            indicies to pass the value to. Can be used, for example, to provide 
+            a cap on new investments in early time periods. 
+         - max_frac: fraction of maximum residual capacity to use as cap in 
+            first time period where vec_implementation_ramp > 0. Defaults to
+            self.vir_renewable_cap_max_frac if unspecified
+        """
+
+        delta_frac = (
+            self.vir_renewable_cap_delta_frac
+            if not sf.isnumber(delta_frac)
+            else float(sf.vec_bounds(delta_frac, (0.0, 1.0)))
+        )
+        max_frac = (
+            self.vir_renewable_cap_max_frac
+            if not sf.isnumber(max_frac)
+            else float(sf.vec_bounds(max_frac, (0.0, 1.0)))
+        )
+
+        vec_implementation_ramp_max_capacity = np.ones(len(vec_implementation_ramp))
+        i0 = None
+
+        for i in range(len(vec_implementation_ramp)):
+            if vec_implementation_ramp[i] == 0:
+                vec_implementation_ramp_max_capacity[i] = -999
+            else:
+                i0 = i if (i0 is None) else i0
+                vec_implementation_ramp_max_capacity[i] = max(max_frac - delta_frac*(i - i0), 0.0)
+
+
+        if isinstance(dict_values_to_inds, dict):
+            for k in dict_values_to_inds.keys():
+                np.put(vec_implementation_ramp_max_capacity, dict_values_to_inds.get(k), k)
+
+        return vec_implementation_ramp_max_capacity 
 
 
 
@@ -1263,6 +1224,115 @@ class Transformers:
         )
 
         return None
+    
+
+
+    def _trfunc_support_entc_change_msp_max(self,
+        df_input: Union[pd.DataFrame, None],
+        cats_to_cap: Union[List[str], None],
+        strat: Union[int, None] = None,
+        vec_implementation_ramp: Union[np.ndarray, Dict[str, int], None] = None,
+        **kwargs,
+    ) -> pd.DataFrame:
+        """
+        Implement a transformation for the baseline to resolve constraint
+            conflicts between TotalTechnologyAnnualActivityUpperLimit/
+            TotalTechnologyAnnualActivityLowerLimit if MinShareProduction is 
+            Specified. 
+
+        This transformation will turn on the MSP Max method in EnergyProduction,
+            which will cap electric production (for a given technology) at the 
+            value estimated for the last non-engaged time period. 
+            
+        E.g., suppose a technology has the following estimated electricity 
+            production (estimated endogenously and excluding demands for ENTC) 
+            and associated value of msp_max (stored in the "Maximum Production 
+            Increase Fraction to Satisfy MinShareProduction Electricity" 
+            SISEPUEDE model variable):
+
+            time_period     est. production     msp_max
+                            implied by MSP     
+            -----------     ---------------     -------
+            0               10                  -999
+            1               10.5                -999
+            2               11                  -999
+            3               11.5                -999
+            4               12                  0
+            .
+            .
+            .
+            n - 2           23                  0
+            n - 1           23.1                0
+
+            Then the MSP for this technology would be adjusted to never exceed 
+            the value of 11.5, which was found at time_period 3. msp_max = 0
+            means that a 0% increase is allowable in the MSP passed to NemoMod,
+            so the specified MSP trajectory (which is passed to NemoMod) is 
+            adjusted to reflect this change.
+        
+        NOTE: Only the *first value* after that last non-specified time period
+            affects this variable. Using the above table as an example, entering 
+            0 in time_period 4 and 1 in time_period 5 means that 0 is used for 
+            all time_periods on and after 4.
+        
+
+        Function Arguments
+        ------------------
+
+        Keyword Arguments
+        -----------------
+        - df_input: data frame containing trajectories to modify
+        - cats_to_cap: list of categories to cap using the transformation
+            implementation vector self.vec_implementation_ramp. If None, 
+            defaults to pp_hydropower
+        - strat: strategy number to pass
+        - vec_implementation_ramp: optional vector specifying the implementation
+            scalar ramp for the transformation. If None, defaults to a uniform 
+            ramp that starts at the time specified in the configuration.
+        - **kwargs: passed to ade.transformations_general()
+        """
+       
+        df_input = (
+            self.baseline_inputs
+            if not isinstance(df_input, pd.DataFrame) 
+            else df_input
+        )
+
+        # check implementation ramp
+        vec_implementation_ramp = self.check_implementation_ramp(
+            vec_implementation_ramp,
+            df_input,
+        )
+
+
+        # CHECK CATEGORIES TO CAP
+
+        cats_to_cap = [] if not sf.islistlike(cats_to_cap) else cats_to_cap
+        cats_to_cap = [x for x in self.attribute_technology.key_values if x in cats_to_cap]
+        if len(cats_to_cap) == 0:
+            return df_input
+
+        # build dictionary if valid
+        dict_cat_to_vector = dict(
+            (x, self.vec_msp_resolution_cap)
+            for x in cats_to_cap
+        )
+
+
+        # USE CHANGE MSP MAX TRANSFORMATION FUNCTION
+
+        df_out = tbe.transformation_entc_change_msp_max(
+            df_input,
+            dict_cat_to_vector,
+            self.model_enerprod,
+            drop_flag = self.model_enerprod.drop_flag_tech_capacities,
+            field_region = self.key_region,
+            vec_ramp = vec_implementation_ramp,
+            strategy_id = strat,
+            **kwargs
+        )
+ 
+        return df_out
 
 
 
@@ -1285,12 +1355,14 @@ class Transformers:
     NOTE: modifications to input variables should ONLY affect IPPU variables
     """
 
-    def transformer_baseline(self,
+    def _trfunc_baseline(self,
         df_input: pd.DataFrame,
         categories_entc_pps_to_cap: Union[List[str], None] = None,
         categories_entc_renewable: Union[List[str], None] = None,
         dict_entc_renewable_target_msp_baseline: dict = {},
         magnitude_lurf: Union[bool, None] = None,
+        n_tp_ramp: Union[int, None] = None,
+        tp_0_ramp: Union[int, None] = None,
         strat: Union[int, None] = None,
     ) -> pd.DataFrame:
         """
@@ -1313,6 +1385,9 @@ class Transformers:
             base case.
         - magnitude_lurf: magnitude of the land use reallocation factor under
             baseline
+        - n_tp_ramp: number of time periods to increase to full implementation. 
+            If None, defaults to final time period
+        - tp_0_ramp: first time period of ramp (last == 0)
         - vec_implementation_ramp: optional vector specifying the implementation
             scalar ramp for the transformation. If None, defaults to a uniform 
             ramp that starts at the time specified in the configuration.
@@ -1327,6 +1402,7 @@ class Transformers:
         #)
         df_out = df_input.copy()
 
+
         ##  GET SOME PARAMETERS
 
         # check implementation ramp
@@ -1340,6 +1416,11 @@ class Transformers:
             categories_entc_renewable, 
         )
 
+        # power plant categories to cap
+        categories_entc_pps_to_cap = self.config.get(
+            self.key_config_cats_entc_pps_to_cap,
+        )
+
         # target magnitude of the land use reallocation factor
         magnitude_lurf = (  
             0.0 
@@ -1351,6 +1432,16 @@ class Transformers:
         dict_entc_renewable_target_msp_baseline = self.get_entc_dict_renewable_target_msp(
             cats_renewable = categories_entc_renewable,
             dict_entc_renewable_target_msp = dict_entc_renewable_target_msp_baseline,
+        )
+
+        # characteristics for BASELINE MSP ramp 
+        (
+            dict_entc_renewable_target_cats_max_investment,
+            vec_implementation_ramp,
+            vec_implementation_ramp_renewable_cap,
+            vec_msp_resolution_cap,
+        ) = self.get_vectors_for_ramp_and_cap(
+            vec_implementation_ramp = vec_implementation_ramp,
         )
 
 
@@ -1375,12 +1466,10 @@ class Transformers:
 
         ##  CIRCULAR ECONOMY BASE
 
-        # no actions
-
 
         ##  ENERGY BASE
 
-        df_out = self.transformation_support_entc_change_msp_max(
+        df_out = self._trfunc_support_entc_change_msp_max(
             df_out,
             categories_entc_pps_to_cap,
             strat = None,
@@ -1398,7 +1487,7 @@ class Transformers:
             target_renewables_value_min,
             vec_implementation_ramp,
             self.model_enerprod,
-            dict_cats_entc_max_investment = self.dict_entc_renewable_target_cats_max_investment,
+            dict_cats_entc_max_investment = dict_entc_renewable_target_cats_max_investment,
             field_region = self.key_region,
             include_target = False, # only want to adjust MSPs in line with this
             magnitude_as_floor = True,
@@ -1409,16 +1498,10 @@ class Transformers:
         )
 
 
-        ##  IPPY BASE
+        ##  IPPU BASE
 
 
-        df_out = self.transformations_afolu.transformation_af_baseline(df_out)
-        df_out = self.transformations_circular_economy.transformation_ce_baseline(df_out)
-        df_out = self.transformations_energy.transformation_en_baseline(df_out)
-        df_out = self.transformations_ippu.transformation_ip_baseline(df_out)
-
-        # TEMP: for certain experiments, we want to treat PLUR as baseline. This implementation does that
-        #df_out = self.transformations_afolu.transformation_lndu_reallocate_land(df_out)
+        ##  ADD STRAT IF APPLICABLE 
 
         if sf.isnumber(strat, integer = True):
             df_out = sf.add_data_frame_fields_from_dict(
@@ -1430,7 +1513,1473 @@ class Transformers:
                 prepend_q = True,
             )
 
+
         return df_out
+
+
+
+
+    #########################################
+    ###                                   ###
+    ###    AFOLU TRANSFORMER FUNCTIONS    ###
+    ###                                   ###
+    #########################################
+    
+    ##############################
+    #    AGRC TRANSFORMATIONS    #
+    ##############################
+
+    def _trfunc_agrc_decrease_exports(self,
+        df_input: Union[pd.DataFrame, None] = None,
+        magnitude: float = 0.5,
+        magnitude_type: str = "baseline_scalar",
+        strat: Union[int, None] = None,
+        vec_implementation_ramp: Union[np.ndarray, Dict[str, int], None] = None,
+    ) -> pd.DataFrame:
+        """
+        Implement the "Decrease Exports" AGRC transformation on input 
+            DataFrame df_input (reduce by 50%)
+
+        Function Arguments
+        ------------------
+
+        Keyword Arguments
+        -----------------
+        - df_input: data frame containing trajectories to modify
+        - magnitude: magnitude of decrease in exports. If using the default 
+            value of `magnitude_type == "scalar"`, this magnitude will scale the
+            final time value downward by this factor. If magnitude_type changes,
+            then the behavior of the trasnformation will change.
+        - magnitude_type: type of magnitude, as specified in 
+            transformers.lib.general.transformations_general. See 
+            ?transformers.lib.general.transformations_general for more 
+            information on the specification of magnitude_type for general
+            transformation values. The 
+        - strat: optional strategy value to specify for the transformation
+        - vec_implementation_ramp: optional vector specifying the implementation
+            scalar ramp for the transformation. If None, defaults to a uniform 
+            ramp that starts at the time specified in the configuration.
+        """
+        # check input dataframe
+        df_input = (
+            self.baseline_inputs
+            if not isinstance(df_input, pd.DataFrame) 
+            else df_input
+        )
+
+        magnitude = 0.5 if not isinstance(magnitude, float) else magnitude
+
+        # check implementation ramp
+        vec_implementation_ramp = self.check_implementation_ramp(
+            vec_implementation_ramp,
+            df_input,
+        )
+
+
+        df_out = tbg.transformation_general(
+            df_input,
+            self.model_attributes,
+            {
+                self.model_afolu.modvar_agrc_equivalent_exports: {
+                    "bounds": (0.0, 1.0),
+                    "magnitude": magnitude,
+                    "magnitude_type": magnitude_type,
+                    "vec_ramp": self.vec_implementation_ramp
+                },
+            },
+            field_region = self.key_region,
+            strategy_id = strat,
+        )
+        
+        return df_out
+
+
+
+    def _trfunc_agrc_expand_conservation_agriculture(self,
+        df_input: Union[pd.DataFrame, None] = None,
+        dict_categories_to_magnitude: Union[Dict[str, float], None] = None,
+        magnitude_burned: float = 0.0,
+        magnitude_removed: float = 0.5,
+        strat: Union[int, None] = None,
+        vec_implementation_ramp: Union[np.ndarray, Dict[str, int], None] = None,
+    ) -> pd.DataFrame:
+        """
+        Implement the "Expand Conservation Agriculture" AGRC transformation on 
+            input DataFrame df_input. 
+            
+        NOTE: Sets a new floor for F_MG (as described in in V4 Equation 2.25 
+            (2019R)) to reduce losses of soil organic carbon through no-till 
+            in cropland + reduces removals and burning of crop residues, 
+            increasing residue covers on fields.
+        
+
+        Function Arguments
+        ------------------
+
+        Keyword Arguments
+        -----------------
+        - df_input: data frame containing trajectories to modify
+        - dict_categories_to_magnitude: conservation agriculture is practically
+            applied to only select crop types. Use the dictionary to map 
+            SISEPUEDE crop categories to target implementation magnitudes.
+            * If None, maps to the following dictionary:
+
+                {
+                    "cereals": 0.8,
+                    "fibers": 0.8,
+                    "other_annual": 0.8,
+                    "pulses": 0.5,
+                    "tubers": 0.5,
+                    "vegetables_and_vines": 0.5,
+                }
+                
+        - magnitude_burned: target fraction of residues that are burned
+        - magnitude_removed: maximum fraction of residues that are removed
+        - strat: optional strategy value to specify for the transformation
+        - vec_implementation_ramp: optional vector specifying the implementation
+            scalar ramp for the transformation. If None, defaults to a uniform 
+            ramp that starts at the time specified in the configuration.
+        """
+        # check input dataframe
+        df_input = (
+            self.baseline_inputs
+            if not isinstance(df_input, pd.DataFrame) 
+            else df_input
+        )
+        
+        # specify dictionary
+        dict_categories_to_magnitude = (
+            {
+                "cereals": 0.8,
+                "fibers": 0.8,
+                "other_annual": 0.8,
+                "pulses": 0.5,
+                "tubers": 0.5,
+                "vegetables_and_vines": 0.5,
+            }
+            if not isinstance(dict_categories_to_magnitude, dict)
+            else dict_categories_to_magnitude
+        )
+
+        # check implementation ramp
+        vec_implementation_ramp = self.check_implementation_ramp(
+            vec_implementation_ramp,
+            df_input,
+        )
+
+
+        # COMBINES SEVERAL COMPONENTS - NO TILL + REDUCTIONS IN RESIDUE REMOVAL AND BURNING
+        
+        # 1. increase no till
+        df_out = tba.transformation_agrc_increase_no_till(
+            df_input,
+            dict_categories_to_magnitude,
+            vec_implementation_ramp,
+            self.model_attributes,
+            field_region = self.key_region,
+            model_afolu = self.model_afolu,
+            strategy_id = strat,
+        )
+
+        # 2. reduce burning and removals
+        df_out = tbg.transformation_general(
+            df_out,
+            self.model_attributes,
+            {
+                self.model_afolu.modvar_agrc_frac_residues_burned: {
+                    "bounds": (0.0, 1.0),
+                    "magnitude": magnitude_burned,
+                    "magnitude_type": "final_value",
+                    "vec_ramp": vec_implementation_ramp
+                },
+
+                self.model_afolu.modvar_agrc_frac_residues_removed: {
+                    "bounds": (0.0, 1.0),
+                    "magnitude": magnitude_removed,
+                    "magnitude_type": "final_value_ceiling",
+                    "vec_ramp": vec_implementation_ramp
+                },
+            },
+            field_region = self.key_region,
+            strategy_id = strat,
+        )
+        
+        return df_out
+
+
+
+    def _trfunc_agrc_improve_crop_residue_management(self,
+        df_input: Union[pd.DataFrame, None] = None,
+        magnitude_burned: float = 0.0,
+        magnitude_removed: float = 0.95,
+        strat: Union[int, None] = None,
+        vec_implementation_ramp: Union[np.ndarray, Dict[str, int], None] = None,
+    ) -> pd.DataFrame:
+        """
+        Implement the "Improve Crop Management" AGRC transformation on input 
+            DataFrame df_input. 
+        
+        Function Arguments
+        ------------------
+
+        Keyword Arguments
+        -----------------
+        - df_input: data frame containing trajectories to modify
+        - magnitude_burned: target fraction of residues that are burned
+        - magnitude_removed: maximum fraction of residues that are removed
+        - strat: optional strategy value to specify for the transformation
+        - vec_implementation_ramp: optional vector specifying the implementation
+            scalar ramp for the transformation. If None, defaults to a uniform 
+            ramp that starts at the time specified in the configuration.
+        """
+        # check input dataframe
+        df_input = (
+            self.baseline_inputs
+            if not isinstance(df_input, pd.DataFrame) 
+            else df_input
+        )
+
+        # set the magnitude in case of none
+        magnitude_burned = (
+            0.0 
+            if not isinstance(magnitude_burned, float) 
+            else magnitude_burned
+        )
+        magnitude_removed = (
+            0.0 
+            if not isinstance(magnitude_removed, float) 
+            else magnitude_removed
+        )
+
+        # check implementation ramp
+        vec_implementation_ramp = self.check_implementation_ramp(
+            vec_implementation_ramp,
+            df_input,
+        )
+
+       
+        df_out = tba.transformation_agrc_improve_crop_residue_management(
+            df_input,
+            magnitude_burned, # stop burning crops
+            magnitude_removed, #remove 95%
+            vec_implementation_ramp,
+            self.model_attributes,
+            model_afolu = self.model_afolu,
+            field_region = self.key_region,
+            strategy_id = strat,
+        )
+
+        return df_out
+
+
+
+    def _trfunc_agrc_improve_rice_management(self,
+        df_input: Union[pd.DataFrame, None] = None,
+        magnitude: float = 0.45,
+        strat: Union[int, None] = None,
+        vec_implementation_ramp: Union[np.ndarray, Dict[str, int], None] = None,
+    ) -> pd.DataFrame:
+        """
+        Implement the "Improve Rice Management" AGRC transformation on input 
+            DataFrame df_input. 
+        
+        Function Arguments
+        ------------------
+
+        Keyword Arguments
+        -----------------
+        - df_input: data frame containing trajectories to modify
+        - magnitude: minimum target fraction of rice production under improved 
+            management.
+        - strat: optional strategy value to specify for the transformation
+        - vec_implementation_ramp: optional vector specifying the implementation
+            scalar ramp for the transformation. If None, defaults to a uniform 
+            ramp that starts at the time specified in the configuration.
+        """
+        # check input dataframe
+        df_input = (
+            self.baseline_inputs
+            if not isinstance(df_input, pd.DataFrame) 
+            else df_input
+        )
+
+        # set the magnitude in case of none
+        magnitude = 0.45 if not isinstance(magnitude, float) else magnitude
+
+        # check implementation ramp
+        vec_implementation_ramp = self.check_implementation_ramp(
+            vec_implementation_ramp,
+            df_input,
+        )
+        
+        df_out = tba.transformation_agrc_improve_rice_management(
+            df_input,
+            magnitude,
+            vec_implementation_ramp,
+            self.model_attributes,
+            model_afolu = self.model_afolu,
+            field_region = self.key_region,
+            strategy_id = strat,
+        )
+
+        return df_out
+
+
+    
+    def _trfunc_agrc_increase_crop_productivity(self,
+        df_input: Union[pd.DataFrame, None] = None,
+        magnitude: Union[float, Dict[str, float]] = 0.2,
+        strat: Union[int, None] = None,
+        vec_implementation_ramp: Union[np.ndarray, Dict[str, int], None] = None,
+    ) -> pd.DataFrame:
+        """
+        Implement the "Increase Crop Productivity" AGRC transformation on input 
+            DataFrame df_input. 
+        
+        Function Arguments
+        ------------------
+
+        Keyword Arguments
+        -----------------
+        - df_input: data frame containing trajectories to modify
+        - magnitude: magnitude of productivity increase; can be specified as
+            * a float: apply a single scalar increase to productivity for all
+                crops
+            * a dictionary: specify crop productivity increases individually,
+                with each key being a crop and the associated value being the
+                productivity increase
+        - strat: optional strategy value to specify for the transformation
+        - vec_implementation_ramp: optional vector specifying the implementation
+            scalar ramp for the transformation. If None, defaults to a uniform 
+            ramp that starts at the time specified in the configuration.
+        """
+        # check input dataframe
+        df_input = (
+            self.baseline_inputs
+            if not isinstance(df_input, pd.DataFrame) 
+            else df_input
+        )
+
+        # set the magnitude in case of none
+        magnitude = (
+            0.2 
+            if not (isinstance(magnitude, float) | isinstance(magnitude, dict)) 
+            else magnitude
+        )
+
+        # check implementation ramp
+        vec_implementation_ramp = self.check_implementation_ramp(
+            vec_implementation_ramp,
+            df_input,
+        )
+
+        
+        df_out = tba.transformation_agrc_increase_crop_productivity(
+            df_input,
+            magnitude, # can be specified as dictionary to affect different crops differently 
+            vec_implementation_ramp,
+            self.model_attributes,
+            model_afolu = self.model_afolu,
+            field_region = self.key_region,
+            strategy_id = strat,
+        )
+
+        return df_out
+
+
+
+    def _trfunc_agrc_reduce_supply_chain_losses(self,
+        df_input: Union[pd.DataFrame, None] = None,
+        magnitude: float = 0.3,
+        strat: Union[int, None] = None,
+        vec_implementation_ramp: Union[np.ndarray, Dict[str, int], None] = None,
+    ) -> pd.DataFrame:
+        """
+        Implement the "Reduce Supply Chain Losses" AGRC transformation on input 
+            DataFrame df_input. 
+        
+        Function Arguments
+        ------------------
+
+        Keyword Arguments
+        -----------------
+        - df_input: data frame containing trajectories to modify
+        - magnitude: magnitude of reduction in supply chain losses. Specified
+            as a fraction (e.g., a 30% reduction is specified as 0.3)
+        - strat: optional strategy value to specify for the transformation
+        - vec_implementation_ramp: optional vector specifying the implementation
+            scalar ramp for the transformation. If None, defaults to a uniform 
+            ramp that starts at the time specified in the configuration.
+        """
+        # check input dataframe
+        df_input = (
+            self.baseline_inputs
+            if not isinstance(df_input, pd.DataFrame) 
+            else df_input
+        )
+
+        # set the magnitude in case of none
+        magnitude = 0.3 if not isinstance(magnitude, float) else magnitude
+
+        # check implementation ramp
+        vec_implementation_ramp = self.check_implementation_ramp(
+            vec_implementation_ramp,
+            df_input,
+        )
+
+        
+        df_out = tba.transformation_agrc_reduce_supply_chain_losses(
+            df_input,
+            magnitude,
+            vec_implementation_ramp,
+            self.model_attributes,
+            model_afolu = self.model_afolu,
+            field_region = self.key_region,
+            strategy_id = strat,
+        )
+
+        return df_out
+
+
+    
+    ##############################
+    #    FRST TRANSFORMATIONS    #
+    ##############################
+
+    def _trfunc_lndu_increase_reforestation(self,
+        df_input: Union[pd.DataFrame, None] = None,
+        cats_inflow_restriction: Union[List[str], None] = ["croplands", "other"],
+        magnitude: float = 0.2,
+        strat: Union[int, None] = None,
+        vec_implementation_ramp: Union[np.ndarray, Dict[str, int], None] = None,
+    ) -> pd.DataFrame:
+        """
+        Implement the "Increase Reforestation" FRST transformation on input 
+            DataFrame df_input. 
+        
+        Function Arguments
+        ------------------
+
+        Keyword Arguments
+        -----------------
+        - cats_inflow_restriction: categories to allow to transition into 
+            secondary forest; don't specify categories that cannot be reforested 
+        - df_input: data frame containing trajectories to modify
+        - magnitude: fractional increase in secondary forest area to specify.
+            E.g., a 10% increase in secondary forests is specified as 0.1
+        - strat: optional strategy value to specify for the transformation
+        - vec_implementation_ramp: optional vector specifying the implementation
+            scalar ramp for the transformation. If None, defaults to a uniform 
+            ramp that starts at the time specified in the configuration.
+        """
+        # check input dataframe
+        df_input = (
+            self.baseline_inputs
+            if not isinstance(df_input, pd.DataFrame) 
+            else df_input
+        )
+        
+        # set the magnitude in case of none
+        magnitude = 0.2 if not isinstance(magnitude, float) else magnitude
+
+        # check implementation ramp
+        vec_implementation_ramp = self.check_implementation_ramp(
+            vec_implementation_ramp,
+            df_input,
+        )
+
+
+        df_out = tba.transformation_frst_increase_reforestation(
+            df_input, 
+            magnitude, # double forests INDIA
+            vec_implementation_ramp,
+            self.model_attributes,
+            cats_inflow_restriction = cats_inflow_restriction, # SET FOR INDIA--NEED A BETTER WAY TO DETERMINE
+            field_region = self.key_region,
+            model_afolu = self.model_afolu,
+            strategy_id = strat,
+        )
+
+        return df_out
+
+
+
+    def _trfunc_lndu_stop_deforestation(self,
+        df_input: Union[pd.DataFrame, None] = None,
+        magnitude: float = 0.99999,
+        strat: Union[int, None] = None,
+        vec_implementation_ramp: Union[np.ndarray, Dict[str, int], None] = None,
+    ) -> pd.DataFrame:
+        """
+        Implement the "Stop Deforestation" FRST transformation on input 
+            DataFrame df_input. 
+        
+        Function Arguments
+        ------------------
+
+        Keyword Arguments
+        -----------------
+        - df_input: data frame containing trajectories to modify
+        - magnitude: magnitude of final primary forest transition probability
+            into itself; higher magnitudes indicate less deforestation.
+        - strat: optional strategy value to specify for the transformation
+        - vec_implementation_ramp: optional vector specifying the implementation
+            scalar ramp for the transformation. If None, defaults to a uniform 
+            ramp that starts at the time specified in the configuration.
+        """
+        # check input dataframe
+        df_input = (
+            self.baseline_inputs
+            if not isinstance(df_input, pd.DataFrame) 
+            else df_input
+        )
+
+        # set the magnitude in case of none
+        magnitude = 0.99999 if not isinstance(magnitude, float) else magnitude
+
+        # check implementation ramp
+        vec_implementation_ramp = self.check_implementation_ramp(
+            vec_implementation_ramp,
+            df_input,
+        )
+
+        ##  BEGIN modify ramp to be a binary/start in another year HEREHERE - TEMP  ##
+        vec_ramp = np.array(
+            [float(int(x > 0)) for x in vec_implementation_ramp]
+        )
+        w = np.where(vec_ramp == 1)[0][0]
+        vec_ramp = np.array(
+            [
+                float(sf.vec_bounds((x - (w - 1))/5, (0, 1))) # start in 2040
+                for x in range(len(vec_implementation_ramp))
+            ]
+        )
+        ##  END ##
+
+        df_out = tba.transformation_frst_reduce_deforestation(
+            df_input,
+            magnitude,
+            vec_ramp,#self.vec_implementation_ramp,
+            self.model_attributes,
+            field_region = self.key_region,
+            model_afolu = self.model_afolu,
+            strategy_id = strat,
+        )
+        
+        return df_out
+
+
+
+    ##############################
+    #    LNDU TRANSFORMATIONS    #
+    ##############################
+
+    def _trfunc_lndu_expand_silvopasture(self,
+        df_input: Union[pd.DataFrame, None] = None,
+        magnitude: float = 0.1,
+        strat: Union[int, None] = None,
+        vec_implementation_ramp: Union[np.ndarray, Dict[str, int], None] = None,
+    ) -> pd.DataFrame:
+        """
+        Increase the use of silvopasture by shifting pastures to secondary 
+            forest. 
+            
+        NOTE: This transformation relies on modifying transition matrices, which 
+            can compound some minor numerical errors in the crude implementation 
+            taken here. Final area prevalences may not reflect 
+            get_matrix_column_scalarget_matrix_column_scalarprecise shifts.
+        
+        Function Arguments
+        ------------------
+
+        Keyword Arguments
+        -----------------
+        - df_input: data frame containing trajectories to modify
+        - magnitude: magnitude of increase in fraction of pastures subject to 
+            silvopasture
+        - strat: optional strategy value to specify for the transformation
+        - vec_implementation_ramp: optional vector specifying the implementation
+            scalar ramp for the transformation. If None, defaults to a uniform 
+            ramp that starts at the time specified in the configuration.
+        """
+        # check input dataframe
+        df_input = (
+            self.baseline_inputs
+            if not isinstance(df_input, pd.DataFrame) 
+            else df_input
+        )
+
+        # set the magnitude in case of none
+        magnitude = 0.1 if not isinstance(magnitude, float) else magnitude
+
+        # check implementation ramp
+        vec_implementation_ramp = self.check_implementation_ramp(
+            vec_implementation_ramp,
+            df_input,
+        )
+        
+
+        df_out = tba.transformation_lndu_increase_silvopasture(
+            df_input,
+            magnitude, # CHANGEDFORINDIA - ORIG 0.1
+            vec_implementation_ramp,
+            self.model_attributes,
+            field_region = self.key_region,
+            model_afolu = self.model_afolu,
+            strategy_id = strat,
+        )
+        
+        return df_out
+    
+    
+
+    def _trfunc_lndu_expand_sustainable_grazing(self,
+        df_input: Union[pd.DataFrame, None] = None,
+        magnitude: float = 0.95,
+        strat: Union[int, None] = None,
+        vec_implementation_ramp: Union[np.ndarray, Dict[str, int], None] = None,
+    ) -> pd.DataFrame:
+        """
+        Implement the "Expand Sustainable Grazing" LNDU transformation on input 
+            DataFrame df_input. 
+            
+        NOTE: Sets a new floor for F_MG (as described in in V4 Equation 2.25 
+            (2019R)) through improved grassland management (grasslands).
+        
+        Function Arguments
+        ------------------
+
+        Keyword Arguments
+        -----------------
+        - df_input: data frame containing trajectories to modify
+        - magnitude: fraction of pastures subject to improved pasture 
+            management. This value acts as a floor, so that if the existing
+            value is greater than is specified by the transformation, the 
+            existing value will be maintained. 
+        - strat: optional strategy value to specify for the transformation
+        - vec_implementation_ramp: optional vector specifying the implementation
+            scalar ramp for the transformation. If None, defaults to a uniform 
+            ramp that starts at the time specified in the configuration.
+        """
+        # check input dataframe
+        df_input = (
+            self.baseline_inputs
+            if not isinstance(df_input, pd.DataFrame) 
+            else df_input
+        )
+        
+        # set the magnitude in case of none
+        magnitude = 0.95 if not isinstance(magnitude, float) else magnitude
+
+        # check implementation ramp
+        vec_implementation_ramp = self.check_implementation_ramp(
+            vec_implementation_ramp,
+            df_input,
+        )
+
+        
+        df_out = tbg.transformation_general(
+            df_input,
+            self.model_attributes,
+            {
+                self.model_afolu.modvar_lndu_frac_pastures_improved: {
+                    "bounds": (0.0, 1.0),
+                    "magnitude": magnitude,
+                    "magnitude_type": "final_value_floor",
+                    "vec_ramp": vec_implementation_ramp
+                }
+            },
+            field_region = self.key_region,
+            strategy_id = strat,
+        )
+        
+        return df_out
+
+
+
+    def _trfunc_lndu_integrated_transitions(self,
+        df_input: Union[pd.DataFrame, None] = None,
+        magnitude_deforestation: Union[float, None] = None,
+        magnitude_silvopasture: Union[float, None] = None,
+        strat: Union[int, None] = None,
+        vec_implementation_ramp: Union[np.ndarray, Dict[str, int], None] = None,
+    ) -> pd.DataFrame:
+        """
+        Increase the use of silvopasture by shifting pastures to secondary 
+            forest AND reduce deforestation. Sets orderering of these 
+            transformations for bundles.
+            
+        NOTE: This transformation relies on modifying transition matrices, which 
+            can compound some minor numerical errors in the crude implementation 
+            taken here. Final area prevalences may not reflect precise shifts.
+        
+        Function Arguments
+        ------------------
+
+        Keyword Arguments
+        -----------------
+        - df_input: data frame containing trajectories to modify
+        - magnitude_deforestation: magnitude to apply to deforestation 
+            (transition probability from primary forest into self). If None, 
+            uses default.
+        - magnitude_silvopasture: magnitude passed to silvopasture 
+            transformation. If None, uses silvopasture magnitude default. 
+        - strat: optional strategy value to specify for the transformation
+        - vec_implementation_ramp: optional vector specifying the implementation
+            scalar ramp for the transformation. If None, defaults to a uniform 
+            ramp that starts at the time specified in the configuration.
+        """
+        # check input dataframe
+        df_input = (
+            self.baseline_inputs
+            if not isinstance(df_input, pd.DataFrame) 
+            else df_input
+        )
+
+        # check implementation ramp
+        vec_implementation_ramp = self.check_implementation_ramp(
+            vec_implementation_ramp,
+            df_input,
+        )
+
+
+        # silvopasture must come first
+        df_out = self._trfunc_lndu_expand_silvopasture(
+            df_input,
+            magnitude = magnitude_silvopasture,
+            strat = strat,
+            vec_implementation_ramp = vec_implementation_ramp,
+        )
+        # then deforestation
+        df_out = self._trfunc_lndu_stop_deforestation(
+            df_out,
+            magnitude = magnitude_deforestation,
+            strat = strat,
+            vec_implementation_ramp = vec_implementation_ramp,
+        )
+        
+        return df_out
+
+
+    
+    def _trfunc_lndu_reallocate_land(self,
+        df_input: Union[pd.DataFrame, None] = None,
+        baseline_with_plur: Union[bool, None] = None,
+        magnitude: Union[float, None] = 0.5,
+        strat: Union[int, None] = None,
+        vec_implementation_ramp: Union[np.ndarray, Dict[str, int], None] = None,
+    ) -> pd.DataFrame:
+        """
+        Support land use reallocation in specification of multiple 
+            transformations.
+        
+        Function Arguments
+        ------------------
+
+        Keyword Arguments
+        -----------------
+        - df_input: data frame containing trajectories to modify
+        - magnitude: land use reallocation factor value with implementation
+            ramp vector
+        - strat: optional strategy value to specify for the transformation
+        - vec_implementation_ramp: optional vector specifying the implementation
+            scalar ramp for the transformation. If None, defaults to a uniform 
+            ramp that starts at the time specified in the configuration.
+        """
+
+        # check if baseline contains PLUR
+        baseline_with_plur = (
+            self.baseline_with_plur
+            if not isinstance(baseline_with_plur, bool)
+            else baseline_with_plur
+        )
+
+        # check input dataframe
+        df_out = (
+            self.baseline_inputs
+            if not isinstance(df_input, pd.DataFrame) 
+            else df_input
+        )
+
+        # set the magnitude in case of none
+        magnitude = 0.5 if not isinstance(magnitude, float) else magnitude
+
+        # check implementation ramp
+        vec_implementation_ramp = self.check_implementation_ramp(
+            vec_implementation_ramp,
+            df_input,
+        )
+
+
+        # if baseline includes PLUR, don't modify
+        if not baseline_with_plur:
+            df_out = tbg.transformation_general(
+                df_out,
+                self.model_attributes,
+                {
+                    self.model_afolu.modvar_lndu_reallocation_factor: {
+                        "bounds": (0.0, 1),
+                        "magnitude": magnitude,
+                        "magnitude_type": "final_value",
+                        "vec_ramp": vec_implementation_ramp
+                    }
+                },
+                field_region = self.key_region,
+                strategy_id = strat,
+            )
+
+        return df_out
+
+
+        
+
+    ##############################
+    #    LSMM TRANSFORMATIONS    #
+    ##############################
+
+    def _trfunc_lsmm_improve_manure_management_cattle_pigs(self,
+        df_input: Union[pd.DataFrame, None] = None,
+        dict_lsmm_pathways: Union[dict, None] = None,
+        strat: Union[int, None] = None,
+        vec_cats_lvst: Union[List[str], None] = None,
+        vec_implementation_ramp: Union[np.ndarray, Dict[str, int], None] = None,
+    ) -> pd.DataFrame:
+        """
+        Implement the "Improve Livestock Manure Management for Cattle and Pigs" 
+            transformation on the input DataFrame.
+        
+        Function Arguments
+        ------------------
+
+        Keyword Arguments
+        -----------------
+        - df_input: data frame containing trajectories to modify
+        - dict_lsmm_pathways: dictionary allocating treatment to LSMM categories
+            as fractional targets (must sum to <= 1). If None, defaults to
+
+            dict_lsmm_pathways = {
+                "anaerobic_digester": 0.59375, # 0.625*0.95,
+                "composting": 0.11875, # 0.125*0.95,
+                "daily_spread": 0.2375, # 0.25*0.95,
+            }
+
+        - strat: optional strategy value to specify for the transformation
+        - vec_cats_lvst: LVST categories receiving treatment in this 
+            transformation. Default (if None) is
+
+            [
+                "cattle_dairy",
+                "cattle_nondairy",
+                "pigs"
+            ]
+        - vec_implementation_ramp: optional vector specifying the implementation
+            scalar ramp for the transformation. If None, defaults to a uniform 
+            ramp that starts at the time specified in the configuration.
+        """
+        # check input dataframe
+        df_input = (
+            self.baseline_inputs
+            if not isinstance(df_input, pd.DataFrame) 
+            else df_input
+        )
+
+        # check implementation ramp
+        vec_implementation_ramp = self.check_implementation_ramp(
+            vec_implementation_ramp,
+            df_input,
+        )
+
+
+        # allocation across manure management options
+        frac_managed = 0.95
+        dict_lsmm_pathways = (
+            {
+                "anaerobic_digester": 0.625*frac_managed,
+                "composting": 0.125*frac_managed,
+                "daily_spread": 0.25*frac_managed,
+                #"solid_storage": 0.125*frac_managed
+            }
+            if not isinstance(dict_lsmm_pathways, dict)
+            else dict_lsmm_pathways
+        )
+        
+        # get categories to apply management paradigm to
+        vec_lvst_cats = (
+            [
+                "cattle_dairy",
+                "cattle_nondairy",
+                "pigs",
+            ]
+            if not sf.islistlike(vec_cats_lvst)
+            else list(vec_cats_lvst)
+        )
+
+        # 
+        df_out = tba.transformation_lsmm_improve_manure_management(
+            df_input,
+            dict_lsmm_pathways,
+            vec_implementation_ramp,
+            self.model_attributes,
+            categories_lvst = vec_lvst_cats,
+            field_region = self.key_region,
+            model_afolu = self.model_afolu,
+            strategy_id = strat,
+        )
+
+        return df_out
+
+
+
+    def _trfunc_lsmm_improve_manure_management_other(self,
+        df_input: Union[pd.DataFrame, None] = None,
+        dict_lsmm_pathways: Union[dict, None] = None,
+        strat: Union[int, None] = None,
+        vec_cats_lvst: Union[List[str], None] = None,
+        vec_implementation_ramp: Union[np.ndarray, Dict[str, int], None] = None,
+    ) -> pd.DataFrame:
+        """
+        Implement the "Improve Livestock Manure Management for Other Animals" 
+            transformation on the input DataFrame.
+        
+        Function Arguments
+        ------------------
+
+        Keyword Arguments
+        -----------------
+        - df_input: data frame containing trajectories to modify
+        - dict_lsmm_pathways: dictionary allocating treatment to LSMM categories
+            as fractional targets (must sum to <= 1). If None, defaults to
+
+            dict_lsmm_pathways = {
+                "anaerobic_digester": 0.475, # 0.5*0.95,
+                "composting": 0.2375, # 0.25*0.95,
+                "dry_lot": 0.11875, # 0.125*0.95,
+                "daily_spread": 0.11875, # 0.125*0.95,
+            }
+
+        - strat: optional strategy value to specify for the transformation
+        - vec_cats_lvst: LVST categories receiving treatment in this 
+            transformation. Default (if None) is
+
+            [
+                "buffalo",
+                "goats",
+                "horses",
+                "mules",
+                "sheep",
+            ]
+
+        - vec_implementation_ramp: optional vector specifying the implementation
+            scalar ramp for the transformation. If None, defaults to a uniform 
+            ramp that starts at the time specified in the configuration.
+        """
+        # check input dataframe
+        df_input = (
+            self.baseline_inputs
+            if not isinstance(df_input, pd.DataFrame) 
+            else df_input
+        )
+
+        # check implementation ramp
+        vec_implementation_ramp = self.check_implementation_ramp(
+            vec_implementation_ramp,
+            df_input,
+        )
+
+
+        # allocation across manure management options
+        frac_managed = 0.95
+        dict_lsmm_pathways = (
+            {
+                "anaerobic_digester": 0.50*frac_managed,
+                "composting": 0.25*frac_managed,
+                "dry_lot": 0.125*frac_managed,
+                "daily_spread": 0.125*frac_managed,
+            }
+            if not isinstance(dict_lsmm_pathways, dict)
+            else dict_lsmm_pathways
+        )
+        
+        # get categories to apply management paradigm to
+        vec_lvst_cats = (
+            [
+                "buffalo",
+                "goats",
+                "horses",
+                "mules",
+                "sheep",
+            ]
+            if not sf.islistlike(vec_cats_lvst)
+            else list(vec_cats_lvst)
+        )
+
+
+
+        df_out = tba.transformation_lsmm_improve_manure_management(
+            df_input,
+            dict_lsmm_pathways,
+            vec_implementation_ramp,
+            self.model_attributes,
+            categories_lvst = vec_lvst_cats,
+            field_region = self.key_region,
+            model_afolu = self.model_afolu,
+            strategy_id = strat,
+        )
+
+        return df_out
+    
+
+
+    def _trfunc_lsmm_improve_manure_management_poultry(self,
+        df_input: Union[pd.DataFrame, None] = None,
+        dict_lsmm_pathways: Union[dict, None] = None,
+        strat: Union[int, None] = None,
+        vec_cats_lvst: Union[List[str], None] = None,
+        vec_implementation_ramp: Union[np.ndarray, Dict[str, int], None] = None,
+    ) -> pd.DataFrame:
+        """
+        Implement the "Improve Livestock Manure Management for Poultry" 
+            transformation on the input DataFrame.
+        
+        Function Arguments
+        ------------------
+
+        Keyword Arguments
+        -----------------
+        - df_input: data frame containing trajectories to modify
+        - dict_lsmm_pathways: dictionary allocating treatment to LSMM categories
+            as fractional targets (must sum to <= 1). If None, defaults to
+
+            dict_lsmm_pathways = {
+                "anaerobic_digester": 0.475, # 0.5*0.95,
+                "poultry_manure": 0.475, # 0.5*0.95,
+            }
+
+        - strat: optional strategy value to specify for the transformation
+        - vec_cats_lvst: LVST categories receiving treatment in this 
+            transformation. Default (if None) is
+
+            [
+                "chickens",
+            ]
+
+        - vec_implementation_ramp: optional vector specifying the implementation
+            scalar ramp for the transformation. If None, defaults to a uniform 
+            ramp that starts at the time specified in the configuration.
+        """
+        # check input dataframe
+        df_input = (
+            self.baseline_inputs
+            if not isinstance(df_input, pd.DataFrame) 
+            else df_input
+        )
+
+        # check implementation ramp
+        vec_implementation_ramp = self.check_implementation_ramp(
+            vec_implementation_ramp,
+            df_input,
+        )
+
+        # allocation across manure management options
+        frac_managed = 0.95
+        dict_lsmm_pathways = (
+            {
+                "anaerobic_digester": 0.50*frac_managed,
+                "poultry_manure": 0.5*frac_managed,
+            }
+            if not isinstance(dict_lsmm_pathways, dict)
+            else dict_lsmm_pathways
+        )
+        
+        # get categories to apply management paradigm to
+        vec_lvst_cats = (
+            [
+                "chickens"
+            ]
+            if not sf.islistlike(vec_cats_lvst)
+            else list(vec_cats_lvst)
+        )
+        
+
+        df_out = tba.transformation_lsmm_improve_manure_management(
+            df_input,
+            dict_lsmm_pathways,
+            vec_implementation_ramp,
+            self.model_attributes,
+            categories_lvst = vec_lvst_cats,
+            field_region = self.key_region,
+            model_afolu = self.model_afolu,
+            strategy_id = strat,
+        )
+
+        return df_out
+
+
+
+    def _trfunc_lsmm_increase_biogas_capture(self,
+        df_input: Union[pd.DataFrame, None] = None,
+        magnitude: Union[float, None] = 0.9,
+        strat: Union[int, None] = None,
+        vec_implementation_ramp: Union[np.ndarray, Dict[str, int], None] = None,
+    ) -> pd.DataFrame:
+        """
+        Implement the "Increase Biogas Capture at Anaerobic Decomposition 
+            Facilities" transformation on the input DataFrame.
+        
+        Function Arguments
+        ------------------
+
+        Keyword Arguments
+        -----------------
+        - df_input: data frame containing trajectories to modify
+        - magnitude: target minimum fraction of biogas that is captured at
+            anerobic decomposition facilities.
+        - strat: optional strategy value to specify for the transformation
+        - vec_implementation_ramp: optional vector specifying the implementation
+            scalar ramp for the transformation. If None, defaults to a uniform 
+            ramp that starts at the time specified in the configuration.
+        """
+        # check input dataframe
+        df_input = (
+            self.baseline_inputs
+            if not isinstance(df_input, pd.DataFrame) 
+            else df_input
+        )
+
+        # set the magnitude in case of none
+        magnitude = 0.9 if not isinstance(magnitude, float) else magnitude
+
+        # check implementation ramp
+        vec_implementation_ramp = self.check_implementation_ramp(
+            vec_implementation_ramp,
+            df_input,
+        )
+            
+        # update the biogas recovery factor
+        df_out = tbg.transformation_general(
+            df_input,
+            self.model_attributes,
+            {
+                self.model_afolu.modvar_lsmm_rf_biogas: {
+                    "bounds": (0.0, 1),
+                    "magnitude": magnitude, # CHANGEDFORINDIA 0.9
+                    "magnitude_type": "final_value_floor",
+                    "vec_ramp": vec_implementation_ramp
+                }
+            },
+            field_region = self.key_region,
+            strategy_id = strat,
+        )
+
+        return df_out
+
+
+
+    ##############################
+    #    LVST TRANSFORMATIONS    #
+    ##############################
+
+    def _trfunc_lvst_decrease_exports(self,
+        df_input: Union[pd.DataFrame, None] = None,
+        magnitude: Union[float, None] = 0.5,
+        strat: Union[int, None] = None,
+        vec_implementation_ramp: Union[np.ndarray, Dict[str, int], None] = None,
+    ) -> pd.DataFrame:
+        """
+        Implement the "Decrease Exports" LVST transformation on input 
+            DataFrame df_input (reduce by 50%)
+        
+        Function Arguments
+        ------------------
+
+        Keyword Arguments
+        -----------------
+        - df_input: data frame containing trajectories to modify
+        - magnitude: fractional reduction in exports applied directly to time
+            periods (reaches 100% implementation when ramp reaches 1)
+        - strat: optional strategy value to specify for the transformation
+        - vec_implementation_ramp: optional vector specifying the implementation
+            scalar ramp for the transformation. If None, defaults to a uniform 
+            ramp that starts at the time specified in the configuration.
+        """
+        # check input dataframe
+        df_input = (
+            self.baseline_inputs
+            if not isinstance(df_input, pd.DataFrame) 
+            else df_input
+        )
+
+        # set the magnitude in case of none
+        magnitude = 0.5 if not isinstance(magnitude, float) else magnitude
+
+        # check implementation ramp
+        vec_implementation_ramp = self.check_implementation_ramp(
+            vec_implementation_ramp,
+            df_input,
+        )
+
+
+        df_out = tbg.transformation_general(
+            df_input,
+            self.model_attributes,
+            {
+                self.model_afolu.modvar_lvst_equivalent_exports: {
+                    "bounds": (0.0, np.inf),
+                    "magnitude": magnitude,
+                    "magnitude_type": "baseline_scalar",
+                    "vec_ramp": vec_implementation_ramp
+                },
+            },
+            field_region = self.key_region,
+            strategy_id = strat,
+        )
+        
+        return df_out
+
+
+
+    def _trfunc_lvst_increase_productivity(self,
+        df_input: Union[pd.DataFrame, None] = None,
+        magnitude: Union[float, None] = 0.3,
+        strat: Union[int, None] = None,
+        vec_implementation_ramp: Union[np.ndarray, Dict[str, int], None] = None,
+    ) -> pd.DataFrame:
+        """
+        Implement the "Increase Livestock Productivity" LVST transformation on 
+            input DataFrame df_input. 
+        
+        Function Arguments
+        ------------------
+
+        Keyword Arguments
+        -----------------
+        - df_input: data frame containing trajectories to modify
+        - magnitude: fractional increase in productivity applied to carrying
+            capcity for livestock
+        - strat: optional strategy value to specify for the transformation
+        - vec_implementation_ramp: optional vector specifying the implementation
+            scalar ramp for the transformation. If None, defaults to a uniform 
+            ramp that starts at the time specified in the configuration.
+        """
+        # check input dataframe
+        df_input = (
+            self.baseline_inputs
+            if not isinstance(df_input, pd.DataFrame) 
+            else df_input
+        )
+
+        # set the magnitude in case of none
+        magnitude = 0.3 if not isinstance(magnitude, float) else magnitude
+
+        # check implementation ramp
+        vec_implementation_ramp = self.check_implementation_ramp(
+            vec_implementation_ramp,
+            df_input,
+        )
+
+        
+        df_out = tba.transformation_lvst_increase_productivity(
+            df_input,
+            magnitude, # CHANGEDFORINDIA 0.2
+            vec_implementation_ramp,
+            self.model_attributes,
+            field_region = self.key_region,
+            model_afolu = self.model_afolu,
+            strategy_id = strat,
+        )
+        
+        return df_out
+
+
+
+    def _trfunc_lvst_reduce_enteric_fermentation(self,
+        df_input: Union[pd.DataFrame, None] = None,
+        dict_lvst_reductions: Union[dict, None] = None,
+        strat: Union[int, None] = None,
+        vec_implementation_ramp: Union[np.ndarray, Dict[str, int], None] = None,
+    ) -> pd.DataFrame:
+        """
+        Implement the "Reduce Enteric Fermentation" LVST transformation on input 
+            DataFrame df_input. 
+        
+        Function Arguments
+        ------------------
+
+        Keyword Arguments
+        -----------------
+        - df_input: data frame containing trajectories to modify
+        - dict_lvst_reductions: dictionary allocating mapping livestock 
+            categories to associated reductions in enteric fermentation. If 
+            None, defaults to
+
+            {
+                "buffalo": 0.4,
+                "cattle_dairy": 0.4,
+                "cattle_nondairy": 0.4,
+                "goats": 0.56,
+                "sheep": 0.56
+            }
+
+        - strat: optional strategy value to specify for the transformation
+        - vec_implementation_ramp: optional vector specifying the implementation
+            scalar ramp for the transformation. If None, defaults to a uniform 
+            ramp that starts at the time specified in the configuration.
+        """
+        # check input dataframe
+        df_input = (
+            self.baseline_inputs
+            if not isinstance(df_input, pd.DataFrame) 
+            else df_input
+        )
+
+        # check implementation ramp
+        vec_implementation_ramp = self.check_implementation_ramp(
+            vec_implementation_ramp,
+            df_input,
+        )
+
+        dict_lvst_reductions = (
+            {
+                "buffalo": 0.4, # CHANGEDFORINDIA 0.4
+                "cattle_dairy": 0.4, # CHANGEDFORINDIA 0.4
+                "cattle_nondairy": 0.4, # CHANGEDFORINDIA 0.4
+                "goats": 0.56,
+                "sheep": 0.56
+            }
+            if not isinstance(dict_lvst_reductions, dict)
+            else dict_lvst_reductions
+
+        )
+
+        
+        df_out = tba.transformation_lvst_reduce_enteric_fermentation(
+            df_input,
+            dict_lvst_reductions,
+            vec_implementation_ramp,
+            self.model_attributes,
+            field_region = self.key_region,
+            model_afolu = self.model_afolu,
+            strategy_id = strat,
+        )
+        
+        return df_out
+
+
+
+    ##############################
+    #    SOIL TRANSFORMATIONS    #
+    ##############################
+
+    def _trfunc_soil_reduce_excess_fertilizer(self,
+        df_input: Union[pd.DataFrame, None] = None,
+        magnitude: Union[float, None] = 0.2,
+        strat: Union[int, None] = None,
+        vec_implementation_ramp: Union[np.ndarray, Dict[str, int], None] = None,
+    ) -> pd.DataFrame:
+        """
+        Implement the "Reduce Excess Fertilizer" SOIL transformation on input 
+            DataFrame df_input. 
+        
+        Function Arguments
+        ------------------
+
+        Keyword Arguments
+        -----------------
+        - df_input: data frame containing trajectories to modify
+        - magnitude: fractional reduction in fertilier N to achieve in
+            accordane with vec_implementation_ramp
+        - strat: optional strategy value to specify for the transformation
+        - vec_implementation_ramp: optional vector specifying the implementation
+            scalar ramp for the transformation. If None, defaults to a uniform 
+            ramp that starts at the time specified in the configuration.
+        """
+        # check input dataframe
+        df_input = (
+            self.baseline_inputs
+            if not isinstance(df_input, pd.DataFrame) 
+            else df_input
+        )
+
+        # set the magnitude in case of none
+        magnitude = 0.2 if not isinstance(magnitude, float) else magnitude
+
+        # check implementation ramp
+        vec_implementation_ramp = self.check_implementation_ramp(
+            vec_implementation_ramp,
+            df_input,
+        )
+
+        
+        df_out = tba.transformation_soil_reduce_excess_fertilizer(
+            df_input,
+            {
+                "fertilizer_n": magnitude,
+            },
+            vec_implementation_ramp,
+            self.model_attributes,
+            field_region = self.key_region,
+            model_afolu = self.model_afolu,
+            strategy_id = strat,
+        )
+        
+        return df_out
+    
+
+
+    def _trfunc_soil_reduce_excess_lime(self,
+        df_input: Union[pd.DataFrame, None] = None,
+        magnitude: Union[float, None] = 0.2,
+        strat: Union[int, None] = None,
+        vec_implementation_ramp: Union[np.ndarray, Dict[str, int], None] = None,
+    ) -> pd.DataFrame:
+        """
+        Implement the "Reduce Excess Liming" SOIL transformation on input 
+            DataFrame df_input. 
+        
+        Function Arguments
+        ------------------
+
+        Keyword Arguments
+        -----------------
+        - df_input: data frame containing trajectories to modify
+        - magnitude: fractional reduction in lime application to achieve in
+            accordane with vec_implementation_ramp
+        - strat: optional strategy value to specify for the transformation
+        - vec_implementation_ramp: optional vector specifying the implementation
+            scalar ramp for the transformation. If None, defaults to a uniform 
+            ramp that starts at the time specified in the configuration.
+        """
+        # check input dataframe
+        df_input = (
+            self.baseline_inputs
+            if not isinstance(df_input, pd.DataFrame) 
+            else df_input
+        )
+
+        # set the magnitude in case of none
+        magnitude = 0.2 if not isinstance(magnitude, float) else magnitude
+
+        # check implementation ramp
+        vec_implementation_ramp = self.check_implementation_ramp(
+            vec_implementation_ramp,
+            df_input,
+        )
+
+        
+        df_out = tba.transformation_soil_reduce_excess_fertilizer(
+            df_input,
+            {
+                "lime": magnitude,
+            },
+            vec_implementation_ramp,
+            self.model_attributes,
+            field_region = self.key_region,
+            model_afolu = self.model_afolu,
+            strategy_id = strat,
+        )
+        
+        return df_out
+
 
 
 
@@ -1438,10 +2987,11 @@ class Transformers:
     #    CROSS-SECTORAL TRANSFORMATIONS    #
     ########################################
 
-    def transformation_pflo_healthier_diets(self,
+    def _trfunc_pflo_healthier_diets(self,
         df_input: Union[pd.DataFrame, None] = None,
+        magnitude_red_meat: float = 0.5,
         strat: Union[int, None] = None,
-        vec_implementation_ramp: Union[np.ndarray, None] = None,
+        vec_implementation_ramp: Union[np.ndarray, Dict[str, int], None] = None,
     ) -> pd.DataFrame:
         """
         Implement the "Healthier Diets" transformation on input DataFrame
@@ -1453,6 +3003,10 @@ class Transformers:
         Keyword Arguments
         -----------------
         - df_input: data frame containing trajectories to modify
+        - magnitude_red_meat: final period maximum fraction of per capita red 
+            meat consumption relative to baseline (e.g., 0.5 means that people
+            eat 50% as much red meat as they would have without the 
+            intervention)
         - strat: optional strategy value to specify for the transformation
         - vec_implementation_ramp: optional vector specifying the implementation
             scalar ramp for the transformation. If None, defaults to a uniform 
@@ -1478,19 +3032,19 @@ class Transformers:
             {
                 self.model_socioeconomic.modvar_gnrl_frac_eating_red_meat: {
                     "bounds": (0, 1),
-                    "magnitude": 0.5,
+                    "magnitude": magnitude_red_meat,
                     "magnitude_type": "final_value_ceiling",
                     "vec_ramp": vec_implementation_ramp
                 },
 
                 # TEMPORARY UNTIL A DEMAND SCALAR CAN BE ADDED IN
-                self.model_afolu.modvar_agrc_elas_crop_demand_income: {
-                    "bounds": (-2, 2),
-                    "categories": ["sugar_cane"],
-                    "magnitude": -0.2,
-                    "magnitude_type": "final_value_ceiling",
-                    "vec_ramp": vec_implementation_ramp
-                },
+                # self.model_afolu.modvar_agrc_elas_crop_demand_income: {
+                #    "bounds": (-2, 2),
+                #    "categories": ["sugar_cane"],
+                #    "magnitude": -0.2,
+                #    "magnitude_type": "final_value_ceiling",
+                #    "vec_ramp": vec_implementation_ramp
+                # },
             },
             field_region = self.key_region,
             strategy_id = strat,
@@ -1500,10 +3054,10 @@ class Transformers:
 
 
 
-    def transformation_pflo_industrial_ccs(self,
+    def _trfunc_pflo_industrial_ccs(self,
         df_input: Union[pd.DataFrame, None] = None,
         strat: Union[int, None] = None,
-        vec_implementation_ramp: Union[np.ndarray, None] = None,
+        vec_implementation_ramp: Union[np.ndarray, Dict[str, int], None] = None,
     ) -> pd.DataFrame:
         """
         Implement the "Industrial Point of Capture" transformation on input 

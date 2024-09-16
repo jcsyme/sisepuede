@@ -2613,7 +2613,7 @@ def ramp_value(
     - r_1: first period == 1. If None, defaults to n
     """
     # set r_1
-    r_1 = n if not isinstance(r_1, int) else r_1
+    r_1 = n - 1 if not isinstance(r_1, int) else r_1
 
     if (r_0 >= r_1):
         raise RuntimeError(f"Invalid values found in ramp_value(): r_0 = {r_0} and r_1 = {r_1}; r_1 > r_0")

@@ -738,7 +738,7 @@ class TransformersEnergy:
         vec_msp_resolution_cap = self.build_msp_cap_vector(
             vec_implementation_ramp,
         )
-        
+
         dict_entc_renewable_target_cats_max_investment = dict(
             (
                 x, 
@@ -2251,8 +2251,8 @@ class TransformersEnergy:
             else cats_to_cap
         )
         cats_to_cap = [x for x in self.attribute_technology.key_values if x in cats_to_cap]
-        if cats_to_cap is None:
-            return None
+        if len(cats_to_cap) == 0:
+            return df_out
 
         # build dictionary if valid
         dict_cat_to_vector = dict(
