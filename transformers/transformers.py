@@ -39,58 +39,69 @@ import sisepuede.utilities._toolbox as sf
 #
 
 def get_dict_config_default(
+    key_baseline: str = "baseline",
+    key_general: str = "general",
 ) -> dict:
     """
-    Retrieve the dictionary of default configuration values for transformers.
+    Retrieve the dictionary of default configuration values for transformers, 
+        including "general" and "baseline"
     """
     dict_out = {
-        #
-        # ENTC categories that are capped to 0 investment--default to include 
-        #"categories_entc_max_investment_ramp": [
-        #    "pp_hydropower"
-        #],
-        #[
-        #        "pp_geothermal",
-        #        "pp_nuclear"
-        #    ]
+        key_baseline: {
+            "magnitude_lurf": 0.0, # default to not use Land Use Reallocation Factor
+        },
 
-        # ENTC categories considered renewable sources--defaults to attribute table specs if not defined
-        #"categories_entc_renewable": []
+        key_general: {
+            #
+            # ENTC categories that are capped to 0 investment--default to include 
+            #"categories_entc_max_investment_ramp": [
+            #    "pp_hydropower"
+            #],
+            #[
+            #        "pp_geothermal",
+            #        "pp_nuclear"
+            #    ]
 
-        # INEN categories that have high heat
-        "categories_inen_high_heat": [
-            "cement", 
-            "chemicals", 
-            "glass", 
-            "lime_and_carbonite", 
-            "metals"
-        ],
+            # ENTC categories considered renewable sources--defaults to attribute table specs if not defined
+            #"categories_entc_renewable": []
 
-        # Target minimum share of production fractions for power plants in the renewable target tranformation
-        #"dict_entc_renewable_target_msp": {
-        #    "pp_solar": 0.15,
-        #    "pp_geothermal": 0.1,
-        #    "pp_wind": 0.15
-        #},
+            # INEN categories that have high heat
+            "categories_inen_high_heat": [
+                "cement", 
+                "chemicals", 
+                "glass", 
+                "lime_and_carbonite", 
+                "metals"
+            ],
 
-        # fraction of high heat that can be electrified and hydrogenized
-        "frac_inen_high_temp_elec_hydg": 0.5*0.45,
+            # Target minimum share of production fractions for power plants in the renewable target tranformation
+            #"dict_entc_renewable_target_msp": {
+            #    "pp_solar": 0.15,
+            #    "pp_geothermal": 0.1,
+            #    "pp_wind": 0.15
+            #},
 
-        # fraction of low temperature heat energy demand that can be electrified
-        "frac_inen_low_temp_elec": 0.95*0.45,
+            # fraction of high heat that can be electrified and hydrogenized
+            "frac_inen_high_temp_elec_hydg": 0.5*0.45,
 
-        # number of time periods in the ramp
-        # "n_tp_ramp": None,
+            # fraction of low temperature heat energy demand that can be electrified
+            "frac_inen_low_temp_elec": 0.95*0.45,
 
-        # shape values for implementing caps on new technologies (description below)
-        "vir_renewable_cap_delta_frac": 0.0075,
-        "vir_renewable_cap_max_frac": 0.125,
+            # number of time periods in the ramp
+            # "n_tp_ramp": None,
 
-        # first year to start transformations--default is to 2 years from present
-        # "year_0_ramp": dt.datetime.now().year + 2
+            # shape values for implementing caps on new technologies (description below)
+            "vir_renewable_cap_delta_frac": 0.0075,
+            "vir_renewable_cap_max_frac": 0.125,
+
+            # first year to start transformations--default is to 2 years from present
+            # "year_0_ramp": dt.datetime.now().year + 2
+        }
     }
 
-    return dict_out
+    out = sc.YAMLConfiguration(dict_out)
+
+    return out
 
 
 
@@ -121,7 +132,7 @@ class Transformers:
 
     Optional Arguments
     ------------------
-    - baseline_with_plur: set to True to let the baseline include partial land
+    - baseline_with_lurf: set to True to let the baseline include partial land
         use reallocation in the baseline--passed to TransformersAFOLU as
         a keyword argument.
         * NOTE: If True, then transformation_lndu_reallocate_land() 
@@ -155,7 +166,6 @@ class Transformers:
     
     def __init__(self,
         dict_config: Dict,
-        baseline_with_plur: bool = False,
         df_input: Union[pd.DataFrame, None] = None,
         field_region: Union[str, None] = None,
         logger: Union[logging.Logger, None] = None,
@@ -177,7 +187,6 @@ class Transformers:
 
         # set transformations by sector, models (which come from sectoral transformations)
         self._initialize_baseline_inputs(df_input, )
-        
         self._initialize_transformers()
         
         return None
@@ -282,66 +291,80 @@ class Transformers:
 
     def _initialize_config(self,
         dict_config: Union[Dict[str, Any], None],
+        key_baseline: str = "baseline",
+        key_general: str = "general",
     ) -> None:
         """
         Define the configuration dictionary and paramter keys. Sets the 
             following properties:
 
-            * self.config (configuration dictionary)
+            * self.config (configuration containing general and baseline)
             * self.key_* (keys)
             
         Function Arguments
         ------------------
-        - dict_config: dictionary mapping input configuration arguments to key 
-            values. Can include the following keys:
+        - dict_config: dictionary defining the configuration of (1) the baseline
+            run and (2) general shared properties used across transforations. 
 
-            * "categories_entc_max_investment_ramp": list of categories to apply
-                self.vec_implementation_ramp_renewable_cap to with a maximum
-                investment cap (implemented *after* turning on renewable target)
-            * "categories_entc_pps_to_cap": list of power plant categories to
-                prevent from new growth by capping MSP
-            * "categories_entc_renewable": list of categories to tag as 
-                renewable for the Renewable Targets transformation (sets 
-                self.cats_renewable)
-            * "dict_entc_renewable_target_msp": optional dictionary mapping 
-                renewable ENTC categories to MSP fractions to use in the 
-                Renewable Targets trasnsformationl. Can be used to ensure some
-                minimum contribution of certain renewables--e.g.,
+            * The "baseline" configuration dictionary can include the following 
+                keys:
+            
+            * The "general" configuration dictionary can include the following 
+                keys:
 
-                    {
-                        "pp_hydropower": 0.1,
-                        "pp_solar": 0.15
-                    }
+                * "categories_entc_max_investment_ramp": list of categories to 
+                    apply self.vec_implementation_ramp_renewable_cap to with a 
+                    maximum investment cap (implemented *after* turning on 
+                    renewable target)
+                * "categories_entc_pps_to_cap": list of power plant categories 
+                    to prevent from new growth by capping MSP
+                * "categories_entc_renewable": list of categories to tag as 
+                    renewable for the Renewable Targets transformation (sets 
+                    self.cats_renewable)
+                * "dict_entc_renewable_target_msp": optional dictionary mapping 
+                    renewable ENTC categories to MSP fractions to use in the 
+                    Renewable Targets trasnsformationl. Can be used to ensure 
+                    some minimum contribution of certain renewables--e.g.,
 
-                will ensure that hydropower is at least 10% of the mix and solar
-                is at least 15%. 
+                        {
+                            "pp_hydropower": 0.1,
+                            "pp_solar": 0.15
+                        }
 
-            * "n_tp_ramp": number of time periods to use to ramp up. If None or
-                not specified, builds to full implementation by the final time
-                period
-            * "tp_0_ramp": last time period with no diversion from baseline 
-                strategy (baseline for implementation ramp)
-            * "vir_renewable_cap_delta_frac": change (applied downward from 
-                "vir_renewable_cap_max_frac") in cap for for new technology
-                capacities available to build in time period while transitioning
-                to renewable capacties. Default is 0.01 (will decline by 1% each
-                time period after "tp_0_ramp")
-            * "vir_renewable_cap_max_frac": cap for for new technology 
-                capacities available to build in time period while transitioning
-                to renewable capacties; entered as a fraction of estimated
-                capacity in "tp_0_ramp". Default is 0.05
+                    will ensure that hydropower is at least 10% of the mix and 
+                    solar is at least 15%. 
+
+                * "n_tp_ramp": number of time periods to use to ramp up. If None 
+                    or not specified, builds to full implementation by the final 
+                    time period
+                * "tp_0_ramp": last time period with no diversion from baseline 
+                    strategy (baseline for implementation ramp)
+                * "vir_renewable_cap_delta_frac": change (applied downward from 
+                    "vir_renewable_cap_max_frac") in cap for for new technology
+                    capacities available to build in time period while 
+                    transitioning to renewable capacties. Default is 0.01 (will 
+                    decline by 1% each time period after "tp_0_ramp")
+                * "vir_renewable_cap_max_frac": cap for for new technology 
+                    capacities available to build in time period while 
+                    transitioning to renewable capacties; entered as a fraction 
+                    of estimated capacity in "tp_0_ramp". Default is 0.05
             
         """
         # build config; start with default and overwrite as necessary
-        config = get_dict_config_default()
-        if isinstance(dict_config, dict):
-            config.update(dict_config)
+        config = get_dict_config_default(
+            key_baseline = key_baseline,
+            key_general = key_general,
+        )
 
+        if isinstance(dict_config, dict):
+            config.dict_yaml.update(dict_config)
+        
 
         ##  SET PARAMETERS
 
         self.config = config
 
+        self.key_config_baseline = key_baseline
         self.key_config_cats_entc_max_investment_ramp = "categories_entc_max_investment_ramp"
         self.key_config_cats_entc_pps_to_cap = "categories_entc_pps_to_cap"
         self.key_config_cats_entc_renewable = "categories_entc_renewable"
@@ -349,6 +372,7 @@ class Transformers:
         self.key_config_dict_entc_renewable_target_msp = "dict_entc_renewable_target_msp"
         self.key_config_frac_inen_high_temp_elec_hydg = "frac_inen_low_temp_elec"
         self.key_config_frac_inen_low_temp_elec = "frac_inen_low_temp_elec"
+        self.key_config_general = key_general
         self.key_config_n_tp_ramp = "n_tp_ramp"
         self.key_config_tp_0_ramp = "tp_0_ramp" 
         self.key_config_vir_renewable_cap_delta_frac = "vir_renewable_cap_delta_frac"
@@ -487,7 +511,6 @@ class Transformers:
 
     
     def _initialize_parameters(self,
-        dict_config: Union[Dict[str, Any], None] = None,
     ) -> None:
         """
         Define key parameters for transformation. For keys needed to initialize
@@ -495,12 +518,6 @@ class Transformers:
     
         """
 
-        dict_config = (
-            self.config 
-            if dict_config is None
-            else dict_config
-        )
-        
         # get parameters from configuration dictionary if specified
         (
             n_tp_ramp, 
@@ -508,13 +525,23 @@ class Transformers:
             vir_renewable_cap_delta_frac,
             vir_renewable_cap_max_frac,
         ) = self.get_ramp_characteristics(
-            n_tp_ramp = dict_config.get(self.key_config_n_tp_ramp),
-            tp_0_ramp = dict_config.get(self.key_config_tp_0_ramp),
+            n_tp_ramp = self.config.get(
+                f"{self.key_config_general}.{self.key_config_n_tp_ramp}"
+            ),
+            tp_0_ramp = self.config.get(
+                f"{self.key_config_general}.{self.key_config_tp_0_ramp}"
+            ),
         )
+
+        # check if baseline includes partial land use reallocation factor
+        baseline_with_lurf = self.config.get(
+            f"{self.key_config_baseline}.magnitude_lurf"
+        ) > 0.0
 
 
         ##  SET PROPERTIES
 
+        self.baseline_with_lurf = baseline_with_lurf
         self.n_tp_ramp = n_tp_ramp
         self.tp_0_ramp = tp_0_ramp
         self.vir_renewable_cap_delta_frac = vir_renewable_cap_delta_frac
@@ -1070,8 +1097,8 @@ class Transformers:
             )
             if sf.islistlike(cats_entc_max_investment_ramp)
             else self.config.get(
-                self.key_config_cats_entc_max_investment_ramp,
-                [],
+                f"{self.key_config_general}.{self.key_config_cats_entc_max_investment_ramp}",
+                return_on_none = [],
             )
         )
         
@@ -1189,12 +1216,16 @@ class Transformers:
 
         # get VIR (get_vir_max_capacity) delta_frac
         # default_vir_renewable_cap_delta_frac = 0.01
-        vir_renewable_cap_delta_frac = self.config.get(self.key_config_vir_renewable_cap_delta_frac)
+        vir_renewable_cap_delta_frac = self.config.get(
+            f"{self.key_config_general}.{self.key_config_vir_renewable_cap_delta_frac}",
+        )
         vir_renewable_cap_delta_frac = float(sf.vec_bounds(vir_renewable_cap_delta_frac, (0.0, 1.0)))
 
         # get VIR (get_vir_max_capacity) max_frac
         # default_vir_renewable_cap_max_frac = 0.05
-        vir_renewable_cap_max_frac = self.config.get(self.key_config_vir_renewable_cap_max_frac)
+        vir_renewable_cap_max_frac = self.config.get(
+            f"{self.key_config_general}.{self.key_config_vir_renewable_cap_max_frac}",
+        )
         vir_renewable_cap_max_frac = float(sf.vec_bounds(vir_renewable_cap_max_frac, (0.0, 1.0)))
        
         tup_out = (
@@ -1615,9 +1646,9 @@ class Transformers:
 
         # power plant categories to cap
         categories_entc_pps_to_cap = self.config.get(
-            self.key_config_cats_entc_pps_to_cap,
+            f"{self.key_config_general}.{self.key_config_cats_entc_pps_to_cap}",
         )
-
+        
         # target magnitude of the land use reallocation factor
         magnitude_lurf = (  
             0.0 
@@ -2474,7 +2505,7 @@ class Transformers:
     
     def _trfunc_lndu_reallocate_land(self,
         df_input: Union[pd.DataFrame, None] = None,
-        baseline_with_plur: Union[bool, None] = None,
+        force: bool = False,
         magnitude: Union[float, None] = 0.5,
         strat: Union[int, None] = None,
         vec_implementation_ramp: Union[np.ndarray, Dict[str, int], None] = None,
@@ -2489,6 +2520,9 @@ class Transformers:
         Keyword Arguments
         -----------------
         - df_input: data frame containing trajectories to modify
+        - force: If the baseline includes LURF > 0, then this transformation 
+            will not work; set force = True to force the transformation to 
+            further modify the LURF
         - magnitude: land use reallocation factor value with implementation
             ramp vector
         - strat: optional strategy value to specify for the transformation
@@ -2496,13 +2530,6 @@ class Transformers:
             scalar ramp for the transformation. If None, defaults to a uniform 
             ramp that starts at the time specified in the configuration.
         """
-
-        # check if baseline contains PLUR
-        baseline_with_plur = (
-            self.baseline_with_plur
-            if not isinstance(baseline_with_plur, bool)
-            else baseline_with_plur
-        )
 
         # check input dataframe
         df_out = (
@@ -2520,9 +2547,8 @@ class Transformers:
             df_input,
         )
 
-
-        # if baseline includes PLUR, don't modify
-        if not baseline_with_plur:
+        # if baseline includes LURF, don't modify unless forced to do so
+        if (not self.baseline_with_lurf) | force:
             df_out = tbg.transformation_general(
                 df_out,
                 self.model_attributes,
@@ -3250,7 +3276,7 @@ class Transformers:
             vec_implementation_ramp,
             self.model_attributes,
             field_region = self.key_region,
-            model_circecon = self.model_circecon,
+            model_circecon = self.model_circular_economy,
             strategy_id = strat
         )
 
@@ -3301,7 +3327,7 @@ class Transformers:
             vec_implementation_ramp,
             self.model_attributes,
             field_region = self.key_region,
-            model_circecon = self.model_circecon,
+            model_circecon = self.model_circular_economy,
             strategy_id = strat
         )
 
@@ -3393,7 +3419,7 @@ class Transformers:
             vec_implementation_ramp,
             self.model_attributes,
             field_region = self.key_region,
-            model_circecon = self.model_circecon,
+            model_circecon = self.model_circular_economy,
             strategy_id = strat,
         )
 
@@ -3477,7 +3503,7 @@ class Transformers:
             vec_implementation_ramp,
             self.model_attributes,
             field_region = self.key_region,
-            model_circecon = self.model_circecon,
+            model_circecon = self.model_circular_economy,
             strategy_id = strat,
         )
 
@@ -3567,7 +3593,7 @@ class Transformers:
             vec_implementation_ramp,
             self.model_attributes,
             field_region = self.key_region,
-            model_circecon = self.model_circecon,
+            model_circecon = self.model_circular_economy,
             strategy_id = strat,
         )
 
@@ -3637,7 +3663,7 @@ class Transformers:
             vec_implementation_ramp,
             self.model_attributes,
             field_region = self.key_region,
-            model_circecon = self.model_circecon,
+            model_circecon = self.model_circular_economy,
             strategy_id = strat
         )
 
@@ -3695,7 +3721,7 @@ class Transformers:
             vec_implementation_ramp,
             self.model_attributes,
             field_region = self.key_region,
-            model_circecon = self.model_circecon,
+            model_circecon = self.model_circular_economy,
             strategy_id = strat
         )
 
@@ -3755,7 +3781,7 @@ class Transformers:
             vec_implementation_ramp,
             self.model_attributes,
             field_region = self.key_region,
-            model_circecon = self.model_circecon,
+            model_circecon = self.model_circular_economy,
             strategy_id = strat
         )
 
@@ -3806,7 +3832,7 @@ class Transformers:
             vec_implementation_ramp,
             self.model_attributes,
             field_region = self.key_region,
-            model_circecon = self.model_circecon,
+            model_circecon = self.model_circular_economy,
             strategy_id = strat
         )
 
@@ -3858,7 +3884,7 @@ class Transformers:
             vec_implementation_ramp,
             self.model_attributes,
             field_region = self.key_region,
-            model_circecon = self.model_circecon,
+            model_circecon = self.model_circular_economy,
             strategy_id = strat
         )
 
@@ -3910,7 +3936,7 @@ class Transformers:
             vec_implementation_ramp,
             self.model_attributes,
             field_region = self.key_region,
-            model_circecon = self.model_circecon,
+            model_circecon = self.model_circular_economy,
             strategy_id = strat
         )
 
@@ -3962,7 +3988,7 @@ class Transformers:
             vec_implementation_ramp,
             self.model_attributes,
             field_region = self.key_region,
-            model_circecon = self.model_circecon,
+            model_circecon = self.model_circular_economy,
             strategy_id = strat
         )
 

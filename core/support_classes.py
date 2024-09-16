@@ -1965,11 +1965,11 @@ class YAMLConfiguration:
 
     Initialization Arguments
     ------------------------
-    - fp: file path to YAML file to read in
+    - fp: file path to YAML file to read in OR dictionary
     """
     def __init__(self,
-        fp: str,
-    ):
+        fp: Union[dict, str],
+    ) -> None:
         
         self._initialize_data(fp)
 
@@ -1978,7 +1978,7 @@ class YAMLConfiguration:
     
         
     def _initialize_data(self,
-        fp: str,
+        fp: Union[dict, str],
     ) -> None:
         """
         Read the yaml dictionary. Sets the following properties:
@@ -1987,11 +1987,21 @@ class YAMLConfiguration:
             * self.path
         """
         
-        try:
-            dict_yaml = sf.read_yaml(fp, munchify_dict = False)
-        except Exception as e:
-            raise RuntimeError(f"Error initializing YAML dictionary in yaml_config: {e}")
+        if isinstance(fp, str):
+            try:
+                dict_yaml = sf.read_yaml(fp, munchify_dict = False)
+            except Exception as e:
+                raise RuntimeError(f"Error initializing YAML dictionary in yaml_config: {e}")
         
+        elif isinstance(fp, dict):
+            dict_yaml = fp
+            fp = None
+
+        else: 
+            tp = str(type(fp))
+            msg = f"Invalid type '{tp}' specified for YAMLConfiguration: fp must be of type 'str' or 'dict'."
+            raise RuntimeError(msg)
+
 
         ##  SET PROPERTIES
 
