@@ -104,6 +104,14 @@ Contents
    socioeconomic
 
 .. toctree::
+   :caption: Defining Strategies
+   :hidden:
+
+   strategies
+   transformations
+   transformers 
+
+.. toctree::
    :caption: Managing Experiments
    :hidden:
 

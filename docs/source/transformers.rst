@@ -1,6 +1,6 @@
-===============
-Transformations
-===============
+============
+Transformers
+============
 
 SISEPUEDE includes a predefined library of **transformations** that can be customized and combined to create detailed and comprehensize strategies--based on expected outcomes--for reducing emissions of greenhouse gasses at scale. 
 
@@ -20,21 +20,8 @@ Transformer Code:
 
 .. note:: Example: Transformer ``TX:AGRC_INC_CONSERVATION_AGRICULTURE``
 
-
-
-Defining Transformations
-========================
-
-Transformations are parameterizations of Transformers. 
-
-
-Parameterizing Transformations
-==============================
-
-
-Common Transformation Nomenclature
-==================================
-
+LIST TRANSFORMERS HERE
+======================
 
 
 

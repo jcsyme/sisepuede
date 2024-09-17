@@ -281,20 +281,17 @@ def transformation_entc_change_msp_max(
 
 
 
-def transformation_entc_hydrogen_electrolysis(
+def transformation_entc_clean_hydrogen(
     df_input: pd.DataFrame,
     magnitude: float,
     vec_ramp: np.ndarray,
     model_attributes: ma.ModelAttributes,
     model_enerprod: ml.EnergyProduction,
-    cats_to_apply: List[str] = ["fp_hydrogen_electrolysis"],
-    cats_response: List[str] = [
-        "fp_hydrogen_gasification", 
-        "fp_hydrogen_reformation"
-    ],
+    cats_to_apply: Union[List[str], None] = None,
+    cats_response: Union[List[str], None] = None,
     field_region: str = "nation",
     **kwargs
-    ) -> pd.DataFrame:
+) -> pd.DataFrame:
     """
     Implement the "Green hydrogen" transformation.
 
@@ -308,8 +305,17 @@ def transformation_entc_hydrogen_electrolysis(
 
     Keyword Arguments
     -----------------
-    - cats_to_apply: hydrogen production categories to apply magnitude to
-    - cats_response: hydrogen production categories that respond to the target
+    - cats_to_apply: hydrogen production categories to apply magnitude to. 
+        * If None, defaults to
+            ["fp_hydrogen_electrolysis"]
+
+    - cats_response: hydrogen production categories that respond to the target.
+        * If None, defaults to
+            [
+                "fp_hydrogen_gasification", 
+                "fp_hydrogen_reformation",
+                "fp_hydrogen_reformation_ccs"
+            ]
     - field_region: field in df_input that specifies the region
     - magnitude: final magnitude of generation capacity.
     - regions_apply: optional set of regions to use to define strategy. If None,
@@ -323,8 +329,23 @@ def transformation_entc_hydrogen_electrolysis(
     dict_tech_info = model_enerprod.get_tech_info_dict(attribute_technology = attr_entc)
     modvar_msp = model_enerprod.modvar_entc_nemomod_min_share_production
 
-    cats_to_apply = [x for x in attr_entc.key_values if x in cats_to_apply]
-    cats_response = [x for x in attr_entc.key_values if x in cats_response]
+    # get categories to move fractional mass into 
+    cats_to_apply = (
+        ["fp_hydrogen_electrolysis"]
+        if not sf.islistlike(cats_to_apply)
+        else [x for x in attr_entc.key_values if x in cats_to_apply]
+    )
+
+    # get categories to take fractional mass from
+    cats_response = (
+        [
+            "fp_hydrogen_gasification", 
+            "fp_hydrogen_reformation",
+            "fp_hydrogen_reformation_ccs"
+        ]
+        if not sf.islistlike(cats_to_apply)
+        else [x for x in attr_entc.key_values if x in cats_response]
+    )
 
     if len(cats_to_apply) == 0:
         return df_input
@@ -693,17 +714,11 @@ def transformation_entc_renewable_target(
     magnitude_target: Union[float, str],
     vec_ramp: np.ndarray,
     model_enerprod: ml.EnergyProduction,
-    cats_entc_hydrogen: List[str] = [
-        "fp_hydrogen_electrolysis",
-        "fp_hydrogen_gasification",
-        "fp_hydrogen_reformation"
-    ],
     dict_cats_entc_max_investment: Union[Dict[str, np.ndarray], None] = None,
     drop_flag: Union[int, float, None] = None,
     factor_vec_ramp_msp: Union[float, int, None] = None,
     field_region: str = "nation",
     fuel_elec: Union[str, None] = None,
-    fuel_hydg: str = "fuel_hydrogen",
     include_target: bool = True,
     magnitude_as_floor: bool = False,
     magnitude_renewables: Union[Dict[str, float], float, None] = None,
@@ -728,8 +743,6 @@ def transformation_entc_renewable_target(
 
     Keyword Arguments
     -----------------
-    - cats_entc_hydrogen: categories used to produce hydrogen (may be subject to
-        renewable energy targets)
     - dict_cats_entc_max_investment: dictionary of categories to place a cap on
         maximum investment for. Each key maps to a dictionary with two elements;
         one is a vector of values to use for the cap (-999 is used to implement
@@ -800,8 +813,11 @@ def transformation_entc_renewable_target(
     )
 
     # get fuel categories and technology dictionary
-    fuel_elec = model_enerprod.cat_enfu_elec if (fuel_elec not in attr_enfu.key_values) else fuel_elec
-    fuel_hydg = "fuel_hydrogen" if (fuel_hydg not in attr_enfu.key_values) else fuel_hydg
+    fuel_elec = (
+        model_enerprod.cat_enfu_elec 
+        if (fuel_elec not in attr_enfu.key_values) 
+        else fuel_elec
+    )
     dict_tech_info = model_enerprod.get_tech_info_dict()
 
 
@@ -1456,7 +1472,7 @@ def transformation_entc_specify_transmission_losses(
     model_attributes: ma.ModelAttributes,
     model_enerprod: ml.EnergyProduction,
     field_region: str = "nation",
-    magnitude_type: str = "final_value",
+    magnitude_type: str = "final_value_ceiling",
     min_loss: Union[float, None] = 0.02,
     **kwargs
 ) -> pd.DataFrame:
@@ -1482,9 +1498,10 @@ def transformation_entc_specify_transmission_losses(
     - **kwargs: passed to transformation_general()
     """
 
+    valid_types = ["baseline_scalar", "final_value", "final_value_ceiling"]
     magnitude_type = (
         "baseline_scalar" 
-        if (magnitude_type not in ["baseline_scalar", "final_value"]) 
+        if (magnitude_type not in valid_types) 
         else magnitude_type
     )
 
