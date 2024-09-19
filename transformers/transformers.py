@@ -65,14 +65,15 @@ def get_dict_config_default(
             # ENTC categories considered renewable sources--defaults to attribute table specs if not defined
             #"categories_entc_renewable": []
 
-            # INEN categories that have high heat
-            "categories_inen_high_heat": [
-                "cement", 
-                "chemicals", 
-                "glass", 
-                "lime_and_carbonite", 
-                "metals"
-            ],
+            # INEN categories that have high heat and associated fractions (temporary until model can be revised)
+            "categories_inen_high_heat_to_frac": {
+                "cement": 0.88,
+                "chemicals": 0.5, 
+                "glass": 0.88, 
+                "lime_and_carbonite": 0.88, 
+                "metals": 0.92,
+                "paper": 0.18, 
+            }
 
             # Target minimum share of production fractions for power plants in the renewable target tranformation
             #"dict_entc_renewable_target_msp": {
@@ -81,8 +82,9 @@ def get_dict_config_default(
             #    "pp_wind": 0.15
             #},
 
-            # fraction of high heat that can be electrified and hydrogenized
-            "frac_inen_high_temp_elec_hydg": 0.5*0.45,
+            # fraction of high heat that can be converted to electricity or hydrogen;
+            # assume that 50% is electrified, 50% is hydrogenized
+            "frac_inen_high_temp_elec_hydg": 0.45,
 
             # fraction of low temperature heat energy demand that can be electrified
             "frac_inen_low_temp_elec": 0.95*0.45,
@@ -337,7 +339,10 @@ class Transformers:
                     of estimated capacity in "tp_0_ramp". Default is 0.05
             
         """
-        # build config; start with default and overwrite as necessary
+
+        ##  UPDATE CONFIG
+
+        # start with default and overwrite as necessary
         config = get_dict_config_default(
             key_baseline = key_baseline,
             key_general = key_general,
@@ -350,12 +355,11 @@ class Transformers:
         ##  SET PARAMETERS
 
         self.config = config
-
         self.key_config_baseline = key_baseline
         self.key_config_cats_entc_max_investment_ramp = "categories_entc_max_investment_ramp"
         self.key_config_cats_entc_pps_to_cap = "categories_entc_pps_to_cap"
         self.key_config_cats_entc_renewable = "categories_entc_renewable"
-        self.key_config_cats_inen_high_heat = "categories_inen_high_heat",
+        self.key_config_dict_cats_inen_high_heat_to_frac = "categories_inen_high_heat_to_frac",
         self.key_config_frac_inen_high_temp_elec_hydg = "frac_inen_low_temp_elec"
         self.key_config_frac_inen_low_temp_elec = "frac_inen_low_temp_elec"
         self.key_config_general = key_general
@@ -364,6 +368,8 @@ class Transformers:
         self.key_config_tp_0_ramp = "tp_0_ramp" 
         self.key_config_vir_renewable_cap_delta_frac = "vir_renewable_cap_delta_frac"
         self.key_config_vir_renewable_cap_max_frac = "vir_renewable_cap_max_frac"
+
+        
 
         return None
     
@@ -873,7 +879,7 @@ class Transformers:
 
         self.ccsq_increase_air_capture = trl.Transformer(
             "TFR:CCSQ:INCREASE_CAPTURE", 
-            self.transformation_ccsq_increase_air_capture, 
+            self._trfunc_ccsq_increase_air_capture, 
             attr_transformer_code
         )
         all_transformers.append(self.ccsq_increase_air_capture)
@@ -891,7 +897,7 @@ class Transformers:
 
         self.entc_least_cost = trl.Transformer(
             "TFR:ENTC:LEAST_COST", 
-            self.transformation_entc_least_cost, 
+            self._trfunc_entc_least_cost, 
             attr_transformer_code
         )
         all_transformers.append(self.entc_least_cost)
@@ -899,7 +905,7 @@ class Transformers:
         
         self.entc_reduce_transmission_losses = trl.Transformer(
             "TFR:ENTC:DEC_LOSSES", 
-            self.transformation_entc_reduce_transmission_losses, 
+            self._trfunc_entc_reduce_transmission_losses, 
             attr_transformer_code
         )
         all_transformers.append(self.entc_reduce_transmission_losses)
@@ -907,7 +913,7 @@ class Transformers:
 
         self.entc_renewable_electricity = trl.Transformer(
             "TFR:ENTC:TARGET_RENEWABLE_ELEC", 
-            self.transformation_entc_renewables_target, 
+            self._trfunc_entc_renewables_target, 
             attr_transformer_code
         )
         all_transformers.append(self.entc_renewable_electricity)
@@ -917,14 +923,14 @@ class Transformers:
 
         self.fgtv_maximize_flaring = trl.Transformer(
             "FGTV:INC_FLARE", 
-            self.transformation_fgtv_maximize_flaring, 
+            self._trfunc_fgtv_maximize_flaring, 
             attr_transformer_code
         )
         all_transformers.append(self.fgtv_maximize_flaring)
 
         self.fgtv_minimize_leaks = trl.Transformer(
             "FGTV:DEC_LEAKS", 
-            self.transformation_fgtv_minimize_leaks, 
+            self._trfunc_fgtv_minimize_leaks, 
             attr_transformer_code
         )
         all_transformers.append(self.fgtv_minimize_leaks)
@@ -934,7 +940,7 @@ class Transformers:
 
         self.inen_fuel_switch_high_temp = trl.Transformer(
             "TFR:INEN:FUEL_SWITCH_HI_HEAT", 
-            self.transformation_inen_fuel_switch_high_temp, 
+            self._trfunc_inen_fuel_switch_high_temp, 
             attr_transformer_code
         )
         all_transformers.append(self.inen_fuel_switch_high_temp)
@@ -942,7 +948,7 @@ class Transformers:
 
         self.inen_fuel_switch_low_temp_to_heat_pump = trl.Transformer(
             "TFR:INEN:FUEL_SWITCH_LO_HEAT", 
-            self.transformation_inen_fuel_switch_low_temp_to_heat_pump, 
+            self._trfunc_inen_fuel_switch_low_temp_to_heat_pump,
             attr_transformer_code
         )
         all_transformers.append(self.inen_fuel_switch_low_temp_to_heat_pump)
@@ -950,7 +956,7 @@ class Transformers:
         
         self.inen_maximize_energy_efficiency = trl.Transformer(
             "TFR:INEN:INC_EFFICIENCY_ENERGY", 
-            self.transformation_inen_maximize_efficiency_energy, 
+            self._trfunc_inen_maximize_efficiency_energy, 
             attr_transformer_code
         )
         all_transformers.append(self.inen_maximize_energy_efficiency)
@@ -958,7 +964,7 @@ class Transformers:
 
         self.inen_maximize_production_efficiency = trl.Transformer(
             "TFR:INEN:INC_EFFICIENCY_PRODUCTION", 
-            self.transformation_inen_maximize_efficiency_production, 
+            self._trfunc_inen_maximize_efficiency_production, 
             attr_transformer_code
         )
         all_transformers.append(self.inen_maximize_production_efficiency)
@@ -968,7 +974,7 @@ class Transformers:
 
         self.scoe_fuel_switch_electrify = trl.Transformer(
             "TFR:SCOE:FUEL_SWITCH_HEAT", 
-            self.transformation_scoe_fuel_switch_electrify, 
+            self._trfunc_scoe_fuel_switch_electrify, 
             attr_transformer_code
         )
         all_transformers.append(self.scoe_fuel_switch_electrify)
@@ -976,7 +982,7 @@ class Transformers:
 
         self.scoe_increase_applicance_efficiency = trl.Transformer(
             "TFR:SCOE:INC_EFFICIENCY_APPLIANCE", 
-            self.transformation_scoe_increase_applicance_efficiency, 
+            self._trfunc_scoe_increase_applicance_efficiency, 
             attr_transformer_code
         )
         all_transformers.append(self.scoe_increase_applicance_efficiency)
@@ -984,7 +990,7 @@ class Transformers:
 
         self.scoe_reduce_heat_energy_demand = trl.Transformer(
             "TFR:SCOE:DEC_DEMAND_HEAT", 
-            self.transformation_scoe_reduce_heat_energy_demand, 
+            self._trfunc_scoe_reduce_heat_energy_demand, 
             attr_transformer_code
         )
         all_transformers.append(self.scoe_reduce_heat_energy_demand)
@@ -996,7 +1002,7 @@ class Transformers:
 
         self.trde_reduce_demand = trl.Transformer(
             "TFR:TRDE:DEC_DEMAND", 
-            self.transformation_trde_reduce_demand, 
+            self._trfunc_trde_reduce_demand, 
             attr_transformer_code
         )
         all_transformers.append(self.trde_reduce_demand)
@@ -1004,7 +1010,7 @@ class Transformers:
         
         self.trns_electrify_light_duty_road = trl.Transformer(
             "TFR:TRNS:FUEL_SWITCH_LIGHT_DUTY", 
-            self.transformation_trns_electrify_road_light_duty, 
+            self._trfunc_trns_electrify_road_light_duty, 
             attr_transformer_code
         )
         all_transformers.append(self.trns_electrify_light_duty_road)
@@ -1012,7 +1018,7 @@ class Transformers:
         
         self.trns_electrify_rail = trl.Transformer(
             "TFR:TRNS:FUEL_SWITCH_RAIL", 
-            self.transformation_trns_electrify_rail, 
+            self._trfunc_trns_electrify_rail, 
             attr_transformer_code
         )
         all_transformers.append(self.trns_electrify_rail)
@@ -1020,7 +1026,7 @@ class Transformers:
         
         self.trns_fuel_switch_maritime = trl.Transformer(
             "TFR:TRNS:FUEL_SWITCH_MARITIME", 
-            self.transformation_trns_fuel_switch_maritime, 
+            self._trfunc_trns_fuel_switch_maritime, 
             attr_transformer_code
         )
         all_transformers.append(self.trns_fuel_switch_maritime)
@@ -1028,7 +1034,7 @@ class Transformers:
 
         self.trns_fuel_switch_medium_duty_road = trl.Transformer(
             "TFR:TRNS:FUEL_SWITCH_MEDIUM_DUTY", 
-            self.transformation_trns_fuel_switch_road_medium_duty, 
+            self._trfunc_trns_fuel_switch_road_medium_duty, 
             attr_transformer_code
         )
         all_transformers.append(self.trns_fuel_switch_medium_duty_road)
@@ -1036,7 +1042,7 @@ class Transformers:
 
         self.trns_increase_efficiency_electric = trl.Transformer(
             "TFR:TRNS:INC_EFFICIENCY_ELECTRIC", 
-            self.transformation_trns_increase_efficiency_electric,
+            self._trfunc_trns_increase_efficiency_electric,
             attr_transformer_code
         )
         all_transformers.append(self.trns_increase_efficiency_electric)
@@ -1044,7 +1050,7 @@ class Transformers:
 
         self.trns_increase_efficiency_non_electric = trl.Transformer(
             "TFR:TRNS:INC_EFFICIENCY_NON_ELECTRIC", 
-            self.transformation_trns_increase_efficiency_non_electric,
+            self._trfunc_trns_increase_efficiency_non_electric,
             attr_transformer_code
         )
         all_transformers.append(self.trns_increase_efficiency_non_electric)
@@ -1052,7 +1058,7 @@ class Transformers:
 
         self.trns_increase_occupancy_light_duty = trl.Transformer(
             "TFR:TRNS:INC_OCCUPANCY_LIGHT_DUTY", 
-            self.transformation_trns_increase_occupancy_light_duty, 
+            self._trfunc_trns_increase_occupancy_light_duty, 
             attr_transformer_code
         )
         all_transformers.append(self.trns_increase_occupancy_light_duty)
@@ -1060,7 +1066,7 @@ class Transformers:
 
         self.trns_mode_shift_freight = trl.Transformer(
             "TFR:TRNS:MODE_SHIFT_FREIGHT", 
-            self.transformation_trns_mode_shift_freight, 
+            self._trfunc_trns_mode_shift_freight, 
             attr_transformer_code
         )
         all_transformers.append(self.trns_mode_shift_freight)
@@ -1068,7 +1074,7 @@ class Transformers:
 
         self.trns_mode_shift_public_private = trl.Transformer(
             "TFR:TRNS:MODE_SHIFT_PASSENGER", 
-            self.transformation_trns_mode_shift_public_private, 
+            self._trfunc_trns_mode_shift_public_private, 
             attr_transformer_code
         )
         all_transformers.append(self.trns_mode_shift_public_private)
@@ -1076,7 +1082,7 @@ class Transformers:
 
         self.trns_mode_shift_regional = trl.Transformer(
             "TFR:TRNS:MODE_SHIFT_REGIONAL", 
-            self.transformation_trns_mode_shift_regional, 
+            self._trfunc_trns_mode_shift_regional, 
             attr_transformer_code
         )
         all_transformers.append(self.trns_mode_shift_regional)
@@ -1304,6 +1310,82 @@ class Transformers:
     
 
 
+    def check_trns_fuel_switch_allocation_dict(self,
+        dict_check: dict,
+        dict_alternate: dict,
+        input_keys_as_fuels: bool = True,
+    ) -> bool:
+        """
+        Check to ensure that the fuel switching dictionary is specified 
+            correctly
+        """
+
+        out = dict_alternate
+        if isinstance(dict_check, dict):
+            dict_check_out = self.get_valid_categories_dict(
+                dict_check,
+                self.model_attributes.subsec_name_fuel,
+            )
+
+            # convert to fuel fraction variables
+            if input_keys_as_fuels: 
+                dict_check_out = dict(
+                    (
+                        self.model_enercons
+                        .dict_inen_fuel_categories_to_fuel_variables
+                        .get(k)
+                        .get("fuel_fraction"),
+                        sf.scalar_bounds(v, (0, 1))
+                    )
+                    for (k, v) in dict_check_out.items()
+                )
+    
+
+            if sum(dict_check_out.values()) == 1.0:
+                out = dict_check_out
+        
+        return out
+    
+
+
+    def check_trns_tech_allocation_dict(self,
+        dict_check: dict,
+        dict_alternate: dict,
+        sum_check: Union[str, None] = "eq",
+    ) -> bool:
+        """
+        Check to ensure that the fuel switching dictionary is specified 
+            correctly
+
+        Keyword Arguments
+        -----------------
+        - sum_check: "eq" to force values to sum to to 1, "leq" to force leq 
+            than 1. By default, always must be geq 0
+        """
+
+        out = dict_alternate
+        if isinstance(dict_check, dict):
+            dict_check_out = self.get_valid_categories_dict(
+                dict_check,
+                self.model_attributes.subsec_name_trns,
+            )
+
+            dict_check_out = dict(
+                (k, sf.scalar_bounds(v, (0, 1)))
+                for (k, v) in dict_check_out.items()
+            )
+
+            if isinstance(sum_check, str):
+
+                return_dict = (sum_check == "eq") & (sum(dict_check_out.values()) == 1.0)
+                return_dict = (sum_check == "leq") & (sum(dict_check_out.values()) <= 1.0)
+                if return_dict:
+                    out = dict_check_out
+        
+        return out
+    
+
+
     def get_entc_cats_max_investment_ramp(self,
         cats_entc_max_investment_ramp: Union[List[str], None] = None,
     ) -> List[str]:
@@ -1402,6 +1484,144 @@ class Transformers:
 
         return dict_entc_renewable_target_msp
     
+
+
+    def get_inen_parameters(self,
+        dict_cats_inen_high_heat_to_frac: Union[List[str], None] = None,
+    ) -> List[str]:
+        """
+        Get INEN parameters for the implementation of transformations. Returns a 
+            tuple with the following elements (dictionary keys, if present, are 
+            shown within after comments; otherwise, calculated internally):
+
+            (
+                dict_cats_inen_high_heat_to_frac, # key "categories_inen_high_heat",
+                cats_inen_not_high_heat,
+            )
+        
+        If dict_config is None, uses self.config.
+
+        NOTE: Requires keys in dict_config to set. If not found, will set the 
+            following defaults:
+                * dict_cats_inen_high_heat_to_frac: {
+                    "cement": 0.88,
+                    "chemicals": 0.5, 
+                    "glass": 0.88, 
+                    "lime_and_carbonite": 0.88, 
+                    "metals": 0.92,
+                    "paper": 0.18, 
+                }
+                * cats_inen_not_high_heat: derived from INEN Fuel Fraction 
+                    variables and cats_inen_high_heat (complement)
+                * frac_inen_high_temp_elec_hydg: (electrification and hydrogen
+                    potential fractionation of industrial energy demand, 
+                    targeted at high temperature demands: 50% of 1/2 of 90% of 
+                    total INEN energy demand for each fuel)
+                * frac_inen_low_temp_elec: 0.95*0.45 (electrification potential 
+                    fractionation of industrial energy demand, targeted at low 
+                    temperature demands: 95% of 1/2 of 90% of total INEN energy 
+                    demand)
+            
+            The value of `frac_inen_shift_denom` is 
+                frac_inen_low_temp_elec + 2*frac_inen_high_temp_elec_hydg
+
+
+        Keyword Arguments
+        -----------------
+        - cats_inen_high_heat: optional specification of INEN categories that 
+            include high heat 
+        """
+
+
+        attr_industry = self.model_attributes.get_attribute_table(
+            self.model_attributes.subsec_name_ippu
+        )
+
+
+        ##  GET INEN HIGH HEAT CATEGORIES
+
+        key =  f"{self.key_config_general}.{self.key_config_dict_cats_inen_high_heat_to_frac}"
+        default_cats_inen_high_heat = get_dict_config_default()
+        default_cats_inen_high_heat = default_cats_inen_high_heat.get(key)
+        
+        #
+        dict_cats_inen_high_heat = (
+            self.config.get(
+                f"{self.key_config_general}.{self.key_config_dict_cats_inen_high_heat_to_frac}"
+            )
+            if not isinstance(dict_cats_inen_high_heat, dict)
+            else self.get_valid_categories_dict(
+                dict_cats_inen_high_heat,
+                self.model_attributes.subsec_name_ippu
+            )
+        )
+
+        if dict_cats_inen_high_heat is None:
+            dict_cats_inen_high_heat = default_cats_inen_high_heat
+       
+
+        ##  GET INEN LOW AND MEDIUM HEAT CATEGORIES
+
+        modvars_inen_fuel_switching = tbe.transformation_inen_shift_modvars(
+            None,
+            None,
+            None,
+            self.model_attributes,
+            return_modvars_only = True
+        )
+        cats_inen_fuel_switching = set({})
+        for modvar in modvars_inen_fuel_switching:
+            cats_inen_fuel_switching = cats_inen_fuel_switching | set(self.model_attributes.get_variable_categories(modvar))
+
+        cats_inen_not_high_heat = sorted(list(cats_inen_fuel_switching - set(dict_cats_inen_high_heat.keys()))) 
+
+        """
+        # fraction of energy that can be moved to electric/hydrogen, representing high heat transfer
+        frac_inen_high_temp_elec_hydg = (
+            self.config
+            .get(
+                f"{self.key_config_general}.{self.key_config_frac_inen_high_temp_elec_hydg}"
+            )
+        )
+        if not sf.isnumber(frac_inen_high_temp_elec_hydg):
+            tp = str(frac_inen_high_temp_elec_hydg)'
+            msg = f"Invalid specification of '{self.key_config_frac_inen_high_temp_elec_hydg}' in configuration:
+            type must of float, not {tp}. Check the configuration file used to initialize the
+            Transformers object.
+            "
+            raise TypeError(tp)
+
+
+        # fraction of energy that can be moved to electric, representing low heat transfer
+        frac_inen_low_temp_elec = (
+            self.config
+            .get(
+                f"{self.key_config_general}.{self.key_config_frac_inen_low_temp_elec}"
+            )
+        )
+        if not sf.isnumber(frac_inen_low_temp_elec):
+            tp = str(frac_inen_low_temp_elec)'
+            msg = f"Invalid specification of '{self.frac_inen_low_temp_elec}' in configuration:
+            type must of float, not {tp}. Check the configuration file used to initialize the
+            Transformers object.
+            "
+            raise TypeError(tp)
+
+        # shift denominator
+        frac_inen_shift_denom = frac_inen_low_temp_elec + frac_inen_high_temp_elec_hydg
+        """
+        
+        # setup return
+        tup_out = (
+            dict_cats_inen_high_heat,
+            cats_inen_not_high_heat,
+            #frac_inen_high_temp_elec_hydg,
+            #frac_inen_low_temp_elec,
+            #frac_inen_shift_denom,
+        )
+        
+        return tup_out
+
 
 
     def get_ramp_characteristics(self,
@@ -4606,6 +4826,7 @@ class Transformers:
         
     def _trfunc_fgtv_maximize_flaring(self,
         df_input: Union[pd.DataFrame, None] = None,
+        magnitude: float = 0.8,
         strat: Union[int, None] = None,
         vec_implementation_ramp: Union[np.ndarray, None] = None,
     ) -> pd.DataFrame:
@@ -4619,6 +4840,7 @@ class Transformers:
         Keyword Arguments
         -----------------
         - df_input: data frame containing trajectories to modify
+        - magnitude: fraction of vented methane that is flared
         - strat: optional strategy value to specify for the transformation
         - vec_implementation_ramp: optional vector specifying the implementation
             scalar ramp for the transformation. If None, defaults to a uniform 
@@ -4637,10 +4859,13 @@ class Transformers:
             df_input,
         )
 
+        # verify magnitude
+        magnitude = self.bounded_real_magnitude(magnitude, 0.8)
+
         
         df_strat_cur = tbe.transformation_fgtv_maximize_flaring(
             df_input,
-            0.8, 
+            magnitude, 
             vec_implementation_ramp,
             self.model_attributes,
             field_region = self.key_region,
@@ -4654,6 +4879,7 @@ class Transformers:
 
     def _trfunc_fgtv_minimize_leaks(self,
         df_input: Union[pd.DataFrame, None] = None,
+        magnitude: float = 0.8,
         strat: Union[int, None] = None,
         vec_implementation_ramp: Union[np.ndarray, None] = None,
     ) -> pd.DataFrame:
@@ -4667,6 +4893,8 @@ class Transformers:
         Keyword Arguments
         -----------------
         - df_input: data frame containing trajectories to modify
+        - magnitude: fraction of leaky sources (pipelines, storage, etc) that
+            are fixed
         - strat: optional strategy value to specify for the transformation
         - vec_implementation_ramp: optional vector specifying the implementation
             scalar ramp for the transformation. If None, defaults to a uniform 
@@ -4685,10 +4913,13 @@ class Transformers:
             df_input,
         )
 
+        # verify magnitude
+        magnitude = self.bounded_real_magnitude(magnitude, 0.8)
+
         
         df_strat_cur = tbe.transformation_fgtv_reduce_leaks(
             df_input,
-            0.8, 
+            magnitude, 
             vec_implementation_ramp,
             self.model_attributes,
             field_region = self.key_region,
@@ -4704,69 +4935,17 @@ class Transformers:
     #    INEN TRANSFORMER FUNCTIONS    #
     ####################################
 
-    def _trfunc_inen_fuel_switch_high_temp(self,
-        df_input: Union[pd.DataFrame, None] = None,
-        strat: Union[int, None] = None,
-        vec_implementation_ramp: Union[np.ndarray, None] = None,
-    ) -> pd.DataFrame:
-        """
-        Implement the "Fuel switch medium and high-temp thermal processes to 
-            hydrogen and electricity" INEN transformation on input DataFrame 
-            df_input
-        
-        Function Arguments
-        ------------------
-
-        Keyword Arguments
-        -----------------
-        - df_input: data frame containing trajectories to modify
-        - strat: optional strategy value to specify for the transformation
-        - vec_implementation_ramp: optional vector specifying the implementation
-            scalar ramp for the transformation. If None, defaults to a uniform 
-            ramp that starts at the time specified in the configuration.
-        """
-        # check input dataframe
-        df_input = (
-            self.baseline_inputs
-            if not isinstance(df_input, pd.DataFrame) 
-            else df_input
-        )
-
-        # check implementation ramp
-        vec_implementation_ramp = self.check_implementation_ramp(
-            vec_implementation_ramp,
-            df_input,
-        )
-
-        
-        df_strat_cur = tbe.transformation_inen_shift_modvars(
-            df_input,
-            2*self.frac_inen_high_temp_elec_hydg,
-            vec_implementation_ramp,
-            self.model_attributes,
-            categories = self.cats_inen_high_heat,
-            dict_modvar_specs = {
-                self.model_enercons.modvar_inen_frac_en_electricity: 0.5,
-                self.model_enercons.modvar_inen_frac_en_hydrogen: 0.5,
-            },
-            field_region = self.key_region,
-            magnitude_relative_to_baseline = True,
-            model_enercons = self.model_enercons,
-            strategy_id = strat
-        )
-
-        return df_strat_cur
-
-
-
     def _trfunc_inen_fuel_switch_low_and_high_temp(self,
+        #dict_high_fuel_split: Union[dict, None] = None,
         df_input: Union[pd.DataFrame, None] = None,
+        frac_high_given_high: Union[float, dict, None] = None,
+        frac_switchable: float = 0.9, 
         strat: Union[int, None] = None,
         vec_implementation_ramp: Union[np.ndarray, None] = None,
     ) -> pd.DataFrame:
         """
         Implement the "Fuel switch low-temp thermal processes to industrial heat 
-            pumps" and "Fuel switch medium and high-temp thermal processes to 
+            pumps" or/and "Fuel switch medium and high-temp thermal processes to 
             hydrogen and electricity" INEN transformations on input DataFrame 
             df_input (note: these must be combined in a new function instead of
             as a composition due to the electricity shift in high-heat 
@@ -4777,7 +4956,31 @@ class Transformers:
 
         Keyword Arguments
         -----------------
+        - dict_high_fuel_split: optional dictionary mapping high heat to target
+            fuel splits. If None, defaults to
+                {
+                    "fuel_electricity": 0.5,
+                    "fuel_hydrogen": 0.5
+                }
+
         - df_input: data frame containing trajectories to modify
+        - frac_high_given_high: in high heat categories, fraction of heat demand 
+            that is high (NOTE: needs to be switched to per industry). 
+            * If specified as a float, this is applied to all high heat 
+                categories
+            * If specified as None, uses the following dictionary:
+                (TEMP: from https://www.sciencedirect.com/science/article/pii/S0360544222018175?via%3Dihub#bib34 [see sainz_et_al_2022])
+
+                {
+                    "cement": 0.88, # use non-metallic minerals
+                    "chemicals": 0.5, 
+                    "glass": 0.88, 
+                    "lime_and_carbonite": 0.88, 
+                    "metals": 0.92,
+                    "paper": 0.18, 
+                }
+
+        - frac_switchable: fraction of demand that can be switched 
         - strat: optional strategy value to specify for the transformation
         - vec_implementation_ramp: optional vector specifying the implementation
             scalar ramp for the transformation. If None, defaults to a uniform 
@@ -4795,41 +4998,71 @@ class Transformers:
             vec_implementation_ramp,
             df_input,
         )
+        
+
+        dict_frac_high_given_high_def, cats_inen_low_med_heat = self.get_inen_parameters()
+
+        # calculate some fractions
+        if frac_high_given_high is None:
+            frac_high_given_high = dict_frac_high_given_high_def
+        
+        elif sf.isnumber(frac_high_given_high):
+            frac_high_given_high = self.bounded_real_magnitude(frac_high_given_high, 0.5)
+            frac_high_given_high = dict(
+                (k, frac_high_given_high) for k in dict_frac_high_given_high_def.keys()
+            )
+
+        # do some checks
+        frac_high_given_high = self.model_attributes.get_valid_categories_dict(
+            frac_high_given_high,
+            self.model_attributes.subsec_name_inen,
+        )
 
         
-        # set up fractions 
-        frac_shift_hh_elec = self.frac_inen_low_temp_elec + self.frac_inen_high_temp_elec_hydg
-        frac_shift_hh_elec /= self.frac_inen_shift_denom
+        # iterate over each high-heat industrial case
+        df_out = df_input.copy()
 
-        frac_shift_hh_hydrogen = self.frac_inen_high_temp_elec_hydg
-        frac_shift_hh_hydrogen /= self.frac_inen_shift_denom
+        for (cat, frac) in frac_high_given_high.items():
 
+            frac_low_given_high = 1.0 - frac
+            frac_switchable = self.bounded_real_magnitude(frac_switchable, 0.9)
 
-        # HIGH HEAT CATS ONLY
-        # Fuel switch high-temp thermal processes + Fuel switch low-temp thermal processes to industrial heat pumps
-        df_out = tbe.transformation_inen_shift_modvars(
-            df_input,
-            self.frac_inen_shift_denom,
-            vec_implementation_ramp, 
-            self.model_attributes,
-            categories = self.cats_inen_high_heat,
-            dict_modvar_specs = {
-                self.model_enercons.modvar_inen_frac_en_electricity: frac_shift_hh_elec,
-                self.model_enercons.modvar_inen_frac_en_hydrogen: frac_shift_hh_hydrogen,
-            },
-            field_region = self.key_region,
-            model_enercons = self.model_enercons,
-            strategy_id = strat
-        )
+            frac_inen_low_temp_elec_given_high = frac_switchable*frac_low_given_high
+            frac_inen_high_temp_elec_hydg = frac_switchable*frac
+            
+            # set up fractions 
+            frac_shift_hh_elec = frac_inen_low_temp_elec_given_high + frac_inen_high_temp_elec_hydg/2
+            frac_shift_hh_elec /= frac_switchable
+
+            frac_shift_hh_hydrogen = frac_inen_high_temp_elec_hydg/2
+            frac_shift_hh_hydrogen /= frac_switchable
+
+            # HIGH HEAT CATS ONLY
+            # Fuel switch high-temp thermal processes + Fuel switch low-temp thermal processes to industrial heat pumps
+            df_out = tbe.transformation_inen_shift_modvars(
+                df_out,
+                frac_inen_shift_denom,
+                vec_implementation_ramp, 
+                self.model_attributes,
+                categories = [cat],
+                dict_modvar_specs = {
+                    self.model_enercons.modvar_inen_frac_en_electricity: frac_shift_hh_elec,
+                    self.model_enercons.modvar_inen_frac_en_hydrogen: frac_shift_hh_hydrogen,
+                },
+                field_region = self.key_region,
+                model_enercons = self.model_enercons,
+                strategy_id = strat
+            )
+
 
         # LOW HEAT CATS ONLY
         # + Fuel switch low-temp thermal processes to industrial heat pumps
         df_out = tbe.transformation_inen_shift_modvars(
             df_out,
-            self.frac_inen_shift_denom,
+            frac_inen_shift_denom,
             vec_implementation_ramp, 
             self.model_attributes,
-            categories = self.cats_inen_not_high_heat,
+            categories = cats_inen_low_med_heat,
             dict_modvar_specs = {
                 self.model_enercons.modvar_inen_frac_en_electricity: 1.0
             },
@@ -4843,60 +5076,9 @@ class Transformers:
 
 
 
-    def _trfunc_inen_fuel_switch_low_temp_to_heat_pump(self,
-        df_input: Union[pd.DataFrame, None] = None,
-        strat: Union[int, None] = None,
-        vec_implementation_ramp: Union[np.ndarray, None] = None,
-    ) -> pd.DataFrame:
-        """
-        Implement the "Fuel switch low-temp thermal processes to industrial heat 
-            pumps" INEN transformation on input DataFrame df_input
-        
-        Function Arguments
-        ------------------
-
-        Keyword Arguments
-        -----------------
-        - df_input: data frame containing trajectories to modify
-        - strat: optional strategy value to specify for the transformation
-        - vec_implementation_ramp: optional vector specifying the implementation
-            scalar ramp for the transformation. If None, defaults to a uniform 
-            ramp that starts at the time specified in the configuration.
-        """
-        # check input dataframe
-        df_input = (
-            self.baseline_inputs
-            if not isinstance(df_input, pd.DataFrame) 
-            else df_input
-        )
-
-        # check implementation ramp
-        vec_implementation_ramp = self.check_implementation_ramp(
-            vec_implementation_ramp,
-            df_input,
-        )
-
-        
-        df_strat_cur = tbe.transformation_inen_shift_modvars(
-            df_input,
-            self.frac_inen_low_temp_elec,
-            vec_implementation_ramp,
-            self.model_attributes,
-            dict_modvar_specs = {
-                self.model_enercons.modvar_inen_frac_en_electricity: 1.0
-            },
-            field_region = self.key_region,
-            magnitude_relative_to_baseline = True,
-            model_enercons = self.model_enercons,
-            strategy_id = strat
-        )
-
-        return df_strat_cur
-
-
-
     def _trfunc_inen_maximize_efficiency_energy(self,
         df_input: Union[pd.DataFrame, None] = None,
+        magnitude: float = 0.3,
         strat: Union[int, None] = None,
         vec_implementation_ramp: Union[np.ndarray, None] = None,
     ) -> pd.DataFrame:
@@ -4910,6 +5092,8 @@ class Transformers:
         Keyword Arguments
         -----------------
         - df_input: data frame containing trajectories to modify
+        - magnitude: magnitude of energy efficiency increase (applied to
+            industrial efficiency factor)
         - strat: optional strategy value to specify for the transformation
         - vec_implementation_ramp: optional vector specifying the implementation
             scalar ramp for the transformation. If None, defaults to a uniform 
@@ -4928,10 +5112,11 @@ class Transformers:
             df_input,
         )
 
+        magnitude = self.bounded_real_magnitude(magnitude, 0.3)
         
         df_strat_cur = tbe.transformation_inen_maximize_energy_efficiency(
             df_input,
-            0.3, 
+            magnitude,
             vec_implementation_ramp,
             self.model_attributes,
             field_region = self.key_region,
@@ -4945,6 +5130,7 @@ class Transformers:
 
     def _trfunc_inen_maximize_efficiency_production(self,
         df_input: Union[pd.DataFrame, None] = None,
+        magnitude: float = 0.4,
         strat: Union[int, None] = None,
         vec_implementation_ramp: Union[np.ndarray, None] = None,
     ) -> pd.DataFrame:
@@ -4958,6 +5144,8 @@ class Transformers:
         Keyword Arguments
         -----------------
         - df_input: data frame containing trajectories to modify
+        - magnitude: magnitude of energy efficiency increase (applied to
+            industrial production factor)
         - strat: optional strategy value to specify for the transformation
         - vec_implementation_ramp: optional vector specifying the implementation
             scalar ramp for the transformation. If None, defaults to a uniform 
@@ -4976,10 +5164,11 @@ class Transformers:
             df_input,
         )
 
+        magnitude = self.bounded_real_magnitude(magnitude, 0.4)
         
         df_strat_cur = tbe.transformation_inen_maximize_production_efficiency(
             df_input,
-            0.4, 
+            magnitude, 
             vec_implementation_ramp,
             self.model_attributes,
             field_region = self.key_region,
@@ -4997,6 +5186,7 @@ class Transformers:
 
     def _trfunc_scoe_fuel_switch_electrify(self,
         df_input: Union[pd.DataFrame, None] = None,
+        magnitude: float = 0.95,
         strat: Union[int, None] = None,
         vec_implementation_ramp: Union[np.ndarray, None] = None,
     ) -> pd.DataFrame:
@@ -5010,6 +5200,7 @@ class Transformers:
         Keyword Arguments
         -----------------
         - df_input: data frame containing trajectories to modify
+        - magnitude: magntiude of fraction of heat energy that is electrified
         - strat: optional strategy value to specify for the transformation
         - vec_implementation_ramp: optional vector specifying the implementation
             scalar ramp for the transformation. If None, defaults to a uniform 
@@ -5028,10 +5219,11 @@ class Transformers:
             df_input,
         )
 
+        magnitude = self.bounded_real_magnitude(magnitude, 0.95)
         
         df_strat_cur = tbe.transformation_scoe_electrify_category_to_target(
             df_input,
-            0.95,
+            magnitude,
             vec_implementation_ramp,
             self.model_attributes,
             field_region = self.key_region,
@@ -5045,6 +5237,7 @@ class Transformers:
 
     def _trfunc_scoe_reduce_heat_energy_demand(self,
         df_input: Union[pd.DataFrame, None] = None,
+        magnitude: float = 0.5,
         strat: Union[int, None] = None,
         vec_implementation_ramp: Union[np.ndarray, None] = None,
     ) -> pd.DataFrame:
@@ -5058,6 +5251,8 @@ class Transformers:
         Keyword Arguments
         -----------------
         - df_input: data frame containing trajectories to modify
+        - magnitude: reduction in heat energy demand, driven by retrofitting and
+            changes in use
         - strat: optional strategy value to specify for the transformation
         - vec_implementation_ramp: optional vector specifying the implementation
             scalar ramp for the transformation. If None, defaults to a uniform 
@@ -5076,10 +5271,11 @@ class Transformers:
             df_input,
         )
 
+        magnitude = self.bounded_real_magnitude(magnitude, 0.5)
         
         df_strat_cur = tbe.transformation_scoe_reduce_demand_for_heat_energy(
             df_input,
-            0.5,
+            magnitude,
             vec_implementation_ramp,
             self.model_attributes,
             field_region = self.key_region,
@@ -5093,6 +5289,7 @@ class Transformers:
 
     def _trfunc_scoe_increase_applicance_efficiency(self,
         df_input: Union[pd.DataFrame, None] = None,
+        magnitude: float = 0.5,
         strat: Union[int, None] = None,
         vec_implementation_ramp: Union[np.ndarray, None] = None,
     ) -> pd.DataFrame:
@@ -5106,6 +5303,7 @@ class Transformers:
         Keyword Arguments
         -----------------
         - df_input: data frame containing trajectories to modify
+        - magnitude: fractional increase in applieance energy efficiency
         - strat: optional strategy value to specify for the transformation
         - vec_implementation_ramp: optional vector specifying the implementation
             scalar ramp for the transformation. If None, defaults to a uniform 
@@ -5124,10 +5322,11 @@ class Transformers:
             df_input,
         )
 
-        
+        magnitude = self.bounded_real_magnitude(magnitude, 0.5)
+
         df_strat_cur = tbe.transformation_scoe_reduce_demand_for_appliance_energy(
             df_input,
-            0.5,
+            magnitude,
             vec_implementation_ramp,
             self.model_attributes,
             field_region = self.key_region,
@@ -5145,6 +5344,7 @@ class Transformers:
 
     def _trfunc_trde_reduce_demand(self,
         df_input: pd.DataFrame = None,
+        magnitude: float = 0.25,
         strat: Union[int, None] = None,
         vec_implementation_ramp: Union[np.ndarray, None] = None,
     ) -> pd.DataFrame:
@@ -5158,6 +5358,7 @@ class Transformers:
         Keyword Arguments
         -----------------
         - df_input: data frame containing trajectories to modify
+        - magnitude: fractional reduction in transportation demand
         - strat: optional strategy value to specify for the transformation
         - vec_implementation_ramp: optional vector specifying the implementation
             scalar ramp for the transformation. If None, defaults to a uniform 
@@ -5176,10 +5377,11 @@ class Transformers:
             df_input,
         )
 
+        magnitude = self.bounded_real_magnitude(magnitude, 0.25)
 
         df_out = tbe.transformation_trde_reduce_demand(
             df_input,
-            0.25, 
+            magnitude,
             vec_implementation_ramp,
             self.model_attributes,
             field_region = self.key_region,
@@ -5189,14 +5391,17 @@ class Transformers:
         
         return df_out
 
-
+    
 
     ####################################
     #    TRNS TRANSFORMER FUNCTIONS    #
     ####################################
 
     def _trfunc_trns_electrify_road_light_duty(self,
+        categories: List[str] = ["road_light"],
+        dict_fuel_allocation: Union[dict, None] = None,
         df_input: Union[pd.DataFrame, None] = None,
+        magnitude: float = 0.7,
         strat: Union[int, None] = None,
         vec_implementation_ramp: Union[np.ndarray, None] = None,
     ) -> pd.DataFrame:
@@ -5209,7 +5414,19 @@ class Transformers:
 
         Keyword Arguments
         -----------------
+        - categories: transportation categories to include; defaults to 
+            "road_light"
+        - dict_fuel_allocation: optional dictionary defining fractional 
+            allocation of fuels in fuel switch. If undefined, defaults to
+                {
+                    "fuel_electricity": 1.0
+                }
+            
+            NOTE: keys must be valid TRNS fuels and values in the dictionary 
+            must sum to 1.
+
         - df_input: data frame containing trajectories to modify
+        - magnitude: fraction of light duty vehicles electrified 
         - strat: optional strategy value to specify for the transformation
         - vec_implementation_ramp: optional vector specifying the implementation
             scalar ramp for the transformation. If None, defaults to a uniform 
@@ -5228,16 +5445,29 @@ class Transformers:
             df_input,
         )
 
+        # bound the magnitude and check categories
+        magnitude = self.bounded_real_magnitude(magnitude, 0.7)
+        categories = self.get_valid_categories(
+            categories,
+            self.model_attributes.subsec_name_trns
+        )
+
+        # check the specification of the fuel allocation dictionary
+        dict_modvar_specs = self.check_trns_fuel_switch_allocation_dict(
+            dict_fuel_allocation,
+            {
+                self.model_enercons.modvar_trns_fuel_fraction_electricity: 1.0
+            }
+        )
+
 
         df_out = tbe.transformation_trns_fuel_shift_to_target(
             df_input,
-            0.7,
+            magnitude,
             vec_implementation_ramp,
             self.model_attributes,
-            categories = ["road_light"],
-            dict_modvar_specs = {
-                self.model_enercons.modvar_trns_fuel_fraction_electricity: 1.0
-            },
+            categories = categories,
+            dict_modvar_specs = dict_modvar_specs,
             field_region = self.key_region,
             magnitude_type = "transfer_scalar",
             model_enercons = self.model_enercons,
@@ -5250,7 +5480,10 @@ class Transformers:
     
     
     def _trfunc_trns_electrify_rail(self,
+        categories: List[str] = ["rail_freight", "rail_passenger"],
+        dict_fuel_allocation: Union[dict, None] = None,
         df_input: Union[pd.DataFrame, None] = None,
+        magnitude: float = 0.25,
         strat: Union[int, None] = None,
         vec_implementation_ramp: Union[np.ndarray, None] = None,
     ) -> pd.DataFrame:
@@ -5263,7 +5496,19 @@ class Transformers:
 
         Keyword Arguments
         -----------------
+        - categories: transportation categories to include; defaults to 
+            ["rail_freight", "rail_passenger"]
+        - dict_fuel_allocation: optional dictionary defining fractional 
+            allocation of fuels in fuel switch. If undefined, defaults to
+                {
+                    "fuel_electricity": 1.0
+                }
+            
+            NOTE: keys must be valid TRNS fuels and values in the dictionary 
+            must sum to 1.
+
         - df_input: data frame containing trajectories to modify
+        - magnitude: fraction of light duty vehicles electrified 
         - strat: optional strategy value to specify for the transformation
         - vec_implementation_ramp: optional vector specifying the implementation
             scalar ramp for the transformation. If None, defaults to a uniform 
@@ -5284,16 +5529,28 @@ class Transformers:
             df_input,
         )
 
+        # bound the magnitude and check categories
+        magnitude = self.bounded_real_magnitude(magnitude, 0.25)
+        categories = self.get_valid_categories(
+            categories,
+            self.model_attributes.subsec_name_trns
+        )
+
+        # check the specification of the fuel allocation dictionary
+        dict_modvar_specs = self.check_trns_fuel_switch_allocation_dict(
+            dict_fuel_allocation,
+            {
+                self.model_enercons.modvar_trns_fuel_fraction_electricity: 1.0
+            }
+        )
 
         df_out = tbe.transformation_trns_fuel_shift_to_target(
             df_input,
-            0.25,
+            magnitude,
             vec_implementation_ramp,
             self.model_attributes,
-            categories = ["rail_freight", "rail_passenger"],
-            dict_modvar_specs = {
-                self.model_enercons.modvar_trns_fuel_fraction_electricity: 1.0
-            },
+            categories = categories,
+            dict_modvar_specs = dict_modvar_specs,
             field_region = self.key_region,
             magnitude_type = "transfer_scalar",
             model_enercons = self.model_enercons,
@@ -5304,28 +5561,49 @@ class Transformers:
     
     
     
-    
     def _trfunc_trns_fuel_switch_maritime(self,
+        categories: List[str] = ["water_borne"],
+        dict_allocation_fuels_target: Union[dict, None] = None,
         df_input: Union[pd.DataFrame, None] = None,
+        fuels_source: List[str] = ["fuel_diesel", "fuel_gas"],
+        magnitude: float = 0.7,
         strat: Union[int, None] = None,
         vec_implementation_ramp: Union[np.ndarray, None] = None,
     ) -> pd.DataFrame:
         """
         Implement the "Fuel-Swich Maritime" TRNS transformation on input 
-            DataFrame df_input
+            DataFrame df_input. By default, transfers mangitude to hydrogen from 
+            gasoline and diesel; e.g., with magnitude = 0.7, then 70% of diesel 
+            and gas demand are transfered to fuels in fuels_target. The rest of
+            the fuel demand is then transferred to electricity. 
         
         Function Arguments
         ------------------
 
         Keyword Arguments
         -----------------
+        - catgories: TRNS categories to apply to. Defaults to water_borne
+        - dict_allocation_fuels_target: dictionary allocating target fuels. If
+            None, defaults to
+            {
+                "fuel_hydrogen": 1.0,
+            }
+
         - df_input: data frame containing trajectories to modify
+        - fuels_source: fuels to transfer out; for F the percentage of TRNS
+            demand met by fuels in fuels source, M*F (M = magtnitude) is
+            transferred to fuels defined in dict_allocation_fuels_target
+        - magnitude: fraction of water borne fuels_source (gas and diesel, 
+            e.g.) that shifted to target fuels fuels_target (hydrogen is 
+            default, can include ammonia). Note, remaining is shifted to 
+            electricity
         - strat: optional strategy value to specify for the transformation
         - vec_implementation_ramp: optional vector specifying the implementation
             scalar ramp for the transformation. If None, defaults to a uniform 
             ramp that starts at the time specified in the configuration.
         """
-        # check input dataframe
+        ##  CHECKS AND INIT
+
         df_input = (
             self.baseline_inputs
             if not isinstance(df_input, pd.DataFrame) 
@@ -5340,42 +5618,70 @@ class Transformers:
             df_input,
         )
 
+        # bound the magnitude and check categories
+        magnitude = self.bounded_real_magnitude(magnitude, 0.7)
+        categories = self.get_valid_categories(
+            categories,
+            self.model_attributes.subsec_name_trns
+        )
 
-        # transfer 70% of diesel + gasoline to hydrogen
+        # check the specification of the fuel allocation dictionary
+        dict_modvar_specs = self.check_trns_fuel_switch_allocation_dict(
+            dict_fuel_allocation,
+            {
+                self.model_enercons.modvar_trns_fuel_fraction_hydrogen: 1.0
+            }
+        )
+        
+        # get fuel source modvars
+        fuels_source = self.get_valid_categories(
+            fuels_source,
+            self.model_attributes.subsec_name_fuel
+        )
+        modvars_source = [
+            (
+                self.model_enercons
+                .dict_inen_fuel_categories_to_fuel_variables
+                .get(x)
+                .get("fuel_fraction")
+            )
+            for x in fuels_source
+        ]
+
+        
+        ##  RUN TRANSFORMATION IN TWO STAGES
+
+        # transfer magnitude (frac) of source fuels to fuels_target
         df_out = tbe.transformation_trns_fuel_shift_to_target(
             df_input,
-            0.7,
+            magnitude,
             vec_implementation_ramp,
             self.model_attributes,
-            categories = ["water_borne"],
-            dict_modvar_specs = {
-                self.model_enercons.modvar_trns_fuel_fraction_hydrogen: 1.0
-            },
+            categories = categories,
+            dict_modvar_specs = dict_modvar_specs,
             field_region = self.key_region,
-            modvars_source = [
-                self.model_enercons.modvar_trns_fuel_fraction_diesel,
-                self.model_enercons.modvar_trns_fuel_fraction_gasoline
-            ],
+            modvars_source = modvars_source,
+            #[
+            #    self.model_enercons.modvar_trns_fuel_fraction_diesel,
+            #    self.model_enercons.modvar_trns_fuel_fraction_gasoline
+            #],
             magnitude_type = "transfer_scalar",
             model_enercons = self.model_enercons,
             strategy_id = strat
         )
 
-        # transfer remaining diesel + gasoline to hydrogen
+        # transfer remaining diesel + gasoline to electricity
         df_out = tbe.transformation_trns_fuel_shift_to_target(
             df_out,
             1.0,
             vec_implementation_ramp,
             self.model_attributes,
-            categories = ["water_borne"],
+            categories = categories,
             dict_modvar_specs = {
                 self.model_enercons.modvar_trns_fuel_fraction_electricity: 1.0
             },
             field_region = self.key_region,
-            modvars_source = [
-                self.model_enercons.modvar_trns_fuel_fraction_diesel,
-                self.model_enercons.modvar_trns_fuel_fraction_gasoline
-            ],
+            modvars_source = modvars_source,
             magnitude_type = "transfer_scalar",
             model_enercons = self.model_enercons,
             strategy_id = strat
@@ -5386,13 +5692,55 @@ class Transformers:
     
     
     def _trfunc_trns_fuel_switch_road_medium_duty(self,
+        categories: List[str] = [
+            "road_heavy_freight", 
+            "road_heavy_regional", 
+            "public"
+        ],
+        dict_allocation_fuels_target: Union[dict, None] = None,
         df_input: Union[pd.DataFrame, None] = None,
+        fuels_source: List[str] = ["fuel_diesel", "fuel_gas"],
+        magnitude: float = 0.7,
         strat: Union[int, None] = None,
         vec_implementation_ramp: Union[np.ndarray, None] = None,
     ) -> pd.DataFrame:
         """
         Implement the "Fuel-Switch Medium Duty" TRNS transformation on input 
-            DataFrame df_input
+            DataFrame df_input. By default, transfers mangitude to electricity 
+            from gasoline and diesel; e.g., with magnitude = 0.7, then 70% of 
+            diesel and gas demand are transfered to fuels in fuels_target. The 
+            rest of the fuel demand is then transferred to hydrogen. 
+        
+        
+        Function Arguments
+        ------------------
+
+        Keyword Arguments
+        -----------------
+        - catgories: TRNS categories to apply to. Defaults to 
+            [
+                "road_heavy_freight", 
+                "road_heavy_regional", 
+                "public"
+            ]
+        - dict_allocation_fuels_target: dictionary allocating target fuels. If
+            None, defaults to
+            {
+                "fuel_electricity": 1.0,
+            }
+
+        - df_input: data frame containing trajectories to modify
+        - fuels_source: fuels to transfer out; for F the percentage of TRNS
+            demand met by fuels in fuels source, M*F (M = magtnitude) is
+            transferred to fuels defined in dict_allocation_fuels_target
+        - magnitude: fraction of water borne fuels_source (gas and diesel, 
+            e.g.) that shifted to target fuels fuels_target (hydrogen is 
+            default, can include ammonia). Note, remaining is shifted to 
+            electricity
+        - strat: optional strategy value to specify for the transformation
+        - vec_implementation_ramp: optional vector specifying the implementation
+            scalar ramp for the transformation. If None, defaults to a uniform 
+            ramp that starts at the time specified in the configuration.
         
         Function Arguments
         ------------------
@@ -5405,7 +5753,8 @@ class Transformers:
             scalar ramp for the transformation. If None, defaults to a uniform 
             ramp that starts at the time specified in the configuration.
         """
-        # check input dataframe
+        ##  CHECKS AND INIT
+
         df_input = (
             self.baseline_inputs
             if not isinstance(df_input, pd.DataFrame) 
@@ -5420,22 +5769,53 @@ class Transformers:
             df_input,
         )
 
+        # bound the magnitude and check categories
+        magnitude = self.bounded_real_magnitude(magnitude, 0.7)
+        categories = self.get_valid_categories(
+            categories,
+            self.model_attributes.subsec_name_trns
+        )
+
+        # check the specification of the fuel allocation dictionary
+        dict_modvar_specs = self.check_trns_fuel_switch_allocation_dict(
+            dict_fuel_allocation,
+            {
+                self.model_enercons.modvar_trns_fuel_fraction_electricity: 1.0
+            }
+        )
+        
+        # get fuel source modvars
+        fuels_source = self.get_valid_categories(
+            fuels_source,
+            self.model_attributes.subsec_name_fuel
+        )
+        modvars_source = [
+            (
+                self.model_enercons
+                .dict_inen_fuel_categories_to_fuel_variables
+                .get(x)
+                .get("fuel_fraction")
+            )
+            for x in fuels_source
+        ]
+
+
+        ##  DO STAGED IMPLEMENTATION
 
         # transfer 70% of diesel + gasoline to electricity
         df_out = tbe.transformation_trns_fuel_shift_to_target(
             df_input,
-            0.7,
+            magnitude,
             vec_implementation_ramp,
             self.model_attributes,
-            categories = ["road_heavy_freight", "road_heavy_regional", "public"],
-            dict_modvar_specs = {
-                self.model_enercons.modvar_trns_fuel_fraction_electricity: 1.0
-            },
+            categories = categories,
+            dict_modvar_specs = dict_modvar_specs,
             field_region = self.key_region,
-            modvars_source = [
-                self.model_enercons.modvar_trns_fuel_fraction_diesel,
-                self.model_enercons.modvar_trns_fuel_fraction_gasoline
-            ],
+            modvars_source = modvars_source,
+            #modvars_source = [
+            #    self.model_enercons.modvar_trns_fuel_fraction_diesel,
+            #    self.model_enercons.modvar_trns_fuel_fraction_gasoline
+            #],
             magnitude_type = "transfer_scalar",
             model_enercons = self.model_enercons,
             strategy_id = strat
@@ -5447,15 +5827,12 @@ class Transformers:
             1.0,
             vec_implementation_ramp,
             self.model_attributes,
-            categories = ["road_heavy_freight", "road_heavy_regional", "public"],
+            categories = categories,
             dict_modvar_specs = {
                 self.model_enercons.modvar_trns_fuel_fraction_hydrogen: 1.0
             },
             field_region = self.key_region,
-            modvars_source = [
-                self.model_enercons.modvar_trns_fuel_fraction_diesel,
-                self.model_enercons.modvar_trns_fuel_fraction_gasoline
-            ],
+            modvars_source = modvars_source,
             magnitude_type = "transfer_scalar",
             model_enercons = self.model_enercons,
             strategy_id = strat
@@ -5467,6 +5844,7 @@ class Transformers:
     
     def _trfunc_trns_increase_efficiency_electric(self,
         df_input: Union[pd.DataFrame, None] = None,
+        magnitude: float = 0.25,
         strat: Union[int, None] = None,
         vec_implementation_ramp: Union[np.ndarray, None] = None,
     ) -> pd.DataFrame:
@@ -5480,6 +5858,8 @@ class Transformers:
         Keyword Arguments
         -----------------
         - df_input: data frame containing trajectories to modify
+        - magnitude: increase the efficiency of electric vehicales by this 
+            proportion
         - strat: optional strategy value to specify for the transformation
         - vec_implementation_ramp: optional vector specifying the implementation
             scalar ramp for the transformation. If None, defaults to a uniform 
@@ -5498,10 +5878,11 @@ class Transformers:
             df_input,
         )
 
+        magnitude = self.bounded_real_magnitude(magnitude, 0.25)
         
         df_out = tbe.transformation_trns_increase_energy_efficiency_electric(
             df_input,
-            0.25, 
+            magnitude
             vec_implementation_ramp,
             self.model_attributes,
             field_region = self.key_region,
@@ -5515,6 +5896,7 @@ class Transformers:
 
     def _trfunc_trns_increase_efficiency_non_electric(self,
         df_input: Union[pd.DataFrame, None] = None,
+        magnitude: float = 0.25,
         strat: Union[int, None] = None,
         vec_implementation_ramp: Union[np.ndarray, None] = None,
     ) -> pd.DataFrame:
@@ -5528,6 +5910,8 @@ class Transformers:
         Keyword Arguments
         -----------------
         - df_input: data frame containing trajectories to modify
+        - magnitude: increase the efficiency of non-electric vehicales by this 
+            proportion
         - strat: optional strategy value to specify for the transformation
         - vec_implementation_ramp: optional vector specifying the implementation
             scalar ramp for the transformation. If None, defaults to a uniform 
@@ -5546,10 +5930,11 @@ class Transformers:
             df_input,
         )
 
-        
+        magnitude = self.bounded_real_magnitude(magnitude, 0.25)
+
         df_out = tbe.transformation_trns_increase_energy_efficiency_non_electric(
             df_input,
-            0.25, 
+            magnitude,
             vec_implementation_ramp,
             self.model_attributes,
             field_region = self.key_region,
@@ -5563,6 +5948,7 @@ class Transformers:
 
     def _trfunc_trns_increase_occupancy_light_duty(self,
         df_input: Union[pd.DataFrame, None] = None,
+        magnitude: float = 0.25,
         strat: Union[int, None] = None,
         vec_implementation_ramp: Union[np.ndarray, None] = None,
     ) -> pd.DataFrame:
@@ -5576,6 +5962,8 @@ class Transformers:
         Keyword Arguments
         -----------------
         - df_input: data frame containing trajectories to modify
+        - magnitude: increase the occupancy rate of light duty vehicles by this
+            proporiton
         - strat: optional strategy value to specify for the transformation
         - vec_implementation_ramp: optional vector specifying the implementation
             scalar ramp for the transformation. If None, defaults to a uniform 
@@ -5594,10 +5982,11 @@ class Transformers:
             df_input,
         )
 
-
+        magnitude = self.bounded_real_magnitude(magnitude, 0.25)
+        
         df_out = tbe.transformation_trns_increase_vehicle_occupancy(
             df_input,
-            0.25, 
+            magnitude,
             vec_implementation_ramp,
             self.model_attributes,
             field_region = self.key_region,
@@ -5610,26 +5999,40 @@ class Transformers:
 
 
     def _trfunc_trns_mode_shift_freight(self,
+        categories_out: List[str] = ["aviation", "road_heavy_freight"],
+        dict_categories_target: Union[Dict[str, float], None] = None,
         df_input: Union[pd.DataFrame, None] = None,
+        magnitude: float = 0.2,
         strat: Union[int, None] = None,
         vec_implementation_ramp: Union[np.ndarray, None] = None,
     ) -> pd.DataFrame:
         """
         Implement the "Mode Shift Freight" TRNS transformation on input 
-            DataFrame df_input
+            DataFrame df_input. By Default, transfer 20% of aviation and road
+            heavy freight to rail freight.
         
         Function Arguments
         ------------------
 
         Keyword Arguments
         -----------------
+        - categories_out: categories to shift out of 
+        - dict_categories_target: dictionary mapping target categories to 
+            proportional allocation of mode mass. If None, defaults to
+            {
+                "rail_freight": 1.0
+            }
+
         - df_input: data frame containing trajectories to modify
+        - magnitude: magnitude of mode mass to shift out of cats_out
         - strat: optional strategy value to specify for the transformation
         - vec_implementation_ramp: optional vector specifying the implementation
             scalar ramp for the transformation. If None, defaults to a uniform 
             ramp that starts at the time specified in the configuration.
         """
-        # check input dataframe
+
+        ##  CHECKS AND INIT
+
         df_input = (
             self.baseline_inputs
             if not isinstance(df_input, pd.DataFrame) 
@@ -5642,6 +6045,20 @@ class Transformers:
             df_input,
         )
 
+        # check magnitude and categories
+        magnitude = self.bounded_real_magnitude(magnitude, 0.2)
+        categories_out = self.get_valid_categories(
+            categories_out,
+            self.model_attributes.subsec_name_trns,
+        )
+
+        # check the target dictionary
+        dict_categories_target_out = self.check_trns_tech_allocation_dict(
+            dict_categories_target,
+            {
+                "rail_freight": 1.0
+            }
+        )
         
         df_out = tbe.transformation_general(
             df_input,
@@ -5649,12 +6066,10 @@ class Transformers:
             {
                 self.model_enercons.modvar_trns_modeshare_freight: {
                     "bounds": (0, 1),
-                    "magnitude": 0.2,
+                    "magnitude": magnitude,
                     "magnitude_type": "transfer_value_scalar",
-                    "categories_source": ["aviation", "road_heavy_freight"],
-                    "categories_target": {
-                        "rail_freight": 1.0
-                    },
+                    "categories_source": categories_out,
+                    "categories_target": dict_categories_target_out,
                     "vec_ramp": vec_implementation_ramp
                 }
             },
@@ -5667,7 +6082,10 @@ class Transformers:
 
 
     def _trfunc_trns_mode_shift_public_private(self,
+        categories_out: List[str] = ["road_light"],
+        dict_categories_target: Union[Dict[str, float], None] = None,
         df_input: Union[pd.DataFrame, None] = None,
+        magnitude: float = 0.3,
         strat: Union[int, None] = None,
         vec_implementation_ramp: Union[np.ndarray, None] = None,
     ) -> pd.DataFrame:
@@ -5680,7 +6098,17 @@ class Transformers:
 
         Keyword Arguments
         -----------------
+        - categories_out: categories to shift out of 
+        - dict_categories_target: dictionary mapping target categories to 
+            proportional allocation of mode mass. If None, defaults to
+            {
+                "human_powered": (1/6),
+                "powered_bikes": (2/6),
+                "public": 0.5
+            }
+
         - df_input: data frame containing trajectories to modify
+        - magnitude: magnitude of mode mass to shift out of cats_out
         - strat: optional strategy value to specify for the transformation
         - vec_implementation_ramp: optional vector specifying the implementation
             scalar ramp for the transformation. If None, defaults to a uniform 
@@ -5699,6 +6127,23 @@ class Transformers:
             df_input,
         )
 
+        # check magnitude and categories
+        magnitude = self.bounded_real_magnitude(magnitude, 0.3)
+        categories_out = self.get_valid_categories(
+            categories_out,
+            self.model_attributes.subsec_name_trns,
+        )
+
+        # check the target dictionary
+        dict_categories_target_out = self.check_trns_tech_allocation_dict(
+            dict_categories_target,
+            {
+                "human_powered": (1/6),
+                "powered_bikes": (2/6),
+                "public": 0.5
+            }
+        )
+
 
         df_out = tbe.transformation_general(
             df_input,
@@ -5706,14 +6151,10 @@ class Transformers:
             {
                 self.model_enercons.modvar_trns_modeshare_public_private: {
                     "bounds": (0, 1),
-                    "magnitude": 0.3,
+                    "magnitude": magnitude,
                     "magnitude_type": "transfer_value_scalar",
-                    "categories_source": ["road_light"],
-                    "categories_target": {
-                        "human_powered": (1/6),
-                        "powered_bikes": (2/6),
-                        "public": 0.5
-                    },
+                    "categories_source": categories_out,
+                    "categories_target": dict_categories_target_out,
                     "vec_ramp": vec_implementation_ramp
                 }
             },
@@ -5726,7 +6167,13 @@ class Transformers:
     
 
     def _trfunc_trns_mode_shift_regional(self,
+        dict_categories_out: Dict[str, float] = {
+            "aviation": 0.1,
+            "road_light": 0.2,
+        },
+        dict_categories_target: Union[Dict[str, float], None] = None,
         df_input: Union[pd.DataFrame, None] = None,
+        magnitude: float = 0.1,
         strat: Union[int, None] = None,
         vec_implementation_ramp: Union[np.ndarray, None] = None,
     ) -> pd.DataFrame:
@@ -5739,6 +6186,14 @@ class Transformers:
 
         Keyword Arguments
         -----------------
+        - dict_categories_out: dictionary mapping categories to shift out of to 
+            the magnitude of the outward shift
+        - dict_categories_target: dictionary mapping target categories to 
+            proportional allocation of mode mass. If None, defaults to
+            {
+                "road_heavy_regional": 1.0
+            }
+
         - df_input: data frame containing trajectories to modify
         - strat: optional strategy value to specify for the transformation
         - vec_implementation_ramp: optional vector specifying the implementation
@@ -5757,45 +6212,56 @@ class Transformers:
             vec_implementation_ramp,
             df_input,
         )
+
+        # check magnitude and categories
+        magnitude = self.bounded_real_magnitude(magnitude, 0.1)
+        categories_out = self.get_valid_categories(
+            categories_out,
+            self.model_attributes.subsec_name_trns,
+        )
+
+        # check the target dictionary
+        dict_categories_target_out = self.check_trns_tech_allocation_dict(
+            dict_categories_target,
+            {
+                "road_heavy_regional": 1.0,
+            }
+        )
+        
+        dict_categories_out = self.check_trns_tech_allocation_dict(
+            dict_categories_out,
+            {
+                "aviation": 0.1,
+                "road_light": 0.2,
+            },
+            sum_check = "leq",
+        )
         
 
-        df_out = tbe.transformation_general(
-            df_input,
-            self.model_attributes,
-            {
-                self.model_enercons.modvar_trns_modeshare_regional: {
-                    "bounds": (0, 1),
-                    "magnitude": 0.1,
-                    "magnitude_type": "transfer_value_scalar",
-                    "categories_source": ["aviation"],
-                    "categories_target": {
-                        "road_heavy_regional": 1.0
-                    },
-                    "vec_ramp": vec_implementation_ramp
-                }
-            },
-            field_region = self.key_region,
-            strategy_id = strat
-        )
+        ##  APPLY THE TRANSFORMATION(S) ITERATIVELY
 
-        df_out = tbe.transformation_general(
-            df_out,
-            self.model_attributes,
-            {
-                self.model_enercons.modvar_trns_modeshare_regional: {
-                    "bounds": (0, 1),
-                    "magnitude": 0.2,
-                    "magnitude_type": "transfer_value_scalar",
-                    "categories_source": ["road_light"],
-                    "categories_target": {
-                        "road_heavy_regional": 1.0
-                    },
-                    "vec_ramp": vec_implementation_ramp
-                }
-            },
-            field_region = self.key_region,
-            strategy_id = strat
-        )
+        df_out = df_input.copy()
+
+        for (cat, mag) in dict_categories_out.items():
+   
+            df_out = tbe.transformation_general(
+                df_out,
+                self.model_attributes,
+                {
+                    self.model_enercons.modvar_trns_modeshare_regional: {
+                        "bounds": (0, 1),
+                        "magnitude": mag,
+                        "magnitude_type": "transfer_value_scalar",
+                        "categories_source": [cat],
+                        "categories_target": dict_categories_target_out,
+                        "vec_ramp": vec_implementation_ramp
+                    }
+                },
+                field_region = self.key_region,
+                strategy_id = strat
+            )
+
+
         
         return df_out
 

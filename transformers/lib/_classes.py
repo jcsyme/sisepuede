@@ -49,6 +49,7 @@ class Transformer:
         transformer index
     - field_transformer_name: field in attr_transfomer.table containing the
         transformer name
+    - overwrite_docstr: overwrite the docstring if there's only one function?
     """
     
     def __init__(self,
@@ -58,9 +59,13 @@ class Transformer:
         code_baseline: str = "TX:BASE",
         field_transformer_id: str = "transformer_id",
         field_transformer_name: str = "transformer",
+        overwrite_docstr: bool = True,
     ) -> None:
 
-        self._initialize_function(func)
+        self._initialize_function(
+            func, 
+            overwrite_docstr,
+        )
         self._initialize_code(
             code, 
             code_baseline,
@@ -148,6 +153,7 @@ class Transformer:
     
     def _initialize_function(self,
         func: Union[Callable, List[Callable]],
+        overwrite_docstr: bool = True,
     ) -> None:
         """
         Initialize the transformation function. Sets the following
@@ -160,13 +166,14 @@ class Transformer:
         
         function = None
 
-
         if isinstance(func, list):
 
             func = [x for x in func if callable(x)]
 
             if len(func) > 0:  
                 
+                overwrite_docstr &= (len(func) == 1)
+
                 # define a dummy function and assign
                 def function_out(
                     *args, 
@@ -190,12 +197,19 @@ class Transformer:
 
                 function = function_out
                 function_list = func
+            
+            else:
+                overwrite_docstr = False
 
         elif callable(func):
             function = func
             function_list = [func]
 
-
+        
+        # overwrite doc?
+        if overwrite_docstr:
+            self.__doc__ = function_list[0].__doc__ 
+            
         # check if function assignment failed; if not, assign
         if function is None:
             raise ValueError(f"Invalid type {type(func)}: the object 'func' is not callable.")
