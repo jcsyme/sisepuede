@@ -1080,11 +1080,61 @@ class Transformers:
         all_transformers.append(self.trns_mode_shift_regional)
 
 
+        ###########################
+        #    IPPU TRANSFORMERS    #
+        ###########################
+
+        self.ippu_demand_managment = trl.Transformer(
+            "TFR:IPPU:DEC_DEMAND", 
+            self._trfunc_ippu_reduce_demand,
+            attr_transformer_code
+        )
+        all_transformers.append(self.ippu_demand_managment)
+
+
+        self.ippu_reduce_cement_clinker = trl.Transformer(
+            "TFR:IPPU:DEC_CLINKER", 
+            self._trfunc_ippu_reduce_cement_clinker,
+            attr_transformer_code
+        )
+        all_transformers.append(self.ippu_reduce_cement_clinker)
+
+
+        self.ippu_reduce_hfcs = trl.Transformer(
+            "TFR:IPPU:DEC_HFCS", 
+            self._trfunc_ippu_reduce_hfcs,
+            attr_transformer_code
+        )
+        all_transformers.append(self.ippu_reduce_hfcs)
+
+
+        self.ippu_reduce_other_fcs = trl.Transformer(
+            "TFR:IPPU:DEC_OTHER_FCS", 
+            self._trfunc_ippu_reduce_other_fcs,
+            attr_transformer_code
+        )
+        all_transformers.append(self.ippu_reduce_other_fcs)
+
+
+        self.ippu_reduce_n2o = trl.Transformer(
+            "TFR:IPPU:DEC_N2O", 
+            self._trfunc_ippu_reduce_n2o,
+            attr_transformer_code
+        )
+        all_transformers.append(self.ippu_reduce_n2o)
+
+
+        self.ippu_reduce_pfcs = trl.Transformer(
+            "TFR:IPPU:DEC_PFCS", 
+            self._trfunc_ippu_reduce_pfcs,
+            attr_transformer_code
+        )
+        all_transformers.append(self.ippu_reduce_pfcs)
+
 
         ######################################
         #    CROSS-SECTOR TRANSFORMATIONS    #
         ######################################
-
 
         self.plfo_healthier_diets = trl.Transformer(
             "TFR:PFLO:INC_HEALTHIER_DIETS", 
@@ -6276,6 +6326,333 @@ class Transformers:
 
 
         
+        return df_out
+    
+
+
+
+    ########################################
+    ###                                  ###
+    ###    IPPU TRANSFORMER FUNCTIONS    ###
+    ###                                  ###
+    ########################################
+
+    def _trfunc_ippu_reduce_cement_clinker(self,
+        df_input: Union[pd.DataFrame, None] = None,
+        magnitude: float = 0.5,
+        strat: Union[int, None] = None,
+        vec_implementation_ramp: Union[np.ndarray, None] = None,
+    ) -> pd.DataFrame:
+        """
+        Implement the "Reduce cement clinker" IPPU transformation on input 
+            DataFrame df_input. Implements a cap on the fraction of cement that
+            is produced using clinker (magnitude)
+        
+        Function Arguments
+        ------------------
+
+        Keyword Arguments
+        -----------------
+        - df_input: data frame containing trajectories to modify
+        - magnitude: fraction of cement producd using clinker
+        - strat: optional strategy value to specify for the transformation
+        - vec_implementation_ramp: optional vector specifying the implementation
+            scalar ramp for the transformation. If None, defaults to a uniform 
+            ramp that starts at the time specified in the configuration.
+        """
+        # check input dataframe
+        df_input = (
+            self.baseline_inputs
+            if not isinstance(df_input, pd.DataFrame) 
+            else df_input
+        )
+
+        # check implementation ramp
+        vec_implementation_ramp = self.check_implementation_ramp(
+            vec_implementation_ramp,
+            df_input,
+        )
+
+        magnitude = self.bounded_real_magnitude(magnitude, 0.5)
+        
+        df_out = tbg.transformation_general(
+            df_input,
+            self.model_attributes,
+            {
+                self.model_ippu.modvar_ippu_clinker_fraction_cement: {
+                    "bounds": (0, 1),
+                    "magnitude": magnitude,
+                    "magnitude_type": "final_value_ceiling",
+                    "vec_ramp": vec_implementation_ramp
+                }
+            },
+            field_region = self.key_region,
+            strategy_id = strat,
+        )
+
+        return df_out
+
+
+
+    def _trfunc_ippu_reduce_demand(self,
+        df_input: Union[pd.DataFrame, None] = None,
+        magnitude: float = 0.3,
+        strat: Union[int, None] = None,
+        vec_implementation_ramp: Union[np.ndarray, None] = None,
+    ) -> pd.DataFrame:
+        """
+        Implement the "Demand Management" IPPU transformation on input DataFrame 
+            df_input. Reduces industrial production.
+        
+        Function Arguments
+        ------------------
+
+        Keyword Arguments
+        -----------------
+        - df_input: data frame containing trajectories to modify
+        - magnitude: fractional reduction in demand in accordance with 
+            vec_implementation_ramp
+        - strat: optional strategy value to specify for the transformation
+        - vec_implementation_ramp: optional vector specifying the implementation
+            scalar ramp for the transformation. If None, defaults to a uniform 
+            ramp that starts at the time specified in the configuration.
+        """
+        # check input dataframe
+        df_input = (
+            self.baseline_inputs
+            if not isinstance(df_input, pd.DataFrame) 
+            else df_input
+        )
+
+        # check implementation ramp
+        vec_implementation_ramp = self.check_implementation_ramp(
+            vec_implementation_ramp,
+            df_input,
+        )
+
+        magnitude = self.bounded_real_magnitude(magnitude, 0.3)
+
+        df_out = tbi.transformation_ippu_reduce_demand(
+            df_input,
+            magnitude,
+            vec_implementation_ramp,
+            self.model_attributes,
+            field_region = self.key_region,
+            model_ippu = self.model_ippu,
+            strategy_id = strat
+        )
+
+        return df_out
+
+
+    
+    def _trfunc_ippu_reduce_hfcs(self,
+        df_input: Union[pd.DataFrame, None] = None,
+        magnitude: float = 0.1,
+        strat: Union[int, None] = None,
+        vec_implementation_ramp: Union[np.ndarray, None] = None,
+    ) -> pd.DataFrame:
+        """
+        Implement the "Reduces HFCs" IPPU transformation on input DataFrame 
+            df_input
+        
+        Function Arguments
+        ------------------
+
+        Keyword Arguments
+        -----------------
+        - df_input: data frame containing trajectories to modify
+        - magnitude: fractional reduction in HFC emissions in accordance with
+            vec_implementation_ramp
+        - strat: optional strategy value to specify for the transformation
+        - vec_implementation_ramp: optional vector specifying the implementation
+            scalar ramp for the transformation. If None, defaults to a uniform 
+            ramp that starts at the time specified in the configuration.
+        """
+        # check input dataframe
+        df_input = (
+            self.baseline_inputs
+            if not isinstance(df_input, pd.DataFrame) 
+            else df_input
+        )
+
+        # check implementation ramp
+        vec_implementation_ramp = self.check_implementation_ramp(
+            vec_implementation_ramp,
+            df_input,
+        )
+
+        magnitude = self.bounded_real_magnitude(magnitude, 0.1)
+
+        df_out = tbi.transformation_ippu_scale_emission_factor(
+            df_input,
+            {"hfc": magnitude}, # applies to all HFC emission factors
+            vec_implementation_ramp,
+            self.model_attributes,
+            field_region = self.key_region,
+            model_ippu = self.model_ippu,
+            strategy_id = strat,
+        )        
+
+        return df_out
+    
+
+
+    def _trfunc_ippu_reduce_n2o(self,
+        df_input: Union[pd.DataFrame, None] = None,
+        magnitude: float = 0.1,
+        strat: Union[int, None] = None,
+        vec_implementation_ramp: Union[np.ndarray, None] = None,
+    ) -> pd.DataFrame:
+        """
+        Implement the "Reduces N2O" IPPU transformation on input DataFrame 
+            df_input
+        
+        Function Arguments
+        ------------------
+
+        Keyword Arguments
+        -----------------
+        - df_input: data frame containing trajectories to modify
+        - magnitude: fractional reduction in IPPU N2O emissions in accordance 
+            with vec_implementation_ramp
+        - strat: optional strategy value to specify for the transformation
+        - vec_implementation_ramp: optional vector specifying the implementation
+            scalar ramp for the transformation. If None, defaults to a uniform 
+            ramp that starts at the time specified in the configuration.
+        """
+        # check input dataframe
+        df_input = (
+            self.baseline_inputs
+            if not isinstance(df_input, pd.DataFrame) 
+            else df_input
+        )
+
+        # check implementation ramp
+        vec_implementation_ramp = self.check_implementation_ramp(
+            vec_implementation_ramp,
+            df_input,
+        )
+
+        magnitude = self.bounded_real_magnitude(magnitude, 0.1)
+
+        df_out = tbi.transformation_ippu_scale_emission_factor(
+            df_input,
+            {
+                self.model_ippu.modvar_ippu_ef_n2o_per_gdp_process : magnitude,
+                self.model_ippu.modvar_ippu_ef_n2o_per_prod_process : magnitude,
+            },
+            vec_implementation_ramp,
+            self.model_attributes,
+            field_region = self.key_region,
+            model_ippu = self.model_ippu,
+            strategy_id = strat,
+        )        
+
+        return df_out
+
+
+    
+    def _trfunc_ippu_reduce_other_fcs(self,
+        df_input: Union[pd.DataFrame, None] = None,
+        magnitude: float = 0.1,
+        strat: Union[int, None] = None,
+        vec_implementation_ramp: Union[np.ndarray, None] = None,
+    ) -> pd.DataFrame:
+        """
+        Implement the "Reduces Other FCs" IPPU transformation on input DataFrame 
+            df_input
+        
+        Function Arguments
+        ------------------
+
+        Keyword Arguments
+        -----------------
+        - df_input: data frame containing trajectories to modify
+        - magnitude: fractional reduction in IPPU other FC emissions in 
+            accordance with vec_implementation_ramp
+        - strat: optional strategy value to specify for the transformation
+        - vec_implementation_ramp: optional vector specifying the implementation
+            scalar ramp for the transformation. If None, defaults to a uniform 
+            ramp that starts at the time specified in the configuration.
+        """
+        # check input dataframe
+        df_input = (
+            self.baseline_inputs
+            if not isinstance(df_input, pd.DataFrame) 
+            else df_input
+        )
+
+        # check implementation ramp
+        vec_implementation_ramp = self.check_implementation_ramp(
+            vec_implementation_ramp,
+            df_input,
+        )
+
+        magnitude = self.bounded_real_magnitude(magnitude, 0.1)
+
+        df_out = tbi.transformation_ippu_scale_emission_factor(
+            df_input,
+            {"other_fc": magnitude}, # applies to all Other Fluorinated Compound emission factors
+            vec_implementation_ramp,
+            self.model_attributes,
+            field_region = self.key_region,
+            model_ippu = self.model_ippu,
+            strategy_id = strat,
+        )        
+
+        return df_out
+
+
+
+    def _trfunc_ippu_reduce_pfcs(self,
+        df_input: Union[pd.DataFrame, None] = None,
+        magnitude: float = 0.1,
+        strat: Union[int, None] = None,
+        vec_implementation_ramp: Union[np.ndarray, None] = None,
+    ) -> pd.DataFrame:
+        """
+        Implement the "Reduces Other FCs" IPPU transformation on input DataFrame 
+            df_input
+        
+        Function Arguments
+        ------------------
+
+        Keyword Arguments
+        -----------------
+        - df_input: data frame containing trajectories to modify
+        - magnitude: fractional reduction in IPPU other FC emissions in 
+            accordance with vec_implementation_ramp
+        - strat: optional strategy value to specify for the transformation
+        - vec_implementation_ramp: optional vector specifying the implementation
+            scalar ramp for the transformation. If None, defaults to a uniform 
+            ramp that starts at the time specified in the configuration.
+        """
+        # check input dataframe
+        df_input = (
+            self.baseline_inputs
+            if not isinstance(df_input, pd.DataFrame) 
+            else df_input
+        )
+
+        # check implementation ramp
+        vec_implementation_ramp = self.check_implementation_ramp(
+            vec_implementation_ramp,
+            df_input,
+        )
+
+        magnitude = self.bounded_real_magnitude(magnitude, 0.1)
+
+        df_out = tbi.transformation_ippu_scale_emission_factor(
+            df_input,
+            {"pfc": magnitude}, # applies to all PFC emission factors
+            vec_implementation_ramp,
+            self.model_attributes,
+            field_region = self.key_region,
+            model_ippu = self.model_ippu,
+            strategy_id = strat,
+        )        
+
         return df_out
 
 
