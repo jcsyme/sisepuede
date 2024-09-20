@@ -1,4 +1,7 @@
 # Configuration file for the Sphinx documentation builder.
+import os, os.path
+import sys
+
 
 # -- Project information
 
@@ -13,6 +16,12 @@ version = "0.9.0"
 def setup(app):
     app.add_css_file("theme_adjustments.css")
 
+
+# add to path
+path = "../../.."
+path = os.path.abspath(path)
+sys.path.insert(0, path)
+print(f"\n\n\n\n\n##### HERE - {path}\n\n\n\n\n")
 
 # -- General configuration
 

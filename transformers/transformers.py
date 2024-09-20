@@ -73,7 +73,7 @@ def get_dict_config_default(
                 "lime_and_carbonite": 0.88, 
                 "metals": 0.92,
                 "paper": 0.18, 
-            }
+            },
 
             # Target minimum share of production fractions for power plants in the renewable target tranformation
             #"dict_entc_renewable_target_msp": {
@@ -359,7 +359,7 @@ class Transformers:
         self.key_config_cats_entc_max_investment_ramp = "categories_entc_max_investment_ramp"
         self.key_config_cats_entc_pps_to_cap = "categories_entc_pps_to_cap"
         self.key_config_cats_entc_renewable = "categories_entc_renewable"
-        self.key_config_dict_cats_inen_high_heat_to_frac = "categories_inen_high_heat_to_frac",
+        self.key_config_dict_cats_inen_high_heat_to_frac = "categories_inen_high_heat_to_frac"
         self.key_config_frac_inen_high_temp_elec_hydg = "frac_inen_low_temp_elec"
         self.key_config_frac_inen_low_temp_elec = "frac_inen_low_temp_elec"
         self.key_config_general = key_general
@@ -878,7 +878,7 @@ class Transformers:
         ##  CCSQ
 
         self.ccsq_increase_air_capture = trl.Transformer(
-            "TFR:CCSQ:INCREASE_CAPTURE", 
+            "TFR:CCSQ:INC_CAPTURE", 
             self._trfunc_ccsq_increase_air_capture, 
             attr_transformer_code
         )
@@ -896,7 +896,7 @@ class Transformers:
 
 
         self.entc_least_cost = trl.Transformer(
-            "TFR:ENTC:LEAST_COST", 
+            "TFR:ENTC:LEAST_COST_SOLUTION", 
             self._trfunc_entc_least_cost, 
             attr_transformer_code
         )
@@ -922,14 +922,14 @@ class Transformers:
         ##  FGTV
 
         self.fgtv_maximize_flaring = trl.Transformer(
-            "FGTV:INC_FLARE", 
+            "TFR:FGTV:INC_FLARE", 
             self._trfunc_fgtv_maximize_flaring, 
             attr_transformer_code
         )
         all_transformers.append(self.fgtv_maximize_flaring)
 
         self.fgtv_minimize_leaks = trl.Transformer(
-            "FGTV:DEC_LEAKS", 
+            "TFR:FGTV:DEC_LEAKS", 
             self._trfunc_fgtv_minimize_leaks, 
             attr_transformer_code
         )
@@ -938,20 +938,12 @@ class Transformers:
 
         ##  INEN
 
-        self.inen_fuel_switch_high_temp = trl.Transformer(
-            "TFR:INEN:FUEL_SWITCH_HI_HEAT", 
-            self._trfunc_inen_fuel_switch_high_temp, 
+        self.inen_fuel_switch_heat = trl.Transformer(
+            "TFR:INEN:SHIFT_FUEL_HEAT", 
+            self._trfunc_inen_fuel_switch_low_and_high_temp,
             attr_transformer_code
         )
-        all_transformers.append(self.inen_fuel_switch_high_temp)
-
-
-        self.inen_fuel_switch_low_temp_to_heat_pump = trl.Transformer(
-            "TFR:INEN:FUEL_SWITCH_LO_HEAT", 
-            self._trfunc_inen_fuel_switch_low_temp_to_heat_pump,
-            attr_transformer_code
-        )
-        all_transformers.append(self.inen_fuel_switch_low_temp_to_heat_pump)
+        all_transformers.append(self.inen_fuel_switch_heat)
 
         
         self.inen_maximize_energy_efficiency = trl.Transformer(
@@ -973,7 +965,7 @@ class Transformers:
         ##  SCOE
 
         self.scoe_fuel_switch_electrify = trl.Transformer(
-            "TFR:SCOE:FUEL_SWITCH_HEAT", 
+            "TFR:SCOE:SHIFT_FUEL_HEAT", 
             self._trfunc_scoe_fuel_switch_electrify, 
             attr_transformer_code
         )
@@ -1009,7 +1001,7 @@ class Transformers:
 
         
         self.trns_electrify_light_duty_road = trl.Transformer(
-            "TFR:TRNS:FUEL_SWITCH_LIGHT_DUTY", 
+            "TFR:TRNS:SHIFT_FUEL_LIGHT_DUTY", 
             self._trfunc_trns_electrify_road_light_duty, 
             attr_transformer_code
         )
@@ -1017,7 +1009,7 @@ class Transformers:
 
         
         self.trns_electrify_rail = trl.Transformer(
-            "TFR:TRNS:FUEL_SWITCH_RAIL", 
+            "TFR:TRNS:SHIFT_FUEL_RAIL", 
             self._trfunc_trns_electrify_rail, 
             attr_transformer_code
         )
@@ -1025,7 +1017,7 @@ class Transformers:
 
         
         self.trns_fuel_switch_maritime = trl.Transformer(
-            "TFR:TRNS:FUEL_SWITCH_MARITIME", 
+            "TFR:TRNS:SHIFT_FUEL_MARITIME", 
             self._trfunc_trns_fuel_switch_maritime, 
             attr_transformer_code
         )
@@ -1033,7 +1025,7 @@ class Transformers:
 
 
         self.trns_fuel_switch_medium_duty_road = trl.Transformer(
-            "TFR:TRNS:FUEL_SWITCH_MEDIUM_DUTY", 
+            "TFR:TRNS:SHIFT_FUEL_MEDIUM_DUTY", 
             self._trfunc_trns_fuel_switch_road_medium_duty, 
             attr_transformer_code
         )
@@ -1065,7 +1057,7 @@ class Transformers:
 
 
         self.trns_mode_shift_freight = trl.Transformer(
-            "TFR:TRNS:MODE_SHIFT_FREIGHT", 
+            "TFR:TRNS:SHIFT_MODE_FREIGHT", 
             self._trfunc_trns_mode_shift_freight, 
             attr_transformer_code
         )
@@ -1073,7 +1065,7 @@ class Transformers:
 
 
         self.trns_mode_shift_public_private = trl.Transformer(
-            "TFR:TRNS:MODE_SHIFT_PASSENGER", 
+            "TFR:TRNS:SHIFT_MODE_PASSENGER", 
             self._trfunc_trns_mode_shift_public_private, 
             attr_transformer_code
         )
@@ -1081,7 +1073,7 @@ class Transformers:
 
 
         self.trns_mode_shift_regional = trl.Transformer(
-            "TFR:TRNS:MODE_SHIFT_REGIONAL", 
+            "TFR:TRNS:SHIFT_MODE_REGIONAL", 
             self._trfunc_trns_mode_shift_regional, 
             attr_transformer_code
         )
@@ -1095,7 +1087,7 @@ class Transformers:
 
 
         self.plfo_healthier_diets = trl.Transformer(
-            "TFR:PFLO:HEALTHIER_DIETS", 
+            "TFR:PFLO:INC_HEALTHIER_DIETS", 
             self._trfunc_pflo_healthier_diets, 
             attr_transformer_code
         )
@@ -1322,9 +1314,9 @@ class Transformers:
 
         out = dict_alternate
         if isinstance(dict_check, dict):
-            dict_check_out = self.get_valid_categories_dict(
+            dict_check_out = self.model_attributes.get_valid_categories_dict(
                 dict_check,
-                self.model_attributes.subsec_name_fuel,
+                self.model_attributes.subsec_name_enfu,
             )
 
             # convert to fuel fraction variables
@@ -1365,7 +1357,7 @@ class Transformers:
 
         out = dict_alternate
         if isinstance(dict_check, dict):
-            dict_check_out = self.get_valid_categories_dict(
+            dict_check_out = self.model_attributes.get_valid_categories_dict(
                 dict_check,
                 self.model_attributes.subsec_name_trns,
             )
@@ -1544,14 +1536,13 @@ class Transformers:
         default_cats_inen_high_heat = get_dict_config_default()
         default_cats_inen_high_heat = default_cats_inen_high_heat.get(key)
         
+        
         #
         dict_cats_inen_high_heat = (
-            self.config.get(
-                f"{self.key_config_general}.{self.key_config_dict_cats_inen_high_heat_to_frac}"
-            )
-            if not isinstance(dict_cats_inen_high_heat, dict)
-            else self.get_valid_categories_dict(
-                dict_cats_inen_high_heat,
+            self.config.get(key)
+            if not isinstance(dict_cats_inen_high_heat_to_frac, dict)
+            else self.model_attributes.get_valid_categories_dict(
+                dict_cats_inen_high_heat_to_frac,
                 self.model_attributes.subsec_name_ippu
             )
         )
@@ -4590,6 +4581,32 @@ class Transformers:
 
         magnitude = self.bounded_real_magnitude(magnitude, 0.95, )
 
+        ##  VERIFY CATEGORIES
+
+        categories_source = (
+            [
+                "fp_hydrogen_gasification", 
+                "fp_hydrogen_reformation",
+                "fp_hydrogen_reformation_ccs"
+            ]
+            if not sf.islistlike(categories_source)
+            else self.model_attributes.get_valid_categories(
+                categories_source,
+                self.model_attributes.subsec_name_entc,
+            )
+        )
+
+        categories_target = (
+            ["fp_hydrogen_electrolysis"]
+            if not sf.islistlike(categories_target)
+            else self.model_attributes.get_valid_categories(
+                categories_target,
+                self.model_attributes.subsec_name_entc,
+            )
+        )
+
+
+        ##  RUN STRATEGY
 
         df_strat_cur = tbe.transformation_entc_clean_hydrogen(
             df_input,
@@ -4597,8 +4614,8 @@ class Transformers:
             vec_implementation_ramp,
             self.model_attributes,
             self.model_enerprod,
-            cats_to_apply = cats_target,
-            cats_response = cats_source,
+            cats_to_apply = categories_target,
+            cats_response = categories_source,
             field_region = self.key_region,
             strategy_id = strat
         )
@@ -4657,7 +4674,7 @@ class Transformers:
     def _trfunc_entc_reduce_transmission_losses(self,
         df_input: Union[pd.DataFrame, None] = None,
         magnitude: float = 0.06,
-        magnitude_type: str = "final_value_ceiling",
+        magnitude_type: str = "final_value", # behavior here is a ceiling
         min_loss: Union[float, None] = 0.02,
         strat: Union[int, None] = None,
         vec_implementation_ramp: Union[np.ndarray, None] = None,
@@ -5018,7 +5035,7 @@ class Transformers:
             self.model_attributes.subsec_name_inen,
         )
 
-        
+
         # iterate over each high-heat industrial case
         df_out = df_input.copy()
 
@@ -5041,7 +5058,7 @@ class Transformers:
             # Fuel switch high-temp thermal processes + Fuel switch low-temp thermal processes to industrial heat pumps
             df_out = tbe.transformation_inen_shift_modvars(
                 df_out,
-                frac_inen_shift_denom,
+                frac_switchable,
                 vec_implementation_ramp, 
                 self.model_attributes,
                 categories = [cat],
@@ -5059,7 +5076,7 @@ class Transformers:
         # + Fuel switch low-temp thermal processes to industrial heat pumps
         df_out = tbe.transformation_inen_shift_modvars(
             df_out,
-            frac_inen_shift_denom,
+            frac_switchable,
             vec_implementation_ramp, 
             self.model_attributes,
             categories = cats_inen_low_med_heat,
@@ -5447,7 +5464,7 @@ class Transformers:
 
         # bound the magnitude and check categories
         magnitude = self.bounded_real_magnitude(magnitude, 0.7)
-        categories = self.get_valid_categories(
+        categories = self.model_attributes.get_valid_categories(
             categories,
             self.model_attributes.subsec_name_trns
         )
@@ -5531,7 +5548,7 @@ class Transformers:
 
         # bound the magnitude and check categories
         magnitude = self.bounded_real_magnitude(magnitude, 0.25)
-        categories = self.get_valid_categories(
+        categories = self.model_attributes.get_valid_categories(
             categories,
             self.model_attributes.subsec_name_trns
         )
@@ -5620,23 +5637,23 @@ class Transformers:
 
         # bound the magnitude and check categories
         magnitude = self.bounded_real_magnitude(magnitude, 0.7)
-        categories = self.get_valid_categories(
+        categories = self.model_attributes.get_valid_categories(
             categories,
             self.model_attributes.subsec_name_trns
         )
 
         # check the specification of the fuel allocation dictionary
         dict_modvar_specs = self.check_trns_fuel_switch_allocation_dict(
-            dict_fuel_allocation,
+            dict_allocation_fuels_target,
             {
                 self.model_enercons.modvar_trns_fuel_fraction_hydrogen: 1.0
             }
         )
         
         # get fuel source modvars
-        fuels_source = self.get_valid_categories(
+        fuels_source = self.model_attributes.get_valid_categories(
             fuels_source,
-            self.model_attributes.subsec_name_fuel
+            self.model_attributes.subsec_name_enfu
         )
         modvars_source = [
             (
@@ -5771,23 +5788,23 @@ class Transformers:
 
         # bound the magnitude and check categories
         magnitude = self.bounded_real_magnitude(magnitude, 0.7)
-        categories = self.get_valid_categories(
+        categories = self.model_attributes.get_valid_categories(
             categories,
             self.model_attributes.subsec_name_trns
         )
 
         # check the specification of the fuel allocation dictionary
         dict_modvar_specs = self.check_trns_fuel_switch_allocation_dict(
-            dict_fuel_allocation,
+            dict_allocation_fuels_target,
             {
                 self.model_enercons.modvar_trns_fuel_fraction_electricity: 1.0
             }
         )
         
         # get fuel source modvars
-        fuels_source = self.get_valid_categories(
+        fuels_source = self.model_attributes.get_valid_categories(
             fuels_source,
-            self.model_attributes.subsec_name_fuel
+            self.model_attributes.subsec_name_enfu
         )
         modvars_source = [
             (
@@ -5882,7 +5899,7 @@ class Transformers:
         
         df_out = tbe.transformation_trns_increase_energy_efficiency_electric(
             df_input,
-            magnitude
+            magnitude,
             vec_implementation_ramp,
             self.model_attributes,
             field_region = self.key_region,
@@ -6047,7 +6064,7 @@ class Transformers:
 
         # check magnitude and categories
         magnitude = self.bounded_real_magnitude(magnitude, 0.2)
-        categories_out = self.get_valid_categories(
+        categories_out = self.model_attributes.get_valid_categories(
             categories_out,
             self.model_attributes.subsec_name_trns,
         )
@@ -6129,7 +6146,7 @@ class Transformers:
 
         # check magnitude and categories
         magnitude = self.bounded_real_magnitude(magnitude, 0.3)
-        categories_out = self.get_valid_categories(
+        categories_out = self.model_attributes.get_valid_categories(
             categories_out,
             self.model_attributes.subsec_name_trns,
         )
@@ -6215,10 +6232,6 @@ class Transformers:
 
         # check magnitude and categories
         magnitude = self.bounded_real_magnitude(magnitude, 0.1)
-        categories_out = self.get_valid_categories(
-            categories_out,
-            self.model_attributes.subsec_name_trns,
-        )
 
         # check the target dictionary
         dict_categories_target_out = self.check_trns_tech_allocation_dict(

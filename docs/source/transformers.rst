@@ -16,12 +16,35 @@ SISEPUEDE uses simlar terms to refer to two different components of the framewor
 
 **Transformers** are pre-defined callable classes in Python that modify a base set of trajectories to reflect a desired outcome. These classes, which include default values, can be called with different functional specifications that are defined in configuration files to allow for flexibility in applying the transformation. 
 
-Transformer Code: 
 
-.. note:: Example: Transformer ``TX:AGRC_INC_CONSERVATION_AGRICULTURE``
+Transformer Conventions
+-----------------------
+
+Transformers follow some conventions. Understanding these conventions can help increase readability and interpretation of conventions. 
+
+Transformer Codes follow a simple structure
+
+``TFR:SUBSEC_CODE:ACTION_DESCRIPTION``
+
+Actions are generally defined using the following abbreviations:
+
+- `DEC`: Decrease
+- `INC`: Increase
+- `SHIFT`: Move from one category to another
+
+For example,
+
+
 
 LIST TRANSFORMERS HERE
 ======================
+
+
+.. the module should be available from path set in conf.py https://sphinx-tutorial.readthedocs.io/step-2/
+.. autoclass:: sisepuede.transformers.transformers.Transformers
+
+.. autofunction:: sisepuede.transformers.transformers.Transformers._trfunc_inen_fuel_switch_low_and_high_temp
+
 
 
 

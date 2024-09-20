@@ -36,8 +36,6 @@ Common Transformation Nomenclature
 ==================================
 
 
-
-
 `magnitude_type`
 ----------------
 

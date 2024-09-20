@@ -1498,7 +1498,7 @@ def transformation_entc_specify_transmission_losses(
     - **kwargs: passed to transformation_general()
     """
 
-    valid_types = ["baseline_scalar", "final_value", "final_value_ceiling"]
+    valid_types = ["baseline_scalar", "final_value"]#, "final_value_ceiling"]
     magnitude_type = (
         "baseline_scalar" 
         if (magnitude_type not in valid_types) 
