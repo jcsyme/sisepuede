@@ -11,6 +11,11 @@ import sisepuede.utilities._toolbox as sf
 
 
 
+
+_MODULE_UUID = "73F80EAC-33E4-4377-AE20-BCB970182661"  
+
+
+
 #########################
 ###                   ###
 ###     IPPU MODEL    ###
@@ -59,6 +64,8 @@ class IPPU:
         self._initialize_models()
         self._initialize_other_properties()
         self._initialize_integrated_variables()
+
+        self._initialize_uuid()
 
         return None
 
@@ -454,6 +461,18 @@ class IPPU:
         self.modvar_ippu_emissions_produse_pfc3110 = "PFC-31-10 Emissions from Industrial Product Use"
         self.modvar_ippu_emissions_process_pfc5114 = "PFC-51-14 Emissions from Industrial Production Processes"
         self.modvar_ippu_emissions_produse_pfc5114 = "PFC-51-14 Emissions from Industrial Product Use"
+
+        return None
+    
+
+
+    def _initialize_uuid(self,
+    ) -> None:
+        """
+        Initialize the UUID
+        """
+
+        self.uuid = _MODULE_UUID
 
         return None
 
@@ -1706,6 +1725,12 @@ def is_sisepuede_model_ippu(
     """
 
     out = hasattr(obj, "is_sisepuede_model_ippu")
-    out &= obj.is_sisepuede_model_ippu if out else False
+    uuid = getattr(obj, "uuid", None)
+    
+    out &= (
+        uuid == _MODULE_UUID
+        if uuid is not None
+        else False
+    )
 
     return out

@@ -15,6 +15,10 @@ from sisepuede.models.socioeconomic import Socioeconomic
 import sisepuede.utilities._toolbox as sf
 
 
+
+_MODULE_UUID = "53E0A234-5674-47C8-B950-5A419EEAAF00"  
+
+
 ##########################
 ###                    ###
 ###     AFOLU MODEL    ###
@@ -71,6 +75,8 @@ class AFOLU:
         self._initialize_models()
         self._initialize_integrated_variables()
         self._initialize_other_properties()
+
+        self._initialize_uuid()
 
         return None
     
@@ -854,6 +860,17 @@ class AFOLU:
 
         return None
 
+
+
+    def _initialize_uuid(self,
+    ) -> None:
+        """
+        Initialize the UUID
+        """
+
+        self.uuid = _MODULE_UUID
+
+        return None
 
 
 
@@ -5387,6 +5404,12 @@ def is_sisepuede_model_afolu(
     """
 
     out = hasattr(obj, "is_sisepuede_model_afolu")
-    out &= obj.is_sisepuede_model_afolu if out else False
+    uuid = getattr(obj, "uuid", None)
+    
+    out &= (
+        uuid == _MODULE_UUID
+        if uuid is not None
+        else False
+    )
 
     return out

@@ -10,6 +10,10 @@ import sisepuede.utilities._toolbox as sf
 
 
 
+_MODULE_UUID = "007B68B8-ECEA-4221-B04C-0CFBE6D8B985"  
+
+
+
 ##################################
 ###                            ###
 ###     SOCIOECONOMIC MODEL    ###
@@ -55,6 +59,7 @@ class Socioeconomic:
 
         # initialize other properties
         self._initialize_other_properties()
+        self._initialize_uuid()
 
         return None
         
@@ -229,6 +234,18 @@ class Socioeconomic:
         self.modvar_gnrl_occ_rate = "National Occupancy Rate"
         self.modvar_gnrl_subpop = "Population"
         self.modvar_gnrl_pop_total = "Total Population"
+
+        return None
+    
+
+
+    def _initialize_uuid(self,
+    ) -> None:
+        """
+        Initialize the UUID
+        """
+
+        self.uuid = _MODULE_UUID
 
         return None
 
@@ -448,6 +465,12 @@ def is_sisepuede_model_socioeconomic(
     """
 
     out = hasattr(obj, "is_sisepuede_model_socioeconomic")
-    out &= obj.is_sisepuede_model_socioeconomic if out else False
+    uuid = getattr(obj, "uuid", None)
+    
+    out &= (
+        uuid == _MODULE_UUID
+        if uuid is not None
+        else False
+    )
 
     return out

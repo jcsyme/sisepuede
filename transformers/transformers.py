@@ -34,6 +34,10 @@ import sisepuede.utilities._toolbox as sf
 
 
 
+_MODULE_UUID = "D3BC5456-5BB7-4F7A-8799-AFE0A44C3FFA" 
+
+
+
 #
 #    SET SOME DEFAULT CONFIGURATION VALUES
 #
@@ -190,7 +194,8 @@ class Transformers:
         # set transformations by sector, models (which come from sectoral transformations)
         self._initialize_baseline_inputs(df_input, )
         self._initialize_transformers()
-        
+        self._initialize_uuid()
+
         return None
 
 
@@ -1187,6 +1192,23 @@ class Transformers:
         self.transformer_id_baseline = transformer_id_baseline
 
         return None
+    
+
+
+    def _initialize_uuid(self,
+    ) -> None:
+        """
+        Initialize the following properties:
+        
+            * self.is_transformers
+            * self.uuid
+        """
+
+        self.is_transformers = True
+        self.uuid = _MODULE_UUID
+        
+        return None
+
     
 
 
@@ -6787,4 +6809,27 @@ class Transformers:
 
         return df_out
 
+
+
+
+########################
+#    SOME FUNCTIONS    #
+########################
+
+def is_transformers(
+    obj: Any,
+) -> bool:
+    """
+    Determine if the object is a Transformers
+    """
+    out = hasattr(obj, "is_transformers")
+    uuid = getattr(obj, "uuid", None)
+
+    out &= (
+        uuid == _MODULE_UUID
+        if uuid is not None
+        else False
+    )
+
+    return out
 

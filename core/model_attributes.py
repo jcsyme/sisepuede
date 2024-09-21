@@ -18,6 +18,10 @@ import sisepuede.utilities._toolbox as sf
 
 
 
+_MODULE_UUID = "823CC6A2-0A23-4AB8-8324-0692DF4AE4A0"   
+
+
+
 class ModelAttributes:
     """
     A centralized object for managing inter-sectoral objects, dimensions,
@@ -72,6 +76,7 @@ class ModelAttributes:
         self._initialize_other_dictionaries()
 
         self._check_attribute_tables()
+        self._initialize_uuid()
 
         return None
 
@@ -1221,6 +1226,18 @@ class ModelAttributes:
         ##  SET PROPERTIES
 
         self.valid_return_types_unit_conversion = valid_rts_unit_conversion
+
+        return None
+    
+
+
+    def _initialize_uuid(self,
+    ) -> None:
+        """
+        Initialize the UUID
+        """
+
+        self.uuid = _MODULE_UUID
 
         return None
     
@@ -3661,6 +3678,51 @@ class ModelAttributes:
         categories = None if (len(categories) == 0) else categories
 
         return categories
+    
+
+
+    def get_valid_categories_dict(self, 
+        dict_cats: dict,
+        subsector: str,
+        by_value: bool = False,
+    ) -> Union[dict, None]:
+        """
+        Check categories specified in dictionary `dict_cats`. Returns a 
+            dictionary associated with categories that are valid within 
+            subsector `subsector`. Defaults to filter on keys (see `by_value`
+            keyword argument)
+        
+
+        Function Arguments
+        ------------------
+        - dict_cats: dictionary with keys or values to check. If by_value is
+            True, verifies pairs with valid values; otherwise, keeps pairs
+            with valid keys
+        - subsector: SISEPUEDE subsector to check categories against. If not
+            a valid subsector, returns None. 
+
+        Keyword Arguments
+        -----------------
+        - by_value: set to True to filter on values instead of keys
+        """
+
+        # some checks
+        if not isinstance(dict_cats, dict):
+            return None
+
+        subsec_check = self.check_subsector(subsector, throw_error_q = False, )
+        if subsec_check is None:
+            return None
+
+        attr = self.get_attribute_table(subsector)
+
+        # verify
+        dict_out = dict(
+            (k, v) for k, v in dict_cats.items()
+            if (v if by_value else k) in attr.key_values
+        )
+
+        return dict_out
     
 
 
@@ -6497,7 +6559,13 @@ def is_model_attributes(
     """
 
     out = hasattr(obj, "is_model_attributes")
-    out &= obj.is_model_attributes if out else False
+    uuid = getattr(obj, "uuid", None)
+
+    out &= (
+        uuid == _MODULE_UUID
+        if uuid is not None
+        else False
+    )
 
     return out
 

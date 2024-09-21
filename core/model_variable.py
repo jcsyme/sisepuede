@@ -19,6 +19,10 @@ import sisepuede.utilities._toolbox as sf
 
 
 
+_MODULE_UUID = "B8F334CA-D27C-48F2-811E-940147546299"      
+
+
+
 class ModelVariable:
     """
     Build a ModelVariable object. The ModelVariable stores information about
@@ -132,6 +136,7 @@ class ModelVariable:
         )
 
         self._initialize_fields()
+        self._initialize_uuid()
 
         return None
 
@@ -496,6 +501,18 @@ class ModelVariable:
         self.regex_expression_bounds = regex_expression_bounds
         self.schema = schema
         self.space_char = schema.space_char
+
+        return None
+
+
+
+    def _initialize_uuid(self,
+    ) -> None:
+        """
+        Initialize the UUID
+        """
+
+        self.uuid = _MODULE_UUID
 
         return None
 
@@ -2004,6 +2021,8 @@ class VariableSchema:
         return out
 
 
+
+
 ########################
 #    SOME FUNCTIONS    #
 ########################
@@ -2125,6 +2144,14 @@ def is_model_variable(
     Determine if the object is a ModelVariable
     """
     out = hasattr(modvar, "is_model_variable")
+    uuid = getattr(obj, "uuid", None)
+
+    out &= (
+        uuid == _MODULE_UUID
+        if uuid is not None
+        else False
+    )
+
     return out
 
 

@@ -12,6 +12,7 @@ import sisepuede.utilities._toolbox as sf
 
 
 
+_MODULE_UUID = "985A7AD0-E7C8-4F6D-A40A-78318D3CB383"  
 
 
 
@@ -68,6 +69,10 @@ class CircularEconomy:
         self._initialize_parameters_biophysical()
         self._initialize_other_properties()
         self._initialize_models()
+
+        self._initialize_uuid()
+
+        return None
 
 
 
@@ -484,6 +489,18 @@ class CircularEconomy:
             self.modvar_waso_frac_nonrecycled_landfill, 
             self.modvar_waso_frac_nonrecycled_opendump
         ]
+
+        return None
+    
+
+
+    def _initialize_uuid(self,
+    ) -> None:
+        """
+        Initialize the UUID
+        """
+
+        self.uuid = _MODULE_UUID
 
         return None
 
@@ -2225,6 +2242,12 @@ def is_sisepuede_model_circular_economy(
     check if obj is a SISEPUEDE CircularEconomy model
     """
     out = hasattr(obj, "is_sisepuede_model_circular_economy")
-    out &= obj.is_sisepuede_model_circular_economy if out else False
+    uuid = getattr(obj, "uuid", None)
+    
+    out &= (
+        uuid == _MODULE_UUID
+        if uuid is not None
+        else False
+    )
 
     return out

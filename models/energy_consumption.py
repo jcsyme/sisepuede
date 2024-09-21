@@ -11,6 +11,13 @@ from sisepuede.models.ippu import IPPU
 from sisepuede.models.socioeconomic import Socioeconomic
 import sisepuede.utilities._toolbox as sf
 
+
+
+
+_MODULE_UUID = "88CA4341-5E74-43BF-9491-571DB7085D82"  
+
+
+
 ###############################################
 ###                                         ###
 ###     NON-FUEL PRODUCTION ENERGY MODEL    ###
@@ -70,6 +77,8 @@ class EnergyConsumption:
         self._initialize_models()
         self._initialize_other_properties()
         self._initialize_integrated_variables()
+
+        self._initialize_uuid()
 
         return None
     
@@ -823,6 +832,18 @@ class EnergyConsumption:
             self.dict_trns_fuel_categories_to_fuel_variables,
             "fuel_efficiency"
         )
+
+        return None
+    
+
+
+    def _initialize_uuid(self,
+    ) -> None:
+        """
+        Initialize the UUID
+        """
+
+        self.uuid = _MODULE_UUID
 
         return None
 
@@ -4231,6 +4252,12 @@ def is_sisepuede_model_nfp_energy(
     """
 
     out = hasattr(obj, "is_sisepuede_model_nfp_energy")
-    out &= obj.is_sisepuede_model_nfp_energy if out else False
+    uuid = getattr(obj, "uuid", None)
+    
+    out &= (
+        uuid == _MODULE_UUID
+        if uuid is not None
+        else False
+    )
 
     return out

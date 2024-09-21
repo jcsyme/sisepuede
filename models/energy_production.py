@@ -24,6 +24,10 @@ import sisepuede.utilities._toolbox as sf
 
 
 
+_MODULE_UUID = "AC7DB39D-5093-46D9-9C64-9BF703C8E47C"  
+
+
+
 ###########################
 ###                     ###
 ###     ENERGY MODEL    ###
@@ -115,6 +119,8 @@ class EnergyProduction:
         self._initialize_models()
         self._initialize_integrated_variables()
         self._initialize_julia(dir_jl, initialize_julia = initialize_julia)
+        
+        self._initialize_uuid()
 
         return None
 
@@ -1099,6 +1105,18 @@ class EnergyProduction:
         self.modvar_enst_nemomod_total_annual_max_capacity_investment_storage = "NemoMod TotalAnnualMaxCapacityInvestmentStorage"
         self.modvar_enst_nemomod_total_annual_min_capacity_storage = "NemoMod TotalAnnualMinCapacityStorage"
         self.modvar_enst_nemomod_total_annual_min_capacity_investment_storage = "NemoMod TotalAnnualMinCapacityInvestmentStorage"
+
+        return None
+    
+
+
+    def _initialize_uuid(self,
+    ) -> None:
+        """
+        Initialize the UUID
+        """
+
+        self.uuid = _MODULE_UUID
 
         return None
         
@@ -10280,6 +10298,12 @@ def is_sisepuede_model_fuel_production(
     check if obj is a SISEPUEDE FuelProduction model
     """
     out = hasattr(obj, "is_sisepuede_model_fuel_production")
-    out &= obj.is_sisepuede_model_fuel_production if out else False
+    uuid = getattr(obj, "uuid", None)
+    
+    out &= (
+        uuid == _MODULE_UUID
+        if uuid is not None
+        else False
+    )
 
     return out

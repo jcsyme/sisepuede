@@ -8,9 +8,19 @@ from typing import *
 from sisepuede.core.attribute_table import *
 from sisepuede.core.model_attributes import *
 import sisepuede.utilities._toolbox as sf
- 
 
 
+
+
+_MODULE_UUID = "D3BC5456-5BB7-4F7A-8799-AFE0A44C3FFA" 
+
+
+
+#####################################
+###                               ###
+###    BEGIN CLASS DEFINITIONS    ###
+###                               ###
+#####################################
 
 class Strategy:
     """
@@ -73,6 +83,8 @@ class Transformer:
             field_transformer_id,
             field_transformer_name,
         )
+
+        self._initialize_properties()
 
         return None
         
@@ -209,7 +221,7 @@ class Transformer:
         # overwrite doc?
         if overwrite_docstr:
             self.__doc__ = function_list[0].__doc__ 
-            
+
         # check if function assignment failed; if not, assign
         if function is None:
             raise ValueError(f"Invalid type {type(func)}: the object 'func' is not callable.")
@@ -218,7 +230,75 @@ class Transformer:
         self.function_list = function_list
         
         return None
+    
 
+
+    def _initialize_properties(self,
+    ) -> None:
+        """
+        Sets the following other properties:
+
+            * self.is_transformer
+            * self.uuid
+        """
+
+        self.is_transformer = True
+        self.uuid = _MODULE_UUID
+
+        return None
+
+
+
+class Transformations:
+    """
+    Build a collection of parameters used to construct transformations
+
+    Initialization Arguments
+    ------------------------
+
+
+    Optional Arguments
+    ------------------
+    """
+
+    def __init__(self,
+        dir_init: str,
+        regex_
+        **kwargs,
+    ) -> None:
+        
+        dict_frs = {"xlsx": {}}
+
+        super().__init__(
+            df_init,
+            dict_imf,
+            file_read_specification = dict_frs,
+            subset_on_init = subset_on_init,
+            **kwargs,
+        )
+
+
+
+########################
+#    SOME FUNCTIONS    #
+########################
+
+def is_transformer(
+    obj: Any,
+) -> bool:
+    """
+    Determine if the object is a Transformer
+    """
+    out = hasattr(obj, "is_transformer")
+    uuid = getattr(obj, "uuid", None)
+
+    out &= (
+        uuid == _MODULE_UUID
+        if uuid is not None
+        else False
+    )
+
+    return out
 
 
 
