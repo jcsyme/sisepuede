@@ -2042,7 +2042,7 @@ def transformation_lsmm_improve_manure_management(
     dict_cats_to_modvars = model_afolu.dict_lsmm_categories_to_lvst_fraction_variables
     dict_transformations = {}
     modvars = []
-
+    
     for cat, v in dict_cats_to_modvars.items():
     
         modvar = v.get("mm_fraction")
@@ -2063,8 +2063,7 @@ def transformation_lsmm_improve_manure_management(
             if mag is not None
             else None
         )
-        
-    
+
     df_out = tbg.transformation_general_shift_fractions_from_modvars(
         df_input,
         magnitude,

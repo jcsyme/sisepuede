@@ -616,6 +616,7 @@ def transformation_general_shift_fractions_from_modvars(
     vec_ramp: np.ndarray,
     model_attributes: ma.ModelAttributes,
     categories: Union[List[str], None] = None,
+    epsilon: float = 0.00000001,
     field_region: str = "nation",
     magnitude_relative_to_baseline: bool = False,
     preserve_modvar_domain_sum: bool = True,
@@ -639,6 +640,7 @@ def transformation_general_shift_fractions_from_modvars(
     Keyword Arguments
     -----------------
     - categories: categories to apply transformation to
+    - epsilon: acceptance threshold for closeness to 1
     - field_region: field in df_input that specifies the region
     - magnitude_relative_to_baseline: apply the magnitude relative to baseline?
     - preserve_modvar_domain_sum: preserve sum of modvars observed in data? If 
@@ -669,7 +671,7 @@ def transformation_general_shift_fractions_from_modvars(
     )
 
     # return the original DataFrame if the allocation among target variables is incorrect
-    if (sum(list(dict_modvar_specs.values())) != 1.0):
+    if np.abs(sum(dict_modvar_specs.values()) - 1.0) > epsilon:
         return df_input
 
     # get model variables and filter categories
