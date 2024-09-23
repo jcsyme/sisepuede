@@ -1,8 +1,16 @@
-===================
-Non-Electric Energy
-===================
+==================
+Energy Consumption
+==================
 
-Energy includes a range of variables and categories. Given the integrated nature of the energy sector, there are several "cross-subsector" categories required to construct the NemoMod energy model. These categories include Fuels and Technologies, which . The dimensions required for the NemoMod framework are available from the `NemoMod Categories Documentation <https://sei-international.github.io/NemoMod.jl/stable/dimensions/>`_.
+Energy consumption is stored in the ``EnergyConsumption`` model class and models subsectors that utilize but do not produce fuels or fuel feedstocks, including:
+
+* Carbon Capture and Sequestration (CCSQ)
+* Industrial Energy (INEN)
+* Stationary Combustion and Other Energy (SCOE)
+* Transportation (TRNS)
+* Transportation Demand (TRDE)
+
+Energy consumption also contained the Energy Fuels (ENFU) subsector, a non-emission model subsector that contains information about fuels--both combustible and non-combustible--that are used in the ``EnergyConsumption`` and ``EnergyProduction`` models. The dimensions required for the NemoMod framework are available from the `NemoMod Categories Documentation <https://sei-international.github.io/NemoMod.jl/stable/dimensions/>`_.
 
 
 Modeling Concepts and Important Notes

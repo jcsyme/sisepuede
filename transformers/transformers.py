@@ -28,7 +28,6 @@ import sisepuede.transformers.lib._baselib_cross_sector as tbs
 import sisepuede.transformers.lib._baselib_energy as tbe
 import sisepuede.transformers.lib._baselib_general as tbg
 import sisepuede.transformers.lib._baselib_ippu as tbi
-import sisepuede.transformers.lib._classes as trl
 import sisepuede.utilities._toolbox as sf
 
 
@@ -38,9 +37,9 @@ _MODULE_UUID = "D3BC5456-5BB7-4F7A-8799-AFE0A44C3FFA"
 
 
 
-#
-#    SET SOME DEFAULT CONFIGURATION VALUES
-#
+###############################################
+#    SET SOME DEFAULT CONFIGURATION VALUES    #
+###############################################
 
 def get_dict_config_default(
     key_baseline: str = "baseline",
@@ -112,6 +111,236 @@ def get_dict_config_default(
 
 
 
+
+################################
+#    START WITH TRANSFORMER    #
+################################
+
+class Transformer:
+    """
+    Create a Transformation class to support construction in sectoral 
+        transformations. 
+
+    Initialization Arguments
+    ------------------------
+    - code: transformer code used to map the transformer to the attribute table. 
+        Must be defined in attr_transfomers.table[attr_transfomers.key]
+    - func: the function associated with the transformation OR an ordered list 
+        of functions representing compositional order, e.g., 
+
+        [f1, f2, f3, ... , fn] -> fn(f{n-1}(...(f2(f1(x))))))
+
+    - attr_transformers: AttributeTable usd to define transformers from 
+        ModelAttributes
+
+    Keyword Arguments
+    -----------------
+    - code_baseline: transformer code that stores the baseline code, which is 
+        applied to raw data.
+    - field_transformer_id: field in attr_transfomer.table containing the
+        transformer index
+    - field_transformer_name: field in attr_transfomer.table containing the
+        transformer name
+    - overwrite_docstr: overwrite the docstring if there's only one function?
+    """
+    
+    def __init__(self,
+        code: str,
+        func: Callable,
+        attr_transfomer: Union[AttributeTable, None],
+        code_baseline: str = "TFR:BASE",
+        field_transformer_id: str = "transformer_id",
+        field_transformer_name: str = "transformer",
+        overwrite_docstr: bool = True,
+    ) -> None:
+
+        self._initialize_function(
+            func, 
+            overwrite_docstr,
+        )
+        self._initialize_code(
+            code, 
+            code_baseline,
+            attr_transfomer, 
+            field_transformer_id,
+            field_transformer_name,
+        )
+
+        self._initialize_uuid()
+
+        return None
+        
+
+    
+    def __call__(self,
+        *args,
+        **kwargs
+    ) -> Any:
+        
+        val = self.function(
+            *args,
+            # strat = self.id,
+            **kwargs
+        )
+
+        return val
+
+
+
+    ##################################
+    #    INITIALIZATION FUNCTIONS    #
+    ##################################
+
+    def _initialize_code(self,
+        code: str,
+        code_baseline: str,
+        attr_transfomer: Union[AttributeTable, None],
+        field_transformer_id: str,
+        field_transformer_name: str,
+    ) -> None:
+        """
+        Initialize transfomer identifiers, including the code (key), name, and
+            ID. Sets the following properties:
+
+            * self.baseline
+            * self.code
+            * self.id
+            * self.name
+        """
+        
+        # check code
+        if code not in attr_transfomer.key_values:
+            raise KeyError(f"Invalid Transformer code '{code}': code not found in attribute table.")
+
+        # initialize and check code/id num
+        id_num = (
+            attr_transfomer
+            .field_maps
+            .get(f"{attr_transfomer.key}_to_{field_transformer_id}")
+            if attr_transfomer is not None
+            else None
+        )
+        id_num = id_num.get(code) if (id_num is not None) else -1
+
+
+        # initialize and check name/id num
+        name = (
+            attr_transfomer
+            .field_maps
+            .get(f"{attr_transfomer.key}_to_{field_transformer_name}")
+            if attr_transfomer is not None
+            else None
+        )
+        name = name.get(code) if (name is not None) else ""
+
+
+        # check baseline
+        baseline = (code == code_baseline)
+
+
+        ##  SET PROPERTIES
+
+        self.baseline = bool(baseline)
+        self.code = str(code)
+        self.id = int(id_num)
+        self.name = str(name)
+        
+        return None
+
+    
+    
+    def _initialize_function(self,
+        func: Union[Callable, List[Callable]],
+        overwrite_docstr: bool = True,
+    ) -> None:
+        """
+        Initialize the transformation function. Sets the following
+            properties:
+
+            * self.function
+            * self.function_list (list of callables, even if one callable is 
+                passed. Allows for quick sharing across classes)
+        """
+        
+        function = None
+
+        if isinstance(func, list):
+
+            func = [x for x in func if callable(x)]
+
+            if len(func) > 0:  
+                
+                overwrite_docstr &= (len(func) == 1)
+
+                # define a dummy function and assign
+                def function_out(
+                    *args, 
+                    **kwargs
+                ) -> Any:
+                    f"""
+                    Composite Transformer function for {self.name}
+                    """
+                    out = None
+                    if len(args) > 0:
+                        out = (
+                            args[0].copy() 
+                            if isinstance(args[0], pd.DataFrame) | isinstance(args[0], np.ndarray)
+                            else args[0]
+                        )
+
+                    for f in func:
+                        out = f(out, **kwargs)
+
+                    return out
+
+                function = function_out
+                function_list = func
+            
+            else:
+                overwrite_docstr = False
+
+        elif callable(func):
+            function = func
+            function_list = [func]
+
+        
+        # overwrite doc?
+        if overwrite_docstr:
+            self.__doc__ = function_list[0].__doc__ 
+
+        # check if function assignment failed; if not, assign
+        if function is None:
+            raise ValueError(f"Invalid type {type(func)}: the object 'func' is not callable.")
+        
+        self.function = function
+        self.function_list = function_list
+        
+        return None
+    
+
+
+    def _initialize_uuid(self,
+    ) -> None:
+        """
+        Sets the following other properties:
+
+            * self.is_transformer
+            * self.uuid
+        """
+
+        self.is_transformer = True
+        self.uuid = _MODULE_UUID
+
+        return None
+
+
+
+
+
+
+####################################
+#    COLLECTION OF TRANSFORMERS    #
+####################################
 
 class Transformers:
     """
@@ -374,8 +603,6 @@ class Transformers:
         self.key_config_vir_renewable_cap_delta_frac = "vir_renewable_cap_delta_frac"
         self.key_config_vir_renewable_cap_max_frac = "vir_renewable_cap_max_frac"
 
-        
-
         return None
     
 
@@ -570,7 +797,7 @@ class Transformers:
     def _initialize_transformers(self,
     ) -> None:
         """
-        Initialize all trl.Transformer objects used to build transformations.
+        Initialize all Transformer objects used to build transformations.
 
      
         Sets the following properties:
@@ -593,7 +820,7 @@ class Transformers:
         #    BASELINE    #
         ##################
 
-        self.baseline = trl.Transformer(
+        self.baseline = Transformer(
             "TFR:BASE", 
             self._trfunc_baseline, 
             attr_transformer_code
@@ -607,7 +834,7 @@ class Transformers:
 
         ##  AGRC TRANSFORMERS
 
-        self.agrc_improve_rice_management = trl.Transformer(
+        self.agrc_improve_rice_management = Transformer(
             "TFR:AGRC:DEC_CH4_RICE", 
             self._trfunc_agrc_improve_rice_management,
             attr_transformer_code
@@ -615,7 +842,7 @@ class Transformers:
         all_transformers.append(self.agrc_improve_rice_management)
 
 
-        self.agrc_decrease_exports = trl.Transformer(
+        self.agrc_decrease_exports = Transformer(
             "TFR:AGRC:DEC_EXPORTS", 
             self._trfunc_agrc_decrease_exports,
             attr_transformer_code
@@ -623,7 +850,7 @@ class Transformers:
         all_transformers.append(self.agrc_decrease_exports)
 
 
-        self.agrc_expand_conservation_agriculture = trl.Transformer(
+        self.agrc_expand_conservation_agriculture = Transformer(
             "TFR:AGRC:INC_CONSERVATION_AGRICULTURE", 
             self._trfunc_agrc_expand_conservation_agriculture,
             attr_transformer_code
@@ -631,7 +858,7 @@ class Transformers:
         all_transformers.append(self.agrc_expand_conservation_agriculture)
 
 
-        self.agrc_increase_crop_productivity = trl.Transformer(
+        self.agrc_increase_crop_productivity = Transformer(
             "TFR:AGRC:INC_PRODUCTIVITY", 
             self._trfunc_agrc_increase_crop_productivity,
             attr_transformer_code
@@ -639,7 +866,7 @@ class Transformers:
         all_transformers.append(self.agrc_increase_crop_productivity)
 
 
-        self.agrc_reduce_supply_chain_losses = trl.Transformer(
+        self.agrc_reduce_supply_chain_losses = Transformer(
             "TFR:AGRC:DEC_LOSSES_SUPPLY_CHAIN", 
             self._trfunc_agrc_reduce_supply_chain_losses,
             attr_transformer_code
@@ -652,7 +879,7 @@ class Transformers:
         
         ##  LNDU TRANSFORMERS
 
-        self.lndu_expand_silvopasture = trl.Transformer(
+        self.lndu_expand_silvopasture = Transformer(
             "TFR:LNDU:INC_SILVOPASTURE", 
             self._trfunc_lndu_expand_silvopasture,
             attr_transformer_code
@@ -660,7 +887,7 @@ class Transformers:
         all_transformers.append(self.lndu_expand_silvopasture)
 
 
-        self.lndu_expand_sustainable_grazing = trl.Transformer(
+        self.lndu_expand_sustainable_grazing = Transformer(
             "TFR:LNDU:DEC_SOC_LOSS_PASTURES", 
             self._trfunc_lndu_expand_sustainable_grazing,
             attr_transformer_code
@@ -668,7 +895,7 @@ class Transformers:
         all_transformers.append(self.lndu_expand_sustainable_grazing)
 
 
-        self.lndu_increase_reforestation = trl.Transformer(
+        self.lndu_increase_reforestation = Transformer(
             "TFR:LNDU:INC_REFORESTATION", 
             self._trfunc_lndu_increase_reforestation,
             attr_transformer_code
@@ -676,7 +903,7 @@ class Transformers:
         all_transformers.append(self.lndu_increase_reforestation)
 
 
-        self.lndu_partial_reallocation = trl.Transformer(
+        self.lndu_partial_reallocation = Transformer(
             "TFR:LNDU:PLUR", 
             self._trfunc_lndu_reallocate_land,
             attr_transformer_code
@@ -684,7 +911,7 @@ class Transformers:
         all_transformers.append(self.lndu_partial_reallocation)
 
 
-        self.lndu_stop_deforestation = trl.Transformer(
+        self.lndu_stop_deforestation = Transformer(
             "TFR:LNDU:DEC_DEFORESTATION", 
             self._trfunc_lndu_stop_deforestation,
             attr_transformer_code
@@ -694,7 +921,7 @@ class Transformers:
 
         ##  LSMM TRANSFORMATIONS
 
-        self.lsmm_improve_manure_management_cattle_pigs = trl.Transformer(
+        self.lsmm_improve_manure_management_cattle_pigs = Transformer(
             "TFR:LSMM:INC_MANAGEMENT_CATTLE_PIGS", 
             self._trfunc_lsmm_improve_manure_management_cattle_pigs,
             attr_transformer_code
@@ -702,7 +929,7 @@ class Transformers:
         all_transformers.append(self.lsmm_improve_manure_management_cattle_pigs)
 
 
-        self.lsmm_improve_manure_management_other = trl.Transformer(
+        self.lsmm_improve_manure_management_other = Transformer(
             "TFR:LSMM:INC_MANAGEMENT_OTHER", 
             self._trfunc_lsmm_improve_manure_management_other,
             attr_transformer_code
@@ -710,7 +937,7 @@ class Transformers:
         all_transformers.append(self.lsmm_improve_manure_management_other)
         
 
-        self.lsmm_improve_manure_management_poultry = trl.Transformer(
+        self.lsmm_improve_manure_management_poultry = Transformer(
             "TFR:LSMM:INC_MANAGEMENT_POULTRY", 
             self._trfunc_lsmm_improve_manure_management_poultry,
             attr_transformer_code
@@ -718,7 +945,7 @@ class Transformers:
         all_transformers.append(self.lsmm_improve_manure_management_poultry)
 
 
-        self.lsmm_increase_biogas_capture = trl.Transformer(
+        self.lsmm_increase_biogas_capture = Transformer(
             "TFR:LSMM:INC_CAPTURE_BIOGAS", 
             self._trfunc_lsmm_increase_biogas_capture,
             attr_transformer_code
@@ -728,7 +955,7 @@ class Transformers:
         
         ##  LVST TRANSFORMERS
       
-        self.lvst_decrease_exports = trl.Transformer(
+        self.lvst_decrease_exports = Transformer(
             "TFR:LVST:DEC_EXPORTS", 
             self._trfunc_lvst_decrease_exports,
             attr_transformer_code
@@ -736,7 +963,7 @@ class Transformers:
         all_transformers.append(self.lvst_decrease_exports)
 
 
-        self.lvst_increase_productivity = trl.Transformer(
+        self.lvst_increase_productivity = Transformer(
             "TFR:LVST:INC_PRODUCTIVITY", 
             self._trfunc_lvst_increase_productivity,
             attr_transformer_code
@@ -744,7 +971,7 @@ class Transformers:
         all_transformers.append(self.lvst_increase_productivity)
 
 
-        self.lvst_reduce_enteric_fermentation = trl.Transformer(
+        self.lvst_reduce_enteric_fermentation = Transformer(
             "TFR:LVST:DEC_ENTERIC_FERMENTATION", 
             self._trfunc_lvst_reduce_enteric_fermentation,
             attr_transformer_code
@@ -754,7 +981,7 @@ class Transformers:
 
         ##  SOIL TRANSFORMERS
         
-        self.soil_reduce_excess_fertilizer = trl.Transformer(
+        self.soil_reduce_excess_fertilizer = Transformer(
             "TFR:SOIL:DEC_N_APPLIED", 
             self._trfunc_soil_reduce_excess_fertilizer,
             attr_transformer_code
@@ -762,7 +989,7 @@ class Transformers:
         all_transformers.append(self.soil_reduce_excess_fertilizer)
 
 
-        self.soil_reduce_excess_liming = trl.Transformer(
+        self.soil_reduce_excess_liming = Transformer(
             "TFR:SOIL:DEC_LIME_APPLIED", 
             self._trfunc_soil_reduce_excess_lime,
             attr_transformer_code
@@ -776,7 +1003,7 @@ class Transformers:
 
         ##  TRWW TRANSFORMERS
 
-        self.trww_increase_biogas_capture = trl.Transformer(
+        self.trww_increase_biogas_capture = Transformer(
             "TFR:TRWW:INC_CAPTURE_BIOGAS", 
             self._trfunc_trww_increase_biogas_capture,
             attr_transformer_code
@@ -784,7 +1011,7 @@ class Transformers:
         all_transformers.append(self.trww_increase_biogas_capture)
 
 
-        self.trww_increase_septic_compliance = trl.Transformer(
+        self.trww_increase_septic_compliance = Transformer(
             "TFR:TRWW:INC_COMPLIANCE_SEPTIC", 
             self._trfunc_trww_increase_septic_compliance,
             attr_transformer_code
@@ -794,7 +1021,7 @@ class Transformers:
 
         ##  WALI TRANSFORMERS
  
-        self.wali_improve_sanitation_industrial = trl.Transformer(
+        self.wali_improve_sanitation_industrial = Transformer(
             "TFR:WALI:INC_TREATMENT_INDUSTRIAL", 
             self._trfunc_wali_improve_sanitation_industrial,
             attr_transformer_code
@@ -802,7 +1029,7 @@ class Transformers:
         all_transformers.append(self.wali_improve_sanitation_industrial)
 
 
-        self.wali_improve_sanitation_rural = trl.Transformer(
+        self.wali_improve_sanitation_rural = Transformer(
             "TFR:WALI:INC_TREATMENT_RURAL", 
             self._trfunc_wali_improve_sanitation_rural,
             attr_transformer_code
@@ -810,7 +1037,7 @@ class Transformers:
         all_transformers.append(self.wali_improve_sanitation_rural)
 
 
-        self.wali_improve_sanitation_urban = trl.Transformer(
+        self.wali_improve_sanitation_urban = Transformer(
             "TFR:WALI:INC_TREATMENT_URBAN", 
             self._trfunc_wali_improve_sanitation_urban,
             attr_transformer_code
@@ -820,7 +1047,7 @@ class Transformers:
 
         ##  WASO TRANSFORMERS
 
-        self.waso_descrease_consumer_food_waste = trl.Transformer(
+        self.waso_descrease_consumer_food_waste = Transformer(
             "TFR:WASO:DEC_CONSUMER_FOOD_WASTE",
             self._trfunc_waso_decrease_food_waste, 
             attr_transformer_code
@@ -828,7 +1055,7 @@ class Transformers:
         all_transformers.append(self.waso_descrease_consumer_food_waste)
 
         
-        self.waso_increase_anaerobic_treatment_and_composting = trl.Transformer(
+        self.waso_increase_anaerobic_treatment_and_composting = Transformer(
             "TFR:WASO:INC_ANAEROBIC_AND_COMPOST", 
             self._trfunc_waso_increase_anaerobic_treatment_and_composting, 
             attr_transformer_code
@@ -836,7 +1063,7 @@ class Transformers:
         all_transformers.append(self.waso_increase_anaerobic_treatment_and_composting)
 
 
-        self.waso_increase_biogas_capture = trl.Transformer(
+        self.waso_increase_biogas_capture = Transformer(
             "TFR:WASO:INC_CAPTURE_BIOGAS", 
             self._trfunc_waso_increase_biogas_capture, 
             attr_transformer_code
@@ -844,7 +1071,7 @@ class Transformers:
         all_transformers.append(self.waso_increase_biogas_capture)
 
 
-        self.waso_energy_from_biogas = trl.Transformer(
+        self.waso_energy_from_biogas = Transformer(
             "TFR:WASO:INC_ENERGY_FROM_BIOGAS", 
             self._trfunc_waso_increase_energy_from_biogas, 
             attr_transformer_code
@@ -852,7 +1079,7 @@ class Transformers:
         all_transformers.append(self.waso_energy_from_biogas)
 
 
-        self.waso_energy_from_incineration = trl.Transformer(
+        self.waso_energy_from_incineration = Transformer(
             "TFR:WASO:INC_ENERGY_FROM_INCINERATION", 
             self._trfunc_waso_increase_energy_from_incineration, 
             attr_transformer_code
@@ -860,7 +1087,7 @@ class Transformers:
         all_transformers.append(self.waso_energy_from_incineration)
 
 
-        self.waso_increase_landfilling = trl.Transformer(
+        self.waso_increase_landfilling = Transformer(
             "TFR:WASO:INC_LANDFILLING", 
             self._trfunc_waso_increase_landfilling, 
             attr_transformer_code
@@ -868,7 +1095,7 @@ class Transformers:
         all_transformers.append(self.waso_increase_landfilling)
 
         
-        self.waso_increase_recycling = trl.Transformer(
+        self.waso_increase_recycling = Transformer(
             "TFR:WASO:INC_RECYCLING", 
             self._trfunc_waso_increase_recycling, 
             attr_transformer_code
@@ -882,7 +1109,7 @@ class Transformers:
 
         ##  CCSQ
 
-        self.ccsq_increase_air_capture = trl.Transformer(
+        self.ccsq_increase_air_capture = Transformer(
             "TFR:CCSQ:INC_CAPTURE", 
             self._trfunc_ccsq_increase_air_capture, 
             attr_transformer_code
@@ -892,7 +1119,7 @@ class Transformers:
 
         ##  ENTC
 
-        self.entc_clean_hydrogen = trl.Transformer(
+        self.entc_clean_hydrogen = Transformer(
             "TFR:ENTC:TARGET_CLEAN_HYDROGEN", 
             self._trfunc_entc_clean_hydrogen, 
             attr_transformer_code
@@ -900,7 +1127,7 @@ class Transformers:
         all_transformers.append(self.entc_clean_hydrogen)
 
 
-        self.entc_least_cost = trl.Transformer(
+        self.entc_least_cost = Transformer(
             "TFR:ENTC:LEAST_COST_SOLUTION", 
             self._trfunc_entc_least_cost, 
             attr_transformer_code
@@ -908,7 +1135,7 @@ class Transformers:
         all_transformers.append(self.entc_least_cost)
 
         
-        self.entc_reduce_transmission_losses = trl.Transformer(
+        self.entc_reduce_transmission_losses = Transformer(
             "TFR:ENTC:DEC_LOSSES", 
             self._trfunc_entc_reduce_transmission_losses, 
             attr_transformer_code
@@ -916,7 +1143,7 @@ class Transformers:
         all_transformers.append(self.entc_reduce_transmission_losses)
 
 
-        self.entc_renewable_electricity = trl.Transformer(
+        self.entc_renewable_electricity = Transformer(
             "TFR:ENTC:TARGET_RENEWABLE_ELEC", 
             self._trfunc_entc_renewables_target, 
             attr_transformer_code
@@ -926,14 +1153,14 @@ class Transformers:
 
         ##  FGTV
 
-        self.fgtv_maximize_flaring = trl.Transformer(
+        self.fgtv_maximize_flaring = Transformer(
             "TFR:FGTV:INC_FLARE", 
             self._trfunc_fgtv_maximize_flaring, 
             attr_transformer_code
         )
         all_transformers.append(self.fgtv_maximize_flaring)
 
-        self.fgtv_minimize_leaks = trl.Transformer(
+        self.fgtv_minimize_leaks = Transformer(
             "TFR:FGTV:DEC_LEAKS", 
             self._trfunc_fgtv_minimize_leaks, 
             attr_transformer_code
@@ -943,7 +1170,7 @@ class Transformers:
 
         ##  INEN
 
-        self.inen_fuel_switch_heat = trl.Transformer(
+        self.inen_fuel_switch_heat = Transformer(
             "TFR:INEN:SHIFT_FUEL_HEAT", 
             self._trfunc_inen_fuel_switch_low_and_high_temp,
             attr_transformer_code
@@ -951,7 +1178,7 @@ class Transformers:
         all_transformers.append(self.inen_fuel_switch_heat)
 
         
-        self.inen_maximize_energy_efficiency = trl.Transformer(
+        self.inen_maximize_energy_efficiency = Transformer(
             "TFR:INEN:INC_EFFICIENCY_ENERGY", 
             self._trfunc_inen_maximize_efficiency_energy, 
             attr_transformer_code
@@ -959,7 +1186,7 @@ class Transformers:
         all_transformers.append(self.inen_maximize_energy_efficiency)
 
 
-        self.inen_maximize_production_efficiency = trl.Transformer(
+        self.inen_maximize_production_efficiency = Transformer(
             "TFR:INEN:INC_EFFICIENCY_PRODUCTION", 
             self._trfunc_inen_maximize_efficiency_production, 
             attr_transformer_code
@@ -969,7 +1196,7 @@ class Transformers:
 
         ##  SCOE
 
-        self.scoe_fuel_switch_electrify = trl.Transformer(
+        self.scoe_fuel_switch_electrify = Transformer(
             "TFR:SCOE:SHIFT_FUEL_HEAT", 
             self._trfunc_scoe_fuel_switch_electrify, 
             attr_transformer_code
@@ -977,7 +1204,7 @@ class Transformers:
         all_transformers.append(self.scoe_fuel_switch_electrify)
 
 
-        self.scoe_increase_applicance_efficiency = trl.Transformer(
+        self.scoe_increase_applicance_efficiency = Transformer(
             "TFR:SCOE:INC_EFFICIENCY_APPLIANCE", 
             self._trfunc_scoe_increase_applicance_efficiency, 
             attr_transformer_code
@@ -985,7 +1212,7 @@ class Transformers:
         all_transformers.append(self.scoe_increase_applicance_efficiency)
 
 
-        self.scoe_reduce_heat_energy_demand = trl.Transformer(
+        self.scoe_reduce_heat_energy_demand = Transformer(
             "TFR:SCOE:DEC_DEMAND_HEAT", 
             self._trfunc_scoe_reduce_heat_energy_demand, 
             attr_transformer_code
@@ -997,7 +1224,7 @@ class Transformers:
         #    TRNS/TRDE    #
         ###################
 
-        self.trde_reduce_demand = trl.Transformer(
+        self.trde_reduce_demand = Transformer(
             "TFR:TRDE:DEC_DEMAND", 
             self._trfunc_trde_reduce_demand, 
             attr_transformer_code
@@ -1005,7 +1232,7 @@ class Transformers:
         all_transformers.append(self.trde_reduce_demand)
 
         
-        self.trns_electrify_light_duty_road = trl.Transformer(
+        self.trns_electrify_light_duty_road = Transformer(
             "TFR:TRNS:SHIFT_FUEL_LIGHT_DUTY", 
             self._trfunc_trns_electrify_road_light_duty, 
             attr_transformer_code
@@ -1013,7 +1240,7 @@ class Transformers:
         all_transformers.append(self.trns_electrify_light_duty_road)
 
         
-        self.trns_electrify_rail = trl.Transformer(
+        self.trns_electrify_rail = Transformer(
             "TFR:TRNS:SHIFT_FUEL_RAIL", 
             self._trfunc_trns_electrify_rail, 
             attr_transformer_code
@@ -1021,7 +1248,7 @@ class Transformers:
         all_transformers.append(self.trns_electrify_rail)
 
         
-        self.trns_fuel_switch_maritime = trl.Transformer(
+        self.trns_fuel_switch_maritime = Transformer(
             "TFR:TRNS:SHIFT_FUEL_MARITIME", 
             self._trfunc_trns_fuel_switch_maritime, 
             attr_transformer_code
@@ -1029,7 +1256,7 @@ class Transformers:
         all_transformers.append(self.trns_fuel_switch_maritime)
 
 
-        self.trns_fuel_switch_medium_duty_road = trl.Transformer(
+        self.trns_fuel_switch_medium_duty_road = Transformer(
             "TFR:TRNS:SHIFT_FUEL_MEDIUM_DUTY", 
             self._trfunc_trns_fuel_switch_road_medium_duty, 
             attr_transformer_code
@@ -1037,7 +1264,7 @@ class Transformers:
         all_transformers.append(self.trns_fuel_switch_medium_duty_road)
 
 
-        self.trns_increase_efficiency_electric = trl.Transformer(
+        self.trns_increase_efficiency_electric = Transformer(
             "TFR:TRNS:INC_EFFICIENCY_ELECTRIC", 
             self._trfunc_trns_increase_efficiency_electric,
             attr_transformer_code
@@ -1045,7 +1272,7 @@ class Transformers:
         all_transformers.append(self.trns_increase_efficiency_electric)
 
 
-        self.trns_increase_efficiency_non_electric = trl.Transformer(
+        self.trns_increase_efficiency_non_electric = Transformer(
             "TFR:TRNS:INC_EFFICIENCY_NON_ELECTRIC", 
             self._trfunc_trns_increase_efficiency_non_electric,
             attr_transformer_code
@@ -1053,7 +1280,7 @@ class Transformers:
         all_transformers.append(self.trns_increase_efficiency_non_electric)
 
 
-        self.trns_increase_occupancy_light_duty = trl.Transformer(
+        self.trns_increase_occupancy_light_duty = Transformer(
             "TFR:TRNS:INC_OCCUPANCY_LIGHT_DUTY", 
             self._trfunc_trns_increase_occupancy_light_duty, 
             attr_transformer_code
@@ -1061,7 +1288,7 @@ class Transformers:
         all_transformers.append(self.trns_increase_occupancy_light_duty)
 
 
-        self.trns_mode_shift_freight = trl.Transformer(
+        self.trns_mode_shift_freight = Transformer(
             "TFR:TRNS:SHIFT_MODE_FREIGHT", 
             self._trfunc_trns_mode_shift_freight, 
             attr_transformer_code
@@ -1069,7 +1296,7 @@ class Transformers:
         all_transformers.append(self.trns_mode_shift_freight)
 
 
-        self.trns_mode_shift_public_private = trl.Transformer(
+        self.trns_mode_shift_public_private = Transformer(
             "TFR:TRNS:SHIFT_MODE_PASSENGER", 
             self._trfunc_trns_mode_shift_public_private, 
             attr_transformer_code
@@ -1077,7 +1304,7 @@ class Transformers:
         all_transformers.append(self.trns_mode_shift_public_private)
 
 
-        self.trns_mode_shift_regional = trl.Transformer(
+        self.trns_mode_shift_regional = Transformer(
             "TFR:TRNS:SHIFT_MODE_REGIONAL", 
             self._trfunc_trns_mode_shift_regional, 
             attr_transformer_code
@@ -1089,7 +1316,7 @@ class Transformers:
         #    IPPU TRANSFORMERS    #
         ###########################
 
-        self.ippu_demand_managment = trl.Transformer(
+        self.ippu_demand_managment = Transformer(
             "TFR:IPPU:DEC_DEMAND", 
             self._trfunc_ippu_reduce_demand,
             attr_transformer_code
@@ -1097,7 +1324,7 @@ class Transformers:
         all_transformers.append(self.ippu_demand_managment)
 
 
-        self.ippu_reduce_cement_clinker = trl.Transformer(
+        self.ippu_reduce_cement_clinker = Transformer(
             "TFR:IPPU:DEC_CLINKER", 
             self._trfunc_ippu_reduce_cement_clinker,
             attr_transformer_code
@@ -1105,7 +1332,7 @@ class Transformers:
         all_transformers.append(self.ippu_reduce_cement_clinker)
 
 
-        self.ippu_reduce_hfcs = trl.Transformer(
+        self.ippu_reduce_hfcs = Transformer(
             "TFR:IPPU:DEC_HFCS", 
             self._trfunc_ippu_reduce_hfcs,
             attr_transformer_code
@@ -1113,7 +1340,7 @@ class Transformers:
         all_transformers.append(self.ippu_reduce_hfcs)
 
 
-        self.ippu_reduce_other_fcs = trl.Transformer(
+        self.ippu_reduce_other_fcs = Transformer(
             "TFR:IPPU:DEC_OTHER_FCS", 
             self._trfunc_ippu_reduce_other_fcs,
             attr_transformer_code
@@ -1121,7 +1348,7 @@ class Transformers:
         all_transformers.append(self.ippu_reduce_other_fcs)
 
 
-        self.ippu_reduce_n2o = trl.Transformer(
+        self.ippu_reduce_n2o = Transformer(
             "TFR:IPPU:DEC_N2O", 
             self._trfunc_ippu_reduce_n2o,
             attr_transformer_code
@@ -1129,7 +1356,7 @@ class Transformers:
         all_transformers.append(self.ippu_reduce_n2o)
 
 
-        self.ippu_reduce_pfcs = trl.Transformer(
+        self.ippu_reduce_pfcs = Transformer(
             "TFR:IPPU:DEC_PFCS", 
             self._trfunc_ippu_reduce_pfcs,
             attr_transformer_code
@@ -1141,7 +1368,7 @@ class Transformers:
         #    CROSS-SECTOR TRANSFORMATIONS    #
         ######################################
 
-        self.plfo_healthier_diets = trl.Transformer(
+        self.plfo_healthier_diets = Transformer(
             "TFR:PFLO:INC_HEALTHIER_DIETS", 
             self._trfunc_pflo_healthier_diets, 
             attr_transformer_code
@@ -1150,7 +1377,7 @@ class Transformers:
 
 
 
-        self.pflo_industrial_ccs = trl.Transformer(
+        self.pflo_industrial_ccs = Transformer(
             "TFR:PFLO:INC_IND_CCS", 
             self._trfunc_pflo_industrial_ccs, 
             attr_transformer_code
@@ -1776,7 +2003,7 @@ class Transformers:
         Get `transformer` based on transformer code, id, or name
         
         If strat is None or an invalid valid of strat is entered, returns None; 
-            otherwise, returns the trl.Transformer object. 
+            otherwise, returns the Transformer object. 
 
             
         Function Arguments
@@ -6809,9 +7036,29 @@ class Transformers:
 
 
 
+
 ########################
 #    SOME FUNCTIONS    #
 ########################
+
+def is_transformer(
+    obj: Any,
+) -> bool:
+    """
+    Determine if the object is a Transformer
+    """
+    out = hasattr(obj, "is_transformer")
+    uuid = getattr(obj, "uuid", None)
+
+    out &= (
+        uuid == _MODULE_UUID
+        if uuid is not None
+        else False
+    )
+
+    return out
+
+
 
 def is_transformers(
     obj: Any,

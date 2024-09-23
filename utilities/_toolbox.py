@@ -2605,7 +2605,7 @@ def prepend_first_element(
 
 
 
-def ramp_value(
+def ramp_value1(
     x: Union[float, int], 
     n: int, 
     a: int, 
@@ -2652,7 +2652,7 @@ def ramp_value(
     r_1 = n - 1 if not isinstance(r_1, int) else r_1
 
     if (r_0 >= r_1):
-        raise RuntimeError(f"Invalid values found in ramp_value(): r_0 = {r_0} and r_1 = {r_1}; r_1 > r_0")
+        raise RuntimeError(f"Invalid values found in ramp_value1(): r_0 = {r_0} and r_1 = {r_1}; r_1 > r_0")
 
     # check value of r_0 & r_1
     if (r_0 >= n) | (x <= r_0):
@@ -2733,7 +2733,7 @@ def ramp_vector(
     # check r_0 and r_1
     r_1 = n - 1 if not isinstance(r_1, int) else min(r_1, n - 1)
     if (r_0 >= r_1):
-        raise RuntimeError(f"Invalid values found in ramp_value(): r_0 = {r_0} and r_1 = {r_1}; r_1 > r_0")
+        raise RuntimeError(f"Invalid values found in ramp_value1(): r_0 = {r_0} and r_1 = {r_1}; r_1 > r_0")
 
     # check value of r_0 & r_1
     if (r_0 >= n):
@@ -2828,7 +2828,7 @@ def ramp_vector1(
     - r_1: first period == 1. If None, defaults to n
     """
 
-    out = [ramp_value(x, n, *args, **kwargs) for x in range(n)]
+    out = [ramp_value11(x, n, *args, **kwargs) for x in range(n)]
     out = np.array(out)
 
     return out

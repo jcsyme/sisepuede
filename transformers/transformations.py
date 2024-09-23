@@ -1,336 +1,27 @@
 import logging
 import numpy as np
 import pandas as pd
+import pathlib
 import re
-import time
 from typing import *
 
 
 from sisepuede.core.attribute_table import *
 from sisepuede.core.model_attributes import *
 import sisepuede.core.support_classes as sc
+import sisepuede.transformers.transformers as trs
 import sisepuede.utilities._toolbox as sf
 
 
 
 
-_MODULE_UUID = "D3BC5456-5BB7-4F7A-8799-AFE0A44C3FFA" 
+_MODULE_UUID = "5FF5362F-3DE2-4A58-9CB8-01CB851D3CDC" 
 
 
 
-#####################################
-###                               ###
-###    BEGIN CLASS DEFINITIONS    ###
-###                               ###
-#####################################
-
-class Strategy:
-    """
-    A collection of transformations
-
-    Initialization Arguments
-    ------------------------
-    - func: the function associated with the transformation OR an ordered list 
-        of functions representing compositional order, e.g., 
-
-        [f1, f2, f3, ... , fn] -> fn(f{n-1}(...(f2(f1(x))))))
-    """
-
-    def __init__(self,
-    ) -> None:
-
-        return None
-    
-
-
-    def _initialize_function(self,
-        func: Union[Callable, List[Callable]],
-        overwrite_docstr: bool = True,
-    ) -> None:
-        """
-        Initialize the transformation function. Sets the following
-            properties:
-
-            * self.function
-            * self.function_list (list of callables, even if one callable is 
-                passed. Allows for quick sharing across classes)
-        """
-        
-        function = None
-
-        if isinstance(func, list):
-
-            func = [x for x in func if callable(x)]
-
-            if len(func) > 0:  
-                
-                overwrite_docstr &= (len(func) == 1)
-
-                # define a dummy function and assign
-                def function_out(
-                    *args, 
-                    **kwargs
-                ) -> Any:
-                    f"""
-                    Composite Transformer function for {self.name}
-                    """
-                    out = None
-                    if len(args) > 0:
-                        out = (
-                            args[0].copy() 
-                            if isinstance(args[0], pd.DataFrame) | isinstance(args[0], np.ndarray)
-                            else args[0]
-                        )
-
-                    for f in func:
-                        out = f(out, **kwargs)
-
-                    return out
-
-                function = function_out
-                function_list = func
-            
-            else:
-                overwrite_docstr = False
-
-        elif callable(func):
-            function = func
-            function_list = [func]
-
-        
-        # overwrite doc?
-        if overwrite_docstr:
-            self.__doc__ = function_list[0].__doc__ 
-
-        # check if function assignment failed; if not, assign
-        if function is None:
-            raise ValueError(f"Invalid type {type(func)}: the object 'func' is not callable.")
-        
-        self.function = function
-        self.function_list = function_list
-        
-        return None
-
-
-
-
-class Transformer:
-    """
-    Create a Transformation class to support construction in sectoral 
-        transformations. 
-
-    Initialization Arguments
-    ------------------------
-    - code: transformer code used to map the transformer to the attribute table. 
-        Must be defined in attr_transfomers.table[attr_transfomers.key]
-    - func: the function associated with the transformation OR an ordered list 
-        of functions representing compositional order, e.g., 
-
-        [f1, f2, f3, ... , fn] -> fn(f{n-1}(...(f2(f1(x))))))
-
-    - attr_transformers: AttributeTable usd to define transformers from 
-        ModelAttributes
-
-    Keyword Arguments
-    -----------------
-    - code_baseline: transformer code that stores the baseline code, which is 
-        applied to raw data.
-    - field_transformer_id: field in attr_transfomer.table containing the
-        transformer index
-    - field_transformer_name: field in attr_transfomer.table containing the
-        transformer name
-    - overwrite_docstr: overwrite the docstring if there's only one function?
-    """
-    
-    def __init__(self,
-        code: str,
-        func: Callable,
-        attr_transfomer: Union[AttributeTable, None],
-        code_baseline: str = "TX:BASE",
-        field_transformer_id: str = "transformer_id",
-        field_transformer_name: str = "transformer",
-        overwrite_docstr: bool = True,
-    ) -> None:
-
-        self._initialize_function(
-            func, 
-            overwrite_docstr,
-        )
-        self._initialize_code(
-            code, 
-            code_baseline,
-            attr_transfomer, 
-            field_transformer_id,
-            field_transformer_name,
-        )
-
-        self._initialize_properties()
-
-        return None
-        
-
-    
-    def __call__(self,
-        *args,
-        **kwargs
-    ) -> Any:
-        
-        val = self.function(
-            *args,
-            # strat = self.id,
-            **kwargs
-        )
-
-        return val
-
-
-
-    def _initialize_code(self,
-        code: str,
-        code_baseline: str,
-        attr_transfomer: Union[AttributeTable, None],
-        field_transformer_id: str,
-        field_transformer_name: str,
-    ) -> None:
-        """
-        Initialize transfomer identifiers, including the code (key), name, and
-            ID. Sets the following properties:
-
-            * self.baseline
-            * self.code
-            * self.id
-            * self.name
-        """
-        
-        # check code
-        if code not in attr_transfomer.key_values:
-            raise KeyError(f"Invalid Transformer code '{code}': code not found in attribute table.")
-
-        # initialize and check code/id num
-        id_num = (
-            attr_transfomer
-            .field_maps
-            .get(f"{attr_transfomer.key}_to_{field_transformer_id}")
-            if attr_transfomer is not None
-            else None
-        )
-        id_num = id_num.get(code) if (id_num is not None) else -1
-
-
-        # initialize and check name/id num
-        name = (
-            attr_transfomer
-            .field_maps
-            .get(f"{attr_transfomer.key}_to_{field_transformer_name}")
-            if attr_transfomer is not None
-            else None
-        )
-        name = name.get(code) if (name is not None) else ""
-
-
-        # check baseline
-        baseline = (code == code_baseline)
-
-
-        ##  SET PROPERTIES
-
-        self.baseline = bool(baseline)
-        self.code = str(code)
-        self.id = int(id_num)
-        self.name = str(name)
-        
-        return None
-
-    
-    
-    def _initialize_function(self,
-        func: Union[Callable, List[Callable]],
-        overwrite_docstr: bool = True,
-    ) -> None:
-        """
-        Initialize the transformation function. Sets the following
-            properties:
-
-            * self.function
-            * self.function_list (list of callables, even if one callable is 
-                passed. Allows for quick sharing across classes)
-        """
-        
-        function = None
-
-        if isinstance(func, list):
-
-            func = [x for x in func if callable(x)]
-
-            if len(func) > 0:  
-                
-                overwrite_docstr &= (len(func) == 1)
-
-                # define a dummy function and assign
-                def function_out(
-                    *args, 
-                    **kwargs
-                ) -> Any:
-                    f"""
-                    Composite Transformer function for {self.name}
-                    """
-                    out = None
-                    if len(args) > 0:
-                        out = (
-                            args[0].copy() 
-                            if isinstance(args[0], pd.DataFrame) | isinstance(args[0], np.ndarray)
-                            else args[0]
-                        )
-
-                    for f in func:
-                        out = f(out, **kwargs)
-
-                    return out
-
-                function = function_out
-                function_list = func
-            
-            else:
-                overwrite_docstr = False
-
-        elif callable(func):
-            function = func
-            function_list = [func]
-
-        
-        # overwrite doc?
-        if overwrite_docstr:
-            self.__doc__ = function_list[0].__doc__ 
-
-        # check if function assignment failed; if not, assign
-        if function is None:
-            raise ValueError(f"Invalid type {type(func)}: the object 'func' is not callable.")
-        
-        self.function = function
-        self.function_list = function_list
-        
-        return None
-    
-
-
-    def _initialize_properties(self,
-    ) -> None:
-        """
-        Sets the following other properties:
-
-            * self.is_transformer
-            * self.uuid
-        """
-
-        self.is_transformer = True
-        self.uuid = _MODULE_UUID
-
-        return None
-
-
-
-
-
+###################################
+#    START WITH TRANSFORMATION    #
+###################################
 
 class Transformation:
     """
@@ -369,7 +60,7 @@ class Transformation:
     
     def __init__(self,
         config: Union[dict, str, sc.YAMLConfiguration],
-        transformers: Transformer,
+        transformers: trs.Transformer,
         **kwargs,
     ) -> None:
 
@@ -395,7 +86,7 @@ class Transformation:
     
     def _initialize_config(self,
         config: Union[dict, str, sc.YAMLConfiguration],
-        transformers: Transformer,
+        transformers: trs.Transformer,
     ) -> None:
         """
         Set the configuration used to parameterize the transformer as well as
@@ -465,7 +156,7 @@ class Transformation:
 
 
     def _initialize_function(self,
-        transformers: Transformer,
+        transformers: trs.Transformer,
     ) -> None:
         """
         Assign the transformer function with configuration-specified keyword
@@ -554,13 +245,25 @@ class Transformation:
     
 
 
-    
+    def _initialize_uuid(self,
+    ) -> None:
+        """
+        Sets the following other properties:
+
+            * self.is_transformation
+            * self.uuid
+        """
+
+        self.is_transformation = True
+        self.uuid = _MODULE_UUID
+
+        return None
     
 
 
     def get_parameters_dict(self,
         config: sc.YAMLConfiguration,
-        transformers: Transformers,
+        transformers: trs.Transformers,
     ) -> None:
         """
         Get the parameters dictionary associated with the specified Transformer.
@@ -576,7 +279,7 @@ class Transformation:
         # get transformer
         transformer_code = config.get(self.key_transformer)
         transformer = transformers.get_transformer(transformer_code)
-        if not is_transformer(transformer, ):
+        if not trs.is_transformer(transformer, ):
             raise RuntimeError(f"Invalid transformation '{transformation_code}' found in Transformers")
 
         # get arguments to the function 
@@ -590,32 +293,14 @@ class Transformation:
 
         return dict_parameters
 
-"""
-citations:
-  - xyz
-  - xbm
-identifiers: 
-  transformation_code: "TX:TRNS:SHIFT_FUEL_MEDIUM_DUTY"
-  transformation_name: "This one for Inidia 123"
-description:
-  "blah blah blah"
-parameters:
-  categories:
-  - road_heavy_freight
-  - road_heavy_regional
-  - public
-  dict_allocation_fuels_target: null
-  fuels_source:
-  - fuel_diesel
-  - fuel_gas
-  magnitude: 0.7
-  vec_implementation_ramp:
-    n_tp_ramp: 14
-    tp_0_ramp: 14
-transformer:
-"""
 
 
+
+
+
+#######################################
+#    COLLECTION OF TRANSFORMATIONS    #
+#######################################
 
 class Transformations:
     """
@@ -644,8 +329,6 @@ class Transformations:
                 "TX:AGRC:INC_CONSERVATION_AGRICULTURE_FULL"
 
 
-
-
                 citations:
                 - xyz
                 - xbm
@@ -666,9 +349,6 @@ class Transformations:
                 magnitude: 0.7
                 vec_implementation_ramp:
 
-            
-  
-
 
         (2) A strategy definition table, which provides strategy names and IDs
             for combinations of transformations. By default, this file is called
@@ -677,30 +357,119 @@ class Transformations:
             
             though this can be modified ysing the `fn_strategy_definition` 
             keyword argument.
+
+            The strategy definition table *must* include the following columns
         
 
     
     Initialization Arguments    
     ------------------------
-
+    - dir_init: directory containing configuration files, 
+    - transformers: Transformers object used to validate input parameters and 
+        call function
 
     Optional Arguments
     ------------------
+    - fn_citations: name of Bibtex file in dir_init containing optional 
+        citations to provide
+    - fn_strategy_definition: name of strategy definiton 
     """
 
     def __init__(self,
-        dir_init: str,
+        dir_init: Union[str, pathlib.Path],
+        transformers: trs.Transformers,
+        fn_citations: str = "citations.bib",
+        fn_strategy_definition: str = "stratgy_definitions.csv",
         regex_transformation_config: re.Pattern = re.compile("transformation_(.\D*).yaml"),
         **kwargs,
     ) -> None:
         
-        return None
+        self._initialize_transformations(
+            dir_init,
+            fn_strategy_definition,
+            regex_transformation_config,
+        )
 
+        return None
     
     
     ##################################
     #    INITIALIZATION FUNCTIONS    #
     ##################################
+    
+    def _initialize_keys(self,
+        **kwargs,
+    ) -> None:
+        """
+        Set the optional and required keys used to specify a transformation.
+            Can use keyword arguments to set keys.
+        """
+
+        # set some shortcut codes 
+
+        key_identifiers = kwargs.get("key_identifiers", "identifiers")
+        key_transformation_code = kwargs.get("key_transformation_code", "transformation_code")
+        key_transformation_name = kwargs.get("key_transformation_name", "transformation_name")
+
+        key_yc_trasformation_code = f"{key_identifiers}.{key_transformation_code}"
+        key_yc_trasformation_name = f"{key_identifiers}.{key_transformation_name}"
+
+
+        ##  SET PARAMETERS
+
+        self.key_citations = kwargs.get("key_citations", "citations")
+        self.key_description = kwargs.get("key_description", "description")
+        self.key_identifiers = key_identifiers
+        self.key_parameters = kwargs.get("key_parameters", "parameters")
+        self.key_transformation_code = key_transformation_code
+        self.key_transformation_name = key_transformation_name
+        self.key_transformer = kwargs.get("key_transformer", "transformer")
+        self.key_yc_trasformation_code = key_yc_trasformation_code
+        self.key_yc_trasformation_name = key_yc_trasformation_name
+
+        return None
+
+
+
+    def _initialize_transformations(self,
+        dir_init: Union[str, pathlib.Path],
+        fn_strategy_definition: str,
+        regex_transformation_config: re.Pattern,
+    ) -> None:
+        """
+        Initialize transformations provided in directory dir_init
+        """
+
+        return None
+
+
+
+    def _initialize_uuid(self,
+    ) -> None:
+        """
+        Initialize the following properties:
+        
+            * self.is_transformations
+            * self.uuid
+        """
+
+        self.is_transformations = True
+        self.uuid = _MODULE_UUID
+        
+        return None
+
+
+    
+    def get_files(self,
+        dir_init: Union[str, pathlib.Path],
+        fn_strategy_definition: str,
+        regex_transformation_config: re.Pattern,
+    ) -> Dict[str, List[str]]:
+        """
+        Retrieve transformation configuration files and the strategy definition
+            files.
+        """
+
 
 
 
@@ -710,13 +479,13 @@ class Transformations:
 #    SOME FUNCTIONS    #
 ########################
 
-def is_transformer(
+def is_transformation(
     obj: Any,
 ) -> bool:
     """
-    Determine if the object is a Transformer
+    Determine if the object is a Transformation
     """
-    out = hasattr(obj, "is_transformer")
+    out = hasattr(obj, "is_transformation")
     uuid = getattr(obj, "uuid", None)
 
     out &= (
@@ -729,9 +498,20 @@ def is_transformer(
 
 
 
+def is_transformations(
+    obj: Any,
+) -> bool:
+    """
+    Determine if the object is a Transformations
+    """
+    out = hasattr(obj, "is_transformations")
+    uuid = getattr(obj, "uuid", None)
 
+    out &= (
+        uuid == _MODULE_UUID
+        if uuid is not None
+        else False
+    )
 
-
-
-
-
+    return out
+        
