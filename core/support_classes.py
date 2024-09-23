@@ -14,6 +14,8 @@ import sisepuede.utilities._toolbox as sf
 
 
 
+_MODULE_UUID = "6B7410BF-A491-42F9-B904-5AB526C74180"
+
 ##################################
 #    INITIALIZATION FUNCTIONS    #
 ##################################
@@ -59,6 +61,7 @@ class Regions:
         # initialize some default data source properties
         self._initialize_defaults_iea()
         self._initialize_generic_dict()
+        self._initialize_uuid()
 
         return None
 
@@ -157,7 +160,6 @@ class Regions:
             * self.field_lat
             * self.field_lon
             * self.field_wb_global_region
-            * self.is_regions
             * self.key
             * self.regex_superregion
             * self.valid_region_groups
@@ -243,10 +245,25 @@ class Regions:
         self.field_lat = field_lat
         self.field_lon = field_lon
         self.field_wb_global_region = field_wb_global_region
-        self.is_regions = True
         self.key = attributes.key
         self.regex_region_groups = regex_region_groups
         self.region_groupings = region_groupings
+
+        return None
+    
+
+
+    def _initialize_uuid(self,
+    ) -> None:
+        """
+        Initialize the UUID. Sets the following properties:
+
+            * self.is_regions
+            * self.uuid
+        """
+
+        self.is_regions = True
+        self.uuid = _MODULE_UUID
 
         return None
 
@@ -1659,7 +1676,8 @@ class TimePeriods:
         model_attributes: ModelAttributes
     ):
 
-        self._initialize_time_properties(model_attributes)
+        self._initialize_time_properties(model_attributes, )
+        self._initialize_uuid()
 
         return None
     
@@ -1679,7 +1697,6 @@ class TimePeriods:
             * self.dict_year_to_time_period
             * self.field_time_period
             * self.field_year
-            * self.is_time_periods
             * self.min_year
         """
 
@@ -1699,13 +1716,33 @@ class TimePeriods:
         self.dict_year_to_time_period = dict_year_to_time_period
         self.field_time_period = attributes.key
         self.field_year = field_year
-        self.is_time_periods = True
         self.year_max = year_max
         self.year_min = year_min
 
         return None
     
 
+
+    def _initialize_uuid(self,
+    ) -> None:
+        """
+        Initialize the UUID. Sets the following properties:
+
+            * self.is_time_periods
+            * self.uuid
+        """
+
+        self.is_time_periods = True
+        self.uuid = _MODULE_UUID
+
+        return None
+
+
+    
+
+    ########################
+    #    CORE FUNCTIONS    #
+    ########################
 
     def get_closest_time_period(self,
         t: int,
@@ -1972,6 +2009,7 @@ class YAMLConfiguration:
     ) -> None:
         
         self._initialize_data(fp)
+        self._initialize_uuid()
 
         return None
         
@@ -2008,6 +2046,22 @@ class YAMLConfiguration:
         self.dict_yaml = dict_yaml
         self.path = fp
         
+        return None
+    
+
+
+    def _initialize_uuid(self,
+    ) -> None:
+        """
+        Initialize the UUID. Sets the following properties:
+            
+            * self.is_yaml_configuration
+            * self.uuid
+        """
+
+        self.is_yaml_configuration = True
+        self.uuid = _MODULE_UUID
+
         return None
             
 
@@ -2079,9 +2133,16 @@ def is_regions(
     """
 
     out = hasattr(obj, "is_regions")
-    out &= obj.is_regions if out else False
+    uuid = getattr(obj, "uuid", None)
+
+    out &= (
+        uuid == _MODULE_UUID
+        if uuid is not None
+        else False
+    )
 
     return out
+
 
 
 
@@ -2093,9 +2154,37 @@ def is_time_periods(
     """
 
     out = hasattr(obj, "is_time_periods")
-    out &= obj.is_time_periods if out else False
+    uuid = getattr(obj, "uuid", None)
+
+    out &= (
+        uuid == _MODULE_UUID
+        if uuid is not None
+        else False
+    )
 
     return out
+
+
+
+
+def is_yaml_configuration(
+    obj: Any,
+) -> bool:
+    """
+    check if obj is a Regions object
+    """
+
+    out = hasattr(obj, "is_yaml_configuration")
+    uuid = getattr(obj, "uuid", None)
+
+    out &= (
+        uuid == _MODULE_UUID
+        if uuid is not None
+        else False
+    )
+
+    return out
+
 
 
 

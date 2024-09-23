@@ -391,7 +391,7 @@ class Transformers:
                         
     def build_implementation_ramp_vector(self,
         year_0: Union[int, None] = None,
-        n_years_ramp: Union[int, None] = None,
+        n_tp_ramp: Union[int, None] = None,
     ) -> np.ndarray:
         """
         Build the implementation ramp vector
@@ -402,19 +402,22 @@ class Transformers:
         Keyword Arguments
 		-----------------
 		- year_0: last year without change from baseline
-        - n_years_ramp: number of years to go from 0 to 1
+        - n_tp_ramp: number of years to go from 0 to 1
         """
         year_0 = self.year_0_ramp if (year_0 is None) else year_0
-        n_years_ramp = self.n_tp_ramp if (n_years_ramp is None) else n_years_ramp
+        n_tp_ramp = self.n_tp_ramp if (n_tp_ramp is None) else n_tp_ramp
 
         tp_0 = self.time_periods.year_to_tp(year_0)
         n_tp = len(self.time_periods.all_time_periods)
         
         # use ramp vector function
-        params = (0, 2, 1)
-        vec_out = sf.ramp_vector(n_tmp, *params, r_0 = tp_0, )
-
-        #vec_out = np.array([max(0, min((x - tp_0)/n_years_ramp, 1)) for x in range(n_tp)])
+        vec_out = sf.ramp_vector(
+            n_tp, 
+            alpha_logistic = 0.0, # default to linear 
+            r_0 = tp_0,
+            # r_1 = tp_0 + n_tp_ramp,
+            # window_logistic = (-8, 8),
+        )
 
         return vec_out
 

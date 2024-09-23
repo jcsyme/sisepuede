@@ -1285,19 +1285,16 @@ class Transformers:
         )
         
         # get some shape parameters
-        a = kwargs.get("a", 0)
-        b = kwargs.get("b", 2)
-        c = kwargs.get("c", 1)
-        d = kwargs.get("d") # default is None
+        alpha_logistic = kwargs.get("alpha_logistic", 0.0)
+        d = kwargs.get("d", 0)
+        window_logistic = kwargs.get("window_logistic", (-8, 8))
  
         vec_out = sf.ramp_vector(
             n_tp, 
-            a = a, 
-            b = b, 
-            c = c, 
-            d = d,
+            alpha_logistic = alpha_logistic, 
             r_0 = tp_0_ramp,
             r_1 = tp_0_ramp + n_tp_ramp,
+            window_logistic = window_logistic,
         )
 
         return vec_out
@@ -1396,7 +1393,7 @@ class Transformers:
                 dict_check_out = dict(
                     (
                         self.model_enercons
-                        .dict_inen_fuel_categories_to_fuel_variables
+                        .dict_trns_fuel_categories_to_fuel_variables
                         .get(k)
                         .get("fuel_fraction"),
                         sf.scalar_bounds(v, (0, 1))
@@ -5654,7 +5651,7 @@ class Transformers:
         categories: List[str] = ["water_borne"],
         dict_allocation_fuels_target: Union[dict, None] = None,
         df_input: Union[pd.DataFrame, None] = None,
-        fuels_source: List[str] = ["fuel_diesel", "fuel_gas"],
+        fuels_source: List[str] = ["fuel_diesel", "fuel_gasoline"],
         magnitude: float = 0.7,
         strat: Union[int, None] = None,
         vec_implementation_ramp: Union[np.ndarray, None] = None,
@@ -5730,7 +5727,7 @@ class Transformers:
         modvars_source = [
             (
                 self.model_enercons
-                .dict_inen_fuel_categories_to_fuel_variables
+                .dict_trns_fuel_categories_to_fuel_variables
                 .get(x)
                 .get("fuel_fraction")
             )
@@ -5788,7 +5785,7 @@ class Transformers:
         ],
         dict_allocation_fuels_target: Union[dict, None] = None,
         df_input: Union[pd.DataFrame, None] = None,
-        fuels_source: List[str] = ["fuel_diesel", "fuel_gas"],
+        fuels_source: List[str] = ["fuel_diesel", "fuel_gasoline"],
         magnitude: float = 0.7,
         strat: Union[int, None] = None,
         vec_implementation_ramp: Union[np.ndarray, None] = None,
@@ -5881,7 +5878,7 @@ class Transformers:
         modvars_source = [
             (
                 self.model_enercons
-                .dict_inen_fuel_categories_to_fuel_variables
+                .dict_trns_fuel_categories_to_fuel_variables
                 .get(x)
                 .get("fuel_fraction")
             )

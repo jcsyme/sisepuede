@@ -1847,6 +1847,42 @@ def list_dict_keys_with_same_values(
 
 
 
+def logistic_ramp(
+    x: float,
+    c: Union[float, int] = 1,
+    d: Union[float, int] = 0,
+    n_ramp: int = 1,
+    w: Union[float, int] = 1,
+    y_0: Union[float, int] = 0,
+) -> float:
+    """
+    logistic function. 
+    
+    Function Arguments
+    ------------------
+    - x: domain variable
+    
+    Keyword Arguments
+    -----------------
+    - n_ramp: length of ramp vector (number of periods)
+    - c: expansion factor applied to shifted logistic fucntion
+    - d: centroid in logistic function
+    - n_ramp: number of ramp periods to apply function to
+    - w: width of logistic window
+    - y_0: shift applied to logistic function
+    """
+    if (x >= d + n_ramp):
+        return 1
+    elif (x <= d - n_ramp):
+        return 0
+
+    out = c*(1/(1 + np.e**(w*(d - x)/n_ramp)) - y_0)
+
+    return out
+
+
+
+
 def match_df_to_target_df(
     df_target: pd.DataFrame,
     df_source: pd.DataFrame,
@@ -2639,6 +2675,125 @@ def ramp_value(
 
 
 def ramp_vector(
+    n: int, 
+    alpha_logistic: float = 0.0,
+    d: Union[float, int] = 0,
+    r_0: int = 0,
+    r_1: Union[int, None] = None,
+    window_logistic: Tuple[int, int] = (-8, 8),
+) -> float:
+    """
+    Build a ramp vector for n time periods. Allows for the specifcation of a 
+        linear vector, sigmoid, window within sigmoid, or some mix of the two.
+        
+
+    Function Arguments
+    ------------------
+    - n: number of time periods (total)
+
+    Keyword Arguments
+    -----------------
+    - alpha_logistic: fraction of ramp function that is associated with the 
+        logistic. (1 - alpha_logistic) gives the fraction that is linear.
+    - d: centroid for logistic function in window
+    - r_0: last period == 0; e.g., if r_0 = 4 and n = 10, then in a linear 
+        function, we have
+    - r_1: first period == 1. If None, defaults to n
+    - window_logistic: window in standard logistic function (i.e., 
+        1/(1 + e^(-x)) that is shifted and stretched to create the sigmoid 
+        component. By default, use -8 to 8.
+        * NOTE: The window can be asymmetric around 0 to modify the timing of
+            the ramp. 
+            * If |w_1| > |w_0|, then the ramp will increase more in early time
+                periods
+            * If |w_1| < |w_0|, then the ramp will increse more in later time
+                periods
+    """
+    
+    
+    ##  CHECK INPUTS
+    
+    return_none = not (isinstance(window_logistic, tuple) | islistlike(window_logistic))
+    return_none |= (len(window_logistic) < 2) if not return_none else return_none
+    return_none |= not isnumber(alpha_logistic)
+    if return_none:
+        return None
+    
+    # check that center is specific properly
+    if (d >= window_logistic[1]) | (d <= window_logistic[0]):
+        raise RuntimeError(f"Invalid value of d = {d} in ramp_vector: out of bounds {logistic_window}")
+    
+    
+    ##  CALCULATE PARAMETERS FOR THE CURVE
+    
+    # initialize output vector and check mix fraction
+    vec_out = np.zeros(n)
+    alpha_logistic = min(max(alpha_logistic, 0.0), 1.0)
+    
+    # check r_0 and r_1
+    r_1 = n - 1 if not isinstance(r_1, int) else min(r_1, n - 1)
+    if (r_0 >= r_1):
+        raise RuntimeError(f"Invalid values found in ramp_value(): r_0 = {r_0} and r_1 = {r_1}; r_1 > r_0")
+
+    # check value of r_0 & r_1
+    if (r_0 >= n):
+        return vec_out
+
+    if (r_1 <= 0):
+        vec_out.fill(1)
+        return vec_out
+    
+    # set size of the ramp
+    n_ramp = r_1 - r_0
+    
+    # get bounds of logistic function
+    x_0, x_1 = tuple(window_logistic[0:2])
+    y_0 = 1/(1 + np.e**(-x_0))
+    y_1 = 1/(1 + np.e**(-x_1))
+    
+    # calculate some constants
+    C = 1/(y_1 - y_0)
+    W = x_1 - x_0
+    
+    
+    ##  BUILD THE VECTOR 
+    
+    domain_logistic = d + np.arange(x_0*(n_ramp)/W, x_1*(n_ramp)/W + 1)
+    j = 0
+    
+    for i in range(n):
+        
+        # skip if 0s
+        if i < r_0:
+            continue
+        
+        # if over 1, just set to 1
+        if i > r_1:
+            vec_out[i] = 1
+            continue
+            
+        # get logistic value
+        val_logistic = logistic_ramp(
+            domain_logistic[j],
+            c = C,
+            n_ramp = n_ramp,
+            w = W,
+            y_0 = y_0
+        )
+        
+        j += 1
+        
+        
+        # get linear value
+        val_linear = (i - r_0)/(r_1 - r_0)
+        
+        vec_out[i] = alpha_logistic*val_logistic + (1 - alpha_logistic)*val_linear
+
+    return vec_out
+
+
+
+def ramp_vector1(
     n: int, 
     *args,
     **kwargs,
