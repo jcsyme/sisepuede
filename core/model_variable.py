@@ -2138,12 +2138,12 @@ def decompose_schema(
 
 
 def is_model_variable(
-    modvar: Any,
+    obj: Any,
 ) -> bool:
     """
     Determine if the object is a ModelVariable
     """
-    out = hasattr(modvar, "is_model_variable")
+    out = hasattr(obj, "is_model_variable")
     uuid = getattr(obj, "uuid", None)
 
     out &= (
