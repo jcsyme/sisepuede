@@ -78,6 +78,8 @@ class SISEPUEDEFileStructure:
 		)
 		self._check_nemomod_reference_file_paths()
 
+		return None
+
 
 
 
