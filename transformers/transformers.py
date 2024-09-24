@@ -413,7 +413,7 @@ class Transformers:
         self._initialize_file_structure(
             regex_template_prepend = regex_template_prepend, 
         )
-        self._initialize_models()
+        self._initialize_models(**kwargs)
         self._initialize_attributes(field_region, )
 
         self._initialize_config(dict_config = dict_config, )
@@ -680,16 +680,25 @@ class Transformers:
 
         ##  INITIALIZE MODELS
 
+        # check for specification of a default run db
+        fp_nemomod_temp_sqlite_db = kwargs.get(
+            "fp_nemomod_temp_sqlite_db",
+            self.file_struct.fp_sqlite_tmp_nemomod_intermediate,
+        )
+
         models = sm.SISEPUEDEModels(
             self.model_attributes,
             allow_electricity_run = True,
             fp_julia = self.file_struct.dir_jl,
             fp_nemomod_reference_files = self.file_struct.dir_ref_nemo,
-            fp_nemomod_temp_sqlite_db = self.file_struct.fp_sqlite_tmp_nemomod_intermediate,
+            fp_nemomod_temp_sqlite_db = fp_nemomod_temp_sqlite_db,
             initialize_julia = False,
             logger = self.logger,
         )
 
+
+        ##  CHECK IF ANY MODELS ARE SPECIFIED IN KEYWORD ARGUMENTS
+        
         # check AFOLU
         model_afolu = kwargs.get("model_afolu")
         if not is_sisepuede_model_afolu(model_afolu):

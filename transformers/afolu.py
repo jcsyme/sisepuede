@@ -1144,22 +1144,22 @@ class TransformersAFOLU:
 
 
     def _log(self,
-		msg: str,
-		type_log: str = "log",
-		**kwargs
-	) -> None:
+        msg: str,
+        type_log: str = "log",
+        **kwargs
+    ) -> None:
         """
-		Clean implementation of sf._optional_log in-line using default logger. See ?sf._optional_log for more information
+        Clean implementation of sf._optional_log in-line using default logger. See ?sf._optional_log for more information
 
-		Function Arguments
-		------------------
-		- msg: message to log
+        Function Arguments
+        ------------------
+        - msg: message to log
 
-		Keyword Arguments
-		-----------------
-		- type_log: type of log to use
-		- **kwargs: passed as logging.Logger.METHOD(msg, **kwargs)
-		"""
+        Keyword Arguments
+        -----------------
+        - type_log: type of log to use
+        - **kwargs: passed as logging.Logger.METHOD(msg, **kwargs)
+        """
         sf._optional_log(self.logger, msg, type_log = type_log, **kwargs)
 
         return None

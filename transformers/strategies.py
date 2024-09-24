@@ -9,6 +9,7 @@ from typing import *
 from sisepuede.core.attribute_table import *
 from sisepuede.core.model_attributes import *
 import sisepuede.core.support_classes as sc
+import sisepuede.transformers.transformations as trn
 import sisepuede.utilities._toolbox as sf
 
 
@@ -28,15 +29,55 @@ class Strategy:
     """
     A collection of transformations
 
+    A strategy definition table, which provides strategy names and IDs
+        for combinations of transformations. By default, this file is called
+
+        `strategy_definitions.csv`
+        
+        though this can be modified ysing the `fn_strategy_definition` 
+        keyword argument.
+
+        The strategy definition table *must* include the following columns:
+
+            - strategy_code
+            - transformation_specification
+
+        The following columns are optional:
+
+            - strategy_name: The strategy name is useful for display and
+                tracking/automated reporting, but it is not used within the
+                SISEPUEDE architecture.
+            - strategy_id: This field should be the same as 
+                transformers.model_attributes.dim_strategy_id. It is often
+                useful to specify a strategy_id (an unique strategy key) 
+                in ways that align with subsectors. 
+                
+                For example, strategies that are associated with AFOLU might 
+                occupy 1000-1999, Circular Economy 2000-2999, ... , and 
+                cross sector strategies 5000-5999. Howevrer, if not 
+                specified, IDs will automatically be assigned. IDs are the
+                default mechanism for telling SISEPUEDE which experiments to
+                run. 
+
+                
     Initialization Arguments
     ------------------------
     - func: the function associated with the transformation OR an ordered list 
         of functions representing compositional order, e.g., 
 
         [f1, f2, f3, ... , fn] -> fn(f{n-1}(...(f2(f1(x))))))
+
+    Optional Arguments
+    ------------------
+    - fn_strategy_definition: file name of strategy definiton file in 
+        transformations.dir_init *OR* pathlib.Path giving a full path to a
+        strategy definitions CSV file.
+ 
     """
 
     def __init__(self,
+        transformations: trn.Transformations,
+        fn_strategy_definition: str = "stratgy_definitions.csv",
     ) -> None:
 
 
@@ -132,11 +173,108 @@ class Strategy:
 
 
 
+class Strategies:
+    """
+    A collection of Strategy objects. Coordinate strategies, build an attribute
+        table, test builds, and generate templates and hash_ids for build. 
+
+
+
+        `strategy_definitions.csv`
+        
+        though this can be modified ysing the `fn_strategy_definition` 
+        keyword argument.
+
+        The strategy definition table *must* include the following columns:
+
+            - strategy_code
+            - transformation_specification
+
+        The following columns are optional:
+
+            - strategy_name: The strategy name is useful for display and
+                tracking/automated reporting, but it is not used within the
+                SISEPUEDE architecture.
+            - strategy_id: This field should be the same as 
+                transformers.model_attributes.dim_strategy_id. It is often
+                useful to specify a strategy_id (an unique strategy key) 
+                in ways that align with subsectors. 
+                
+                For example, strategies that are associated with AFOLU might 
+                occupy 1000-1999, Circular Economy 2000-2999, ... , and 
+                cross sector strategies 5000-5999. Howevrer, if not 
+                specified, IDs will automatically be assigned. IDs are the
+                default mechanism for telling SISEPUEDE which experiments to
+                run. 
+
+                
+    Initialization Arguments
+    ------------------------
+    - func: the function associated with the transformation OR an ordered list 
+        of functions representing compositional order, e.g., 
+
+        [f1, f2, f3, ... , fn] -> fn(f{n-1}(...(f2(f1(x))))))
+
+    Optional Arguments
+    ------------------
+    - fn_strategy_definition: file name of strategy definiton file in 
+        transformations.dir_init *OR* pathlib.Path giving a full path to a
+        strategy definitions CSV file.
+ 
+    """
+
+    def __init__(self,
+        transformations: trn.Transformations,
+        fn_strategy_definition: str = "stratgy_definitions.csv",
+    ) -> None:
+
+        
+        self._initialize_uuid()
+        
+        return None
+    
+
+
+    def _initialize_uuid(self,
+    ) -> None:
+        """
+        Sets the following other properties:
+
+            * self.is_strategies
+            * self.uuid
+        """
+
+        self.is_strategies = True
+        self.uuid = _MODULE_UUID
+
+        return None
+
+
+
 
 
 ########################
 #    SOME FUNCTIONS    #
 ########################
+
+def is_strategies(
+    obj: Any,
+) -> bool:
+    """
+    Determine if the object is a Strategies
+    """
+    out = hasattr(obj, "is_strategies")
+    uuid = getattr(obj, "uuid", None)
+
+    out &= (
+        uuid == _MODULE_UUID
+        if uuid is not None
+        else False
+    )
+
+    return out
+
+
 
 def is_strategy(
     obj: Any,
