@@ -601,9 +601,10 @@ class Transformations:
         
 
         # build the attribute table
-        attribute_transformation = self.build_attribute_table(
+        attribute_transformation, dict_fields = self.build_attribute_table(
             dict_all_transformations,
             dict_transformation_code_to_fp,
+            default_nm_prepend = default_nm_prepend,
         )
 
         all_transformation_codes = attribute_transformation.key_values
@@ -613,7 +614,13 @@ class Transformations:
 
         self.attribute_transformation = attribute_transformation
         self.all_transformation_codes = all_transformation_codes
-        self.dict_all_transformations = dict_all_transformations
+        self.dict_transformations = dict_all_transformations
+        self.field_attr_code = dict_fields.get("field_code")
+        self.field_attr_citation = dict_fields.get("field_citation")
+        self.field_attr_description = dict_fields.get("field_desc")
+        self.field_attr_id = dict_fields.get("field_id")
+        self.field_attr_name = dict_fields.get("field_name")
+        self.field_attr_path = dict_fields.get("field_path")
 
         return None
         
@@ -670,9 +677,11 @@ class Transformations:
     def build_attribute_table(self,
         dict_all_transformations: Dict[str, Transformation],
         dict_transformation_code_to_fp: Dict[str, pathlib.Path],
-    ) -> AttributeTable:
+        default_nm_prepend: str = "Transformation",
+    ) -> Union[AttributeTable, dict]:
         """
-        Build the transformation attribute table
+        Build the transformation attribute table. Returns the attribute table
+            plus a dictionary of field names.
         """
 
         ##  NEXT, BUILD THE ATTRIBUTE TABLEs
@@ -682,7 +691,8 @@ class Transformations:
         all_transformation_codes = sorted(dict_all_transformations.keys())
         nms_defined = []
 
-        # initialize dictionary and information for attribute table
+        # initialize dictionaries and information for attribute table
+        dict_fields = {}
         dict_table = {
             self.key_path: [],
         }
@@ -708,8 +718,9 @@ class Transformations:
             if key_code is None:
                 key_code = transformation.key_transformation_code
                 dict_table.update({key_code: []})
-        
-            dict_table.get(key_code).append(code)
+
+            dict_fields.update({"field_code": key_code})
+            dict_table.get(key_code).append(code) 
 
 
             ##  ID
@@ -718,22 +729,25 @@ class Transformations:
                 field_id = transformation.key_transformation_id
                 dict_table.update({field_id: []})
             
+            dict_fields.update({"field_id": field_id})
             dict_table.get(field_id).append(id_def)
             transformation.id_num = id_def
-
-            id_def += 1
 
 
             ##  NAME
 
             # check name
             name = transformation.name
-            name = (
-                f"{default_nm_prepend} {id_num}"
-                if name in nms_defined
-                else name
-            )
-            
+            if name in nms_defined:
+                name_new = f"{default_nm_prepend} {id_def}"
+                self._log(
+                    f"Name '{name}' for transformation code '{code}' already taken: assigning name {name_new}",
+                    type_log = "warning",
+                )
+
+                name = name_new
+                
+
             # update name
             nms_defined.append(name)
             transformation.name = name
@@ -741,6 +755,8 @@ class Transformations:
             if field_name is None:
                 field_name = transformation.key_transformation_name
                 dict_table.update({field_name: []})
+
+            dict_fields.update({"field_name": field_name})
             dict_table.get(field_name).append(name)
 
 
@@ -752,6 +768,7 @@ class Transformations:
                 field_desc = transformation.key_description
                 dict_table.update({field_desc: []})
 
+            dict_fields.update({"field_desc": field_desc})
             dict_table.get(field_desc).append(desc)
             
 
@@ -768,6 +785,7 @@ class Transformations:
                 field_citations = transformation.key_citations
                 dict_table.update({field_citations: []})
 
+            dict_fields.update({"field_citations": field_citations})
             dict_table.get(field_citations).append(citations)
             
 
@@ -778,17 +796,35 @@ class Transformations:
             if field_path is None:
                 field_path = self.key_path
                 dict_table.update({field_path: []})
+
+            dict_fields.update({"field_path": field_path})
             dict_table.get(field_path).append(fp)
+
+
+            # next iterationm
+            id_def += 1
+
 
 
         # build the table
         attribute_return = pd.DataFrame(dict_table)
         attribute_return = AttributeTable(
-            attribute_return,
+            attribute_return[
+                [
+                    field_id,
+                    key_code,
+                    field_name,
+                    field_desc,
+                    field_citations,
+                    field_path
+                ]
+            ],
             key_code,
         )
 
-        return attribute_return
+        out = (attribute_return, dict_fields)
+
+        return out
 
 
     
@@ -889,30 +925,30 @@ class Transformations:
         """
 
         # skip these types
-        is_int = sf.isnumber(transformer, integer = True)
+        is_int = sf.isnumber(transformation, integer = True)
         return_none = not is_int
-        return_none &= not isinstance(transformer, str)
+        return_none &= not isinstance(transformation, str)
         if return_none:
             return None
 
         # Transformer objects are tied to the attribute table, so these field maps work
-        dict_id_to_code = self.attribute_transformer_code.field_maps.get(
-            f"{field_transformer_id}_to_{self.attribute_transformer_code.key}"
+        dict_id_to_code = self.attribute_transformation.field_maps.get(
+            f"{self.field_attr_id}_to_{self.attribute_transformation.key}"
         )
-        dict_name_to_code = self.attribute_transformer_code.field_maps.get(
-            f"{field_transformer_name}_to_{self.attribute_transformer_code.key}"
+        dict_name_to_code = self.attribute_transformation.field_maps.get(
+            f"{self.field_attr_name}_to_{self.attribute_transformation.key}"
         )
 
         # check strategy by trying both dictionaries
-        if isinstance(transformer, str):
+        if isinstance(transformation, str):
             code = (
-                transformer
-                if transformer in self.attribute_transformer_code.key_values
-                else dict_name_to_code.get(transformer)
+                transformation
+                if transformation in self.attribute_transformation.key_values
+                else dict_name_to_code.get(transformation)
             )
         
         elif is_int:
-            code = dict_id_to_code.get(transformer)
+            code = dict_id_to_code.get(transformation)
 
         # check returns
         if code is None:
@@ -922,7 +958,7 @@ class Transformations:
             return code
 
 
-        out = self.dict_transformers.get(code)
+        out = self.dict_transformations.get(code)
         
         return out
 
