@@ -102,7 +102,7 @@ class Transformation:
 
         config = (
             sc.YAMLConfiguration(config, )
-            if isinstance(config, dict) | isinstance(config, str)
+            if isinstance(config, dict) | isinstance(config, str) | isinstance(config, pathlib.Path)
             else config
         )
 
@@ -200,7 +200,7 @@ class Transformation:
         """
 
         code = self.config.get(self.key_yc_trasformation_code)
-        id_num = self.config.get(self.key_yc_trasformation_id)
+        id_num = None # initialize as None, can overwrite later
         name = self.config.get(self.key_yc_trasformation_name)
 
         
@@ -226,11 +226,9 @@ class Transformation:
 
         key_identifiers = kwargs.get("key_identifiers", "identifiers")
         key_transformation_code = kwargs.get("key_transformation_code", "transformation_code")
-        key_transformation_id = kwargs.get("key_transformation_code", "transformation_id")
         key_transformation_name = kwargs.get("key_transformation_name", "transformation_name")
 
         key_yc_trasformation_code = f"{key_identifiers}.{key_transformation_code}"
-        key_yc_trasformation_id = f"{key_identifiers}.{key_transformation_id}"
         key_yc_trasformation_name = f"{key_identifiers}.{key_transformation_name}"
 
 
@@ -241,11 +239,10 @@ class Transformation:
         self.key_identifiers = key_identifiers
         self.key_parameters = kwargs.get("key_parameters", "parameters")
         self.key_transformation_code = key_transformation_code
-        self.key_transformation_id = key_transformation_id
+        self.key_transformation_id = "transformation_id"
         self.key_transformation_name = key_transformation_name
         self.key_transformer = kwargs.get("key_transformer", "transformer")
         self.key_yc_trasformation_code = key_yc_trasformation_code
-        self.key_yc_trasformation_id = key_yc_trasformation_id
         self.key_yc_trasformation_name = key_yc_trasformation_name
 
         return None
@@ -416,7 +413,7 @@ class Transformations:
         self._initialize_keys(
             **kwargs,
         )
-        self.initialize_config(
+        self._initialize_config(
             dir_init,
             fn_citations,
             fn_config_general,
@@ -467,7 +464,7 @@ class Transformations:
             self.key_path_citations,
         )
 
-        warngins.warn(f"NOTE: citations mechanism in Transformations needs to be set. See _initialize_citations()")
+        warnings.warn(f"NOTE: citations mechanism in Transformations needs to be set. See _initialize_citations()")
 
         return None
 
@@ -498,7 +495,7 @@ class Transformations:
 
         # read configuration
         config = sc.YAMLConfiguration(
-            dict_paths.get(self.key_path_config_general, )
+            str(dict_paths.get(self.key_path_config_general, ))
         )
 
         dir_init = pathlib.Path(dir_init)
@@ -540,6 +537,7 @@ class Transformations:
         """
 
         self.key_trconfig_description = "description"
+        self.key_path = "path"
         self.key_path_citations = "citations"
         self.key_path_config_general = "config_general"
         self.key_path_transformations = "transformations"
@@ -549,6 +547,7 @@ class Transformations:
 
     
     def _initialize_transformations(self,
+        default_nm_prepend: str = "Transformation",
         stop_on_error: bool = True,
         **kwargs,
     ) -> None:
@@ -566,22 +565,25 @@ class Transformations:
         # initialize dictionary of transformations 
         # - dictionary mapping transformation codes to transformations
         dict_all_transformations = {}
-        dict_transformation_code_to_attributes = {}
+        dict_transformation_code_to_fp = {}
 
 
         # iterate over available files 
         for fp in files_transformation_build:
 
             try:
-
+                
                 # try building the transformation and verify the code
-                transformation = trn.Transformation(
+                transformation = Transformation(
                     fp,
-                    transformers,
+                    self.transformers,
                 )
 
-                if transformation.code in all_transformations.keys():
-                    fp_existing = dict_transformation_code_to_fp.get(transformation.code)
+                if transformation.code in dict_all_transformations.keys():
+                    fp_existing = (
+                        dict_transformation_code_to_fp
+                        .get(transformation.code)
+                    )
                     raise KeyError(f"Transformation code {transformation.code} already specified in file '{fp_existing}'.")
 
             except Exception as e:
@@ -595,44 +597,23 @@ class Transformations:
             
             # otherwise, update dictionaries
             dict_all_transformations.update({transformation.code: transformation})
-            dict_transformation_code_to_fp.update({transformation.code: {"path": fp}})
+            dict_transformation_code_to_fp.update({transformation.code: str(fp)})
         
+
+        # build the attribute table
+        attribute_transformation = self.build_attribute_table(
+            dict_all_transformations,
+            dict_transformation_code_to_fp,
+        )
+
+        all_transformation_codes = attribute_transformation.key_values
         
-        ##  NEXT, CLEAN THE ATTRIBUTES BY ASSIGNING AN ID AND NAME
 
-        # sort by default by code
-        id_def = 1
-        all_transformation_codes = sorted(dict_all_transformations.keys())
-        ids_defined = [
-            x.id_num for x in dict_all_transformations.values() 
-            if self.validate_idnum(x)
-        ]
-        nms_defined = [
-            x.name for x in dict_all_transformations.values()
-            if x is not None
-        ]
-
-        # iterate over codes to check set of ids 
-        for code in all_transformation_codes:
-
-            transformation = dict_all_transformations.get(code)
-            id_num = transformation.id_num
-            name = transformation.name
-
-            if id_num is None:
-                id_num = (max(ids_defined) + 1) if (len(ids_defined) > 0) else id_def
-                # here, add the ID number
-
-            continue
-
-        dict_transformation_code_to_fp.update({transformation.code: dict_attributes})
-
-        
         ##  SET PROPERTIES
 
+        self.attribute_transformation = attribute_transformation
         self.all_transformation_codes = all_transformation_codes
         self.dict_all_transformations = dict_all_transformations
-        self.dict_transformation_code_to_attributes = dict_transformation_code_to_attributes
 
         return None
         
@@ -683,6 +664,131 @@ class Transformations:
         self.uuid = _MODULE_UUID
         
         return None
+    
+
+
+    def build_attribute_table(self,
+        dict_all_transformations: Dict[str, Transformation],
+        dict_transformation_code_to_fp: Dict[str, pathlib.Path],
+    ) -> AttributeTable:
+        """
+        Build the transformation attribute table
+        """
+
+        ##  NEXT, BUILD THE ATTRIBUTE TABLEs
+
+        # sort by default by code
+        id_def = 1
+        all_transformation_codes = sorted(dict_all_transformations.keys())
+        nms_defined = []
+
+        # initialize dictionary and information for attribute table
+        dict_table = {
+            self.key_path: [],
+        }
+
+        # fields will be updated iteratively
+        key_code = None
+        field_citations = None
+        field_desc = None
+        field_id = None
+        field_name = None
+        field_path = None
+        
+
+        # iterate over codes to assign 
+        for code in all_transformation_codes:
+            
+            # get transformation
+            transformation = dict_all_transformations.get(code)
+
+
+            ##  CODE (ATTRIBUTE KEY)
+
+            if key_code is None:
+                key_code = transformation.key_transformation_code
+                dict_table.update({key_code: []})
+        
+            dict_table.get(key_code).append(code)
+
+
+            ##  ID
+            
+            if field_id is None:
+                field_id = transformation.key_transformation_id
+                dict_table.update({field_id: []})
+            
+            dict_table.get(field_id).append(id_def)
+            transformation.id_num = id_def
+
+            id_def += 1
+
+
+            ##  NAME
+
+            # check name
+            name = transformation.name
+            name = (
+                f"{default_nm_prepend} {id_num}"
+                if name in nms_defined
+                else name
+            )
+            
+            # update name
+            nms_defined.append(name)
+            transformation.name = name
+
+            if field_name is None:
+                field_name = transformation.key_transformation_name
+                dict_table.update({field_name: []})
+            dict_table.get(field_name).append(name)
+
+
+            ##  DESCRIPTION 
+
+            desc = transformation.config.get(transformation.key_description)
+
+            if field_desc is None:
+                field_desc = transformation.key_description
+                dict_table.update({field_desc: []})
+
+            dict_table.get(field_desc).append(desc)
+            
+
+            ##  CITATIONS
+
+            citations = transformation.config.get(transformation.key_citations)
+            citations = (
+                "|".join(citations)
+                if isinstance(citations, list)
+                else str(citations)
+            )
+
+            if field_citations is None:
+                field_citations = transformation.key_citations
+                dict_table.update({field_citations: []})
+
+            dict_table.get(field_citations).append(citations)
+            
+
+            ##  FILE PATH
+
+            fp = str(dict_transformation_code_to_fp.get(code))
+
+            if field_path is None:
+                field_path = self.key_path
+                dict_table.update({field_path: []})
+            dict_table.get(field_path).append(fp)
+
+
+        # build the table
+        attribute_return = pd.DataFrame(dict_table)
+        attribute_return = AttributeTable(
+            attribute_return,
+            key_code,
+        )
+
+        return attribute_return
 
 
     
@@ -708,7 +814,7 @@ class Transformations:
             raise RuntimeError(msg)
 
         # check that it exists
-        if not path_init.exist():
+        if not path_init.exists():
             msg = f"Unable to initialize Transformations: path '{path_init}' does not exist."
             raise RuntimeError(msg)
 
@@ -719,7 +825,7 @@ class Transformations:
         dict_out = {}
 
         # check config
-        path_config_general = path_init.join(fn_config_general)
+        path_config_general = path_init.joinpath(fn_config_general)
         if not path_config_general.exists():
             msg = f"""General configuration file '{fn_config_general}' not found 
             in path '{path_init}'. Cannot proceed. To use default configuration, 
@@ -732,7 +838,7 @@ class Transformations:
 
 
         # check citation (optional, so no error message)
-        path_citations = path_init.join(fn_citations)
+        path_citations = path_init.joinpath(fn_citations)
         if not path_citations.exists():
             path_citations = None
 
@@ -741,7 +847,7 @@ class Transformations:
 
         # look for transformation files - iterate over all files, then build a list of paths
         fps_transformation = [
-            path_init.join(x) for x in os.listdir(path_init)
+            path_init.joinpath(x) for x in os.listdir(path_init)
             if regex_transformation_config.match(x) is not None
         ]
 
@@ -754,22 +860,6 @@ class Transformations:
         # return
 
         return dict_out
-    
-
-
-    def validate_idnum(self,
-        id_num: Any,
-    ) -> bool:
-        """
-        Check if an id_num is valid
-        """
-
-        if not sf.isnumber(id_num, integer = True):
-            return False
-        
-        out = (id_num > 0)
-
-        return out
     
 
 
