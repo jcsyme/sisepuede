@@ -4,6 +4,7 @@
 
 import geopy.distance
 import numpy as np
+import pathlib
 import pandas as pd
 import re
 
@@ -2016,7 +2017,7 @@ class YAMLConfiguration:
     
         
     def _initialize_data(self,
-        fp: Union[dict, str],
+        fp: Union[dict, str, pathlib.Path],
     ) -> None:
         """
         Read the yaml dictionary. Sets the following properties:
@@ -2025,9 +2026,9 @@ class YAMLConfiguration:
             * self.path
         """
         
-        if isinstance(fp, str):
+        if isinstance(fp, str) | isinstance(fp, pathlib.Path):
             try:
-                dict_yaml = sf.read_yaml(fp, munchify_dict = False)
+                dict_yaml = sf.read_yaml(str(fp), munchify_dict = False)
             except Exception as e:
                 raise RuntimeError(f"Error initializing YAML dictionary in yaml_config: {e}")
         
