@@ -78,6 +78,17 @@ class Transformation:
         self._initialize_function(transformers, )
         
         return None
+    
+
+
+    def __call__(self,
+        df_input: Union[pd.DataFrame, None] = None,
+    ) -> pd.DataFrame:
+
+        out = self.function(df_input = df_input, )
+        
+        return out
+
 
 
 
@@ -170,9 +181,16 @@ class Transformation:
         
         # build the output function
         def func(
-            *args
+            *args,
+            df_input: Union[pd.DataFrame, None] = None,
+            strat: Union[int, None] = None,
         ):
-            out = transformer.function(*args, **self.dict_parameters, )
+            out = transformer.function(
+                *args, 
+                df_input = df_input,
+                strat = strat,
+                **self.dict_parameters, 
+            )
 
             return out
         
@@ -546,6 +564,46 @@ class Transformations:
     
 
     
+    def _initialize_transformation_baseline(self,
+    ) -> None:
+        """
+        Build the baseline Transformation
+        """
+
+        dict_config = self.config.get(self.key_config_baseline)
+
+        # build a function
+        def func_baseline(
+            *args,
+            *,
+            strat: Union[int, None] = None,
+            **kwargs,
+        ) -> pd.DataFrame:
+
+            df_out = self.transformers.baseline_inputs.copy()#HEREHERE
+
+            ##  ADD STRAT IF APPLICABLE 
+
+            if sf.isnumber(strat, integer = True):
+                df_out = sf.add_data_frame_fields_from_dict(
+                    df_out,
+                    {
+                        self.transformers.model_attributes.dim_strategy_id: int(strat)
+                    },
+                    overwrite_fields = True,
+                    prepend_q = True,
+                )
+
+            return df_out
+
+
+        # get codes
+        code = dict_config.get(self.)
+
+        return None
+
+
+
     def _initialize_transformations(self,
         default_nm_prepend: str = "Transformation",
         stop_on_error: bool = True,

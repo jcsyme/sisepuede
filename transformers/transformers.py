@@ -242,6 +242,7 @@ class Transformer:
 
         self.baseline = bool(baseline)
         self.code = str(code)
+        self.code_baseline = code_baseline
         self.id = int(id_num)
         self.name = str(name)
         
@@ -401,6 +402,7 @@ class Transformers:
     
     def __init__(self,
         dict_config: Dict,
+        code_baseline: str = "TFR:BASE",
         df_input: Union[pd.DataFrame, None] = None,
         field_region: Union[str, None] = None,
         logger: Union[logging.Logger, None] = None,
@@ -416,7 +418,10 @@ class Transformers:
         self._initialize_models(**kwargs)
         self._initialize_attributes(field_region, )
 
-        self._initialize_config(dict_config = dict_config, )
+        self._initialize_config(
+            dict_config, 
+            code_baseline,
+        )
         self._initialize_parameters()
         self._initialize_ramp()
 
@@ -527,6 +532,7 @@ class Transformers:
 
     def _initialize_config(self,
         dict_config: Union[Dict[str, Any], None],
+        code_baseline: str,
         key_baseline: str = "baseline",
         key_general: str = "general",
     ) -> None:
@@ -588,6 +594,7 @@ class Transformers:
 
         ##  SET PARAMETERS
 
+        self.code_baseline = code_baseline
         self.config = config
         self.key_config_baseline = key_baseline
         self.key_config_cats_entc_max_investment_ramp = "categories_entc_max_investment_ramp"
@@ -830,8 +837,8 @@ class Transformers:
         ##################
 
         self.baseline = Transformer(
-            "TFR:BASE", 
-            self._trfunc_baseline, 
+            self.code_baseline, 
+            self._trfunc_baseline_return, 
             attr_transformer_code
         )
         all_transformers.append(self.baseline)
@@ -2490,6 +2497,51 @@ class Transformers:
             scale_non_renewables_to_match_surplus_msp = True,
             strategy_id = strat,
             #**kwargs,
+        )
+
+
+        ##  IPPU BASE
+
+
+        ##  ADD STRAT IF APPLICABLE 
+
+        if sf.isnumber(strat, integer = True):
+            df_out = sf.add_data_frame_fields_from_dict(
+                df_out,
+                {
+                    self.model_attributes.dim_strategy_id: int(strat)
+                },
+                overwrite_fields = True,
+                prepend_q = True,
+            )
+
+
+        return df_out
+    
+
+
+    def _trfunc_baseline_return(self,
+        df_input: Union[pd.DataFrame, None] = None,
+        strat: Union[int, None] = None,
+    ) -> pd.DataFrame:
+        """
+        Create a return function to support the baseline transformation
+
+        Function Arguments
+        ------------------
+        
+
+        Keyword Arguments
+        -----------------
+        - df_input: optional input dataframe
+        - strat: optional strategy id to pass
+        """
+
+        # check input dataframe
+        df_out = (
+            self.baseline_inputs
+            if not isinstance(df_input, pd.DataFrame) 
+            else df_input
         )
 
 
