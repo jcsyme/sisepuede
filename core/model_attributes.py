@@ -1413,15 +1413,15 @@ class ModelAttributes:
 
             if fld not in attr.table.columns:
                 msg = f"""
-                Error in subsector {subsec}: required field '{fld}' not found in 
-                the table at '{attr.fp_table}'.
+                Error in {subsec} attribute table: required field '{fld}' not 
+                found in the table at '{attr.fp_table}'.
                 """
 
             elif not all([((x == 1) | (x == 0)) for x in list(attr.table[fld])]):
                 msg = f"""
-                Error in subsector {subsec}:  invalid values found in field 
-                '{fld}' in the table at '{attr.fp_table}'. Only 0 or 1 should be 
-                specified.
+                Error in {subsec} attribute table:  invalid values found in 
+                field '{fld}' in the table at '{attr.fp_table}'. Only 0 or 1 
+                should be specified.
                 """
 
             elif not valid_sum:
