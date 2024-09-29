@@ -138,7 +138,6 @@ class Strategy:
             transformations,
         )
 
-        print(func)
 
         ##  INITIALIZE AS A LIST 
 
@@ -457,6 +456,7 @@ class Strategies:
         transformations.dir_init *OR* pathlib.Path giving a full path to a
         strategy definitions CSV file.
     - logger: optional logger to use
+    - prebuild: prebuild the tables?
     - stop_on_error: stop if a strategy fails to initialize
     - **kwargs: can be used to pass 
     """
@@ -466,6 +466,7 @@ class Strategies:
         baseline_id: int = 0,
         fn_strategy_definition: Union[str, pathlib.Path] = "strategy_definitions.csv",
         logger: Union[logging.Logger, None] = None,
+        prebuild: bool = True,
         stop_on_error: bool = False,
         **kwargs,
     ) -> None:
@@ -481,6 +482,7 @@ class Strategies:
         self._initialize_strategies(
             fn_strategy_definition,
             baseline_id,
+            prebuild = prebuild,
             stop_on_error = stop_on_error,
         )
 
@@ -543,6 +545,7 @@ class Strategies:
     def _initialize_strategies(self,
         fn_strategy_definition: Union[str, pathlib.Path],
         baseline_id: int,
+        prebuild: bool = True,
         stop_on_error: bool = False,
     ) -> None:
         """
@@ -587,7 +590,8 @@ class Strategies:
                         "description": desc,
                         "name": name,
                         "transformation_specification": tspec,
-                    }
+                    },
+                    prebuild = prebuild,
                 )
             
             except Exception as e:
