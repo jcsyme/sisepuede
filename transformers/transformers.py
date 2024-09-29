@@ -509,6 +509,7 @@ class Transformers:
             following properties:
 
             * self.baseline_inputs
+            * self.inputs_raw
 
         """
 
@@ -525,6 +526,7 @@ class Transformers:
         ##  SET PROPERTIES
         
         self.baseline_inputs = baseline_inputs
+        self.inputs_raw = df_inputs
 
         return None
 
@@ -2227,6 +2229,7 @@ class Transformers:
         cats_to_cap: Union[List[str], None],
         strat: Union[int, None] = None,
         vec_implementation_ramp: Union[np.ndarray, Dict[str, int], None] = None,
+        vec_msp_resolution_cap: Union[np.ndarray, Dict[str, int], None] = None,
         **kwargs,
     ) -> pd.DataFrame:
         """
@@ -2284,6 +2287,7 @@ class Transformers:
         - vec_implementation_ramp: optional vector specifying the implementation
             scalar ramp for the transformation. If None, defaults to a uniform 
             ramp that starts at the time specified in the configuration.
+        - vec_msp_resolution_cap: MSP cap for renewables
         - **kwargs: passed to ade.transformations_general()
         """
        
@@ -2308,10 +2312,15 @@ class Transformers:
             return df_input
 
         # build dictionary if valid
-        dict_cat_to_vector = dict(
-            (x, self.vec_msp_resolution_cap)
-            for x in cats_to_cap
+        dict_cat_to_vector = (
+            dict(
+                (x, vec_msp_resolution_cap)
+                for x in cats_to_cap
+            )
+            if sf.islistlike(vec_msp_resolution_cap)
+            else {}
         )
+
 
 
         # USE CHANGE MSP MAX TRANSFORMATION FUNCTION
@@ -2476,6 +2485,7 @@ class Transformers:
             categories_entc_pps_to_cap,
             strat = None,
             vec_implementation_ramp = vec_implementation_ramp,
+            vec_msp_resolution_cap = vec_msp_resolution_cap,
         )
 
 

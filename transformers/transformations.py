@@ -24,6 +24,25 @@ _MODULE_UUID = "5FF5362F-3DE2-4A58-9CB8-01CB851D3CDC"
 #    START WITH TRANSFORMATION    #
 ###################################
 
+
+# specify some default keys for configuration 
+_DICT_KEYS = {
+    "citations": "citations",
+    "code": "transformation_code",
+    "config_general": "config_general",
+    "description": "description",
+    "id": "transformation_id",
+    "identifiers": "identifiers",
+    "name": "transformation_name",
+    "parameters": "parameters",
+    "path": "path",
+    "transformations": "transformations",
+    "transformer": "transformer",
+}
+ 
+
+
+
 class Transformation:
     """
     Parameterization class for Transformer. Used to vary implementations
@@ -242,9 +261,9 @@ class Transformation:
 
         # set some shortcut codes 
 
-        key_identifiers = kwargs.get("key_identifiers", "identifiers")
-        key_transformation_code = kwargs.get("key_transformation_code", "transformation_code")
-        key_transformation_name = kwargs.get("key_transformation_name", "transformation_name")
+        key_identifiers = kwargs.get("key_identifiers", _DICT_KEYS.get("identifiers"))
+        key_transformation_code = kwargs.get("key_transformation_code", _DICT_KEYS.get("code"))
+        key_transformation_name = kwargs.get("key_transformation_name", _DICT_KEYS.get("name"))
 
         key_yc_trasformation_code = f"{key_identifiers}.{key_transformation_code}"
         key_yc_trasformation_name = f"{key_identifiers}.{key_transformation_name}"
@@ -252,14 +271,14 @@ class Transformation:
 
         ##  SET PARAMETERS
 
-        self.key_citations = kwargs.get("key_citations", "citations")
-        self.key_description = kwargs.get("key_description", "description")
+        self.key_citations = kwargs.get("key_citations", _DICT_KEYS.get("citations"))
+        self.key_description = kwargs.get("key_description", _DICT_KEYS.get("description"))
         self.key_identifiers = key_identifiers
-        self.key_parameters = kwargs.get("key_parameters", "parameters")
+        self.key_parameters = kwargs.get("key_parameters", _DICT_KEYS.get("parameters"))
         self.key_transformation_code = key_transformation_code
-        self.key_transformation_id = "transformation_id"
+        self.key_transformation_id = _DICT_KEYS.get("id")
         self.key_transformation_name = key_transformation_name
-        self.key_transformer = kwargs.get("key_transformer", "transformer")
+        self.key_transformer = kwargs.get("key_transformer", _DICT_KEYS.get("transformer"))
         self.key_yc_trasformation_code = key_yc_trasformation_code
         self.key_yc_trasformation_name = key_yc_trasformation_name
 
@@ -397,6 +416,9 @@ class Transformations:
 
     Optional Arguments
     ------------------
+    - baseline_id: id used for baseline, or transformation that is applied to
+        raw data. All other transformations in the attribute table are increased
+        from this id.
     - fn_citations: file name of Bibtex file in dir_init containing optional 
         citations to provide
     - fn_config_general: file name of the general configuration file in dir_init
@@ -417,6 +439,7 @@ class Transformations:
 
     def __init__(self,
         dir_init: Union[str, pathlib.Path],
+        baseline_id: int = 0,
         fn_citations: str = "citations.bib",
         fn_config_general: str = "config_general.yaml",
         logger: Union[logging.Logger, None] = None,
@@ -446,6 +469,7 @@ class Transformations:
         )
 
         self._initialize_transformations(
+            baseline_id = baseline_id,
             **kwargs,
         )
 
@@ -542,75 +566,35 @@ class Transformations:
 
 
         ##  SET PARAMETERS
-        """
-        self.key_citations = kwargs.get("key_citations", "citations")
-        self.key_description = kwargs.get("key_description", "description")
-        self.key_identifiers = key_identifiers
-        self.key_parameters = kwargs.get("key_parameters", "parameters")
-        self.key_transformation_code = key_transformation_code
-        self.key_transformation_name = key_transformation_name
-        self.key_transformer = kwargs.get("key_transformer", "transformer")
-        self.key_yc_trasformation_code = key_yc_trasformation_code
-        self.key_yc_trasformation_name = key_yc_trasformation_name
-        """
 
-        self.key_trconfig_description = "description"
-        self.key_path = "path"
-        self.key_path_citations = "citations"
-        self.key_path_config_general = "config_general"
-        self.key_path_transformations = "transformations"
-
-        return None
-    
-
-    
-    def _initialize_transformation_baseline(self,
-    ) -> None:
-        """
-        Build the baseline Transformation
-        """
-
-        dict_config = self.config.get(self.key_config_baseline)
-
-        # build a function
-        def func_baseline(
-            *args,
-            *,
-            strat: Union[int, None] = None,
-            **kwargs,
-        ) -> pd.DataFrame:
-
-            df_out = self.transformers.baseline_inputs.copy()#HEREHERE
-
-            ##  ADD STRAT IF APPLICABLE 
-
-            if sf.isnumber(strat, integer = True):
-                df_out = sf.add_data_frame_fields_from_dict(
-                    df_out,
-                    {
-                        self.transformers.model_attributes.dim_strategy_id: int(strat)
-                    },
-                    overwrite_fields = True,
-                    prepend_q = True,
-                )
-
-            return df_out
-
-
-        # get codes
-        code = dict_config.get(self.)
+        self.key_trconfig_description = _DICT_KEYS.get("description")
+        self.key_path = _DICT_KEYS.get("path")
+        self.key_path_citations = _DICT_KEYS.get("citations")
+        self.key_path_config_general = _DICT_KEYS.get("config_general")
+        self.key_path_transformations = _DICT_KEYS.get("transformations")
 
         return None
 
 
 
     def _initialize_transformations(self,
+        baseline_id: int = 0,
         default_nm_prepend: str = "Transformation",
         stop_on_error: bool = True,
         **kwargs,
     ) -> None:
         """
         Initialize the transformer used to build transformations. 
+
+        Keyword Arguments
+        ------------------
+        - baseline_id: id used for baseline, or transformation that is applied 
+            to raw data. All other transformations in the attribute table are 
+            increased from this id.
+        - default_nm_prepend: string prepended to the id to generate names for
+            transformations that have invalid names specified
+        - stop_on_error: stop if a transformation fails? If False, logs and 
+            skips the failed transformation
         """
 
         ## INIT
@@ -622,8 +606,16 @@ class Transformations:
 
         # initialize dictionary of transformations 
         # - dictionary mapping transformation codes to transformations
-        dict_all_transformations = {}
-        dict_transformation_code_to_fp = {}
+        # - get baseline transformation first
+
+        transformation_baseline = self.get_transformation_baseline()
+
+        dict_all_transformations = {
+            transformation_baseline.code: transformation_baseline,
+        }
+        dict_transformation_code_to_fp = {
+            transformation_baseline.code: None,
+        }
 
 
         # iterate over available files 
@@ -662,6 +654,7 @@ class Transformations:
         attribute_transformation, dict_fields = self.build_attribute_table(
             dict_all_transformations,
             dict_transformation_code_to_fp,
+            baseline_id = baseline_id,
             default_nm_prepend = default_nm_prepend,
         )
 
@@ -672,6 +665,7 @@ class Transformations:
 
         self.attribute_transformation = attribute_transformation
         self.all_transformation_codes = all_transformation_codes
+        self.code_baseline = transformation_baseline.code
         self.dict_transformations = dict_all_transformations
         self.field_attr_code = dict_fields.get("field_code")
         self.field_attr_citation = dict_fields.get("field_citation")
@@ -689,7 +683,8 @@ class Transformations:
         **kwargs,
     ) -> None:
         """
-        Initialize the transformer used to build transformations. 
+        Initialize the transformer used to build transformations.
+        
         """
 
         # check inputs
@@ -702,9 +697,14 @@ class Transformations:
             )
         
         else:
-            # update the configuration 
+            # update the configuration, then update the data
             transformers._initialize_config(
                 self.config.dict_yaml,
+                transformers.code_baseline,
+            )
+
+            transformers._initialize_baseline_inputs(
+                transformers.inputs_raw,
             )
 
 
@@ -735,6 +735,8 @@ class Transformations:
     def build_attribute_table(self,
         dict_all_transformations: Dict[str, Transformation],
         dict_transformation_code_to_fp: Dict[str, pathlib.Path],
+        baseline_id: int = 0,
+        baseline_in_dict: bool = True,
         default_nm_prepend: str = "Transformation",
     ) -> Union[AttributeTable, dict]:
         """
@@ -745,7 +747,12 @@ class Transformations:
         ##  NEXT, BUILD THE ATTRIBUTE TABLEs
 
         # sort by default by code
-        id_def = 1
+        baseline_id = (
+            max(baseline_id, 0) 
+            if sf.isnumber(baseline_id, integer = True)
+            else 0
+        )
+        id_def = baseline_id if baseline_in_dict else baseline_id + 1#
         all_transformation_codes = sorted(dict_all_transformations.keys())
         nms_defined = []
 
@@ -954,6 +961,43 @@ class Transformations:
         # return
 
         return dict_out
+    
+
+
+    def get_transformation_baseline(self,
+    ) -> None:
+        """
+        Build the baseline Transformation
+        """
+
+        # get codes
+        key_code = _DICT_KEYS.get("code")
+        key_id = _DICT_KEYS.get("identifiers")
+        key_name = _DICT_KEYS.get("name")
+
+        code = f"{self.transformers.key_config_baseline}.{key_id}.{key_code}"
+        code = self.config.get(code)
+        name = f"{self.transformers.key_config_baseline}.{key_id}.{key_name}"
+        name = self.config.get(name)
+
+
+        ##  BUILD TRANSFORMATION
+
+        dict_tr = {
+            key_id: {
+                key_code: code,
+                key_name: name,
+            },
+            "parameters": {},
+            "transformer": self.transformers.code_baseline,
+        }
+
+        trfmn = Transformation(
+            dict_tr,
+            self.transformers
+        )
+
+        return trfmn
     
 
 
