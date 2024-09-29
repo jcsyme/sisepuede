@@ -350,7 +350,7 @@ def check_binary_fields(
 def check_fields(
     df: pd.DataFrame,
     fields: list,
-    msg_prepend: str = "Required fields: ",
+    msg_prepend: str = "Required fields ",
     throw_error_q = True
 ) -> bool:
     """
