@@ -1398,7 +1398,7 @@ class ModelAttributes:
     def _check_binary_fields(self,
         attr: AttributeTable,
         subsec: str,
-        fields: str,
+        fields: Union[List[str], str],
         force_sum_to_one: bool = False,
     ) -> None:
         """
@@ -1406,6 +1406,9 @@ class ModelAttributes:
             Set `force_sum_to_one` = True to ensure that exactly one record 
             associated with each field is 1.
         """
+        if not sf.islistlike(fields):
+            fields = [fields]
+            
         for fld in fields:
 
             msg = None
