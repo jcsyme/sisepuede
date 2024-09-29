@@ -472,6 +472,7 @@ class Transformations:
             baseline_id = baseline_id,
             **kwargs,
         )
+        self._initialize_uuid()
 
         return None
     
