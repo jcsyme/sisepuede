@@ -751,6 +751,164 @@ class Strategies:
             raise RuntimeError(msg)
 
         return path_specification
+    
+
+
+    ############################
+    #    CORE FUNCTIONALITY    #
+    ############################
+
+    def build_strategies_long(self,
+        df_input: Union[pd.DataFrame, None] = None,
+        include_base_df: bool = True,
+        strategies: Union[List[str], List[int], None] = None,
+    ) -> pd.DataFrame:
+        """
+        Return a long (by model_attributes.dim_strategy_id) concatenated
+            DataFrame of transformations.
+
+        Function Arguments
+		------------------
+
+        Keyword Arguments
+		-----------------
+        - df_input: baseline (untransformed) data frame to use to build 
+            strategies. Must contain self.key_region and 
+            self.model_attributes.dim_time_period in columns. If None, defaults
+            to self.baseline_inputs
+        - include_base_df: include df_input in the output DataFrame? If False,
+            only includes strategies associated with transformation 
+        - strategies: strategies to build for. Can be a mixture of strategy_ids
+            and names. If None, runs all available. 
+        """
+
+        # INITIALIZE STRATEGIES TO LOOP OVER
+
+        all_strategies_non_baseline = [x for x in self.all_strategies if x != self.baseline_id]
+        strategies = (
+            all_strategies_non_baseline
+            if not sf.islistlike(strategies)
+            else [x for x in all_strategies_non_baseline if x in strategies]
+        )
+
+        strategies = [self.get_strategy(x) for x in strategies]
+        strategies = sorted([x.id_num for x in strategies if x is not None])
+        n = len(strategies)
+
+
+        # LOOP TO BUILD
+        
+        t0 = time.time()
+        self._log(
+            f"Strategies.build_strategies_long() starting build of {n} strategies...",
+            type_log = "info"
+        )
+        
+        # initialize baseline
+        strat_baseline = self.get_strategy(self.baseline_id, )
+        df_out = (
+            strat_baseline(df_input = df_input, )
+            if df_input is not None
+            else strat_baseline()
+        )
+
+        if df_out is None:
+            return None
+
+        # initialize to overwrite dataframes
+        iter_shift = int(include_base_df)
+        df_out = [df_out for x in range(len(strategies) + iter_shift)]
+
+        for i, strat in enumerate(strategies):
+            t0_cur = time.time()
+            strategy = self.get_strategy(strat)
+
+            if strategy is not None:
+                try:
+                    df_out[i + iter_shift] = strategy(df_input = df_input, )
+                    t_elapse = sf.get_time_elapsed(t0_cur)
+                    self._log(
+                        f"\tSuccessfully built strategy {self.key_strategy} = {strategy.id_num} ('{strategy.name}') in {t_elapse} seconds.",
+                        type_log = "info"
+                    )
+
+                except Exception as e: 
+                    df_out[i + 1] = None
+                    self._log(
+                        f"\tError trying to build strategy {self.key_strategy} = {strategy.id_num}: {e}",
+                        type_log = "error"
+                    )
+            else:
+                df_out[i + iter_shift] = None
+                self._log(
+                    f"\tStrategy {self.key_strategy} not found. Skipping...",
+                    type_log = "warning"
+                )
+
+        # concatenate, log time elapsed and completion
+        df_out = pd.concat(df_out, axis = 0).reset_index(drop = True)
+
+        t_elapse = sf.get_time_elapsed(t0)
+        self._log(
+            f"Strategies.build_strategies_long() build complete in {t_elapse} seconds.",
+            type_log = "info"
+        )
+
+        return df_out
+    
+
+
+    def get_strategy(self,
+        strategy: Union[int, str, None],
+        return_code: bool = False,
+    ) -> None:
+        """
+        Get `strategy` based on strategy code, id, or name
+            
+        Function Arguments
+        ------------------
+        - strategy: strategy_id, strategy name, or strategy code to use to 
+            retrieve Strategy object
+            
+        Keyword Arguments
+        ------------------
+        - return_code: set to True to return the transformer code only
+        """
+
+        # skip these types
+        is_int = sf.isnumber(strategy, integer = True)
+        return_none = not is_int
+        return_none &= not isinstance(strategy, str)
+        if return_none:
+            return None
+
+        # Transformer objects are tied to the attribute table, so these field maps work
+        dict_code_to_id = self.attribute_table.field_maps.get(
+            f"{self.field_strategy_code}_to_{self.attribute_table.key}"
+        )
+        dict_name_to_id = self.attribute_table.field_maps.get(
+            f"{self.field_strategy_name}_to_{self.attribute_table.key}"
+        )
+
+        # check strategy by trying both dictionaries
+        if isinstance(strategy, str):
+            code = (
+                dict_code_to_id.get(strategy)
+                if strategy in dict_code_to_id.keys()
+                else dict_name_to_id.get(strategy)
+            )
+        
+        elif is_int:
+            code = strategy
+
+        # check returns
+        if return_code | (code is None): 
+            return code
+
+
+        out = self.dict_strategies.get(code)
+        
+        return out
 
 
     

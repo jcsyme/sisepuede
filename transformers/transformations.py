@@ -1016,14 +1016,10 @@ class Transformations:
         Function Arguments
         ------------------
         - transformer: transformer_id, transformer name, or transformer code to 
-            use to retrieve sc.Trasnformation object
+            use to retrieve Trasnformation object
             
         Keyword Arguments
         ------------------
-        - field_transformer_code: field in transformer attribute table 
-            containing the transformer code
-        - field_transformer_name: field in transformer attribute table 
-            containing the transformer name
         - return_code: set to True to return the transformer code only
         """
 
