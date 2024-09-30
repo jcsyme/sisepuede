@@ -2,6 +2,7 @@ import logging
 import numpy as np
 import pandas as pd
 import re
+import shutil
 import time
 from typing import *
 
@@ -458,6 +459,11 @@ class Strategies:
     Optional Arguments
     ------------------
     - baseline_id: optional specification of an ID as baseline. Default is 0.
+    - export_path: optional export path specification.
+        - If None, exports to SISEPUEDE default (in ref)
+        - If "transformations", writes to 
+            os.path.join(transformations.dir_init, "templates")
+        - If pathlib.Path, writes to that directory (must be a directory)
     - fn_strategy_definition: file name of strategy definiton file in 
         transformations.dir_init *OR* pathlib.Path giving a full path to a
         strategy definitions CSV file.
@@ -470,6 +476,7 @@ class Strategies:
     def __init__(self,
         transformations: trn.Transformations,
         baseline_id: int = 0,
+        export_path: Union[str, pathlib.Path, None] = None,
         fn_strategy_definition: Union[str, pathlib.Path] = "strategy_definitions.csv",
         logger: Union[logging.Logger, None] = None,
         prebuild: bool = True,
@@ -499,7 +506,9 @@ class Strategies:
 
         self._initialize_file_structure()
         self._update_model_attributes()
-        self._initialize_base_input_database()
+        self._initialize_base_input_database(
+            export_path = export_path,
+        )
         self._initialize_templates()
 
         self._initialize_uuid()
@@ -513,7 +522,62 @@ class Strategies:
     #    INITIALIZATION FUNCTIONS    #
     ##################################
 
+    def get_export_path(self,
+        export_path: Union[str, pathlib.Path, None] = None,
+        flag_export_to_transformations: str = "transformations",
+        subdir_default: str = "templates",
+    ) -> str:
+        """
+        Retrieve the export path
+        """
+        
+        # get SISEPUEDE defaults
+        dir_templates = (
+            self
+            .file_struct
+            .dict_data_mode_to_template_directory
+            .get("calibrated")
+        )
+
+        dir_templates_demo = (
+            self
+            .file_struct
+            .dict_data_mode_to_template_directory
+            .get("demo")
+        )
+
+        
+        ##  DIFFERENT ACTIONS BASED ON TYPE
+
+        if isinstance(export_path, str):
+            if export_path == flag_export_to_transformations:
+                # turn into pathlib.Path
+                export_path = self.transformations.dir_init.joinpath(subdir_default)
+                print(f"here2!:\t{export_path}")
+
+        if isinstance(export_path, pathlib.Path):
+            if not export_path.exists():
+                if ("." not in export_path.stem):
+                    export_path.mkdir()
+            
+            if export_path.is_dir():
+                dir_templates = str(export_path.joinpath("calibrated"))
+        
+        ##  RETURN DIRS
+
+        out = (
+            dir_templates,
+            dir_templates_demo
+        )
+
+        return out
+
+
+
+
+
     def _initialize_base_input_database(self,
+        export_path: Union[str, pathlib.Path, None] = None,
         regions: Union[List[str], None] = None,
         use_demo_template_on_missing: bool = True,
     ) -> None:
@@ -529,6 +593,11 @@ class Strategies:
 
         Keyword Arguments
         ------------------
+        - export_path: optional export path specification.
+            - If None, exports to SISEPUEDE default (in ref)
+            - If "transformations", writes to 
+                os.path.join(transformations.dir_init, "templates")
+            - If pathlib.Path, writes to that directory (must be a directory)
         - regions: list of regions to run experiment for
             * If None, will attempt to initialize all regions defined in
                 ModelAttributes
@@ -538,6 +607,7 @@ class Strategies:
 
         self._log("Initializing BaseInputDatabase", type_log = "info")
 
+        # get regions
         regions = (
             self.transformations.transformers.regions
             if not sf.islistlike(regions)
@@ -547,18 +617,11 @@ class Strategies:
             ]
         )
 
-        dir_templates = (
-            self
-            .file_struct
-            .dict_data_mode_to_template_directory
-            .get("calibrated")
+        # template directories
+        dir_templates, dir_templates_demo = self.get_export_path(
+            export_path = export_path,
         )
-        dir_templates_demo = (
-            self
-            .file_struct
-            .dict_data_mode_to_template_directory
-            .get("demo")
-        )
+
         
         # trying building for demo
         try:
@@ -973,6 +1036,7 @@ class Strategies:
                 fp_region = base_input_database_demo.get_template_path(
                     region,
                     sector,
+                    create_export_dir = True,
                     demo_q = False,
                     fp_templates = fp_templates_target, 
                 )
