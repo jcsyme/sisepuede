@@ -9,6 +9,7 @@ from typing import *
 from sisepuede.core.attribute_table import *
 from sisepuede.core.model_attributes import *
 import sisepuede.core.support_classes as sc
+import sisepuede.data_management.ingestion as ing
 import sisepuede.transformers.transformations as trn
 import sisepuede.utilities._toolbox as sf
 
@@ -20,9 +21,10 @@ _MODULE_UUID = "D3BC5456-5BB7-4F7A-8799-AFE0A44C3FFA"
 
 
 _DICT_KEYS = {
+    "baseline": "baseline_strategy_id",
     "code": "strategy_code",
     "description": "description",
-    "name": "strategy_name",
+    "name": "strategy",
     "transformation_specification": "transformation_specification"
 }
 
@@ -241,7 +243,12 @@ class Strategy:
             msg = f"Invalid type '{tp}' specified for strategy_id in Strategy: must be integer."
             raise ValueError(msg)
             
-        key_strategy = transformations.transformers.model_attributes.dim_strategy_id
+        key_strategy = (
+            transformations
+            .transformers
+            .model_attributes
+            .dim_strategy_id
+        )
 
         # set some fields
         field_description = "description"
@@ -249,6 +256,7 @@ class Strategy:
             "field_strategy_code",
             _DICT_KEYS.get("code")
         )
+
         field_strategy_name = kwargs.get(
             "field_strategy_name",
             _DICT_KEYS.get("name")
@@ -441,8 +449,6 @@ class Strategies:
                 SISEPUEDE architecture.
             
             
-
-                
     Initialization Arguments
     ------------------------
     - transformations: the Transformations object used to define strategies. All
@@ -473,6 +479,8 @@ class Strategies:
 
         self.logger = logger
         
+        ##  FIRST STAGE -- BUILD TRANSFORMATIONS AND STRATEGIES
+
         self._initialize_transformations(
             transformations,
         )
@@ -486,6 +494,14 @@ class Strategies:
             stop_on_error = stop_on_error,
         )
 
+        
+        ##  SECOND STAGE, REQUIRED FOR TEMPLATIZATION
+
+        self._initialize_file_structure()
+        self._update_model_attributes()
+        self._initialize_base_input_database()
+        self._initialize_templates()
+
         self._initialize_uuid()
         
         return None
@@ -497,6 +513,114 @@ class Strategies:
     #    INITIALIZATION FUNCTIONS    #
     ##################################
 
+    def _initialize_base_input_database(self,
+        regions: Union[List[str], None] = None,
+        use_demo_template_on_missing: bool = True,
+    ) -> None:
+        """
+        Initialize the BaseInputDatabase class used to construct future
+            trajectories. Initializes the following properties:
+
+            * self.base_input_database
+            * self.base_input_database_demo
+            * self.baseline_strategy
+            * self.regions
+
+
+        Keyword Arguments
+        ------------------
+        - regions: list of regions to run experiment for
+            * If None, will attempt to initialize all regions defined in
+                ModelAttributes
+        - use_demo_template_on_missing: tries to instantiate a blank template if
+            a template for a target region is missing. 
+        """
+
+        self._log("Initializing BaseInputDatabase", type_log = "info")
+
+        regions = (
+            self.transformations.transformers.regions
+            if not sf.islistlike(regions)
+            else [
+                x for x in self.transformations.transformers.regions_manager.all_regions
+                if x in regions
+            ]
+        )
+
+        dir_templates = (
+            self
+            .file_struct
+            .dict_data_mode_to_template_directory
+            .get("calibrated")
+        )
+        dir_templates_demo = (
+            self
+            .file_struct
+            .dict_data_mode_to_template_directory
+            .get("demo")
+        )
+        
+        # trying building for demo
+        try:
+            region_val = (
+                regions[0]
+                if len(regions) > 0
+                else None
+            )
+
+            base_input_database_demo = ing.BaseInputDatabase(
+                dir_templates_demo,
+                self.model_attributes,
+                region_val,
+                demo_q = True,
+                logger = self.logger,
+            )
+
+        except Exception as e:
+            msg = f"Error initializing BaseInputDatabase for demo -- {e}"
+            self._log(msg, type_log = "error")
+            raise RuntimeError(msg)
+
+
+        # try building base input database for all
+        # first, try to copy templates (if necessary and desired) fom demo to new region
+        self._try_template_init_from_demo(
+            base_input_database_demo,
+            regions,
+            fp_templates_target = dir_templates,
+            try_instantiating_templates = use_demo_template_on_missing,
+        )
+
+
+        try:
+            base_input_database = ing.BaseInputDatabase(
+                dir_templates,
+                self.model_attributes,
+                regions,
+                create_export_dir = False,
+                demo_q = False,
+                logger = self.logger
+            )
+
+        except Exception as e:
+            
+            # first, try building 
+
+            msg = f"Error initializing BaseInputDatabase -- {e}"
+            self._log(msg, type_log = "error")
+            raise RuntimeError(msg)
+
+        
+        ##  SET PROPERTIES
+
+        self.base_input_database = base_input_database
+        self.base_input_database_demo = base_input_database_demo
+        self.regions = base_input_database.regions
+
+        return None
+
+
+
     def _initialize_fields(self,
         **kwargs,
     ) -> None:
@@ -504,14 +628,15 @@ class Strategies:
         Sets the following other properties:
 
             * self.key_strategy
-            * self.field_code
+            * self.field_baseline_strategy
             * self.field_description
-            * self.field_id
-            * self.field_name
+            * self.field_strategy_code
+            * self.field_strategy_name
             * self.field_transformation_specification
         """
 
         # check from keyword arguments
+        field_baseline = kwargs.get("field_baseline_strategy", _DICT_KEYS.get("baseline"))
         field_description = kwargs.get("field_description", _DICT_KEYS.get("description"))
         field_strategy_code = kwargs.get("field_strategy_code", _DICT_KEYS.get("code"))
         field_strategy_name = kwargs.get("field_strategy_name", _DICT_KEYS.get("name"))
@@ -520,23 +645,46 @@ class Strategies:
             _DICT_KEYS.get("transformation_specification"),
         )
         
-
-        key_strategy = (
-            self
-            .transformations
-            .transformers
-            .model_attributes
-            .dim_strategy_id
-        )
+        # set some keys
+        key_region = self.model_attributes.dim_region
+        key_strategy = self.model_attributes.dim_strategy_id
+        key_time_period = self.model_attributes.dim_time_period
 
 
         ##  SET PROPERTIES
         
+        self.field_baseline_strategy = field_baseline
         self.field_description = field_description
         self.field_strategy_code = field_strategy_code
         self.field_strategy_name = field_strategy_name
         self.field_transformation_specification = field_transformation_specification
+        self.key_region = key_region
         self.key_strategy = key_strategy
+        self.key_time_period = key_time_period
+
+        return None
+    
+
+
+    def _initialize_file_structure(self,
+    ) -> None:
+        """
+        Intialize the SISEPUEDEFileStructure object and model_attributes object.
+            Initializes the following properties:
+
+            * self.file_struct
+
+            Used to access demo template paths.
+
+        """
+
+        # set shortcut
+        self.file_struct = (
+            self
+            .transformations
+            .transformers
+            .file_struct
+        )
 
         return None
     
@@ -602,11 +750,12 @@ class Strategies:
             dict_strategies.update({id_num: strat})
 
         all_strategies = sorted(list(dict_strategies.keys()))
-        
+        all_strategies_non_baseline = [x for x in all_strategies if x != baseline_id]
 
         ##  SET PROPERTIES
 
         self.all_strategies = all_strategies
+        self.all_strategies_non_baseline = all_strategies_non_baseline
         self.attribute_table = attribute_table
         self.baseline_id = baseline_id
         self.dict_strategies = dict_strategies
@@ -614,6 +763,58 @@ class Strategies:
 
         return None
 
+
+
+    def _initialize_templates(self,
+    ) -> None:
+        """
+        Initialize sectoral templates. Sets the following properties:
+
+            * self.dict_sectoral_templates
+            * self.input_template
+        """
+
+        # initialize some components
+        input_template = ing.InputTemplate(
+            None,
+            self.model_attributes
+        )
+        attr_sector = self.model_attributes.get_sector_attribute_table()
+        dict_sectoral_templates = {}
+
+
+        for sector in self.model_attributes.all_sectors:
+            
+            # get baseline "demo" template, use for ranges
+            fp_read = self.base_input_database_demo.get_template_path(
+                self.regions[0], 
+                sector
+            )
+
+            df_template = pd.read_excel(
+                fp_read, 
+                sheet_name = input_template.name_sheet_from_index(input_template.baseline_strategy)
+            )
+
+            # extract key fields (do not need time periods)
+            fields_ext = [x for x in input_template.list_fields_required_base]
+            fields_ext += [
+                x for x in df_template.columns 
+                if input_template.regex_template_max.match(str(x)) is not None
+            ]
+            fields_ext += [
+                x for x in df_template.columns 
+                if input_template.regex_template_min.match(str(x)) is not None
+            ]
+
+            df_template = df_template[fields_ext].drop_duplicates()
+
+            dict_sectoral_templates.update({sector: df_template})
+
+        self.dict_sectoral_templates = dict_sectoral_templates
+        self.input_template = input_template
+
+        return None
 
     
 
@@ -623,6 +824,7 @@ class Strategies:
         """
         Sets the following other properties:
 
+            * self.model_attributes
             * self.transformations
         """
 
@@ -631,10 +833,12 @@ class Strategies:
             msg = f"Invalid type '{tp}' input for `transformations` in Strategies: must be of class Transformations"
             raise RuntimeError(msg)
 
-        
+
         ##  set properties
 
+        self.model_attributes = transformations.transformers.model_attributes # shortcut
         self.transformations = transformations
+
         return None
 
 
@@ -673,13 +877,123 @@ class Strategies:
         - **kwargs: passed as logging.Logger.METHOD(msg, **kwargs)
         """
         sf._optional_log(self.logger, msg, type_log = type_log, **kwargs)
-
     
+
+
+    def _update_model_attributes(self,
+    ) -> None:
+        """
+        Update shared ModelAttributes, which will need to access single 
+            attribute_strategy defined herein. Updates the following properties:
+
+            * self.file_struct.model_attributes
+            * self.model_attributess
+            * self.transformations.transformers.model_attributes
+        """
+
+        # update dictionary in model attributes object
+        model_attributes = self.model_attributes
+        (
+            model_attributes
+            .dict_attributes
+            .get(model_attributes.attribute_group_key_dim)
+            .update(
+                {
+                    model_attributes.dim_strategy_id: self.attribute_table
+                }
+            )
+        )
+
+        
+        ##  UPDATE ATTRIBUTES
+
+        self.file_struct.model_attributes = model_attributes
+        self.model_attributes = model_attributes
+        self.transformations.transformers.file_struct.model_attributes = model_attributes
+        self.transformations.transformers.model_attributes = model_attributes
+
+        return None
+    
+
 
     
     ##########################################
     #    INITIALIZATION SUPPORT FUNCTIONS    #
     ##########################################
+
+    def _try_template_init_from_demo(self,
+        base_input_database_demo: Union[ing.BaseInputDatabase, None],
+        regions: List[str],
+        fp_templates_target: Union[str, None] = None,
+        try_instantiating_templates: bool = True,
+    ) -> None:
+        """
+        Try initializing templates for each sector using the demo templates. 
+
+        Function Arguments
+        ------------------
+        - base_input_database_demo: Base input database for demo. If None, tries
+            to call self.base_input_database_demo
+        - regions: list of regions to init for. If None, tries self.regions
+
+
+        Keyword Arguments
+        -----------------
+        - fp_templates_target: optional path to templates to try. Need to 
+            specify for regions if base_input_database_demo is being used to 
+            build paths for region templates
+        - try_instantiating_templates: base functionality; if True, tries
+            initializing new templates from demo
+        """
+        
+        ##  SOME INITIALIZATION
+
+        try:
+            base_input_database_demo = (
+                self.base_input_database_demo
+                if base_input_database_demo is None
+                else base_input_database_demo
+            )
+
+            regions = self.regions if (regions is None) else regions
+
+        except Exception as e:
+            return None
+
+        if not try_instantiating_templates:
+            return None
+
+
+        ##  ITERATE OVER REGIONS TO BUILD TEMPLATES IF NEEDED
+
+        for region in regions:
+            for sector in self.model_attributes.all_sectors:
+
+                # try to build regional path
+                fp_region = base_input_database_demo.get_template_path(
+                    region,
+                    sector,
+                    demo_q = False,
+                    fp_templates = fp_templates_target, 
+                )
+
+                if os.path.exists(fp_region):
+                    continue
+
+                # otherwise, get demo path and copy over
+                fp_demo = base_input_database_demo.get_template_path(
+                    None,
+                    sector,
+                )
+                
+                shutil.copyfile(
+                    fp_demo,
+                    fp_region
+                )
+        
+        return None
+
+
 
     def get_attribute_table(self,
         fp: Union[str, pathlib.Path],
@@ -712,17 +1026,27 @@ class Strategies:
             msg_prepend = "Fields required for Strategy definiton table "
         )
 
+        
+        ##  SPECIFY BASELINE INFO
+
+        # verify that the baseline id is in the keys
+        if baseline_id not in df[self.key_strategy].unique():
+            msg = f"Baseline {self.key_strategy} = {baseline_id} not found in attribute table. Check that the baseline is defined"
+            raise KeyError(msg)
+        
+        # set baseline field (ignore if it exists already)
+        df[self.field_baseline_strategy] = [
+            int(x == baseline_id) 
+            for x in list(df[self.key_strategy])
+        ]
+            
+
         # next, build attribute table and check the specification of baseline strategy
         attribute_table = AttributeTable(
             df,
             self.key_strategy,
             []
         )
-
-        # verify that the baseline id is in the keys
-        if baseline_id not in attribute_table.key_values:
-            msg = f"Baseline {self.key_strategy} = {baseline_id} not found in attribute table. Check that the baseline is defined"
-            raise KeyError(msg)
 
         return attribute_table
     
@@ -784,11 +1108,10 @@ class Strategies:
 
         # INITIALIZE STRATEGIES TO LOOP OVER
 
-        all_strategies_non_baseline = [x for x in self.all_strategies if x != self.baseline_id]
         strategies = (
-            all_strategies_non_baseline
+            self.all_strategies_non_baseline
             if not sf.islistlike(strategies)
-            else [x for x in all_strategies_non_baseline if x in strategies]
+            else [x for x in self.all_strategies_non_baseline if x in strategies]
         )
 
         strategies = [self.get_strategy(x) for x in strategies]
@@ -858,6 +1181,418 @@ class Strategies:
     
 
 
+    def build_strategies_to_templates(self,
+        df_base_trajectories: Union[pd.DataFrame, None] = None,
+        df_exogenous_strategies: Union[pd.DataFrame, None] = None,
+        regions: Union[List[str], None] = None,
+        replace_template: bool = False,
+        return_q: bool = False,
+        sectors: Union[List[str], str] = None,
+        strategies: Union[List[str], List[int], None] = None,
+        **kwargs,
+    ) -> pd.DataFrame:
+        """
+        Return a long (by model_attributes.dim_strategy_id) concatenated
+            DataFrame of transformations.
+
+        Function Arguments
+        ------------------
+
+        Keyword Arguments
+        -----------------
+        - df_base_trajectories: baseline (untransformed) data frame to use to 
+            build strategies. Must contain self.key_region and 
+            model_attributes.dim_time_period in columns. If None, defaults
+            to self.baseline_inputs
+        - df_exogenous_strategies: optional exogenous strategies to pass. Must 
+            contain self.key_region and model_attributes.dim_time_period in 
+            columns. If None, no action is taken. 
+        - regions: optional list of regions to build strategies for. If None, 
+            defaults to all defined.
+        - replace_template: replace template if it exists? If False, tries to 
+            overwrite existing sheets.
+        - return_q: return an output dictionary? If True, will return all 
+            templates in the form of a dictionary. Otherwise, writes to output 
+            path implied by SISEPUEDEFileStructure
+        - sectors: optional sectors to specify for export. If None, will export 
+            all.
+        - strategies: strategies to build for. Can be a mixture of strategy_ids
+            and names. If None, runs all available. 
+        - **kwargs: passed to self.input_template.template_from_inputs()
+        """
+
+        # INITIALIZE STRATEGIES TO LOOP OVER
+        
+        model_attributes = self.model_attributes
+
+        # initialize attributes and other basic variables
+        attr_sector = model_attributes.get_sector_attribute_table()
+        attr_strat = model_attributes.get_dimensional_attribute_table(
+            model_attributes.dim_strategy_id
+        )
+
+        fields_var_all = model_attributes.build_variable_dataframe_by_sector(
+            None, 
+            include_time_periods = False,
+        )
+        fields_var_all = list(fields_var_all["variable"])
+        
+        
+        # initialize baseline dataframe
+        strat_baseline = self.get_strategy(self.baseline_id, )
+        df_out = strat_baseline(df_input = df_base_trajectories, )
+        return_none = df_out is None
+        
+        
+        # get input component and add baseline strategy marker
+        fields_sort = (
+            [
+                self.attribute_table.key, 
+                self.key_time_period
+            ] 
+            if (self.attribute_table.key in df_out.columns) 
+            else [field_time_period]
+        )
+        
+        
+        # check regions
+        regions = (
+            [x for x in self.regions if x in regions]
+            if sf.islistlike(regions)
+            else self.regions
+        )
+        n_r = len(regions)
+        return_none |= (len(regions) == 0)
+        
+        
+        # check sectors
+        sectors = (
+            [x for x in sectors if x in model_attributes.all_sectors]
+            if sf.islistlike(sectors)
+            else model_attributes.all_sectors
+        )
+        return_none |= (len(sectors) == 0)
+        
+        
+        # check strategies HEREHERE
+        strategies = (
+            self.all_strategies_non_baseline
+            if not sf.islistlike(strategies)
+            else [x for x in self.all_strategies_non_baseline if x in strategies]
+        )
+        #strategies = [self.get_strategy(x) for x in strategies]
+        #strategies = sorted([x.id_num for x in strategies if x is not None])
+        n = len(strategies)
+        
+        if return_none:
+            return None
+        
+        
+        # LOOP TO BUILD
+
+        t0 = time.time()
+        self._log(
+            f"Starting build of {n} strategies in {n_r} regions...",
+            type_log = "info"
+        )
+        
+        
+        # initialize to overwrite dataframes
+        dict_sectors = dict((s, {}) for s in attr_sector.key_values)
+        dict_write = dict((r, dict_sectors) for r in regions)
+        df_out_grouped = df_out.groupby([self.key_region])
+
+        # try getting exogenous strategies grouped by region (as dict) -- if fails, will return None
+        dict_exogenous_grouped = self.check_exogenous_strategies(df_exogenous_strategies)
+    
+
+        # iterate over regions
+        for r, df in df_out_grouped:
+            
+            r = r[0] if isinstance(r, tuple) else r
+            if r not in regions:
+                continue
+            
+            self._log(f"Starting build for region {r}", type_log = "info")
+            
+            df_out_list = [df, df.copy()]
+            dict_cur = (
+                dict_write.get(r)
+                if return_q
+                else dict_sectors.copy()
+            )
+                
+
+            ##  ITERATE OVER FUNCTIONAL TRANSFORMATIONS
+
+            for i, strat in enumerate(strategies):
+                t0_cur = time.time()
+                strategy = self.get_strategy(strat)
+
+                if strategy is None:
+                    self._log(
+                        f"\tStrategy {self.key_strategy} not found: check that a Strategy object has been defined associated with the id.",
+                        type_log = "warning"
+                    )
+                    continue
+
+
+                # build strategies (baseline and alternative)
+                try:
+                    df_out_list[1] = strategy(df_input = df, )
+
+                    t_elapse = sf.get_time_elapsed(t0_cur)
+                    self._log(
+                        f"\tSuccessfully built Strategy {self.key_strategy} = {strategy.id_num} ('{strategy.name}') in {t_elapse} seconds.",
+                        type_log = "info"
+                    )
+                    skip_q = False
+                    
+                except Exception as e: 
+                    df_out[i + 1] = None
+                    self._log(
+                        f"\tError trying to build strategy {self.key_strategy} = {strategy.id_num}: {e}",
+                        type_log = "error"
+                    )
+                    continue
+                
+                # turn into input to template builder 
+                df_cur = pd.concat(df_out_list, axis = 0).reset_index(drop = True)
+                fields_drop = [x for x in df_cur.columns if x not in fields_var_all + fields_sort]
+                df_cur = (
+                    df_cur
+                    .drop(fields_drop, axis = 1)
+                    .sort_values(by = fields_sort)
+                    .reset_index(drop = True)
+                )
+
+                # global dc
+                # dc = df_cur.copy()
+        
+                # split the current transformation into 
+                dict_cur = self.build_templates_dictionary_from_current_transformation(
+                    df_cur,
+                    attr_sector,
+                    dict_cur,
+                    **kwargs
+                )
+                
+
+            ##  ADD ANY ADDITIONAL, EXOGENOUSLY DEFINED STRATEGIES?
+
+            if isinstance(dict_exogenous_grouped, dict):
+                
+                self._log(
+                    f"Starting integration of exogenous strategies in region '{r}",
+                    type_log = "info"
+                )
+
+                df_cur_grouped = dict_exogenous_grouped.get(r)
+                if df_cur_grouped is not None:
+
+                    # ignore strategies that are defined functionally
+                    df_cur_grouped = (
+                        df_cur_grouped[
+                            ~df_cur_grouped[self.key_strategy].isin(strategies)
+                        ]
+                        .groupby([self.key_strategy])
+                    )
+
+                    for strat, df_exog in df_cur_grouped:
+                        
+                        strat = strat[0] if isinstance(strat, tuple) else strat
+
+                        df_cur = None
+                        # try to concatenate current strategy
+                        try:
+                            df_out_list[1] = df_exog
+                            df_cur = (
+                                pd.concat(
+                                    df_out_list, 
+                                    axis = 0,
+                                )
+                                .reset_index(drop = True)
+                            )
+
+                            self._log(
+                                f"\tSuccessfully integrated exogenous strategy {self.key_strategy} = {strat}.",
+                                type_log = "info"
+                            )
+                            
+                        except Exception as e: 
+                            df_out[i + 1] = None
+
+                            self._log(
+                                f"\tError trying to integrate exogenous strategy {self.key_strategy} = {strat}: {e}",
+                                type_log = "error"
+                            )
+
+                            continue
+                    
+                        # drop unnecessary fields and prepare for templatization
+                        fields_drop = [x for x in df_cur.columns if x not in fields_var_all + fields_sort]
+                        df_cur = (
+                            df_cur
+                            .drop(fields_drop, axis = 1)
+                            .sort_values(by = fields_sort)
+                            .reset_index(drop = True)
+                        )
+
+                        # split the current exogenous transformation up
+                        dict_cur = self.build_templates_dictionary_from_current_transformation(
+                            df_cur,
+                            attr_sector,
+                            dict_cur,
+                            **kwargs
+                        )
+
+            
+            ##  EXPORT FILES?
+
+            if not return_q:
+                for sector_abv in attr_sector.key_values:
+                    
+                    sector = (
+                        attr_sector
+                        .field_maps.get(f"{attr_sector.key}_to_sector")
+                        .get(sector_abv)
+                    )
+        
+                    if sector not in sectors:
+                        continue
+                        
+                     # get path and write output   
+                    fp_write = self.base_input_database.get_template_path(
+                        r, 
+                        sector,
+                        create_export_dir = True
+                    )
+
+                    self._log(
+                        f"Exporting '{sector_abv}' template in region {r} to {fp_write}", 
+                        type_log = "info"
+                    )
+
+                    sf.dict_to_excel(
+                        fp_write,
+                        dict_cur.get(sector_abv),
+                        replace_file = replace_template,
+                    )
+                    
+            
+            self._log(f"Templates build for region {r} complete.\n\n", type_log = "info")
+
+        t_elapse = sf.get_time_elapsed(t0)
+        self._log(
+            f"Integrated transformations build complete in {t_elapse} seconds.",
+            type_log = "info"
+        )
+        
+        return_val = dict_write if return_q else 0
+
+        return return_val
+    
+
+
+    def build_templates_dictionary_from_current_transformation(self,
+        df_cur: pd.DataFrame,
+        attr_sector: AttributeTable,
+        dict_update: dict,
+        **kwargs
+    ) -> Union[Dict, None]:
+        """
+        Support function for build_strategies_to_templates(); 
+
+        Function Arguments
+        ------------------
+        - df_cur: data frame that represents a transformation
+        - attr_sector: sector attribute table
+        - dict_update: dictionary to update
+
+        Keyword Arguments
+        -----------------
+        **kwargs: passed to self.input_template.template_from_inputs()
+        """
+
+        for sector_abv in attr_sector.key_values:
+
+            # get sector name
+            sector = (
+                attr_sector
+                .field_maps
+                .get(f"{attr_sector.key}_to_sector")
+                .get(sector_abv)
+            )
+
+            df_template = self.dict_sectoral_templates.get(sector)
+
+            # build template
+            dict_write_cur = self.input_template.template_from_inputs(
+                df_cur,
+                df_template,
+                sector_abv,
+                **kwargs
+            )
+
+            dict_update[sector_abv].update(dict_write_cur)
+
+        return dict_update
+    
+
+
+    def check_exogenous_strategies(self,
+        df_exogenous_strategies: pd.DataFrame,
+    ) -> Union[Dict[str, pd.DataFrame], None]:
+        """
+        Check df_exogenous_strategies for build_strategies_to_templates(). If 
+            df_exogenous_strategies is valid, will return a dictionary mapping
+            a region (key) to a dataframe containing exogenous strategies.
+
+            Otherwise, returns None. 
+        """
+        # check if exogenous strategies are being passed
+        dict_exogenous_grouped = None
+        return_none = False
+
+        if isinstance(df_exogenous_strategies, pd.DataFrame):
+            
+            # check fields
+            if self.key_region not in df_exogenous_strategies.columns:
+                self._log(
+                    f"Region key '{self.key_region}' missing from df_exogenous_strategies. Strategies will not be read from df_exogenous_strategies.",
+                    type_log = "warning",
+                )
+                return_none = True
+            
+            if self.key_strategy not in df_exogenous_strategies.columns:
+                self._log(
+                    f"Strategy key '{self.key_strategy}' missing from df_exogenous_strategies. Strategies will not be read from df_exogenous_strategies.",
+                    type_log = "warning",
+                )
+                return_none = True
+
+            
+            if return_none:
+                return None
+
+            # next, try to group the dataframe
+            try:
+                dict_exogenous_grouped = sf.group_df_as_dict(
+                    df_exogenous_strategies,
+                    [self.key_region],
+                )
+
+            except Exception as e:
+                self._log(
+                    f"Error trying to group df_exogenous_strategies in check_exogenous_strategies(): {e}.",
+                    type_log = "error",
+                )
+
+        # return output
+        return dict_exogenous_grouped
+    
+
+
     def get_strategy(self,
         strategy: Union[int, str, None],
         return_code: bool = False,
@@ -909,6 +1644,7 @@ class Strategies:
         out = self.dict_strategies.get(code)
         
         return out
+    
 
 
     

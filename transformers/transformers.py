@@ -492,6 +492,7 @@ class Transformers:
         self.attribute_technology = attribute_technology
         self.attribute_transformer_code = attribute_transformer_code
         self.key_region = field_region
+        self.key_time_period = time_periods.field_time_period
         self.key_transformer_code = attribute_transformer_code.key
         self.time_periods = time_periods
         self.regions_manager = regions_manager
@@ -510,23 +511,52 @@ class Transformers:
 
             * self.baseline_inputs
             * self.inputs_raw
+            * self.regions
 
         """
 
-        baseline_inputs = (
-            self._trfunc_baseline(
-                df_inputs, 
+        # initialize
+        baseline_inputs = None
+        inputs_raw = None
+        regions = None
+
+        if isinstance(df_inputs, pd.DataFrame):
+            # verify that certain keys are included
+            sf.check_fields(
+                df_inputs,
+                [
+                    self.key_region,
+                    self.key_time_period
+                ],
+                msg_prepend = "Fields required in input data frame used to initialize Transformers()"
+            )
+
+            
+            # get regions
+            regions = [
+                x for x in self.regions_manager.all_regions
+                if x in df_inputs[self.key_region].unique()
+            ]
+            
+            if len(regions) == 0:
+                raise RuntimeError(f"No valid regions found in input data frame `df_input`.")
+
+            # build baseline inputs
+            baseline_inputs = self._trfunc_baseline(
+                df_inputs[
+                    df_inputs[self.key_region]
+                    .isin(regions)
+                ]
+                .reset_index(drop = True, ), 
                 strat = None,
             ) 
-            if isinstance(df_inputs, pd.DataFrame) 
-            else None
-        )
 
         
         ##  SET PROPERTIES
         
         self.baseline_inputs = baseline_inputs
         self.inputs_raw = df_inputs
+        self.regions = regions
 
         return None
 
