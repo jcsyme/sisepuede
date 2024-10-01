@@ -6,10 +6,10 @@ import sys
 # -- Project information
 
 project = "SISEPUEDE"
-copyright = "2022"
+copyright = "2024"
 author = "James Syme, Edmundo Molina Perez, Nidhi Kalra"
-release = "0.9"
-version = "0.9.0"
+release = "1.0"
+version = "1.0.0"
 
 # solution to allow variable window width: https://stackoverflow.com/questions/23211695/modifying-content-width-of-the-sphinx-theme-read-the-docs
 
@@ -26,12 +26,13 @@ print(f"\n\n\n\n\n##### HERE - {path}\n\n\n\n\n")
 # -- General configuration
 
 extensions = [
-    "sphinx.ext.duration",
-    "sphinx.ext.doctest",
+    "sphinx.directives.patches",
     "sphinx.ext.autodoc",
     "sphinx.ext.autosummary",
+    "sphinx.ext.doctest",
+    "sphinx.ext.duration",
     "sphinx.ext.intersphinx",
-    "sphinx.directives.patches",
+    "sphinx.ext.napoleon",
     "sphinx_rtd_theme",
 ]
 

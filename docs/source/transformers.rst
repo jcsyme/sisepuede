@@ -42,8 +42,10 @@ LIST TRANSFORMERS HERE
 
 .. the module should be available from path set in conf.py https://sphinx-tutorial.readthedocs.io/step-2/
 .. autoclass:: sisepuede.transformers.transformers.Transformers
+    .. automethod :: agrc_expand_conservation_agriculture
+    .. : members : _trfunc_agrc_decrease_exports, _trfunc_agrc_expand_conservation_agriculture
 
-.. autofunction:: sisepuede.transformers.transformers.Transformers._trfunc_inen_fuel_switch_low_and_high_temp
+.. _trfunc_inen_fuel_switch_low_and_high_temp
 
 
 

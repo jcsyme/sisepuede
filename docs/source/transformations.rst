@@ -28,6 +28,11 @@ Defining Transformations
 Transformations are parameterizations of Transformers. 
 
 .. the module should be available from path set in conf.py https://sphinx-tutorial.readthedocs.io/step-2/
+.. autoclass:: sisepuede.transformers.transformations.Transformation
+
+
+
+.. the module should be available from path set in conf.py https://sphinx-tutorial.readthedocs.io/step-2/
 .. autoclass:: sisepuede.transformers.transformations.Transformations
 
 
