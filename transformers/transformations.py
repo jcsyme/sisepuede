@@ -15,9 +15,9 @@ import sisepuede.utilities._toolbox as sf
 
 
 
-
+_MODULE_CODE_SIGNATURE = "TX"
 _MODULE_UUID = "5FF5362F-3DE2-4A58-9CB8-01CB851D3CDC" 
-
+_TRANSFORMATION_REGEX_FLAG_PREPEND = "transformation"
 
 
 ###################################
@@ -39,35 +39,29 @@ _DICT_KEYS = {
     "transformations": "transformations",
     "transformer": "transformer",
 }
- 
+
 
 
 
 class Transformation:
-    """
-    Parameterization class for Transformer. Used to vary implementations
-        of Transfomers.
+    """Parameterization class for Transformer. Used to vary implementations of Transfomers. A Transformation reads parameters from a configuration file, an exiting YAMLConfiguration object, or an existing dictionary to allow users the ability to explore different magnitudes, timing, categories, or other parameterizations of a ``Transformer``.
     
 
-    Initialization Arguments
-    ------------------------
-    - config: specification of configuration dictionary used to map parameters
-        to Transformer. Can be:
+    Parameters
+    ----------
+    config : Union[dict, str, sc.YAMLConfiguration]
+        specification of configuration dictionary used to map parameters to Transformer. Can be:
 
         * dict: configuration dictionary
         * str: file path to configuration file to read
         * YAMLConfiguration: existing YAMLConfiguration
 
-    - transformers: Transformers object used to validate input parameters and 
-        call function
+    transformers : trs.Transformer
+        Transformers object used to validate input parameters and call function
 
-    Optional Arguments
-    ------------------
-    - **kwargs: Optional keyword arguments can include the following elements
+    **kwargs:
+        Optional keyword arguments, which can include the following elements
         
-
-        ##  Configuration Keys
-
         * key_citations
         * key_description
         * key_identifiers
@@ -75,7 +69,10 @@ class Transformation:
         * key_transformation_code
         * key_transformation_name
         * key_transformer
-
+    
+    Returns
+    -------
+    ``Transformation`` class
     """
     
     def __init__(self,
@@ -231,19 +228,26 @@ class Transformation:
         """
         Set transformation code and, optionally, transformation name. Sets the
             following properties:
-
+            
+            * self.citations
             * self.code
+            * self.description
+            * self.id_num
             * self.name
         """
 
+        citations = self.config.get(self.key_citations)
         code = self.config.get(self.key_yc_trasformation_code)
+        description = self.config.get(self.key_description)
         id_num = None # initialize as None, can overwrite later
         name = self.config.get(self.key_yc_trasformation_name)
 
         
         ##  SET PROPERTIES
 
+        self.citations = citations
         self.code = code
+        self.description = description
         self.id_num = id_num
         self.name = name
 
@@ -344,10 +348,7 @@ class Transformation:
 #######################################
 
 class Transformations:
-    """
-    Build a collection of parameters used to construct transformations. The 
-        Transformations class searches a specified directory to ingest three 
-        required file types and a fourth optional type:
+    """Build a collection of parameters used to construct transformations. The ``Transformations`` class searches a specified directory to ingest three required file types and a fourth optional type:
 
         (1) General configuration file (by default `config_general.yaml`). This
             file is used to specify some general parameters used across 
@@ -408,33 +409,30 @@ class Transformations:
             
 
     
-    Initialization Arguments    
-    ------------------------
-    - dir_init: directory containing configuration files, 
-    - transformers: Transformers object used to validate input parameters and 
-        call function
+    Parameters    
+    ----------
+    dir_init: Union[str, pathlib.Path]
+        Directory containing configuration files
+    baseline_id : int
+        id used for baseline, or transformation that is applied to raw data. All other transformations in the attribute table are increased from this id.
+    fn_citations : str
+        file name of Bibtex file in dir_init containing optional citations to provide
+    fn_config_general : str
+        file name of the general configuration file in dir_init
+    logger : Union[logging.Logger, None]
+        Optional logger object to pass
+    regex_transformation_config : re.Pattern
+        regular expression used to match transformation configuration files
+    stop_on_error : bool
+        throw an error if a transformation fails? Otherwise, will skip transformation configuration files that fail. 
+    transformers : Union[trs.Transformers, None]
+        optional existing Transformers object. If None is available, initializes one.
 
-    Optional Arguments
-    ------------------
-    - baseline_id: id used for baseline, or transformation that is applied to
-        raw data. All other transformations in the attribute table are increased
-        from this id.
-    - fn_citations: file name of Bibtex file in dir_init containing optional 
-        citations to provide
-    - fn_config_general: file name of the general configuration file in dir_init
-    - regex_transformation_config: regular expression used to match 
-        transformation configuration files
-    - stop_on_error: throw an error if a transformation fails? Otherwise, will
-        skip transformation configuration files that fail. 
-    - transformers: optional existing Transformers object. If None is available,
-        initializes one;
-        NOTE: If a transformers object is NOT specified, then you must include
-            the following keywords to generate dataframes of inputs. 
+        NOTE: If a transformers object is NOT specified (i.e., if transformers is None), then you must include the following keywords to generate dataframes of inputs. 
 
-            * df_input: the input dataframe of base SISEPUEDE inputs
+            * `df_input`: the input dataframe of base SISEPUEDE inputs
         
-        Additionally, "field_region" can be included if the region field differs
-        from `model_attributes.dim_region`
+        Additionally, "field_region" can be included if the region field differs from `model_attributes.dim_region`
     """
 
     def __init__(self,
@@ -443,7 +441,7 @@ class Transformations:
         fn_citations: str = "citations.bib",
         fn_config_general: str = "config_general.yaml",
         logger: Union[logging.Logger, None] = None,
-        regex_transformation_config: re.Pattern = re.compile("transformation_(.\D*).yaml"),
+        regex_transformation_config: re.Pattern = re.compile(f"{_TRANSFORMATION_REGEX_FLAG_PREPEND}_(.\D*).yaml"),
         stop_on_error: bool = True,
         transformers: Union[trs.Transformers, None] = None,
         **kwargs,

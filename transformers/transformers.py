@@ -33,8 +33,8 @@ import sisepuede.utilities._toolbox as sf
 
 
 
+_MODULE_CODE_SIGNATURE = "TFR"
 _MODULE_UUID = "D3BC5456-5BB7-4F7A-8799-AFE0A44C3FFA" 
-
 
 
 ###############################################
@@ -148,22 +148,24 @@ class Transformer:
         code: str,
         func: Callable,
         attr_transfomer: Union[AttributeTable, None],
-        code_baseline: str = "TFR:BASE",
-        field_transformer_id: str = "transformer_id",
-        field_transformer_name: str = "transformer",
+        code_baseline: str = f"{_MODULE_CODE_SIGNATURE}:BASE",
         overwrite_docstr: bool = True,
+        **kwargs,
     ) -> None:
 
         self._initialize_function(
             func, 
             overwrite_docstr,
         )
+
+        self._initialize_fields(
+            **kwargs,
+        )
+
         self._initialize_code(
             code, 
             code_baseline,
             attr_transfomer, 
-            field_transformer_id,
-            field_transformer_name,
         )
 
         self._initialize_uuid()
@@ -195,8 +197,6 @@ class Transformer:
         code: str,
         code_baseline: str,
         attr_transfomer: Union[AttributeTable, None],
-        field_transformer_id: str,
-        field_transformer_name: str,
     ) -> None:
         """
         Initialize transfomer identifiers, including the code (key), name, and
@@ -216,7 +216,7 @@ class Transformer:
         id_num = (
             attr_transfomer
             .field_maps
-            .get(f"{attr_transfomer.key}_to_{field_transformer_id}")
+            .get(f"{attr_transfomer.key}_to_{self.field_transformer_id}")
             if attr_transfomer is not None
             else None
         )
@@ -227,22 +227,49 @@ class Transformer:
         name = (
             attr_transfomer
             .field_maps
-            .get(f"{attr_transfomer.key}_to_{field_transformer_name}")
+            .get(f"{attr_transfomer.key}_to_{self.field_transformer_name}")
             if attr_transfomer is not None
             else None
         )
         name = name.get(code) if (name is not None) else ""
 
-
         # check baseline
         baseline = (code == code_baseline)
+
+
+        ##  TRY GETTING OPTIONAL PROPERTIES
+
+        # initialize and check citations
+        citations = (
+            attr_transfomer
+            .field_maps
+            .get(f"{attr_transfomer.key}_to_{self.field_citations}")
+            if attr_transfomer is not None
+            else None
+        )
+        citations = citations.get(code) if citations is not None else None
+        citations = None if sf.isnumber(citations, skip_nan = False) else citations
+
+
+        # initialize and check description
+        description = (
+            attr_transfomer
+            .field_maps
+            .get(f"{attr_transfomer.key}_to_{self.field_description}")
+            if attr_transfomer is not None
+            else None
+        )
+        description = description.get(code) if description is not None else None
+        description = None if sf.isnumber(description, skip_nan = False) else description
 
 
         ##  SET PROPERTIES
 
         self.baseline = bool(baseline)
+        self.citations = citations
         self.code = str(code)
         self.code_baseline = code_baseline
+        self.description = description
         self.id = int(id_num)
         self.name = str(name)
         
@@ -320,6 +347,33 @@ class Transformer:
     
 
 
+    def _initialize_fields(self,
+        **kwargs,
+    ) -> None:
+        """
+        Set the optional and required keys used to specify a transformation.
+            Can use keyword arguments to set keys.
+        """
+
+        # set some shortcut codes 
+
+        field_citations = kwargs.get("field_citations", "citations")
+        field_description = kwargs.get("field_description", "description")
+        field_transformer_id = kwargs.get("field_transformer_id", "transformer_id")
+        field_transformer_name = kwargs.get("field_transformer_name", "transformer")
+        
+
+        ##  SET PARAMETERS
+
+        self.field_citations = field_citations
+        self.field_description = field_description
+        self.field_transformer_id = field_transformer_id
+        self.field_transformer_name = field_transformer_name
+
+        return None
+    
+
+
     def _initialize_uuid(self,
     ) -> None:
         """
@@ -351,8 +405,6 @@ class Transformers:
 
     Initialization Arguments
     ------------------------
-    - model_attributes: ModelAttributes object used to manage variables and
-        coordination
     - dict_config: configuration dictionary used to pass parameters to 
         transformations. See ?TransformerEnergy._initialize_parameters() for
         more information on requirements.
@@ -368,13 +420,6 @@ class Transformers:
 
     Optional Arguments
     ------------------
-    - baseline_with_lurf: set to True to let the baseline include partial land
-        use reallocation in the baseline--passed to TransformersAFOLU as
-        a keyword argument.
-        * NOTE: If True, then transformation_lndu_reallocate_land() 
-            has no effect.
-        * NOTE: this is set in both `self._trfunc_af_baseline()` and
-            `self._trfunc_lndu_reallocate_land()` separately
     - fp_nemomod_temp_sqlite_db: optional file path to use for SQLite database
         used in Julia NemoMod Electricity model
         * If None, defaults to a temporary path sql database
@@ -402,7 +447,7 @@ class Transformers:
     
     def __init__(self,
         dict_config: Dict,
-        code_baseline: str = "TFR:BASE",
+        code_baseline: str = f"{_MODULE_CODE_SIGNATURE}:BASE",
         df_input: Union[pd.DataFrame, None] = None,
         field_region: Union[str, None] = None,
         logger: Union[logging.Logger, None] = None,
@@ -883,7 +928,7 @@ class Transformers:
         ##  AGRC TRANSFORMERS
 
         self.agrc_improve_rice_management = Transformer(
-            "TFR:AGRC:DEC_CH4_RICE", 
+            f"{_MODULE_CODE_SIGNATURE}:AGRC:DEC_CH4_RICE", 
             self._trfunc_agrc_improve_rice_management,
             attr_transformer_code
         )
@@ -891,7 +936,7 @@ class Transformers:
 
 
         self.agrc_decrease_exports = Transformer(
-            "TFR:AGRC:DEC_EXPORTS", 
+            f"{_MODULE_CODE_SIGNATURE}:AGRC:DEC_EXPORTS", 
             self._trfunc_agrc_decrease_exports,
             attr_transformer_code
         )
@@ -899,7 +944,7 @@ class Transformers:
 
 
         self.agrc_expand_conservation_agriculture = Transformer(
-            "TFR:AGRC:INC_CONSERVATION_AGRICULTURE", 
+            f"{_MODULE_CODE_SIGNATURE}:AGRC:INC_CONSERVATION_AGRICULTURE", 
             self._trfunc_agrc_expand_conservation_agriculture,
             attr_transformer_code
         )
@@ -907,7 +952,7 @@ class Transformers:
 
 
         self.agrc_increase_crop_productivity = Transformer(
-            "TFR:AGRC:INC_PRODUCTIVITY", 
+            f"{_MODULE_CODE_SIGNATURE}:AGRC:INC_PRODUCTIVITY", 
             self._trfunc_agrc_increase_crop_productivity,
             attr_transformer_code
         )
@@ -915,7 +960,7 @@ class Transformers:
 
 
         self.agrc_reduce_supply_chain_losses = Transformer(
-            "TFR:AGRC:DEC_LOSSES_SUPPLY_CHAIN", 
+            f"{_MODULE_CODE_SIGNATURE}:AGRC:DEC_LOSSES_SUPPLY_CHAIN", 
             self._trfunc_agrc_reduce_supply_chain_losses,
             attr_transformer_code
         )
@@ -928,7 +973,7 @@ class Transformers:
         ##  LNDU TRANSFORMERS
 
         self.lndu_expand_silvopasture = Transformer(
-            "TFR:LNDU:INC_SILVOPASTURE", 
+            f"{_MODULE_CODE_SIGNATURE}:LNDU:INC_SILVOPASTURE", 
             self._trfunc_lndu_expand_silvopasture,
             attr_transformer_code
         )
@@ -936,7 +981,7 @@ class Transformers:
 
 
         self.lndu_expand_sustainable_grazing = Transformer(
-            "TFR:LNDU:DEC_SOC_LOSS_PASTURES", 
+            f"{_MODULE_CODE_SIGNATURE}:LNDU:DEC_SOC_LOSS_PASTURES", 
             self._trfunc_lndu_expand_sustainable_grazing,
             attr_transformer_code
         )
@@ -944,7 +989,7 @@ class Transformers:
 
 
         self.lndu_increase_reforestation = Transformer(
-            "TFR:LNDU:INC_REFORESTATION", 
+            f"{_MODULE_CODE_SIGNATURE}:LNDU:INC_REFORESTATION", 
             self._trfunc_lndu_increase_reforestation,
             attr_transformer_code
         )
@@ -952,7 +997,7 @@ class Transformers:
 
 
         self.lndu_partial_reallocation = Transformer(
-            "TFR:LNDU:PLUR", 
+            f"{_MODULE_CODE_SIGNATURE}:LNDU:PLUR", 
             self._trfunc_lndu_reallocate_land,
             attr_transformer_code
         )
@@ -960,7 +1005,7 @@ class Transformers:
 
 
         self.lndu_stop_deforestation = Transformer(
-            "TFR:LNDU:DEC_DEFORESTATION", 
+            f"{_MODULE_CODE_SIGNATURE}:LNDU:DEC_DEFORESTATION", 
             self._trfunc_lndu_stop_deforestation,
             attr_transformer_code
         )
@@ -970,7 +1015,7 @@ class Transformers:
         ##  LSMM TRANSFORMATIONS
 
         self.lsmm_improve_manure_management_cattle_pigs = Transformer(
-            "TFR:LSMM:INC_MANAGEMENT_CATTLE_PIGS", 
+            f"{_MODULE_CODE_SIGNATURE}:LSMM:INC_MANAGEMENT_CATTLE_PIGS", 
             self._trfunc_lsmm_improve_manure_management_cattle_pigs,
             attr_transformer_code
         )
@@ -978,7 +1023,7 @@ class Transformers:
 
 
         self.lsmm_improve_manure_management_other = Transformer(
-            "TFR:LSMM:INC_MANAGEMENT_OTHER", 
+            f"{_MODULE_CODE_SIGNATURE}:LSMM:INC_MANAGEMENT_OTHER", 
             self._trfunc_lsmm_improve_manure_management_other,
             attr_transformer_code
         )
@@ -986,7 +1031,7 @@ class Transformers:
         
 
         self.lsmm_improve_manure_management_poultry = Transformer(
-            "TFR:LSMM:INC_MANAGEMENT_POULTRY", 
+            f"{_MODULE_CODE_SIGNATURE}:LSMM:INC_MANAGEMENT_POULTRY", 
             self._trfunc_lsmm_improve_manure_management_poultry,
             attr_transformer_code
         )
@@ -994,7 +1039,7 @@ class Transformers:
 
 
         self.lsmm_increase_biogas_capture = Transformer(
-            "TFR:LSMM:INC_CAPTURE_BIOGAS", 
+            f"{_MODULE_CODE_SIGNATURE}:LSMM:INC_CAPTURE_BIOGAS", 
             self._trfunc_lsmm_increase_biogas_capture,
             attr_transformer_code
         )
@@ -1004,7 +1049,7 @@ class Transformers:
         ##  LVST TRANSFORMERS
       
         self.lvst_decrease_exports = Transformer(
-            "TFR:LVST:DEC_EXPORTS", 
+            f"{_MODULE_CODE_SIGNATURE}:LVST:DEC_EXPORTS", 
             self._trfunc_lvst_decrease_exports,
             attr_transformer_code
         )
@@ -1012,7 +1057,7 @@ class Transformers:
 
 
         self.lvst_increase_productivity = Transformer(
-            "TFR:LVST:INC_PRODUCTIVITY", 
+            f"{_MODULE_CODE_SIGNATURE}:LVST:INC_PRODUCTIVITY", 
             self._trfunc_lvst_increase_productivity,
             attr_transformer_code
         )
@@ -1020,7 +1065,7 @@ class Transformers:
 
 
         self.lvst_reduce_enteric_fermentation = Transformer(
-            "TFR:LVST:DEC_ENTERIC_FERMENTATION", 
+            f"{_MODULE_CODE_SIGNATURE}:LVST:DEC_ENTERIC_FERMENTATION", 
             self._trfunc_lvst_reduce_enteric_fermentation,
             attr_transformer_code
         )
@@ -1030,7 +1075,7 @@ class Transformers:
         ##  SOIL TRANSFORMERS
         
         self.soil_reduce_excess_fertilizer = Transformer(
-            "TFR:SOIL:DEC_N_APPLIED", 
+            f"{_MODULE_CODE_SIGNATURE}:SOIL:DEC_N_APPLIED", 
             self._trfunc_soil_reduce_excess_fertilizer,
             attr_transformer_code
         )
@@ -1038,7 +1083,7 @@ class Transformers:
 
 
         self.soil_reduce_excess_liming = Transformer(
-            "TFR:SOIL:DEC_LIME_APPLIED", 
+            f"{_MODULE_CODE_SIGNATURE}:SOIL:DEC_LIME_APPLIED", 
             self._trfunc_soil_reduce_excess_lime,
             attr_transformer_code
         )
@@ -1052,7 +1097,7 @@ class Transformers:
         ##  TRWW TRANSFORMERS
 
         self.trww_increase_biogas_capture = Transformer(
-            "TFR:TRWW:INC_CAPTURE_BIOGAS", 
+            f"{_MODULE_CODE_SIGNATURE}:TRWW:INC_CAPTURE_BIOGAS", 
             self._trfunc_trww_increase_biogas_capture,
             attr_transformer_code
         )
@@ -1060,7 +1105,7 @@ class Transformers:
 
 
         self.trww_increase_septic_compliance = Transformer(
-            "TFR:TRWW:INC_COMPLIANCE_SEPTIC", 
+            f"{_MODULE_CODE_SIGNATURE}:TRWW:INC_COMPLIANCE_SEPTIC", 
             self._trfunc_trww_increase_septic_compliance,
             attr_transformer_code
         )
@@ -1070,7 +1115,7 @@ class Transformers:
         ##  WALI TRANSFORMERS
  
         self.wali_improve_sanitation_industrial = Transformer(
-            "TFR:WALI:INC_TREATMENT_INDUSTRIAL", 
+            f"{_MODULE_CODE_SIGNATURE}:WALI:INC_TREATMENT_INDUSTRIAL", 
             self._trfunc_wali_improve_sanitation_industrial,
             attr_transformer_code
         )
@@ -1078,7 +1123,7 @@ class Transformers:
 
 
         self.wali_improve_sanitation_rural = Transformer(
-            "TFR:WALI:INC_TREATMENT_RURAL", 
+            f"{_MODULE_CODE_SIGNATURE}:WALI:INC_TREATMENT_RURAL", 
             self._trfunc_wali_improve_sanitation_rural,
             attr_transformer_code
         )
@@ -1086,7 +1131,7 @@ class Transformers:
 
 
         self.wali_improve_sanitation_urban = Transformer(
-            "TFR:WALI:INC_TREATMENT_URBAN", 
+            f"{_MODULE_CODE_SIGNATURE}:WALI:INC_TREATMENT_URBAN", 
             self._trfunc_wali_improve_sanitation_urban,
             attr_transformer_code
         )
@@ -1096,7 +1141,7 @@ class Transformers:
         ##  WASO TRANSFORMERS
 
         self.waso_descrease_consumer_food_waste = Transformer(
-            "TFR:WASO:DEC_CONSUMER_FOOD_WASTE",
+            f"{_MODULE_CODE_SIGNATURE}:WASO:DEC_CONSUMER_FOOD_WASTE",
             self._trfunc_waso_decrease_food_waste, 
             attr_transformer_code
         )
@@ -1104,7 +1149,7 @@ class Transformers:
 
         
         self.waso_increase_anaerobic_treatment_and_composting = Transformer(
-            "TFR:WASO:INC_ANAEROBIC_AND_COMPOST", 
+            f"{_MODULE_CODE_SIGNATURE}:WASO:INC_ANAEROBIC_AND_COMPOST", 
             self._trfunc_waso_increase_anaerobic_treatment_and_composting, 
             attr_transformer_code
         )
@@ -1112,7 +1157,7 @@ class Transformers:
 
 
         self.waso_increase_biogas_capture = Transformer(
-            "TFR:WASO:INC_CAPTURE_BIOGAS", 
+            f"{_MODULE_CODE_SIGNATURE}:WASO:INC_CAPTURE_BIOGAS", 
             self._trfunc_waso_increase_biogas_capture, 
             attr_transformer_code
         )
@@ -1120,7 +1165,7 @@ class Transformers:
 
 
         self.waso_energy_from_biogas = Transformer(
-            "TFR:WASO:INC_ENERGY_FROM_BIOGAS", 
+            f"{_MODULE_CODE_SIGNATURE}:WASO:INC_ENERGY_FROM_BIOGAS", 
             self._trfunc_waso_increase_energy_from_biogas, 
             attr_transformer_code
         )
@@ -1128,7 +1173,7 @@ class Transformers:
 
 
         self.waso_energy_from_incineration = Transformer(
-            "TFR:WASO:INC_ENERGY_FROM_INCINERATION", 
+            f"{_MODULE_CODE_SIGNATURE}:WASO:INC_ENERGY_FROM_INCINERATION", 
             self._trfunc_waso_increase_energy_from_incineration, 
             attr_transformer_code
         )
@@ -1136,7 +1181,7 @@ class Transformers:
 
 
         self.waso_increase_landfilling = Transformer(
-            "TFR:WASO:INC_LANDFILLING", 
+            f"{_MODULE_CODE_SIGNATURE}:WASO:INC_LANDFILLING", 
             self._trfunc_waso_increase_landfilling, 
             attr_transformer_code
         )
@@ -1144,7 +1189,7 @@ class Transformers:
 
         
         self.waso_increase_recycling = Transformer(
-            "TFR:WASO:INC_RECYCLING", 
+            f"{_MODULE_CODE_SIGNATURE}:WASO:INC_RECYCLING", 
             self._trfunc_waso_increase_recycling, 
             attr_transformer_code
         )
@@ -1158,7 +1203,7 @@ class Transformers:
         ##  CCSQ
 
         self.ccsq_increase_air_capture = Transformer(
-            "TFR:CCSQ:INC_CAPTURE", 
+            f"{_MODULE_CODE_SIGNATURE}:CCSQ:INC_CAPTURE", 
             self._trfunc_ccsq_increase_air_capture, 
             attr_transformer_code
         )
@@ -1168,7 +1213,7 @@ class Transformers:
         ##  ENTC
 
         self.entc_clean_hydrogen = Transformer(
-            "TFR:ENTC:TARGET_CLEAN_HYDROGEN", 
+            f"{_MODULE_CODE_SIGNATURE}:ENTC:TARGET_CLEAN_HYDROGEN", 
             self._trfunc_entc_clean_hydrogen, 
             attr_transformer_code
         )
@@ -1176,7 +1221,7 @@ class Transformers:
 
 
         self.entc_least_cost = Transformer(
-            "TFR:ENTC:LEAST_COST_SOLUTION", 
+            f"{_MODULE_CODE_SIGNATURE}:ENTC:LEAST_COST_SOLUTION", 
             self._trfunc_entc_least_cost, 
             attr_transformer_code
         )
@@ -1184,7 +1229,7 @@ class Transformers:
 
         
         self.entc_reduce_transmission_losses = Transformer(
-            "TFR:ENTC:DEC_LOSSES", 
+            f"{_MODULE_CODE_SIGNATURE}:ENTC:DEC_LOSSES", 
             self._trfunc_entc_reduce_transmission_losses, 
             attr_transformer_code
         )
@@ -1192,7 +1237,7 @@ class Transformers:
 
 
         self.entc_renewable_electricity = Transformer(
-            "TFR:ENTC:TARGET_RENEWABLE_ELEC", 
+            f"{_MODULE_CODE_SIGNATURE}:ENTC:TARGET_RENEWABLE_ELEC", 
             self._trfunc_entc_renewables_target, 
             attr_transformer_code
         )
@@ -1202,14 +1247,14 @@ class Transformers:
         ##  FGTV
 
         self.fgtv_maximize_flaring = Transformer(
-            "TFR:FGTV:INC_FLARE", 
+            f"{_MODULE_CODE_SIGNATURE}:FGTV:INC_FLARE", 
             self._trfunc_fgtv_maximize_flaring, 
             attr_transformer_code
         )
         all_transformers.append(self.fgtv_maximize_flaring)
 
         self.fgtv_minimize_leaks = Transformer(
-            "TFR:FGTV:DEC_LEAKS", 
+            f"{_MODULE_CODE_SIGNATURE}:FGTV:DEC_LEAKS", 
             self._trfunc_fgtv_minimize_leaks, 
             attr_transformer_code
         )
@@ -1219,7 +1264,7 @@ class Transformers:
         ##  INEN
 
         self.inen_fuel_switch_heat = Transformer(
-            "TFR:INEN:SHIFT_FUEL_HEAT", 
+            f"{_MODULE_CODE_SIGNATURE}:INEN:SHIFT_FUEL_HEAT", 
             self._trfunc_inen_fuel_switch_low_and_high_temp,
             attr_transformer_code
         )
@@ -1227,7 +1272,7 @@ class Transformers:
 
         
         self.inen_maximize_energy_efficiency = Transformer(
-            "TFR:INEN:INC_EFFICIENCY_ENERGY", 
+            f"{_MODULE_CODE_SIGNATURE}:INEN:INC_EFFICIENCY_ENERGY", 
             self._trfunc_inen_maximize_efficiency_energy, 
             attr_transformer_code
         )
@@ -1235,7 +1280,7 @@ class Transformers:
 
 
         self.inen_maximize_production_efficiency = Transformer(
-            "TFR:INEN:INC_EFFICIENCY_PRODUCTION", 
+            f"{_MODULE_CODE_SIGNATURE}:INEN:INC_EFFICIENCY_PRODUCTION", 
             self._trfunc_inen_maximize_efficiency_production, 
             attr_transformer_code
         )
@@ -1245,7 +1290,7 @@ class Transformers:
         ##  SCOE
 
         self.scoe_fuel_switch_electrify = Transformer(
-            "TFR:SCOE:SHIFT_FUEL_HEAT", 
+            f"{_MODULE_CODE_SIGNATURE}:SCOE:SHIFT_FUEL_HEAT", 
             self._trfunc_scoe_fuel_switch_electrify, 
             attr_transformer_code
         )
@@ -1253,7 +1298,7 @@ class Transformers:
 
 
         self.scoe_increase_applicance_efficiency = Transformer(
-            "TFR:SCOE:INC_EFFICIENCY_APPLIANCE", 
+            f"{_MODULE_CODE_SIGNATURE}:SCOE:INC_EFFICIENCY_APPLIANCE", 
             self._trfunc_scoe_increase_applicance_efficiency, 
             attr_transformer_code
         )
@@ -1261,7 +1306,7 @@ class Transformers:
 
 
         self.scoe_reduce_heat_energy_demand = Transformer(
-            "TFR:SCOE:DEC_DEMAND_HEAT", 
+            f"{_MODULE_CODE_SIGNATURE}:SCOE:DEC_DEMAND_HEAT", 
             self._trfunc_scoe_reduce_heat_energy_demand, 
             attr_transformer_code
         )
@@ -1273,7 +1318,7 @@ class Transformers:
         ###################
 
         self.trde_reduce_demand = Transformer(
-            "TFR:TRDE:DEC_DEMAND", 
+            f"{_MODULE_CODE_SIGNATURE}:TRDE:DEC_DEMAND", 
             self._trfunc_trde_reduce_demand, 
             attr_transformer_code
         )
@@ -1281,7 +1326,7 @@ class Transformers:
 
         
         self.trns_electrify_light_duty_road = Transformer(
-            "TFR:TRNS:SHIFT_FUEL_LIGHT_DUTY", 
+            f"{_MODULE_CODE_SIGNATURE}:TRNS:SHIFT_FUEL_LIGHT_DUTY", 
             self._trfunc_trns_electrify_road_light_duty, 
             attr_transformer_code
         )
@@ -1289,7 +1334,7 @@ class Transformers:
 
         
         self.trns_electrify_rail = Transformer(
-            "TFR:TRNS:SHIFT_FUEL_RAIL", 
+            f"{_MODULE_CODE_SIGNATURE}:TRNS:SHIFT_FUEL_RAIL", 
             self._trfunc_trns_electrify_rail, 
             attr_transformer_code
         )
@@ -1297,7 +1342,7 @@ class Transformers:
 
         
         self.trns_fuel_switch_maritime = Transformer(
-            "TFR:TRNS:SHIFT_FUEL_MARITIME", 
+            f"{_MODULE_CODE_SIGNATURE}:TRNS:SHIFT_FUEL_MARITIME", 
             self._trfunc_trns_fuel_switch_maritime, 
             attr_transformer_code
         )
@@ -1305,7 +1350,7 @@ class Transformers:
 
 
         self.trns_fuel_switch_medium_duty_road = Transformer(
-            "TFR:TRNS:SHIFT_FUEL_MEDIUM_DUTY", 
+            f"{_MODULE_CODE_SIGNATURE}:TRNS:SHIFT_FUEL_MEDIUM_DUTY", 
             self._trfunc_trns_fuel_switch_road_medium_duty, 
             attr_transformer_code
         )
@@ -1313,7 +1358,7 @@ class Transformers:
 
 
         self.trns_increase_efficiency_electric = Transformer(
-            "TFR:TRNS:INC_EFFICIENCY_ELECTRIC", 
+            f"{_MODULE_CODE_SIGNATURE}:TRNS:INC_EFFICIENCY_ELECTRIC", 
             self._trfunc_trns_increase_efficiency_electric,
             attr_transformer_code
         )
@@ -1321,7 +1366,7 @@ class Transformers:
 
 
         self.trns_increase_efficiency_non_electric = Transformer(
-            "TFR:TRNS:INC_EFFICIENCY_NON_ELECTRIC", 
+            f"{_MODULE_CODE_SIGNATURE}:TRNS:INC_EFFICIENCY_NON_ELECTRIC", 
             self._trfunc_trns_increase_efficiency_non_electric,
             attr_transformer_code
         )
@@ -1329,7 +1374,7 @@ class Transformers:
 
 
         self.trns_increase_occupancy_light_duty = Transformer(
-            "TFR:TRNS:INC_OCCUPANCY_LIGHT_DUTY", 
+            f"{_MODULE_CODE_SIGNATURE}:TRNS:INC_OCCUPANCY_LIGHT_DUTY", 
             self._trfunc_trns_increase_occupancy_light_duty, 
             attr_transformer_code
         )
@@ -1337,7 +1382,7 @@ class Transformers:
 
 
         self.trns_mode_shift_freight = Transformer(
-            "TFR:TRNS:SHIFT_MODE_FREIGHT", 
+            f"{_MODULE_CODE_SIGNATURE}:TRNS:SHIFT_MODE_FREIGHT", 
             self._trfunc_trns_mode_shift_freight, 
             attr_transformer_code
         )
@@ -1345,7 +1390,7 @@ class Transformers:
 
 
         self.trns_mode_shift_public_private = Transformer(
-            "TFR:TRNS:SHIFT_MODE_PASSENGER", 
+            f"{_MODULE_CODE_SIGNATURE}:TRNS:SHIFT_MODE_PASSENGER", 
             self._trfunc_trns_mode_shift_public_private, 
             attr_transformer_code
         )
@@ -1353,7 +1398,7 @@ class Transformers:
 
 
         self.trns_mode_shift_regional = Transformer(
-            "TFR:TRNS:SHIFT_MODE_REGIONAL", 
+            f"{_MODULE_CODE_SIGNATURE}:TRNS:SHIFT_MODE_REGIONAL", 
             self._trfunc_trns_mode_shift_regional, 
             attr_transformer_code
         )
@@ -1365,7 +1410,7 @@ class Transformers:
         ###########################
 
         self.ippu_demand_managment = Transformer(
-            "TFR:IPPU:DEC_DEMAND", 
+            f"{_MODULE_CODE_SIGNATURE}:IPPU:DEC_DEMAND", 
             self._trfunc_ippu_reduce_demand,
             attr_transformer_code
         )
@@ -1373,7 +1418,7 @@ class Transformers:
 
 
         self.ippu_reduce_cement_clinker = Transformer(
-            "TFR:IPPU:DEC_CLINKER", 
+            f"{_MODULE_CODE_SIGNATURE}:IPPU:DEC_CLINKER", 
             self._trfunc_ippu_reduce_cement_clinker,
             attr_transformer_code
         )
@@ -1381,7 +1426,7 @@ class Transformers:
 
 
         self.ippu_reduce_hfcs = Transformer(
-            "TFR:IPPU:DEC_HFCS", 
+            f"{_MODULE_CODE_SIGNATURE}:IPPU:DEC_HFCS", 
             self._trfunc_ippu_reduce_hfcs,
             attr_transformer_code
         )
@@ -1389,7 +1434,7 @@ class Transformers:
 
 
         self.ippu_reduce_other_fcs = Transformer(
-            "TFR:IPPU:DEC_OTHER_FCS", 
+            f"{_MODULE_CODE_SIGNATURE}:IPPU:DEC_OTHER_FCS", 
             self._trfunc_ippu_reduce_other_fcs,
             attr_transformer_code
         )
@@ -1397,7 +1442,7 @@ class Transformers:
 
 
         self.ippu_reduce_n2o = Transformer(
-            "TFR:IPPU:DEC_N2O", 
+            f"{_MODULE_CODE_SIGNATURE}:IPPU:DEC_N2O", 
             self._trfunc_ippu_reduce_n2o,
             attr_transformer_code
         )
@@ -1405,7 +1450,7 @@ class Transformers:
 
 
         self.ippu_reduce_pfcs = Transformer(
-            "TFR:IPPU:DEC_PFCS", 
+            f"{_MODULE_CODE_SIGNATURE}:IPPU:DEC_PFCS", 
             self._trfunc_ippu_reduce_pfcs,
             attr_transformer_code
         )
@@ -1417,7 +1462,7 @@ class Transformers:
         ######################################
 
         self.plfo_healthier_diets = Transformer(
-            "TFR:PFLO:INC_HEALTHIER_DIETS", 
+            f"{_MODULE_CODE_SIGNATURE}:PFLO:INC_HEALTHIER_DIETS", 
             self._trfunc_pflo_healthier_diets, 
             attr_transformer_code
         )
@@ -1426,7 +1471,7 @@ class Transformers:
 
 
         self.pflo_industrial_ccs = Transformer(
-            "TFR:PFLO:INC_IND_CCS", 
+            f"{_MODULE_CODE_SIGNATURE}:PFLO:INC_IND_CCS", 
             self._trfunc_pflo_industrial_ccs, 
             attr_transformer_code
         )
@@ -1458,12 +1503,19 @@ class Transformers:
             else None
         )
 
+        # get some other properties
+        tr_tmp = dict_transformers.get(all_transformers[0])
+        field_transformer_id = tr_tmp.field_transformer_id
+        field_transformer_name = tr_tmp.field_transformer_name
 
-        # SET ADDDITIONAL PROPERTIES
+
+        ##  SET ADDDITIONAL PROPERTIES
 
         self.all_transformers = all_transformers
         self.all_transformers_non_baseline = all_transformers_non_baseline
         self.dict_transformers = dict_transformers
+        self.field_transformer_id = field_transformer_id
+        self.field_transformer_name = field_transformer_name
         self.transformer_id_baseline = transformer_id_baseline
 
         return None
@@ -2043,8 +2095,6 @@ class Transformers:
 
     def get_transformer(self,
         transformer: Union[int, str, None],
-        field_transformer_id: str = "transformer_id",
-        field_transformer_name: str = "transformer",
         return_code: bool = False,
     ) -> None:
         """
@@ -2061,10 +2111,6 @@ class Transformers:
             
         Keyword Arguments
         ------------------
-        - field_transformer_code: field in transformer attribute table 
-            containing the transformer code
-        - field_transformer_name: field in transformer attribute table 
-            containing the transformer name
         - return_code: set to True to return the transformer code only
         """
 
@@ -2077,10 +2123,10 @@ class Transformers:
 
         # Transformer objects are tied to the attribute table, so these field maps work
         dict_id_to_code = self.attribute_transformer_code.field_maps.get(
-            f"{field_transformer_id}_to_{self.attribute_transformer_code.key}"
+            f"{self.field_transformer_id}_to_{self.attribute_transformer_code.key}"
         )
         dict_name_to_code = self.attribute_transformer_code.field_maps.get(
-            f"{field_transformer_name}_to_{self.attribute_transformer_code.key}"
+            f"{self.field_transformer_name}_to_{self.attribute_transformer_code.key}"
         )
 
         # check strategy by trying both dictionaries
