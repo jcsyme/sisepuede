@@ -127,7 +127,7 @@ class InputTemplate:
 			field_req_uniform_scaling_q,
 			field_req_variable,
 			field_req_variable_trajectory_group,
-			field_req_variable_trajectory_group_trajectory_type
+			field_req_variable_trajectory_group_trajectory_type,
 		)
 
 		# initialize additional key elements
@@ -136,9 +136,9 @@ class InputTemplate:
 			regex_min,
 			regex_tp
 		)
-		self._initialize_attribute_strategy(attribute_strategy)
+		self._initialize_attribute_strategy(attribute_strategy, )
 		self._set_regex_sheet_name()
-		self._initialize_template(template)
+		self._initialize_template(template, )
 
 		return None
 
@@ -657,14 +657,19 @@ class InputTemplate:
 		"""
 		Initialize model attributes. Sets the following properties:
 
-			* self.model_attributes=
+			* self.model_attributes
 
 		Function Arguments
 		------------------
 		- model_attributes: ModelAttributes object used to organize variables
 			and model structure.
 		"""
-		
+		# check type
+		if not ma.is_model_attributes(model_attributes):
+			tp = str(type(model_attributes))
+			msg = f"Invalid type '{tp}' specified for model_attributes in Ingestion. Must be a ModelAttributes object."
+			raise TypeError(msg)
+
 		self.model_attributes = model_attributes
 
 		return None
@@ -1248,8 +1253,15 @@ class InputTemplate:
 
 			return None
 
-		return (dict_field_tp_to_tp, df_template_sheet, field_min, field_max, fields_tp)
+		out = (
+			dict_field_tp_to_tp, 
+			df_template_sheet, 
+			field_min, 
+			field_max, 
+			fields_tp
+		)
 
+		return out
 
 
 
@@ -1313,13 +1325,6 @@ class BaseInputDatabase:
 		regions: Union[list, None],
 		attribute_strategy: Union[AttributeTable, str, None] = None,
 		demo_q: bool = True,
-		field_req_normalize_group: str = "normalize_group",
-		field_req_subsector: str = "subsector",
-		field_req_trajgroup_no_vary_q: str = "trajgroup_no_vary_q",
-		field_req_uniform_scaling_q: str = "uniform_scaling_q",
-		field_req_variable: str = "variable",
-		field_req_variable_trajectory_group: str = "variable_trajectory_group",
-		field_req_variable_trajectory_group_trajectory_type: str = "variable_trajectory_group_trajectory_type",
 		filter_invalid_strategies: bool = True,
 		logger: Union[logging.Logger, None] = None,
 		sectors: Union[list, None] = None,
@@ -1329,14 +1334,7 @@ class BaseInputDatabase:
 		self.fp_templates = fp_templates
 		self.model_attributes = model_attributes
 
-		# initialize some fields
-		self.field_req_normalize_group = field_req_normalize_group
-		self.field_req_subsector = field_req_subsector
-		self.field_req_trajgroup_no_vary_q = field_req_trajgroup_no_vary_q
-		self.field_req_uniform_scaling_q = field_req_uniform_scaling_q
-		self.field_req_variable = field_req_variable
-		self.field_req_variable_trajectory_group = field_req_variable_trajectory_group
-		self.field_req_variable_trajectory_group_trajectory_type = field_req_variable_trajectory_group_trajectory_type
+		self._initialize_fields(**kwargs, )
 		
 		# additional initialization
 		self.attribute_strategy = attribute_strategy
@@ -1357,6 +1355,57 @@ class BaseInputDatabase:
 	##################################
 	#    INITIALIZATION FUNCTIONS    #
 	##################################
+	
+	def _initialize_fields(self,
+		**kwargs,
+	) -> None:
+		"""
+		Initialize fields used in the BaseInputDatabase
+		"""
+
+		field_req_normalize_group = kwargs.get(
+			"field_req_normalize_group", 
+			"normalize_group", 
+		)
+		field_req_subsector = kwargs.get(
+			"field_req_subsector",
+			"subsector",
+		)
+		field_req_trajgroup_no_vary_q = kwargs.get(
+			"field_req_trajgroup_no_vary_q",
+			"trajgroup_no_vary_q",
+		)
+		field_req_uniform_scaling_q = kwargs.get(
+			"field_req_uniform_scaling_q",
+			"uniform_scaling_q",
+		)
+		field_req_variable = kwargs.get(
+			"field_req_variable",
+			"variable",
+		)
+		field_req_variable_trajectory_group = kwargs.get(
+			"field_req_variable_trajectory_group",
+			"variable_trajectory_group",
+		)
+		field_req_variable_trajectory_group_trajectory_type = kwargs.get(
+			"field_req_variable_trajectory_group_trajectory_type",
+			"variable_trajectory_group_trajectory_type",
+		)
+
+
+		##  SET PROPERTIES
+
+		self.field_req_normalize_group = field_req_normalize_group
+		self.field_req_subsector = field_req_subsector
+		self.field_req_trajgroup_no_vary_q = field_req_trajgroup_no_vary_q
+		self.field_req_uniform_scaling_q = field_req_uniform_scaling_q
+		self.field_req_variable = field_req_variable
+		self.field_req_variable_trajectory_group = field_req_variable_trajectory_group
+		self.field_req_variable_trajectory_group_trajectory_type = field_req_variable_trajectory_group_trajectory_type
+
+		return None
+
+
 
 	def get_regions(self,
 		regions: Union[str,  None],
@@ -1364,7 +1413,13 @@ class BaseInputDatabase:
 		"""
 		Import regions for the BaseInputDatabase class from BaseInputDatabase
 		"""
-		attr_region = self.model_attributes.get_other_attribute_table(self.model_attributes.dim_region)
+		attr_region = (
+			self
+			.model_attributes
+			.get_other_attribute_table(
+				self.model_attributes.dim_region
+			)
+		)
 
 		if regions is None:
 			regions_out = attr_region.key_values
@@ -1574,6 +1629,7 @@ class BaseInputDatabase:
 		demo_q: Union[bool, None] = None,
 		fp_templates: Union[str, None] = None,
 		template_base_str: str = "model_input_variables",
+		**kwargs,
 	) -> str:
 		"""
 		Generate a path for an input template based on a sector, region, a 
@@ -1614,8 +1670,18 @@ class BaseInputDatabase:
 		abv_sector = self.model_attributes.get_sector_attribute(sector, "abbreviation_sector")
 
 		# initialize some parameters
-		demo_q = self.demo_q if not isinstance(demo_q, bool) else demo_q
-		fp_templates = self.fp_templates if not isinstance(fp_templates, str) else fp_templates
+		demo_q = (
+			self.demo_q 
+			if not isinstance(demo_q, bool) 
+			else demo_q
+		)
+
+		fp_templates = (
+			self.fp_templates 
+			if not isinstance(fp_templates, str) 
+			else fp_templates
+		)
+
 
 		# check region
 		if not demo_q:
