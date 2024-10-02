@@ -696,11 +696,13 @@ class Transformations:
             )
         
         else:
-            # update the configuration, then update the data
+            # update the configuration, ramp, and then update the data
             transformers._initialize_config(
                 self.config.dict_yaml,
                 transformers.code_baseline,
             )
+
+            transformers._initialize_ramp()
 
             transformers._initialize_baseline_inputs(
                 transformers.inputs_raw,

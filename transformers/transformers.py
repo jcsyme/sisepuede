@@ -37,13 +37,21 @@ _MODULE_CODE_SIGNATURE = "TFR"
 _MODULE_UUID = "D3BC5456-5BB7-4F7A-8799-AFE0A44C3FFA" 
 
 
+_DICT_KEYS = {
+    "baseline": "baseline",
+    "general": "general",
+    "vec_implementation_ramp": "vec_implementation_ramp",
+}
+
+
+
 ###############################################
 #    SET SOME DEFAULT CONFIGURATION VALUES    #
 ###############################################
 
 def get_dict_config_default(
-    key_baseline: str = "baseline",
-    key_general: str = "general",
+    key_baseline: str = _DICT_KEYS.get("baseline"),
+    key_general: str = _DICT_KEYS.get("general"),
 ) -> dict:
     """
     Retrieve the dictionary of default configuration values for transformers, 
@@ -64,10 +72,18 @@ def get_dict_config_default(
             #        "pp_geothermal",
             #        "pp_nuclear"
             #    ]
+            # - If None, no technologies investments are capped
+            #
+            "categories_entc_max_investment_ramp": None,
+
+            # Power plant categories to cap in MSP ramp
+            "categories_entc_pps_to_cap": None,
 
             # ENTC categories considered renewable sources--defaults to attribute table specs if not defined
-            #"categories_entc_renewable": []
-
+            # - If None, defaults to attribute tables
+            # "categories_entc_renewable": []
+            "categories_entc_renewable": None,
+            
             # INEN categories that have high heat and associated fractions (temporary until model can be revised)
             "categories_inen_high_heat_to_frac": {
                 "cement": 0.88,
@@ -610,8 +626,8 @@ class Transformers:
     def _initialize_config(self,
         dict_config: Union[Dict[str, Any], None],
         code_baseline: str,
-        key_baseline: str = "baseline",
-        key_general: str = "general",
+        key_baseline: str = _DICT_KEYS.get("baseline"),
+        key_general: str = _DICT_KEYS.get("general"),
     ) -> None:
         """
         Define the configuration dictionary and paramter keys. Sets the 
@@ -684,6 +700,7 @@ class Transformers:
         self.key_config_magnitude_lurf = "magnitude_lurf" # MUST be same as kwarg in _trfunc_baseline
         self.key_config_n_tp_ramp = "n_tp_ramp"
         self.key_config_tp_0_ramp = "tp_0_ramp" 
+        self.key_config_vec_implementation_ramp = "vec_implementation_ramp"
         self.key_config_vir_renewable_cap_delta_frac = "vir_renewable_cap_delta_frac"
         self.key_config_vir_renewable_cap_max_frac = "vir_renewable_cap_max_frac"
 
@@ -877,10 +894,54 @@ class Transformers:
 
             * self.vec_implementation_ramp
         """
+
+        # init some params
+        n_tp_ramp = None
+        tp_0_ramp = None
+        alpha_logistic = None
+        d = None
+        window_logistic = None
+
+
+        ##  TRY GETTING DETAILS FROM CONFIG
+
+        vec_implementation_ramp = self.config.get(
+            f"{self.key_config_general}.{self.key_config_vec_implementation_ramp}"
+        )
+
+        if isinstance(vec_implementation_ramp, dict):
+
+            n_tp_ramp = vec_implementation_ramp.get("n_tp_ramp")
+            tp_0_ramp = vec_implementation_ramp.get("tp_0_ramp")
+            alpha_logistic = vec_implementation_ramp.get("alpha_logistic")
+            d = vec_implementation_ramp.get("d")
+            window_logistic = vec_implementation_ramp.get("window_logistic")
+            
+            # drive to default if invalid
+            if sf.islistlike(window_logistic):
+                if len(window_logistic) >= 2:
+                    window_logistic = tuple(window_logistic[0:2])
+                
+                else:
+                    window_logistic = None
+                    self._log(
+                        "Invalid specification of window_logistic in configuration file. Setting to default...",
+                        type_log = "warning",
+                    )
         
-        vec_implementation_ramp = self.build_implementation_ramp_vector()
+
+        # build the vector
+        vec_implementation_ramp = self.build_implementation_ramp_vector(
+            n_tp_ramp = n_tp_ramp,
+            tp_0_ramp = tp_0_ramp,
+            alpha_logistic = alpha_logistic,
+            d = d,
+            window_logistic = window_logistic,
+        )
         
+
         ##  SET PROPERTIES
+
         self.vec_implementation_ramp = vec_implementation_ramp
 
         return None
@@ -1556,8 +1617,8 @@ class Transformers:
         """
         out = (
             default
-            if not isinstance(magnitude, float) 
-            else max(min(magnitude, bounds[1]), bounds[0])
+            if not sf.isnumber(magnitude) 
+            else max(min(float(magnitude), bounds[1]), bounds[0])
         )
 
         return out
@@ -1565,8 +1626,11 @@ class Transformers:
 
 
     def build_implementation_ramp_vector(self,
+        alpha_logistic: Union[float, None] = 0.0,
+        d: Union[float, int, None] = 0,
         n_tp_ramp: Union[int, None] = None,
         tp_0_ramp: Union[int, None] = None,
+        window_logistic: Union[tuple, None] = (-8, 8),
         **kwargs,
     ) -> np.ndarray:
         """
@@ -1579,31 +1643,15 @@ class Transformers:
         -----------------
         - n_tp_ramp: number of years to go from 0 to 1
         - tp_0_ramp: last time period without change from baseline
+        - alpha_logistic: fraction of the ramp that is logistic 
+            (1 - alpha_logistic is linear)
+        - d: centroid for the logit 
+        - window_logistic: window for the standard logit function
         **kwargs: passed to sisepuede.utilities._toolbox.ramp_vector()
         """
         
         # some init
-        #int_n_q = sf.isnumber(n_tp_ramp, integer = True)
-        #int_t_q = sf.isnumber(tp_0_ramp, integer = True)
         n_tp = len(self.time_periods.all_time_periods)
-
-        """
-        ##  SET n_tp_ramp AND tp_0_ramp ON A CASE BASIS
-
-        if not (int_n_q & int_t_q):
-            # if both are not set, use defaults
-            n_tp_ramp = self.n_tp_ramp 
-            tp_0_ramp = self.tp_0_ramp 
-        
-        elif not int_n_q:
-            # here, tp_0_ramp is specified, but we have to recalculate n_tp_ramp
-            n_tp_ramp = n_tp - tp_0_ramp - 1
-        
-        elif not int_t_q:
-            # here, the number of time periods is specifed; we check for tp_0_ramp
-            n_tp_ramp = max(min(n_tp_ramp, n_tp - 1), 1)
-            tp_0_ramp = n_tp - n_tp_ramp - 1
-        """
 
         # verify the values
         n_tp_ramp, tp_0_ramp, _, _ = self.get_ramp_characteristics(
@@ -1611,11 +1659,13 @@ class Transformers:
             tp_0_ramp = tp_0_ramp,
         )
         
-        # get some shape parameters
-        alpha_logistic = kwargs.get("alpha_logistic", 0.0)
-        d = kwargs.get("d", 0)
-        window_logistic = kwargs.get("window_logistic", (-8, 8))
+
+        # verify types
+        alpha_logistic = 0.0 if not sf.isnumber(alpha_logistic) else alpha_logistic
+        d = 0 if not sf.isnumber(d) else d
+        window_logistic = (-8, 8) if not isinstance(window_logistic, tuple) else window_logistic
  
+
         vec_out = sf.ramp_vector(
             n_tp, 
             alpha_logistic = alpha_logistic, 
@@ -1798,6 +1848,9 @@ class Transformers:
                 return_on_none = [],
             )
         )
+
+        if not sf.islistlike(cats_entc_max_investment_ramp):
+            cats_entc_max_investment_ramp = []
         
         return cats_entc_max_investment_ramp
     
@@ -2441,9 +2494,7 @@ class Transformers:
         categories_entc_pps_to_cap: Union[List[str], None] = None,
         categories_entc_renewable: Union[List[str], None] = None,
         dict_entc_renewable_target_msp_baseline: dict = {},
-        magnitude_lurf: Union[bool, None] = None,
-        n_tp_ramp: Union[int, None] = None,
-        tp_0_ramp: Union[int, None] = None,
+        magnitude_lurf: Union[float, None] = 0.0,
         strat: Union[int, None] = None,
         vec_implementation_ramp: Union[np.ndarray, Dict[str, int], None] = None,
     ) -> pd.DataFrame:
@@ -2468,9 +2519,6 @@ class Transformers:
             base case.
         - magnitude_lurf: magnitude of the land use reallocation factor under
             baseline
-        - n_tp_ramp: number of time periods to increase to full implementation. 
-            If None, defaults to final time period
-        - tp_0_ramp: first time period of ramp (last == 0)
         - vec_implementation_ramp: optional vector specifying the implementation
             scalar ramp for the transformation. If None, defaults to a uniform 
             ramp that starts at the time specified in the configuration.
@@ -2505,13 +2553,12 @@ class Transformers:
         )
         
         # target magnitude of the land use reallocation factor
-        magnitude_lurf = (  
-            self.config.get(
-                f"{self.key_config_baseline}.{self.key_config_magnitude_lurf}"
-            )
-            if not sf.isnumber(magnitude_lurf) 
-            else max(min(magnitude_lurf, 1.0), 0.0)
-        )
+        if not sf.isnumber(magnitude_lurf):
+            magnitude_lurf = self.config.get(
+                    f"{self.key_config_baseline}.{self.key_config_magnitude_lurf}",
+                )
+            
+        magnitude_lurf = self.bounded_real_magnitude(magnitude_lurf, 0.0)
 
         
         # dictionary mapping to target minimum shares of production

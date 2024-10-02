@@ -3761,6 +3761,37 @@ def vector_norm(
 
 
 
+def _write_yaml(
+    dict_write: dict,
+    fp: Union[str, pathlib.Path],
+    default_flow_style: bool = False,
+) -> None:
+    """
+    Write a YAML dictionary to a file
+
+    Function Arguments
+    ------------------
+    - dict_write: dictionary to write
+    - fp: path to the yaml file
+
+    Keyword Arguments
+    -----------------
+    - default_flow_style: passed to yaml.dump
+    """
+
+    with open(str(fp), "w+") as dumper:
+        yaml.dump(
+            dict_write, 
+            dumper, 
+            default_flow_style = default_flow_style,
+        )
+    
+    return None
+        
+        
+
+
+
 def zeros_to_small(
     vec_in: np.ndarray,
     axis: Union[int, None] = None,

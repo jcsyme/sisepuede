@@ -1,5 +1,6 @@
 
 from typing import *
+import copy
 import inspect
 import pandas as pd
 
@@ -18,7 +19,75 @@ import sisepuede.transformers.transformers as trs
 ###                               ###
 #####################################
 
-def build_default_config_dict(
+def build_default_general_config_dict(
+    transformers: trs.Transformers,
+) -> dict:
+    """
+    Build the default general configuration dictionary for a new transformation
+        definition directory.
+
+    """
+    ##  GENERAL
+
+    dict_out = trs.get_dict_config_default()
+    dict_out = dict_out.dict_yaml
+
+    # add the implementation vector
+
+    dict_vir = spawn_args_dict(
+        transformers.build_implementation_ramp_vector,
+    )
+
+    # clean tuples
+    dict_vir = dict(
+        (k, list(v) if isinstance(v, tuple) else v)
+        for k, v in dict_vir.items()
+    )
+
+    dict_vir = {
+        trs._DICT_KEYS.get("vec_implementation_ramp"): dict_vir,
+    }
+
+    dict_vir2 = copy.deepcopy(dict_vir)
+
+    # update general dictionary
+    (
+        dict_out
+        .get(trs._DICT_KEYS.get("general"))
+        .update(dict_vir)
+    )
+
+    
+    ##  BASELINE
+
+    dict_update = spawn_args_dict(
+        transformers._trfunc_baseline,
+        args_ignore = [
+            "n_tp_ramp",
+            "tp_0_ramp",
+            "vec_implementation_ramp",
+            "strat"
+        ],
+    )
+
+    (
+        dict_out
+        .get(trs._DICT_KEYS.get("baseline"))
+        .update(dict_update)
+    )
+
+    (
+        dict_out
+        .get(trs._DICT_KEYS.get("baseline"))
+        .update(dict_vir2)
+    )
+
+
+    return dict_out
+
+
+
+def build_default_transformation_config_dict(
     transformer: trs.Transformer,
     dict_code_prepenage_map: dict = {
         trs._MODULE_CODE_SIGNATURE: trn._MODULE_CODE_SIGNATURE,
@@ -115,7 +184,7 @@ def code_to_file_name(
 
 
 def spawn_args_dict(
-    transformer: trs.Transformer,
+    transformer: Union[callable, trs.Transformer],
     args_ignore: Union[List[str], None] = None,
     include_kwargs: bool = True,
 ) -> Union[dict, None]:
@@ -127,7 +196,7 @@ def spawn_args_dict(
     Function Arguments
     ------------------
     - transformer: a Transformer object from which to build the argument 
-        dictionary
+        dictionary OR a function
     
     Keyword Arguments
     -----------------
@@ -138,13 +207,17 @@ def spawn_args_dict(
     """
     
     # if not a transformer, return None
-    if not trs.is_transformer(transformer):
+    if not trs.is_transformer(transformer) | callable(transformer):
         return None
     
     
     ##  GET FULL ARGSPEC AND BUILD DICTIONARY
     
-    full_arg_spec = inspect.getfullargspec(transformer.function)
+    full_arg_spec = (
+        inspect.getfullargspec(transformer.function)
+        if trs.is_transformer(transformer)
+        else inspect.getfullargspec(transformer)
+    )
     
     args = full_arg_spec.args
     dflts = full_arg_spec.defaults
