@@ -19,6 +19,9 @@ import sisepuede.transformers.transformers as trs
 ###                               ###
 #####################################
 
+
+
+
 def build_default_general_config_dict(
     transformers: trs.Transformers,
 ) -> dict:
@@ -117,6 +120,7 @@ def build_default_transformation_config_dict(
     key_identifiers = trn._DICT_KEYS.get("identifiers")
     key_transformation_code = trn._DICT_KEYS.get("code")
     key_transformation_name = trn._DICT_KEYS.get("name")
+    key_transformer = trn._DICT_KEYS.get("transformer")
     key_parameters = trn._DICT_KEYS.get("parameters")
 
     # get the new code and name
@@ -143,14 +147,16 @@ def build_default_transformation_config_dict(
         ]
     )
 
+    # wrap 
     dict_out = {
         key_citations: transformer.citations,
-        key_description: transformer.description,
+        key_description: sf.yaml_quoted(transformer.description),
         key_identifiers: {
-            key_transformation_code: code_new,
-            key_transformation_name: name_new,
+            key_transformation_code: sf.yaml_quoted(code_new),
+            key_transformation_name: sf.yaml_quoted(name_new),
         },
         key_parameters: dict_parameters,
+        key_transformer: sf.yaml_quoted(transformer.code)
     }
 
     file_name_out = code_to_file_name(transformer.code, )

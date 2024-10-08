@@ -25,6 +25,12 @@ _TRANSFORMATION_REGEX_FLAG_PREPEND = "transformation"
 ###################################
 
 
+# specify some default file names
+_DICT_FILE_NAME_DEFAULTS = {
+    "citations": "citations.bib",
+    "config_general": "config_general.yaml"
+}
+
 # specify some default keys for configuration 
 _DICT_KEYS = {
     "citations": "citations",
@@ -438,8 +444,8 @@ class Transformations:
     def __init__(self,
         dir_init: Union[str, pathlib.Path],
         baseline_id: int = 0,
-        fn_citations: str = "citations.bib",
-        fn_config_general: str = "config_general.yaml",
+        fn_citations: str = _DICT_FILE_NAME_DEFAULTS.get("citations"),
+        fn_config_general: str = _DICT_FILE_NAME_DEFAULTS.get("config_general"),
         logger: Union[logging.Logger, None] = None,
         regex_transformation_config: re.Pattern = re.compile(f"{_TRANSFORMATION_REGEX_FLAG_PREPEND}_(.\D*).yaml"),
         stop_on_error: bool = True,
@@ -616,7 +622,6 @@ class Transformations:
             transformation_baseline.code: None,
         }
 
-
         # iterate over available files 
         for fp in files_transformation_build:
 
@@ -650,7 +655,9 @@ class Transformations:
         
 
         # build the attribute table
+        print(f"transformation_baseline.code = {transformation_baseline.code}")
         attribute_transformation, dict_fields = self.build_attribute_table(
+            transformation_baseline.code,
             dict_all_transformations,
             dict_transformation_code_to_fp,
             baseline_id = baseline_id,
@@ -734,6 +741,7 @@ class Transformations:
 
 
     def build_attribute_table(self,
+        baseline_code: str,
         dict_all_transformations: Dict[str, Transformation],
         dict_transformation_code_to_fp: Dict[str, pathlib.Path],
         baseline_id: int = 0,
@@ -754,7 +762,16 @@ class Transformations:
             else 0
         )
         id_def = baseline_id if baseline_in_dict else baseline_id + 1#
-        all_transformation_codes = sorted(dict_all_transformations.keys())
+
+        # sort to ensure that baseline is first
+        all_transformation_codes_base = sorted(dict_all_transformations.keys())
+        all_transformation_codes = [baseline_code] 
+        all_transformation_codes += [
+            x for x in all_transformation_codes_base 
+            if x != all_transformation_codes[0]
+        ]
+
+
         nms_defined = []
 
         # initialize dictionaries and information for attribute table
@@ -976,8 +993,22 @@ class Transformations:
         key_id = _DICT_KEYS.get("identifiers")
         key_name = _DICT_KEYS.get("name")
 
+        # set the default to be the transformers base with the new Transformations signature
+        code_def = (
+            self
+            .transformers
+            .code_baseline
+            .replace(
+                trs._MODULE_CODE_SIGNATURE,
+                _MODULE_CODE_SIGNATURE,
+            )
+        )
         code = f"{self.transformers.key_config_baseline}.{key_id}.{key_code}"
-        code = self.config.get(code)
+        code = self.config.get(
+            code, 
+            return_on_none = code_def, 
+        )
+
         name = f"{self.transformers.key_config_baseline}.{key_id}.{key_name}"
         name = self.config.get(name)
 
@@ -997,6 +1028,7 @@ class Transformations:
             dict_tr,
             self.transformers
         )
+
 
         return trfmn
     
@@ -1061,6 +1093,39 @@ class Transformations:
         
         return out
 
+
+
+    def get_transformation_codes_by_transformer_code(self,
+        include_missing_transformers: bool = False,
+    ) -> dict: 
+        """
+        Build a dictionary of all transformation codes associated with available
+            transformer codes. Set `include_missing_transformers = True` to 
+            include transformers that are not associated with any 
+            Transformations.
+        """
+        
+        dict_out = dict(
+            (x, self.get_transformation(x).transformer_code)
+            for x in self.all_transformation_codes
+        )
+        
+        dict_out = sf.reverse_dict(
+            dict_out,
+            allow_multi_keys = True,
+            force_list_values = True,
+        )
+
+        # 
+        if include_missing_transformers:
+            dict_update = dict(
+                (x, []) for x in self.transformers.all_transformers
+                if x not in dict_out.keys()
+            )
+
+            dict_out.update(dict_update)
+        
+        return dict_out
     
 
 

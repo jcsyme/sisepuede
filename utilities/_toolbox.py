@@ -13,6 +13,51 @@ import warnings
 
 
 
+#############################################
+#    SOME BASIC CLASSES AND MODULE SETUP    #
+#############################################
+
+# note: 
+# - problem: YAML string values are exported w/o quotes; need quotes for special characters etc.
+# - solution from https://stackoverflow.com/questions/38369833/pyyaml-and-using-quotes-for-strings-only
+# - to use, when building output dictionary, wrap text in yaml_quoted()
+class yaml_quoted(str):
+    """
+    YAML string values are exported w/o quotes; need quotes for special 
+        characters etc. To add quotes on export, wrap text in yaml_quoted() when 
+        building output dictionary.
+
+    Solution from aspiring1:
+        https://stackoverflow.com/questions/38369833/pyyaml-and-using-quotes-for-strings-only
+
+    """
+    pass
+
+
+
+def quoted_presenter(
+    dumper, 
+    data: str,
+):
+    out = dumper.represent_scalar(
+        "tag:yaml.org,2002:str", 
+        data, 
+        style = "\"", 
+    )
+    return out
+
+
+
+# update module
+yaml.add_representer(yaml_quoted, quoted_presenter)
+
+
+
+
+###########################
+#    TOOLBOX FUNCTIONS    #
+###########################
+
 def add_data_frame_fields_from_dict(
     df: pd.DataFrame,
     dict_field_vals: dict,
@@ -1835,12 +1880,17 @@ def list_dict_keys_with_same_values(
     """
     combs = itertools.combinations(list(dict_in.keys()), 2)
     str_out = []
+    
     for comb in combs:
         comb_0 = dict_in.get(comb[0])
         comb_1 = dict_in.get(comb[1])
-        if comb_0 == comb_1:
-            comb_out = f"'{comb_0}'" if isinstance(comb_0, str) else comb_0
-            str_out.append(f"{comb[0]} and {comb[1]} (both = {comb_out})")
+
+        if comb_0 != comb_1:
+            continue
+
+        comb_out = f"'{comb_0}'" if isinstance(comb_0, str) else comb_0
+        str_out.append(f"{comb[0]} and {comb[1]} (both = {comb_out})")
+
     str_out = delim.join(str_out) if (len(str_out) > 0) else ""
 
     return str_out
@@ -3758,6 +3808,17 @@ def vector_norm(
     val = (vec.dot(vec)**(0.5))
     
     return val
+
+
+
+def wrap_quote(
+    val: Any,
+    char_quote: str = "\"",
+) -> str:
+    """
+    Wrap val in a quote
+    """
+    return f"{char_quote}{val}{char_quote}"
 
 
 

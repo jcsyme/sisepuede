@@ -1,7 +1,7 @@
 # import Julia packages
 # load this first to avoid issue with libstdc++:
 #   https://juliapy.github.io/PythonCall.jl/stable/faq/
-import juliapkg
+#import juliapkg
 
 import logging
 import numpy as np
@@ -377,6 +377,11 @@ class EnergyProduction:
         Initialize the julia environment
         """
 
+        # ensure that the environment that includes juliapkg.json is set, then import
+        os.environ["PYTHON_JULIAPKG_PROJECT"] = self.dir_jl
+        import juliapkg
+
+        """
         # build configuration elements here
         juliapkg.require_julia("1.10.4")
 
@@ -414,6 +419,7 @@ class EnergyProduction:
             juliapkg.add(
                 k, v, **dict_kwargs
             )
+        """
 
         return None
 
@@ -465,7 +471,11 @@ class EnergyProduction:
             raise RuntimeError()
 
 
-        self.fp_pyjulia_support_functions = os.path.join(self.dir_jl, f"{module_sisepuede_support_functions_jl}.jl")
+        self.fp_pyjulia_support_functions = os.path.join(
+            self.dir_jl, 
+            f"{module_sisepuede_support_functions_jl}.jl"
+        )
+        
         if not os.path.exists(self.fp_pyjulia_support_functions):
             self.fp_pyjulia_support_functions = None
             msg = f"Path to support module '{self.fp_pyjulia_support_functions}' not found. The fuel production model cannot be run."
