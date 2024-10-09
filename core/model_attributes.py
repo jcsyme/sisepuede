@@ -3375,6 +3375,10 @@ class ModelAttributes:
         if (attr_subsector is None) | (attr_sector is None):
             return None
 
+        # check the subsector; if an abbreviation, convert to name
+        dict_abv_to_subsec = attr_subsector.field_maps.get(f"{attr_subsector.key}_to_subsector")
+        subsector = dict_abv_to_subsec.get(str(subsector).lower(), subsector)
+
         # if the primary category, simply get it and return it
         if return_type in ["pycategory_primary", "pycategory_primary_element"]:
 
@@ -3393,6 +3397,7 @@ class ModelAttributes:
         if not isinstance(dict_subsec_to_abv, dict):
             return None
 
+
         # return the subsector abbreviation?
         abv_subsector = dict_subsec_to_abv.get(subsector)
         if return_type == "abv_subsector":
@@ -3400,7 +3405,7 @@ class ModelAttributes:
         
         # return the sector?
         dict_map_abv_to_sector = attr_subsector.field_maps.get(f"{attr_subsector.key}_to_sector") 
-        sector = dict_map_abv_to_sector.get(dict_subsec_to_abv.get(subsector))
+        sector = dict_map_abv_to_sector.get(dict_subsec_to_abv.get(subsector, subsector)) # try name; if none, 
         if return_type == "sector":
             return sector
 

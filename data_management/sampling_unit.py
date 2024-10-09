@@ -3037,7 +3037,7 @@ class FutureTrajectories:
 			vec_sgs.extend([k for x in vs])
 			vec_vs.extend(vs)
 		
-		# convert to data frame and return\
+		# convert to data frame and return
 		df_out = (
 			pd.DataFrame(
 				{
