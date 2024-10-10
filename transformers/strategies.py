@@ -17,7 +17,7 @@ import sisepuede.utilities._toolbox as sf
 
 
 
-_MODULE_UUID = "D3BC5456-5BB7-4F7A-8799-AFE0A44C3FFA" 
+_MODULE_UUID = "BEE85F6C-6BA3-4382-9A8C-5C2D8691DE4E" 
 
 
 

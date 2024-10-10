@@ -191,8 +191,12 @@ class SISEPUEDEModels:
 		try:
 			self.fp_nemomod_reference_files = sf.check_path(fp_nemomod_reference_files, False)
 			self.allow_electricity_run = allow_electricity_run
+
 		except Exception as e:
-			self._log(f"Path to NemoMod reference files '{fp_nemomod_reference_files}' not found. The Electricity model will be disallowed from running.", type_log = "warning")
+			self._log(
+				f"Path to NemoMod reference files '{fp_nemomod_reference_files}' not found. The Electricity model will be disallowed from running.", 
+				type_log = "warning",
+			)
 
 		return None
 
@@ -223,10 +227,17 @@ class SISEPUEDEModels:
 
 			if any(try_endings):
 				self.fp_nemomod_temp_sqlite_db = fp_nemomod_temp_sqlite_db
-				self._log(f"Successfully initialized NemoMod temporary database path as {self.fp_nemomod_temp_sqlite_db}.", type_log = "info")
+				self._log(
+					f"Successfully initialized NemoMod temporary database path as {self.fp_nemomod_temp_sqlite_db}.", 
+					type_log = "info",
+					warn_if_none = False,
+				)
 
 			else:
-				self._log(f"Invalid path '{fp_nemomod_temp_sqlite_db}' specified as fp_nemomod_temp_sqlite_db. Using temporary path {self.fp_nemomod_temp_sqlite_db}.", type_log = "info")
+				self._log(
+					f"Invalid path '{fp_nemomod_temp_sqlite_db}' specified as fp_nemomod_temp_sqlite_db. Using temporary path {self.fp_nemomod_temp_sqlite_db}.", 
+					type_log = "info",
+				)
 
 
 		# clear old temp database to prevent competing key information in sql schema

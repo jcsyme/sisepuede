@@ -135,8 +135,12 @@ class AnalysisID:
 			date_info.microsecond
 		)
 
-		# note the success
-		self._log(f"Successfully initialized Analysis ID '{self.id}'", type_log = "info")
+		# note the success, but only if logging
+		self._log(
+			f"Successfully initialized Analysis ID '{self.id}'", 
+			type_log = "info",
+			warn_if_none = False,
+		)
 
 
 

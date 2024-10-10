@@ -768,7 +768,11 @@ class Transformers:
                 logger = self.logger,
                 regex_template_prepend = regex_template_prepend
             )
-            self._log(f"Successfully initialized SISEPUEDEFileStructure.", type_log = "info")
+            self._log(
+                f"Successfully initialized SISEPUEDEFileStructure.", 
+                type_log = "info",
+                warn_if_none = False,
+            )
 
         except Exception as e:
             self._log(f"Error trying to initialize SISEPUEDEFileStructure: {e}", type_log = "error")

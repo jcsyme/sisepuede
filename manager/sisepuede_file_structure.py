@@ -224,7 +224,11 @@ class SISEPUEDEFileStructure:
 			self._log(f"There were {count_errors} errors initializing the SISEPUEDE directory structure:{msg_error_dirs}", type_log = "error")
 			raise RuntimeError("SISEPUEDE unable to initialize file directories. Check the log for more information.")
 		else:
-			self._log(f"Verification of SISEPUEDE directory structure completed successfully with 0 errors.", type_log = "info")
+			self._log(
+				f"Verification of SISEPUEDE directory structure completed successfully with 0 errors.", 
+				type_log = "info",
+				warn_if_none = False,
+			)
 
 		return None
 
@@ -282,6 +286,7 @@ class SISEPUEDEFileStructure:
 
 			* self.dir_out
 			* self.dir_ref_batch_data
+			* self.dir_ref_examples
 			* self.dir_ref_data_crosswalks
 			* self.dir_ref_metadata
 		"""
@@ -306,6 +311,7 @@ class SISEPUEDEFileStructure:
 
 		# batch data directories (not required to run SISEPUEDE, but required for Data Generation notebooks and routines)
 		self.dir_ref_batch_data = None
+		self.dir_ref_examples = None
 		self.dir_ref_data_crosswalks = None
 
 		if self.dir_ref is not None:
@@ -317,6 +323,12 @@ class SISEPUEDEFileStructure:
 
 			self.dir_ref_data_crosswalks = sf.check_path(
 				os.path.join(self.dir_ref, "data_crosswalks"), 
+				create_q = initialize_directories,
+				throw_error_q = initialize_directories,
+			)
+
+			self.dir_ref_examples = sf.check_path(
+				os.path.join(self.dir_ref, "examples"), 
 				create_q = initialize_directories,
 				throw_error_q = initialize_directories,
 			)
@@ -385,9 +397,18 @@ class SISEPUEDEFileStructure:
 			self.allow_electricity_run = False
 
 		if msg_error != "":
-			self._log(f"There were {count_errors} while trying to initialize NemoMod:{msg_error}\nThe electricity model cannot be run. Disallowing electricity model runs.", type_log = "error")
+			self._log(
+				f"There were {count_errors} while trying to initialize NemoMod:{msg_error}\nThe electricity model cannot be run. Disallowing electricity model runs.", 
+				type_log = "error",
+			)
+
 		else:
-			self._log(f"NemoMod reference file checks completed successfully.", type_log = "info")
+			# log if logging--no warnings
+			self._log(
+				f"NemoMod reference file checks completed successfully.", 
+				type_log = "info",
+				warn_if_none = False,
+			)
 
 
 

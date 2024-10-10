@@ -752,7 +752,12 @@ class EnergyProduction:
                 df_tmp = pd.read_csv(fp_read)
                 dict_out.update({fbn: df_tmp})
 
-                self._log(f"Successfully read NemoMod input table data from {fp_read}", type_log = "info")
+                # log if logging; no warning
+                self._log(
+                    f"Successfully read NemoMod input table data from {fp_read}", 
+                    type_log = "info",
+                    warn_if_none = False,
+                )
 
         # if dictionary, simply copy into output dictionary
         elif isinstance(nemomod_reference_files, dict):

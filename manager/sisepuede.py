@@ -209,7 +209,7 @@ class SISEPUEDE:
 		regex_template_prepend: str = "sisepuede_run",
 		replace_output_dbs_on_init: bool = False,
 		try_exogenous_xl_types_in_variable_specification: bool = False,
-	):
+	) -> None:
 
 		# initialize the file structure and generic properties
 		self._initialize_file_structure(
@@ -240,6 +240,8 @@ class SISEPUEDE:
 		)
 		self._initialize_function_aliases()
 		self._initialize_base_database_tables()
+
+		return None
 
 
 	
@@ -511,10 +513,18 @@ class SISEPUEDE:
 				random_seed = random_seed,
 			)
 
-			self._log(f"Successfully initialized SISEPUEDEExperimentalManager.", type_log = "info")
+			self._log(
+				f"Successfully initialized SISEPUEDEExperimentalManager.", 
+				type_log = "info",
+				warn_if_none = False,
+			)
 
 		except Exception as e:
-			self._log(f"Error initializing the experimental manager in _initialize_experimental_manager(): {e}", type_log = "error")
+			self._log(
+				f"Error initializing the experimental manager in _initialize_experimental_manager(): {e}", 
+				type_log = "error",
+				warn_if_none = False,
+			)
 			raise RuntimeError(e)
 
 
@@ -593,7 +603,10 @@ class SISEPUEDE:
 
 		# setup logging
 		self._initialize_logger(logger = logger)
-		self._log(f"Successfully initialized SISEPUEDEFileStructure.", type_log = "info")
+		self._log(
+			f"Successfully initialized SISEPUEDEFileStructure.", 
+			type_log = "info",
+		)
 
 		# setup shortcut paths
 		self.analysis_id = self.file_struct.analysis_id
@@ -753,7 +766,10 @@ class SISEPUEDE:
 				logger = self.logger
 			)
 
-			self._log(f"Successfully initialized SISEPUEDEModels.", type_log = "info")
+			self._log(
+				f"Successfully initialized SISEPUEDEModels.", 
+				type_log = "info",
+			)
 			
 			if not self.file_struct.allow_electricity_run:
 				self._log(f"\tOne or more reference files are missing, and the electricity model cannot be run. This run will not include electricity results. Try locating the missing files and re-initializing SISEPUEDE to run the electricity model.", type_log = "warning")

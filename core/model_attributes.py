@@ -6348,8 +6348,17 @@ class ModelAttributes:
 
                 var_transitions = "Unadjusted Land Use Transition Probability"
                 if var_transitions in simplex_modvars:
-                    print(
-                        f"MISSIONSEARCHNOTE: As of 2023-10-06, there is a temporary solution implemeted in ModelAttributes.get_variable_to_simplex_group_dictionary() to ensure that transition probability rows are enforced on a simplex.\n\nFIX THIS ASAP TO DERIVE PROPERLY."
+                    warnings.warn(
+                        f"""
+
+                        MISSIONSEARCHNOTE: As of 2023-10-06, there is a temporary solution 
+                        implemeted in ModelAttributes.get_variable_to_simplex_group_dictionary() 
+                        to ensure that transition probability rows are enforced on a simplex.
+                        
+                        
+                        FIX THIS ASAP TO DERIVE PROPERLY.
+                        
+                        """
                     )
 
                     fields_to_split = self.build_variable_fields(var_transitions)
