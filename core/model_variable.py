@@ -512,7 +512,7 @@ class ModelVariable:
         Initialize the UUID
         """
 
-        self.uuid = _MODULE_UUID
+        self._uuid = _MODULE_UUID
 
         return None
 
@@ -2144,7 +2144,7 @@ def is_model_variable(
     Determine if the object is a ModelVariable
     """
     out = hasattr(obj, "is_model_variable")
-    uuid = getattr(obj, "uuid", None)
+    uuid = getattr(obj, "_uuid", None)
 
     out &= (
         uuid == _MODULE_UUID

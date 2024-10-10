@@ -260,11 +260,11 @@ class Regions:
         Initialize the UUID. Sets the following properties:
 
             * self.is_regions
-            * self.uuid
+            * self._uuid
         """
 
         self.is_regions = True
-        self.uuid = _MODULE_UUID
+        self._uuid = _MODULE_UUID
 
         return None
 
@@ -1730,11 +1730,11 @@ class TimePeriods:
         Initialize the UUID. Sets the following properties:
 
             * self.is_time_periods
-            * self.uuid
+            * self._uuid
         """
 
         self.is_time_periods = True
-        self.uuid = _MODULE_UUID
+        self._uuid = _MODULE_UUID
 
         return None
 
@@ -2057,11 +2057,11 @@ class YAMLConfiguration:
         Initialize the UUID. Sets the following properties:
             
             * self.is_yaml_configuration
-            * self.uuid
+            * self._uuid
         """
 
         self.is_yaml_configuration = True
-        self.uuid = _MODULE_UUID
+        self._uuid = _MODULE_UUID
 
         return None
             
@@ -2134,7 +2134,7 @@ def is_regions(
     """
 
     out = hasattr(obj, "is_regions")
-    uuid = getattr(obj, "uuid", None)
+    uuid = getattr(obj, "_uuid", None)
 
     out &= (
         uuid == _MODULE_UUID
@@ -2155,7 +2155,7 @@ def is_time_periods(
     """
 
     out = hasattr(obj, "is_time_periods")
-    uuid = getattr(obj, "uuid", None)
+    uuid = getattr(obj, "_uuid", None)
 
     out &= (
         uuid == _MODULE_UUID
@@ -2176,7 +2176,7 @@ def is_yaml_configuration(
     """
 
     out = hasattr(obj, "is_yaml_configuration")
-    uuid = getattr(obj, "uuid", None)
+    uuid = getattr(obj, "_uuid", None)
 
     out &= (
         uuid == _MODULE_UUID

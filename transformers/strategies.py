@@ -21,6 +21,11 @@ _MODULE_UUID = "D3BC5456-5BB7-4F7A-8799-AFE0A44C3FFA"
 
 
 
+# specify some default file names
+_DICT_FILE_NAME_DEFAULTS = {
+    "strategy_definitions": "strategy_definitions.csv",
+}
+
 _DICT_KEYS = {
     "baseline": "baseline_strategy_id",
     "code": "strategy_code",
@@ -317,11 +322,11 @@ class Strategy:
         Sets the following other properties:
 
             * self.is_strategy
-            * self.uuid
+            * self._uuid
         """
 
         self.is_strategy = True
-        self.uuid = _MODULE_UUID
+        self._uuid = _MODULE_UUID
 
         return None
     
@@ -477,7 +482,7 @@ class Strategies:
         transformations: trn.Transformations,
         baseline_id: int = 0,
         export_path: Union[str, pathlib.Path, None] = None,
-        fn_strategy_definition: Union[str, pathlib.Path] = "strategy_definitions.csv",
+        fn_strategy_definition: Union[str, pathlib.Path] = _DICT_FILE_NAME_DEFAULTS.get("strategy_definitions"),
         logger: Union[logging.Logger, None] = None,
         prebuild: bool = True,
         stop_on_error: bool = False,
@@ -912,11 +917,11 @@ class Strategies:
         Sets the following other properties:
 
             * self.is_strategies
-            * self.uuid
+            * self._uuid
         """
 
         self.is_strategies = True
-        self.uuid = _MODULE_UUID
+        self._uuid = _MODULE_UUID
 
         return None
     
@@ -1728,7 +1733,7 @@ def is_strategies(
     Determine if the object is a Strategies
     """
     out = hasattr(obj, "is_strategies")
-    uuid = getattr(obj, "uuid", None)
+    uuid = getattr(obj, "_uuid", None)
 
     out &= (
         uuid == _MODULE_UUID
@@ -1747,7 +1752,7 @@ def is_strategy(
     Determine if the object is a Strategy
     """
     out = hasattr(obj, "is_strategy")
-    uuid = getattr(obj, "uuid", None)
+    uuid = getattr(obj, "_uuid", None)
 
     out &= (
         uuid == _MODULE_UUID

@@ -843,7 +843,7 @@ class EnergyConsumption:
         Initialize the UUID
         """
 
-        self.uuid = _MODULE_UUID
+        self._uuid = _MODULE_UUID
 
         return None
 
@@ -4252,7 +4252,7 @@ def is_sisepuede_model_nfp_energy(
     """
 
     out = hasattr(obj, "is_sisepuede_model_nfp_energy")
-    uuid = getattr(obj, "uuid", None)
+    uuid = getattr(obj, "_uuid", None)
     
     out &= (
         uuid == _MODULE_UUID

@@ -1237,7 +1237,7 @@ class ModelAttributes:
         Initialize the UUID
         """
 
-        self.uuid = _MODULE_UUID
+        self._uuid = _MODULE_UUID
 
         return None
     
@@ -6567,7 +6567,7 @@ def is_model_attributes(
     """
 
     out = hasattr(obj, "is_model_attributes")
-    uuid = getattr(obj, "uuid", None)
+    uuid = getattr(obj, "_uuid", None)
 
     out &= (
         uuid == _MODULE_UUID

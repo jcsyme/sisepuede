@@ -25,7 +25,12 @@ Transformer Code:
 Defining Transformations
 ========================
 
-Transformations are parameterizations of Transformers. 
+Transformations are parameterizations of Transformers. Transformations are named in files with the following regular expression:
+
+`transformation_(.\w*).yaml`
+
+where `\w` are unicode word characters. See `Python regular expression documentation <https://docs.python.org/3/library/re.html>`_ for more information. 
+
 
 .. the module should be available from path set in conf.py https://sphinx-tutorial.readthedocs.io/step-2/
 .. autoclass:: sisepuede.transformers.transformations.Transformation

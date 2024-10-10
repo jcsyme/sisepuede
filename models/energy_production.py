@@ -1126,7 +1126,7 @@ class EnergyProduction:
         Initialize the UUID
         """
 
-        self.uuid = _MODULE_UUID
+        self._uuid = _MODULE_UUID
 
         return None
         
@@ -10308,7 +10308,7 @@ def is_sisepuede_model_fuel_production(
     check if obj is a SISEPUEDE FuelProduction model
     """
     out = hasattr(obj, "is_sisepuede_model_fuel_production")
-    uuid = getattr(obj, "uuid", None)
+    uuid = getattr(obj, "_uuid", None)
     
     out &= (
         uuid == _MODULE_UUID

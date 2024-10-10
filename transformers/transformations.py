@@ -98,6 +98,8 @@ class Transformation:
 
         self._initialize_identifiers()
         self._initialize_function(transformers, )
+
+        self._initialize_uuid()
         
         return None
     
@@ -302,11 +304,11 @@ class Transformation:
         Sets the following other properties:
 
             * self.is_transformation
-            * self.uuid
+            * self._uuid
         """
 
         self.is_transformation = True
-        self.uuid = _MODULE_UUID
+        self._uuid = _MODULE_UUID
 
         return None
 
@@ -447,7 +449,7 @@ class Transformations:
         fn_citations: str = _DICT_FILE_NAME_DEFAULTS.get("citations"),
         fn_config_general: str = _DICT_FILE_NAME_DEFAULTS.get("config_general"),
         logger: Union[logging.Logger, None] = None,
-        regex_transformation_config: re.Pattern = re.compile(f"{_TRANSFORMATION_REGEX_FLAG_PREPEND}_(.\D*).yaml"),
+        regex_transformation_config: re.Pattern = re.compile(f"{_TRANSFORMATION_REGEX_FLAG_PREPEND}_(.\w*).yaml"),
         stop_on_error: bool = True,
         transformers: Union[trs.Transformers, None] = None,
         **kwargs,
@@ -655,7 +657,6 @@ class Transformations:
         
 
         # build the attribute table
-        print(f"transformation_baseline.code = {transformation_baseline.code}")
         attribute_transformation, dict_fields = self.build_attribute_table(
             transformation_baseline.code,
             dict_all_transformations,
@@ -730,11 +731,11 @@ class Transformations:
         Initialize the following properties:
         
             * self.is_transformations
-            * self.uuid
+            * self._uuid
         """
 
         self.is_transformations = True
-        self.uuid = _MODULE_UUID
+        self._uuid = _MODULE_UUID
         
         return None
     
@@ -1164,7 +1165,7 @@ def is_transformation(
     Determine if the object is a Transformation
     """
     out = hasattr(obj, "is_transformation")
-    uuid = getattr(obj, "uuid", None)
+    uuid = getattr(obj, "_uuid", None)
 
     out &= (
         uuid == _MODULE_UUID
@@ -1183,7 +1184,7 @@ def is_transformations(
     Determine if the object is a Transformations
     """
     out = hasattr(obj, "is_transformations")
-    uuid = getattr(obj, "uuid", None)
+    uuid = getattr(obj, "_uuid", None)
 
     out &= (
         uuid == _MODULE_UUID

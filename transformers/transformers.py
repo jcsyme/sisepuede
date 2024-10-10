@@ -4,6 +4,7 @@ import logging
 import numpy as np
 import os, os.path
 import pandas as pd
+import re
 import shutil
 import time
 from typing import *
@@ -396,11 +397,11 @@ class Transformer:
         Sets the following other properties:
 
             * self.is_transformer
-            * self.uuid
+            * self._uuid
         """
 
         self.is_transformer = True
-        self.uuid = _MODULE_UUID
+        self._uuid = _MODULE_UUID
 
         return None
 
@@ -458,6 +459,9 @@ class Transformers:
         * NOTE: if passing, ensure that the ModelAttributes objects used to 
             instantiate the model + what is passed to the model_attributes
             argument are the same.
+    - regex_code_structure: regular expression defining the code structure of
+        transformer codes
+    - regex_template_prepend: passed to SISEPUEDEFileStructure()
     - **kwargs 
     """
     
@@ -467,6 +471,7 @@ class Transformers:
         df_input: Union[pd.DataFrame, None] = None,
         field_region: Union[str, None] = None,
         logger: Union[logging.Logger, None] = None,
+        regex_code_structure: re.Pattern = re.compile(f"{_MODULE_CODE_SIGNATURE}:(\D*):(.*$)"),
         regex_template_prepend: str = "sisepuede_run",
         **kwargs
     ):
@@ -477,7 +482,10 @@ class Transformers:
             regex_template_prepend = regex_template_prepend, 
         )
         self._initialize_models(**kwargs)
-        self._initialize_attributes(field_region, )
+        self._initialize_attributes(
+            field_region,
+            regex_code_structure,
+        )
 
         self._initialize_config(
             dict_config, 
@@ -502,6 +510,7 @@ class Transformers:
 
     def _initialize_attributes(self,
         field_region: Union[str, None],
+        regex_code_structure: re.Pattern,
     ) -> None:
         """
         Initialize the model attributes object. Checks implementation and throws
@@ -509,6 +518,7 @@ class Transformers:
 
             * self.attribute_transformer_code
             * self.key_region
+            * self.regex_code_structure
             * self.regions (support_classes.Regions object)
             * self.time_periods (support_classes.TimePeriods object)
         """
@@ -543,6 +553,13 @@ class Transformers:
             else field_region
         )
 
+        # set the structure of the transformer codes
+        regex_code_structure = (
+            re.compile(f"{_MODULE_CODE_SIGNATURE}:(\D*):(.*$)")
+            if not isinstance(regex_code_structure, re.Pattern)
+            else regex_code_structure
+        )
+
         # set some useful classes
         time_periods = sc.TimePeriods(self.model_attributes)
         regions_manager = sc.Regions(self.model_attributes)
@@ -555,8 +572,9 @@ class Transformers:
         self.key_region = field_region
         self.key_time_period = time_periods.field_time_period
         self.key_transformer_code = attribute_transformer_code.key
-        self.time_periods = time_periods
+        self.regex_code_structure = regex_code_structure
         self.regions_manager = regions_manager
+        self.time_periods = time_periods
 
         return None
 
@@ -1589,11 +1607,11 @@ class Transformers:
         Initialize the following properties:
         
             * self.is_transformers
-            * self.uuid
+            * self._uuid
         """
 
         self.is_transformers = True
-        self.uuid = _MODULE_UUID
+        self._uuid = _MODULE_UUID
         
         return None
 
@@ -2204,6 +2222,47 @@ class Transformers:
         out = self.dict_transformers.get(code)
         
         return out
+    
+
+
+    def get_transformer_codes_by_sector(self,
+        key_other: str = "other",
+    ) -> dict:
+        """
+        Map transformers to the sector they are associated with (by code). If
+            not associated with any sector, adds to `key_other` key
+        """
+        
+        attribute_sectors = self.model_attributes.get_sector_attribute_table()
+        dict_out = dict(
+            (
+                attribute_sectors.get_attribute(x, "sector"), 
+                []
+            ) 
+            for x in attribute_sectors.key_values
+        )
+        
+        # add other key
+        dict_out.update({key_other: []})
+        
+        
+        # check all transformer codes
+        for code in self.all_transformers:
+            
+            # try to match the code; skip baseline
+            code_match = self.regex_code_structure.match(code)
+            if code_match is None:
+                continue 
+            
+            # pull matching component and try to get the secod
+            subsec = code_match.groups()[0]
+            sec = self.model_attributes.get_subsector_attribute(subsec, "sector")
+            sec = key_other if sec is None else sec
+
+            dict_out.get(sec).append(code)
+        
+        
+        return dict_out
     
 
 
@@ -7242,7 +7301,7 @@ def is_transformer(
     Determine if the object is a Transformer
     """
     out = hasattr(obj, "is_transformer")
-    uuid = getattr(obj, "uuid", None)
+    uuid = getattr(obj, "_uuid", None)
 
     out &= (
         uuid == _MODULE_UUID
@@ -7261,7 +7320,7 @@ def is_transformers(
     Determine if the object is a Transformers
     """
     out = hasattr(obj, "is_transformers")
-    uuid = getattr(obj, "uuid", None)
+    uuid = getattr(obj, "_uuid", None)
 
     out &= (
         uuid == _MODULE_UUID
