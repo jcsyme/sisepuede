@@ -27,6 +27,12 @@ def check_implementation_ramp(
         df_input. If anything fails, return `obj.vec_implementation_ramp`.
     """
     
+    vec_implementation_ramp = (
+        np.array(vec_implementation_ramp) 
+        if sf.islistlike(vec_implementation_ramp) 
+        else vec_implementation_ramp
+    )
+
     return_obj = not (
         isinstance(vec_implementation_ramp, np.ndarray)
         & isinstance(df_input, pd.DataFrame)
@@ -36,6 +42,9 @@ def check_implementation_ramp(
         return_obj |= vec_implementation_ramp.shape[0] != df_input.shape[0]
         return_obj |= vec_implementation_ramp.max() > 1.0
         return_obj |= vec_implementation_ramp.max() < 0.0
+        #return_obj |= (vec_implementation_ramp[0] != 0.0)
+        #return_obj |= (vec_implementation_ramp[-1] != 1.0)
+
     
     out = (
         vec_implementation_ramp 

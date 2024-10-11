@@ -7,7 +7,7 @@ from sisepuede.transformers.lib._operations import (
     build_default_general_config_dict,
     build_default_strategies,
     build_default_transformation_config_dict,
-    instantiate_default_transformations,
+    instantiate_default_strategy_directory,
     spawn_args_dict
 )
 

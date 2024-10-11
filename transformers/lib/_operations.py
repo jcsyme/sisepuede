@@ -2,6 +2,7 @@
 from typing import *
 import copy
 import inspect
+import os, os.path
 import pandas as pd
 import pathlib
 
@@ -499,7 +500,7 @@ def code_to_file_name(
 
 
 
-def instantiate_default_transformations(
+def instantiate_default_strategy_directory(
     transformers: trs.Transformers,
     path_transformations: Union[str, pathlib.Path],
     export_transformations: bool = True,
@@ -512,7 +513,7 @@ def instantiate_default_transformations(
 ) -> Union[dict, None]:
     """
     Instantiate default transformations configuration files and strategy
-        definition file. 
+        definition file into a Strategy Directory. 
         
     Function Arguments
     ------------------

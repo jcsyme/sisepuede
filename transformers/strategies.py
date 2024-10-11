@@ -34,6 +34,8 @@ _DICT_KEYS = {
     "transformation_specification": "transformation_specification"
 }
 
+_FLAG_EXPORT_TO_TRANSFORMATIONS = "transformations"
+
 
 #####################################
 ###                               ###
@@ -465,10 +467,10 @@ class Strategies:
     ------------------
     - baseline_id: optional specification of an ID as baseline. Default is 0.
     - export_path: optional export path specification.
-        - If None, exports to SISEPUEDE default (in ref)
         - If "transformations", writes to 
             os.path.join(transformations.dir_init, "templates")
         - If pathlib.Path, writes to that directory (must be a directory)
+        - If None, exports to SISEPUEDE default (in ref)
     - fn_strategy_definition: file name of strategy definiton file in 
         transformations.dir_init *OR* pathlib.Path giving a full path to a
         strategy definitions CSV file.
@@ -481,7 +483,7 @@ class Strategies:
     def __init__(self,
         transformations: trn.Transformations,
         baseline_id: int = 0,
-        export_path: Union[str, pathlib.Path, None] = None,
+        export_path: Union[str, pathlib.Path, None] = "transformations",
         fn_strategy_definition: Union[str, pathlib.Path] = _DICT_FILE_NAME_DEFAULTS.get("strategy_definitions"),
         logger: Union[logging.Logger, None] = None,
         prebuild: bool = True,
@@ -528,8 +530,8 @@ class Strategies:
     ##################################
 
     def get_export_path(self,
-        export_path: Union[str, pathlib.Path, None] = None,
-        flag_export_to_transformations: str = "transformations",
+        export_path: Union[str, pathlib.Path, None] = _FLAG_EXPORT_TO_TRANSFORMATIONS,
+        flag_export_to_transformations: str = _FLAG_EXPORT_TO_TRANSFORMATIONS,
         subdir_default: str = "templates",
     ) -> str:
         """
@@ -558,7 +560,6 @@ class Strategies:
             if export_path == flag_export_to_transformations:
                 # turn into pathlib.Path
                 export_path = self.transformations.dir_init.joinpath(subdir_default)
-                print(f"here2!:\t{export_path}")
 
         if isinstance(export_path, pathlib.Path):
             if not export_path.exists():
@@ -568,6 +569,7 @@ class Strategies:
             if export_path.is_dir():
                 dir_templates = str(export_path.joinpath("calibrated"))
         
+
         ##  RETURN DIRS
 
         out = (
@@ -579,14 +581,12 @@ class Strategies:
 
 
 
-
-
     def _initialize_base_input_database(self,
         export_path: Union[str, pathlib.Path, None] = None,
         regions: Union[List[str], None] = None,
         use_demo_template_on_missing: bool = True,
     ) -> None:
-        """
+        f"""
         Initialize the BaseInputDatabase class used to construct future
             trajectories. Initializes the following properties:
 
@@ -600,7 +600,7 @@ class Strategies:
         ------------------
         - export_path: optional export path specification.
             - If None, exports to SISEPUEDE default (in ref)
-            - If "transformations", writes to 
+            - If "{_FLAG_EXPORT_TO_TRANSFORMATIONS}", writes to 
                 os.path.join(transformations.dir_init, "templates")
             - If pathlib.Path, writes to that directory (must be a directory)
         - regions: list of regions to run experiment for
@@ -683,6 +683,8 @@ class Strategies:
 
         self.base_input_database = base_input_database
         self.base_input_database_demo = base_input_database_demo
+        self.dir_templates = dir_templates
+        self.dir_templates_demo = dir_templates_demo
         self.regions = base_input_database.regions
 
         return None

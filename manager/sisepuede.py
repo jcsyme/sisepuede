@@ -13,6 +13,7 @@ from sisepuede.manager.sisepuede_file_structure import *
 import sisepuede.core.support_classes as sc
 import sisepuede.manager.sisepuede_models as sm
 import sisepuede.manager.sisepuede_output_database as sod
+import sisepuede.transformers as trf
 import sisepuede.utilities._toolbox as sf
 
 
@@ -188,6 +189,10 @@ class SISEPUEDE:
 		destroy exisiting output tables if an AnalysisID is specified.
 	- regex_template_prepend: string to prepend to output files tagged with the
 		analysis id
+	- strategies: Optional Stratgies object used to exogenously specify 
+		strategies and templates for use. 
+		NOTE: If specified, then it overwrites `dir_ingestion` and forces 
+			`data_mode` to calibrated 
 	- try_exogenous_xl_types_in_variable_specification: 
 		* If True, attempts to read exogenous XL type specifcations for variable 
 			specifications (i.e., in SamplingUnit) from 
@@ -208,15 +213,17 @@ class SISEPUEDE:
 		regions: Union[List[str], None] = None,
 		regex_template_prepend: str = "sisepuede_run",
 		replace_output_dbs_on_init: bool = False,
+		strategies: Union[trf.Strategs, None] = None,
 		try_exogenous_xl_types_in_variable_specification: bool = False,
 	) -> None:
 
-		# initialize the file structure and generic properties
+		# initialize the file structure and generic properties - check strategies
 		self._initialize_file_structure(
 			dir_ingestion = dir_ingestion,
 			id_str = id_str,
 			logger = logger,
 			regex_template_prepend = regex_template_prepend,
+			strategies = strategies,
 		)
 		self._initialize_support_classes()
 		self._initialize_attribute_design(attribute_design)
@@ -408,7 +415,11 @@ class SISEPUEDE:
 			data_mode = default_mode if (data_mode is None) else data_mode
 			self.data_mode = default_mode if (data_mode not in self.valid_data_modes) else data_mode
 			self.demo_mode = (self.data_mode == "demo")
-			self.dir_templates = self.file_struct.dict_data_mode_to_template_directory.get(self.data_mode) if (self.file_struct is not None) else None
+			self.dir_templates = (
+				self.file_struct.dict_data_mode_to_template_directory.get(self.data_mode) 
+				if (self.file_struct is not None) 
+				else None
+			)
 
 			self._log(f"Running SISEPUEDE under template data mode '{self.data_mode}'.", type_log = "info")
 
@@ -546,6 +557,7 @@ class SISEPUEDE:
 		id_str: Union[str, None] = None,
 		logger: Union[logging.Logger, str, None] = None,
 		regex_template_prepend: str = "sisepuede_run"
+		strategies: Union[trf.Strategies, None] = None,
 	) -> None:
 
 		"""
@@ -583,7 +595,33 @@ class SISEPUEDE:
 		- logger: Optional logging.Logger object OR file path to use for 
 			logging. If None, create a log in the SISEPUEDE output directory 
 			associated with the analysis ID
+		- strategies: optional specification of Strategies object for use in
+			defining experiments
 		"""
+
+		##  CHECK STRATEGIES
+
+		attr_strategy = None
+
+		# if a Strategies object is specified, set the ingestion directory and update the strategy attribute
+		if trf.is_strategies(strategies):
+			
+			# overwrite dir ingestion
+			dir_ingestion = os.path.dirname(strategies.dir_templates)
+			attr_strategy = (
+				strategies
+				.model_attributes
+				.get_dimensional_attribute_table(
+					strategies
+					.model_attributes
+					.dim_strategy_id
+				)
+			)
+
+			# DO SOME CHECKING
+
+
+		##  TRY INITIALIZING THE FILE STRUCTURE
 
 		self.file_struct = None
 		self.model_attributes = None
@@ -600,6 +638,20 @@ class SISEPUEDE:
 			msg = f"Error trying to initialize SISEPUEDEFileStructure: {e}"
 			raise RuntimeError(msg)
 		
+		# overwrite strategy attribute table?
+		if attr_strategy is not None:
+			key_dim = self.file_struct.model_attributes.attribute_group_key_dim
+			key_strat = self.file_struct.model_attributes.dim_strategy_id
+
+			(
+				self
+				.file_struct
+				.model_attributes
+				.dict_attributes
+				.get(key_dim)
+				.update({key_strat: attr_strategy, })
+			)
+
 
 		# setup logging
 		self._initialize_logger(logger = logger)

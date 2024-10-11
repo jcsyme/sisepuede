@@ -253,25 +253,45 @@ class SISEPUEDEFileStructure:
 		##  Check template ingestion path (within reference directory)
 
 		# initialize
-		self.valid_data_modes = ["calibrated", "demo", "uncalibrated"]
-		self.dir_ingestion = os.path.join(self.dir_ref, "ingestion") if (self.dir_ref is not None) else None
-		self.dict_data_mode_to_template_directory = None
+		valid_data_modes = ["calibrated", "demo", "uncalibrated"]
+		valid_data_modes_not_demo = [x for x in valid_data_modes if x != "demo"]
+		dir_ingestion_default = os.path.join(self.dir_ref, "ingestion")
+		dict_data_mode_to_template_directory = None
 
 		# override if input path is specified
-		if isinstance(dir_ingestion, str):
-			if os.path.exists(dir_ingestion):
-				self.dir_ingestion = dir_ingestion
+		set_default = not isinstance(dir_ingestion, str)
+		set_default |= (not os.path.exists(dir_ingestion)) if not set_default else set_default
+		if set_default:
+			dir_ingestion = dir_ingestion_default
 
 		# check existence
-		if not os.path.exists(self.dir_ingestion):
-			self._log(f"\tIngestion templates subdirectory '{self.dir_ingestion}' not found", type_log = "error")
-			self.dir_ingestion = None
+		if not os.path.exists(dir_ingestion):
+			msg = f"\tIngestion templates subdirectory '{self.dir_ingestion}' not found. Setting to default..."
+			self._log(msg, type_log = "error", )
+			raise RuntimeError(msg)
+
+
+		# build the dictionary
+		dict_data_mode_to_template_directory = {
+			"demo": os.path.join(dir_ingestion_default, "demo")
+		}
+
+		dict_data_mode_to_template_directory.update(
+			dict(
+				zip(
+					valid_data_modes_not_demo,
+					[os.path.join(dir_ingestion, x) for x in valid_data_modes_not_demo]
+				)
+			)
+		)
 		
-		else:
-			self.dict_data_mode_to_template_directory = dict(zip(
-				self.valid_data_modes,
-				[os.path.join(self.dir_ingestion, x) for x in self.valid_data_modes]
-			))
+		
+		##  SET PROPERTIES
+
+		self.dict_data_mode_to_template_directory = dict_data_mode_to_template_directory
+		self.dir_ingestion = dir_ingestion
+		self.dir_ingestion_default = dir_ingestion_default
+		self.valid_data_modes = valid_data_modes
 
 		return None
 
