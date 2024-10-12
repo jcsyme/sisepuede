@@ -501,7 +501,7 @@ class SISEPUEDE:
 			else random_seed
 		)
 		
-		time_period_u0 = self.get_config_parameter(key_config_time_period_u0)
+		time_period_u0 = self.get_config_parameter(key_config_time_period_u0) #HEREHERE - edit to pull from default too
 		
 		fp_xl_types = (
 			self.file_struct.fp_variable_specification_xl_types
@@ -617,9 +617,6 @@ class SISEPUEDE:
 					.dim_strategy_id
 				)
 			)
-
-			# DO SOME CHECKING
-			print(attr_strategy.table["baseline_strategy_id"].sum())
 
 
 		##  TRY INITIALIZING THE FILE STRUCTURE

@@ -45,7 +45,7 @@ class SISEPUEDEFileStructure:
 	- logger: optional logging.Logger object used for logging
 	- regex_template_prepend: string to prepend to output files tagged with the
 		analysis id.
-
+	- stop_on_missing_templates: if template directory is not found, stop? 
 	"""
 	def __init__(self,
 		dir_ingestion: Union[str, None] = None,
@@ -54,7 +54,8 @@ class SISEPUEDEFileStructure:
 		initialize_directories: bool = True,
 		logger: Union[logging.Logger, None] = None,
 		regex_template_prepend: str = "sisepuede_run",
-	):
+		stop_on_missing_templates: bool = False,
+	) -> None:
 
 		self.logger = logger
 		self._set_basic_properties()
@@ -66,7 +67,10 @@ class SISEPUEDEFileStructure:
 		# run checks of directories
 		self._check_config(fn_config)
 		self._check_required_directories()
-		self._check_ingestion(dir_ingestion)
+		self._check_ingestion(
+			dir_ingestion,
+			stop_on_missing = stop_on_missing_templates,
+		)
 		self._check_optional_directories()
 
 		# initialize model attributes, set runtime id, then check/instantiate downstream file paths
@@ -235,7 +239,8 @@ class SISEPUEDEFileStructure:
 
 
 	def _check_ingestion(self,
-		dir_ingestion: Union[str, None]
+		dir_ingestion: Union[str, None],
+		stop_on_missing: bool = False,
 	) -> None:
 		"""
 		Check path to templates. Sets the following properties:
@@ -246,8 +251,13 @@ class SISEPUEDEFileStructure:
 
 		Function Arguments
 		------------------
-		dir_ingestion: ingestion directory storing input templates for SISEPUEDE
+		- dir_ingestion: ingestion directory storing input templates for 
+			SISEPUEDE
 			* If None, defaults to ..PATH_SISEPUEDE/ref/ingestion
+
+		Keyword Arguments
+		-----------------
+		- stop_on_missing: if template directory is not found, stop? 
 		"""
 
 		##  Check template ingestion path (within reference directory)
@@ -261,6 +271,7 @@ class SISEPUEDEFileStructure:
 		# override if input path is specified
 		set_default = not isinstance(dir_ingestion, str)
 		set_default |= (not os.path.exists(dir_ingestion)) if not set_default else set_default
+		set_default &= not stop_on_missing # we want it to fail if stopping on missing
 		if set_default:
 			dir_ingestion = dir_ingestion_default
 
