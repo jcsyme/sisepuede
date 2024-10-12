@@ -213,7 +213,7 @@ class SISEPUEDE:
 		regions: Union[List[str], None] = None,
 		regex_template_prepend: str = "sisepuede_run",
 		replace_output_dbs_on_init: bool = False,
-		strategies: Union[trf.Strategs, None] = None,
+		strategies: Union[trf.Strategies, None] = None,
 		try_exogenous_xl_types_in_variable_specification: bool = False,
 	) -> None:
 
@@ -556,7 +556,7 @@ class SISEPUEDE:
 		dir_ingestion: Union[str, None] = None,
 		id_str: Union[str, None] = None,
 		logger: Union[logging.Logger, str, None] = None,
-		regex_template_prepend: str = "sisepuede_run"
+		regex_template_prepend: str = "sisepuede_run",
 		strategies: Union[trf.Strategies, None] = None,
 	) -> None:
 
@@ -619,6 +619,7 @@ class SISEPUEDE:
 			)
 
 			# DO SOME CHECKING
+			print(attr_strategy.table["baseline_strategy_id"].sum())
 
 
 		##  TRY INITIALIZING THE FILE STRUCTURE
