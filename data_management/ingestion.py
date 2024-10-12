@@ -208,8 +208,6 @@ class InputTemplate:
 		- field_req_variable_trajectory_group_trajectory_type: Field used to
 			explicitly add trajectory group type for variables in a trajectory
 			group (added after import)
-		- filter_invalid_strategies: filter strategies that aren't defined in an
-			attribute table
 		- include_simplex_group_as_trajgroup: default to include simplex group
 			from attributes as trajectory group?
 		- regex_max: re.Pattern (compiled regular expression) used to match the

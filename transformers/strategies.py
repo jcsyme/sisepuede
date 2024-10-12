@@ -1289,7 +1289,17 @@ class Strategies:
             all.
         - strategies: strategies to build for. Can be a mixture of strategy_ids
             and names. If None, runs all available. 
-        - **kwargs: passed to self.input_template.template_from_inputs()
+        - **kwargs: passed to self.input_template.template_from_inputs(). 
+            Notable keyword arguments include:
+
+            - df_trajgroup: optional dataframe mapping each field variable to 
+                trajectory groups. (default None)
+                * Must contain field_subsector, field_variable, and 
+                    field_variable_trajectory_group as fields
+                * Overrides include_simplex_group_as_trajgroup if specified and 
+                    conflicts occur
+		    - include_simplex_group_as_trajgroup: default to include simplex 
+                group from attributes as trajectory group? (default True)
         """
 
         # INITIALIZE STRATEGIES TO LOOP OVER
@@ -1346,13 +1356,25 @@ class Strategies:
         
         
         # check strategies HEREHERE
-        strategies = (
-            self.all_strategies_non_baseline
-            if not sf.islistlike(strategies)
-            else [x for x in self.all_strategies_non_baseline if x in strategies]
-        )
-        #strategies = [self.get_strategy(x) for x in strategies]
-        #strategies = sorted([x.id_num for x in strategies if x is not None])
+
+        if not sf.islistlike(strategies):
+            strategies = self.all_strategies_non_baseline
+        
+        else:
+            strategies_out = []
+            for x in strategies:
+                x = self.get_strategy_id(x)
+
+                continue_q = x is None
+                continue_q |= (x == self.baseline_id) if not continue_q else continue_q
+                if continue_q:
+                    continue
+                    
+                strategies_out.append(x)
+
+            strategies = [x for x in self.all_strategies_non_baseline if x in strategies_out]
+
+
         n = len(strategies)
         
         if return_none:
@@ -1717,6 +1739,26 @@ class Strategies:
         return out
     
 
+
+    def get_strategy_id(self,
+        strategy_specification: Union[int, str, None],
+    ) -> Union[int, None]:
+        """
+        Get the strategy id based on strategy code, id, or name
+            
+        Function Arguments
+        ------------------
+        - strategy_specification: strategy_id, strategy name, or strategy code 
+            to use to retrieve ID
+            
+        Keyword Arguments
+        ------------------
+        """
+
+        strat = self.get_strategy(strategy_specification)
+        out = None if (strat is None) else strat.id_num
+
+        return out
 
     
 
