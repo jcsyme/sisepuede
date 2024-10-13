@@ -50,3 +50,10 @@ vignettes/*.pdf
 # tmp and out
 /tmp/*
 /out/*
+
+# ignore VS code settings
+/.vscode
+
+# ignore checkpoints
+*-checkpoint.py
+*-checkpoint.ipynb
