@@ -2,21 +2,21 @@
 General Data
 ============
 
-**MODELNAME** includes key elements to support conversion between different variables and support different reporting quantities (e.g., emissions in MT or GT). The following section enumerates conversion factors and units for some of the key elements of **MODELNAME**, including gasses and defined units of energy, length, mass, and volume (used in emission accounting).
+**SISEPUEDE** includes key elements to support conversion between different variables and support different reporting quantities (e.g., emissions in MT or GT). The following section enumerates conversion factors and units for some of the key elements of SISEPUEDE, including gasses and defined units of energy, length, mass, and volume (used in emission accounting).
 
 
 Sectors and Subsectors
 ======================
 
-LAC-IPDM models emissions in four key sectors: AFOLU, Circular Economy, Energy, and IPPU. Additional, emissions are driven by activity in the Socioeconomic sector.
+SISEPUEDE models emissions in four key sectors: AFOLU, Circular Economy, Energy, and IPPU. Additional, emissions are driven by activity in the Socioeconomic sector.
 
-.. csv-table:: Emissions sectors in LAC-IDPM
+.. csv-table:: Emissions sectors in SISEPUEDE
    :file: ./csvs/attribute_sector.csv
    :header-rows: 1
 
 Each of the four key emissions sectors and the socioeconomic sector are divided into several subsectors, which are detailed below.
 
-.. csv-table:: Subsectors modeled in LAC-IDPM
+.. csv-table:: Subsectors modeled in SISEPUEDE
    :file: ./csvs/attribute_subsector.csv
    :header-rows: 1
 
@@ -30,7 +30,7 @@ Emissions are calculated in a unit of mass (default MT) for each relevant gas in
 
 See `Chapter 7, Section 6.1 of the IPCC Sixth Assessment Report (AR6) <https://www.ipcc.ch/report/ar6/wg1/downloads/report/IPCC_AR6_WGI_Chapter07.pdf>`_ for more detail on global warming potential and how it is calculated.
 
-.. csv-table:: Gasses potentially included in LAC-IDPM and their CO2 equivalent
+.. csv-table:: Gasses potentially included in SISEPUEDE and their CO2 equivalent
    :file: ./csvs/attribute_gas.csv
    :header-rows: 1
 
