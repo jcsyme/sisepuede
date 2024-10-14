@@ -4,13 +4,11 @@ build-backend = "setuptools.build_meta"
 
 [project]
 authors = [{name = "James Syme", email = "jsyme@tec.mx"}]
-description = "SImulation of SEctoral Pathways for Uncertainty Exploration and DEcarbonization: an integrated modeling framework to facilitate decarbonization planning under deep uncertainty."
-dynamic = ["version", "dependencies", "description"]
+dynamic = ["version", "dependencies", "description", "license"]
 keywords = ["decarbonization", "integrated modeling", "dmdu", "rdm", "robust decision making"]
 name = "sisepuede"
 readme = "README.md"
-requires-python = ">= 3.11"
-version = "1.1"
+requires-python = "== 3.11.*"
 
 [project.urls]
 Documentation = "https://sisepuede.readthedocs.org"

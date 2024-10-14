@@ -9,7 +9,7 @@ project = "SISEPUEDE"
 copyright = "2024"
 author = "James Syme, Edmundo Molina Perez, Nidhi Kalra"
 release = "1.0"
-version = "1.0.0"
+version = "1.1.0"
 
 # solution to allow variable window width: https://stackoverflow.com/questions/23211695/modifying-content-width-of-the-sphinx-theme-read-the-docs
 
@@ -18,10 +18,11 @@ def setup(app):
 
 
 # add to path
-path = "../../.."
+path = "../../sisepuede"
 path = os.path.abspath(path)
+print(f"conf path in readthedocs:\t{path}")
 sys.path.insert(0, path)
-print(f"\n\n\n\n\n##### HERE - {path}\n\n\n\n\n")
+
 
 # -- General configuration
 

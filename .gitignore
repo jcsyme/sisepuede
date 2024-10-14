@@ -48,6 +48,10 @@ vignettes/*.pdf
 **/.DS_Store
 
 # tmp and out
+/build/*
+/sisepuede/tmp/*
+/sisepuede/out/*
+/sisepuede.egg-info/*
 /tmp/*
 /out/*
 
