@@ -1,8 +1,21 @@
 [build-system]
-requires = ["flit_core >=3.2,<4"]
-build-backend = "flit_core.buildapi"
+requires = ["setuptools>=61.0"]
+build-backend = "setuptools"
 
 [project]
-name = "lumache"
-authors = [{name = "Graziella", email = "graziella@lumache"}]
-dynamic = ["version", "description"]
+authors = [{name = "James Syme", email = "jsyme@tec.mx"}]
+description = "SImulation of SEctoral Pathways for Uncertainty Exploration and DEcarbonization: an integrated modeling framework to facilitate decarbonization planning under deep uncertainty."
+dynamic = ["version", "dependencies", "description"]
+keywords = ["decarbonization", "integrated modeling", "dmdu", "rdm", "robust decision making"]
+name = "sisepuede"
+readme = "README.md"
+requires-python = ">= 3.11"
+version = "1.1"
+
+[project.urls]
+Documentation = "https://sisepuede.readthedocs.org"
+Repository = "https://github.com/jcsyme/sisepuede"
+
+# see https://stackoverflow.com/questions/76722680/what-is-the-best-way-to-combine-conda-with-standard-python-packaging-tools-e-g
+[tool.setuptools.dynamic]
+dependencies = { file = ["requirements.txt"] }
