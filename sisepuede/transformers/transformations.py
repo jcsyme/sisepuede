@@ -333,7 +333,7 @@ class Transformation:
         transformer_code = config.get(self.key_transformer)
         transformer = transformers.get_transformer(transformer_code)
         if not trs.is_transformer(transformer, ):
-            raise RuntimeError(f"Invalid transformation '{transformation_code}' found in Transformers")
+            raise RuntimeError(f"Invalid transformation '{transformer_code}' found in Transformers")
 
         # get arguments to the function 
         _, keywords = sf.get_args(

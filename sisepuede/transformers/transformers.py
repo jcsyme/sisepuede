@@ -2296,6 +2296,7 @@ class Transformers:
     def get_vectors_for_ramp_and_cap(self,
         categories_entc_max_investment_ramp: Union[List[str], None] = None,
         vec_implementation_ramp: Union[np.ndarray, Dict[str, int], None] = None,
+        **kwargs,
     ) -> Tuple: 
         """
         Get ramp vector and associated vectors for capping, including (in order)
