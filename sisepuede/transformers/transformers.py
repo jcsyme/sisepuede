@@ -158,6 +158,8 @@ class Transformer:
         transformer index
     - field_transformer_name: field in attr_transfomer.table containing the
         transformer name
+    - include_code_in_docstr: include the Transformer code in the docstring 
+        if overwriting?
     - overwrite_docstr: overwrite the docstring if there's only one function?
     """
     
@@ -166,14 +168,10 @@ class Transformer:
         func: Callable,
         attr_transfomer: Union[AttributeTable, None],
         code_baseline: str = f"{_MODULE_CODE_SIGNATURE}:BASE",
+        include_code_in_docstr: bool = True,
         overwrite_docstr: bool = True,
         **kwargs,
     ) -> None:
-
-        self._initialize_function(
-            func, 
-            overwrite_docstr,
-        )
 
         self._initialize_fields(
             **kwargs,
@@ -183,6 +181,12 @@ class Transformer:
             code, 
             code_baseline,
             attr_transfomer, 
+        )
+
+        self._initialize_function(
+            func, 
+            include_code_in_docstr = include_code_in_docstr, 
+            overwrite_docstr = overwrite_docstr,
         )
 
         self._initialize_uuid()
@@ -296,6 +300,7 @@ class Transformer:
     
     def _initialize_function(self,
         func: Union[Callable, List[Callable]],
+        include_code_in_docstr: bool = True,
         overwrite_docstr: bool = True,
     ) -> None:
         """
@@ -351,7 +356,11 @@ class Transformer:
         
         # overwrite doc?
         if overwrite_docstr:
-            self.__doc__ = function_list[0].__doc__ 
+            self.__doc__ = (
+                function_list[0].__doc__ 
+                if not include_code_in_docstr
+                else self._format_docstr_with_code(function_list[0])
+            )
 
         # check if function assignment failed; if not, assign
         if function is None:
@@ -362,7 +371,21 @@ class Transformer:
         
         return None
     
+    def _format_docstr_with_code(self,
+        func: callable,
+    ) -> str:
+        """
+        Format a docstring from func to include the transformer code
+        """
 
+        docstr = func.__doc__.replace(
+            f"Parameters",
+            #Notes\n\t-----\n\t
+            f"Transformation Code : \n\t\t{self.code}\n\n\tParameters"
+            #f"**Transformation Code**: {self.code}\n\n\tParameters"
+        )
+
+        return docstr
 
     def _initialize_fields(self,
         **kwargs,
@@ -2783,16 +2806,16 @@ class Transformers:
 
         Parameters
         ----------
-        df_input: pd.DataFrame
+        df_input : pd.DataFrame
             Optional data frame containing trajectories to modify
-        magnitude: float
+        magnitude : float
             Magnitude of decrease in exports. If using the default value of `magnitude_type == "scalar"`, this magnitude will scale the final time value downward by this factor. 
             NOTE: If magnitude_type changes, then the behavior of the trasnformation will change.
-        magnitude_type: str
+        magnitude_type : str
             Type of magnitude, as specified in `transformers.lib.general.transformations_general`. See `?transformers.lib.general.transformations_general` for more information on the specification of magnitude_type for general transformer values. 
-        strat: int
+        strat : int
             Optional strategy value to specify for the transformation
-        vec_implementation_ramp: Union[np.ndarray, Dict[str, int], None]
+        vec_implementation_ramp : Union[np.ndarray, Dict[str, int], None]
             Optional vector or dictionary specifying the implementation scalar ramp for the transformation. If None, defaults to a uniform ramp that starts at the time specified in the configuration.
         """
         # check input dataframe
@@ -2844,9 +2867,9 @@ class Transformers:
         
         Parameters
         ----------
-        df_input: pd.DataFrame
+        df_input : pd.DataFrame
             Optional data frame containing trajectories to modify
-        dict_categories_to_magnitude: Union[Dict[str, float], None]
+        dict_categories_to_magnitude : Union[Dict[str, float], None]
             Conservation agriculture is practically applied to only select crop types. Use the dictionary to map SISEPUEDE crop categories to target implementation magnitudes.
             * If None, maps to the following dictionary:
 
@@ -2859,13 +2882,13 @@ class Transformers:
                     "vegetables_and_vines": 0.5,
                 }
                 
-        magnitude_burned: float
+        magnitude_burned : float
             Target fraction of residues that are burned
-        magnitude_removed: float
+        magnitude_removed : float
             Maximum fraction of residues that are removed
-        strat: int
+        strat : int
             Optional strategy value to specify for the transformation
-        vec_implementation_ramp: Union[np.ndarray, Dict[str, int], None]
+        vec_implementation_ramp : Union[np.ndarray, Dict[str, int], None]
             Optional vector or dictionary specifying the implementation scalar ramp for the transformation. If None, defaults to a uniform ramp that starts at the time specified in the configuration.
         """
         # check input dataframe
@@ -2947,15 +2970,15 @@ class Transformers:
         
         Parameters
         ----------
-        df_input: pd.DataFrame
+        df_input : pd.DataFrame
             Optional data frame containing trajectories to modify
-        magnitude_burned: float
+        magnitude_burned : float
             Target fraction of residues that are burned
-        magnitude_removed: float
+        magnitude_removed : float
             Maximum fraction of residues that are removed
-        strat: int
+        strat : int
             Optional strategy value to specify for the transformation
-        vec_implementation_ramp: Union[np.ndarray, Dict[str, int], None]
+        vec_implementation_ramp : Union[np.ndarray, Dict[str, int], None]
             Optional vector or dictionary specifying the implementation scalar ramp for the transformation. If None, defaults to a uniform ramp that starts at the time specified in the configuration.
         """
         # check input dataframe
@@ -3009,13 +3032,13 @@ class Transformers:
         
         Parameters
         ----------
-        df_input: pd.DataFrame
+        df_input : pd.DataFrame
             Optional data frame containing trajectories to modify
-        magnitude: float
+        magnitude : float
             Minimum target fraction of rice production under improved management.
-        strat: int
+        strat : int
             Optional strategy value to specify for the transformation
-        vec_implementation_ramp: Union[np.ndarray, Dict[str, int], None]
+        vec_implementation_ramp : Union[np.ndarray, Dict[str, int], None]
             Optional vector or dictionary specifying the implementation scalar ramp for the transformation. If None, defaults to a uniform ramp that starts at the time specified in the configuration.
         """
         # check input dataframe
@@ -3058,15 +3081,15 @@ class Transformers:
         
         Parameters
         ----------
-        df_input: pd.DataFrame
+        df_input : pd.DataFrame
             Optional data frame containing trajectories to modify
-        magnitude: Union[float, Dict[str, float]]
+        magnitude : Union[float, Dict[str, float]]
             Magnitude of productivity increase to apply to crops (e.g., a 20% increase is entered as 0.2); can be specified as one of the following
             * float: apply a single scalar increase to productivity for all crops
             * dict: specify crop productivity increases individually, with each key being a crop and the associated value being the productivity increase
-        strat: int
+        strat : int
             Optional strategy value to specify for the transformation
-        vec_implementation_ramp: Union[np.ndarray, Dict[str, int], None]
+        vec_implementation_ramp : Union[np.ndarray, Dict[str, int], None]
             Optional vector or dictionary specifying the implementation scalar ramp for the transformation. If None, defaults to a uniform ramp that starts at the time specified in the configuration.
         """
         # check input dataframe
@@ -3114,13 +3137,13 @@ class Transformers:
         
         Parameters
         ----------        
-        df_input: pd.DataFrame
+        df_input : pd.DataFrame
             Optional data frame containing trajectories to modify
-        magnitude: float
+        magnitude : float
             Magnitude of reduction in supply chain losses. Specified as a fraction (e.g., a 30% reduction is specified as 0.3)
-        strat: int
+        strat : int
             Optional strategy value to specify for the transformation
-        vec_implementation_ramp: Union[np.ndarray, Dict[str, int], None]
+        vec_implementation_ramp : Union[np.ndarray, Dict[str, int], None]
             Optional vector or dictionary specifying the implementation scalar ramp for the transformation. If None, defaults to a uniform ramp that starts at the time specified in the configuration.
         """
         # check input dataframe
@@ -3169,15 +3192,15 @@ class Transformers:
         
         Parameters
         ----------
-        cats_inflow_restriction: Union[List[str], None]
+        cats_inflow_restriction : Union[List[str], None]
             LNDU categories to allow to transition into secondary forest; don't specify categories that cannot be reforested 
-        df_input: pd.DataFrame
+        df_input : pd.DataFrame
             Optional data frame containing trajectories to modify
-        magnitude: float
+        magnitude : float
             Fractional increase in secondary forest area to specify; for example, a 10% increase in secondary forests is specified as 0.1
-        strat: int
+        strat : int
             Optional strategy value to specify for the transformation
-        vec_implementation_ramp: Union[np.ndarray, Dict[str, int], None]
+        vec_implementation_ramp : Union[np.ndarray, Dict[str, int], None]
             Optional vector or dictionary specifying the implementation scalar ramp for the transformation. If None, defaults to a uniform ramp that starts at the time specified in the configuration.
         """
         # check input dataframe
@@ -3222,14 +3245,13 @@ class Transformers:
         
         Parameters
         ----------
-        df_input: pd.DataFrame
+        df_input : pd.DataFrame
             Optional data frame containing trajectories to modify
-        magnitude: float
-            Magnitude of final primary forest transition probability
-            into itself; higher magnitudes indicate less deforestation.
-        strat: int
+        magnitude : float
+            Magnitude of final primary forest transition probability into itself; higher magnitudes indicate less deforestation.
+        strat : int
             Optional strategy value to specify for the transformation
-        vec_implementation_ramp: Union[np.ndarray, Dict[str, int], None]
+        vec_implementation_ramp : Union[np.ndarray, Dict[str, int], None]
             Optional vector or dictionary specifying the implementation scalar ramp for the transformation. If None, defaults to a uniform ramp that starts at the time specified in the configuration.
         """
         # check input dataframe
@@ -3291,14 +3313,13 @@ class Transformers:
         
         Parameters
         ---------- 
-        df_input: pd.DataFrame
+        df_input : pd.DataFrame
             Optional data frame containing trajectories to modify
-        magnitude: 
-            magnitude of increase in fraction of pastures subject to 
-            silvopasture
-        strat: int
+        magnitude : 
+            Magnitude of increase in fraction of pastures subject to silvopasture
+        strat : int
             Optional strategy value to specify for the transformation
-        vec_implementation_ramp: Union[np.ndarray, Dict[str, int], None]
+        vec_implementation_ramp : Union[np.ndarray, Dict[str, int], None]
             Optional vector or dictionary specifying the implementation scalar ramp for the transformation. If None, defaults to a uniform ramp that starts at the time specified in the configuration.
         """
         # check input dataframe
@@ -3344,13 +3365,13 @@ class Transformers:
         
         Parameters
         ----------
-        df_input: pd.DataFrame
+        df_input : pd.DataFrame
             Optional data frame containing trajectories to modify
-        magnitude: float
+        magnitude : float
             Fraction of pastures subject to improved pasture management. This value acts as a floor, so that if the existing value is greater than is specified by the transformation, the existing value will be maintained. 
-        strat: int
+        strat : int
             Optional strategy value to specify for the transformation
-        vec_implementation_ramp: Union[np.ndarray, Dict[str, int], None]
+        vec_implementation_ram : Union[np.ndarray, Dict[str, int], None]
             Optional vector or dictionary specifying the implementation scalar ramp for the transformation. If None, defaults to a uniform ramp that starts at the time specified in the configuration.
         """
         # check input dataframe
@@ -3402,15 +3423,15 @@ class Transformers:
         
         Parameters
         ----------
-        df_input: pd.DataFrame
+        df_input : pd.DataFrame
             Optional data frame containing trajectories to modify
-        magnitude_deforestation: float
+        magnitude_deforestation : float
             Magnitude to apply to deforestation (transition probability from primary forest into self). If None, uses default.
-        magnitude_silvopasture: float
+        magnitude_silvopasture : float
             Magnitude passed to silvopasture transformation. If None, uses silvopasture magnitude default. 
-        strat: int
+        strat : int
             Optional strategy value to specify for the transformation
-        vec_implementation_ramp: Union[np.ndarray, Dict[str, int], None]
+        vec_implementation_ramp : Union[np.ndarray, Dict[str, int], None]
             Optional vector or dictionary specifying the implementation scalar ramp for the transformation. If None, defaults to a uniform ramp that starts at the time specified in the configuration.
         """
         # check input dataframe
@@ -3457,16 +3478,15 @@ class Transformers:
         
         Parameters
         ----------
-        df_input: pd.DataFrame
+        df_input : pd.DataFrame
             Optional data frame containing trajectories to modify
-        force: bool
+        force : bool
             If the baseline includes LURF > 0, then this transformer will not work by default to avoid double-implementation. Set force = True to force the transformer to further modify the LURF
-        magnitude: float
-            Land use reallocation factor value with implementation
-            ramp vector
-        strat: int
+        magnitude : float
+            Land use reallocation factor value with implementation ramp vector
+        strat : int
             Optional strategy index to specify for the transformation
-        vec_implementation_ramp: Union[np.ndarray, Dict[str, int], None]
+        vec_implementation_ramp : Union[np.ndarray, Dict[str, int], None]
             Optional vector or dictionary specifying the implementation scalar ramp for the transformation. If None, defaults to a uniform ramp that starts at the time specified in the configuration.
         """
 
@@ -3523,9 +3543,9 @@ class Transformers:
         
         Parameters
         ----------
-        df_input: pd.DataFrame
+        df_input : pd.DataFrame
             Optional data frame containing trajectories to modify
-        dict_lsmm_pathways: 
+        dict_lsmm_pathways : 
             Dictionary allocating treatment to LSMM categories as fractional targets (must sum to <= 1). If None, defaults to
 
             dict_lsmm_pathways = {
@@ -3534,9 +3554,9 @@ class Transformers:
                 "daily_spread": 0.2375, # 0.25*0.95,
             }
 
-        strat: int
+        strat : int
             Optional strategy value to specify for the transformation
-        vec_cats_lvst: Union[List[str], None]
+        vec_cats_lvst : Union[List[str], None]
             LVST categories receiving treatment in this transformation. Default (if None) is
 
             [
@@ -3545,7 +3565,7 @@ class Transformers:
                 "pigs"
             ]
 
-        vec_implementation_ramp: Union[np.ndarray, Dict[str, int], None]
+        vec_implementation_ramp : Union[np.ndarray, Dict[str, int], None]
             Optional vector or dictionary specifying the implementation scalar ramp for the transformation. If None, defaults to a uniform ramp that starts at the time specified in the configuration.
         """
         # check input dataframe
@@ -3619,9 +3639,9 @@ class Transformers:
         
         Parameters
         ----------  
-        df_input: pd.DataFrame
+        df_input : pd.DataFrame
             Optional data frame containing trajectories to modify
-        dict_lsmm_pathways: Union[dict, None]
+        dict_lsmm_pathways : Union[dict, None]
             Dictionary allocating treatment to LSMM categories as fractional targets (must sum to <= 1). If None, defaults to
 
             dict_lsmm_pathways = {
@@ -3631,9 +3651,9 @@ class Transformers:
                 "daily_spread": 0.11875, # 0.125*0.95,
             }
 
-        strat: int
+        strat : int
             Optional strategy value to specify for the transformation
-        vec_cats_lvst: Union[List[str], None]
+        vec_cats_lvst : Union[List[str], None]
             LVST categories receiving treatment in this transformation. Default (if None) is
             [
                 "buffalo",
@@ -3643,7 +3663,7 @@ class Transformers:
                 "sheep",
             ]
 
-        vec_implementation_ramp: Union[np.ndarray, Dict[str, int], None]
+        vec_implementation_ramp : Union[np.ndarray, Dict[str, int], None]
             Optional vector or dictionary specifying the implementation scalar ramp for the transformation. If None, defaults to a uniform ramp that starts at the time specified in the configuration.
         """
         # check input dataframe
@@ -3720,24 +3740,24 @@ class Transformers:
         
         Parameters
         ----------   
-        df_input: pd.DataFrame
+        df_input : pd.DataFrame
             Optional data frame containing trajectories to modify
-        dict_lsmm_pathways: Union[dict, None]
+        dict_lsmm_pathways : Union[dict, None]
             Dictionary allocating treatment to LSMM categories as fractional targets (must sum to <= 1). If None, defaults to
             dict_lsmm_pathways = {
                 "anaerobic_digester": 0.475, # 0.5*0.95,
                 "poultry_manure": 0.475, # 0.5*0.95,
             }
 
-        strat: int
+        strat : int
             Optional strategy value to specify for the transformation
-        vec_cats_lvst: Union[List[str], None]
+        vec_cats_lvst : Union[List[str], None]
             LVST categories receiving treatment in this transformation. Default (if None) is
             [
                 "chickens",
             ]
 
-        vec_implementation_ramp: Union[np.ndarray, Dict[str, int], None]
+        vec_implementation_ramp : Union[np.ndarray, Dict[str, int], None]
             Optional vector or dictionary specifying the implementation scalar ramp for the transformation. If None, defaults to a uniform ramp that starts at the time specified in the configuration.
         """
         # check input dataframe
@@ -3801,22 +3821,17 @@ class Transformers:
         strat: Union[int, None] = None,
         vec_implementation_ramp: Union[np.ndarray, Dict[str, int], None] = None,
     ) -> pd.DataFrame:
-        """Implement the "Increase Biogas Capture at Anaerobic Decomposition 
-            Facilities" transformer on the input DataFrame.
+        """Implement the "Increase Biogas Capture at Anaerobic Decomposition Facilities" transformer on the input DataFrame.
         
         Parameters
         ----------
-        vec_implementation_ramp: Union[np.ndarray, Dict[str, int], None]
-
-        
-        df_input: pd.DataFrame
+        df_input : pd.DataFrame
             Optional data frame containing trajectories to modify
-        magnitude: 
-            target minimum fraction of biogas that is captured at
-            anerobic decomposition facilities.
-        strat: int
+        magnitude : 
+            Target minimum fraction of biogas that is captured atanerobic decomposition facilities.
+        strat : int
             Optional strategy value to specify for the transformation
-        vec_implementation_ramp: Union[np.ndarray, Dict[str, int], None]
+        vec_implementation_ramp : Union[np.ndarray, Dict[str, int], None]
             Optional vector or dictionary specifying the implementation scalar ramp for the transformation. If None, defaults to a uniform ramp that starts at the time specified in the configuration.
         """
         # check input dataframe
@@ -3869,14 +3884,13 @@ class Transformers:
         
         Parameters
         ----------
-        df_input: pd.DataFrame
+        df_input : pd.DataFrame
             Optional data frame containing trajectories to modify
-        magnitude: 
-            fractional reduction in exports applied directly to time
-            periods (reaches 100% implementation when ramp reaches 1)
-        strat: int
+        magnitude : float 
+            Fractional reduction in exports applied directly to time periods (reaches 100% implementation when ramp reaches 1)
+        strat : int
             Optional strategy value to specify for the transformation
-        vec_implementation_ramp: Union[np.ndarray, Dict[str, int], None]
+        vec_implementation_ramp : Union[np.ndarray, Dict[str, int], None]
             Optional vector or dictionary specifying the implementation scalar ramp for the transformation. If None, defaults to a uniform ramp that starts at the time specified in the configuration.
         """
         # check input dataframe
@@ -3926,14 +3940,13 @@ class Transformers:
         
         Parameters
         ----------
-        df_input: pd.DataFrame
+        df_input : pd.DataFrame
             Optional data frame containing trajectories to modify
-        magnitude: 
-            fractional increase in productivity applied to carrying
-            capcity for livestock
-        strat: int
+        magnitude : float
+            Fractional increase in productivity applied to carrying capcity for livestock
+        strat : int
             Optional strategy value to specify for the transformation
-        vec_implementation_ramp: Union[np.ndarray, Dict[str, int], None]
+        vec_implementation_ramp : Union[np.ndarray, Dict[str, int], None]
             Optional vector or dictionary specifying the implementation scalar ramp for the transformation. If None, defaults to a uniform ramp that starts at the time specified in the configuration.
         """
         # check input dataframe
@@ -3977,11 +3990,10 @@ class Transformers:
         
         Parameters
         ----------
-        df_input: pd.DataFrame
+        df_input : pd.DataFrame
             Optional data frame containing trajectories to modify
-        - dict_lvst_reductions: dictionary allocating mapping livestock 
-            categories to associated reductions in enteric fermentation. If 
-            None, defaults to
+        dict_lvst_reductions : Union[dict, None]
+            Dictionary allocating mapping livestock categories to associated reductions in enteric fermentation. If None, defaults to
 
             {
                 "buffalo": 0.4,
@@ -3991,9 +4003,9 @@ class Transformers:
                 "sheep": 0.56
             }
 
-        strat: int
+        strat : int
             Optional strategy value to specify for the transformation
-        vec_implementation_ramp: Union[np.ndarray, Dict[str, int], None]
+        vec_implementation_ramp : Union[np.ndarray, Dict[str, int], None]
             Optional vector or dictionary specifying the implementation scalar ramp for the transformation. If None, defaults to a uniform ramp that starts at the time specified in the configuration.
         """
         # check input dataframe
@@ -4051,14 +4063,14 @@ class Transformers:
         
         Parameters
         ----------
-        df_input: pd.DataFrame
+        df_input : pd.DataFrame
             Optional data frame containing trajectories to modify
-        magnitude: 
+        magnitude : 
             fractional reduction in fertilier N to achieve in
             accordane with vec_implementation_ramp
-        strat: int
+        strat : int
             Optional strategy value to specify for the transformation
-        vec_implementation_ramp: Union[np.ndarray, Dict[str, int], None]
+        vec_implementation_ramp : Union[np.ndarray, Dict[str, int], None]
             Optional vector or dictionary specifying the implementation scalar ramp for the transformation. If None, defaults to a uniform ramp that starts at the time specified in the configuration.
         """
         # check input dataframe
@@ -4104,14 +4116,14 @@ class Transformers:
         
         Parameters
         ----------
-        df_input: pd.DataFrame
+        df_input : pd.DataFrame
             Optional data frame containing trajectories to modify
-        magnitude: 
+        magnitude : 
             fractional reduction in lime application to achieve in
             accordane with vec_implementation_ramp
-        strat: int
+        strat : int
             Optional strategy value to specify for the transformation
-        vec_implementation_ramp: Union[np.ndarray, Dict[str, int], None]
+        vec_implementation_ramp : Union[np.ndarray, Dict[str, int], None]
             Optional vector or dictionary specifying the implementation scalar ramp for the transformation. If None, defaults to a uniform ramp that starts at the time specified in the configuration.
         """
         # check input dataframe
@@ -4169,9 +4181,9 @@ class Transformers:
         
         Parameters
         ----------
-        df_input: pd.DataFrame
+        df_input : pd.DataFrame
             Optional data frame containing trajectories to modify
-        magnitude: 
+        magnitude : 
             final magnitude of biogas capture at TRWW facilties.
             NOTE: If specified as a float, the same value applies to both 
                 landfill and biogas. Specify as a dictionary to specifiy 
@@ -4182,9 +4194,9 @@ class Transformers:
                     "treated_secondary_anaerobic": 0.5
                 }
                 
-        strat: int
+        strat : int
             Optional strategy value to specify for the transformation
-        vec_implementation_ramp: Union[np.ndarray, Dict[str, int], None]
+        vec_implementation_ramp : Union[np.ndarray, Dict[str, int], None]
             Optional vector or dictionary specifying the implementation scalar ramp for the transformation. If None, defaults to a uniform ramp that starts at the time specified in the configuration.
         """
         # check input dataframe
@@ -4225,14 +4237,14 @@ class Transformers:
         
         Parameters
         ----------
-        df_input: pd.DataFrame
+        df_input : pd.DataFrame
             Optional data frame containing trajectories to modify
-        magnitude: 
+        magnitude : 
             final magnitude of compliance at septic tanks that are
             installed
-        strat: int
+        strat : int
             Optional strategy value to specify for the transformation
-        vec_implementation_ramp: Union[np.ndarray, Dict[str, int], None]
+        vec_implementation_ramp : Union[np.ndarray, Dict[str, int], None]
             Optional vector or dictionary specifying the implementation scalar ramp for the transformation. If None, defaults to a uniform ramp that starts at the time specified in the configuration.
         """
         # check input dataframe
@@ -4277,9 +4289,9 @@ class Transformers:
         
         Parameters
         ----------
-        df_input: pd.DataFrame
+        df_input : pd.DataFrame
             Optional data frame containing trajectories to modify
-        dict_magnitude: Union[Dict[str, float], None]
+        dict_magnitude : Union[Dict[str, float], None]
             Target allocation, across TRWW (Wastewater Treatment) categories (categories are keys), of treatment as total fraction. 
             * E.g., to acheive 80% of treatment from advanced anaerobic and 10% from scondary aerobic by the final time period, the following dictionary would be specified:
             
@@ -4296,9 +4308,9 @@ class Transformers:
                 "treated_secondary_anaerobic": 0.1,
             }
 
-        strat: int
+        strat : int
             Optional strategy value to specify for the transformation
-        vec_implementation_ramp: Union[np.ndarray, Dict[str, int], None]
+        vec_implementation_ramp : Union[np.ndarray, Dict[str, int], None]
             Optional vector or dictionary specifying the implementation scalar ramp for the transformation. If None, defaults to a uniform ramp that starts at the time specified in the configuration.
         """
         # check input dataframe
@@ -4356,9 +4368,9 @@ class Transformers:
 
         Parameters
         ---------- 
-        df_input: pd.DataFrame
+        df_input : pd.DataFrame
             Optional data frame containing trajectories to modify
-        dict_magnitude: Union[Dict[str, float], None]
+        dict_magnitude : Union[Dict[str, float], None]
             Target allocation, across TRWW (Wastewater Treatment) categories (categories are keys), of treatment as total fraction. 
             * E.g., to acheive 80% of treatment from advanced anaerobic and 10% from scondary aerobic by the final time period, the following dictionary would be specified:
 
@@ -4373,9 +4385,9 @@ class Transformers:
                 "treated_septic": 1.0,
             }
 
-        strat: int
+        strat : int
             Optional strategy value to specify for the transformation
-        vec_implementation_ramp: Union[np.ndarray, Dict[str, int], None]
+        vec_implementation_ramp : Union[np.ndarray, Dict[str, int], None]
             Optional vector or dictionary specifying the implementation scalar ramp for the transformation. If None, defaults to a uniform ramp that starts at the time specified in the configuration.
         """
         # check input dataframe
@@ -4433,9 +4445,9 @@ class Transformers:
         
         Parameters
         ----------
-        df_input: pd.DataFrame
+        df_input : pd.DataFrame
             Optional data frame containing trajectories to modify
-        dict_magnitude: Union[Dict[str, float], None]
+        dict_magnitude : Union[Dict[str, float], None]
             Target allocation, across TRWW (Wastewater Treatment) categories (categories are keys), of treatment as total fraction. 
             * E.g., to acheive 80% of treatment from advanced anaerobic and 10% from scondary aerobic by the final time period, the following dictionary would be specified:
 
@@ -4453,9 +4465,9 @@ class Transformers:
                 "treated_secondary_anaerobic": 0.2,
             }
 
-        strat: int
+        strat : int
             Optional strategy value to specify for the transformation
-        vec_implementation_ramp: Union[np.ndarray, Dict[str, int], None]
+        vec_implementation_ramp : Union[np.ndarray, Dict[str, int], None]
             Optional vector or dictionary specifying the implementation scalar ramp for the transformation. If None, defaults to a uniform ramp that starts at the time specified in the configuration.
         """
         # check input dataframe
@@ -4517,14 +4529,14 @@ class Transformers:
         
         Parameters
         ----------
-        df_input: pd.DataFrame
+        df_input : pd.DataFrame
             Optional data frame containing trajectories to modify
-        magnitude: 
+        magnitude : 
             reduction in food waste sent to munipal solid waste
             treatment stream
-        strat: int
+        strat : int
             Optional strategy value to specify for the transformation
-        vec_implementation_ramp: Union[np.ndarray, Dict[str, int], None]
+        vec_implementation_ramp : Union[np.ndarray, Dict[str, int], None]
             Optional vector or dictionary specifying the implementation scalar ramp for the transformation. If None, defaults to a uniform ramp that starts at the time specified in the configuration.
         """
         # check input dataframe
@@ -4585,15 +4597,15 @@ class Transformers:
         
         Parameters
         ----------
-        df_input: pd.DataFrame
+        df_input : pd.DataFrame
             Optional data frame containing trajectories to modify
-        - magnitude_biogas: proportion of organic solid waste that is treated 
+        - magnitude_biogas : proportion of organic solid waste that is treated 
             using anaerobic treatment
-        - magnitude_compost: proportion of organic solid waste that is treated 
+        - magnitude_compost : proportion of organic solid waste that is treated 
             using compost
-        strat: int
+        strat : int
             Optional strategy value to specify for the transformation
-        vec_implementation_ramp: Union[np.ndarray, Dict[str, int], None]
+        vec_implementation_ramp : Union[np.ndarray, Dict[str, int], None]
             Optional vector or dictionary specifying the implementation scalar ramp for the transformation. If None, defaults to a uniform ramp that starts at the time specified in the configuration.
         """
         # check input dataframe
@@ -4636,9 +4648,9 @@ class Transformers:
         
         Parameters
         ----------
-        df_input: pd.DataFrame
+        df_input : pd.DataFrame
             Optional data frame containing trajectories to modify
-        magnitude: 
+        magnitude : 
             final magnitude of biogas capture at landfill and anaerobic
             digestion facilties.
             NOTE: If specified as a float, the same value applies to both 
@@ -4650,9 +4662,9 @@ class Transformers:
                     "biogas": 0.5
                 }
 
-        strat: int
+        strat : int
             Optional strategy value to specify for the transformation
-        vec_implementation_ramp: Union[np.ndarray, Dict[str, int], None]
+        vec_implementation_ramp : Union[np.ndarray, Dict[str, int], None]
             Optional vector or dictionary specifying the implementation scalar ramp for the transformation. If None, defaults to a uniform ramp that starts at the time specified in the configuration.
         """
         # check input dataframe
@@ -4693,13 +4705,13 @@ class Transformers:
         
         Parameters
         ----------
-        df_input: pd.DataFrame
+        df_input : pd.DataFrame
             Optional data frame containing trajectories to modify
-        magnitude: 
+        magnitude : 
             final magnitude of energy use from captured biogas. 
-        strat: int
+        strat : int
             Optional strategy value to specify for the transformation
-        vec_implementation_ramp: Union[np.ndarray, Dict[str, int], None]
+        vec_implementation_ramp : Union[np.ndarray, Dict[str, int], None]
             Optional vector or dictionary specifying the implementation scalar ramp for the transformation. If None, defaults to a uniform ramp that starts at the time specified in the configuration.
         """
         # check input dataframe
@@ -4741,14 +4753,14 @@ class Transformers:
         
         Parameters
         ----------
-        df_input: pd.DataFrame
+        df_input : pd.DataFrame
             Optional data frame containing trajectories to modify
-        magnitude: 
+        magnitude : 
             final magnitude of waste that is incinerated that is
             recovered for energy use
-        strat: int
+        strat : int
             Optional strategy value to specify for the transformation
-        vec_implementation_ramp: Union[np.ndarray, Dict[str, int], None]
+        vec_implementation_ramp : Union[np.ndarray, Dict[str, int], None]
             Optional vector or dictionary specifying the implementation scalar ramp for the transformation. If None, defaults to a uniform ramp that starts at the time specified in the configuration.
         """
         # check input dataframe
@@ -4790,14 +4802,14 @@ class Transformers:
         
         Parameters
         ----------
-        df_input: pd.DataFrame
+        df_input : pd.DataFrame
             Optional data frame containing trajectories to modify
-        magnitude: 
+        magnitude : float
             fraction of non-recycled solid waste (including composting 
             and anaerobic digestion) sent to landfills
-        strat: int
+        strat : int
             Optional strategy value to specify for the transformation
-        vec_implementation_ramp: Union[np.ndarray, Dict[str, int], None]
+        vec_implementation_ramp : Union[np.ndarray, Dict[str, int], None]
             Optional vector or dictionary specifying the implementation scalar ramp for the transformation. If None, defaults to a uniform ramp that starts at the time specified in the configuration.
         """
         # check input dataframe
@@ -4839,13 +4851,13 @@ class Transformers:
 
         Parameters
         ----------
-        df_input: pd.DataFrame
+        df_input : pd.DataFrame
             Optional data frame containing trajectories to modify
-        magnitude: 
+        magnitude : 
             magnitude of recylables that are recycled  
-        strat: int
+        strat : int
             Optional strategy value to specify for the transformation
-        vec_implementation_ramp: Union[np.ndarray, Dict[str, int], None]
+        vec_implementation_ramp : Union[np.ndarray, Dict[str, int], None]
             Optional vector or dictionary specifying the implementation scalar ramp for the transformation. If None, defaults to a uniform ramp that starts at the time specified in the configuration.
         """
         # check input dataframe
@@ -4899,14 +4911,14 @@ class Transformers:
         
         Parameters
         ----------
-        df_input: pd.DataFrame
+        df_input : pd.DataFrame
             Optional data frame containing trajectories to modify
-        magnitude: 
+        magnitude : 
             final total, in MT, of direct air capture capacity 
             installed at 100% implementation
-        strat: int
+        strat : int
             Optional strategy value to specify for the transformation
-        vec_implementation_ramp: Union[np.ndarray, Dict[str, int], None]
+        vec_implementation_ramp : Union[np.ndarray, Dict[str, int], None]
             Optional vector or dictionary specifying the implementation scalar ramp for the transformation. If None, defaults to a uniform ramp that starts at the time specified in the configuration.
         """
         # check input dataframe
@@ -4953,7 +4965,7 @@ class Transformers:
         
         Parameters
         ----------
-        categories_source: Union[List[str], None]
+        categories_source : Union[List[str], None]
             Hydrogen-producing technology categories that are reduced in response to increases in green hydrogen. 
             * If None, defaults to 
                 [
@@ -4962,21 +4974,20 @@ class Transformers:
                     "fp_hydrogen_reformation_ccs"
                 ]
 
-        categories_target: Union[List[str], None]
+        categories_target : Union[List[str], None]
             Hydrogen-producing technology categories that are considered green; they will produce `magnitude` of hydrogen by 100% implementation. 
             * If None, defaults to 
                 [
                     "fp_hydrogen_electrolysis"
                 ]
 
-        df_input: pd.DataFrame
+        df_input : pd.DataFrame
             Optional data frame containing trajectories to modify
-        magnitude: 
-            target fraction of hydrogen from clean (categories_source)
-            sources. In general, this is electrolysis
-        strat: int
+        magnitude : 
+            Target fraction of hydrogen from clean (categories_source) sources. In general, this is 95% from electrolysis.
+        strat : int
             Optional strategy value to specify for the transformation
-        vec_implementation_ramp: Union[np.ndarray, Dict[str, int], None]
+        vec_implementation_ramp : Union[np.ndarray, Dict[str, int], None]
             Optional vector or dictionary specifying the implementation scalar ramp for the transformation. If None, defaults to a uniform ramp that starts at the time specified in the configuration.
         """
         # check input dataframe
@@ -5046,11 +5057,11 @@ class Transformers:
         
         Parameters
         ----------
-        df_input: pd.DataFrame
+        df_input : pd.DataFrame
             Optional data frame containing trajectories to modify
-        strat: int
+        strat : int
             Optional strategy value to specify for the transformation
-        vec_implementation_ramp: Union[np.ndarray, Dict[str, int], None]
+        vec_implementation_ramp : Union[np.ndarray, Dict[str, int], None]
             Optional vector or dictionary specifying the implementation scalar ramp for the transformation. If None, defaults to a uniform ramp that starts at the time specified in the configuration.
         """
         # check input dataframe
@@ -5092,20 +5103,20 @@ class Transformers:
         
         Parameters
         ----------
-        df_input: pd.DataFrame
+        df_input : pd.DataFrame
             Optional data frame containing trajectories to modify
-        magnitude: 
+        magnitude : 
             magnitude of transmission loss in final time; behavior 
             depends on `magnitude_type`
-        magnitude_type: str
+        magnitude_type : str
             * scalar (if `magnitude_type == "basline_scalar"`)
             * final value (if `magnitude_type == "final_value"`)
             * final value ceiling (if `magnitude_type == "final_value_ceiling"`)
-        min_loss: float
+        min_loss : float
             Minimum feasible transmission loss in the system
-        strat: int
+        strat : int
             Optional strategy value to specify for the transformation
-        vec_implementation_ramp: Union[np.ndarray, Dict[str, int], None]
+        vec_implementation_ramp : Union[np.ndarray, Dict[str, int], None]
             Optional vector or dictionary specifying the implementation scalar ramp for the transformation. If None, defaults to a uniform ramp that starts at the time specified in the configuration.
         """
         # check input dataframe
@@ -5151,13 +5162,13 @@ class Transformers:
         
         Parameters
         ----------
-        categories_entc_max_investment_ramp: Union[List[str], None]
+        categories_entc_max_investment_ramp : Union[List[str], None]
             Categories to cap investments in
-        categories_entc_renewable: Union[List[str], None]
+        categories_entc_renewable : Union[List[str], None]
             Power plant technologies to consider as renewable energy sources
-        df_input: pd.DataFrame
+        df_input : pd.DataFrame
             Optional data frame containing trajectories to modify
-        dict_entc_renewable_target_msp: Union[Dict[str, float], None]
+        dict_entc_renewable_target_msp : Union[Dict[str, float], None]
             Optional dictionary mapping renewable ENTC categories to MSP fractions. Can be used to ensure some minimum contribution of certain renewables--e.g.,
 
                         {
@@ -5166,11 +5177,11 @@ class Transformers:
                         }
 
             will ensure that hydropower is at least 10% of the mix and solar is at least 15%. 
-        magnitude: 
+        magnitude : float
             Minimum target fraction of electricity produced from renewable sources by 100% implementation
-        strat: int
+        strat : int
             Optional strategy value to specify for the transformation
-        vec_implementation_ramp: Union[np.ndarray, Dict[str, int], None]
+        vec_implementation_ramp : Union[np.ndarray, Dict[str, int], None]
             Optional vector or dictionary specifying the implementation scalar ramp for the transformation. If None, defaults to a uniform ramp that starts at the time specified in the configuration.
         """
         # check input dataframe
@@ -5252,13 +5263,13 @@ class Transformers:
         
         Parameters
         ----------
-        df_input: pd.DataFrame
+        df_input : pd.DataFrame
             Optional data frame containing trajectories to modify
-        magnitude: 
+        magnitude : float
             Fraction of vented methane that is flared.
-        strat: int
+        strat : int
             Optional strategy value to specify for the transformation
-        vec_implementation_ramp: Union[np.ndarray, Dict[str, int], None]
+        vec_implementation_ramp : Union[np.ndarray, Dict[str, int], None]
             Optional vector or dictionary specifying the implementation scalar ramp for the transformation. If None, defaults to a uniform ramp that starts at the time specified in the configuration.
         """
         # check input dataframe
@@ -5302,13 +5313,13 @@ class Transformers:
         
         Parameters
         ----------
-        df_input: pd.DataFrame
+        df_input : pd.DataFrame
             Optional data frame containing trajectories to modify
-        magnitude: 
+        magnitude : float
             Fraction of leaky sources (pipelines, storage, etc) that are fixed
-        strat: int
+        strat : int
             Optional strategy value to specify for the transformation
-        vec_implementation_ramp: Union[np.ndarray, Dict[str, int], None]
+        vec_implementation_ramp : Union[np.ndarray, Dict[str, int], None]
             Optional vector or dictionary specifying the implementation scalar ramp for the transformation. If None, defaults to a uniform ramp that starts at the time specified in the configuration.
         """
         # check input dataframe
@@ -5357,9 +5368,9 @@ class Transformers:
         
         Parameters
         ----------
-        df_input: pd.DataFrame
+        df_input : pd.DataFrame
             Optional data frame containing trajectories to modify
-        frac_high_given_high: Union[float, dict, None]
+        frac_high_given_high : Union[float, dict, None]
             In high heat categories, fraction of heat demand that is high (NOTE: needs to be switched to per industry). 
             * If specified as a float, this is applied to all high heat categories
             * If specified as None, uses the following dictionary as a default:
@@ -5374,11 +5385,11 @@ class Transformers:
                     "paper": 0.18, 
                 }
 
-        frac_switchable: float
+        frac_switchable : float
             Fraction of demand that can be switched 
-        strat: int
+        strat : int
             Optional strategy value to specify for the transformation
-        vec_implementation_ramp: Union[np.ndarray, Dict[str, int], None]
+        vec_implementation_ramp : Union[np.ndarray, Dict[str, int], None]
             Optional vector or dictionary specifying the implementation scalar ramp for the transformation. If None, defaults to a uniform ramp that starts at the time specified in the configuration.
         """
         # check input dataframe
@@ -5481,13 +5492,13 @@ class Transformers:
         
         Parameters
         ----------
-        df_input: pd.DataFrame
+        df_input : pd.DataFrame
             Optional data frame containing trajectories to modify
-        magnitude: float
+        magnitude : float
             Magnitude of energy efficiency increase (applied to industrial efficiency factor)
-        strat: int
+        strat : int
             Optional strategy value to specify for the transformation
-        vec_implementation_ramp: Union[np.ndarray, Dict[str, int], None]
+        vec_implementation_ramp : Union[np.ndarray, Dict[str, int], None]
             Optional vector or dictionary specifying the implementation scalar ramp for the transformation. If None, defaults to a uniform ramp that starts at the time specified in the configuration.
         """
         # check input dataframe
@@ -5529,13 +5540,13 @@ class Transformers:
         
         Parameters
         ----------
-        df_input: pd.DataFrame
+        df_input : pd.DataFrame
             Optional data frame containing trajectories to modify
-        magnitude: float
+        magnitude : float
             Magnitude of energy efficiency increase (applied to industrial production factor)
-        strat: int
+        strat : int
             Optional strategy value to specify for the transformation
-        vec_implementation_ramp: Union[np.ndarray, Dict[str, int], None]
+        vec_implementation_ramp : Union[np.ndarray, Dict[str, int], None]
             Optional vector or dictionary specifying the implementation scalar ramp for the transformation. If None, defaults to a uniform ramp that starts at the time specified in the configuration.
         """
         # check input dataframe
@@ -5581,13 +5592,13 @@ class Transformers:
         
         Parameters
         ----------
-        df_input: pd.DataFrame
+        df_input : pd.DataFrame
             Optional data frame containing trajectories to modify
-        magnitude: float
+        magnitude : float
             Magntiude of fraction of heat energy that is electrified
-        strat: int
+        strat : int
             Optional strategy value to specify for the transformation
-        vec_implementation_ramp: Union[np.ndarray, Dict[str, int], None]
+        vec_implementation_ramp : Union[np.ndarray, Dict[str, int], None]
             Optional vector or dictionary specifying the implementation scalar ramp for the transformation. If None, defaults to a uniform ramp that starts at the time specified in the configuration.
         """
         # check input dataframe
@@ -5629,13 +5640,13 @@ class Transformers:
         
         Parameters
         ----------
-        df_input: pd.DataFrame
+        df_input : pd.DataFrame
             Optional data frame containing trajectories to modify
-        magnitude: float
+        magnitude : float
             Reduction in heat energy demand, driven by retrofitting and changes in use
-        strat: int
+        strat : int
             Optional strategy value to specify for the transformation
-        vec_implementation_ramp: Union[np.ndarray, Dict[str, int], None]
+        vec_implementation_ramp : Union[np.ndarray, Dict[str, int], None]
             Optional vector or dictionary specifying the implementation scalar ramp for the transformation. If None, defaults to a uniform ramp that starts at the time specified in the configuration.
         """
         # check input dataframe
@@ -5677,13 +5688,13 @@ class Transformers:
         
         Parameters
         ----------
-        df_input: pd.DataFrame
+        df_input : pd.DataFrame
             Optional data frame containing trajectories to modify
-        magnitude: float
+        magnitude : float
             Fractional increase in applieance energy efficiency
-        strat: int
+        strat : int
             Optional strategy value to specify for the transformation
-        vec_implementation_ramp: Union[np.ndarray, Dict[str, int], None]
+        vec_implementation_ramp : Union[np.ndarray, Dict[str, int], None]
             Optional vector or dictionary specifying the implementation scalar ramp for the transformation. If None, defaults to a uniform ramp that starts at the time specified in the configuration.
         """
         # check input dataframe
@@ -5730,13 +5741,13 @@ class Transformers:
         
         Parameters
         ----------
-        df_input: pd.DataFrame
+        df_input : pd.DataFrame
             Optional data frame containing trajectories to modify
-        magnitude: float
+        magnitud e: float
             Fractional reduction in transportation demand applied to all transportation categories.
-        strat: int
+        strat : int
             Optional strategy value to specify for the transformation
-        vec_implementation_ramp: Union[np.ndarray, Dict[str, int], None]
+        vec_implementation_ramp : Union[np.ndarray, Dict[str, int], None]
             Optional vector or dictionary specifying the implementation scalar ramp for the transformation. If None, defaults to a uniform ramp that starts at the time specified in the configuration.
         """
         # check input dataframe
@@ -5784,9 +5795,9 @@ class Transformers:
         
         Parameters
         ----------
-        categories: List[str]
+        categories : List[str]
             Transportation categories to include; defaults to "road_light"
-        dict_fuel_allocation: Union[dict, None]
+        dict_fuel_allocation : Union[dict, None]
             Optional dictionary defining fractional allocation of fuels in fuel switch. If undefined, defaults to
                 {
                     "fuel_electricity": 1.0
@@ -5795,13 +5806,13 @@ class Transformers:
             NOTE: keys must be valid TRNS fuels and values in the dictionary 
             must sum to 1.
 
-        df_input: pd.DataFrame
+        df_input : pd.DataFrame
             Optional data frame containing trajectories to modify
-        magnitude: 
+        magnitude : float
             fraction of light duty vehicles electrified 
-        strat: int
+        strat : int
             Optional strategy value to specify for the transformation
-        vec_implementation_ramp: Union[np.ndarray, Dict[str, int], None]
+        vec_implementation_ramp : Union[np.ndarray, Dict[str, int], None]
             Optional vector or dictionary specifying the implementation scalar ramp for the transformation. If None, defaults to a uniform ramp that starts at the time specified in the configuration.
         """
         # check input dataframe
@@ -5859,14 +5870,13 @@ class Transformers:
         strat: Union[int, None] = None,
         vec_implementation_ramp: Union[np.ndarray, None] = None,
     ) -> pd.DataFrame:
-        """Implement the "Electrify Rail" TRNS transformer on input DataFrame
-            df_input
+        """Implement the "Electrify Rail" TRNS transformer on input DataFrame df_input
         
         Parameters
         ----------
-        categories: List[str]
+        categories : List[str]
             Transportation categories to include; defaults to ["rail_freight", "rail_passenger"]
-        dict_fuel_allocation: Union[dict, None]
+        dict_fuel_allocation : Union[dict, None]
             Optional dictionary dictionary defining fractional allocation of fuels in fuel switch. If undefined, defaults to
                 {
                     "fuel_electricity": 1.0
@@ -5875,13 +5885,13 @@ class Transformers:
             NOTE: keys must be valid TRNS fuels and values in the dictionary 
             must sum to 1.
 
-        df_input: pd.DataFrame
+        df_input : pd.DataFrame
             Optional data frame containing trajectories to modify
-        magnitude: 
+        magnitude: float
             fraction of light duty vehicles electrified 
-        strat: int
+        strat : int
             Optional strategy value to specify for the transformation
-        vec_implementation_ramp: Union[np.ndarray, Dict[str, int], None]
+        vec_implementation_ramp : Union[np.ndarray, Dict[str, int], None]
             Optional vector or dictionary specifying the implementation scalar ramp for the transformation. If None, defaults to a uniform ramp that starts at the time specified in the configuration.
         """
         # check input dataframe
@@ -5940,30 +5950,27 @@ class Transformers:
         strat: Union[int, None] = None,
         vec_implementation_ramp: Union[np.ndarray, None] = None,
     ) -> pd.DataFrame:
-        """Implement the "Fuel-Swich Maritime" TRNS transformer on input DataFrame df_input. By default, transfers mangitude to hydrogen from 
-            gasoline and diesel; e.g., with magnitude = 0.7, then 70% of diesel 
-            and gas demand are transfered to fuels in fuels_target. The rest of
-            the fuel demand is then transferred to electricity. 
+        """Implement the "Fuel-Swich Maritime" TRNS transformer on input DataFrame df_input. By default, transfers mangitude to hydrogen from gasoline and diesel; e.g., with magnitude = 0.7, then 70% of diesel and gas demand are transfered to fuels in fuels_target. The rest of the fuel demand is then transferred to electricity. 
         
         Parameters
         ----------
-        categories: List[str]
+        categories : List[str]
             Transportation categories to include; defaults to ["water_borne"]
-        dict_allocation_fuels_target: Union[dict, None]
+        dict_allocation_fuels_target : Union[dict, None]
             Optional dictionary allocating target fuels. If None, defaults to
             {
                 "fuel_hydrogen": 1.0,
             }
 
-        df_input: pd.DataFrame
+        df_input : pd.DataFrame
             Optional data frame containing trajectories to modify
-        fuels_source: List[str]
+        fuels_source : List[str]
             Fuels to transfer out; for F the percentage of TRNS demand met by fuels in fuels source, M*F (M = magtnitude) is transferred to fuels defined in dict_allocation_fuels_target
-        magnitude: float
+        magnitude : float
             Fraction of fuels_source (gas and diesel, e.g.) that is shifted to target fuels fuels_target (hydrogen is default, can include ammonia) for categories. Note, remaining is shifted to electricity
-        strat: int
+        strat : int
             Optional strategy value to specify for the transformation
-        vec_implementation_ramp: Union[np.ndarray, Dict[str, int], None]
+        vec_implementation_ramp : Union[np.ndarray, Dict[str, int], None]
             Optional vector or dictionary specifying the implementation scalar ramp for the transformation. If None, defaults to a uniform ramp that starts at the time specified in the configuration.
         """
         ##  CHECKS AND INIT
@@ -6072,28 +6079,28 @@ class Transformers:
         
         Parameters
         ----------
-        categories: List[str]
+        categories : List[str]
             Transportation categories to include; defaults to 
             [
                 "road_heavy_freight", 
                 "road_heavy_regional", 
                 "public"
             ]
-        dict_allocation_fuels_target: Union[dict, None]
+        dict_allocation_fuels_target : Union[dict, None]
             Optional dictionary allocating target fuels. If None, defaults to
             {
                 "fuel_electricity": 1.0,
             }
 
-        df_input: pd.DataFrame
+        df_input : pd.DataFrame
             Optional data frame containing trajectories to modify
-        fuels_source: List[str]
+        fuels_source : List[str]
             Fuels to transfer out; for F the percentage of TRNS demand met by fuels in fuels source, M*F (M = magtnitude) is transferred to fuels defined in dict_allocation_fuels_target
-        magnitude: float
+        magnitude : float
             Fraction of fuels_source (gas and diesel, e.g.) that shifted to target fuels fuels_target (hydrogen is default, can include ammonia). Note, remaining is shifted to electricity
-        strat: int
+        strat : int
             Optional strategy value to specify for the transformation
-        vec_implementation_ramp: Union[np.ndarray, Dict[str, int], None]
+        vec_implementation_ramp : Union[np.ndarray, Dict[str, int], None]
             Optional vector or dictionary specifying the implementation scalar ramp for the transformation. If None, defaults to a uniform ramp that starts at the time specified in the configuration.
         """
         ##  CHECKS AND INIT
@@ -6195,13 +6202,13 @@ class Transformers:
         
         Parameters
         ----------
-        df_input: pd.DataFrame
+        df_input : pd.DataFrame
             Optional data frame containing trajectories to modify
-        magnitude: float
+        magnitude : float
             Increase the efficiency of electric vehicales by this proportion
-        strat: int
+        strat : int
             Optional strategy value to specify for the transformation
-        vec_implementation_ramp: Union[np.ndarray, Dict[str, int], None]
+        vec_implementation_ramp : Union[np.ndarray, Dict[str, int], None]
             Optional vector or dictionary specifying the implementation scalar ramp for the transformation. If None, defaults to a uniform ramp that starts at the time specified in the configuration.
         """
         # check input dataframe
@@ -6243,13 +6250,13 @@ class Transformers:
         
         Parameters
         ----------
-        df_input: pd.DataFrame
+        df_input : pd.DataFrame
             Optional data frame containing trajectories to modify
-        magnitude: float
+        magnitude : float
             Increase the efficiency of non-electric vehicales by this proportion
-        strat: int
+        strat : int
             Optional strategy value to specify for the transformation
-        vec_implementation_ramp: Union[np.ndarray, Dict[str, int], None]
+        vec_implementation_ramp : Union[np.ndarray, Dict[str, int], None]
             Optional vector or dictionary specifying the implementation scalar ramp for the transformation. If None, defaults to a uniform ramp that starts at the time specified in the configuration.
         """
         # check input dataframe
@@ -6291,13 +6298,13 @@ class Transformers:
         
         Parameters
         ----------
-        df_input: pd.DataFrame
+        df_input : pd.DataFrame
             Optional data frame containing trajectories to modify
-        magnitude: float
+        magnitude : float
             Increase the occupancy rate of light duty vehicles by this proporiton
-        strat: int
+        strat : int
             Optional strategy value to specify for the transformation
-        vec_implementation_ramp: Union[np.ndarray, Dict[str, int], None]
+        vec_implementation_ramp : Union[np.ndarray, Dict[str, int], None]
             Optional vector or dictionary specifying the implementation scalar ramp for the transformation. If None, defaults to a uniform ramp that starts at the time specified in the configuration.
         """
         # check input dataframe
@@ -6341,21 +6348,21 @@ class Transformers:
         
         Parameters
         ----------
-        categories_out: List[str] 
+        categories_out : List[str] 
             Categories to shift out of 
-        dict_categories_target: Union[Dict[str, float], None]
+        dict_categories_target : Union[Dict[str, float], None]
             Dictionary mapping target categories to proportional allocation of mode mass. If None, defaults to
             {
                 "rail_freight": 1.0
             }
 
-        df_input: pd.DataFrame
+        df_input : pd.DataFrame
             Optional data frame containing trajectories to modify
-        magnitude: float
+        magnitude : float
             Magnitude of mode mass to shift out of cats_out
-        strat: int
+        strat : int
             Optional strategy value to specify for the transformation
-        vec_implementation_ramp: Union[np.ndarray, Dict[str, int], None]
+        vec_implementation_ramp : Union[np.ndarray, Dict[str, int], None]
             Optional vector or dictionary specifying the implementation scalar ramp for the transformation. If None, defaults to a uniform ramp that starts at the time specified in the configuration.
         """
 
@@ -6422,9 +6429,9 @@ class Transformers:
         
         Parameters
         ----------
-        categories_out: List[str] 
+        categories_out : List[str] 
             Categories to shift out of
-        dict_categories_target: Union[Dict[str, float], None]
+        dict_categories_target : Union[Dict[str, float], None]
             Dictionary mapping target categories to proportional allocation of mode mass. If None, defaults to
             {
                 "human_powered": (1/6),
@@ -6432,13 +6439,13 @@ class Transformers:
                 "public": 0.5
             }
 
-        df_input: pd.DataFrame
+        df_input : pd.DataFrame
             Optional data frame containing trajectories to modify
-        magnitude: float
+        magnitude : float
             Magnitude of mode mass to shift out of cats_out
-        strat: int
+        strat : int
             Optional strategy value to specify for the transformation
-        vec_implementation_ramp: Union[np.ndarray, Dict[str, int], None]
+        vec_implementation_ramp : Union[np.ndarray, Dict[str, int], None]
             Optional vector or dictionary specifying the implementation scalar ramp for the transformation. If None, defaults to a uniform ramp that starts at the time specified in the configuration.
         """
         # check input dataframe
@@ -6507,19 +6514,19 @@ class Transformers:
         
         Parameters
         ----------
-        dict_categories_out: Dict[str, float]
+        dict_categories_out : Dict[str, float]
             Dictionary mapping categories to shift out of to the magnitude of the outward shift
-        dict_categories_target: Union[Dict[str, float], None]
+        dict_categories_target : Union[Dict[str, float], None]
             Dictionary mapping target categories to proportional allocation of mode mass. If None, defaults to
             {
                 "road_heavy_regional": 1.0
             }
 
-        df_input: pd.DataFrame
+        df_input : pd.DataFrame
             Optional data frame containing trajectories to modify
-        strat: int
+        strat : int
             Optional strategy value to specify for the transformation
-        vec_implementation_ramp: Union[np.ndarray, Dict[str, int], None]
+        vec_implementation_ramp : Union[np.ndarray, Dict[str, int], None]
             Optional vector or dictionary specifying the implementation scalar ramp for the transformation. If None, defaults to a uniform ramp that starts at the time specified in the configuration.
         """
         # check input dataframe
@@ -6599,13 +6606,13 @@ class Transformers:
         
         Parameters
         ----------
-        df_input: pd.DataFrame
+        df_input : pd.DataFrame
             Optional data frame containing trajectories to modify
-        magnitude: float
+        magnitude : float
             fraction of cement producd using clinker
-        strat: int
+        strat : int
             Optional strategy value to specify for the transformation
-        vec_implementation_ramp: Union[np.ndarray, Dict[str, int], None]
+        vec_implementation_ramp : Union[np.ndarray, Dict[str, int], None]
             Optional vector or dictionary specifying the implementation scalar ramp for the transformation. If None, defaults to a uniform ramp that starts at the time specified in the configuration.
         """
         # check input dataframe
@@ -6652,13 +6659,13 @@ class Transformers:
         
         Parameters
         ----------
-        df_input: pd.DataFrame
+        df_input : pd.DataFrame
             Optional data frame containing trajectories to modify
-        magnitude: float
+        magnitude : float
             Fractional reduction in demand in accordance with vec_implementation_ramp
-        strat: int
+        strat : int
             Optional strategy value to specify for the transformation
-        vec_implementation_ramp: Union[np.ndarray, Dict[str, int], None]
+        vec_implementation_ramp : Union[np.ndarray, Dict[str, int], None]
             Optional vector or dictionary specifying the implementation scalar ramp for the transformation. If None, defaults to a uniform ramp that starts at the time specified in the configuration.
         """
         # check input dataframe
@@ -6700,13 +6707,13 @@ class Transformers:
         
         Parameters
         ----------
-        df_input: pd.DataFrame
+        df_input : pd.DataFrame
             Optional data frame containing trajectories to modify
-        magnitude: float
+        magnitude : float
             Fractional reduction in HFC emissions in accordance with vec_implementation_ramp
-        strat: int
+        strat : int
             Optional strategy value to specify for the transformation
-        vec_implementation_ramp: Union[np.ndarray, Dict[str, int], None]
+        vec_implementation_ramp : Union[np.ndarray, Dict[str, int], None]
             Optional vector or dictionary specifying the implementation scalar ramp for the transformation. If None, defaults to a uniform ramp that starts at the time specified in the configuration.
         """
         # check input dataframe
@@ -6748,13 +6755,13 @@ class Transformers:
         
         Parameters
         ----------
-        df_input: pd.DataFrame
+        df_input : pd.DataFrame
             Optional data frame containing trajectories to modify
-        magnitude: float
+        magnitude : float
             Fractional reduction in IPPU N2O emissions in accordance with vec_implementation_ramp
-        strat: int
+        strat : int
             Optional strategy value to specify for the transformation
-        vec_implementation_ramp: Union[np.ndarray, Dict[str, int], None]
+        vec_implementation_ramp : Union[np.ndarray, Dict[str, int], None]
             Optional vector or dictionary specifying the implementation scalar ramp for the transformation. If None, defaults to a uniform ramp that starts at the time specified in the configuration.
         """
         # check input dataframe
@@ -6799,13 +6806,13 @@ class Transformers:
         
         Parameters
         ----------
-        df_input: pd.DataFrame
+        df_input : pd.DataFrame
             Optional data frame containing trajectories to modify
-        magnitude: 
+        magnitude : 
             Fractional reduction in IPPU other FC emissions in accordance with vec_implementation_ramp
-        strat: int
+        strat : int
             Optional strategy value to specify for the transformation
-        vec_implementation_ramp: Union[np.ndarray, Dict[str, int], None]
+        vec_implementation_ramp : Union[np.ndarray, Dict[str, int], None]
             Optional vector or dictionary specifying the implementation scalar ramp for the transformation. If None, defaults to a uniform ramp that starts at the time specified in the configuration.
         """
         # check input dataframe
@@ -6847,14 +6854,14 @@ class Transformers:
         
         Parameters
         ----------
-        df_input: pd.DataFrame
+        df_input : pd.DataFrame
             Optional data frame containing trajectories to modify
-        magnitude: float
+        magnitude : float
             Fractional reduction in IPPU other FC emissions in 
             accordance with vec_implementation_ramp
-        strat: int
+        strat : int
             Optional strategy value to specify for the transformation
-        vec_implementation_ramp: Union[np.ndarray, Dict[str, int], None]
+        vec_implementation_ramp : Union[np.ndarray, Dict[str, int], None]
             Optional vector or dictionary specifying the implementation scalar ramp for the transformation. If None, defaults to a uniform ramp that starts at the time specified in the configuration.
         """
         # check input dataframe
@@ -6903,13 +6910,13 @@ class Transformers:
         
         Parameters
         ----------
-        df_input: pd.DataFrame
+        df_input : pd.DataFrame
             Optional data frame containing trajectories to modify
-        magnitude_red_meat: float
+        magnitude_red_meat : float
             Final period maximum fraction of per capita red meat consumption relative to baseline (e.g., 0.5 means that people eat 50% as much red meat as they would have without the intervention)
-        strat: int
+        strat : int
             Optional strategy value to specify for the transformation
-        vec_implementation_ramp: Union[np.ndarray, Dict[str, int], None]
+        vec_implementation_ramp : Union[np.ndarray, Dict[str, int], None]
             Optional vector or dictionary specifying the implementation scalar ramp for the transformation. If None, defaults to a uniform ramp that starts at the time specified in the configuration.
         """
         # check input dataframe
@@ -6963,11 +6970,11 @@ class Transformers:
         
         Parameters
         ----------
-        df_input: pd.DataFrame
+        df_input : pd.DataFrame
             Optional data frame containing trajectories to modify
-        strat: int
+        strat : int
             Optional strategy value to specify for the transformation
-        vec_implementation_ramp: Union[np.ndarray, Dict[str, int], None]
+        vec_implementation_ramp : Union[np.ndarray, Dict[str, int], None]
             Optional vector or dictionary specifying the implementation scalar ramp for the transformation. If None, defaults to a uniform ramp that starts at the time specified in the configuration.
         """
         # check input dataframe

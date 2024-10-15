@@ -18,10 +18,12 @@ def setup(app):
 
 
 # add to path
-path = "../../sisepuede"
-path = os.path.abspath(path)
-print(f"conf path in readthedocs:\t{path}")
-sys.path.insert(0, path)
+for path in [".", "../.."]:
+    path_abs = os.path.abspath(path)
+    print(f"conf path in readthedocs:\t{path_abs}")
+    if path_abs not in sys.path:
+        sys.path.insert(0, path_abs)
+
 
 
 # -- General configuration

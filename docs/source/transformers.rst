@@ -44,10 +44,79 @@ Transformers
 
 
 .. the module should be available from path set in conf.py https://sphinx-tutorial.readthedocs.io/step-2/
-.. autoclass:: sisepuede.transformers.transformers.Transformers
-    :members: _trfunc_inen_fuel_switch_low_and_high_temp, 
-              _trfunc_agrc_decrease_exports, 
-              _trfunc_agrc_expand_conservation_agriculture
+.. autoclass :: sisepuede.transformers.transformers.Transformers
+    :members: _trfunc_agrc_improve_rice_management
+
+Transformer Docstrings 
+----------------------
+
+Note that parameters shown in the docstrings below are keyword arguments. In general, the user should **not** set a value for the ``strat`` keyword argument.
+
+.. generate list of all transformers
+.. autofunction:: transformers.Transformers.agrc_decrease_exports
+.. autofunction:: transformers.Transformers.agrc_expand_conservation_agriculture
+.. autofunction:: transformers.Transformers.agrc_improve_rice_management
+.. autofunction:: transformers.Transformers.agrc_increase_crop_productivity
+.. autofunction:: transformers.Transformers.agrc_reduce_supply_chain_losses
+.. autofunction:: transformers.Transformers.baseline
+.. autofunction:: transformers.Transformers.ccsq_increase_air_capture
+.. autofunction:: transformers.Transformers.entc_clean_hydrogen
+.. autofunction:: transformers.Transformers.entc_least_cost
+.. autofunction:: transformers.Transformers.entc_reduce_transmission_losses
+.. autofunction:: transformers.Transformers.entc_renewable_electricity
+.. autofunction:: transformers.Transformers.fgtv_maximize_flaring
+.. autofunction:: transformers.Transformers.fgtv_minimize_leaks
+.. autofunction:: transformers.Transformers.inen_fuel_switch_heat
+.. autofunction:: transformers.Transformers.inen_maximize_energy_efficiency
+.. autofunction:: transformers.Transformers.inen_maximize_production_efficiency
+.. autofunction:: transformers.Transformers.ippu_demand_managment
+.. autofunction:: transformers.Transformers.ippu_reduce_cement_clinker
+.. autofunction:: transformers.Transformers.ippu_reduce_hfcs
+.. autofunction:: transformers.Transformers.ippu_reduce_n2o
+.. autofunction:: transformers.Transformers.ippu_reduce_other_fcs
+.. autofunction:: transformers.Transformers.ippu_reduce_pfcs
+.. autofunction:: transformers.Transformers.lndu_expand_silvopasture
+.. autofunction:: transformers.Transformers.lndu_expand_sustainable_grazing
+.. autofunction:: transformers.Transformers.lndu_increase_reforestation
+.. autofunction:: transformers.Transformers.lndu_partial_reallocation
+.. autofunction:: transformers.Transformers.lndu_stop_deforestation
+.. autofunction:: transformers.Transformers.lsmm_improve_manure_management_cattle_pigs
+.. autofunction:: transformers.Transformers.lsmm_improve_manure_management_other
+.. autofunction:: transformers.Transformers.lsmm_improve_manure_management_poultry
+.. autofunction:: transformers.Transformers.lsmm_increase_biogas_capture
+.. autofunction:: transformers.Transformers.lvst_decrease_exports
+.. autofunction:: transformers.Transformers.lvst_increase_productivity
+.. autofunction:: transformers.Transformers.lvst_reduce_enteric_fermentation
+.. autofunction:: transformers.Transformers.pflo_industrial_ccs
+.. autofunction:: transformers.Transformers.plfo_healthier_diets
+.. autofunction:: transformers.Transformers.scoe_fuel_switch_electrify
+.. autofunction:: transformers.Transformers.scoe_increase_applicance_efficiency
+.. autofunction:: transformers.Transformers.scoe_reduce_heat_energy_demand
+.. autofunction:: transformers.Transformers.soil_reduce_excess_fertilizer
+.. autofunction:: transformers.Transformers.soil_reduce_excess_liming
+.. autofunction:: transformers.Transformers.trde_reduce_demand
+.. autofunction:: transformers.Transformers.trns_electrify_light_duty_road
+.. autofunction:: transformers.Transformers.trns_electrify_rail
+.. autofunction:: transformers.Transformers.trns_fuel_switch_maritime
+.. autofunction:: transformers.Transformers.trns_fuel_switch_medium_duty_road
+.. autofunction:: transformers.Transformers.trns_increase_efficiency_electric
+.. autofunction:: transformers.Transformers.trns_increase_efficiency_non_electric
+.. autofunction:: transformers.Transformers.trns_increase_occupancy_light_duty
+.. autofunction:: transformers.Transformers.trns_mode_shift_freight
+.. autofunction:: transformers.Transformers.trns_mode_shift_public_private
+.. autofunction:: transformers.Transformers.trns_mode_shift_regional
+.. autofunction:: transformers.Transformers.trww_increase_biogas_capture
+.. autofunction:: transformers.Transformers.trww_increase_septic_compliance
+.. autofunction:: transformers.Transformers.wali_improve_sanitation_industrial
+.. autofunction:: transformers.Transformers.wali_improve_sanitation_rural
+.. autofunction:: transformers.Transformers.wali_improve_sanitation_urban
+.. autofunction:: transformers.Transformers.waso_descrease_consumer_food_waste
+.. autofunction:: transformers.Transformers.waso_energy_from_biogas
+.. autofunction:: transformers.Transformers.waso_energy_from_incineration
+.. autofunction:: transformers.Transformers.waso_increase_anaerobic_treatment_and_composting
+.. autofunction:: transformers.Transformers.waso_increase_biogas_capture
+.. autofunction:: transformers.Transformers.waso_increase_landfilling
+.. autofunction:: transformers.Transformers.waso_increase_recycling
 
 
 
