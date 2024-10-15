@@ -1,0 +1,5 @@
+﻿Category Name,``$CAT-ECONOMY$``,Definition,GDP Component,Data Source,Hyperlink,Notes
+Commercial,``commercial``,DEF HERE,1,,Pendiente,
+Industrial,``industrial``,"DEF HERE (right now, this excludes manufacturing and mining)",1,,`World Bank Industrial VA <https://data.worldbank.org/indicator/NV.IND.MANF.KD>`_,There are no Industrial VA data for Barbados and Venezuela.
+Manufacturing,``manufacturing``,DEF HERE,1,,`World Bank Manufacturing VA <https://data.worldbank.org/indicator/NV.IND.TOTL.KD>`_,There are no Manufacturing VA data for Barbados and Venezuela.
+Mining,``mining``,DEF HERE,1,,Pendiente,

@@ -23,7 +23,7 @@ Categories
 Categories associated with Liquid Waste are identified by the ``$CAT-WASTE-LIQUID$`` variable schema element and shown in the category attribute table shown below. 
 
 .. csv-table:: Liquid Waste categories (``$CAT-WASTE-LIQUID$`` attribute table)
-   :file: ./csvs/attribute_cat_liquid_waste.csv
+   :file: ../../sisepuede/attributes/attribute_cat_liquid_waste.csv
    :header-rows: 1
 
 
@@ -33,7 +33,7 @@ Variables
 Variables associated with the Liquid Waste subsector are shown below. 
 
 .. csv-table:: Trajectories of the following variables are needed for the Liquid Waste subsector. The categories that variables apply to are described in the ``category`` column.
-   :file: ./csvs/variable_definitions_ce_wali.csv
+   :file: ../../sisepuede/attributes/variable_definitions_ce_wali.csv
    :header-rows: 1
 
 
@@ -54,7 +54,7 @@ Categories
 Categories associated with Wastewater Treatment are identified by the ``$CAT-WASTEWATER-TREATMENT$`` variable schema element and shown in the category attribute table shown below. 
 
 .. csv-table:: Wastewater Treatment categories (``$CAT-WASTEWATER-TREATMENT$`` attribute table)
-   :file: ./csvs/attribute_cat_wastewater_treatment.csv
+   :file: ../../sisepuede/attributes/attribute_cat_wastewater_treatment.csv
    :header-rows: 1
 
 
@@ -64,7 +64,7 @@ Variables
 Variables associated with the Wastewater Treatment subsector are shown below. 
 
 .. csv-table:: Trajectories of the following variables are needed for the Wastewater Treatment subsector. The categories that variables apply to are described in the ``category`` column.
-   :file: ./csvs/variable_definitions_ce_trww.csv
+   :file: ../../sisepuede/attributes/variable_definitions_ce_trww.csv
    :header-rows: 1
 
 
@@ -87,7 +87,7 @@ Categories associated with Solid Waste are identified by the ``$CAT-WASTE-SOLID$
 .. note:: The solid waste attribute table requires the specification of parameters used to characterize different types of waste. These parameters--with the exception of industrial and chemical waste--are derived from default values provided by the IPCC in Volume 5, Chapter 2, Table 2.4 of the `2019 Refinement to the 2006 IPCC Guidelines for National Greenhouse Gas Inventories <https://www.ipcc-nggip.iges.or.jp/public/2019rf/index.html>`_ and the `2006 IPCC Guidelines for National Greenhouse Gas Inventories <https://www.ipcc-nggip.iges.or.jp/public/2006gl/index.html>`_ (which contains the table) for the source of parameters. Industrial parameters come from Volume 5, Chapter 2, Table 2.5.
 
 .. csv-table:: Solid waste categories (``$CAT-WASTE-SOLID$`` attribute table)
-   :file: ./csvs/attribute_cat_solid_waste.csv
+   :file: ../../sisepuede/attributes/attribute_cat_solid_waste.csv
    :header-rows: 1
 
 
@@ -97,6 +97,6 @@ Variables
 Variables associated with the Solid Waste subsector are shown below. 
 
 .. csv-table:: Trajectories of the following variables are needed for the Solid Waste subsector. The categories that variables apply to are described in the ``category`` column.
-   :file: ./csvs/variable_definitions_ce_waso.csv
+   :file: ../../sisepuede/attributes/variable_definitions_ce_waso.csv
    :header-rows: 1
 

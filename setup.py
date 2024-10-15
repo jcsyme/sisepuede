@@ -35,9 +35,32 @@ setup(
     author = "James Syme",
     author_email = "jsyme@tec.mx",
     description = "SImulation of SEctoral Pathways and Uncertainty Exploration for DEcarbonization is a multi-sector, integrated emission accounting and modeling framework for evalauting decarboniation policies under uncertainty.",
+    include_package_data = True,
     license = "MIT",
     name = "SISEPUEDE",
-    packages = ["sisepuede"],
+    packages = [
+        "sisepuede",
+        "sisepuede.cloud",
+        "sisepuede.core",
+        "sisepuede.data_management",
+        "sisepuede.geo",
+        "sisepuede.manager",
+        "sisepuede.models",
+        "sisepuede.pipeline",
+        "sisepuede.plotting",
+        "sisepuede.transformers",
+        "sisepuede.transformers.lib",
+        "sisepuede.utilities"
+    ],
+    package_data = {
+        "": [
+            "attributes/**",
+            "docs/**",
+            "julia/**",
+            "ref/**",
+            "sisepuede.config"
+        ]
+    },
     #python_requires = py_version,
     url = "http://github.com/jcsyme/sisepuede",
     version = "1.1",

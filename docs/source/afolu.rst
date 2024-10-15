@@ -41,7 +41,7 @@ Categories
 Categories associated with Agriculture are identified by the ``$CAT-AGRICULTURE$`` variable schema element and shown in the category attribute table shown below. 
 
 .. csv-table:: Agricultural categories (``$CAT-AGRICULTURE$`` attribute table)
-   :file: ./csvs/attribute_cat_agriculture.csv
+   :file: ../../sisepuede/attributes/attribute_cat_agriculture.csv
    :header-rows: 1
 ..   :widths: 15,15,30,15,10,15
 
@@ -52,7 +52,7 @@ Variables
 Agriculture requires the following variables.
 
 .. csv-table:: Trajectories of the following variables are needed for the Agriculture subsector. The categories that variables apply to are described in the ``category`` column.
-   :file: ./csvs/variable_definitions_af_agrc.csv
+   :file: ../../sisepuede/attributes/variable_definitions_af_agrc.csv
    :header-rows: 1
 .. :widths: 20, 30, 30, 10, 10
 
@@ -75,7 +75,7 @@ Categories associated with Forestry are identified by the ``$CAT-FOREST$`` varia
 These categories reflect an aggregation of forestry types into emission-relevant categories. Note that areas of forested land are determined in the **Land Use** subsector. The land use at time *t* is determined by an ergodic Markov Chain (probabilities are set in the variable input table and subject to uncertainty using the mixing approach)
 
 .. csv-table:: Forest categories (``$CAT-FOREST$`` attribute table)
-   :file: ./csvs/attribute_cat_forest.csv
+   :file: ../../sisepuede/attributes/attribute_cat_forest.csv
    :header-rows: 1
 ..   :widths: 15,15,30,15,10,15
 
@@ -86,7 +86,7 @@ Variables
 Variables associated with the Forestry subsector are denoted below. 
 
 .. csv-table:: Trajectories of the following variables are needed for the Forestry subsector. The categories that variables apply to are described in the ``category`` column.
-   :file: ./csvs/variable_definitions_af_frst.csv
+   :file: ../../sisepuede/attributes/variable_definitions_af_frst.csv
    :header-rows: 1
 
 
@@ -140,7 +140,7 @@ Categories
 Categories associated with Land Use are identified by the ``$CAT-LAND-USE$`` variable schema element and shown in the category attribute table shown below. 
 
 .. csv-table:: Land Use categories (``$CAT-LANDUSE$`` attribute table)
-   :file: ./csvs/attribute_cat_land_use.csv
+   :file: ../../sisepuede/attributes/attribute_cat_land_use.csv
    :header-rows: 1
 
 
@@ -150,7 +150,7 @@ Variables
 Variables associated with the Land Use subsector are shown below. 
 
 .. csv-table:: Trajectories of the following variables are needed for the Land Use subsector. The categories that variables apply to are described in the ``category`` column.
-   :file: ./csvs/variable_definitions_af_lndu.csv
+   :file: ../../sisepuede/attributes/variable_definitions_af_lndu.csv
    :header-rows: 1
 
 
@@ -172,7 +172,7 @@ Categories associated with Transportation are identified by the ``$CAT-LIVESTOCK
 .. note:: Animal weights are only used to estimate the increase in protein consumption in liquid waste (which contribute to :math:`\text{N}_2\text{O}` emissions). All estimates are adapted from `Holechek 1988 <https://journals.uair.arizona.edu/index.php/rangelands/article/download/10362/9633>`_ (using 2.2 lbs/kg) unless otherwise noted.
 
 .. csv-table:: Livestock categories (``$CAT-LIVESTOCK$`` attribute table)
-   :file: ./csvs/attribute_cat_livestock.csv
+   :file: ../../sisepuede/attributes/attribute_cat_livestock.csv
    :header-rows: 1
 
 
@@ -182,7 +182,7 @@ Variables
 Variables associated with the Livestock subsector are shown below. 
 
 .. csv-table:: Trajectories of the following variables are needed for the Livestock subsector. The categories that variables apply to are described in the ``category`` column.
-   :file: ./csvs/variable_definitions_af_lvst.csv
+   :file: ../../sisepuede/attributes/variable_definitions_af_lvst.csv
    :header-rows: 1
 
 
@@ -205,7 +205,7 @@ Categories
 Categories associated with Livestock Manure Management are identified by the ``$CAT-MANURE-MANAGEMENT$`` variable schema element and shown in the category attribute table shown below. 
 
 .. csv-table:: Livestock manure management categories (``$CAT-MANURE-MANAGEMENT$`` attribute table)
-   :file: ./csvs/attribute_cat_manure_management.csv
+   :file: ../../sisepuede/attributes/attribute_cat_manure_management.csv
    :header-rows: 1
 
 
@@ -215,7 +215,7 @@ Variables
 Variables associated with the Livestock Manure Management subsector are shown below. 
 
 .. csv-table:: Trajectories of the following variables are needed for the Livestock Manure Management subsector. The categories that variables apply to are described in the ``category`` column.
-   :file: ./csvs/variable_definitions_af_lsmm.csv
+   :file: ../../sisepuede/attributes/variable_definitions_af_lsmm.csv
    :header-rows: 1
 
 
@@ -240,7 +240,7 @@ Categories
 Categories associated with Soil Management are identified by the ``$CAT-SOIL-MANAGEMENT$`` variable schema element and shown in the category attribute table shown below. 
 
 .. csv-table:: Soil Management categories (``$CAT-SOIL-MANAGEMENT$`` attribute table)
-   :file: ./csvs/attribute_cat_soil_management.csv
+   :file: ../../sisepuede/attributes/attribute_cat_soil_management.csv
    :header-rows: 1
 
 
@@ -250,5 +250,5 @@ Variables
 Variables associated with the Soil Management subsector are shown below. 
 
 .. csv-table:: Trajectories of the following variables are needed for the Soil Management subsector. The categories that variables apply to are described in the ``category`` column.
-   :file: ./csvs/variable_definitions_af_soil.csv
+   :file: ../../sisepuede/attributes/variable_definitions_af_soil.csv
    :header-rows: 1

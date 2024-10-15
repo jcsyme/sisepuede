@@ -28,7 +28,7 @@ Categories associated with Industrial Processes and Product Use are identified b
 
 
 .. csv-table:: Industrial categories (``$CAT-INDUSTRY$`` attribute table)
-   :file: ./csvs/attribute_cat_industry.csv
+   :file: ../../sisepuede/attributes/attribute_cat_industry.csv
    :header-rows: 1
 
 .. note:: The Electronics Industry is broken into four key subcategories given the high degree of variation in emission factors and emission-relevant gasses governing each of these subcategories and the relative magnitude of the GWP of fluorinated compounds used in the electronics manufacturing process. Other categories--like metals--are not broken into subcategories (e.g., such as steel, aluminum, magnesium, zinc, etc... ) given the relatively similar magnitude of emission factors across gasses and the low prevalence of gasses associated with very-high GWPs. See `V3, C6 IPCC GNGHGI (2019R)<https://www.ipcc-nggip.iges.or.jp/public/2019rf/pdf/3_Volume3/19R_V3_Ch06_Electronics.pdf>`_ Table 6.6 for default emission factors associated with electronics manufacturing.
@@ -40,7 +40,7 @@ Variables
 Variables associated with the Industrial Processes and Product Use subsector are shown below. 
 
 .. csv-table:: Trajectories of the following variables are needed for the Industrial Processes and Product Use subsector. The categories that variables apply to are described in the ``category`` column.
-   :file: ./csvs/variable_definitions_ip_ippu.csv
+   :file: ../../sisepuede/attributes/variable_definitions_ip_ippu.csv
    :header-rows: 1
 
 

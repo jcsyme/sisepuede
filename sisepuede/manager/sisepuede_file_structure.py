@@ -186,13 +186,16 @@ class SISEPUEDEFileStructure:
 		)
 
 		if not os.path.exists(self.dir_docs):
-			count_errors += 1
-			msg_error_dirs += f"\n\tDocs subdirectory '{self.dir_docs}' not found"
+			self._log(
+				f"\n\tDocs subdirectory '{self.dir_docs}' not found.",
+				type_log = "warning",
+				warn_if_none = False,
+			)
 			self.dir_docs = None
 
 
 		# check attribute tables path (within docs path)
-		self.dir_attribute_tables = os.path.join(self.dir_docs, "csvs") if (self.dir_docs is not None) else ""
+		self.dir_attribute_tables = os.path.join(self.dir_proj, "attributes") if (self.dir_proj is not None) else ""
 		if not os.path.exists(self.dir_attribute_tables):
 			count_errors += 1
 			msg_error_dirs += f"\n\tAttribute tables subdirectory '{self.dir_attribute_tables}' not found"

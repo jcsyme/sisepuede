@@ -1,0 +1,22 @@
+Variable Type,Variable,Information,Variable Schema,Categories,Reference,Default Value,Default LHS Scalar Minimum at Final Time Period,Default LHS Scalar Maximum at Final Time Period,Simplex Group,Emissions Total by Gas Component,IPCC Emissions Sector Codes,IPCC Equation Reference,Notes
+Input,:math:`\text{CH}_4` Annual Emission Limit," | Used in NemoMod to calculate AnnualEmissionLimit. Can be used to model an exogenous policy limit on total emissions, but cannot be used to mandate negative emissions in the Electricity sector.
+ | 
+ | **NOTE**: To enter no limit, use flag -999","``limit_gnrl_annual_emissions_$UNIT-MASS$_$EMISSION-GAS$`` (``$UNIT-MASS$ = mt``, ``$EMISSION-GAS$ = ch4``)",none,,0,1,1,,0,,,
+Input,:math:`\text{CO}_2` Annual Emission Limit," | Used in NemoMod to calculate AnnualEmissionLimit. Can be used to model an exogenous policy limit on total emissions, but cannot be used to mandate negative emissions in the Electricity sector.
+ | 
+ | **NOTE**: To enter no limit, use flag -999","``limit_gnrl_annual_emissions_$UNIT-MASS$_$EMISSION-GAS$`` (``$UNIT-MASS$ = mt``, ``$EMISSION-GAS$ = co2``)",none,,0,1,1,,0,,,
+Input,:math:`\text{N}_2\text{O}` Annual Emission Limit," | Used in NemoMod to calculate AnnualEmissionLimit. Can be used to model an exogenous policy limit on total emissions, but cannot be used to mandate negative emissions in the Electricity sector.
+ | 
+ | **NOTE**: To enter no limit, use flag -999","``limit_gnrl_annual_emissions_$UNIT-MASS$_$EMISSION-GAS$`` (``$UNIT-MASS$ = mt``, ``$EMISSION-GAS$ = n2o``)",none,,0,1,1,,0,,,
+Input,Area of Region,"Units: Hectares (ha). Total area of the country, including land and water. ",``area_gnrl_country_$UNIT-AREA$`` (``$UNIT-AREA$ = ha``),none,`FAO Land Use and Area <https://www.fao.org/faostat/en/#data/RL>`_,0,1,1,,0,,,"FAO Country area: Area under national sovereignty. It is the sum of land area, inland waters and coastal waters. It excludes the exclusive economic zone."
+Input,Climate Change Factor for Average Hydropower Availability,Scale the capacity factor of hydropower production up or down,``climate_change_factor_gnrl_hydropower_availability``,none,,0,1,1,,0,,,
+Input,Elasticity National Occupation Rate to GDP Per Capita,,``elasticity_gnrl_rate_occupancy_to_gdppc``,none,,0,1,1,,0,,,
+Input,Fraction Eating Red Meat,"Gives a scalar *a* for demand for red meat in the country. Used to represent adoption of vegetarianism. Decreases in this scalar lead to increases in crop consumption, with the per-capita demand for crops increasng by the scalar **dietary_exchange** for 100(1  - *a*)% of the population (see land use sector). Additionally, population-level changes to diet impact the protein content of wastewater.",``frac_gnrl_eating_red_meat``,none,,0,1,1,,0,,,
+Input,Initial National Occupancy Rate,Used to calculate number of households. Units: average # of people per household nationally at time :math:`t = 0`.,``occrateinit_gnrl_occupancy``,none,`UN # People per Household <https://population.un.org/Household/index.html#/countries/840>`_,0,1,1,,0,,,No data avaiable for Barbados or Belize. NEED ASSUMPTION
+Input,Population,Units: # of people ,``population_gnrl_$CAT-GENERAL$`` ,all," | `World Bank — Urban Population <https://data.worldbank.org/indicator/SP.URB.TOTL>`_
+ | 
+ | `World Bank — Rural Population <https://data.worldbank.org/indicator/SP.RUR.TOTL>`_
+",0,1,1,,0,,,
+Output,National Occupancy Rate,,``occrate_gnrl_hhs``,none,,0,1,1,,0,,,
+Output,Number of Households,,``qty_gnrl_households``,none,,0,1,1,,0,,,
+Output,Total Population,,``population_gnrl_total``,none,,0,1,1,,0,,,

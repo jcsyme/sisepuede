@@ -33,7 +33,7 @@ NemoMod Tables and Default Values
 NemoMod includes a range of tables used to integrate components of an energy system. The following table includes SISEPUEDE default parameter values for each table as well as information about how each table is populated in SISEPUEDE.
 
 .. csv-table:: NemoMod Table attributes
-   :file: ./csvs/attribute_nemomod_table.csv
+   :file: ../../sisepuede/attributes/attribute_nemomod_table.csv
    :header-rows: 1
 
 
@@ -52,7 +52,7 @@ Categories
 Categories associated with Energy Storage are identified by the ``$CAT-STORAGE$`` variable schema element and shown in the category attribute table shown below.
 
 .. csv-table:: Energy Storage categories (``$CAT-STORAGE$`` attribute table) included in the SISEPUEDE NemoMod model.
-   :file: ./csvs/attribute_cat_storage.csv
+   :file: ../../sisepuede/attributes/attribute_cat_storage.csv
    :header-rows: 1
 
 
@@ -62,7 +62,7 @@ Variables
 Variables associated with the Energy Storage subsector are shown below. 
 
 .. csv-table:: Trajectories of the following variables are needed for the Energy Storage subsector. The categories that variables apply to are described in the ``category`` column.
-   :file: ./csvs/variable_definitions_en_enst.csv
+   :file: ../../sisepuede/attributes/variable_definitions_en_enst.csv
    :header-rows: 1
 
 
@@ -86,7 +86,7 @@ Categories
 Categories associated with Energy Technology are identified by the ``$CAT-TECHNOLOGY$`` variable schema element and shown in the category attribute table shown below.
 
 .. csv-table:: Technology categories (``$CAT-TECHNOLOGY$`` attribute table) included in the SISEPUEDE NemoMod model.
-   :file: ./csvs/attribute_cat_technology.csv
+   :file: ../../sisepuede/attributes/attribute_cat_technology.csv
    :header-rows: 1
 
 
@@ -96,7 +96,7 @@ Variables
 Variables associated with the Energy Technology subsector are shown below. 
 
 .. csv-table:: Trajectories of the following variables are needed for the Energy Technology subsector. The categories that variables apply to are described in the ``category`` column.
-   :file: ./csvs/variable_definitions_en_entc.csv
+   :file: ../../sisepuede/attributes/variable_definitions_en_entc.csv
    :header-rows: 1
 
 

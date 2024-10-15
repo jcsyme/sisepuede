@@ -1,0 +1,15 @@
+Category Name,``$CAT-WASTEWATER-TREATMENT$``,Description,Data Source,Hyperlink,Notes,Default TOW Removal Fraction,Default TOW Removal Fraction Lower Bound,Default TOW Removal Fraction Upper Bound
+Aerobic Treatment - Advanced,``treated_advanced_aerobic``," | Wastewater that is treated in centralized or decentralized aerobic plants. The :math:`\text{CH}_4` emissions accounted for the process itself. Sludge removal and treatment is then sent to the Solid Waste treatment sector. 
+ |
+ | Includes primary, secondary, and tertiary aerobic biological treatment. Primary only should be treated in the ``primary`` category, while primary+secondary should be treated in the ``secondary_aerobic`` treatment category.",,,"In aerobic treatment facilities, waste is removed as sludge.",0.9,0.8,0.95
+Aerobic Treatment - Secondary,``treated_secondary_aerobic``,Primary and secondary treatment (mechanical + biological) aerobic wastewater treatment facilities.,,,,0.85,0.8,0.9
+Anaerobic Treatment - Advanced,``treated_advanced_anaerobic``," | Wastewater that is treated in anaerobic plants, deep lagoons, and other treatment facilities where biological decomposition creates anaerobic :math:`\text{CH}_4` emissions. Excludes shallow lagoons.
+ |
+ | Includes primary, secondary, and tertiary anaerobic biological treatment. Primary only should be treated in the ``primary`` category, while primary+secondary should be treated in the ``secondary_anaerobic`` treatment category.",,,"In anaerobic treatment facilities, waste is decomposed anaerobically, creating :math:`\text{CH}_4` emissions. ",0.9,0.8,0.95
+Anaerobic Treatment - Secondary,``treated_secondary_anaerobic``,Primary and secondary treatment (mechanical + biological) anaerobic wastewater treatment facilities.,,,,0.85,0.8,0.9
+Latrines - Improved,``treated_latrine_improved``,"Improvemed latrines are assumed to be associated with higher anaerobic decomposition activity, releasing more methane.",,,,0.6,0.4,1
+Latrines - Unimproved,``treated_latrine_unimproved``,Unimproved latrines,,,,0.1,0.05,0.15
+Primary Treatment,``treated_primary``,Primary treatment only (mechanical) wastewater treatment facilities.,,,,0.4,0.25,0.5
+Septic,``treated_septic``,"Septic tanks, which are a common treatment option in rural areas.",,,"In properly managed septic tanks, a fraction of waste is removed as sludge, which is then disposed of in the solid waste stream.",0.625,0.5,0.6
+Untreated No Sewerage,``untreated_no_sewerage``,"Wastewater that is untreated without sewerage. Sewerage reduces methane emissions from anaerobic decomposition. Incudes sea, river, and lake disharge as well as open, stagnant sewers.",,,,0,0,0.1
+Untreated With Sewerage,``untreated_with_sewerage``,"Wastewater that is sent to sewers (clean, closed, moving), but is not treated afterwards. While there are no :math:`\text{CH}_4` emissions from these sewers, effluent contains significant emissions.",,,,0,0,0.1

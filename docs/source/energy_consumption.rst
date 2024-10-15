@@ -55,7 +55,7 @@ Categories
 Categories associated with Energy Technology are identified by the ``$CAT-FUEL$`` variable schema element and shown in the category attribute table shown below.
 
 .. csv-table:: Fuel categories (``$CAT-FUEL$`` attribute table)
-   :file: ./csvs/attribute_cat_fuel.csv
+   :file: ../../sisepuede/attributes/attribute_cat_fuel.csv
    :header-rows: 1
 
 
@@ -65,7 +65,7 @@ Variables
 Variables associated with the Energy Fuels subsector are shown below. 
 
 .. csv-table:: Trajectories of the following variables are needed for the Energy Fuels subsector. The categories that variables apply to are described in the ``category`` column.
-   :file: ./csvs/variable_definitions_en_enfu.csv
+   :file: ../../sisepuede/attributes/variable_definitions_en_enfu.csv
    :header-rows: 1
 
 
@@ -90,7 +90,7 @@ Variables
 Variables associated with the Fugitive Emissions subsector are shown below. 
 
 .. csv-table:: Trajectories of the following variables are needed for the Fugitive Emissions subsector. The categories that variables apply to are described in the ``category`` column.
-   :file: ./csvs/variable_definitions_en_fgtv.csv
+   :file: ../../sisepuede/attributes/variable_definitions_en_fgtv.csv
    :header-rows: 1
 
 
@@ -114,7 +114,7 @@ Variables
 Variables associated with the Industrial Energy subsector are shown below. 
 
 .. csv-table:: Trajectories of the following variables are needed for the Industrial Energy subsector. The categories that variables apply to are described in the ``category`` column.
-   :file: ./csvs/variable_definitions_en_inen.csv
+   :file: ../../sisepuede/attributes/variable_definitions_en_inen.csv
    :header-rows: 1
 
 
@@ -139,7 +139,7 @@ Categories
 Categories associated with Stationary Combustion and Other Energy are identified by the ``$CAT-SCOE$`` variable schema element and shown in the category attribute table shown below.
 
 .. csv-table:: Other categories (``$CAT-SCOE$`` attribute table)
-   :file: ./csvs/attribute_cat_scoe.csv
+   :file: ../../sisepuede/attributes/attribute_cat_scoe.csv
    :header-rows: 1
 
 
@@ -149,7 +149,7 @@ Variables
 Variables associated with the Stationary Combustion and Other Energy subsector are shown below. 
 
 .. csv-table:: Trajectories of the following variables are needed for the Stationary Combustion and Other Energy subsector. The categories that variables apply to are described in the ``category`` column.
-   :file: ./csvs/variable_definitions_en_scoe.csv
+   :file: ../../sisepuede/attributes/variable_definitions_en_scoe.csv
    :header-rows: 1
 
 
@@ -180,7 +180,7 @@ Categories associated with Transportation are identified by the ``$CAT-TRANSPORT
 .. note:: These categories are associated with different `Transportation Demand <./energy_consumption.html#transportation-demand-trde>`_ categories, which govern mode-shifting.
 
 .. csv-table:: Other categories (``$CAT-TRANSPORTATION$`` attribute table)
-   :file: ./csvs/attribute_cat_transportation.csv
+   :file: ../../sisepuede/attributes/attribute_cat_transportation.csv
    :header-rows: 1
 
 
@@ -194,7 +194,7 @@ Variables associated with the Transportation subsector are shown below.
 
 
 .. csv-table:: Trajectories of the following variables are needed for the Transportation subsector. The categories that variables apply to are described in the ``category`` column.
-   :file: ./csvs/variable_definitions_en_trns.csv
+   :file: ../../sisepuede/attributes/variable_definitions_en_trns.csv
    :header-rows: 1
 
 
@@ -213,7 +213,7 @@ Categories
 Categories associated with Transportation are identified by the ``$CAT-TRANSPORTATION-DEMAND$`` variable schema element and shown in the category attribute table shown below. These categories are associated with different allowable mode shifts between vehicle types.
 
 .. csv-table:: Transportation Demand categories (``$CAT-TRANSPORTATION-DEMAND$`` attribute table)
-   :file: ./csvs/attribute_cat_transportation_demand.csv
+   :file: ../../sisepuede/attributes/attribute_cat_transportation_demand.csv
    :header-rows: 1
 
 
@@ -223,7 +223,7 @@ Variables
 Variables associated with the Transportation Demand subsector are shown below. 
 
 .. csv-table:: Trajectories of the following variables are needed for the Transportation Demand subsector. The categories that variables apply to are described in the ``category`` column.
-   :file: ./csvs/variable_definitions_en_trde.csv
+   :file: ../../sisepuede/attributes/variable_definitions_en_trde.csv
    :header-rows: 1
 
 

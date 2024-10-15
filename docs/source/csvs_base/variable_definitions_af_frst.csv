@@ -1,0 +1,29 @@
+Variable Type,Variable,Information,Variable Schema,Categories,Reference,Default Value,Default LHS Scalar Minimum at Final Time Period,Default LHS Scalar Maximum at Final Time Period,Simplex Group,Emissions Total by Gas Component,``$CAT-SOIL-MANAGEMENT$``,``CAT-INDUSTRY``,IPCC Emissions Sector Codes,IPCC Equation Reference,Notes
+Input,:math:`\text{CH}_4` Forest Methane Emissions,Methane emissions from forests,"``ef_frst_forestmethane_$CAT-FOREST$_$UNIT-MASS$_$EMISSION-GAS$_$UNIT-AREA$`` (``$EMISSION-GAS$ = ch4``, ``$UNIT-AREA$ = ha``, ``$UNIT-MASS$ = kt``)",all,,0,1,1,,0,none,none,,,See `Yale <https://e360.yale.edu/features/scientists-probe-the-surprising-role-of-trees-in-methane-emissions>`_ or `Nature <https://www.nature.com/articles/d41586-019-00122-z>`_ for more information on methane emissions from forests.
+Input,:math:`\text{CO}_2` Forest Fire Emission Factor,Annual average :math:`\text{CO}_2` emitted mass of dry matter burned due to forest fires (≥ 0),``ef_frst_forestfires_$CAT-FOREST$_$EMISSION-GAS$`` (``$EMISSION-GAS$ = co2``),all,,0,1,1,,0,none,none,,,Forest fires are represented in the land use transition matrix as part of ``$CAT-FOREST$`` to the class ``other``. Reductions in this transition can represent reductions in forest fires. 
+Input,Average Fraction of Forest Burned Annually,,``frac_frst_annual_wildfire_fraction_$CAT-FOREST$``,all,,0,1,1,,0,none,none,,,
+Input,C Carbon Harvested Wood Products Emission Factor,Dimensionless emission factor for carbon in wood products.,``ef_frst_c_per_wood_products``,none,,0,1,1,,0,none,none,,,
+Input,Fire Biomass Consumption for Temperate Forests,"See Table 2.4  and Equation 2.27 in V4, C2, IPCC GNGHGI (2019R)","``qty_frst_biomass_consumed_by_fire_temperate_$CAT-FOREST$_$UNIT-MASS$_per_$UNIT-AREA$`` (``$UNIT-MASS$ = tonne``, ``$UNIT-AREA$ = ha``)",all,,0,1,1,,0,none,none,,,
+Input,Fire Biomass Consumption for Tropical Forests,"See Table 2.4  and Equation 2.27 in V4, C2, IPCC GNGHGI (2019R)","``qty_frst_biomass_consumed_by_fire_tropical_$CAT-FOREST$_$UNIT-MASS$_per_$UNIT-AREA$`` (``$UNIT-MASS$ = tonne``, ``$UNIT-AREA$ = ha``)",all,,0,1,1,,0,none,none,,,
+Input,Forest Fraction Temperate Nutrient Poor," | Used to calculate :math:`\text{N}_2\text{O}` emissions from organic soils. 
+ | 
+ | Forest Fraction Temperate Nutrient Poor, Forest Fraction Temperate Nutrient Rich, and Forest Fraction Tropical must sum to 1",``frac_frst_$CAT-FOREST$_cl1_temperate_nutrient_poor``,all,,0,1,1,1.0,0,``temperate_forest_nutrient_poor``,none,,,
+Input,Forest Fraction Temperate Nutrient Rich," | Used to calculate :math:`\text{N}_2\text{O}` emissions from organic soils. 
+ | 
+ | Forest Fraction Temperate Nutrient Poor, Forest Fraction Temperate Nutrient Rich, and Forest Fraction Tropical must sum to 1",``frac_frst_$CAT-FOREST$_cl1_temperate_nutrient_rich``,all,,0,1,1,1.0,0,``temperate_forest_nutrient_rich``,none,,,
+Input,Forest Fraction Tropical," | Used to calculate :math:`\text{N}_2\text{O}` emissions from organic soils. 
+ | 
+ | Forest Fraction Temperate Nutrient Poor, Forest Fraction Temperate Nutrient Rich, and Forest Fraction Tropical must sum to 1",``frac_frst_$CAT-FOREST$_cl1_tropical``,all,,0,1,1,1.0,0,``tropical_forest``,none,,,
+Input,Forest Sequestration Emission Factor," | Annual average :math:`\text{CO}_2` emitted per ha from sequestration (> 0 – this is a positive number)
+ | 
+ | Note: baseline estimates for neotropical regions are available from `Heinrich et al. (2021) <https://www.nature.com/articles/s41467-021-22050-1>`_
+ | * 3.05 ± 0.5 tonne C/ha/year (seconary)
+ | * 11-20 times less for primary
+","``ef_frst_sequestration_$CAT-FOREST$_$UNIT-MASS$_$EMISSION-GAS$_$UNIT-AREA$`` (``$EMISSION-GAS$ = co2``, ``$UNIT-AREA$ = ha``, ``$UNIT-MASS$ = kt``)",all,,0,1,1,,0,none,none,,,
+Input,HWP Half Life Paper,,``hl_frst_half_life_hwp_paper_products``,none,,0,1,1,,0,none,none,,,
+Input,HWP Half Life Wood,,``hl_frst_half_life_hwp_wood_products``,none,,0,1,1,,0,none,none,,,
+Input,Initial Per Household Wood Demand,Demand per household for wood use in the home at time :math:`t = 0`,``deminit_frst_wood_home_use_$UNIT-MASS$_per_hh`` (``$UNIT-MASS$ = kg``),none,,0,1,1,,0,none,none,,,
+Output,:math:`\text{CH}_4` Emissions from Forests,Total methane emissions from forests,``emission_co2e_$EMISSION-GAS$_frst_methane_$CAT-FOREST$`` (``$EMISSION-GAS$ = ch4``),all,,0,1,1,,1,none,none,,,
+Output,:math:`\text{CO}_2` Emissions from Forest Fires,,``emission_co2e_$EMISSION-GAS$_frst_forest_fires`` (``$EMISSION-GAS$ = co2``),none,,0,1,1,,1,none,none,,,
+Output,:math:`\text{CO}_2` Emissions from Forest Sequestration,Sequestration in forests modeled as negative emissions,``emission_co2e_$EMISSION-GAS$_frst_sequestration_$CAT-FOREST$`` (``$EMISSION-GAS$ = co2``),all,,0,1,1,,1,none,none,,,
+Output,:math:`\text{CO}_2` Emissions from Harvested Wood Products,,``emission_co2e_$EMISSION-GAS$_frst_harvested_wood_products`` (``$EMISSION-GAS$ = co2``),none,,0,1,1,,1,none,none,,,

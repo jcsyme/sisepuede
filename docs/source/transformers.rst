@@ -39,7 +39,7 @@ Transformers
 ============
 
 .. csv-table:: Transformers included in SISEPUEDE
-   :file: ./csvs/attribute_transformer_code.csv
+   :file: ../../sisepuede/attributes/attribute_transformer_code.csv
    :header-rows: 1
 
 

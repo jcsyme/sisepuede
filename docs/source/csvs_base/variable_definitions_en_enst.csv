@@ -1,0 +1,18 @@
+Variable Type,Variable,Information,Variable Schema,Categories,Reference,Default Value,Default LHS Scalar Minimum at Final Time Period,Default LHS Scalar Maximum at Final Time Period,Simplex Group,Emissions Total by Gas Component,IPCC Emissions Sector Codes,IPCC Equation Reference,Notes
+Input,NemoMod CapitalCostStorage,Cost to build a unit of capacity for the specified storage,"``nemomod_enst_capital_cost_$CAT-STORAGE$_$UNIT-MONETARY$_per_$UNIT-ENERGY$`` (``$UNIT-MONETARY$ = usd``, ``$UNIT-ENERGY$ = kwh``)",all,,0,1,1,,0,,,See `Mongird et al. (2020) <https://www.mdpi.com/1996-1073/13/13/3307>`_ for some default costs.
+Input,NemoMod ResidualStorageCapacity,Used to enter existing capacity **and** to represent its lifetime (declining availability).,``nemomod_enst_residual_capacity_$CAT-STORAGE$_$UNIT-ENERGY$`` (``$UNIT-ENERGY$ = gwh``),all,,0,1,1,,0,,,
+Input,NemoMod StorageStartLevel," | Fraction of available storage that is charge at time :math:`t = 0`.
+ | 
+ | **NOTE**: For a given ``$CAT-STORAGE$``, this value should be greater than or equal to the valie of ``Minimum Charge Fraction`` provided in the ``$CAT-STORAGE$`` attribute table. If it is not, then SISEPUEDE will override initial storage fraction to ensure consistency.",``nemomod_enst_frac_storage_charged_initial_$CAT-STORAGE$``,all,,0,1,1,,0,,,
+Input,NemoMod TotalAnnualMaxCapacityInvestmentStorage," | Total annual maximum capacity investment, in units of power, for a generation technology (year-over-year maximum). If none, enter -999. ",``nemomod_enst_total_annual_max_capacity_investment_$CAT-STORAGE$_$UNIT-ENERGY$`` (``$UNIT-ENERGY$ = pj``),all,,0,1,1,,0,,,
+Input,NemoMod TotalAnnualMaxCapacityStorage," | Total annual maximum capacity for a storage technology. If none, enter -999 as a flag..",``nemomod_enst_total_annual_max_capacity_$CAT-STORAGE$_$UNIT-ENERGY$`` (``$UNIT-ENERGY$ = pj``),all,,0,1,1,,0,,,
+Input,NemoMod TotalAnnualMinCapacityInvestmentStorage,,``nemomod_enst_total_annual_min_capacity_investment_$CAT-STORAGE$_$UNIT-ENERGY$`` (``$UNIT-ENERGY$ = pj``),all,,0,1,1,,0,,,
+Input,NemoMod TotalAnnualMinCapacityStorage," | Total annual minimum capacity for a generation technology. If none, enter -999 as a flag.. 
+ | 
+ | Exlucdes storage technologies.",``nemomod_enst_total_annual_min_capacity_$CAT-STORAGE$_$UNIT-ENERGY$`` (``$UNIT-ENERGY$ = pj``),all,,0,1,1,,0,,,
+Output,NemoMod Discounted Capital Investment Storage," | Discounted capital investment in new generation technologies (in configuration monetary_units).
+ | 
+ | NemoMod output variable **vdiscountedcapitalinvestment**",``nemomod_enst_discounted_capital_investment_$CAT-STORAGE$``,all,,0,1,1,,0,,,
+Output,NemoMod Discounted Operating Costs Storage," | Discounted operating (fixed and variable) costs by generation technology (in configuration monetary_units).
+ | 
+ | NemoMod variable **vdiscountedoperatingcost**",``nemomod_enst_discounted_operating_costs_$CAT-STORAGE$``,all,,0,1,1,,0,,,
