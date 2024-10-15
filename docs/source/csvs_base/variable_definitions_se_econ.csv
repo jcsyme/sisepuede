@@ -1,3 +1,0 @@
-Variable Type,Variable,Information,Variable Schema,Categories,Reference,Default Value,Default LHS Scalar Minimum at Final Time Period,Default LHS Scalar Maximum at Final Time Period,Simplex Group,Emissions Total by Gas Component,IPCC Emissions Sector Codes,IPCC Equation Reference,Notes
-Input,GDP,GDP in billions of USD,``gdp_$UNIT-MONETARY$`` (``$UNIT-MONETARY$ = mmm_usd``),none,`World Bank GDP <https://data.worldbank.org/indicator/NY.GDP.MKTP.KD>`_,0,1,1,,0,,,Exogenous GDP trajectory
-Output,GDP per Capita,GDP per Capita in dollars,``gdp_per_capita_$UNIT-MONETARY$`` (``$UNIT-MONETARY$ = usd``),none,,0,1,1,,0,,,

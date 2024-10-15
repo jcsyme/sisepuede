@@ -1,8 +1,0 @@
-﻿Category Name,``$CAT-SOIL-MANAGEMENT$``,Description,Data Source,Hyperlink,Notes
-Tropical Crops and Grasslands,``tropical_crop_grass``,,,,
-Tropical Forests,``tropical_forest``,"Represents all soils that are managed, including those with inputs (fertilizer) and organic soils.",,,
-Temperate Nutrient Poor Forests,``temperate_forest_nutrient_rich``,,,,
-Temperate Nutrient Rich Forests,``temperate_forest_nutrient_poor``,,,,
-Temperate Crops and Grasslands,``temperate_crop_grass``,,,,
-Dry Climate,``dry_climate``,,,,
-Wet Climate,``wet_climate``,,,,
