@@ -1,1 +1,4 @@
+numpy==1.23.5
+pandas==2.2.1
+PyYAML==6.0
 sphinx_rtd_theme
