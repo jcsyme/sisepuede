@@ -6964,6 +6964,8 @@ class Transformers:
 
     def _trfunc_pflo_industrial_ccs(self,
         df_input: Union[pd.DataFrame, None] = None,
+        dict_magnitude_eff: Union[dict, float, None] = 0.9,
+        dict_magnitude_prev: Union[dict, None] = None,
         strat: Union[int, None] = None,
         vec_implementation_ramp: Union[np.ndarray, Dict[str, int], None] = None,
     ) -> pd.DataFrame:
@@ -6973,6 +6975,18 @@ class Transformers:
         ----------
         df_input : pd.DataFrame
             Optional data frame containing trajectories to modify
+        dict_magnitude_eff : Union[Dict[str, float], float, None]
+            Optional float specifying capture efficacy as a final value (e.g., a 90% target efficacy is entered as 0.9)  OR  dictionary mapping individual categories to target efficacies (must be specified for each category). 
+            * If None, does not modify
+        dict_magnitude_prev : Union[Dict[str, float], None]
+            Optional dictionary mapping industrial categories to prevalence of CCS. If None, defaults to 
+            
+                dict_magnitude_prev = {
+                    "cement": 0.8,
+                    "chemicals": 0.8,
+                    "metals": 0.8,
+                    "plastic": 0.8,
+                }
         strat : int
             Optional strategy value to specify for the transformation
         vec_implementation_ramp : Union[np.ndarray, Dict[str, int], None]
@@ -6992,13 +7006,37 @@ class Transformers:
         )
 
 
-        dict_magnitude_eff = None
-        dict_magnitude_prev = {
-            "cement": 0.8,
-            "chemicals": 0.8,
-            "metals": 0.8,
-            "plastic": 0.8,
-        }
+        # check effectiveness dictionary
+        dict_magnitude_eff = (
+            self.model_attributes.get_valid_categories_dict(
+                dict_magnitude_eff,
+                self.model_attributes.subsec_name_inen,
+            )
+            if isinstance(dict_magnitude_eff, dict)
+            else (
+                self.bounded_real_magnitude(dict_magnitude_eff, 0.9)
+                if sf.isnumber(dict_magnitude_eff)
+                else None
+            )
+        )
+
+        # check the prevalence dictionary
+        dict_magnitude_prev = (
+            {
+                "cement": 0.8,
+                "chemicals": 0.8,
+                "metals": 0.8,
+                "plastic": 0.8,
+            }
+            if not isinstance(dict_magnitude_prev, dict)
+            else dict_magnitude_prev
+        )
+
+        dict_magnitude_prev = self.model_attributes.get_valid_categories_dict(
+            dict_magnitude_prev,
+            self.model_attributes.subsec_name_inen,
+        )
+
 
         # increase prevalence of capture
         df_out = tbs.transformation_mlti_industrial_carbon_capture(
