@@ -1110,15 +1110,19 @@ class SISEPUEDE:
 
 		self.get_output_region = self.experimental_manager.get_output_region
 
+		return None
 
 
-	def read_output(self,
+
+	def _read_table(self,
 		primary_keys: Union[List[int], Dict[str, int], None],
+		table_name: str,
 		regions: Union[List[str], None] = None,
 		**kwargs
 	) -> pd.DataFrame:
 		"""
-		Read output data generated after running .project_scenarios.
+		Underlying function to facilitate shortcuts self.read_input() and
+			self.read_output()
 
 		Function Arguments
 		------------------
@@ -1126,6 +1130,7 @@ class SISEPUEDE:
 			(e.g., strategy_id, design_id) with scenarios associated as values
 			(uses AND operation to filter scenarios). If None, returns all
 			possible primary keys.
+		- table_name: table name to read.
 
 		Optional Arguments
 		------------------
@@ -1201,8 +1206,128 @@ class SISEPUEDE:
 			del kwargs["dict_subset"]
 
 		df_out = self.database.read_table(
-			self.database.table_name_output,
+			table_name,
 			dict_subset = dict_subset,
+			**kwargs
+		)
+
+		return df_out
+	
+
+
+	def read_input(self,
+		primary_keys: Union[List[int], Dict[str, int], None],
+		regions: Union[List[str], None] = None,
+		**kwargs
+	) -> pd.DataFrame:
+		"""
+		Read input data generated after running .project_scenarios.
+
+		Function Arguments
+		------------------
+		- primary_keys: list of primary keys to run OR dictionary of index keys
+			(e.g., strategy_id, design_id) with scenarios associated as values
+			(uses AND operation to filter scenarios). If None, returns all
+			possible primary keys.
+
+		Optional Arguments
+		------------------
+		- dict_subset: dictionary with keys that are columns in the table and
+			values, given as a list, to subset the table. dict_subset is written
+			as:
+
+			dict_subset = {
+				field_a = [val_a1, val_a2, ..., val_am],
+				field_b = [val_b1, val_b2, ..., val_bn],
+				.
+				.
+				.
+			}
+
+			NOTE: dict_subset should NOT contain self.key_primary (it will be
+			removed if passed in dict_subset) since these are passed in the
+			`primary_keys` argument
+		- fields_select: fields to read in. Reducing the number of fields to 
+			read can speed up the ingestion process and reduce the data frame's 
+			memory footprint.
+		- regions: optional list-like specification of regions to retrieve
+
+		Keyword Arguments
+		-----------------
+		- drop_duplicates: drop duplicates in a CSV when reading? (only applies
+			if the database is initialized using CSVs)
+			* Default is False to improve speeds
+			* Set to True to ensure that only unique rows are read in
+		- query_logic: default is "and". Subsets table to as
+
+			where field_a in (val_a1, val_a2, ..., val_am) ~ field_b in (val_b1, val_b2, ..., val_bn)...
+
+			where `~ in ["and", "or"]`
+		"""
+		df_out = self._read_table(
+			primary_keys,
+			self.database.table_name_input,
+			regions = regions,
+			**kwargs
+		)
+
+		return df_out
+	
+
+
+	def read_output(self,
+		primary_keys: Union[List[int], Dict[str, int], None],
+		regions: Union[List[str], None] = None,
+		**kwargs
+	) -> pd.DataFrame:
+		"""
+		Read output data generated after running .project_scenarios.
+
+		Function Arguments
+		------------------
+		- primary_keys: list of primary keys to run OR dictionary of index keys
+			(e.g., strategy_id, design_id) with scenarios associated as values
+			(uses AND operation to filter scenarios). If None, returns all
+			possible primary keys.
+
+		Optional Arguments
+		------------------
+		- dict_subset: dictionary with keys that are columns in the table and
+			values, given as a list, to subset the table. dict_subset is written
+			as:
+
+			dict_subset = {
+				field_a = [val_a1, val_a2, ..., val_am],
+				field_b = [val_b1, val_b2, ..., val_bn],
+				.
+				.
+				.
+			}
+
+			NOTE: dict_subset should NOT contain self.key_primary (it will be
+			removed if passed in dict_subset) since these are passed in the
+			`primary_keys` argument
+		- fields_select: fields to read in. Reducing the number of fields to 
+			read can speed up the ingestion process and reduce the data frame's 
+			memory footprint.
+		- regions: optional list-like specification of regions to retrieve
+
+		Keyword Arguments
+		-----------------
+		- drop_duplicates: drop duplicates in a CSV when reading? (only applies
+			if the database is initialized using CSVs)
+			* Default is False to improve speeds
+			* Set to True to ensure that only unique rows are read in
+		- query_logic: default is "and". Subsets table to as
+
+			where field_a in (val_a1, val_a2, ..., val_am) ~ field_b in (val_b1, val_b2, ..., val_bn)...
+
+			where `~ in ["and", "or"]`
+		"""
+		df_out = self._read_table(
+			primary_keys,
+			self.database.table_name_output,
+			regions = regions,
 			**kwargs
 		)
 
