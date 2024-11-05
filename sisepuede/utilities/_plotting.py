@@ -2,7 +2,7 @@
 import matplotlib.pyplot as plt
 import pandas as pd
 from matplotlib.pyplot import Figure
-from matplotlib.axes._subplots import Axes
+from matplotlib.axes import Axes
 from typing import *
 
 import sisepuede.utilities._toolbox as sf
