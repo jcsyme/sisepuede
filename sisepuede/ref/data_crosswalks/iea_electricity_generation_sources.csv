@@ -3,6 +3,7 @@ Biofuels,pp_biomass
 Coal,pp_coal
 Hydro,pp_hydropower
 Natural Gas,pp_gas
+Natural gas,pp_gas
 Nuclear,pp_nuclear
 Oil,pp_oil
 Solar PV,pp_solar

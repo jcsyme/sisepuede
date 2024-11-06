@@ -2500,7 +2500,7 @@ def print_setdiff(
     - set_required: space of required elements
     - set_check: set to check against the space
     """
-    missing_vals = sorted(list(set_required - set_check))
+    missing_vals = sorted(list(set(set_required) - set(set_check)))
     out = format_print_list(missing_vals)
 
     return out

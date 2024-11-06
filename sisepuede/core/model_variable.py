@@ -1371,6 +1371,7 @@ class ModelVariable:
         df: pd.DataFrame,
         expand_to_all_categories: bool = False,
         extraction_logic: str = "all",
+        fields_additional: Union[List[str], None] = None,
         fill_value: Any = None,
         return_type: str = "data_frame",
     ) -> Union[List[Any], np.ndarray, pd.DataFrame, None]:
@@ -1387,7 +1388,10 @@ class ModelVariable:
         - extraction_logic: set logic used on extraction
             * "all": throws an error if any field in self.fields is missing
             * "any": extracts any field in self.fields available in `obj`
+            * "any_fill": extracts any field in self.fields available in `obj`
                 and fills any missing values with fill_value (or default value)
+        - fields_additional: optional specification of additional fields to
+            extract (such as index fields)
         - fill_value: if `expand_to_all_categories == True` OR 
             `extract_any == True`, missing categories will be filled with this
             value. 
@@ -1407,7 +1411,7 @@ class ModelVariable:
         # check logic specification
         extraction_logic = (
             "all"
-            if extraction_logic not in ["all", "any"]
+            if extraction_logic not in ["all", "any", "any_fill"]
             else extraction_logic
         )
 
@@ -1434,11 +1438,17 @@ class ModelVariable:
         if len(fields_ext) == 0:
             return None
         
+        fields_additional = (
+            []
+            if not sf.islistlike(fields_additional)
+            else [x for x in fields_additional if x in df.columns]
+        )
+        
         
         ##  MAIN OPERATIONS
 
         try:
-            df_out = df[fields_ext]
+            df_out = df[fields_additional + fields_ext]
 
         except Exception as e:
 
@@ -1452,14 +1462,31 @@ class ModelVariable:
 
             return None
 
+        
+        # if using "any_fill", set to expand to all categories
+        if extraction_logic == "any_fill":
+            expand_to_all_categories = True
+
+        categories_are_restricted = (
+            True
+            if (extraction_logic == "any_fill") & (len(fields_ext) != len(self.fields))
+            else self.categories_are_restricted
+        )
 
         # expand to all categories?
-        if expand_to_all_categories & self.categories_are_restricted:
+        if expand_to_all_categories & categories_are_restricted:
+            # set remaining fields
+            fields_complement = (
+                [x for x in self.fields if x not in fields_ext]
+                if extraction_logic in ["any_fill"]
+                else self.fields_space_complement
+            )
 
-            n_complement = len(self.fields_space_complement)
+            n_complement = len(fields_complement)
+
             df_concat = pd.DataFrame(
                 np.full((df_out.shape[0], n_complement), fill_value),
-                columns = self.fields_space_complement
+                columns = fields_complement
             )
 
             df_out = pd.concat(
@@ -1470,7 +1497,12 @@ class ModelVariable:
                 axis = 1
             )
 
-            df_out = df_out[self.fields_space]
+            fields_out = (
+                self.fields_space 
+                if (extraction_logic not in ["any_fill"]) 
+                else self.fields
+            )
+            df_out = df_out[fields_additional + fields_out]
 
         df_out.reset_index(drop = True, inplace = True)
         df_out = df_out.to_numpy() if (return_type == "array") else df_out
