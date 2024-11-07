@@ -1,0 +1,12 @@
+﻿iea_fuel,``$CAT-FUEL$``
+Biofuels,fuel_biofuels
+Coal,fuel_coal
+Diesel,fuel_diesel
+Electricity,fuel_electricity
+Hydro,fuel_water
+Natural Gas,fuel_natural_gas
+Natural gas,fuel_natural_gas
+Nuclear,fuel_nuclear
+Oil,fuel_oil
+Solar PV,fuel_solar
+Wind,fuel_wind
