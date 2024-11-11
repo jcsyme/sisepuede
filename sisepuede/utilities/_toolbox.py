@@ -3637,6 +3637,71 @@ def tryparse_str_to_num(
 
 
 
+def unwrap_df_from_delimiter(
+    df: pd.DataFrame,
+    field_unwrap: str, 
+    delim: str = "|",
+    try_as_type: Union[str, None] = None,
+) -> pd.DataFrame:
+    """
+    Split delited fields into individual rows that correspond
+        with a key.
+
+    Function Arguments
+    ------------------
+    - df: data frame to unwrap
+    - field_unwrap: field to unwrap (split into rows)
+    
+    Keyword Arguments
+    -----------------
+    - delim: delimiter used to unwrap field
+    - try_as_type: try to turn the unwrapped field into this type
+    """
+    if field_unwrap not in df.columns:
+         return df
+
+    
+    inds_row = []
+    col_new = []
+    
+    for i, row in df.iterrows():
+        # get string to split
+        to_unwrap = row[field_unwrap]
+
+        # skip if not string
+        if not isinstance(to_unwrap, str):
+            inds_row.append(i)
+            col_new.append(to_unwrap)
+            continue
+
+        unwrapped = to_unwrap.split(delim)
+        col_new.extend(unwrapped)
+        inds_row.extend([i for x in range(len(unwrapped))])
+
+    
+    # build new output
+    df_new = (
+        df
+        .drop(columns = [field_unwrap])
+        .loc[inds_row]
+        .reset_index(drop = True)
+    )
+
+    df_new[field_unwrap] = col_new
+
+    # try converting to specified type
+    if isinstance(try_as_type, str):
+        try:
+            df_new[field_unwrap] = df_new[field_unwrap].astype(try_as_type)
+
+        except:
+            None
+
+    return df_new
+
+
+
+
 def vec_bounds(
     vec: Union[list, np.ndarray],
     bounds: Union[Tuple[float, float], None],

@@ -715,7 +715,9 @@ class EnergyConsumption:
         )
         
         # reassign as variables
-        self.modvar_dict_scoe_fuel_fractions_to_efficiency_factors = self.modvar_dicts_scoe_fuel_vars.get("fuel_fraction_variable_by_fuel_to_energy_efficiency_variable_by_fuel")
+        self.modvar_dict_scoe_fuel_fractions_to_efficiency_factors = self.modvar_dicts_scoe_fuel_vars.get(
+            "fuel_fraction_variable_by_fuel_to_energy_efficiency_variable_by_fuel"
+        )
 
         return None
 

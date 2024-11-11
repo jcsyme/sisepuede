@@ -1,12 +1,27 @@
-﻿iea_fuel,``$CAT-FUEL$``
-Biofuels,fuel_biofuels
-Coal,fuel_coal
-Diesel,fuel_diesel
-Electricity,fuel_electricity
-Hydro,fuel_water
-Natural Gas,fuel_natural_gas
-Natural gas,fuel_natural_gas
-Nuclear,fuel_nuclear
-Oil,fuel_oil
-Solar PV,fuel_solar
-Wind,fuel_wind
+﻿``$CAT-FUEL$``,iea_fuels,iea_fuel_groups
+``fuel_ammonia``,,
+``fuel_biofuels``,Biofuels,Biofuels and waste
+``fuel_biogas``,,
+``fuel_biomass``,,
+``fuel_coal_deposits``,,
+``fuel_coal``,Coal,
+``fuel_coke``,,
+``fuel_crude``,,Oil Products
+``fuel_diesel``,Diesel,Oil Products
+``fuel_electricity``,Electricity,Electricity
+``fuel_furnace_gas``,,
+``fuel_gasoline``,,Oil Products
+``fuel_geothermal``,,
+``fuel_hydrocarbon_gas_liquids``,,
+``fuel_hydrogen``,,
+``fuel_kerosene``,,Oil Products
+``fuel_natural_gas_unprocessed``,,
+``fuel_natural_gas``,Natural Gas|Natural gas,
+``fuel_nuclear``,Nuclear,
+``fuel_ocean``,,
+``fuel_oil``,Oil,Oil Products
+``fuel_other``,,
+``fuel_solar``,Solar|Solar PV,
+``fuel_waste``,,Biofuels and waste
+``fuel_water``,Hydro,
+``fuel_wind``,Wind,

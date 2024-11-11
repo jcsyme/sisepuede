@@ -1614,7 +1614,7 @@ class Regions:
         missing_iso_flag = (
             str(missing_iso_flag)
             if missing_iso_flag is not None
-            else Nonea
+            else None
         )
 
         # try to build
