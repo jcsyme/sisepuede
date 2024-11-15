@@ -6,7 +6,7 @@ import shutil
 import time
 from typing import *
 
-
+from copy import deepcopy
 from sisepuede.core.attribute_table import *
 from sisepuede.core.model_attributes import *
 import sisepuede.core.support_classes as sc
@@ -1732,10 +1732,9 @@ class Strategies:
         # check returns
         if return_code | (code is None): 
             return code
-
-
-        out = self.dict_strategies.get(code)
         
+        out = deepcopy(self.dict_strategies.get(code))
+
         return out
     
 

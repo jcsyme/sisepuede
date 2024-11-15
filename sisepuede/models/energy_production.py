@@ -5175,7 +5175,7 @@ class EnergyProduction:
             df_tmp = dict_return.get(table_name)
 
             # set high price relative to other prices & determine where to keep specified costs (vec_high_cost_bool = 0 if it is contained in cats_no_cost)
-            price_high = max(np.round(max(df_tmp[self.field_nemomod_value])*2)*10 + 10, minimum_dummy_price)
+            price_high = max(np.round(max(df_tmp[self.field_nemomod_value])*2)*1000 + 10, minimum_dummy_price)
             vec_high_cost_bool = np.array([(x not in cats_no_cost) for x in list(df_tmp[self.field_nemomod_technology])]).astype(int)
             vals_new = np.array(df_tmp[self.field_nemomod_value].replace({flag_dummy_price: price_high})) * vec_high_cost_bool
             

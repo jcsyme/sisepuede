@@ -21,7 +21,7 @@
 ``fuel_ocean``,,
 ``fuel_oil``,Oil,Oil Products
 ``fuel_other``,,
-``fuel_solar``,Solar|Solar PV,
+``fuel_solar``,Solar|Solar PV,"Wind, solar, etc."
 ``fuel_waste``,,Biofuels and waste
 ``fuel_water``,Hydro,
-``fuel_wind``,Wind,
+``fuel_wind``,Wind,"Wind, solar, etc."
