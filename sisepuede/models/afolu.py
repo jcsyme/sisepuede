@@ -598,7 +598,7 @@ class AFOLU:
         self.modvar_frst_emissions_co2_fires = ":math:\\text{CO}_2 Emissions from Forest Fires"
         self.modvar_frst_emissions_co2_hwp = ":math:\\text{CO}_2 Emissions from Harvested Wood Products"
         self.modvar_frst_emissions_ch4 = ":math:\\text{CH}_4 Emissions from Forests"
-        self.modvar_frst_emissions_co2_sequestration = ":math:\\text{CO}_2 Emissions from Forest Sequestration"
+        self.modvar_frst_emissions_co2_sequestration = ":math:\\text{CO}_2 Emissions from Forest Biomass Sequestration"
         self.modvar_frst_frac_temperate_nutrient_poor = "Forest Fraction Temperate Nutrient Poor"
         self.modvar_frst_frac_temperate_nutrient_rich = "Forest Fraction Temperate Nutrient Rich"
         self.modvar_frst_frac_tropical = "Forest Fraction Tropical"
@@ -651,10 +651,13 @@ class AFOLU:
         self.modvar_lndu_area_converted = "Area of Land Use Converted"
         self.modvar_lndu_area_converted_from_type = "Area of Land Use Converted Away from Type"
         self.modvar_lndu_area_converted_to_type = "Area of Land Use Converted to Type"
+        self.modvar_lndu_constraint_area_max = "Maximum Area" #NEW
+        self.modvar_lndu_constraint_area_min = "Minimum Area" #NEW
         self.modvar_lndu_ef_co2_conv = ":math:\\text{CO}_2 Land Use Conversion Emission Factor"
         self.modvar_lndu_emissions_conv = ":math:\\text{CO}_2 Emissions from Land Use Conversion"
         self.modvar_lndu_emissions_conv_away = ":math:\\text{CO}_2 Emissions from Conversion Away from Land Use Type"
         self.modvar_lndu_emissions_ch4_from_wetlands = ":math:\\text{CH}_4 Emissions from Wetlands"
+        self.modvar_lndu_emissions_co2_sequestration = ":math:\\text{CO}_2 Emissions from Land Use Biomass Sequestration" #NEW
         self.modvar_lndu_factor_soil_carbon = "Soil Carbon Land Use Factor"
         self.modvar_lndu_factor_soil_management_infinum = "Unimproved Soil Carbon Land Management Factor"
         self.modvar_lndu_factor_soil_management_supremum = "Maximum Soil Carbon Land Management Factor"
@@ -672,8 +675,12 @@ class AFOLU:
         self.modvar_lndu_initial_frac = "Initial Land Use Area Proportion"
         self.modvar_lndu_ef_ch4_boc = "Land Use BOC :math:\\text{CH}_4 Emission Factor"
         self.modvar_lndu_prob_transition = "Unadjusted Land Use Transition Probability"
+        self.modvar_lndu_rate_utilization = "Utilization Rate" #NEW
         self.modvar_lndu_reallocation_factor = "Land Use Yield Reallocation Factor"
+        self.modvar_lndu_sf_co2 = "Land Use Biomass Sequestration Factor" #NEW
         self.modvar_lndu_vdes = "Vegetarian Diet Exchange Scalar"
+        self.modvar_lndu_yf_pasture_upper_bound = "Maximum Pasture Dry Matter Yield Factor"
+
 
         # additional lists
         self.modvar_list_lndu_frac_drywet = [
@@ -3698,7 +3705,32 @@ class AFOLU:
         ]
 
 
-        ##  EXISTENCE EMISSIONS FOR OTHER LANDS, INCLUDING AG ACTIVITY ON PASTURES
+
+        ####################################
+        #    GENERIC LAND USE EMISSIONS    #
+        ####################################
+
+        # biomass sequestration by land use type
+        arr_lndu_ef_sequestration = self.model_attributes.extract_model_variable(#
+            df_afolu_trajectories, 
+            self.modvar_lndu_sf_co2, 
+            expand_to_all_cats = True,
+            override_vector_for_single_mv_q = True, 
+            return_type = "array_units_corrected",
+        )
+        arr_lndu_ef_sequestration *= self.model_attributes.get_variable_unit_conversion_factor(
+            self.model_socioeconomic.modvar_gnrl_area,
+            self.modvar_lndu_sf_co2,
+            "area"
+        )
+        
+        # get land use sequestration in biomass
+        arr_lndu_sequestration_co2e = -1*arr_land_use*arr_lndu_ef_sequestration
+        arr_lndu_sequestration_co2e *= self.model_attributes.get_variable_unit_conversion_factor(
+            self.modvar_lndu_sf_co2,
+            self.modvar_lndu_emissions_co2_sequestration,
+            "mass"
+        )
 
         # get CH4 emissions from wetlands
         arr_lndu_ef_ch4_boc = self.model_attributes.extract_model_variable(#
@@ -3720,11 +3752,31 @@ class AFOLU:
         arr_lndu_area_ch4_boc = np.array(df_land_use[fields_lndu_for_ch4_boc])
 
         df_out += [
+            # wetland CH4
             self.model_attributes.array_to_df(
                 arr_lndu_area_ch4_boc*arr_lndu_ef_ch4_boc, 
                 self.modvar_lndu_emissions_ch4_from_wetlands
+            ),
+
+            # biomass sequestration
+            self.model_attributes.array_to_df(
+                arr_lndu_sequestration_co2e, 
+                self.modvar_lndu_emissions_co2_sequestration
             )
         ]
+        """
+        # build output variables
+        df_out += [
+            self.model_attributes.array_to_df(
+                -1*arr_area_frst*arr_frst_ef_sequestration, 
+                self.modvar_frst_emissions_co2_sequestration
+            ),
+            self.model_attributes.array_to_df(
+                arr_area_frst*arr_frst_ef_methane, 
+                self.modvar_frst_emissions_ch4
+            )
+        ]
+        """
 
 
 
@@ -4555,7 +4607,7 @@ class AFOLU:
         )
     
         arr_lndu_frac_organic_soils = 1 - arr_lndu_frac_mineral_soils
-        vec_soil_area_crop_pasture = arr_land_use[:, [self.ind_lndu_crop, self.ind_lndu_grass]]
+        vec_soil_area_crop_pasture = arr_land_use[:, [self.ind_lndu_crop, self.ind_lndu_grass]] # HERE, A MODIFICATION TO PASTURE
         vec_soil_area_crop_pasture[:, 1] *= vec_lndu_frac_grassland_pasture
         vec_soil_area_crop_pasture = np.sum(vec_soil_area_crop_pasture, axis = 1)
         

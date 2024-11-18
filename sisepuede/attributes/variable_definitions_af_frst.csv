@@ -7,13 +7,13 @@ Input,Fire Biomass Consumption for Temperate Forests,"See Table 2.4  and Equatio
 Input,Fire Biomass Consumption for Tropical Forests,"See Table 2.4  and Equation 2.27 in V4, C2, IPCC GNGHGI (2019R)","``qty_frst_biomass_consumed_by_fire_tropical_$CAT-FOREST$_$UNIT-MASS$_per_$UNIT-AREA$`` (``$UNIT-MASS$ = tonne``, ``$UNIT-AREA$ = ha``)",all,,0,1,1,,0,none,none,,,
 Input,Forest Fraction Temperate Nutrient Poor," | Used to calculate :math:`\text{N}_2\text{O}` emissions from organic soils. 
  | 
- | Forest Fraction Temperate Nutrient Poor, Forest Fraction Temperate Nutrient Rich, and Forest Fraction Tropical must sum to 1",``frac_frst_$CAT-FOREST$_cl1_temperate_nutrient_poor``,all,,0,1,1,1.0,0,``temperate_forest_nutrient_poor``,none,,,
+ | Forest Fraction Temperate Nutrient Poor, Forest Fraction Temperate Nutrient Rich, and Forest Fraction Tropical must sum to 1",``frac_frst_$CAT-FOREST$_cl1_temperate_nutrient_poor``,all,,0,1,1,1,0,``temperate_forest_nutrient_poor``,none,,,
 Input,Forest Fraction Temperate Nutrient Rich," | Used to calculate :math:`\text{N}_2\text{O}` emissions from organic soils. 
  | 
- | Forest Fraction Temperate Nutrient Poor, Forest Fraction Temperate Nutrient Rich, and Forest Fraction Tropical must sum to 1",``frac_frst_$CAT-FOREST$_cl1_temperate_nutrient_rich``,all,,0,1,1,1.0,0,``temperate_forest_nutrient_rich``,none,,,
+ | Forest Fraction Temperate Nutrient Poor, Forest Fraction Temperate Nutrient Rich, and Forest Fraction Tropical must sum to 1",``frac_frst_$CAT-FOREST$_cl1_temperate_nutrient_rich``,all,,0,1,1,1,0,``temperate_forest_nutrient_rich``,none,,,
 Input,Forest Fraction Tropical," | Used to calculate :math:`\text{N}_2\text{O}` emissions from organic soils. 
  | 
- | Forest Fraction Temperate Nutrient Poor, Forest Fraction Temperate Nutrient Rich, and Forest Fraction Tropical must sum to 1",``frac_frst_$CAT-FOREST$_cl1_tropical``,all,,0,1,1,1.0,0,``tropical_forest``,none,,,
+ | Forest Fraction Temperate Nutrient Poor, Forest Fraction Temperate Nutrient Rich, and Forest Fraction Tropical must sum to 1",``frac_frst_$CAT-FOREST$_cl1_tropical``,all,,0,1,1,1,0,``tropical_forest``,none,,,
 Input,Forest Sequestration Emission Factor," | Annual average :math:`\text{CO}_2` emitted per ha from sequestration (> 0 – this is a positive number)
  | 
  | Note: baseline estimates for neotropical regions are available from `Heinrich et al. (2021) <https://www.nature.com/articles/s41467-021-22050-1>`_
@@ -25,5 +25,5 @@ Input,HWP Half Life Wood,,``hl_frst_half_life_hwp_wood_products``,none,,0,1,1,,0
 Input,Initial Per Household Wood Demand,Demand per household for wood use in the home at time :math:`t = 0`,``deminit_frst_wood_home_use_$UNIT-MASS$_per_hh`` (``$UNIT-MASS$ = kg``),none,,0,1,1,,0,none,none,,,
 Output,:math:`\text{CH}_4` Emissions from Forests,Total methane emissions from forests,``emission_co2e_$EMISSION-GAS$_frst_methane_$CAT-FOREST$`` (``$EMISSION-GAS$ = ch4``),all,,0,1,1,,1,none,none,,,
 Output,:math:`\text{CO}_2` Emissions from Forest Fires,,``emission_co2e_$EMISSION-GAS$_frst_forest_fires`` (``$EMISSION-GAS$ = co2``),none,,0,1,1,,1,none,none,,,
-Output,:math:`\text{CO}_2` Emissions from Forest Sequestration,Sequestration in forests modeled as negative emissions,``emission_co2e_$EMISSION-GAS$_frst_sequestration_$CAT-FOREST$`` (``$EMISSION-GAS$ = co2``),all,,0,1,1,,1,none,none,,,
+Output,:math:`\text{CO}_2` Emissions from Forest Biomass Sequestration,Sequestration in forests modeled as negative emissions,``emission_co2e_$EMISSION-GAS$_frst_sequestration_$CAT-FOREST$`` (``$EMISSION-GAS$ = co2``),all,,0,1,1,,1,none,none,,,
 Output,:math:`\text{CO}_2` Emissions from Harvested Wood Products,,``emission_co2e_$EMISSION-GAS$_frst_harvested_wood_products`` (``$EMISSION-GAS$ = co2``),none,,0,1,1,,1,none,none,,,
