@@ -134,53 +134,53 @@ class AFOLU:
             "pycategory_primary_element"
         )
         
-        ##  set categories
 
-        # crop category
-        self.cat_lndu_crop = self.model_attributes.filter_keys_by_attribute(
-            self.subsec_name_lndu, 
-            {"crop_category": 1}
-        )[0]
-        
-        # mangrove forest category
-        self.cat_lndu_fstm = self.model_attributes.filter_keys_by_attribute(
-            self.subsec_name_lndu,
-            {pycat_frst: f"``{self.cat_frst_mang}``"}
-        )[0]
-        
-        # primary forest category
-        self.cat_lndu_fstp = self.model_attributes.filter_keys_by_attribute(
-            self.subsec_name_lndu,
-            {pycat_frst: f"``{self.cat_frst_prim}``"}
-        )[0]
+        ##  SET LAND USE CATEGORY SHORTCUTS: CATEGORIES AND INDICES
 
-        # secondary forest category
-        self.cat_lndu_fsts = self.model_attributes.filter_keys_by_attribute(
-            self.subsec_name_lndu,
-            {pycat_frst: f"``{self.cat_frst_scnd}``"}
-        )[0]
+        # non-forest
+        dict_attr_field_prepend_to_attr_shortcut = {
+            "crops": "crop",
+            "flooded_lands": "flod",
+            "grasslands": "grss",
+            "other": "other",
+            "pastures": "pstr",
+            "settlements": "stlm",
+            "shrublands": "shrb",
+            "wetlands": "wetl"
+        }
 
-        # other land use
-        self.cat_lndu_othr = self.model_attributes.filter_keys_by_attribute(
-            self.subsec_name_lndu, 
-            {"other_category": 1}
-        )[0]
+        for k, v in dict_attr_field_prepend_to_attr_shortcut.items():
+            cat = self.model_attributes.filter_keys_by_attribute(
+                self.subsec_name_lndu, 
+                {f"{k}_category": 1}
+            )[0]
 
-        # grassland, used for pasture
-        self.cat_lndu_grass = self.model_attributes.filter_keys_by_attribute(
-            self.subsec_name_lndu, 
-            {"pasture_category": 1}
-        )[0]
+            ind = attr_lndu.get_key_value_index(cat)
+            
+            # set the category and index
+            setattr(self, f"cat_lndu_{v}", cat)
+            setattr(self, f"ind_lndu_{v}", ind)
 
-        # settlements
-        self.cat_lndu_stlm = self.model_attributes.filter_keys_by_attribute(
-            self.subsec_name_lndu, 
-            {"settlements_category": 1}
-        )[0]
-        self.cat_lndu_wetl = self.model_attributes.filter_keys_by_attribute(
-            self.subsec_name_lndu, 
-            {"wetlands_category": 1}
-        )[0]
+
+        # forest
+        dict_attr_field_prepend_to_attr_shortcut_frst = {
+            self.cat_frst_mang: "fstm",
+            self.cat_frst_prim: "fstp",
+            self.cat_frst_scnd: "fsts",
+        }
+
+        for k, v in dict_attr_field_prepend_to_attr_shortcut_frst.items():
+            cat = self.model_attributes.filter_keys_by_attribute(
+                self.subsec_name_lndu,
+                {pycat_frst: f"``{k}``"}
+            )[0]
+
+            ind = attr_lndu.get_key_value_index(cat)
+
+            # set the category and index
+            setattr(self, f"cat_lndu_{v}", cat)
+            setattr(self, f"ind_lndu_{v}", ind)
+
         
         # list of categories to use to "max out" transition probabilities when scaling land use prevelance
         self.cats_lndu_max_out_transition_probs = self.model_attributes.filter_keys_by_attribute(
@@ -190,16 +190,7 @@ class AFOLU:
             }
         )
 
-        # assign indices
-        self.ind_lndu_crop = attr_lndu.get_key_value_index(self.cat_lndu_crop)
-        self.ind_lndu_fstm = attr_lndu.get_key_value_index(self.cat_lndu_fstm)
-        self.ind_lndu_fstp = attr_lndu.get_key_value_index(self.cat_lndu_fstp)
-        self.ind_lndu_fsts = attr_lndu.get_key_value_index(self.cat_lndu_fsts)
-        self.ind_lndu_othr = attr_lndu.get_key_value_index(self.cat_lndu_othr)
-        self.ind_lndu_grass = attr_lndu.get_key_value_index(self.cat_lndu_grass)
-        self.ind_lndu_stlm = attr_lndu.get_key_value_index(self.cat_lndu_stlm)
-        self.ind_lndu_wetl = attr_lndu.get_key_value_index(self.cat_lndu_wetl)
-
+   
         return None
 
 
@@ -679,7 +670,7 @@ class AFOLU:
         self.modvar_lndu_reallocation_factor = "Land Use Yield Reallocation Factor"
         self.modvar_lndu_sf_co2 = "Land Use Biomass Sequestration Factor" #NEW
         self.modvar_lndu_vdes = "Vegetarian Diet Exchange Scalar"
-        self.modvar_lndu_yf_pasture_upper_bound = "Maximum Pasture Dry Matter Yield Factor"
+        self.modvar_lndu_yf_pasture_sup = "Maximum Pasture Dry Matter Yield Factor"
 
 
         # additional lists
@@ -1526,23 +1517,23 @@ class AFOLU:
         ##  2. GET GRASSLAND FACTOR
 
         # 
-        vec_lndu_fmg_grassland = (1 - vec_lndu_frac_pastures_improved)*arr_lndu_factor_soil_management_inf[:, self.ind_lndu_grass]
-        vec_lndu_fmg_grassland += vec_lndu_frac_pastures_improved*arr_lndu_factor_soil_management_sup[:, self.ind_lndu_grass]
+        vec_lndu_fmg_grassland = (1 - vec_lndu_frac_pastures_improved)*arr_lndu_factor_soil_management_inf[:, self.ind_lndu_grss]
+        vec_lndu_fmg_grassland += vec_lndu_frac_pastures_improved*arr_lndu_factor_soil_management_sup[:, self.ind_lndu_grss]
         vec_lndu_fmg_grassland *= vec_lndu_frac_pasture
         vec_lndu_fmg_grassland += default_fmg_grassland_not_pasture*(1 - vec_lndu_frac_pasture) # "1" is default 
         
-        vec_lndu_area_grassland_improved = arr_lndu_prevalence[:, self.ind_lndu_grass]
+        vec_lndu_area_grassland_improved = arr_lndu_prevalence[:, self.ind_lndu_grss]
         vec_lndu_area_grassland_improved *= vec_lndu_frac_pasture*vec_lndu_frac_pastures_improved
 
         # update output array
         arr_lndu_factor_soil_management = np.ones(arr_lndu_factor_soil_management_sup.shape)
         arr_lndu_factor_soil_management[:, self.ind_lndu_crop] = vec_lndu_fmg_cropland
-        arr_lndu_factor_soil_management[:, self.ind_lndu_grass] = vec_lndu_fmg_grassland
+        arr_lndu_factor_soil_management[:, self.ind_lndu_grss] = vec_lndu_fmg_grassland
 
         # build output areas
         arr_lndu_area_improved = np.ones(arr_lndu_factor_soil_management_sup.shape)
         arr_lndu_area_improved[:, self.ind_lndu_crop] = arr_agrc_crop_area_improved.sum(axis = 1)
-        arr_lndu_area_improved[:, self.ind_lndu_grass] = vec_lndu_area_grassland_improved
+        arr_lndu_area_improved[:, self.ind_lndu_grss] = vec_lndu_area_grassland_improved
 
 
         return arr_lndu_factor_soil_management, arr_lndu_area_improved
@@ -1887,7 +1878,7 @@ class AFOLU:
         arr_lndu_avg_soc = 0.0
         cats_lndu = list(set(sum([self.model_attributes.get_variable_categories(x) for x in dict_soil_fracs_to_use_lndu.keys()], [])))
         inds_lndu = sorted([attr_lndu.get_key_value_index(x) for x in cats_lndu])
-        ind_grass = inds_lndu.index(attr_lndu.get_key_value_index(self.cat_lndu_grass))
+        ind_grass = inds_lndu.index(attr_lndu.get_key_value_index(self.cat_lndu_grss))
 
         for modvar in dict_soil_fracs_to_use_lndu.keys():
             # soil category
@@ -2179,7 +2170,7 @@ class AFOLU:
         df_afolu_trajectories: pd.DataFrame,
         area_agrc_cropland_init: float,
         vec_pop: np.ndarray,
-        vec_rates_gdp_per_capita: np.ndarray
+        vec_rates_gdp_per_capita: np.ndarray,
     ) -> tuple:
         """
         Calculate agricultural and livestock demands, imports, exports, and 
@@ -2254,15 +2245,17 @@ class AFOLU:
         )[0]
 
 
-        # 1. calculate domestic demand
-        #
+        ##  1. calculate domestic demand
+        
         # adjust exports to have cap at production; modify series downward
         vec_lvst_exports_modifier = sf.vec_bounds(vec_lvst_production_init - arr_lvst_exports_unadj[0], (-np.inf, 0))
         arr_lvst_exports_unadj = sf.vec_bounds(arr_lvst_exports_unadj + vec_lvst_exports_modifier, (0, np.inf))
+        
         # get the demand
         vec_lvst_domestic_demand_init = sf.vec_bounds(vec_lvst_production_init - arr_lvst_exports_unadj[0], (0, np.inf))
         vec_lvst_domestic_demand_init /= (1 - arr_lvst_frac_imported[0])
         vec_lvst_domestic_demand_init = sf.vec_bounds(np.nan_to_num(vec_lvst_domestic_demand_init, 0.0, posinf = 0.0), (0, np.inf))
+        
         # project aggregate domestic demand forward
         vec_gnrl_frac_eating_red_meat_scalar = sf.vec_bounds(vec_gnrl_frac_eating_red_meat/vec_gnrl_frac_eating_red_meat[0], (0, 1))
         arr_lvst_domestic_demand_unadj = self.project_per_capita_demand(
@@ -2280,8 +2273,8 @@ class AFOLU:
         arr_lvst_domestic_production_unadj = arr_lvst_domestic_production_for_domestic_demand_unadj + arr_lvst_exports_unadj
 
 
-        #  2. get weights for allocating grazing area and feed requirement to animals - based on first year only
-        #
+        ##  2. get weights for allocating grazing area and feed requirement to animals - based on first year only
+        
         vec_lvst_base_graze_weights = self.model_attributes.extract_model_variable(#
             df_afolu_trajectories,
             self.modvar_lvst_dry_matter_consumption,
@@ -2289,11 +2282,8 @@ class AFOLU:
             return_type = "array_base",
         )[0]
 
-        vec_lvst_feed_allocation_weights = (
-            vec_lvst_production_init*vec_lvst_base_graze_weights
-        )/np.dot(
-            vec_lvst_production_init, vec_lvst_base_graze_weights
-        )
+        vec_lvst_feed_allocation_weights = vec_lvst_production_init*vec_lvst_base_graze_weights
+        vec_lvst_feed_allocation_weights /= np.dot(vec_lvst_production_init, vec_lvst_base_graze_weights)
         
         # get carrying capacity scalar relative to baseline
         vec_lvst_carry_capacity_scale = self.model_attributes.extract_model_variable(#
@@ -2427,7 +2417,7 @@ class AFOLU:
         # array gives the total yield of crop type i allocated to livestock type j at time 0
         arr_lndu_yield_i_reqd_lvst_j_init = np.outer(vec_agrc_production_init_lvstfeed, vec_lvst_feed_allocation_weights)
 
-        return (
+        out = (
             # agrc vars
             arr_agrc_domestic_demand_nonfeed_unadj,
             arr_agrc_exports_unadj,
@@ -2445,6 +2435,8 @@ class AFOLU:
             vec_lvst_carry_capacity_scale,
             vec_lvst_feed_allocation_weights
         )
+
+        return out
 
 
 
@@ -2496,6 +2488,21 @@ class AFOLU:
         return arr_dem_base
 
 
+    def get_lvst_carrying_capacity(self,
+    ) -> np.ndarray:
+        """
+        Calculate the carrying capacity of livestock
+        """
+
+        # initialize variables for livestock
+        vec_lvst_dem_gr_iterator = np.ones(len(arr_lvst_dem[0]))
+        vec_lvst_cc_denom = vec_initial_area[self.ind_lndu_grss]*vec_lvst_pstr_weights*vec_lndu_frac_grassland_pasture[0]
+        vec_lvst_cc_init = np.nan_to_num(
+            vec_lvst_pop_init/vec_lvst_cc_denom, 
+            nan = 0.0, 
+            posinf = 0.0
+        )
+        #TEMP
 
     def project_integrated_land_use(self,
         vec_initial_area: np.ndarray,
@@ -2590,7 +2597,7 @@ class AFOLU:
 
         # initialize variables for livestock
         vec_lvst_dem_gr_iterator = np.ones(len(arr_lvst_dem[0]))
-        vec_lvst_cc_denom = vec_initial_area[self.ind_lndu_grass]*vec_lvst_pstr_weights*vec_lndu_frac_grassland_pasture[0]
+        vec_lvst_cc_denom = vec_initial_area[self.ind_lndu_grss]*vec_lvst_pstr_weights*vec_lndu_frac_grassland_pasture[0]
         vec_lvst_cc_init = np.nan_to_num(
             vec_lvst_pop_init/vec_lvst_cc_denom, 
             nan = 0.0, 
@@ -2664,8 +2671,8 @@ class AFOLU:
             # calculate the unadjusted land use areas (projected to time step i + 1)
             area_crop_cur = x[self.ind_lndu_crop]
             area_crop_proj = np.dot(x, arrs_transitions[i_tr][:, self.ind_lndu_crop])
-            area_pstr_cur = x[self.ind_lndu_grass]*vec_lndu_frac_grassland_pasture[i]
-            area_pstr_proj = np.dot(x, arrs_transitions[i_tr][:, self.ind_lndu_grass])*vec_lndu_frac_grassland_pasture[i + 1]
+            area_pstr_cur = x[self.ind_lndu_grss]*vec_lndu_frac_grassland_pasture[i]
+            area_pstr_proj = np.dot(x, arrs_transitions[i_tr][:, self.ind_lndu_grss])*vec_lndu_frac_grassland_pasture[i + 1]
             vec_agrc_cropland_area_proj = area_crop_proj*arr_agrc_frac_cropland[i]
 
 
@@ -2679,11 +2686,11 @@ class AFOLU:
             # calculate net surplus met
             vec_lvst_unmet_demand_to_impexp = (
                 sf.vec_bounds(vec_lvst_unmet_demand, (0, np.inf))
-                *arr_lndu_frac_increasing_net_imports_met[i + 1, self.ind_lndu_grass]
+                *arr_lndu_frac_increasing_net_imports_met[i + 1, self.ind_lndu_grss]
             )
             vec_lvst_unmet_demand_to_impexp += (
                 sf.vec_bounds(vec_lvst_unmet_demand, (-np.inf, 0))
-                *arr_lndu_frac_increasing_net_exports_met[i + 1, self.ind_lndu_grass]
+                *arr_lndu_frac_increasing_net_exports_met[i + 1, self.ind_lndu_grss]
             )
             vec_lvst_unmet_demand_lost = vec_lvst_unmet_demand - vec_lvst_unmet_demand_to_impexp
             
@@ -2710,11 +2717,11 @@ class AFOLU:
             # calculate required increase in transition probabilities
             area_lndu_pstr_increase = sum(np.nan_to_num(vec_lvst_reallocation/vec_lvst_cc_proj_adj, 0, posinf = 0.0))
             area_grss_proj = np.nan_to_num(area_pstr_proj/vec_lndu_frac_grassland_pasture[i + 1], 0.0, posinf = 0.0)
-            scalar_lndu_pstr = (area_grss_proj + area_lndu_pstr_increase)/np.dot(x, arrs_transitions[i_tr][:, self.ind_lndu_grass])
+            scalar_lndu_pstr = (area_grss_proj + area_lndu_pstr_increase)/np.dot(x, arrs_transitions[i_tr][:, self.ind_lndu_grss])
             
             mask_lndu_max_out_states_pstr = self.get_lndu_scalar_max_out_states(scalar_lndu_pstr)
             scalar_lndu_pstr = self.get_matrix_column_scalar(
-                arrs_transitions[i_tr][:, self.ind_lndu_grass],
+                arrs_transitions[i_tr][:, self.ind_lndu_grss],
                 scalar_lndu_pstr,
                 x,
                 mask_max_out_states = mask_lndu_max_out_states_pstr
@@ -2764,7 +2771,7 @@ class AFOLU:
             # force all changes in the forest_primary row to be applied to forest primary--e.g., reductions in fp -> pstr and fp -> crop should => increase in fp -> fp only
             dict_adj = {}
             dict_adj.update(
-                dict(zip([(r, self.ind_lndu_grass) for r in range(len(scalar_lndu_pstr))], scalar_lndu_pstr))
+                dict(zip([(r, self.ind_lndu_grss) for r in range(len(scalar_lndu_pstr))], scalar_lndu_pstr))
             )
             dict_adj.update(
                 dict(zip([(r, self.ind_lndu_crop) for r in range(len(scalar_lndu_crop))], scalar_lndu_crop))
@@ -2777,7 +2784,7 @@ class AFOLU:
             })
 
             # force primary forest to other categories to stay stable (if applicable)
-            cats_ignore = [self.cat_lndu_crop, self.cat_lndu_fstp, self.cat_lndu_grass]
+            cats_ignore = [self.cat_lndu_crop, self.cat_lndu_fstp, self.cat_lndu_grss]
             ind_lndu_fstp = attr_lndu.get_key_value_index(self.cat_lndu_fstp)
             for cat in attr_lndu.key_values:
                 ind = attr_lndu.get_key_value_index(cat)
@@ -3305,6 +3312,7 @@ class AFOLU:
             "all"
         )
 
+
         ##  CATEGORY INITIALIZATION
 
         # pycat_ABRV is used to access the category elements (in context of 
@@ -3372,13 +3380,12 @@ class AFOLU:
         ########################################
 
         # area of the country + the applicable scalar used to convert outputs
-        area = float(
-            self.model_attributes.extract_model_variable(#
-                df_afolu_trajectories,
-                self.model_socioeconomic.modvar_gnrl_area,
-                return_type = "array_base",
-            )[0]
+        vec_area = self.model_attributes.extract_model_variable(#
+            df_afolu_trajectories,
+            self.model_socioeconomic.modvar_gnrl_area,
+            return_type = "array_base",
         )
+
         scalar_lndu_input_area_to_output_area = self.model_attributes.get_scalar(
             self.model_socioeconomic.modvar_gnrl_area, 
             "area"
@@ -3391,8 +3398,9 @@ class AFOLU:
             return_type = "array_base",
         )[0]
 
-        vec_modvar_lndu_initial_area = vec_modvar_lndu_initial_frac*area
-        area_agrc_cropland_init = area*vec_modvar_lndu_initial_frac[self.ind_lndu_crop]
+        area_init = vec_area[0]
+        vec_modvar_lndu_initial_area = vec_modvar_lndu_initial_frac*area_init
+        area_agrc_cropland_init = area_init*vec_modvar_lndu_initial_frac[self.ind_lndu_crop]
 
         arrs_lndu_q_unadj, arrs_lndu_ef_conv = self.get_markov_matrices(
             df_afolu_trajectories, 
@@ -3459,7 +3467,7 @@ class AFOLU:
             vec_pop,
             vec_rates_gdp_per_capita
         )
-
+        
 
 
         ################################################
@@ -4072,7 +4080,7 @@ class AFOLU:
         # get area of grassland/pastures
         field_lvst_graze_array = self.model_attributes.build_variable_fields(
             self.modvar_lndu_area_by_cat, 
-            restrict_to_category_values = self.cat_lndu_grass,
+            restrict_to_category_values = self.cat_lndu_grss,
         )
         vec_lvst_graze_area = np.array(df_land_use[field_lvst_graze_array])
 
@@ -4249,7 +4257,7 @@ class AFOLU:
         )
 
         # soil EF4/EF5 from Table 11.3 - use average fractions from grasslands
-        vec_soil_ef_ef4 = attr_lndu.get_key_value_index(self.cat_lndu_grass)
+        vec_soil_ef_ef4 = attr_lndu.get_key_value_index(self.cat_lndu_grss)
         vec_soil_ef_ef4 = arr_lndu_ef4_n_volatilisation[:, vec_soil_ef_ef4]
         vec_soil_ef_ef5 = self.model_attributes.extract_model_variable(#
             df_afolu_trajectories, 
@@ -4508,7 +4516,7 @@ class AFOLU:
         )
 
         arr_land_use_with_pastures_as_grassland = arr_land_use.copy()
-        arr_land_use_with_pastures_as_grassland[:, self.ind_lndu_grass] *= vec_lndu_frac_grassland_pasture
+        arr_land_use_with_pastures_as_grassland[:, self.ind_lndu_grss] *= vec_lndu_frac_grassland_pasture
         vec_soil_area_fertilized = np.sum(arr_lndu_frac_fertilized*arr_land_use_with_pastures_as_grassland, axis = 1)
 
         vec_soil_demscalar_fertilizer = self.model_attributes.extract_model_variable(#
@@ -4607,7 +4615,7 @@ class AFOLU:
         )
     
         arr_lndu_frac_organic_soils = 1 - arr_lndu_frac_mineral_soils
-        vec_soil_area_crop_pasture = arr_land_use[:, [self.ind_lndu_crop, self.ind_lndu_grass]] # HERE, A MODIFICATION TO PASTURE
+        vec_soil_area_crop_pasture = arr_land_use[:, [self.ind_lndu_crop, self.ind_lndu_grss]] # HERE, A MODIFICATION TO PASTURE
         vec_soil_area_crop_pasture[:, 1] *= vec_lndu_frac_grassland_pasture
         vec_soil_area_crop_pasture = np.sum(vec_soil_area_crop_pasture, axis = 1)
         
@@ -4658,7 +4666,7 @@ class AFOLU:
             
             # get current factors
             vec_soil_cur_wetdry_fertilized_pstr = dict_arrs_lndu_frac_drywet[modvar]*arr_land_use_with_pastures_as_grassland
-            vec_soil_cur_wetdry_fertilized_pstr = (vec_soil_cur_wetdry_fertilized_pstr*arr_lndu_frac_fertilized)[:, self.ind_lndu_grass]
+            vec_soil_cur_wetdry_fertilized_pstr = (vec_soil_cur_wetdry_fertilized_pstr*arr_lndu_frac_fertilized)[:, self.ind_lndu_grss]
             
             # get fraction of fertilized land represented by current area of cropland
             vec_soil_frac_cur_drywet_pstr = (vec_soil_cur_wetdry_fertilized_pstr/vec_soil_area_fertilized)
@@ -5057,8 +5065,8 @@ class AFOLU:
             # soil category
             cat_soil = clean_schema(self.model_attributes.get_variable_attribute(modvar, pycat_soil))
             ind_soil = attr_soil.get_key_value_index(cat_soil)
-            vec_soil_pstr_temptrop_cur = (arr_land_use*dict_arrs_lndu_frac_temptrop[modvar])[:, self.ind_lndu_grass]
-            vec_soil_pstr_temptrop_cur *= arr_lndu_frac_organic_soils[:, self.ind_lndu_grass]*arr_soil_ef2[:, ind_soil]
+            vec_soil_pstr_temptrop_cur = (arr_land_use*dict_arrs_lndu_frac_temptrop[modvar])[:, self.ind_lndu_grss]
+            vec_soil_pstr_temptrop_cur *= arr_lndu_frac_organic_soils[:, self.ind_lndu_grss]*arr_soil_ef2[:, ind_soil]
             vec_soil_n2on_direct_organic += vec_soil_pstr_temptrop_cur
         
         # loop over tropical/temperate NP/temperate NR
@@ -5110,7 +5118,7 @@ class AFOLU:
             # soil category
             cat_soil = clean_schema(self.model_attributes.get_variable_attribute(modvar, pycat_soil))
             ind_soil = attr_soil.get_key_value_index(cat_soil)
-            vec_soil_frac_pstr_drywet_cur = (arr_land_use*dict_arrs_lndu_frac_drywet[modvar])[:, self.ind_lndu_grass]/arr_land_use[:, self.ind_lndu_grass]
+            vec_soil_frac_pstr_drywet_cur = (arr_land_use*dict_arrs_lndu_frac_drywet[modvar])[:, self.ind_lndu_grss]/arr_land_use[:, self.ind_lndu_grss]
             # add component to EF1 estimate for F_SOM
             vec_soil_prp_cur = (vec_lsmm_nitrogen_to_pasture + vec_soil_n_fertilizer_use_organic_to_pasture)*vec_soil_frac_pstr_drywet_cur
             vec_soil_n2on_direct_prp += vec_soil_prp_cur*arr_soil_ef3[:, ind_soil]

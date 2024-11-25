@@ -2030,10 +2030,13 @@ class ModelAttributes:
 
         # check specification of crop category & pasture category
         fields_req_bin = [
-            "crop_category", 
+            "crops_category",
+            "flooded_lands_category",
+            "grasslands_category",
             "other_category", 
-            "pasture_category", 
+            "pastures_category", 
             "settlements_category", 
+            "shrublands_category",
             "wetlands_category"
         ]
 
@@ -2058,7 +2061,7 @@ class ModelAttributes:
         field_mnrl = "mineralization_in_land_use_conversion_to_managed"
         cats_crop = self.filter_keys_by_attribute(
             self.subsec_name_lndu, 
-            {"crop_category": 1}
+            {"crops_category": 1}
         )
 
         cats_mnrl = self.filter_keys_by_attribute(
