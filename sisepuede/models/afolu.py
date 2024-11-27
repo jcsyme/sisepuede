@@ -2299,7 +2299,7 @@ class AFOLU:
 
     def project_agrc_lvst_integrated_demands(self,
         df_afolu_trajectories: pd.DataFrame,
-        area_agrc_cropland_init: float,
+        vec_modvar_lndu_initial_area: np.ndarray,
         vec_pop: np.ndarray,
         vec_rates_gdp_per_capita: np.ndarray,
     ) -> tuple:
@@ -2311,7 +2311,8 @@ class AFOLU:
         Function Arguments
         ------------------
         - df_afolu_trajectories: data frame containing input variables
-        - area_agrc_cropland_init: initial area of cropland
+        - vec_modvar_lndu_initial_area: vector (long by category) of initial
+            areas by land use class
         - vec_pop: vector of population
         - vec_rates_gdp_per_capita: vector of gdp/capita growth rates
 
@@ -2416,17 +2417,13 @@ class AFOLU:
         vec_lvst_feed_allocation_weights = vec_lvst_production_init*vec_lvst_base_graze_weights
         vec_lvst_feed_allocation_weights /= np.dot(vec_lvst_production_init, vec_lvst_base_graze_weights)
         
-        # get carrying capacity scalar relative to baseline
-        vec_lvst_carry_capacity_scale = self.model_attributes.extract_model_variable(#
+        # get carrying capacity scalar, adjusted for maximum dry matter production and scaled to ensure first element is 1
+        (
+            vec_lndu_yf_pasture_sup_adj, # in terms of pasture yield factor/LNDU initial area
+            vec_lvst_carry_capacity_scale,
+        ) = self.get_lvst_pasture_max_yield_and_carrying_capacity(
             df_afolu_trajectories,
-            self.modvar_lvst_carrying_capacity_scalar,
-            return_type = "array_base",
-            var_bounds = (0, np.inf),
-        )
-        vec_lvst_carry_capacity_scale = np.nan_to_num(
-            vec_lvst_carry_capacity_scale/vec_lvst_carry_capacity_scale[0],
-            nan = 1.0,
-            posinf = 1.0,
+            vec_modvar_lndu_initial_area,
         )
 
 
@@ -2468,7 +2465,8 @@ class AFOLU:
         ##   1. get initial cropland areas and yields
         
         vec_agrc_frac_cropland_area = self.check_cropland_fractions(df_afolu_trajectories, "initial")[0]
-        vec_agrc_cropland_area = area_agrc_cropland_init*vec_agrc_frac_cropland_area
+        vec_agrc_cropland_area = vec_modvar_lndu_initial_area[self.ind_lndu_crop]*vec_agrc_frac_cropland_area
+
         # get yield factors and calculate yield
         arr_agrc_yf = self.model_attributes.extract_model_variable(#
             df_afolu_trajectories,
@@ -2564,7 +2562,8 @@ class AFOLU:
             arr_lvst_imports_unadj,
             arr_lvst_domestic_production_unadj,
             vec_lvst_carry_capacity_scale,
-            vec_lvst_feed_allocation_weights
+            vec_lvst_feed_allocation_weights,
+            vec_lndu_yf_pasture_sup_adj,
         )
 
         return out
@@ -3516,7 +3515,6 @@ class AFOLU:
 
         area_init = vec_area[0]
         vec_modvar_lndu_initial_area = vec_modvar_lndu_initial_frac*area_init
-        area_agrc_cropland_init = area_init*vec_modvar_lndu_initial_frac[self.ind_lndu_crop]
 
         arrs_lndu_q_unadj, arrs_lndu_ef_conv = self.get_markov_matrices(
             df_afolu_trajectories, 
@@ -3576,10 +3574,11 @@ class AFOLU:
             arr_lvst_imports_unadj,
             arr_lvst_domestic_production_unadj,
             vec_lvst_carry_capacity_scale,
-            vec_lvst_feed_allocation_weights
+            vec_lvst_feed_allocation_weights,
+            vec_lndu_yf_pasture_sup_adj,
         ) = self.project_agrc_lvst_integrated_demands(
             df_afolu_trajectories,
-            area_agrc_cropland_init,
+            vec_modvar_lndu_initial_area,
             vec_pop,
             vec_rates_gdp_per_capita
         )
