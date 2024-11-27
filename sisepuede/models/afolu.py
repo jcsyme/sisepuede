@@ -240,43 +240,6 @@ class AFOLU:
             raise KeyError(f"AFOLU projection cannot proceed: The fields {set_missing} are missing.")
 
         return None
-    
-
-
-    def get_lvst_dict_lsmm_categories_to_lvst_fraction_variables(self,
-    ) -> Dict:
-        """
-        Return a dictionary with Livestock Manure Management categories as keys 
-            based on the Livestock attribute table:
-
-            {
-                cat_lsmm: {
-                    "mm_fraction": VARNAME_MANURE_MANAGEMENT, 
-                    ...
-                }
-            }
-
-            for each key, the dict includes variables associated with the 
-                livestock manure management cat_lsmm: 
-
-            - "mm_fraction"
-        """
-        subsec_lvst = self.model_attributes.subsec_name_lvst
-        subsec_lsmm = self.model_attributes.subsec_name_lsmm
-        pycat_lsmm = self.model_attributes.get_subsector_attribute(
-            subsec_lsmm, 
-            "pycategory_primary_element"
-        )
-
-        dict_out = self.model_attributes.assign_keys_from_attribute_fields(
-            subsec_lvst,
-            pycat_lsmm,
-            {
-                "Livestock Manure Management Fraction": "mm_fraction"
-            },
-        )
-
-        return dict_out
 
 
 
@@ -1537,6 +1500,147 @@ class AFOLU:
 
 
         return arr_lndu_factor_soil_management, arr_lndu_area_improved
+    
+
+
+    def get_lvst_dict_lsmm_categories_to_lvst_fraction_variables(self,
+    ) -> Dict:
+        """
+        Return a dictionary with Livestock Manure Management categories as keys 
+            based on the Livestock attribute table:
+
+            {
+                cat_lsmm: {
+                    "mm_fraction": VARNAME_MANURE_MANAGEMENT, 
+                    ...
+                }
+            }
+
+            for each key, the dict includes variables associated with the 
+                livestock manure management cat_lsmm: 
+
+            - "mm_fraction"
+        """
+        subsec_lvst = self.model_attributes.subsec_name_lvst
+        subsec_lsmm = self.model_attributes.subsec_name_lsmm
+        pycat_lsmm = self.model_attributes.get_subsector_attribute(
+            subsec_lsmm, 
+            "pycategory_primary_element"
+        )
+
+        dict_out = self.model_attributes.assign_keys_from_attribute_fields(
+            subsec_lvst,
+            pycat_lsmm,
+            {
+                "Livestock Manure Management Fraction": "mm_fraction"
+            },
+        )
+
+        return dict_out
+
+
+
+    def get_lvst_pasture_max_yield_and_carrying_capacity(self,
+        df_afolu_trajectories: pd.DataFrame,
+        vec_lndu_area_initial: np.ndarray,
+    ) -> np.ndarray:
+        """
+        Get initial maximum feasible yield and carrying capacity vector. Ensures 
+            that the specified maximum yield doesn't conflict with assumptions 
+            from exogenous specification of livestock population, dry matter 
+            consumption, and consumption per head of livestock.
+
+            out = (
+                vec_max_yf,
+                carrying_capacity_0
+            )
+
+        Returns consumption in terms of 
+
+            MASS: self.modvar_lndu_yf_pasture_sup
+            AREA: self.model_socioeconomic.modvar_gnrl_area
+
+        
+        Function Arguments
+        ------------------
+        - df_afolu_trajectories: data frame containing AFOLU trajectory inputs
+            to use in modeling
+        - vec_lndu_area_initial: n x 1, where n is number of land use 
+            categories. Vector giving initial areas of each land use category. 
+            Area is in terms of input area of region.
+
+        NOTE
+        ----
+        - The maximum feasible carrying capacity is defined using the pasture 
+            "Maximum Pasture Dry Matter Yield Factor" in combination with the 
+            pasture area. If the initial consumption by livestock implied by 
+            total heads and dry matter consumption per head exceeds this, the 
+            threshold is changed to reflect the initial state.
+        """
+
+
+        ##  GET SPECIFIED MAXIMUM YIELD
+        
+        # get initial pasture area and maximum feasible production
+        area_lndu_pasture_init = vec_lndu_area_initial[self.ind_lndu_pstr]
+
+        # get upper bound of annual dry matter production and convert area
+        vec_lndu_yf_pasture_sup = self.model_attributes.extract_model_variable(#
+            df_afolu_trajectories,
+            self.modvar_lndu_yf_pasture_sup,
+            return_type = "array_base",
+            var_bounds = (0, np.inf),
+        )
+
+        vec_lndu_yf_pasture_sup /= self.model_attributes.get_variable_unit_conversion_factor(
+            self.modvar_lndu_yf_pasture_sup, 
+            self.model_socioeconomic.modvar_gnrl_area, 
+            "area"
+        )
+
+        # total yield supremum at time 0
+        total_yield_lndu_pasture_sup = area_lndu_pasture_init*vec_lndu_yf_pasture_sup[0]
+
+
+        ##  CALCULATE TOTAL DRY MATTER REQUIRED FOR INITIAL POPULATION
+        
+        dpy = self.model_attributes.configuration.get("days_per_year")
+
+        vec_lvst_production_init = self.model_attributes.extract_model_variable(#
+            df_afolu_trajectories,
+            self.modvar_lvst_pop_init,
+            override_vector_for_single_mv_q = True,
+            return_type = "array_base",
+            var_bounds = (0, np.inf),
+        )[0]
+
+        vec_lvst_daily_dry_matter_consumption = self.model_attributes.extract_model_variable(#
+            df_afolu_trajectories,
+            self.modvar_lvst_dry_matter_consumption,
+            override_vector_for_single_mv_q = True,
+            return_type = "array_base",
+        )[0]
+
+        scalar_lndu_ddm_to_yf = self.model_attributes.get_variable_unit_conversion_factor(
+            self.modvar_lvst_dry_matter_consumption,
+            self.modvar_lndu_yf_pasture_sup,
+            "mass"
+        )
+
+        # set annual total required by livestock category in terms of yield supremum
+        lvst_total_dry_matter_required = vec_lvst_production_init*vec_lvst_daily_dry_matter_consumption*dpy
+        lvst_total_dry_matter_required = lvst_total_dry_matter_required.sum()*scalar_lndu_ddm_to_yf
+
+
+        ##  GET ADJUSTED MAXIMUM FEASIBLE YIELD
+
+        # total feasible maximum yield
+        out = sf.vec_bounds(
+            vec_lndu_yf_pasture_sup,
+            (lvst_total_dry_matter_required/area_lndu_pasture_init, np.inf)
+        )
+        
+        return out
 
 
 
@@ -2488,21 +2592,6 @@ class AFOLU:
         return arr_dem_base
 
 
-    def get_lvst_carrying_capacity(self,
-    ) -> np.ndarray:
-        """
-        Calculate the carrying capacity of livestock
-        """
-
-        # initialize variables for livestock
-        vec_lvst_dem_gr_iterator = np.ones(len(arr_lvst_dem[0]))
-        vec_lvst_cc_denom = vec_initial_area[self.ind_lndu_grss]*vec_lvst_pstr_weights*vec_lndu_frac_grassland_pasture[0]
-        vec_lvst_cc_init = np.nan_to_num(
-            vec_lvst_pop_init/vec_lvst_cc_denom, 
-            nan = 0.0, 
-            posinf = 0.0
-        )
-        #TEMP
 
     def project_integrated_land_use(self,
         vec_initial_area: np.ndarray,
