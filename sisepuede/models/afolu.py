@@ -1632,13 +1632,40 @@ class AFOLU:
         lvst_total_dry_matter_required = lvst_total_dry_matter_required.sum()*scalar_lndu_ddm_to_yf
 
 
-        ##  GET ADJUSTED MAXIMUM FEASIBLE YIELD
+        ##  GET ADJUSTED MAXIMUM FEASIBLE YIELD AND CARRYING CAPACITY SCALAR
+        
+        implicit_bound = lvst_total_dry_matter_required/area_lndu_pasture_init
 
         # total feasible maximum yield
-        out = sf.vec_bounds(
-            vec_lndu_yf_pasture_sup,
-            (lvst_total_dry_matter_required/area_lndu_pasture_init, np.inf)
+        vec_lndu_yf_pasture_sup_adj = sf.vec_bounds(
+            vec_lndu_yf_pasture_sup, 
+            (implicit_bound, np.inf), 
         )
+
+        # carrying capacity is capped at ratio from output to implicit bound
+        vec_lvst_carry_capacity_scale = self.model_attributes.extract_model_variable(#
+            df_afolu_trajectories,
+            self.modvar_lvst_carrying_capacity_scalar,
+            return_type = "array_base",
+            var_bounds = (0, np.inf),
+        )
+        vec_lvst_carry_capacity_scale = np.nan_to_num(
+            vec_lvst_carry_capacity_scale/vec_lvst_carry_capacity_scale[0],
+            nan = 1.0,
+            posinf = 1.0,
+        )
+        
+        vec_lvst_carry_capacity_scale = sf.vec_bounds(
+            vec_lvst_carry_capacity_scale,
+            [(0.0, x) for x in vec_lndu_yf_pasture_sup_adj/implicit_bound]
+        )
+
+        # output tuple
+        out = (
+            vec_lndu_yf_pasture_sup_adj,
+            vec_lvst_carry_capacity_scale,
+        )
+        
         
         return out
 
