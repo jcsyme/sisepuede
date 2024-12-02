@@ -1,0 +1,72 @@
+\documentclass[10pt]{article}
+
+\usepackage{amsfonts, amsmath, array, fancyhdr, float, graphicx, lipsum, multirow, url}
+
+\title{Land Use Transitions Optimization Framework for SISEPUEDE}
+\begin{document}
+\maketitle
+
+
+% LIST PARAMETERS
+%
+% 
+
+\subsubsection*{Parameters and Indicies}
+
+Let:
+\begin{itemize}
+\item
+$n \in \mathbb{N}^+$ be the number of land use classes
+
+\item
+$t \in \mathbb{N}$ be the time period
+
+\item
+$x_t \in \mathbb{R}^n$ be the prevalence vector at time $t$. For convenience, this is sometimes shown as simply $x$. Furthermore, since $x$ and $q$ are combined in the objective function, prevalence vectors should be expressed as a stochastic vector, i.e., so that $\sum_i x_i = 1$ and $x_i \geq 0$. Since the area of a region is generally fixed--sea level rise can be represented through transitions to flooded states--expressing land use prevalence as a fraction is relatively straight-forward.
+
+\item
+$\hat{x}$ be the target prevalence vector. Depending on the costs $r_i$ (see below), this vector may only value include legitimate target prevalence values for some classes.
+ 
+\item
+
+$a(t) \in \mathbb{R}^n$ be a vector of minimum prevalence fractions allowable for each 
+$u_
+
+\item
+$Q(t) \in \mathbb{R}^{n \times n}$ be the exogenously specified row-stochastic transition matrix at time $t$.
+
+\item 
+$s_{ij}$ be the negative cost applied to transition probability deviations from $i$ to $j$ (in general, $s_{ij} \leq 0$)
+
+\item 
+$r_i$ be the negative cost applied to prevalence deviations for class $i$ (in general, $r_i \leq 0$)
+\end{itemize}
+
+% VARIABLES
+%
+%
+\subsubsection*{Variables}
+Let:
+\begin{itemize}
+\item
+$q_{ij}(t)$ be the adjusted transition matrix at time $t$. Since $q \in \mathbb{R}^{n \times n}$ a matrix, we use $q^{(j)}$ to represent column $j$ and $q_i$ to represent row $i$. 
+
+\item
+$d(x, x)$ be a distance metric on $\mathbb{R}^n$
+\end{itemize}
+
+% Problem Formulation
+%
+%
+\subsubsection*{Problem}
+
+\begin{equation}
+\begin{array}{c}
+\textbf{maximize} \sum_{i, j}{d(q_{ij}, Q_{ij})s_{ij}} + \sum_{j}{d(x_tq^{(j)} - \hat{x}_j)r_j}\\
+\begin{array}{rcl}
+\textbf{subject to} \sum_{i, j}{d(q_{ij}, Q_{ij})s_{ij}} + \sum_{j}{d(x_tq^{(j)} - \hat{x}_j)r_j} & \, & \\
+\end{array}
+\end{array}
+\end{equation}
+
+\end{document}

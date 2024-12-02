@@ -397,6 +397,7 @@ class AFOLU:
 
             * self.factor_c_to_co2
             * self.factor_n2on_to_n2o
+            * self.flag_ignore_constraint
             * self.is_sisepuede_model_afolu
             * self.n_time_periods
             * self.time_dependence_stock_change
@@ -418,6 +419,7 @@ class AFOLU:
 
         self.factor_c_to_co2 = factor_c_to_co2
         self.factor_n2on_to_n2o = factor_n2on_to_n2o
+        self.flag_ignore_constraint = -999
         self.is_sisepuede_model_afolu = True
         self.time_periods = time_periods
         self.n_time_periods = n_time_periods
@@ -1292,6 +1294,98 @@ class AFOLU:
 
 
 
+    def get_lndu_class_bounds(self,
+        df_afolu_trajectories: pd.DataFrame,
+        vec_lndu_area_init: np.ndarray,
+        modvar_area_target: Union[str, 'ModelVariable', None] = None,
+    ) -> Tuple[np.ndarray, np.ndarray]:
+        """
+        Check constraints specified for land use classes. Ensures that initial 
+            conditions do not conflict with constraints by adjusting any 
+            specified constraints. Returns a tuple\
+            
+            (
+                arr_constraints_inf,
+                arr_constratins_sup
+            )
+
+            in terms of modvar_area_target
+
+        Function Arguments
+        ------------------
+        - df_afolu_trajectories: data frame containing input trajectories
+        - vec_lndu_area_init: initial land use prevalance vector in terms of 
+            AFOLU.Socioeconomic.modvar_gnrl_area
+
+        Keyword Arguments
+        -----------------
+        - modvar_area_target: model variable to use for output units. If not
+            properly specified as a varable name or model variable, defaults to
+            AFOLU.model_socioeconomic.modvar_gnrl_area
+        """
+        modvar_area_target = self.model_attributes.get_variable(modvar_area_target)
+        modvar_area_target = (
+            self.model_socioeconomic.modvar_gnrl_area
+            if modvar_area_target is None
+            else modvar_area_target
+        )
+
+        # get the supremum
+        arr_constraint_sup = self.model_attributes.extract_model_variable(#
+            df_afolu_trajectories,
+            self.modvar_lndu_constraint_area_max,
+            return_type = "array_base",
+        )
+
+        arr_constraint_sup *= self.model_attributes.get_variable_unit_conversion_factor(
+            self.modvar_lndu_constraint_area_max, 
+            modvar_area_target, 
+            "area"
+        )
+
+        # get the infimum
+        arr_constraint_inf = self.model_attributes.extract_model_variable(#
+            df_afolu_trajectories,
+            self.modvar_lndu_constraint_area_min,
+            return_type = "array_base",
+        )
+
+        arr_constraint_inf *= self.model_attributes.get_variable_unit_conversion_factor(
+            self.modvar_lndu_constraint_area_min, 
+            modvar_area_target, 
+            "area"
+        )
+
+        
+        # check the initial state of the maximum (must be the greater of the initial value and the max)
+        arr_constraint_sup_first = [
+            (
+                max(arr_constraint_sup[0, i], vec_lndu_area_init[i]) 
+                if arr_constraint_sup[0, i] != self.flag_ignore_constraint
+                else self.flag_ignore_constraint
+            )
+            for i in range(len(vec_lndu_area_init))
+        ]
+        arr_constraint_sup[0] = np.array(arr_constraint_sup_first)
+
+        # check the initial state
+        arr_constraint_inf_first = [
+            (
+                min(arr_constraint_inf[0, i], vec_lndu_area_init[i]) 
+                if arr_constraint_inf[0, i] != self.flag_ignore_constraint
+                else self.flag_ignore_constraint
+            )
+            for i in range(len(vec_lndu_area_init))
+        ]
+        arr_constraint_inf[0] = np.array(arr_constraint_inf_first)
+
+        # prep output and return
+        tuple_out = (arr_constraint_inf, arr_constraint_sup)
+
+        return tuple_out
+
+
+
     def get_lndu_scalar_max_out_states(self,
         scalar_in: Union[int, float],
         attribute_land_use: AttributeTable = None,
@@ -1551,8 +1645,10 @@ class AFOLU:
             consumption, and consumption per head of livestock.
 
             out = (
-                vec_max_yf,
-                carrying_capacity_0
+                arr_lvst_annual_dry_matter_consumption, # annual dry matter consumption per head of lvst
+                vec_max_yf, # maximum feasible yield factor for pastures in mass/area
+                vec_carrying_capacity_scalar, # maximum feasible scalar applied to pasture yields
+                factor_lndu_init_avg_consumption_pstr, # initial average estimate of consumption mass per area
             )
 
         Returns consumption in terms of 
@@ -1614,12 +1710,12 @@ class AFOLU:
             var_bounds = (0, np.inf),
         )[0]
 
-        vec_lvst_daily_dry_matter_consumption = self.model_attributes.extract_model_variable(#
+        arr_lvst_annual_dry_matter_consumption_per_capita = self.model_attributes.extract_model_variable(#
             df_afolu_trajectories,
             self.modvar_lvst_dry_matter_consumption,
             override_vector_for_single_mv_q = True,
             return_type = "array_base",
-        )[0]
+        )
 
         scalar_lndu_ddm_to_yf = self.model_attributes.get_variable_unit_conversion_factor(
             self.modvar_lvst_dry_matter_consumption,
@@ -1627,19 +1723,21 @@ class AFOLU:
             "mass"
         )
 
+        arr_lvst_annual_dry_matter_consumption_per_capita *= dpy*scalar_lndu_ddm_to_yf
+
         # set annual total required by livestock category in terms of yield supremum
-        lvst_total_dry_matter_required = vec_lvst_production_init*vec_lvst_daily_dry_matter_consumption*dpy
-        lvst_total_dry_matter_required = lvst_total_dry_matter_required.sum()*scalar_lndu_ddm_to_yf
+        lvst_total_dry_matter_required = vec_lvst_production_init*arr_lvst_annual_dry_matter_consumption_per_capita[0]
+        lvst_total_dry_matter_required = lvst_total_dry_matter_required.sum()
 
 
         ##  GET ADJUSTED MAXIMUM FEASIBLE YIELD AND CARRYING CAPACITY SCALAR
         
-        implicit_bound = lvst_total_dry_matter_required/area_lndu_pasture_init
+        factor_lndu_init_avg_consumption_pstr = lvst_total_dry_matter_required/area_lndu_pasture_init
 
         # total feasible maximum yield
         vec_lndu_yf_pasture_sup_adj = sf.vec_bounds(
             vec_lndu_yf_pasture_sup, 
-            (implicit_bound, np.inf), 
+            (factor_lndu_init_avg_consumption_pstr, np.inf), 
         )
 
         # carrying capacity is capped at ratio from output to implicit bound
@@ -1657,17 +1755,94 @@ class AFOLU:
         
         vec_lvst_carry_capacity_scale = sf.vec_bounds(
             vec_lvst_carry_capacity_scale,
-            [(0.0, x) for x in vec_lndu_yf_pasture_sup_adj/implicit_bound]
+            [(0.0, x) for x in vec_lndu_yf_pasture_sup_adj/factor_lndu_init_avg_consumption_pstr]
         )
 
         # output tuple
         out = (
+            arr_lvst_annual_dry_matter_consumption_per_capita,
             vec_lndu_yf_pasture_sup_adj,
             vec_lvst_carry_capacity_scale,
+            factor_lndu_init_avg_consumption_pstr,
         )
         
-        
         return out
+
+
+
+    def get_lvst_production_supported(self,
+        area_pstr_proj: float, 
+        vec_lvst_annual_dry_matter_consumption : np.ndarray, # arr_lvst_annual_dry_matter_consumption_per_capita[i]
+        vec_lvst_annual_production_unadj: np.ndarray, # arr_lvst_domestic_production_unadj[i]
+        factor_lndu_init_avg_consumption_pstr: float,
+        scalar_lvst_cc: float # vec_lvst_carry_capacity_scale[i]s
+    ) -> np.ndarray:
+        """
+        Get the number of lvst that can be support
+
+        NOTE: DOES NOT PERFORM UNITS CORRECTION, ASSUMES UNITS ARE PROPERLY 
+            FORMATTED
+        
+        Function Arguments
+        ------------------
+        - area_pstr_proj: projected area of pasture
+        - vec_lvst_annual_dry_matter_consumption: vector (by animal) of 
+            consumption of dry matter per animal
+        - vec_lvst_annual_production_unadj: vector (by animal) of expected 
+            production demand by animal type
+        - factor_lndu_init_avg_consumption_pstr: initial estimated total average 
+            production factor for pastures across all animal types
+        - scalar_lvst_cc: scalar to apply to 
+        """
+        # average yield per ha of pasture
+        # - NOTE: comes from output of self.get_lvst_pasture_max_yield_and_carrying_capacity, so it's already controlled
+        vec_lndu_total_yield_pstr_unadj = factor_lndu_init_avg_consumption_pstr*scalar_lvst_cc
+        vec_lndu_total_yield_pstr_unadj *= area_pstr_proj
+
+
+        ##  NUMBER OF LIVESTOCK THAT CAN BE SUPPORTED
+        #
+        vec_lndu_total_yield_needed = (vec_lvst_annual_dry_matter_consumption*vec_lvst_annual_production_unadj).sum()
+        vec_lvst_prod_supportable = vec_lndu_total_yield_pstr_unadj/vec_lndu_total_yield_needed
+        vec_lvst_prod_supportable *= vec_lvst_annual_production_unadj
+
+        #
+        w = np.where(vec_lvst_annual_dry_matter_consumption == 0)[0]
+        np.put(vec_lvst_prod_supportable, w, vec_lvst_annual_production_unadj[w])
+
+
+        return vec_lvst_prod_supportable
+
+
+
+    def get_lvst_area_required(self,
+        vec_lvst_annual_dry_matter_consumption: np.ndarray, # arr_lvst_annual_dry_matter_consumption_per_capita[i]
+        vec_lvst_production_needed: np.ndarray, # arr_lvst_domestic_production_unadj[i]
+        factor_lndu_dry_matter_production: float, #factor_lndu_init_avg_consumption_pstr * vec_lvst_carry_capacity_scale[i]
+    ) -> np.ndarray:
+        """
+        Get the number of lvst that can be support
+
+        NOTE: DOES NOT PERFORM UNITS CORRECTION, ASSUMES UNITS ARE PROPERLY 
+            FORMATTED
+        
+        Function Arguments
+        ------------------ 
+        - area_pstr_proj: projected area of pasture
+        - vec_lvst_annual_dry_matter_consumption: vector (by animal) of 
+            consumption of dry matter per animal
+        - vec_lvst_annual_production_unadj: vector (by animal) of expected 
+            production demand by animal type
+        - factor_lndu_dry_matter_production: dry matter production factor for 
+            pastures
+        """
+
+        ##  AREA OF LAND NEEDED 
+        #
+        area_total_land_needed = (vec_lvst_annual_dry_matter_consumption*vec_lvst_production_needed).sum()
+        area_total_land_needed /= factor_lndu_dry_matter_production
+
+        return area_total_land_needed
 
 
 
@@ -2377,7 +2552,7 @@ class AFOLU:
         )[0]
 
 
-        ##  1. calculate domestic demand
+        ##  1. CALCULATE DOMESTIC DEMAND
         
         # adjust exports to have cap at production; modify series downward
         vec_lvst_exports_modifier = sf.vec_bounds(vec_lvst_production_init - arr_lvst_exports_unadj[0], (-np.inf, 0))
@@ -2419,8 +2594,10 @@ class AFOLU:
         
         # get carrying capacity scalar, adjusted for maximum dry matter production and scaled to ensure first element is 1
         (
+            arr_lvst_annual_dry_matter_consumption_per_capita,
             vec_lndu_yf_pasture_sup_adj, # in terms of pasture yield factor/LNDU initial area
             vec_lvst_carry_capacity_scale,
+            factor_lndu_init_avg_consumption_pstr,
         ) = self.get_lvst_pasture_max_yield_and_carrying_capacity(
             df_afolu_trajectories,
             vec_modvar_lndu_initial_area,
@@ -2557,6 +2734,7 @@ class AFOLU:
             vec_agrc_frac_production_wasted,
             # lvst vars
             arr_lndu_yield_i_reqd_lvst_j_init,
+            arr_lvst_annual_dry_matter_consumption_per_capita,
             arr_lvst_domestic_demand_unadj,
             arr_lvst_exports_unadj,
             arr_lvst_imports_unadj,
@@ -2564,6 +2742,7 @@ class AFOLU:
             vec_lvst_carry_capacity_scale,
             vec_lvst_feed_allocation_weights,
             vec_lndu_yf_pasture_sup_adj,
+            factor_lndu_init_avg_consumption_pstr,
         )
 
         return out
@@ -2625,21 +2804,28 @@ class AFOLU:
         arrs_efs: np.ndarray,
         arr_agrc_production_nonfeed_unadj: np.ndarray,
         arr_agrc_yield_factors: np.ndarray,
+        arr_lndu_constraints_inf: np.ndarray,
+        arr_lndu_constraints_sup: np.ndarray,
         arr_lndu_frac_increasing_net_exports_met: np.ndarray,
         arr_lndu_frac_increasing_net_imports_met: np.ndarray,
         arr_lndu_yield_by_lvst: np.ndarray,
+        factor_lndu_init_avg_consumption_pstr: float,
+        arr_lvst_annual_dry_matter_consumption_per_capita: np.ndarray,
         arr_lvst_dem: np.ndarray,
         vec_agrc_frac_cropland_area: np.ndarray,
         vec_lndu_frac_grassland_pasture: np.ndarray,
         vec_lndu_yrf: np.ndarray,
-        vec_lvst_pop_init: np.ndarray,
-        vec_lvst_pstr_weights: np.ndarray,
         vec_lvst_scale_cc: np.ndarray,
         n_tp: Union[int, None] = None,
     ) -> Tuple:
         """
         Integrated land use model, which performs required land use transition 
-            adjustments
+            adjustments.
+
+        NOTE: constraints are used to bound areas. However, they are not
+            immediately binding. Instead, they follow behavior that better 
+            reflects what would be expected from land use/cover transitions:
+            * 
 
         Function Arguments
         ------------------
@@ -2649,6 +2835,12 @@ class AFOLU:
         - arr_agrc_production_nonfeed_unadj: array of agricultural non-feed 
             demand yield (human consumption)
         - arr_agrc_yield_factors: array of agricultural yield factors
+        - arr_lndu_constraints_inf: minimum bounds on areas of each land use
+            class (columns) for each time period (rows). To set no constraint,
+            use AFOLU.flag_ignore_constraint (-999)
+        - arr_lndu_constraints_sup: maximum bounds on areas of each land use
+            class (columns) for each time period (rows). To set no constraint,
+            use AFOLU.flag_ignore_constraint (-999)
         - arr_lndu_frac_increasing_net_exports_met: fraction--by land use type--
             of increases to net exports that are met. Adjusts production demands 
             downward if less than 1.
@@ -2659,16 +2851,21 @@ class AFOLU:
             to project future livestock supply). Array gives the total yield of 
             crop type i allocated to livestock type j at time 0 
             (attr_agriculture.n_key_values x attr_livestock.n_key_values)
-        - arr_lvst_dem: array of livestock demand
+        - factor_lndu_init_avg_consumption_pstr: per unit area of pasture 
+            initial consumption by livestock (estimated). Estimated as proxy for
+            production of dry matter.
+            * UNITS: 
+                pasture yield factor/gnrl area
+        - arr_lvst_annual_dry_matter_consumption_per_capita: annual dry matter 
+            consumption per head of livestock
+            * UNITS: 
+                pasture yield factor/head
+        - arr_lvst_dem: array of livestock production requiremenets (unadjusted)
         - vec_agrc_frac_cropland_area: vector of fractions of agricultural area 
             fractions by classes
         - vec_lndu_frac_grassland_pasture: vector giving the fraction of 
             grassland that is pasture
         - vec_lndu_yrf: vector of land use reallocation factor
-        - vec_lvst_pop_init: vector, by livestock class, of initial livestock 
-            populations
-        - vec_lvst_pstr_weights: vector of weighting of animal classes to 
-            determine which changes in animal population affect demand for land
         - vec_lvst_scale_cc: vector of livestock carrying capacity scalar to 
             apply
 
@@ -2694,7 +2891,7 @@ class AFOLU:
         - arrs_yields_per_livestock
 
         """
-
+        
         t0 = time.time()
 
         # check shapes
@@ -2710,16 +2907,10 @@ class AFOLU:
         # set some commonly called attributes and indices in arrays
         m = attr_lndu.n_key_values
 
-        # initialize variables for livestock
-        vec_lvst_dem_gr_iterator = np.ones(len(arr_lvst_dem[0]))
-        vec_lvst_cc_denom = vec_initial_area[self.ind_lndu_grss]*vec_lvst_pstr_weights*vec_lndu_frac_grassland_pasture[0]
-        vec_lvst_cc_init = np.nan_to_num(
-            vec_lvst_pop_init/vec_lvst_cc_denom, 
-            nan = 0.0, 
-            posinf = 0.0
-        )
 
-        # intilize output arrays, including land use, land converted, emissions, and adjusted transitions
+        ##  INITIALIZE OUTPUT ARRAYS AND VARIABLES
+
+        # intilize land use, land converted, emissions, and adjusted transitions
         arr_agrc_frac_cropland = np.array([vec_agrc_frac_cropland_area for k in range(n_tp)])
         arr_agrc_net_import_increase = np.zeros((n_tp, attr_agrc.n_key_values))
         arr_agrc_change_to_net_imports_lost = np.zeros((n_tp, attr_agrc.n_key_values))
@@ -2743,6 +2934,13 @@ class AFOLU:
 
         arrs_yields_per_livestock = np.array([arr_lndu_yield_by_lvst for k in range(n_tp)])
 
+
+        ##  INITIALIZE VARIABLES
+
+        vec_lvst_dem_gr_iterator = np.ones(len(arr_lvst_dem[0]))
+
+
+
         """
         Rough note on the transition adjustment process:
 
@@ -2753,14 +2951,21 @@ class AFOLU:
              get requirements for livestock and use to adjust pasture and
              cropland requirement (see scalar_lndu_pstr and scalar_lndu_crop,
              respectively)
-            i. Use `model_afolu.get_lndu_scalar_max_out_states` to get true 
+            i. Use `AFOLU.get_lndu_scalar_max_out_states` to get true 
                 positional scalars. This accounts for states that might 
                 "max out" (as determined by 
-                model_afolu.mask_lndu_max_out_states), or reach 1 or 0 
+                AFOLU.mask_lndu_max_out_states), or reach 1 or 0 
                 probability during the scaling process.
         c. Then, with the scalars obtained, adjust the matrix using 
-            model_afolu.adjust_transition_matrix
+            AFOLU.adjust_transition_matrix
         """
+        
+
+        ##  ITERATE OVER EACH TIME PERIOD
+        #
+        # 1. Calculate initial states
+        # 2. Adjust based on land use reallocation factor and land class protections
+
         # initialize running matrix of land use and iteration index i
         x = vec_initial_area
         i = 0
@@ -2792,32 +2997,43 @@ class AFOLU:
 
 
             ##  LIVESTOCK - calculate carrying capacities, demand used for pasture reallocation, and net surplus
-            
-            vec_lvst_cc_proj = vec_lvst_scale_cc[i + 1]*vec_lvst_cc_init
-            inds_lvst_where_pop_noncc = np.where(vec_lvst_cc_proj == 0)[0]
-            vec_lvst_prod_proj = vec_lvst_cc_proj*area_pstr_proj*vec_lvst_pstr_weights
-            vec_lvst_unmet_demand = np.nan_to_num(arr_lvst_dem[i + 1] - vec_lvst_prod_proj)
+
+            # DROP: vec_lvst_cc_proj = vec_lvst_scale_cc[i + 1]*vec_lvst_cc_init # 
+            inds_lvst_where_pop_noncc = np.where(arr_lvst_annual_dry_matter_consumption_per_capita[i + 1] == 0)[0]
+            vec_lvst_prod_supported_pre_realloc = self.get_lvst_production_supported(
+                area_pstr_proj,
+                arr_lvst_annual_dry_matter_consumption_per_capita[i + 1],
+                arr_lvst_dem[i + 1],
+                factor_lndu_init_avg_consumption_pstr,
+                vec_lvst_scale_cc[i + 1],
+            )
+            # DROP: vec_lvst_prod_supported_pre_realloc = vec_lvst_cc_proj*area_pstr_proj*vec_lvst_pstr_weights
+            vec_lvst_unmet_demand = np.nan_to_num(
+                arr_lvst_dem[i + 1] - vec_lvst_prod_supported_pre_realloc,
+                nan = 0.0,
+                posinf = 0.0,
+            )
             
             # calculate net surplus met
             vec_lvst_unmet_demand_to_impexp = (
                 sf.vec_bounds(vec_lvst_unmet_demand, (0, np.inf))
-                *arr_lndu_frac_increasing_net_imports_met[i + 1, self.ind_lndu_grss]
+                *arr_lndu_frac_increasing_net_imports_met[i + 1, self.ind_lndu_pstr]
             )
             vec_lvst_unmet_demand_to_impexp += (
                 sf.vec_bounds(vec_lvst_unmet_demand, (-np.inf, 0))
-                *arr_lndu_frac_increasing_net_exports_met[i + 1, self.ind_lndu_grss]
+                *arr_lndu_frac_increasing_net_exports_met[i + 1, self.ind_lndu_pstr]
             )
             vec_lvst_unmet_demand_lost = vec_lvst_unmet_demand - vec_lvst_unmet_demand_to_impexp
-            
+ 
             # update production in livestock to account for lost unmet demand (unmet demand is + if imports increase, - if exports increase)
-            vec_lvst_pop_adj = vec_lvst_prod_proj + vec_lvst_unmet_demand_lost
+            vec_lvst_pop_adj = vec_lvst_prod_supported_pre_realloc + vec_lvst_unmet_demand_lost
             if len(inds_lvst_where_pop_noncc) > 0:
                 np.put(vec_lvst_unmet_demand_to_impexp, inds_lvst_where_pop_noncc, 0)
                 np.put(vec_lvst_unmet_demand_lost, inds_lvst_where_pop_noncc, 0)
                 np.put(vec_lvst_pop_adj, inds_lvst_where_pop_noncc, arr_lvst_dem[i + 1, inds_lvst_where_pop_noncc])
             
             # get unmet demand, reallocation, and final increase to net imports, then update the population
-            vec_lvst_unmet_demand = vec_lvst_unmet_demand_to_impexp
+            vec_lvst_unmet_demand = vec_lvst_unmet_demand_to_impexp.copy()
             vec_lvst_reallocation = vec_lvst_unmet_demand*vec_lndu_yrf[i + 1] # demand for livestock met by reallocating land
             vec_lvst_net_import_increase = vec_lvst_unmet_demand - vec_lvst_reallocation # demand for livestock met by increasing net imports (neg => net exports)
             vec_lvst_pop_adj += vec_lvst_reallocation
@@ -2825,18 +3041,21 @@ class AFOLU:
             # update output arrays
             arr_lvst_pop_adj[i + 1] = np.round(vec_lvst_pop_adj).astype(int)
             
-            # set growth in livestock relative to baseline and carrying capacity
+            # set growth in livestock based on required new production
             vec_lvst_dem_gr_iterator = np.nan_to_num(vec_lvst_pop_adj/arr_lvst_dem[0], 1.0, posinf = 1.0)
-            vec_lvst_cc_proj_adj = np.nan_to_num(vec_lvst_pop_adj/(area_pstr_proj*vec_lvst_pstr_weights), 0.0, posinf = 0.0)
-
+        
             # calculate required increase in transition probabilities
-            area_lndu_pstr_increase = sum(np.nan_to_num(vec_lvst_reallocation/vec_lvst_cc_proj_adj, 0, posinf = 0.0))
-            area_grss_proj = np.nan_to_num(area_pstr_proj/vec_lndu_frac_grassland_pasture[i + 1], 0.0, posinf = 0.0)
-            scalar_lndu_pstr = (area_grss_proj + area_lndu_pstr_increase)/np.dot(x, arrs_transitions[i_tr][:, self.ind_lndu_grss])
+            area_lndu_pstr_increase = self.get_lvst_area_required(
+                arr_lvst_annual_dry_matter_consumption_per_capita[i + 1],
+                vec_lvst_reallocation, 
+                factor_lndu_init_avg_consumption_pstr*vec_lvst_scale_cc[i + 1],
+            )
+            scalar_lndu_pstr = (area_pstr_proj + area_lndu_pstr_increase)/np.dot(x, arrs_transitions[i_tr][:, self.ind_lndu_pstr])
             
+            # get scalars
             mask_lndu_max_out_states_pstr = self.get_lndu_scalar_max_out_states(scalar_lndu_pstr)
             scalar_lndu_pstr = self.get_matrix_column_scalar(
-                arrs_transitions[i_tr][:, self.ind_lndu_grss],
+                arrs_transitions[i_tr][:, self.ind_lndu_pstr],
                 scalar_lndu_pstr,
                 x,
                 mask_max_out_states = mask_lndu_max_out_states_pstr
@@ -3530,6 +3749,15 @@ class AFOLU:
             return_type = "array_base",
         )
 
+        # get constraints to pass HEREHERE
+        (
+            arr_lndu_constraints_inf,
+            arr_lndu_constraints_sup,
+        ) = self.get_lndu_class_bounds(
+            df_afolu_trajectories,
+            vec_modvar_lndu_initial_area,
+        )
+
         # get fractions of increasing net exports/exports met
         arr_lndu_frac_increasing_net_exports_met = self.model_attributes.extract_model_variable(#
             df_afolu_trajectories,
@@ -3569,6 +3797,7 @@ class AFOLU:
             vec_agrc_frac_production_wasted,
             # lvst vars
             arr_lndu_yield_i_reqd_lvst_j_init,
+            arr_lvst_annual_dry_matter_consumption_per_capita,
             arr_lvst_domestic_demand_unadj,
             arr_lvst_exports_unadj,
             arr_lvst_imports_unadj,
@@ -3576,6 +3805,7 @@ class AFOLU:
             vec_lvst_carry_capacity_scale,
             vec_lvst_feed_allocation_weights,
             vec_lndu_yf_pasture_sup_adj,
+            factor_lndu_init_avg_consumption_pstr,
         ) = self.project_agrc_lvst_integrated_demands(
             df_afolu_trajectories,
             vec_modvar_lndu_initial_area,
@@ -3610,15 +3840,17 @@ class AFOLU:
             arrs_lndu_ef_conv,
             arr_agrc_production_nonfeed_unadj,
             arr_agrc_yf,
+            arr_lndu_constraints_inf,
+            arr_lndu_constraints_sup,
             arr_lndu_frac_increasing_net_exports_met,
             arr_lndu_frac_increasing_net_imports_met,
             arr_lndu_yield_i_reqd_lvst_j_init,
+            factor_lndu_init_avg_consumption_pstr,
+            arr_lvst_annual_dry_matter_consumption_per_capita,
             arr_lvst_domestic_production_unadj,
             vec_agrc_frac_cropland_area,
             vec_lndu_frac_grassland_pasture,
             vec_lndu_reallocation_factor,
-            arr_lvst_domestic_production_unadj[0],
-            vec_lvst_feed_allocation_weights,
             vec_lvst_carry_capacity_scale,
             n_tp = n_projection_time_periods,
         )
