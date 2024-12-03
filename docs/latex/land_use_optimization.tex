@@ -11,7 +11,9 @@
 %
 % 
 
-\subsubsection*{Parameters and Indicies}
+\section*{Parameters and Variables}
+
+\subsection*{Parameters and Indicies}
 
 Let:
 \begin{itemize}
@@ -22,34 +24,36 @@ $n \in \mathbb{N}^+$ be the number of land use classes
 $t \in \mathbb{N}$ be the time period
 
 \item
-$x_t \in \mathbb{R}^n$ be the prevalence vector at time $t$. For convenience, this is sometimes shown as simply $x$. Furthermore, since $x$ and $q$ are combined in the objective function, prevalence vectors should be expressed as a stochastic vector, i.e., so that $\sum_i x_i = 1$ and $x_i \geq 0$. Since the area of a region is generally fixed--sea level rise can be represented through transitions to flooded states--expressing land use prevalence as a fraction is relatively straight-forward.
+$x_t \in \mathbb{R}^n$ be the prevalence vector at time $t$. For convenience, this is sometimes shown as simply $x$. Furthermore, since $x$ and $W$ are combined in the objective function, prevalence vectors should be expressed as a stochastic vector, i.e., so that $\sum_i x_i = 1$ and $x_i \geq 0$. Since the area of a region is generally fixed--sea level rise can be represented through transitions to flooded states--expressing land use prevalence as a fraction is relatively straight-forward.
 
 \item
 $\hat{x}$ be the target prevalence vector. Depending on the costs $r_i$ (see below), this vector may only value include legitimate target prevalence values for some classes.
  
 \item
-
-$a(t) \in \mathbb{R}^n$ be a vector of minimum prevalence fractions allowable for each 
-$u_
+$a(t) \in \mathbb{R}^n$ be a vector of minimum prevalence allowable for each class at time $t$ (set $a(t) < 0$ if no minimum exists) 
 
 \item
-$Q(t) \in \mathbb{R}^{n \times n}$ be the exogenously specified row-stochastic transition matrix at time $t$.
+$b(t) \in \mathbb{R}^n$ be a vector of mxaimum prevalence allowable for each class at time $t$ (set $b(t) > 1$ if no maximum exists) 
+
+\item
+$W(t) \in \mathbb{R}^{n \times n}$ be the exogenously specified row-stochastic transition matrix at time $t$.
 
 \item 
-$s_{ij}$ be the negative cost applied to transition probability deviations from $i$ to $j$ (in general, $s_{ij} \leq 0$)
+$s_{ij}$ be the negative cost applied to transition probability deviations from $i$ to $j$ (in general, $s_{ij} \leq 0$). These costs are generally set in SISEPUEDE so that the diagonals $s_{ii} > s_{ij}$ when $j \not= i$.
 
 \item 
-$r_i$ be the negative cost applied to prevalence deviations for class $i$ (in general, $r_i \leq 0$)
+$r_i$ be the negative cost applied to prevalence deviations for class $i$ (in general, $r_i \leq 0$). In general, each $r_i$ is set to severely penalize missing a target prevalence, so that $r_i > \sum_{i, j} s_{ij}$. 
+
 \end{itemize}
 
 % VARIABLES
 %
 %
-\subsubsection*{Variables}
+\subsection*{Variables}
 Let:
 \begin{itemize}
 \item
-$q_{ij}(t)$ be the adjusted transition matrix at time $t$. Since $q \in \mathbb{R}^{n \times n}$ a matrix, we use $q^{(j)}$ to represent column $j$ and $q_i$ to represent row $i$. 
+$W_{ij}(t)$ be the adjusted transition matrix at time $t$. Since $W \in \mathbb{R}^{n \times n}$ a matrix, we use $W^{(j)}$ to represent column $j$ and $W_i$ to represent row $i$. 
 
 \item
 $d(x, x)$ be a distance metric on $\mathbb{R}^n$
@@ -58,15 +62,49 @@ $d(x, x)$ be a distance metric on $\mathbb{R}^n$
 % Problem Formulation
 %
 %
-\subsubsection*{Problem}
+\section*{Problem Formulation}
 
 \begin{equation}
 \begin{array}{c}
-\textbf{maximize} \sum_{i, j}{d(q_{ij}, Q_{ij})s_{ij}} + \sum_{j}{d(x_tq^{(j)} - \hat{x}_j)r_j}\\
-\begin{array}{rcl}
-\textbf{subject to} \sum_{i, j}{d(q_{ij}, Q_{ij})s_{ij}} + \sum_{j}{d(x_tq^{(j)} - \hat{x}_j)r_j} & \, & \\
+\textbf{maximize} \sum_{i, j}{d(W_{ij}, W_{ij})s_{ij}} + \sum_{j}{d(x_tW^{(j)} - \hat{x}_j)r_j}\\
+\begin{array}{rclc}
+\textbf{subject to}\,\, B_0 & & & (B_0 - \emph{see below})\\
+ xW & \leq & b(t + 1) & (B_1)\\
+-W_{ij} & \leq & 0 \,\forall\, i, j & \mbox{Lower Bound}\\
+W_{ij} & \leq & 1 \,\forall\, i, j & \mbox{Upper Bound}\\
 \end{array}
 \end{array}
 \end{equation}
+
+
+\subsection*{Constraints}
+
+%
+%
+\subsubsection*{$B_0$ - Minimum Area}
+
+The minimum area constraint is designed to ensure that protected areas are protected or that feasible minimum areas are never violated. Therefore, the constraint focuses on ensuring that the area of class $i$ remaining class $i$ never drops below the minimum threshold. Furthermore, if it does due to an initial condition violation, then transitions out of a class are forbidden. This approach leads to a conditional constraint, detailed below in equation (\ref{eW:constraint_minarea}).
+
+\begin{equation}\label{eW:constraint_minarea}
+B_0 = \left\{
+\begin{array}{rl}
+-W_{ii} \leq -1 & x_i(t)W_{ii} < a_i (t + 1)\\
+-x_i(t)W_{ii} \leq -a_i & \mbox{else}
+\end{array}
+\right.\,\forall\, 1 \leq i \leq n
+\end{equation}
+
+Effectively, since $W_{ii} \in [0, 1]$, this standard form ensures that $W_{ii} = 1$ if the unadjusted prevalence in the following time step violates the constraint.
+
+%
+%
+\subsubsection*{$B_1$ - Maximum Area}
+
+The maximum area constraint is designed to ensure that total areas never exceed a feasible maximum; this is a different conceptual constraint than the minimum. The maximum area constraint focuses on ensuring that the total area of land transitioning into a class never exceeds the maximum threshold. Furthermore, if it does due to an initial condition violation, then transitions into the class are forbidden. This approach is a simpler static constraint, detailed below in equation (\ref{eW:constraint_maxarea}).
+
+\begin{equation}\label{eW:constraint_maxarea}
+B_1 =  x W \leq b(t + 1)
+\end{equation}
+
 
 \end{document}
