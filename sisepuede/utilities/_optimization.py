@@ -561,6 +561,7 @@ class QAdjuster:
 
         n = x_0.shape[0]
         n_w = len(w)
+        print(f"n_w = {n_w}")
         
         # initialize output matrices - start with inequality
         A_coeffs_ineq = np.zeros((n_w, n**2))
@@ -569,6 +570,8 @@ class QAdjuster:
         # add constraint on upper bound
         for i, ind in enumerate(w):
             inds = np.arange(n)*n + ind
+            print(x_0) if i == 0 else None
+            #np.put(A_coeffs_ineq[i], inds, x_0)
             A_coeffs_ineq[i, inds] = x_0
 
 
@@ -726,7 +729,7 @@ class QAdjuster:
         costs_qij: Union[dict, np.ndarray, None] = None,
         costs_x: Union[dict, np.ndarray, None] = None,
         cost_basic_deault: Union[float, int] = 1.0,
-        cost_factor_qii_default: Union[float, int, dict] = 5.0,
+        cost_factor_qii_default: Union[float, int, dict] = 10.0,
         cost_factor_prev_default: Union[float, int, None] = None,
     ) -> np.ndarray:
         """
@@ -791,7 +794,7 @@ class QAdjuster:
         cost_factor_prev_default = (
             cost_factor_prev_default
             if sf.isnumber(cost_factor_prev_default)
-            else 10*costs_transition.sum()
+            else 100*costs_transition.sum()
         )
 
         if isinstance(costs_x, np.ndarray):
