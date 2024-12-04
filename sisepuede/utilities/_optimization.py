@@ -425,7 +425,6 @@ class QAdjuster:
 
 
 
-
     def get_constraint_coeffs_error(self,
         matrix_0: np.ndarray,
         *,
@@ -561,7 +560,6 @@ class QAdjuster:
 
         n = x_0.shape[0]
         n_w = len(w)
-        print(f"n_w = {n_w}")
         
         # initialize output matrices - start with inequality
         A_coeffs_ineq = np.zeros((n_w, n**2))
@@ -570,8 +568,6 @@ class QAdjuster:
         # add constraint on upper bound
         for i, ind in enumerate(w):
             inds = np.arange(n)*n + ind
-            print(x_0) if i == 0 else None
-            #np.put(A_coeffs_ineq[i], inds, x_0)
             A_coeffs_ineq[i, inds] = x_0
 
 
@@ -731,6 +727,7 @@ class QAdjuster:
         cost_basic_deault: Union[float, int] = 1.0,
         cost_factor_qii_default: Union[float, int, dict] = 10.0,
         cost_factor_prev_default: Union[float, int, None] = None,
+        **kwargs,
     ) -> np.ndarray:
         """
         Get the costs specified for each qij and the prevalence vector 
@@ -829,6 +826,176 @@ class QAdjuster:
         return out
     
 
+    def get_problem_components_objective(self,
+        matrix_0: np.ndarray,
+        x_0: np.ndarray,
+        x_target: np.ndarray,
+        return_component_matrices: bool = False,
+        **kwargs,
+    ) -> Tuple:
+        """
+        Generate objective value components for QP in land use optimization
+
+        Returns a tuple of the form
+
+        (
+            M,
+            c,
+        )
+        
+
+        Function Arguments
+        ------------------
+        - matrix_0: initial transition matrix (n x n)
+        - x_0: prevalence vector
+        - x_target: target prevalence vector. Classes without a target can be
+            ignored using flag_ignore
+        - vec_infima: vector specifying class infima; use flag_ignore to set no 
+            infimum for a class
+        - vec_suprema: vector specifying class suprema; use flag_ignore to set 
+            no supremum for a class
+        - flag_ignore: flag in vector_bounds used 
+
+        Keyword Arguments
+        -----------------
+        - return_component_matrices: if True, returns a tuple in the form:
+            (
+                M_prevalence,  # prevalence distance quadratic component
+                c_prevalence,  # prevalence distance linear component
+                M_transitions,  # transition matrix distance quadratic component
+                c_transitions,  # transition matrix distance linear component
+            )
+
+        - **kwargs: passed to get_costs, 
+        """
+
+        ##  GET OBJECTIVE VALUES
+
+        costs_transition, costs_prevalence = self.get_costs(
+            matrix_0, 
+            **kwargs,
+        )
+
+        #
+        M_prev, c_prev = self.get_qp_component_vectors_euclidean_prevalence(
+            x_0, 
+            x_target, 
+            weights = costs_prevalence,
+        )
+
+        # set the transition costs
+        M_tran = np.diag(costs_transition)
+        c_tran = -2*costs_transition*matrix_0.flatten()
+
+        M = 2*(M_prev + M_tran)# + np.diag(0.0000001 * np.ones(n**2))
+        c = c_tran + c_prev
+
+        out = (
+            (M, c, )
+            if not return_component_matrices
+            else (M_prev, c_prev, M_tran, c_tran, )
+        )
+
+        return out
+
+
+    
+    def get_problem_components_constraints(self,
+        matrix_0: np.ndarray,
+        x_0: np.ndarray,
+        vec_infima: np.ndarray,
+        vec_suprema: np.ndarray,
+        flag_ignore: float,
+        **kwargs,
+    ) -> Tuple:
+        """
+        Generate constraints for land use optimization QP. Returns a tuple in 
+            the following form:
+
+            (
+                A,
+                b,
+                G,
+                h,
+            )
+
+
+        Function Arguments
+        ------------------
+        - matrix_0: initial transition matrix (n x n)
+        - x_0: prevalence vector
+        - vec_infima: vector specifying class infima; use flag_ignore to set no 
+            infimum for a class
+        - vec_suprema: vector specifying class suprema; use flag_ignore to set 
+            no supremum for a class
+        - flag_ignore: flag in vector_bounds used 
+
+        Keyword Arguments
+        -----------------
+        - **kwargs: passed
+        """
+
+        ##  GET CONSTRAINTS
+
+        constraint_min_area = self.get_constraint_coeffs_min_area(
+            matrix_0,
+            x_0,
+            vec_infima,
+            flag_ignore
+        );
+
+        constraint_max_area = self.get_constraint_coeffs_max_area(
+            x_0,
+            vec_suprema,
+            flag_ignore,
+        );
+
+
+        constraint_row_stochastic = self.get_constraint_coeffs_row_stochastic(matrix_0, )
+        constraint_preserve_zeros = self.get_constraint_coeffs_preserve_zeros(matrix_0, )
+
+
+        ##  SET EQ CONSTRAINTS
+
+        A = constraint_row_stochastic[0]
+        b = constraint_row_stochastic[1]
+
+
+        ##  BUILD INEQ (G and h in QPsolve for some reason)
+
+        G = []
+        h = []
+
+        constraint_list = [
+            constraint_min_area,
+            constraint_max_area,
+            constraint_preserve_zeros
+        ]
+
+
+        for i, constraint in enumerate(constraint_list):
+
+            if constraint is None:
+                continue
+                
+            G.append(constraint[0])
+            h.append(constraint[1])
+
+
+        G = np.concatenate(G)
+        h = np.concatenate(h)
+
+        # return outputs as a tuple
+        out = (
+            A,
+            b,
+            G,
+            h
+        )
+
+        return  out
+    
+
 
     def get_qp_component_vectors_euclidean_prevalence(self,
         x_0: np.ndarray,
@@ -912,29 +1079,36 @@ class QAdjuster:
 
 
 
-
     ##########################
     #    SOLVER FUNCTIONS    #
     ###########################
 
-    def solve_mce(self,
+    def solve(self,
         Q: np.ndarray,
-        u: np.ndarray, 
-        v: np.ndarray, 
+        x_0: np.ndarray, 
+        x_target: np.ndarray, 
+        vec_infima: np.ndarray,
+        vec_suprema: np.ndarray,
+        flag_ignore: float,
         *,
-        perturbation_diag: float = 0.000001,
+        #perturbation_diag: float = 0.000001,
         solver: str = "cvxopt",
         **kwargs,
-    ) -> sco._optimize.OptimizeResult:
+    ) -> np.ndarray:
         """
         Solve the Minimize Calibration Error (MCE) problem (QP). Support 
             function for correct_transitions()
 
         Function Arguments
         ------------------
-        - x: variable vector
-        - u: initial prevalence
-        - v: next-step prevalence
+        - Q: unadjusted transition matrix
+        - x_0: initial prevalence
+        - x_target: next-step prevalence vector (can ignore classes)
+        - vec_infima: vector specifying class infima; use flag_ignore to set no 
+            infimum for a class
+        - vec_suprema: vector specifying class suprema; use flag_ignore to set 
+            no supremum for a class
+        - flag_ignore: flag in vector_bounds used 
 
         Keyword Arguments
         -----------------
@@ -944,46 +1118,59 @@ class QAdjuster:
         - **kwargs: passed to get_constraint_coeffs_error()
         """
 
-        # get constraints 
-        A_err, vec_lb, vec_ub = sf.call_with_varkwargs(
-            self.get_constraint_coeffs_error,
-            Q,
-            dict_kwargs = kwargs,
-            include_defaults = True,
-        )
+        # try to retrieve objective components
+        try:
+            M, c = self.get_problem_components_objective(
+                Q,
+                x_0,
+                x_target,
+                **kwargs,
+            )
+
+        except Exception as e:
+            msg = f"Error retrieving objective values in QAdjuster: {e}"
+            raise RuntimeError(msg)
         
-        A_rs = self.get_constraint_coeffs_row_stochastic(Q,)
-        b_rs = np.ones(len(A_rs))
 
-        # get objective components
-        M, vec_c = self.get_qp_component_vectors_euclidean_prevalence(
-            Q, u, v,
-        )
+        # try to retrieve constraint components
+        try:
+            A, b, G, h = self.get_problem_components_constraints(
+                Q,
+                x_0,
+                vec_infima,
+                vec_suprema,
+                flag_ignore,
+                **kwargs,
+            )
 
-        # double to set up for standard form [(1/2)x^tMx + Cx] and add perturbation
-        M = 2*M + perturbation_diag
-        sol = None
+        except Exception as e:
+            msg = f"Error retrieving constraints in QAdjuster: {e}"
+            raise RuntimeError(msg)
+        
 
         try:
             sol = qpsolvers.solve_qp(
                 M, 
-                vec_c, 
-                A = A_rs,
-                b = b_rs,
-                lb = vec_lb,
-                ub = vec_ub,
+                c, 
+                A = A,
+                b = b,
+                G = G,
+                h = h,
+                lb = np.zeros(M.shape[0]),
+                ub = np.ones(M.shape[0]),
                 solver = solver,
             )
 
         except Exception as e:
-            msg = "Error trying to solve 'Minimize Calibration Error' problem in QCorrector as Quadratic Program: {e}. Trying IPOPT..."
+            msg = f"Error trying to solve QAdjuser as Quadratic Program: {e}. Trying IPOPT... (UNDER CONSTRUCTION)"
             #log
-            warnings.warn(msg)
+            raise RuntimeError(msg)
         
-        if sol is not None:
-            return sol
+
+        sol = sol.reshape(Q.shape) if sol is not None else sol
 
 
+        """
         ##  TRY IPOPT
 
         try:
@@ -1012,8 +1199,13 @@ class QAdjuster:
             sol = None
             raise RuntimeError(msg)
             
+        """
 
+        
         return sol
+
+        
+
     
 
     
