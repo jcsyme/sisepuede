@@ -16,10 +16,10 @@ import sisepuede.utilities._toolbox as sf
 #
 #
 
-class QCorrector:
+class QAdjuster:
     """
-    Correct a transition matrix Q so that f(x)Q = y by finding the solution 
-        x' = f(x) that is closest to x.
+    Adjust a transition matrix Q to match requirements from land use 
+        reallocation factor.
     """
     
     def __init__(self,
@@ -48,43 +48,9 @@ class QCorrector:
     #    KEY FUNCTIONS    #
     #######################
 
-    def get_components_angle_approximation(self,
-        Q: np.ndarray,
-        u: np.ndarray,
-        v: np.ndarray,
-    ) -> np.ndarray:
-        """
-        Generate the objective function plus a matrix of coefficients used 
-            to ensure that the inner product is bounded by 1
-
-        Returns c, A, b 
-
-        Function Arguments
-        ------------------
-        - Q: initial transition matrix (n x n)
-        - u: prevalence at time 0
-        - v: prevalence at time 1
-        """
-
-        n = Q.shape[0]
-
-        # this is the dot prod
-        vec_dot = []
-        for k in range(n**2):
-            i, j = self.flat_index_inverse(k, n)
-            vec_dot.append(u[i]*v[j])
-
-
-        A_ub = np.array([vec_dot])
-        b_ub = np.array([sf.vector_norm(v)**2])
-        
-        tup = vec_dot, A_ub, b_ub
-        
-        return tup
-
 
         
-    def get_constraints_mce(self,
+    def get_constraints(self,
         Q: np.ndarray,
         x_0: np.ndarray,
         x_1: np.ndarray,
@@ -154,70 +120,6 @@ class QCorrector:
                 keep_feasible = True,
             )
         ]
-
-        return constraints
-
-
-
-    def get_constraints_mte(self,
-        Q: np.ndarray,
-        x_0: np.ndarray,
-        x_1: np.ndarray,
-        epsilon_constraint: float = 0.000001,
-        preserve_zeros: bool = False,
-        sup: float = 1.0,
-    ) -> List[sco.LinearConstraint]:
-        """
-        Retrieve constraints for the Minimize Transition Error (MTE) problem.
-            Returns two constraints and one optional constraint:
-
-            * ConstraintRowStochastic
-            * ConstraintMassBalance
-
-
-        Function Arguments
-        ------------------
-        - Q: initial transition matrix
-        - x_0: initial (time 0) prevalence vector
-        - x_1: second step (time 1) prevalence vector
-
-        Keyword Arguments
-        -----------------
-        - epsilon_constraint: acceptable numerical error in constraints; note
-            that, due to floating point errors, some sums can exceed the 
-            constraints, meaning that the initial state is infeasible. 
-        - preserve_zeros: if True, ensures that a solution matrix x' cannot 
-            introduce non-zero transitions to edges where they were not present 
-            in x. Otherwise, 
-        - sup: supremum for transitions that are output; recommended to avoid
-            setting to 1
-        """
-
-        # retrieve matrices
-        A_balance = self.get_constraint_coeffs_mass_balance(Q, x_0, )
-        A_row_stochastic = self.get_constraint_coeffs_row_stochastic(matrix, )
-
-        # constraints to pass to solvers
-        constraints = [
-            
-            # force rows to sum to 1 (ConstraintRowStochastic)
-            sco.LinearConstraint(
-                A_row_stochastic, 
-                lb = np.ones(n) - epsilon_constraint, 
-                ub = np.ones(n) + epsilon_constraint,
-            ), 
-
-            # ConstraintMassBalance
-            sco.LinearConstraint(A_balance, x_1, x_1),            
-        ]
-
-        # constraint on acceptable error?
-        if False:
-            sco.LinearConstraint(
-                A_error, 
-                lb = vec_inf_err, 
-                ub = vec_sup_err,
-            )
 
         return constraints
 
@@ -522,55 +424,6 @@ class QCorrector:
 
 
 
-    def get_constraint_coeffs_diag_error(self,
-        matrix_0: np.ndarray,
-        max_error: float = 0.01,
-        inf: float = 0.99,
-        supremum: float = 0.999999,
-    ) -> Tuple[np.ndarray, np.ndarray, np.ndarray]:
-        """
-        Generate a matrix of coefficients used to ensure that values along the
-            diagonal to not exceed some error. Returns
-
-            (
-                mat_coeffs, # n x n^2 matrix
-                vec_inf,
-                vec_sup,
-            )
-
-
-        Function Arguments
-        ------------------
-        - matrix_0: initial transition matrix (n x n)
-
-        Keyword Arguments
-        -----------------
-        - max_error: maximum error fraction relative to diagonal
-        - inf: minimum value allowed along the diagonal
-        - sup: max value along the diagonal
-        """
-        
-
-        n = matrix_0.shape[0]
-
-        # initialize output matrix
-        mat_coeffs = np.zeros((n, n**2))
-        vec_inf = np.zeros(n)
-        vec_sup = np.zeros(n)
-
-        for i in range(n):
-            mat_coeffs[i, i*(n + 1)] = 1.0
-            vec_inf[i] = max(matrix_0[i, i]*(1 - max_error), inf)
-            vec_sup[i] = min(matrix_0[i, i]*(1 + max_error), sup)
-
-        out = (
-            mat_coeffs,
-            vec_inf,
-            vec_sup,
-        )
-
-        return out
-
 
 
     def get_constraint_coeffs_error(self,
@@ -676,33 +529,118 @@ class QCorrector:
 
 
 
-    def get_constraint_coeffs_mass_balance(self,
+    def get_constraint_coeffs_max_area(self,
+        x_0: np.ndarray,
+        vector_bounds: np.ndarray,
+        flag_ignore: float,
+    ) -> Union[Tuple[np.ndarray, np.ndarray], None]:
+        """
+        Generate maximum area constraint coefficients (B_1) for land use 
+            adjustment optimization
+
+        Returns a tuple with A and b for inequality (Ax <= b)
+            (
+                A,  # matrix with dims (k, n^2), where k is number of bounds
+                b,  # bounds
+            )
+
+        If no valid bounds are specified, returns None.
+        
+
+        Function Arguments
+        ------------------
+        - x_0: prevalence vector
+        - vector_bounds: vector includng bounds to apply
+        - flag_ignore: flag in vector_bounds used 
+        """
+
+        # if there are no constraints, don't bother including
+        w = np.where(vector_bounds != flag_ignore)[0]
+        if len(w) == 0:
+            return None
+
+        n = x_0.shape[0]
+        n_w = len(w)
+        
+        # initialize output matrices - start with inequality
+        A_coeffs_ineq = np.zeros((n_w, n**2))
+        b_ineq = vector_bounds[w]
+
+        # add constraint on upper bound
+        for i, ind in enumerate(w):
+            inds = np.arange(n)*n + ind
+            A_coeffs_ineq[i, inds] = x_0
+
+
+        ##  BUILD OUTPUTS
+
+        out = (
+            A_coeffs_ineq,
+            b_ineq,
+        )
+
+        return out
+
+
+
+    def get_constraint_coeffs_min_area(self,
         matrix_0: np.ndarray,
         x_0: np.ndarray,
-    ) -> np.ndarray:
+        vector_bounds: np.ndarray,
+        flag_ignore: float,
+    ) -> Union[Dict[str, Union[np.ndarray, None]], None]:
         """
-        Generate a matrix of coefficients used to ensure the balance of the
-            solution, i.e., that A*x_0 = x_1
+        Generate minimum area constraint coefficients (B_0) for land use 
+            adjustment optimization
 
-        Returns matrix with dims (n, n^2)
+        Returns a tuple with A and b for inequality (Ax <= b
+            (
+                A,  # matrix with dims (k, n^2), where k is number of bounds
+                b,  # bounds
+            )
+
+        If no valid bounds are specified, returns None.
+        
 
         Function Arguments
         ------------------
         - matrix_0: initial transition matrix (n x n)
-        - x_0: initialize prevalence (1 x n)
+        - x_0: prevalence vector
+        - vector_bounds: vector includng bounds to apply
+        - flag_ignore: flag in vector_bounds used 
         """
 
+        # if there are no constraints, don't bother including
+        w = np.where(vector_bounds != flag_ignore)[0]
+        if len(w) == 0:
+            return None
+
         n = matrix_0.shape[0]
+        n_w = len(w)
+        
+        # initialize output matrices - start with inequality
+        A_coeffs_ineq = np.zeros((n_w, n**2))
+        b_ineq = np.zeros(n_w)
 
-        # initialize output matrix
-        mat_coeffs = np.zeros((n, n**2))
+        
+        for i, ind in enumerate(w):
+            # check if it's necessary to stop the loss of land
+            constraint_low = vector_bounds[ind]
+            stop_loss = x_0[ind] <= constraint_low
 
-        for i in range(n):
-            m = np.zeros(matrix_0.shape)
-            m[:, i] = x_0
-            mat_coeffs[i, :] = m.flatten()
+            # force the class remaining probability = 1 by setting it to >= 1 if the current area is below the minimum
+            A_coeffs_ineq[i, ind*(n + 1)] = -1 if stop_loss else -x_0[ind]
+            b_ineq[i] = -1 if stop_loss else -constraint_low
 
-        return mat_coeffs
+
+        ##  BUILD OUTPUTS
+
+        out = (
+            A_coeffs_ineq,
+            b_ineq,
+        )
+
+        return out
 
 
 
@@ -711,24 +649,33 @@ class QCorrector:
     ) -> np.ndarray:
         """
         Generate a matrix of coefficients used to ensure that values in matrix_0 
-            that are 0 also zero in the solution
+            that are 0 also zero in the solution. Returns a tuple in the form of
 
-        Returns matrix with dims (n, n^2)
+        (
+            A,
+            b,
+        )
 
         Function Arguments
         ------------------
         - matrix_0: initial transition matrix (n x n)
-        - x_0: initialize prevalence (1 x n)
         """
 
         n = matrix_0.shape[0]
 
         # initialize output matrix
-        mat_coeffs = np.zeros((n, n))
-        mat_coeffs[matrix_0 == 0] = 1.0
-        mat_coeffs = np.array([mat_coeffs.flatten()])
+        A = np.zeros((n, n))
+        A[matrix_0 == 0] = 1.0
+        A = np.array([A.flatten()])
 
-        return mat_coeffs
+        b = np.zeros(1)
+
+        out = (
+            A,
+            b,
+        )
+
+        return out
     
     
     
@@ -739,7 +686,12 @@ class QCorrector:
         Generate a matrix of coefficients used to ensure that the resulting
             matrix is row-stochastic
 
-        Returns matrix with dims (n, n^2)
+        Returns a tuple of the form
+        
+        (
+            A,  # matrix with dims (n, n^2)
+            b,  # vector with dim (n, )
+        )
 
         Function Arguments
         ------------------
@@ -749,33 +701,152 @@ class QCorrector:
         n = matrix_0.shape[0]
 
         # initialize output matrix
-        mat_coeffs = np.zeros((n, n**2))
+        A = np.zeros((n, n**2))
 
         for i in range(n):
             b0 = i*n
             b1 = (i + 1)*n
-            mat_coeffs[i, b0:b1] = 1
+            A[i, b0:b1] = 1
 
-        return mat_coeffs
+        
+        # equal one
+        b = np.ones(n)
+
+        out = (
+            A, 
+            b,
+        )
+
+        return out
+
+
+
+    def get_costs(self,
+        matrix_0: np.ndarray,
+        costs_qij: Union[dict, np.ndarray, None] = None,
+        costs_x: Union[dict, np.ndarray, None] = None,
+        cost_basic_deault: Union[float, int] = 1.0,
+        cost_factor_qii_default: Union[float, int, dict] = 5.0,
+        cost_factor_prev_default: Union[float, int, None] = None,
+    ) -> np.ndarray:
+        """
+        Get the costs specified for each qij and the prevalence vector 
+
+        Function Arguments
+        ------------------
+        - matrix_0: unadjusted transition matrix
+
+        Keyword Arguments
+        -----------------
+        - costs_qij: specification of transition costs directly, either as a 
+            dictionary or as a numpy array (n x n). Dictionary is used to 
+            overwrite defaults with (row, column) index tuples as keys mapping 
+            to costs as values
+        - costs_x: specification of prevalence costs directly, either as a 
+            dictionary or as a numpy array (n x 1). Dictionary is used to
+            overwrite defaults with the index as a key mapping to the costs as 
+            a value
+        - cost_basic: basic cost to use for individual land use transitions. If
+            specified as a dictionary, must 
+        - cost_factor_qii: scalar applied to cost_basic to create costs on
+            diagonals as default
+        - cost_factor_prev_default: default factor to use for prevalence costs.
+            If None, is calculated as 10 times the sum of all transition costs.
+        """
+        ##  GET COSTS FOR TRANSITION ERRORS
+
+        if isinstance(costs_qij, np.ndarray):
+            if costs_qij.shape == matrix_0.shape:
+                costs_transition = costs_qij
+            else:
+                costs_qij = None
+        
+        if not isinstance(costs_qij, np.ndarray):
+            costs_transition = cost_basic_deault*np.ones(matrix_0.shape)
+            np.fill_diagonal(costs_transition, cost_basic_deault*cost_factor_qii_default)
+
+            # fill values?
+            if isinstance(costs_qij, dict):
+                for k, v in costs_qij.items():
+
+                    cont = not isinstance(k, tuple)
+                    cont |= (len(k) != 2) if not cont else cont
+                    cont |= not sf.isnumber(v)
+
+                    if cont:
+                        continue
+                    
+                    # try to assign; if indices are invalid, skip
+                    i, j = k
+                    try:
+                        costs_transition[i, j] = v
+                    except:
+                        continue
+
+        costs_transition = costs_transition.flatten()
+        
+        
+        ##  GET COSTS FOR PREVALENCE ERROR
+
+        cost_factor_prev_default = (
+            cost_factor_prev_default
+            if sf.isnumber(cost_factor_prev_default)
+            else 10*costs_transition.sum()
+        )
+
+        if isinstance(costs_x, np.ndarray):
+            if costs_x.shape == (matrix_0.shape[0], ):
+                costs_prevalence = costs_x
+            else:
+                costs_x = None
+        
+        if not isinstance(costs_x, np.ndarray):
+            costs_prevalence = cost_factor_prev_default*np.ones(matrix_0.shape[0])
+
+            # fill values?
+            if isinstance(costs_x, dict):
+                for k, v in costs_x.items():
+
+                    cont = not sf.isnumber(k, integer = True, )
+                    cont |= not sf.isnumber(v)
+                    if cont:
+                        continue
+                    
+                    # try to assign; if indices are invalid, skip
+                    try:
+                        costs_prevalence[k] = v
+                    except:
+                        continue
+        
+        out = (
+            costs_transition,
+            costs_prevalence,
+        )
+
+        return out
     
 
 
-    def get_qp_component_vectors_mce(self,
-        Q: np.ndarray,
+    def get_qp_component_vectors_euclidean_prevalence(self,
         x_0: np.ndarray,
         x_1: np.ndarray,
+        weights: Union[np.ndarray, None] = None,
     ) -> Tuple[np.ndarray]:
         """
         Get the objective function component matrix and vectors necessary for
-            the MCE quadratic program.
+            euclidean distance between a transition matrix estimate and a 
+            target. Includes ability to weight individual classes.
 
         NOTE: does not include the 1/2 coefficient in a standard QP
             
         Function Arguments
         ------------------
-        - Q: transition matrix (n x n)
         - x_0: initial state vector (1 x n)
         - x_1: target state vector (1 x n)
+
+        Keyword Arguments
+        -----------------
+        - weights: optional vector of weights to place on prevalence classes
         """
         
         n = x_0.shape[0]
@@ -784,14 +855,19 @@ class QCorrector:
         # build vector c (first degree terms) and matrix M (second degree)
         vec_c = np.zeros(n2)
         M = np.zeros((n2, n2))
-        
+        weights = (
+            np.ones(n) 
+            if not isinstance(weights, np.ndarray)
+            else weights
+        )
+
         
         ##  ITEATE OVER EACH ROW/COL TO ADD VALUES WHERE NEEDED
         
         # build vec_c
         for k in range(n2):
             i, j = self.flat_index_inverse(k, n)
-            vec_c[k] = -2*x_0[i]*x_1[j]
+            vec_c[k] = -2*x_0[i]*x_1[j]*weights[j]
 
 
         """
@@ -818,69 +894,25 @@ class QCorrector:
 
                 # set values along diagonal
                 if k1 == k2:
-                    M[k1, k2] = x_0[row_1]**2
+                    M[k1, k2] = (x_0[row_1]**2)*weights[col_1]
                     continue
 
                 # otherwise, set to product of initial states associated with row
-                M[k1, k2] = x_0[row_1]*x_0[row_2]
+                M[k1, k2] = x_0[row_1]*x_0[row_2]*weights[col_1]
 
         
         out = (M, vec_c)
         
         return out
-    
+
+
+
+
 
 
     ##########################
     #    SOLVER FUNCTIONS    #
     ###########################
-
-    def solve_mea(self,
-        Q: np.ndarray,
-        u: np.ndarray, 
-        v: np.ndarray, 
-        **kwargs,
-    ) -> sco._optimize.OptimizeResult:
-        """
-        Solve the Minimize Estimated Angle (MEA) problem (LP). Support 
-            function for correct_transitions()
-
-        Function Arguments
-        ------------------
-        - x: variable vector
-        - u: initial prevalence
-        - v: next-step prevalence
-
-        Keyword Arguments
-        -----------------
-        - **kwargs: passed to get_constraint_coeffs_error()
-        """
-
-        # get constraints 
-        c, A, b = self.get_components_angle_approximation(Q, u, v, )
-        A_rs = self.get_constraint_coeffs_row_stochastic(Q,)
-        b_rs = np.ones(len(A_rs))
-
-       
-        # double to set up for standard form [(1/2)x^tMx + Cx] and add perturbation
-        M = 2*M + perturbation_diag
-        try:
-            sol = qpsolvers.solve_qp(
-                M, 
-                vec_c, 
-                A = A_rs,
-                b = b_rs,
-                lb = vec_lb,
-                ub = vec_ub,
-                solver = solver,
-            )
-
-        except Exception as e:
-            msg = "Error trying to solve 'Minimize Calibration Error' problem in QCorrector: {e}"
-            raise RuntimeError(msg)
-
-        return sol
-
 
     def solve_mce(self,
         Q: np.ndarray,
@@ -921,7 +953,7 @@ class QCorrector:
         b_rs = np.ones(len(A_rs))
 
         # get objective components
-        M, vec_c = self.get_qp_component_vectors_mce(
+        M, vec_c = self.get_qp_component_vectors_euclidean_prevalence(
             Q, u, v,
         )
 
@@ -981,60 +1013,6 @@ class QCorrector:
         return sol
     
 
-
-    def solve_mte(self,
-        Q: np.ndarray,
-        u: np.ndarray,
-        v: np.ndarray,
-        perturbation_diag: float = 0.000001,
-        solver: str = "cvxopt",
-        **kwargs,
-    ) -> sco._optimize.OptimizeResult:
-        """
-        Solve the Minimize Transition Error (MTE) problem (QP). Support function 
-            for correct_transitions()
-
-        Function Arguments
-        ------------------
-        - x: variable vector
-        - u: initial prevalence
-        - v: next-step prevalence
-
-        Keyword Arguments
-        -----------------
-        - perturbation_diag: perturbation to apply to the diagonal (positive) to
-            ensure P is positive definite, a requirement for some solvers.
-        - solver: valid solver passed to qpsolvers.solve_qp()
-        - **kwargs: passed to get_constraint_coeffs_error()
-        """
-
-        # get constraints 
-        A_rs = self.get_constraint_coeffs_row_stochastic(Q,)
-        b_rs = np.ones(len(A_rs))
-
-        # get objective components
-        M, vec_c = self.get_qp_component_vectors_mte(
-            Q, u, v,
-        )
-
-        # double to set up for standard form [(1/2)x^tMx + Cx] and add perturbation
-        M = 2*M + perturbation_diag
-        try:
-            sol = qpsolvers.solve_qp(
-                M, 
-                vec_c, 
-                A = A_rs,
-                b = b_rs,
-                lb = vec_lb,
-                ub = vec_ub,
-                solver = solver,
-            )
-
-        except Exception as e:
-            msg = "Error trying to solve 'Minimize Calibration Error' problem in QCorrector: {e}"
-            raise RuntimeError(msg)
-
-        return sol
     
 
 
