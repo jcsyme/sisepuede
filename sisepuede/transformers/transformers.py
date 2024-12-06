@@ -5156,6 +5156,7 @@ class Transformers:
         categories_entc_renewable: Union[List[str], None] = None,
         dict_entc_renewable_target_msp: Union[Dict[str, float], None] = {},
         magnitude: float = 0.95,
+        scale_non_renewables_to_match_surplus_msp: bool = False,
         strat: Union[int, None] = None,
         vec_implementation_ramp: Union[np.ndarray, None] = None,
     ) -> pd.DataFrame:
@@ -5180,6 +5181,10 @@ class Transformers:
             will ensure that hydropower is at least 10% of the mix and solar is at least 15%. 
         magnitude : float
             Minimum target fraction of electricity produced from renewable sources by 100% implementation
+        scale_non_renewables_to_match_surplus_msp: bool
+            if True, will scale MSP from non-renewable sources to match the surplus, where surplus is calculated as 
+                surplus = max(MSP_0 - T, 0)
+            where R is the original total of all MSPs and T is the total renewable target. If False, MSPs are set to 0 for all non-renewable targets.
         strat : int
             Optional strategy value to specify for the transformation
         vec_implementation_ramp : Union[np.ndarray, Dict[str, int], None]
@@ -5239,6 +5244,7 @@ class Transformers:
             dict_cats_entc_max_investment = dict_entc_renewable_target_cats_max_investment,
             field_region = self.key_region,
             magnitude_renewables = dict_entc_renewable_target_msp,
+            scale_non_renewables_to_match_surplus_msp = scale_non_renewables_to_match_surplus_msp,
             strategy_id = strat,
         )
 
