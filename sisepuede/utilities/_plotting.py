@@ -139,13 +139,35 @@ def plot_stack(
         ], 
         axis = 1,
     )
+
+    # reorder fields plot
+    fields_with_negative_and_positive = []
+    fields_with_negative = []
+    fields_with_positive = []
+
+    for x in fields_plot:
+        has_pos = df_pos[x].max() > 0
+        has_neg = df_neg[x].min() < 0
+
+        if has_pos & has_neg:
+            fields_with_negative_and_positive.append(x)
+        elif has_neg:
+            fields_with_negative.append(x)
+        else:
+            fields_with_positive.append(x)
+
+    fields_plot = sorted(fields_with_negative_and_positive)
+    fields_plot += sorted(fields_with_negative)
+    fields_plot += sorted(fields_with_positive)
+    
     
     # if colors are specified, specify an ordered vector that matches the fields
     if isinstance(dict_formatting, dict):
         try:
             # use try to avoid checking if "x" is specified
             color = [dict_formatting.get(x).get("color") for x in fields_plot]
-            
+            color = None if None in color else color
+
         except:
             color = None
 
@@ -193,11 +215,11 @@ def plot_stack(
     dict_kwargs = dict((k, v) for (k, v) in kwargs.items())
     dict_kwargs.update(
         {
-            "colors": color,
             "data": df_pos,
             "labels": fields_plot
         }
     )
+    dict_kwargs.update({"colors": color, }) if color is not None else None
     
     sf.call_with_varkwargs(
         ax.stackplot,
@@ -207,7 +229,7 @@ def plot_stack(
     )
     
     # update before plotting next one
-    dict_kwargs.update({"data": df_neg})
+    dict_kwargs.update({"data": df_neg, "labels": (), })
     sf.call_with_varkwargs(
         ax.stackplot,
         field_x, 
