@@ -1,12 +1,8 @@
 #import cyipopt
 import numpy as np
-import os, os.path
-import pandas as pd
 import qpsolvers
-import scipy.optimize as sco
-import sys
+#import scipy.optimize as sco
 from typing import *
-
 
 import sisepuede.utilities._toolbox as sf
 
@@ -48,246 +44,24 @@ class QAdjuster:
     #    KEY FUNCTIONS    #
     #######################
 
-
-        
-    def get_constraints(self,
+    def clean_and_reshape_solver_output(self,
         Q: np.ndarray,
-        x_0: np.ndarray,
-        x_1: np.ndarray,
-        epsilon_constraint: float = 0.000001,
-        error_type = "additive",
-        max_error: float = 0.01,
-        preserve_zeros: bool = True,
-        sup: float = 1.0,
-    ) -> List[sco.LinearConstraint]:
+        Q_solve: np.ndarray,
+        thresh_to_zero: float = 0.00000001,
+        **kwargs,
+    ) -> np.ndarray:
         """
-        Retrieve constraints for the Minimize Calibration Error (MCE) problem.
-            Returns two constraints and:
-
-            * ConstraintRowStochastic
-            * ConstraintErrorBounds
-
-        Function Arguments
-        ------------------
-        - Q: initial transition matrix
-        - x_0: initial (time 0) prevalence vector
-        - x_1: second step (time 1) prevalence vector
-
-        Keyword Arguments
-        -----------------
-        - epsilon_constraint: acceptable numerical error in constraints; note
-            that, due to floating point errors, some sums can exceed the 
-            constraints, meaning that the initial state is infeasible. 
-        - error_type: 
-            * "additive": add the max_error as bounds for initial estimates of
-                free variables
-            * "scalar": apply the max_error as a scalar to initial esimates of
-                free variables
-        - max_error: maximium error for transition probabilities (e.g., 
-            0.01 = 1% error from baseline estimates)
-        - preserve_zeros: preserve zeros in the bounds?
-        - sup: supremum for transitions that are output; recommended to avoid
-            setting to 1
+        Reshape the output from QAdjuster.solve to match the original transition
+            matrix shape. Additionally, chop near-zero elements to zero and ensure
+            proper normalization. 
         """
+        Q_solve_out = Q_solve.copy()
+        Q_solve_out[np.abs(Q_solve_out) <= thresh_to_zero] = 0.0
+        Q_solve_out = sf.check_row_sums(Q_solve_out.reshape(Q.shape))
 
-        n = Q.shape[0]
-
-        # get matrices for constraints
-        A_row_stochastic = self.get_constraint_coeffs_row_stochastic(Q, )
-        A_error, vec_inf_err, vec_sup_err = self.get_constraint_coeffs_error(
-            Q, 
-            error_type = error_type,
-            max_error = max_error,
-            preserve_zeros = preserve_zeros,
-            supremum = sup,
-        )
-
-        # constraints to pass to solvers
-        constraints = [
-            # force rows to sum to 1 (ConstraintRowStochastic)
-            sco.LinearConstraint(
-                A_row_stochastic, 
-                lb = np.ones(n) - epsilon_constraint, 
-                ub = np.ones(n) + epsilon_constraint,
-                keep_feasible = True,
-            ), 
-
-            # constraint on acceptable error (ConstraintErrorBounds)
-            sco.LinearConstraint(
-                A_error, 
-                lb = vec_inf_err, 
-                ub = vec_sup_err,
-                keep_feasible = True,
-            )
-        ]
-
-        return constraints
+        return Q_solve_out
 
 
-
-    def correct_transitions(self,
-        Q: np.ndarray,
-        u: np.ndarray,
-        v: np.ndarray,
-        *,
-        approach: str = "minimize_transition_error",
-        epsilon_constraint: float = 0.000001,
-        error_type: str = "additive",
-        inds_absorp: Union[list, None] = None,
-        infimum_diag: float = 0.99,
-        max_error: float = 0.01,
-        perturbation_diag: float = 0.000001,
-        preserve_zeros: bool = False,
-        solver_qp: str = "cvxopt",
-        supremum: float = 0.99999,
-    ) -> Union[np.ndarray, None]:
-        """
-        Correct the initial transition matrix, which is derived from one data
-            source (e.g., Copernicus), to ensure that it reproduces observed 
-            prevalences from other sources (e.g., FAO)
-
-        Function Arguments
-        ------------------
-        - Q: initial transition matrix
-        - u: initial (time 0) prevalence vector
-        - v: second step (time 1) prevalence vector
-
-        Keyword Arguments
-        -----------------
-        - approach: problem approach. One of the following (can be entered as
-            any combination of upper or lower case)
-
-            * "minimize_estimated_angle" or "mea" (LP):
-                
-                Minimize the estimated angle between prevalence vectors. This 
-                approach scales each dimension in the prevalence vector 
-                uniformly, attempting to close the gap between the two vectors. 
-                The program is formulated as a Linear Program. 
-
-                This minimization problem seeks to minimize 
-                arcos(dot(Q^Tu, v)/||Q^Tu||||v||). Noting that arcos is 
-                monotonic on the interval [0, Pi/2],
-
-                lim arcos as dot(Q^Tu, v) -> ||Q^Tu||||v|| -> 1 is 0. To avoid
-                second degree terms in the formulation, we estimate the
-                denominator as ||v||^2, and the problem is
-
-
-                min -dot(Q^Tu, v)
-
-                s.t.
-
-                    dot(Q^Tu, v) <= ||v||^2  # angle approaches from one side
-                    \forall i: \sum_{j <= n} Q[i, j] = 1  # row stochastic
-                    \forall i, j: Q[i, j] - e <= Q[i, j] <= Q[i, j] + e  # acceptable error
-
-                    where e is an allowable error term
-
-                    (if preserve_zeros, Q[i, j] = 0 => e = 0)
-
-
-            * "minimize_calibration_error" or "mce" (QP): 
-            
-                Minimize the distance between the observed prevalence and the 
-                resulting prevalence while subjecting transitions to error 
-                constraints. 
-
-                This minimization problem seeks to minimize the Euclidean 
-                distance between the estimated prevalence vector, Q^Tu, and the 
-                observed vector, v; i.e.,
-
-                    (obj) sum_{i <= n} (u.dot(Q[:,j]) - v[j])^2
-
-                Q \in R^{n x n} is flattened as x[k], k in [1,..., n^2]
-
-                    - x[k] = Q[i, j], k = i*n + j, 1 <= k <= n^2
-                    - u is the initial prevalence vector
-                    - v is the target prevalence vector
-
-
-            * "minimize_transiton_error" or "mte": minimize the error in the 
-                transition matrix while constraing the solution to reflect 
-                target prevalence. May require that estimated transition 
-                probabilities with value 0 are relaxed.
-
-        - epsilon_constraint: acceptable numerical error in constraints; note
-            that, due to floating point errors, some sums can exceed the 
-            constraints, meaning that the initial state is infeasible. 
-        - error_type: 
-            * "additive": add the max_error as bounds for initial estimates of
-                free variables
-            * "scalar": apply the max_error as a scalar to initial esimates of
-                free variables
-        - inds_absorp: optional indices for allowable absorption states
-        - infimum_diag: minimum value allowed along diagonal
-        - max_error: maximium error for transition probabilities (e.g., 
-            0.01 = 1% error from baseline estimates)
-        - perturbation_diag: perturbation to apply to the diagonal (positive) to
-            ensure P is positive definite, a requirement for some solvers.
-        - preserve_zeros: if True, ensures that a solution matrix x' cannot 
-            introduce non-zero transitions to edges where they wre not present 
-            in x
-        - solver_qp: default solver to use for Quadtratic Programs
-        - supremum: supremum for transitions that are output; recommended to 
-            avoid setting to 1
-        """
-
-        # set up components
-        matrix = Q.copy()
-        matrix = (matrix.transpose()/matrix.sum(axis = 1)).transpose()
-        n = matrix.shape[0]
-
-
-        ##  GET PROBLEM SETUP
-        
-        approach = approach.lower()
-        valid_approaches = [
-            "minimize_estimated_angle",
-            "mea",
-            "minimize_calibration_error", 
-            "mce",
-            "minimize_transition_error", 
-            "mte"
-        ]
-        approach = "mce" if (approach not in valid_approaches) else approach
-
-
-        # Minimize Calibration Error
-        if approach in ["minimize_calibration_error", "mce"]:
-
-            sol = self.solve_mce(
-                matrix,
-                u,
-                v,
-                error_type = error_type,
-                inds_absorp = inds_absorp,
-                infimum_diag = infimum_diag,
-                max_error = max_error,
-                perturbation_diag = perturbation_diag,
-                preserve_zeros = preserve_zeros,
-                solver = solver_qp,
-                supremum = supremum,
-            )
-
-
-        elif approach in ["minimize_transition_error", "mte"]:
-            """
-            constraints = self.get_constraints_mte(
-                matrix,
-                x_0,
-                x_1,
-                epsilon_constraint = epsilon_constraint,
-                max_error = max_error,
-            )
-            """
-            raise RuntimeError(f"APPROACH {approach} UNDEFINED IN optimization_utilities.py")
-
-
-       
-     
-        return sol
-        
-        
 
     def f_obj_mce(self,
         x: np.ndarray,
@@ -314,28 +88,6 @@ class QAdjuster:
         grad = self.grad_mce(x, p_0, p_1, )
 
         return obj
-
-
-
-    def f_obj_mte(self,
-        x: np.ndarray,
-        p_0: np.ndarray, # prevalence vector at time 0
-        p_1: np.ndarray, # prevalence vector at time 1
-    ) -> float:
-        """
-        Minimize the distance between the new matrix and the original 
-            transition matrix for the Minimize Transition Error (MTE) approach
-
-        Function Arguments
-        ------------------
-        - x: vector to solve for
-        - p_0: initial prevalence
-        - p_1: next-step prevalence
-        """
-        obj = ((x - vec_prev)**2).sum()
-        grad = 2*(x - vec_prev)
-       
-        return (obj, grad)
 
     
 
@@ -791,7 +543,7 @@ class QAdjuster:
         cost_factor_prev_default = (
             cost_factor_prev_default
             if sf.isnumber(cost_factor_prev_default)
-            else 100*costs_transition.sum()
+            else 1000*costs_transition.sum()
         )
 
         if isinstance(costs_x, np.ndarray):
@@ -1092,7 +844,7 @@ class QAdjuster:
         flag_ignore: float,
         *,
         #perturbation_diag: float = 0.000001,
-        solver: str = "cvxopt",
+        solver: str = "quadprog",
         **kwargs,
     ) -> np.ndarray:
         """
@@ -1167,7 +919,12 @@ class QAdjuster:
             raise RuntimeError(msg)
         
 
-        sol = sol.reshape(Q.shape) if sol is not None else sol
+        if sol is not None:
+            sol = self.clean_and_reshape_solver_output(
+                Q,
+                sol,
+                **kwargs, # optional passing of thresh_to_zero
+            )
 
 
         """
@@ -1201,7 +958,7 @@ class QAdjuster:
             
         """
 
-        
+
         return sol
 
         

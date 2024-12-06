@@ -12,6 +12,7 @@ from sisepuede.core.model_attributes import *
 from sisepuede.models.energy_consumption import EnergyConsumption
 from sisepuede.models.ippu import IPPU
 from sisepuede.models.socioeconomic import Socioeconomic
+import sisepuede.utilities._optimization as suo
 import sisepuede.utilities._toolbox as sf
 
 
@@ -181,7 +182,7 @@ class AFOLU:
             setattr(self, f"cat_lndu_{v}", cat)
             setattr(self, f"ind_lndu_{v}", ind)
 
-        
+
         # list of categories to use to "max out" transition probabilities when scaling land use prevelance
         self.cats_lndu_max_out_transition_probs = self.model_attributes.filter_keys_by_attribute(
             self.model_attributes.subsec_name_lndu,
@@ -190,7 +191,14 @@ class AFOLU:
             }
         )
 
-   
+        # land use classes that are assumed stable under reallocation
+        self.cats_lndu_stable_under_reallocation = self.model_attributes.filter_keys_by_attribute(
+            self.model_attributes.subsec_name_lndu,
+            {
+                "reallocation_stable_prevalence_category": 1
+            }
+        )
+
         return None
 
 
@@ -353,18 +361,24 @@ class AFOLU:
         model_attributes: Union[ModelAttributes, None] = None
     ) -> None:
         """
-        Initialize SISEPUEDE model classes for fetching variables and 
-            accessing methods. Initializes the following properties:
+        Initialize SISEPUEDE model classes for fetching variables and accessing 
+            methods. Initializes:
 
-            * self.model_enercons
-            * self.model_ippu
-            * self.model_socioeconomic
+            * SISEPUEDE Models
 
-            as well as additional associated categories, such as 
+                * self.model_enercons
+                * self.model_ippu
+                * self.model_socioeconomic
 
-            * self.cat_enfu_biomass
-            * self.cat_ippu_paper
-            * self.cat_ippu_wood
+            * Associated categories of interest
+
+                * self.cat_enfu_biomass
+                * self.cat_ippu_paper
+                * self.cat_ippu_wood
+
+            * The Land Use transition corrector optimization model
+
+                * self.q_adjuster
 
 
         Keyword Arguments
@@ -381,10 +395,24 @@ class AFOLU:
         self.model_socioeconomic = Socioeconomic(model_attributes)
 
         # key categories
-        self.cat_enfu_biomass = model_attributes.filter_keys_by_attribute(self.subsec_name_enfu, {"biomass_demand_category": 1})[0]
-        self.cat_ippu_paper = model_attributes.filter_keys_by_attribute(self.subsec_name_ippu, {"virgin_paper_category": 1})[0]
-        self.cat_ippu_wood = model_attributes.filter_keys_by_attribute(self.subsec_name_ippu, {"virgin_wood_category": 1})[0]
+        self.cat_enfu_biomass = model_attributes.filter_keys_by_attribute(
+            self.subsec_name_enfu, 
+            {"biomass_demand_category": 1, }
+        )[0]
+
+        self.cat_ippu_paper = model_attributes.filter_keys_by_attribute(
+            self.subsec_name_ippu, 
+            {"virgin_paper_category": 1}
+        )[0]
+
+        self.cat_ippu_wood = model_attributes.filter_keys_by_attribute(
+            self.subsec_name_ippu, 
+            {"virgin_wood_category": 1}
+        )[0]
         
+        # transition matrix adjuster
+        self.q_adjuster = suo.QAdjuster()
+
         return None
 
 
@@ -3547,6 +3575,214 @@ class AFOLU:
         ]
 
         return list_dfs_out
+
+
+
+    def qadj_adjust_transitions(self,
+        Q: np.ndarray,
+        x_0: np.ndarray,
+        dict_area_targets_exog: dict, 
+        vec_infimum_in: np.ndarray,
+        vec_supremum_in: np.ndarray,
+        area: Union[np.ndarray, None] = None,
+        x_proj_unadj: Union[np.ndarray, None] = None,
+        **kwargs,
+    ) -> Dict:
+        """
+        Format adjustment problem inputs
+
+        Function Arguments
+        ------------------
+        - Q: unadjusted transition matrix
+        - x_0: initial prevalence
+        - dict_area_targets_exog: dictionary mapping indices to fixed values 
+            from reallocation
+        - vec_infima_in: vector specifying class infima; use flag_ignore to set 
+            no infimum for a class
+        - vec_suprema_in: vector specifying class suprema; use flag_ignore to 
+            set no supremum for a class
+                
+        Keyword Arguments
+        -----------------
+        - area: optional specification of area for normalization
+        - x_proj_unadj: unadjusted projected land use derived from exogenously 
+            specified (unadjusted) transition matrix
+        """
+
+        # retrieve inputs that are normalized
+        (
+            Q,
+            x0,
+            xT,
+            vec_infimum,
+            vec_supremum,
+            costs_x,
+        ) = self.qadj_get_inputs(
+            Q,
+            x_0,
+            dict_area_targets_exog,
+            vec_infimum_in,
+            vec_supremum_in,
+            area = area,
+            x_proj_unadj = x_proj_unadj,
+        )
+
+        # run the optimization
+        out = self.q_adjuster.solve(
+            Q,
+            x0,
+            xT,
+            vec_infimum,
+            vec_supremum,
+            self.flag_ignore_constraint,
+            costs_x = costs_x, # definitely don't want to forget the prevalence costs   np.zeros(x0.shape),#
+            #thresh_to_zero = 0.0001
+            **kwargs,
+        )
+            
+        return out
+
+
+
+    def qadj_get_inputs(self,
+        Q: np.ndarray,
+        x_0: np.ndarray,
+        dict_area_targets_exog: dict, 
+        vec_infimum_in: np.ndarray,  # arr_lndu_constraints_inf[i]
+        vec_supremum_in: np.ndarray,  # arr_lndu_constraints_sup[i]
+        area: Union[np.ndarray, None] = None,  # vec_area[i]
+        x_proj_unadj: Union[np.ndarray, None] = None,
+    ) -> Tuple:
+        """
+        Format inputs to the QAdjuster for land use. Renormalizes vectors and 
+            builds costs for prevalence in objective function.
+
+        Function Arguments
+        ------------------
+        - Q: unadjusted transition matrix
+        - x_0: initial prevalence
+        - dict_area_targets_exog: dictionary mapping indices to fixed values 
+            from reallocation
+        - vec_infima_in: vector specifying class infima; use flag_ignore to set 
+            no infimum for a class
+        - vec_suprema_in: vector specifying class suprema; use flag_ignore to 
+            set no supremum for a class
+                
+        Keyword Arguments
+        -----------------
+        - area: optional specification of area for normalization
+        - x_proj_unadj: unadjusted projected land use derived from exogenously 
+            specified (unadjusted) transition matrix
+        """
+        # initialize the land area
+        area = x_0.sum() if not sf.isnumber(area) else area
+        x_proj_unadj = (
+            x_proj_unadj
+            if isinstance(x_proj_unadj, np.ndarray)
+            else np.dot(x_0, Q)
+        )
+
+        # get x target
+        x_target = self.qadj_get_x_target(
+            dict_area_targets_exog,
+            x_proj_unadj,
+        )
+
+        # get the infimum, supremum, and initial/target prevalence vectors
+        vec_infimum = self.qadj_normalize_vector_for_adjustment(vec_infimum_in, area, )
+        vec_supremum = self.qadj_normalize_vector_for_adjustment(vec_supremum_in, area, )
+        x0 = self.qadj_normalize_vector_for_adjustment(x_0, area, )
+        xT = self.qadj_normalize_vector_for_adjustment(x_target, area, )
+
+        # get costs for prevalence targets--ignore those that don't need to hit a target
+        costs_x = dict(
+            (i, 0) for i, v in enumerate(xT) if (v == self.flag_ignore_constraint)
+        )
+
+        out = (
+            Q,
+            x0,
+            xT,
+            vec_infimum,
+            vec_supremum,
+            costs_x,
+        )
+
+        return out
+
+
+
+
+    def qadj_get_x_target(self,
+        dict_area_targets_exog: dict,
+        x_proj_unadj: np.ndarray,
+        attr_lndu: Union[AttributeTable, None] = None,
+    ) -> np.ndarray:
+        """
+        Get vector of target land use prevalence areas.
+
+        Function Arguments
+        ------------------
+        - dict_area_targets_exog: dictionary mapping indices to fixed values
+        - x_proj_unadj: unadjusted projected land use derived from 
+            exogenously specified (unadjusted) transition matrix
+
+        Keyword Arguments
+        -----------------
+        - attr_lndu: Land use attribute table
+        """
+        
+        # get the attribute table and initialize values
+        attr_lndu = (
+            self.model_attributes.get_attribute_table(
+                self.model_attributes.subsec_name_lndu,
+            )
+            if attr_lndu is None
+            else attr_lndu
+        )
+
+        # initialize the target using flags and any stable categories
+        x_target = self.flag_ignore_constraint*np.ones(attr_lndu.n_key_values, )
+        for cat in self.cats_lndu_stable_under_reallocation:
+            ind = attr_lndu.get_key_value_index(cat)
+            x_target[ind] = x_proj_unadj[ind]
+        
+        if not isinstance(dict_area_targets_exog, dict):
+            return x_target
+
+        # try overwriting entries with dictionary specification
+        for k, v in dict_area_targets_exog.items():
+            try:
+                x_target[k] = v
+            except: 
+                continue
+                
+        return x_target
+
+
+
+    def qadj_normalize_vector_for_adjustment(self,
+        vec: np.ndarray,
+        area: float,
+    ) -> Union[np.ndarray, None]:
+        """
+        Normalize an input prevalence vector for use in the optimization. Divides
+            non-flag entries by the total area. Returns None if any input is 
+            invalid. 
+        """
+        # check inputs
+        return_none = not isinstance(vec, np.ndarray)
+        return_none |= not sf.isnumber(area)
+        if return_none:
+            return None
+
+        # 
+        vec_out = vec.copy()
+        vec_out[vec_out != self.flag_ignore_constraint] /= area
+
+        return vec_out
+    
+
 
 
 
