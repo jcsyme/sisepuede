@@ -1671,7 +1671,21 @@ class Strategies:
         trans_code = []
         trans_name = []
         
+        tab = self.attribute_table.table
+        all_codes = tab[self.field_strategy_code].unique()
+        all_names = tab[self.field_strategy_name].unique()
+
         for i, code in enumerate(codes):
+            
+            # verify that the new code and name are unique
+            code_new = f"{code_prepend}:{code}"
+            name_new = f"Remove {code} from {strat.name}"
+
+            continue_q = (code_new in all_codes + trans_code) 
+            continue_q |= (name_new in all_names + trans_name)
+            if continue_q:
+                continue
+            
             
             if i == 0:
                 codes_cur = codes[i+1:]
@@ -1683,8 +1697,8 @@ class Strategies:
                 codes_cur = codes[0:i] + codes[i + 1:]
         
             trans_specs.append(delim.join(codes_cur))
-            trans_code.append(f"{code_prepend}:{code}")
-            trans_name.append(f"Remove {code} from {strat.name}")
+            trans_code.append(code_new)
+            trans_name.append(name_new)
 
 
         ##  BUILD IDS
