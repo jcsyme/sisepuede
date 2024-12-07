@@ -1683,8 +1683,8 @@ class Strategies:
         trans_name = []
         
         tab = self.attribute_table.table
-        all_codes = tab[self.field_strategy_code].unique()
-        all_names = tab[self.field_strategy_name].unique()
+        all_codes = list(tab[self.field_strategy_code].unique())
+        all_names = list(tab[self.field_strategy_name].unique())
 
         for i, code in enumerate(codes):
             
