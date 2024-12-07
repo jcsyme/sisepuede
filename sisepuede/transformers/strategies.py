@@ -1635,7 +1635,7 @@ class Strategies:
     def build_whirlpool_strategies(self,
         strategy: Union[int, str, None],
         code_prepend: str = "WHIRLPOOL",
-        delim: Union[str, None] = None,
+        delim: Union[str, None] = "|",
         ids: Union[None, List[int]] = None,
     ) -> pd.DataFrame:
         """
@@ -1655,13 +1655,15 @@ class Strategies:
         """
         # get the strategy and transformation codes asociated with it
         strat = self.get_strategy(strategy, )
+        if strat is None:
+            return None
+        
         transformations_deconstruct = strat.get_transformation_list(
             strat.transformation_specification,
             self.transformations,
         )
         codes = sorted([x.code for x in transformations_deconstruct])
 
-        delim = delim
 
         ##  START BUILDING FIELDS
         
