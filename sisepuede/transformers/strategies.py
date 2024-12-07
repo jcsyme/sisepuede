@@ -1728,7 +1728,9 @@ class Strategies:
                 self.field_transformation_specification: trans_specs,
             }
         )
-        
+
+        df_out = df_out[self.attribute_table.table.columns]
+                
         return df_out
     
 
