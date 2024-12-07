@@ -1629,6 +1629,94 @@ class Strategies:
             dict_update[sector_abv].update(dict_write_cur)
 
         return dict_update
+
+
+
+    def build_whirlpool_strategies(self,
+        strategy: Union[int, str, None],
+        code_prepend: str = "WHIRLPOOL",
+        delim: Union[str, None] = None,
+        ids: Union[None, List[int]] = None,
+    ) -> pd.DataFrame:
+        """
+        Build strategies designed by removing transformations 1-by-1 from a strategy
+            (whirlpool--kind of the inverse of a tornado)
+
+        Function Arguments
+        ------------------
+        - strategy: strategy to remove from
+        
+        Keyword Arguments
+        -----------------
+        - code_prepend: code to prepend 
+        - delim: delimiter used to split transformation specifications
+        - ids: optional specification of IDs. If None, automatically starts 1 above\
+            highest define strategy id.
+        """
+        # get the strategy and transformation codes asociated with it
+        strat = self.get_strategy(strategy, )
+        transformations_deconstruct = strat.get_transformation_list(
+            strat.transformation_specification,
+            self.transformations,
+        )
+        codes = sorted([x.code for x in transformations_deconstruct])
+
+        delim = delim
+
+        ##  START BUILDING FIELDS
+        
+        trans_specs = []
+        trans_code = []
+        trans_name = []
+        
+        for i, code in enumerate(codes):
+            
+            if i == 0:
+                codes_cur = codes[i+1:]
+        
+            elif i == len(codes) - 1:
+                codes_cur = codes[0:-1]
+        
+            else:
+                codes_cur = codes[0:i] + codes[i + 1:]
+        
+            trans_specs.append(delim.join(codes_cur))
+            trans_code.append(f"{code_prepend}:{code}")
+            trans_name.append(f"Remove {code} from {strat.name}")
+
+
+        ##  BUILD IDS
+
+        keys = self.attribute_table.key_values
+        max_id = max(self.attribute_table.key_values)
+
+        build_ids = not sf.islistlike(ids)
+        if not build_ids:
+            ids = [x for x in ids if x not in keys]
+            build_ids = len(ids) != len(trans_specs)
+                
+
+        ids = (
+            list(range(max_id + 1, max_id + len(trans_specs) + 1))
+            if build_ids
+            else ids
+        )
+
+
+        ##  BUILD OUTPUT TABLE
+
+        df_out = pd.DataFrame(
+            {
+                self.attribute_table.key: ids,
+                self.field_baseline_strategy: np.zeros(len(trans_specs)),
+                self.field_description: ["" for x in trans_specs],
+                self.field_strategy_code: trans_code,
+                self.field_strategy_name: trans_name,
+                self.field_transformation_specification: trans_specs,
+            }
+        )
+        
+        return df_out
     
 
 
