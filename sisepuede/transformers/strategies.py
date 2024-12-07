@@ -270,15 +270,16 @@ class Strategy:
             _DICT_KEYS.get("name")
         )
 
-        # get identifiers
-        code = kwargs.get("strategy_code")
+        # get identifiers--
+        self.code = kwargs.get("strategy_code")
         id_num = strategy_id
-        name = kwargs.get("strategy_name")
+        self.name = kwargs.get("strategy_name")
 
-        # set any attributes specified in the dictionary
+        # set any attributes specified in the dictionary--can pass name and code here
         if isinstance(dict_attributes, dict):
             for k, v in dict_attributes.items():
-                if hasattr(self, k):
+                attr_try = getattr(self, k, None)
+                if attr_try is not None:
                     continue
 
                 setattr(self, str(k), v)
@@ -286,9 +287,7 @@ class Strategy:
         
         ##  SET PROPERTIES
 
-        self.code = code
         self.id_num = id_num
-        self.name = name
         self.key_strategy = key_strategy
         self.field_description = field_description
         self.field_strategy_code = field_strategy_code
