@@ -93,6 +93,7 @@ class Strategy:
         self._initialize_function(
             transformation_codes,
             transformations,
+            delim = delim,
         )
 
         self._initialize_table(
@@ -129,11 +130,13 @@ class Strategy:
     def _initialize_function(self,
         transformation_codes: Union[str, List[Union[str, int]]],
         transformations: trn.Transformations,
+        delim: str = "|",
     ) -> None:
         """
         Initialize the transformation function. Sets the following
             properties:
 
+            * self.delimiter_transformation_codes
             * self.function
             * self.function_list (list of callables, even if one callable is 
                 passed. Allows for quick sharing across classes)
@@ -146,6 +149,7 @@ class Strategy:
         func = self.get_transformation_list(
             transformation_codes,
             transformations,
+            delim = delim,
         )
 
 
@@ -201,6 +205,7 @@ class Strategy:
         if function is None:
             raise ValueError(f"Invalid type {type(func)}: the object 'func' is not callable.")
         
+        self.delimiter_transformation_codes = delim
         self.function = function
         self.function_list = function_list
         
