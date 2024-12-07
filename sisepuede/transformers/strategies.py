@@ -1642,10 +1642,10 @@ class Strategies:
         code_prepend: str = "WHIRLPOOL",
         delim: Union[str, None] = None,
         ids: Union[None, List[int]] = None,
-    ) -> pd.DataFrame:
+    ) -> Union[pd.DataFrame, None]:
         """
-        Build strategies designed by removing transformations 1-by-1 from a strategy
-            (whirlpool--kind of the inverse of a tornado)
+        Build strategies designed by removing transformations 1-by-1 from a 
+            strategy (whirlpool--kind of the inverse of a tornado)
 
         Function Arguments
         ------------------
@@ -1655,11 +1655,14 @@ class Strategies:
         -----------------
         - code_prepend: code to prepend 
         - delim: delimiter used to split transformation specifications
-        - ids: optional specification of IDs. If None, automatically starts 1 above\
-            highest define strategy id.
+        - ids: optional specification of IDs. If None, automatically starts 1 
+            above the highest defined strategy id.
         """
         # get the strategy and transformation codes asociated with it
         strat = self.get_strategy(strategy, )
+        if strat is None:
+            return None
+        
         transformations_deconstruct = strat.get_transformation_list(
             strat.transformation_specification,
             self.transformations,
