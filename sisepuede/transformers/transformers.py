@@ -5230,7 +5230,7 @@ class Transformers:
             vec_implementation_ramp_renewable_cap,
             vec_msp_resolution_cap,
         ) = self.get_vectors_for_ramp_and_cap(
-            categories_entc_max_investment_ramp = categories_entc_max_investment_ramp,
+            categories_entc_max_investment_ramp = cats_entc_max_investment_ramp,
             vec_implementation_ramp = vec_implementation_ramp,
         )
 
