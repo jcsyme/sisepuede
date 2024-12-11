@@ -7,6 +7,6 @@ Forests - Secondary,``forests_secondary``,"Area of land covered in secondary for
 Unmanaged Grasslands,``grasslands``,"Area of unmanaged grasslands, including native praries, steppe, and avanna. ",,,,none,1,0,0,0,0,1,0,0,0,0,0
 Other,``other``,"Other land use categories, including permanent snow and glaciers, barren land, sand dunes, etc.",,,,none,0,0,0,0,0,0,1,0,0,0,0
 Pastures,``pastures``,Pastures are managed grasslands used for grazing. They are ,,,,none,0,0,0,0,0,0,0,1,0,0,0
-Settlements,``settlements``,Area of land devoted to urban/suburban development. Assume no emissions from land use (primary emissions captured elsewhere).,,,,none,0,0,0,0,0,0,0,0,1,0,0
+Settlements,``settlements``,Area of land devoted to urban/suburban development. Assume no emissions from land use (primary emissions captured elsewhere).,,,,none,0,0,1,0,0,0,0,0,1,0,0
 Shrublands,``shrublands``,"Shrublands, including  and chapparal; lands with some sequestration but without uses for forestry or grazing. ",,,,none,0,0,0,0,0,0,0,0,0,1,0
 Wetlands,``wetlands``,"Wetlands, which emit :math:`\text{CH}_4`",,,,none,0,0,0,0,0,0,0,0,0,0,1

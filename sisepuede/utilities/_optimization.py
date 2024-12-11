@@ -543,7 +543,7 @@ class QAdjuster:
         cost_factor_prev_default = (
             cost_factor_prev_default
             if sf.isnumber(cost_factor_prev_default)
-            else 1000*costs_transition.sum()
+            else 10000*costs_transition.sum()
         )
 
         if isinstance(costs_x, np.ndarray):
@@ -628,7 +628,7 @@ class QAdjuster:
             **kwargs,
         )
 
-        #
+        # 
         M_prev, c_prev = self.get_qp_component_vectors_euclidean_prevalence(
             x_0, 
             x_target, 

@@ -2205,7 +2205,9 @@ class AFOLU:
 
         arr_lndu_avg_soc = 0.0
         cats_lndu = list(set(sum([self.model_attributes.get_variable_categories(x) for x in dict_soil_fracs_to_use_lndu.keys()], [])))
+        cats_lndu = [x for x in attr_lndu.key_values if x in cats_lndu]
         inds_lndu = sorted([attr_lndu.get_key_value_index(x) for x in cats_lndu])
+        w_pstr = np.where(np.array(inds_lndu) == self.ind_lndu_pstr)[0]
 
         for modvar, arr_frac in dict_soil_fracs_to_use_lndu.items():
             # soil category
@@ -2214,7 +2216,11 @@ class AFOLU:
 
             #
             arr_lndu_avg_soc_cur = arr_lndu_area[:, inds_lndu]*arr_frac[:, inds_lndu]
-            vec_soil_ef1_soc_est += arr_lndu_avg_soc_cur[:, self.ind_lndu_pstr]*arr_soil_ef1_organic[:, ind_soil]/vec_soil_area_crop_pasture
+            vec_soil_ef1_soc_est += (
+                arr_lndu_avg_soc_cur[:, w_pstr[0]]*arr_soil_ef1_organic[:, ind_soil]/vec_soil_area_crop_pasture
+                if len(w_pstr) > 0
+                else 0.0
+            )
 
             # get average SOC for the curent soil type
             arr_lndu_avg_soc_cur = np.nan_to_num(arr_lndu_avg_soc_cur/arr_lndu_area[:, inds_lndu], 0.0, posinf = 0.0).transpose()
@@ -4368,7 +4374,8 @@ class AFOLU:
             # biomass sequestration
             self.model_attributes.array_to_df(
                 arr_lndu_sequestration_co2e, 
-                self.modvar_lndu_emissions_co2_sequestration
+                self.modvar_lndu_emissions_co2_sequestration,
+                reduce_from_all_cats_to_specified_cats = True,
             )
         ]
         """
@@ -4423,6 +4430,7 @@ class AFOLU:
             force_sum_equality = True,
             msg_append = "Land use dry/wet fractions by category do not sum to 1. See definition of dict_arrs_lndu_frac_drywet.",
         )
+        self.dict_arrs_lndu_frac_drywet = dict_arrs_lndu_frac_drywet
         # land use fractions in temperate/tropical climate
         dict_arrs_lndu_frac_temptrop = self.model_attributes.get_multivariables_with_bounded_sum_by_category(
             df_afolu_trajectories,
@@ -5512,7 +5520,7 @@ class AFOLU:
             arr_agrc_frac_cropland,
             dict_agrc_frac_residues_removed_burned,
         )
-        self.arr_lndu_factor_soil_management = arr_lndu_factor_soil_management
+
         df_out += [
             self.model_attributes.array_to_df(
                 arr_lndu_area_improved*scalar_lndu_input_area_to_output_area,
