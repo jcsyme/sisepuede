@@ -648,7 +648,6 @@ class AFOLU:
         self.modvar_lndu_factor_soil_inputs_supremum_no_manure = "Maximum Soil Carbon Land Input Factor Without Manure"
         self.modvar_lndu_frac_dry = "Land Use Fraction Dry"
         self.modvar_lndu_frac_fertilized = "Land Use Fraction Fertilized"
-        self.modvar_lndu_frac_grassland_that_is_pasture = "Pasture Fraction of Grassland"
         self.modvar_lndu_frac_increasing_net_exports_met = "Fraction of Increasing Net Exports Met"
         self.modvar_lndu_frac_increasing_net_imports_met = "Fraction of Increasing Net Imports Met"
         self.modvar_lndu_frac_mineral_soils = "Fraction of Soils Mineral"
@@ -1495,12 +1494,12 @@ class AFOLU:
         default_fmg_grassland_not_pasture: float = 1.0,
     ) -> Tuple[np.ndarray, np.ndarray]:
         """
-        Generate soild soc factors and areas of land-use types under 
-            improved management (in terms of configuration units).
+        Generate soild soc factors and areas of land-use types under improved 
+            management (in terms of configuration units).
         
-        NOTE: Treats F_I and F_MG as independent; right now, F_I is scaled
-            by the fraction of residues that are not removed or burned, and
-            it is assumed that inputs can be used without no till.
+        NOTE: Treats F_I and F_MG as independent; right now, F_I is scaled by 
+            the fraction of residues that are not removed or burned, and it is 
+            assumed that inputs can be used without no till.
 
         Returns a tuple of np.ndarrays
 
@@ -1596,7 +1595,7 @@ class AFOLU:
         vec_lndu_fmg_cropland *= vec_agrc_inputs_component
 
 
-        ##  2. GET GRASSLAND FACTOR
+        ##  2. GET PASTURE (AND GRASSLAND) FACTOR
 
         # get pasture
         vec_lndu_fmg_pasture = (1 - vec_lndu_frac_pastures_improved)*arr_lndu_factor_soil_management_inf[:, self.ind_lndu_pstr]
@@ -2208,33 +2207,36 @@ class AFOLU:
         cats_lndu = list(set(sum([self.model_attributes.get_variable_categories(x) for x in dict_soil_fracs_to_use_lndu.keys()], [])))
         inds_lndu = sorted([attr_lndu.get_key_value_index(x) for x in cats_lndu])
 
-        for modvar in dict_soil_fracs_to_use_lndu.keys(): #HEREHEREHERE
+        for modvar, arr_frac in dict_soil_fracs_to_use_lndu.items():
             # soil category
             cat_soil = clean_schema(self.model_attributes.get_variable_attribute(modvar, attr_soil.key))
             ind_soil = attr_soil.get_key_value_index(cat_soil)
 
-            # get soil management factor for grasslands HEREHEREHERE
-            arr_lndu_soil_management_factor_cur = (1 - vec_lndu_frac_grassland_pasture) + vec_lndu_frac_grassland_pasture*arr_lndu_factor_soil_management[:, inds_lndu].transpose()
-
             #
-            arr_lndu_avg_soc_cur = arr_lndu_area[:, inds_lndu]*dict_soil_fracs_to_use_lndu[modvar][:, inds_lndu]
-            vec_soil_ef1_soc_est += arr_lndu_avg_soc_cur[:, self.ind_lndu_grss]*arr_soil_ef1_organic[:, ind_soil]*vec_lndu_frac_grassland_pasture/vec_soil_area_crop_pasture
+            arr_lndu_avg_soc_cur = arr_lndu_area[:, inds_lndu]*arr_frac[:, inds_lndu]
+            vec_soil_ef1_soc_est += arr_lndu_avg_soc_cur[:, self.ind_lndu_pstr]*arr_soil_ef1_organic[:, ind_soil]/vec_soil_area_crop_pasture
 
+            # get average SOC for the curent soil type
             arr_lndu_avg_soc_cur = np.nan_to_num(arr_lndu_avg_soc_cur/arr_lndu_area[:, inds_lndu], 0.0, posinf = 0.0).transpose()
-            arr_lndu_avg_soc_cur *= arr_soil_soc_stock[:, ind_soil]*arr_lndu_factor_soil_carbon[:, inds_lndu].transpose()*arr_lndu_soil_management_factor_cur
+            arr_lndu_avg_soc_cur *= arr_soil_soc_stock[:, ind_soil]*arr_lndu_factor_soil_carbon[:, inds_lndu].transpose()
+            arr_lndu_avg_soc_cur *= arr_lndu_factor_soil_management[:, inds_lndu].transpose()
+
+            # add to weighted average
             arr_lndu_avg_soc += arr_lndu_avg_soc_cur.transpose()*arr_lndu_frac_mineral_soils[:, inds_lndu]
 
-        for i in enumerate(inds_lndu):
-            i, ind = i
+
+        for i, ind in enumerate(inds_lndu):
             dict_lndu_avg_soc_vecs.update({ind: arr_lndu_avg_soc[:, i]})
 
 
         ##  UPDATE SOURCE/TARGET ARRAYS USING AVERAGE SOC
 
-        for k in dict_lndu_avg_soc_vecs.keys():
-            vec = dict_lndu_avg_soc_vecs[k]
+        for k, v in dict_lndu_avg_soc_vecs.items():
+            # ensure we're not overwriting dict
+            vec = v.copy()
             w = np.where(vec != 0)[0]
             vec = np.interp(range(len(vec)), w, vec[w]) if (len(w) > 0) else vec
+
             for i in range(n_tp):
                 arrs_delta_soc_source[i, k, :] = vec[i]
                 arrs_delta_soc_target[i, :, k] = vec[i]
@@ -4007,7 +4009,7 @@ class AFOLU:
             return_type = "array_base",
         )
 
-        # get constraints to pass HEREHERE
+        # get constraints to pass
         (
             arr_lndu_constraints_inf,
             arr_lndu_constraints_sup,
@@ -4029,14 +4031,6 @@ class AFOLU:
             df_afolu_trajectories,
             self.modvar_lndu_frac_increasing_net_imports_met,
             expand_to_all_cats = True,
-            return_type = "array_base",
-            var_bounds = (0, 1),
-        )
-
-        # get fraction of grassland that is pasture
-        vec_lndu_frac_grassland_pasture = self.model_attributes.extract_model_variable(#
-            df_afolu_trajectories,
-            self.modvar_lndu_frac_grassland_that_is_pasture,
             return_type = "array_base",
             var_bounds = (0, 1),
         )
@@ -5152,10 +5146,7 @@ class AFOLU:
         )
         vec_soil_n_fertilizer_use_synthetic_urea = vec_soil_n_fertilizer_use_synthetic*vec_soil_frac_synthetic_fertilizer_urea
         vec_soil_n_fertilizer_use_synthetic_nonurea = vec_soil_n_fertilizer_use_synthetic - vec_soil_n_fertilizer_use_synthetic_urea
-        
-        # next, initialize the component n_inputs (N20_DIRECT-N from equation 11.1)
-        arr_soil_n_inputs = 0.0
-        arr_soil_area_by_drywet = 0.0
+
 
         arr_soil_ef1_organic = self.model_attributes.extract_model_variable(#
             df_afolu_trajectories, 
@@ -5520,7 +5511,6 @@ class AFOLU:
             arr_land_use,
             arr_agrc_frac_cropland,
             dict_agrc_frac_residues_removed_burned,
-            vec_lndu_frac_grassland_pasture,
         )
         self.arr_lndu_factor_soil_management = arr_lndu_factor_soil_management
         df_out += [
@@ -5531,7 +5521,7 @@ class AFOLU:
             )
         ]
 
-        # get carbon stocks and ratio of c to n - conver to self.modvar_lsmm_n_to_fertilizer_agg_dung units for N2O/EF1
+        # get carbon stocks and ratio of c to n - convert to self.modvar_lsmm_n_to_fertilizer_agg_dung units for N2O/EF1
         arr_lndu_factor_soil_carbon = self.model_attributes.extract_model_variable(#
             df_afolu_trajectories,
             self.modvar_lndu_factor_soil_carbon,
@@ -5615,6 +5605,7 @@ class AFOLU:
         vec_soil_emission_co2_soil_carbon_mineral = -self.factor_c_to_co2*vec_soil_delta_soc_mineral
         vec_soil_emission_co2_soil_carbon_mineral *= self.model_attributes.get_scalar(self.modvar_lsmm_n_to_fertilizer_agg_dung, "mass")
         vec_soil_emission_co2_soil_carbon_mineral *= self.model_attributes.get_gwp("co2")
+        
         # get soil carbon from organic drained soils
         vec_soil_emission_co2_soil_carbon_organic *= self.factor_c_to_co2*self.model_attributes.get_gwp("co2")
 
@@ -5664,13 +5655,13 @@ class AFOLU:
             vec_soil_crop_temptrop_cur *= arr_lndu_frac_organic_soils[:, self.ind_lndu_crop]*arr_soil_ef2[:, ind_soil]
             vec_soil_n2on_direct_organic += vec_soil_crop_temptrop_cur
         
-        # loop over dry/wet to estimate carbon stocks in grassland
+        # loop over dry/wet to estimate carbon stocks in pastures (managed grasslands)
         for modvar in self.modvar_list_lndu_frac_temptrop:
             # soil category
             cat_soil = clean_schema(self.model_attributes.get_variable_attribute(modvar, pycat_soil))
             ind_soil = attr_soil.get_key_value_index(cat_soil)
-            vec_soil_pstr_temptrop_cur = (arr_land_use*dict_arrs_lndu_frac_temptrop[modvar])[:, self.ind_lndu_grss]
-            vec_soil_pstr_temptrop_cur *= arr_lndu_frac_organic_soils[:, self.ind_lndu_grss]*arr_soil_ef2[:, ind_soil]
+            vec_soil_pstr_temptrop_cur = (arr_land_use*dict_arrs_lndu_frac_temptrop[modvar])[:, self.ind_lndu_pstr]
+            vec_soil_pstr_temptrop_cur *= arr_lndu_frac_organic_soils[:, self.ind_lndu_pstr]*arr_soil_ef2[:, ind_soil]
             vec_soil_n2on_direct_organic += vec_soil_pstr_temptrop_cur
         
         # loop over tropical/temperate NP/temperate NR

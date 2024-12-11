@@ -2493,7 +2493,7 @@ class EnergyConsumption:
                 if (arr_ef_production_flaring is not None) 
                 else 0.0
             )
-
+            
             arr_fgtv_ef_fv = arr_fgtv_ef_fv_flare + arr_fgtv_ef_fv_vent
             arr_fgtv_ef_fv += sf.do_array_mult(arr_ef_production_fugitive, 1 - vec_fgtv_reduction_leaks)
             
@@ -2505,7 +2505,7 @@ class EnergyConsumption:
             )
 
             arr_fgtv_emit_production = arr_fgtv_production*arr_fgtv_ef_fv
-
+            
             arr_fgtv_emit_transmission = (
                 sf.do_array_mult(
                     arr_ef_transmission*(arr_fgtv_production + arr_fgtv_imports), 

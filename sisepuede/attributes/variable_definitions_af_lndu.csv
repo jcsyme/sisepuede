@@ -49,7 +49,6 @@ Input,Maximum Soil Carbon Land Management Factor," | See :math:`F_{MG}` in Equat
 Input,Minimum Area," | Minimum allowable area for a given category--can be used to bound feasible transitions based on geography and climate constraints OR implement conservation transformations.
  | 
  | To run without a constraint, use -999",``area_lndu_infimum_$CAT-LANDUSE$_$UNIT-AREA$`` (``$UNIT-AREA$ = ha``),all,,-999,1,1,,0,none,,,
-Input,Pasture Fraction of Grassland,Proportion of grasslands that are available as pastures. Used in land use reallocation and fertilizer application.,``frac_lndu_proportion_$CAT-LANDUSE$_pasture``,``grasslands``,,0,1,1,,0,none,,,
 Input,Soil Carbon Land Use Factor,"See :math:`F_{LU}` in Equation 2.25 and Box 2.2, V4, C2 IPPC GNGHGI (2019R)",``factor_lndu_soil_carbon_$CAT-LANDUSE$``,all,,0,1,1,,0,none,,,
 Input,Unadjusted Land Use Transition Probability,Transition probability in Markov Chain model,``pij_lndu_$CAT-LANDUSE-DIM1$_to_$CAT-LANDUSE-DIM2$``,all,,0,1,1,2,0,none,,,
 Input,Unimproved Soil Carbon Land Management Factor," | See :math:`F_{MG}` in Equation 2.25 and Box 2.2, V4, C2 IPPC GNGHGI (2019R). 
