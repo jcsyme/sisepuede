@@ -6,10 +6,10 @@ Multiple or layered crops,croplands
 Grassland,grasslands
 Tree-covered areas,forests_agg
 Mangroves,forests_mangroves
-Shrub-covered areas,grasslands
-"Shrubs and/or herbaceous vegetation, aquatic or regularly flooded",other
+Shrub-covered areas,shrublands
+"Shrubs and/or herbaceous vegetation, aquatic or regularly flooded",wetlands
 Sparsely natural vegetated areas,other
 Terrestrial barren land,other
 Permanent snow and glaciers,other
-Inland water bodies,wetlands
-Coastal water bodies and intertidal areas,none
+Inland water bodies,flooded
+Coastal water bodies and intertidal areas,flooded
