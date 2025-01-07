@@ -68,5 +68,7 @@ SISEPUEDE does not calculate a general equilibrium for land use demand. Instead,
 
 Adjusting the Land Use Transition Matrix
 ========================================
+here!
 
-**Description of adjustment process here**
+.. raw:: latex
+    :file: ../latex/land_use_optimization.tex
