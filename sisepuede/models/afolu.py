@@ -12,6 +12,7 @@ from sisepuede.core.model_attributes import *
 from sisepuede.models.energy_consumption import EnergyConsumption
 from sisepuede.models.ippu import IPPU
 from sisepuede.models.socioeconomic import Socioeconomic
+import sisepuede.utilities._npp_curves as npp
 import sisepuede.utilities._optimization as suo
 import sisepuede.utilities._toolbox as sf
 
@@ -27,9 +28,8 @@ _MODULE_UUID = "53E0A234-5674-47C8-B950-5A419EEAAF00"
 ##########################
 
 class AFOLU:
-    """
-    Use AFOLU to calculate emissions from Agriculture, Forestry, and Land Use in
-        SISEPUEDE. Includes emissions from the following subsectors:
+    """Use AFOLU to calculate emissions from Agriculture, Forestry, and Land Use 
+        in SISEPUEDE. Includes emissions from the following subsectors:
 
         * Agriculture (AGRC)
         * Forestry (FRST)
@@ -45,17 +45,33 @@ class AFOLU:
 
     Intialization Arguments
     -----------------------
-    - model_attributes: ModelAttributes object used in SISEPUEDE
+    model_attributes : ModelAttributes
+        ModelAttributes object used in SISEPUEDE to manage variables and 
+        categories
 
     Optional Arguments
     ------------------
-    - logger: optional logger object to use for event logging
+    - dynamic_npp_curve : Union[str, npp.NPPCurve, None] 
+        Optional specification of an NPP curve to use for dynamic forest 
+        sequestration. In dynamic forest sequestration, forest sequestration 
+        factors are used to fit NPP (net primary productivity) curves, which 
+        vary over time. In general, young secondary forests sequester much more 
+        than older secondary forests, with much of the annual growth 
+        concentrated in the first 5-50 years. 
+
+        * None or invalid entry: dynamic NPP is not used
+        * "gamma": use the gamma function
+        * "sem": use the SEM function 
+
+    logger : Union[logging.Logger, None]
+        optional logger object to use for event logging
     """
 
     def __init__(self,
         attributes: ModelAttributes,
-        logger: Union[logging.Logger, None] = None
-    ):
+        dynamic_npp_curve: Union[str, npp.NPPCurve, None] = None,
+        logger: Union[logging.Logger, None] = None,
+    ) -> None:
 
         self.logger = logger
         self.model_attributes = attributes
@@ -73,7 +89,9 @@ class AFOLU:
         self._initialize_subsector_vars_lvst()
         self._initialize_subsector_vars_soil()
 
-        self._initialize_models()
+        self._initialize_models(
+            dynamic_npp_curve = dynamic_npp_curve,
+        )
         self._initialize_integrated_variables()
         self._initialize_other_properties()
 
@@ -358,7 +376,8 @@ class AFOLU:
 
 
     def _initialize_models(self,
-        model_attributes: Union[ModelAttributes, None] = None
+        dynamic_npp_curve: Union[str, npp.NPPCurve, None] = None,
+        model_attributes: Union[ModelAttributes, None] = None,
     ) -> None:
         """
         Initialize SISEPUEDE model classes for fetching variables and accessing 
@@ -376,6 +395,10 @@ class AFOLU:
                 * self.cat_ippu_paper
                 * self.cat_ippu_wood
 
+            * NPP Curve fitting for dynamic forest sequestration
+
+                * self.curves_npp
+
             * The Land Use transition corrector optimization model
 
                 * self.q_adjuster
@@ -383,35 +406,65 @@ class AFOLU:
 
         Keyword Arguments
         -----------------
+        - dynamic_npp_curve: specification of dynamic NPP curve. Set to None
+            to use default secondary forest factor. 
         - model_attributes: ModelAttributes object used to instantiate
             models. If None, defaults to self.model_attributes.
         """
 
-        model_attributes = self.model_attributes if (model_attributes is None) else model_attributes
+        model_attributes = (
+            self.model_attributes 
+            if (model_attributes is None) 
+            else model_attributes
+        )
 
         # add other model classes--required for integration variables
-        self.model_enercons = EnergyConsumption(model_attributes)
-        self.model_ippu = IPPU(model_attributes)
-        self.model_socioeconomic = Socioeconomic(model_attributes)
+        model_enercons = EnergyConsumption(model_attributes)
+        model_ippu = IPPU(model_attributes)
+        model_socioeconomic = Socioeconomic(model_attributes)
 
         # key categories
-        self.cat_enfu_biomass = model_attributes.filter_keys_by_attribute(
+        cat_enfu_biomass = model_attributes.filter_keys_by_attribute(
             self.subsec_name_enfu, 
             {"biomass_demand_category": 1, }
         )[0]
 
-        self.cat_ippu_paper = model_attributes.filter_keys_by_attribute(
+        cat_ippu_paper = model_attributes.filter_keys_by_attribute(
             self.subsec_name_ippu, 
             {"virgin_paper_category": 1}
         )[0]
 
-        self.cat_ippu_wood = model_attributes.filter_keys_by_attribute(
+        cat_ippu_wood = model_attributes.filter_keys_by_attribute(
             self.subsec_name_ippu, 
             {"virgin_wood_category": 1}
         )[0]
         
-        # transition matrix adjuster
-        self.q_adjuster = suo.QAdjuster()
+
+        ##  SET CLASSES USED TO SOLVE SOME INTERNAL PROBLEMS
+
+        # used to adjust transition matrices using Quadratic Programming
+        q_adjuster = suo.QAdjuster()
+
+        # used to fit NPP curves numerically
+        curves_npp = npp.NPPCurves([])
+        dynamic_npp_curve = (
+            dynamic_npp_curve 
+            if dynamic_npp_curve in curves_npp.curves
+            else None
+        )
+
+
+        ##  SET PROPERTIES
+
+        self.cat_enfu_biomass = cat_enfu_biomass
+        self.cat_ippu_paper = cat_ippu_paper
+        self.cat_ippu_wood = cat_ippu_wood
+        self.curves_npp = curves_npp
+        self.dynamic_npp_curve = dynamic_npp_curve
+        self.model_enercons = model_enercons
+        self.model_ippu = model_ippu
+        self.model_socioeconomic = model_socioeconomic
+        self.q_adjuster = q_adjuster
 
         return None
 
@@ -589,6 +642,7 @@ class AFOLU:
         self.modvar_frst_hwp_half_life_paper = "HWP Half Life Paper"
         self.modvar_frst_hwp_half_life_wood = "HWP Half Life Wood"
         self.modvar_frst_sq_co2 = "Forest Sequestration Emission Factor"
+        self.modvar_frst_sq_co2_young_secondary = "Young Secondary Forest Sequestration Emission Factor"
         self.modvar_frst_init_per_hh_wood_demand = "Initial Per Household Wood Demand"
         
         #additional lists
@@ -612,6 +666,14 @@ class AFOLU:
             {"secondary_forest_category": 1}
         )[0]
 
+        # assign indicies
+        attr_frst = self.model_attributes.get_attribute_table(
+            self.model_attributes.subsec_name_frst,
+        )
+
+        self.ind_frst_mang = attr_frst.get_key_value_index(self.cat_frst_mang, )
+        self.ind_frst_prim = attr_frst.get_key_value_index(self.cat_frst_prim, )
+        self.ind_frst_scnd = attr_frst.get_key_value_index(self.cat_frst_scnd, )
 
         return None
 
@@ -1318,6 +1380,296 @@ class AFOLU:
             raise ValueError(msg)
 
         return None
+    
+
+
+    def format_transition_matrix_as_input_dataframe(self,
+        mat: np.ndarray,
+        exclude_time_period: bool = False,
+        field_key: str = "key",
+        key_vals: Union[List[str], None] = None,
+        modvar: Union[str, None] = None,
+        vec_time_periods: Union[List, np.ndarray, None] = None,
+    ) -> Union[pd.DataFrame, None]:
+        """
+        Convert an input transition matrix mat to a wide dataframe using 
+            AFOLU.modvar_lndu_prob_transition as variable template
+
+        NOTE: Returns None on error.
+
+
+        Function Arguments
+        ------------------
+        - mat: row-stochastic transition matrix to format as wide data frame OR
+            array of row-stochastic transition matrices to format. If specifying
+            as array matrices, format_transition_matrix_as_input_dataframe()
+            will interpret as being associated with sequential time periods. 
+                * NOTE: Time periods can be specified using vec_time_periods. 
+                    Time periods specified in this way must have the same length
+                    as the array of matrices.
+
+        Keyword Arguments
+        -----------------
+        - exclude_time_period: drop time period from data frame?
+        - field_key: temporary field to use for merging
+        - key_vals: ordered land use categories representing states in mat. If
+            None, default to attr_lndu.key_values. Should be of length n for
+             mat an nxn transition matrix.
+        - modvar: optional specification of I/J model variable to use. If None,
+            defaults to transition probability 
+            (self.modvar_lndu_prob_transition)
+        - vec_time_periods: optional vector of time periods to specify for 
+            matrices. Does not affect implementation with single matrix. If
+            None and mat is an array of arrays, takes value of: 
+            
+            * ModelAttributes.time_period key_values (if mat is of same length)
+            * range(len(mat)) otherwise
+        """
+        attr_lndu = self.model_attributes.get_attribute_table(self.subsec_name_lndu)
+        field_time_period = self.model_attributes.dim_time_period
+        attr_time_period = self.model_attributes.get_dimensional_attribute_table(field_time_period)
+        
+        key_vals = (
+            attr_lndu.key_values 
+            if (key_vals is None)
+            else [x for x in key_vals if x in attr_lndu.key_values]
+        )
+        
+        modvar = (
+            modvar
+            if self.model_attributes.get_variable(modvar) is not None
+            else self.modvar_lndu_prob_transition
+        )
+        """
+        # PRESERVING IN CASE ISSUES ARISE WITH REVISION
+
+        # setup as matrix
+        df_mat = pd.DataFrame(mat, columns = key_vals)
+        df_mat[field_key] = key_vals
+        df_mat_melt = pd.melt(df_mat, id_vars = [field_key], value_vars = key_vals).sort_values(by = [field_key, "variable"])
+
+        # get field names
+        fields_names = self.model_attributes.build_variable_fields(
+            self.modvar_lndu_prob_transition,
+            restrict_to_category_values = key_vals
+        )
+
+        df_mat_melt["field"] = fields_names
+        df_mat_melt.set_index("field", inplace = True)
+        df_mat_melt = df_mat_melt[["value"]].transpose().reset_index(drop = True)
+        
+        # doing this only to drop index
+        df_out = pd.DataFrame()
+        df_out[df_mat_melt.columns] = df_mat_melt[df_mat_melt.columns]
+        """;
+
+        ##  INITIALIZATION AND CHECKS
+
+        # shared variables in melt/pivot
+        field_field = "field"
+        field_value = "value"
+        field_variable = "variable"
+
+        # check if is a single matrix; if so, treat as list and reduce later
+        is_single_matrix = (len(mat.shape) == 2)
+        mat = np.array([mat]) if is_single_matrix else mat
+        mat_shape = mat.shape
+        vec_time_periods = np.zeros(1) if is_single_matrix else vec_time_periods
+
+        # check specification of time periods
+        if vec_time_periods is None:
+            # default to model attributes time period key values if same length
+            vec_time_periods = (
+                np.arange(mat_shape[0]).astype(int)
+                if mat_shape[0] != len(attr_time_period.key_values)
+                else attr_time_period.key_values
+            )
+
+        elif not sf.islistlike(vec_time_periods):
+            tp = str(type(vec_time_periods))
+            self._log(
+                f"Error in format_transition_matrix_as_input_dataframe: invalid type specifiation '{tp}' of vec_time_periods.",
+                type_log = "error"
+            )
+            return None
+
+        elif len(vec_time_periods) != len(mat):
+            self._log(
+                f"Error in format_transition_matrix_as_input_dataframe: invalid specifiation of vec_time_periods. The length of vec_time_periods ({len(vec_time_periods)}) and mat ({mat.shape[0]}) must be the same.",
+                type_log = "error"
+            )
+            return None
+
+
+        ##  BUILD DATA FRAME
+
+        # setup new fields - key values and time periods
+        field_key_vals = [x[1] for x in itertools.product(np.ones(mat_shape[0]), key_vals)]
+        field_time_periods = (
+            np.concatenate(
+                np.outer(
+                    vec_time_periods, 
+                    np.ones(mat.shape[1])
+                )
+            )
+            .astype(int)
+        )
+
+        # generate data frame before melting
+        df_mat = pd.DataFrame(
+            np.concatenate(mat), 
+            columns = key_vals
+        )
+        df_mat[field_key] = field_key_vals
+        df_mat[field_time_period] = field_time_periods
+
+
+        ##  MELT, APPLY VARIABLES, THEN PIVOT
+
+        # note: sorting is important here to ensure that variable names generated below are in correct order
+        df_out = (
+            pd.melt(
+                df_mat, 
+                id_vars = [field_time_period, field_key], 
+                value_vars = key_vals,
+                var_name = field_variable,
+                value_name = field_value,
+            )
+            .sort_values(by = [field_time_period, field_key, field_variable])
+            .reset_index(drop = True)
+        )
+
+        # get vars and expand 
+        field_variables = self.model_attributes.build_variable_fields(
+            modvar,
+            restrict_to_category_values = key_vals,
+        )
+        field_variables = [x[1] for x in itertools.product(np.ones(mat_shape[0]), field_variables)]
+        df_out[field_field] = field_variables
+
+        # pivot and drop time period if returning as single matrix
+        df_out = sf.pivot_df_clean(
+            df_out[[field_time_period, field_value, field_field]],
+            [field_field],
+            [field_value]
+        )
+        (
+            df_out.drop([field_time_period], axis = 1, inplace = True)
+            if is_single_matrix | exclude_time_period
+            else None
+        )
+
+        return df_out
+    
+
+
+    def get_frst_area_new_secondary(self,
+        arr_converted: np.ndarray, 
+        ind: Union[int, None] = None,
+    ) -> float:
+        """
+        For a conversion matrix `arr_converted`, calculate how much secondary
+            forest is newly formed.
+        """
+        ind = self.ind_lndu_fsts if not sf.isnumber(ind, integer = True) else ind
+
+        n, _ = arr_converted.shape
+        w = np.array([i for i in range(n) if i != ind])
+        out = arr_converted[w, ind].sum()
+
+        return out
+
+
+
+    def get_frst_sequestration_dynamic(self,
+        df_afolu_trajectories: pd.DataFrame,
+        arrs_lndu_conversion: np.ndarray,
+        arrs_lndu_prevalence: np.ndarray,
+        attr_lndu: Union[AttributeTable, None] = None,
+        dynamic_forests: bool = True,
+        max_age_young_secondary_forest: int = 20,
+        **kwargs,
+    ) -> Tuple:
+        """
+        Calculate forest sequestration. If using dynamic forest sequestration,
+            estimates a sequestration curve and applies it over time. 
+            Otherwise,
+
+        NOTE: all secondary sequestration at time t = 0 
+
+        
+        Function Arguments
+        ------------------
+        - df_afolu_trajectories: data frame containing input trajectories
+
+        Keyword Arguments
+        ------------------
+        - attr_lndu: optional land use attribute table
+        - dynamic_forests: use dynamic forest sequestration?
+        - max_age_young_secondary_forest: maximum age (in time periods) of young 
+            secondary forests. Only applies if using dynamic forest 
+            sequestration
+        - kwargs: passed to the following methods:
+            * get_npp_frst_sequestration_factor_vectors()
+        """
+
+        ##  SOME INIT
+
+        attr_lndu = (
+            self.model_attributes.get_attribute_table(self.model_attributes.subsec_name_lndu)
+            if attr_lndu is None
+            else attr_lndu
+        )
+
+
+        # get groups of sequestration factors
+        df_sf_groups = self.get_npp_frst_sequestration_factor_vectors(
+            df_afolu_trajectories,
+            **kwargs,
+        )
+
+        return None
+
+
+
+    def get_frst_sequestration_factors(self,
+        df_afolu_trajectories: pd.DataFrame,
+        modvar_area: Union[str, 'ModelVariable', None] = None,
+        modvar_sequestration: Union[str, 'ModelVariable', None] = None,
+        override_vector_for_single_mv_q: bool = True,
+        **kwargs,
+    ) -> Tuple:
+        """
+        Retrieve the sequestration factors for forest in terms of 
+            modvar_sequestration units and modvar_area
+        """
+        # get area variable
+        modvar_area = self.model_attributes.get_variable(modvar_area)
+        if modvar_area is None:
+            modvar_area = self.model_socioeconomic.modvar_gnrl_area 
+
+        # get sequetration factor variable
+        modvar_sequestration = self.model_attributes.get_variable(modvar_sequestration)
+        if modvar_sequestration is None:
+            modvar_sequestration = self.modvar_frst_sq_co2
+
+
+        # get sequestration factors
+        arr_frst_ef_sequestration = self.model_attributes.extract_model_variable(
+            df_afolu_trajectories, 
+            modvar_sequestration, 
+            override_vector_for_single_mv_q = override_vector_for_single_mv_q, 
+            return_type = "array_units_corrected",
+            **kwargs,
+        )
+
+        arr_frst_ef_sequestration *= self.model_attributes.get_variable_unit_conversion_factor(
+            modvar_area,
+            modvar_sequestration,
+            "area"
+        )
+
+        return arr_frst_ef_sequestration
 
 
 
@@ -1418,7 +1770,7 @@ class AFOLU:
         attribute_land_use: AttributeTable = None,
         cats_max_out: Union[List[str], None] = None,
         lmo_approach: Union[str, None] = None,
-    ):
+    ) -> np.ndarray:
         """
         Retrieve the vector of scalars to apply to land use based on an input 
             preliminary scalar and configuration parameters for "maxing out" 
@@ -2253,6 +2605,191 @@ class AFOLU:
     
 
 
+    def get_npp_biomass_sequestration_curves(self,
+        df_ordered_sequestration: pd.DataFrame,
+        curve_npp: Union[str, npp.Curve, None] = None,
+        field_ord_1: str = "young",
+        field_ord_2: str = "secondary",
+        field_ord_3: str = "primary",
+        params_init: Union[np.ndarray, None] = None,
+        vec_widths: Union[np.ndarray, None] = np.array([20, 180, 500]),
+        **kwargs,
+    ) -> Dict[int, 'scipy.optimize._optimize.OptimizeResult']:
+        """
+        Get sets of sequestration curves as specified in input trajectories.
+            Reduces the number of times that optimization is called to only 
+            deal with unique sets of 
+
+            (young, secondary, primary, )
+
+            sequestration factors
+
+        Function Arguments
+        ------------------
+        - df_ordered_sequestration: data frame containing ordered sequestration by
+            time period group
+
+        Keyword Arguments
+        -----------------
+        - curve_npp: curve to use for NPP. Options are:
+            - "gamma"
+            - "sem"
+        - field_ord_i: ordered field name to use as sequestration factors in 
+            afult._get_estimated_parameters()
+        - params_init: initial parameters to perturb for sequestration curve shape
+        - vec_widths: vector of widths to use for integral estimate in NPP curve
+        """
+
+        ##  INITIALIZATION
+
+        curve_npp = (
+            self.dynamic_npp_curve 
+            if curve_npp is None
+            else self.curves_npp.get_curve(curve_npp, )
+        )
+
+        if curve_npp is None:
+            return None
+
+
+        dict_out = {}
+        
+        for i, row in df_ordered_sequestration.iterrows():
+
+            # get the factors and the parameter curve
+            vec_factors = row[[field_ord_1, field_ord_2, field_ord_3]].to_numpy()
+            tol = self.get_npp_convergence_tolerance(row, **kwargs)
+
+            # update internal curves and get parameters
+            inputs = list(zip(vec_factors, vec_widths, ))
+            self.curves_npp._initialize_sequestration_targets(
+                inputs,
+                dt = self.curves_npp.dt,
+                
+            )
+            
+            params = self.curves_npp.fit(
+                curve_npp, 
+                tol = tol, 
+                vec_params_0 = params_init,
+            )
+    
+            tp = int(row[self.model_attributes.dim_time_period])
+            dict_out.update({(tp, curve_npp.name, ): params, })
+            
+        # remove existing inputs
+        self.curves_npp._initialize_sequestration_targets(
+            [],
+            dt = self.curves_npp.dt,
+            
+        )
+
+        return dict_out
+
+
+
+    def get_npp_convergence_tolerance(self,
+        series_factors: pd.Series,
+        tol_base: float = 0.00001,
+        **kwargs,
+    ) -> Tuple:
+        """
+        For optimization, rescale values so that minimum sequestration factor 
+            has log_10 > 0. Returns the mofified scalar + 
+        """
+        logs = np.array(
+            [
+                np.log10(v) for k, v in series_factors.to_dict().items() 
+                if k != self.model_attributes.dim_time_period
+            ]
+        )
+        
+        # 
+        min_log = logs.min()
+        exponent = np.sign(min_log)*np.ceil(np.abs(min_log))
+        
+        tol = tol_base*(10**exponent) if np.sign(min_log) < 0 else tol_base
+
+        return tol
+
+
+
+    def get_npp_factor_rescale(self,
+        series_factors: pd.Series,
+    ) -> Tuple:
+        """
+        For optimization, rescale values so that minimum sequestration factor 
+            has log_10 > 0. Returns the mofified scalar + 
+        """
+        logs = np.array(
+            [
+                np.log10(v) for k, v in series_factors.to_dict().items() 
+                if k != self.model_attributes.dim_time_period
+            ]
+        )
+
+        # 
+        min_log = logs.min()
+        exponent = np.ceil(np.abs(min_log)) if min_log < 0 else 0
+        scalar = 10**exponent
+
+        return scalar
+
+
+
+    def get_npp_frst_sequestration_factor_vectors(self,
+        df_afolu_trajectories: pd.DataFrame,
+        field_ord_1: str = "young",
+        field_ord_2: str = "secondary",
+        field_ord_3: str = "primary",
+        **kwargs,
+    ) -> Tuple:
+        """
+        Retrieve sequestration factor vectors for use in building estimated curve
+        """
+
+        ##  GET SEQUESTRATION FACTORS
+        #   - LU prevalence and incidence
+        #   - put everything in terms of modvar_frst_sq_co2
+            
+        arr_frst_ef_sequestration = self.get_frst_sequestration_factors(
+            df_afolu_trajectories, 
+            expand_to_all_cats = True,
+            
+        )
+        arr_frst_ef_sequestration_young = self.get_frst_sequestration_factors(
+            df_afolu_trajectories, 
+            override_vector_for_single_mv_q = False, 
+            modvar_sequestration = self.modvar_frst_sq_co2_young_secondary, 
+        )
+        
+        arr_frst_ef_sequestration_young *= self.model_attributes.get_variable_unit_conversion_factor(
+            self.modvar_frst_sq_co2_young_secondary,
+            self.modvar_frst_sq_co2,
+            "mass"
+        )
+
+        
+        # build data frame that is ordered--use this for sorting and dropping duplicates
+        field_tp = self.model_attributes.dim_time_period
+        
+        df_duplicates = (
+            pd.DataFrame(
+                {
+                    field_tp: df_afolu_trajectories[field_tp].to_numpy().copy(),
+                    field_ord_1: arr_frst_ef_sequestration_young,
+                    field_ord_2: arr_frst_ef_sequestration[:, self.ind_frst_scnd],
+                    field_ord_3: arr_frst_ef_sequestration[:, self.ind_frst_prim],
+                }
+            )
+            .drop_duplicates(subset = [field_ord_1, field_ord_2, field_ord_3])
+            .sort_values(by = [field_tp])
+        )
+
+        return df_duplicates
+    
+
+
     def get_transition_matrix_from_long_df(self,
         df_transition: pd.DataFrame,
         field_i: str,
@@ -2319,186 +2856,6 @@ class AFOLU:
         mat_out = mat_out.reshape((n, n))
         
         return mat_out
-
-
-
-    def format_transition_matrix_as_input_dataframe(self,
-        mat: np.ndarray,
-        exclude_time_period: bool = False,
-        field_key: str = "key",
-        key_vals: Union[List[str], None] = None,
-        modvar: Union[str, None] = None,
-        vec_time_periods: Union[List, np.ndarray, None] = None,
-    ) -> Union[pd.DataFrame, None]:
-        """
-        Convert an input transition matrix mat to a wide dataframe using 
-            AFOLU.modvar_lndu_prob_transition as variable template
-
-        NOTE: Returns None on error.
-
-
-        Function Arguments
-        ------------------
-        - mat: row-stochastic transition matrix to format as wide data frame OR
-            array of row-stochastic transition matrices to format. If specifying
-            as array matrices, format_transition_matrix_as_input_dataframe()
-            will interpret as being associated with sequential time periods. 
-                * NOTE: Time periods can be specified using vec_time_periods. 
-                    Time periods specified in this way must have the same length
-                    as the array of matrices.
-
-        Keyword Arguments
-        -----------------
-        - exclude_time_period: drop time period from data frame?
-        - field_key: temporary field to use for merging
-        - key_vals: ordered land use categories representing states in mat. If
-            None, default to attr_lndu.key_values. Should be of length n for
-             mat an nxn transition matrix.
-        - modvar: optional specification of I/J model variable to use. If None,
-            defaults to transition probability 
-            (self.modvar_lndu_prob_transition)
-        - vec_time_periods: optional vector of time periods to specify for 
-            matrices. Does not affect implementation with single matrix. If
-            None and mat is an array of arrays, takes value of: 
-            
-            * ModelAttributes.time_period key_values (if mat is of same length)
-            * range(len(mat)) otherwise
-        """
-        attr_lndu = self.model_attributes.get_attribute_table(self.subsec_name_lndu)
-        field_time_period = self.model_attributes.dim_time_period
-        attr_time_period = self.model_attributes.get_dimensional_attribute_table(field_time_period)
-        
-        key_vals = (
-            attr_lndu.key_values 
-            if (key_vals is None)
-            else [x for x in key_vals if x in attr_lndu.key_values]
-        )
-        
-        modvar = (
-            modvar
-            if self.model_attributes.get_variable(modvar) is not None
-            else self.modvar_lndu_prob_transition
-        )
-        """
-        # PRESERVING IN CASE ISSUES ARISE WITH REVISION
-
-        # setup as matrix
-        df_mat = pd.DataFrame(mat, columns = key_vals)
-        df_mat[field_key] = key_vals
-        df_mat_melt = pd.melt(df_mat, id_vars = [field_key], value_vars = key_vals).sort_values(by = [field_key, "variable"])
-
-        # get field names
-        fields_names = self.model_attributes.build_variable_fields(
-            self.modvar_lndu_prob_transition,
-            restrict_to_category_values = key_vals
-        )
-
-        df_mat_melt["field"] = fields_names
-        df_mat_melt.set_index("field", inplace = True)
-        df_mat_melt = df_mat_melt[["value"]].transpose().reset_index(drop = True)
-        
-        # doing this only to drop index
-        df_out = pd.DataFrame()
-        df_out[df_mat_melt.columns] = df_mat_melt[df_mat_melt.columns]
-        """;
-
-        ##  INITIALIZATION AND CHECKS
-
-        # shared variables in melt/pivot
-        field_field = "field"
-        field_value = "value"
-        field_variable = "variable"
-
-        # check if is a single matrix; if so, treat as list and reduce later
-        is_single_matrix = (len(mat.shape) == 2)
-        mat = np.array([mat]) if is_single_matrix else mat
-        mat_shape = mat.shape
-        vec_time_periods = np.zeros(1) if is_single_matrix else vec_time_periods
-
-        # check specification of time periods
-        if vec_time_periods is None:
-            # default to model attributes time period key values if same length
-            vec_time_periods = (
-                np.arange(mat_shape[0]).astype(int)
-                if mat_shape[0] != len(attr_time_period.key_values)
-                else attr_time_period.key_values
-            )
-
-        elif not sf.islistlike(vec_time_periods):
-            tp = str(type(vec_time_periods))
-            self._log(
-                f"Error in format_transition_matrix_as_input_dataframe: invalid type specifiation '{tp}' of vec_time_periods.",
-                type_log = "error"
-            )
-            return None
-
-        elif len(vec_time_periods) != len(mat):
-            self._log(
-                f"Error in format_transition_matrix_as_input_dataframe: invalid specifiation of vec_time_periods. The length of vec_time_periods ({len(vec_time_periods)}) and mat ({mat.shape[0]}) must be the same.",
-                type_log = "error"
-            )
-            return None
-
-
-        ##  BUILD DATA FRAME
-
-        # setup new fields - key values and time periods
-        field_key_vals = [x[1] for x in itertools.product(np.ones(mat_shape[0]), key_vals)]
-        field_time_periods = (
-            np.concatenate(
-                np.outer(
-                    vec_time_periods, 
-                    np.ones(mat.shape[1])
-                )
-            )
-            .astype(int)
-        )
-
-        # generate data frame before melting
-        df_mat = pd.DataFrame(
-            np.concatenate(mat), 
-            columns = key_vals
-        )
-        df_mat[field_key] = field_key_vals
-        df_mat[field_time_period] = field_time_periods
-
-
-        ##  MELT, APPLY VARIABLES, THEN PIVOT
-
-        # note: sorting is important here to ensure that variable names generated below are in correct order
-        df_out = (
-            pd.melt(
-                df_mat, 
-                id_vars = [field_time_period, field_key], 
-                value_vars = key_vals,
-                var_name = field_variable,
-                value_name = field_value,
-            )
-            .sort_values(by = [field_time_period, field_key, field_variable])
-            .reset_index(drop = True)
-        )
-
-        # get vars and expand 
-        field_variables = self.model_attributes.build_variable_fields(
-            modvar,
-            restrict_to_category_values = key_vals,
-        )
-        field_variables = [x[1] for x in itertools.product(np.ones(mat_shape[0]), field_variables)]
-        df_out[field_field] = field_variables
-
-        # pivot and drop time period if returning as single matrix
-        df_out = sf.pivot_df_clean(
-            df_out[[field_time_period, field_value, field_field]],
-            [field_field],
-            [field_value]
-        )
-        (
-            df_out.drop([field_time_period], axis = 1, inplace = True)
-            if is_single_matrix | exclude_time_period
-            else None
-        )
-
-        return df_out
 
 
 
@@ -2899,8 +3256,10 @@ class AFOLU:
 
         Keyword Arguments
         ------------------
-        n_tp: number of time periods to run. If None, runs AFOLU.n_time_periods
+        - n_tp: number of time periods to run. If None, runs 
+            AFOLU.n_time_periods
 
+            
         Returns
         -------
         Tuple with 14 elements:
