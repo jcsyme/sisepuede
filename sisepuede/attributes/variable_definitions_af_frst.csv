@@ -14,12 +14,16 @@ Input,Forest Fraction Temperate Nutrient Rich," | Used to calculate :math:`\text
 Input,Forest Fraction Tropical," | Used to calculate :math:`\text{N}_2\text{O}` emissions from organic soils. 
  | 
  | Forest Fraction Temperate Nutrient Poor, Forest Fraction Temperate Nutrient Rich, and Forest Fraction Tropical must sum to 1",``frac_frst_$CAT-FOREST$_cl1_tropical``,all,,0,1,1,1,0,``tropical_forest``,none,,,
-Input,Forest Sequestration Emission Factor," | Annual average :math:`\text{CO}_2` emitted per ha from sequestration (> 0 – this is a positive number)
+Input,Forest Sequestration Emission Factor," | Annual average :math:`\text{CO}_2` emitted per ha from sequestration (entered as a number > 0)
  | 
  | Note: baseline estimates for neotropical regions are available from `Heinrich et al. (2021) <https://www.nature.com/articles/s41467-021-22050-1>`_
  | * 3.05 ± 0.5 tonne C/ha/year (seconary)
  | * 11-20 times less for primary
 ","``ef_frst_sequestration_$CAT-FOREST$_$UNIT-MASS$_$EMISSION-GAS$_$UNIT-AREA$`` (``$EMISSION-GAS$ = co2``, ``$UNIT-AREA$ = ha``, ``$UNIT-MASS$ = kt``)",all,,0,1,1,,0,none,none,,,
+Input,Young Secondary Forest Sequestration Emission Factor," |Annual average :math:`\text{CO}_2` emitted per ha from sequestration in YOUNG (age < 20 yrs) secondary forestrs (entered as a number > 0, this is a positive number)
+ | 
+ |  NOTE: Young secondary forests (incl. plantations) sequester high amounts of carbon for a short period of time. This is only used if dynamic forest sequestration is turned on; otherwise, this variable is ignored.
+","``ef_frst_sequestration_young_$CAT-FOREST$_$UNIT-MASS$_$EMISSION-GAS$_$UNIT-AREA$`` (``$EMISSION-GAS$ = co2``, ``$UNIT-AREA$ = ha``, ``$UNIT-MASS$ = kt``)",``secondary``,,0,1,1,,0,none,none,,,
 Input,HWP Half Life Paper,,``hl_frst_half_life_hwp_paper_products``,none,,0,1,1,,0,none,none,,,
 Input,HWP Half Life Wood,,``hl_frst_half_life_hwp_wood_products``,none,,0,1,1,,0,none,none,,,
 Input,Initial Per Household Wood Demand,Demand per household for wood use in the home at time :math:`t = 0`,``deminit_frst_wood_home_use_$UNIT-MASS$_per_hh`` (``$UNIT-MASS$ = kg``),none,,0,1,1,,0,none,none,,,
