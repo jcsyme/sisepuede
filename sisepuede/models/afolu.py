@@ -21,6 +21,8 @@ import sisepuede.utilities._toolbox as sf
 
 
 _MODULE_UUID = "53E0A234-5674-47C8-B950-5A419EEAAF00"  
+_NPP_INTEGRATION_WINDOWS = [20, 480, 1000]
+
 
 
 ##########################
@@ -86,7 +88,7 @@ class AFOLU:
         logger: Union[logging.Logger, None] = None,
         npp_curve: Union[str, npp.NPPCurve, None] = None,
         npp_include_primary_forest: bool = False,
-        npp_integration_windows: Union[list, tuple, np.ndarray] = [20, 180, 500],
+        npp_integration_windows: Union[list, tuple, np.ndarray] = _NPP_INTEGRATION_WINDOWS,
         **kwargs,
     ) -> None:
 
@@ -479,7 +481,7 @@ class AFOLU:
     def _initialize_npp_properties(self,
         npp_curve: Union[str, npp.NPPCurve, None] = None,
         npp_include_primary_forest: bool = False,
-        npp_integration_windows: Union[list, tuple, np.ndarray] = [20, 180, 500],
+        npp_integration_windows: Union[list, tuple, np.ndarray] = _NPP_INTEGRATION_WINDOWS,
     ) -> None:
         """
         Initialize properties related to the Net Primary Productivity estimator.
@@ -1620,19 +1622,21 @@ class AFOLU:
     
 
 
-    def get_frst_area_new_secondary(self,
+    def get_lndu_areas_to_from(self,
         arr_converted: np.ndarray, 
-        ind: Union[int, None] = None,
-    ) -> float:
+        ind: int,
+    ) -> Tuple[float, float]:
         """
-        For a conversion matrix `arr_converted`, calculate how much secondary
-            forest is newly formed.
+        For a conversion matrix `arr_converted` and land use index, calculate 
+            how much secondary area was added to (column sums) and lost from 
+            (row sums).
         """
-        ind = self.ind_lndu_fsts if not sf.isnumber(ind, integer = True) else ind
-
         n, _ = arr_converted.shape
         w = np.array([i for i in range(n) if i != ind])
-        out = arr_converted[w, ind].sum()
+
+        area_to = arr_converted[w, ind].sum()
+        area_from = arr_converted[ind, w].sum()
+        out = (area_to, area_from, )
 
         return out
 
@@ -1643,6 +1647,7 @@ class AFOLU:
         arrs_lndu_conversion: np.ndarray,
         arrs_lndu_prevalence: np.ndarray,
         attr_lndu: Union[AttributeTable, None] = None,
+        npp_curve: Union[str, None] = None,
         **kwargs,
     ) -> Tuple:
         """
@@ -1655,13 +1660,18 @@ class AFOLU:
         Function Arguments
         ------------------
         - df_afolu_trajectories: data frame containing input trajectories
+        - arrs_lndu_conversion: arrays of converted areas in terms of 
+            self.modvar_lndu_area_by_cat
+            
 
         Keyword Arguments
         ------------------
         - attr_lndu: optional land use attribute table
         - dynamic_forests: use dynamic forest sequestration?
+        - npp_curve: curve to use? If None, use self.npp_curve
         - kwargs: passed to the following methods:
             * get_npp_frst_sequestration_factor_vectors()
+            * get_npp_biomass_sequestration_curves()
         """
         
         ##  SOME INIT
@@ -1672,14 +1682,63 @@ class AFOLU:
             else attr_lndu
         )
 
+        # stick to using the name
+        npp_curve = self.npp_curve if (npp_curve is None) else npp_curve
 
-        # get groups of sequestration factors
+        # get groups of sequestration factors and NPP curves
         df_sf_groups = self.get_npp_frst_sequestration_factor_vectors(
             df_afolu_trajectories,
             **kwargs,
         )
 
-        return df_sf_groups
+        dict_curves = self.get_npp_biomass_sequestration_curves(
+            df_sf_groups,
+            **kwargs,
+        )
+        
+
+        # get an array to collapse
+        tps = df_afolu_trajectories[self.model_attributes.dim_time_period].to_numpy()
+        n_tp = len(tps)
+
+        # arrs to collapse: if the are of secondary forests declines, then assume that pre-existing forest was cut into first
+        #    - arr_sequestration_to_collapse: sequestration totals by year
+        #    - arr_area_to_collapse: areas converted in by year
+        arr_sequestration_to_collapse = np.zeros((n_tp, n_tp))
+        arr_area_to_collapse = np.zeros((n_tp, n_tp))
+
+        # initialize the tp, curve tuple and the curve
+        tup_call = None 
+        curve = self.curves_npp.get_curve(npp_curve, )
+
+
+        ##  GET SEQUESTRATION BY YEAR
+
+        for (i, arr) in enumerate(arrs_lndu_conversion):
+            
+            tp = tps[i]
+            tup = (tp, npp_curve)
+            area_to, area_from = self.get_lndu_areas_to_from(arr, self.ind_lndu_fsts, )
+
+            # get last available parameters
+            tup_call = tup if tup in dict_curves.keys() else tup_call
+            params = dict_curves.get(tup_call, )
+            if params is None:
+                continue # this is an error
+            
+            # get the domain and add to the sequestration total
+            vec_t = tps[i:] - tps[i]
+            arr_sequestration_to_collapse[i:, i] = curve(vec_t, *params.x)*area_to
+        
+
+
+
+
+            
+        
+
+
+        return arr_sequestration_to_collapse
 
 
 
@@ -2761,6 +2820,12 @@ class AFOLU:
                 
             )
             
+            self._log(
+                f"Fitting NPP curve for time period {i}...",
+                type_log = "info",
+            )
+            t0 = time.time()
+
             params = self.curves_npp.fit(
                 curve_npp,
                 force_convergence = force_convergence,
@@ -2771,9 +2836,18 @@ class AFOLU:
                 tol = tol, 
                 vec_params_0 = params_init,
             )
+
+            # report fit time
+            t_elapse = sf.get_time_elapsed(t0)
+            self._log(
+                f"NPP curve for time period {i} complete in {t_elapse} seconds.",
+                type_log = "info",
+            )
     
             tp = int(row[self.model_attributes.dim_time_period])
             dict_out.update({(tp, curve_npp.name, ): params, })
+
+            
             
         # remove existing inputs
         self.curves_npp._initialize_sequestration_targets(
@@ -2788,7 +2862,7 @@ class AFOLU:
 
     def get_npp_convergence_tolerance(self,
         series_factors: pd.Series,
-        tol_base: float = 0.00001,
+        tol_base: float = 0.0000001,
         **kwargs,
     ) -> Tuple:
         """
