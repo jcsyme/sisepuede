@@ -4,6 +4,7 @@ import logging
 import numpy as np
 import pandas as pd
 import time
+from matplotlib.pyplot import subplots
 from typing import *
 
 
@@ -12,6 +13,7 @@ from sisepuede.core.model_attributes import *
 from sisepuede.models.energy_consumption import EnergyConsumption
 from sisepuede.models.ippu import IPPU
 from sisepuede.models.socioeconomic import Socioeconomic
+from sisepuede.utilities._plotting import is_valid_figtuple
 import sisepuede.utilities._npp_curves as npp
 import sisepuede.utilities._optimization as suo
 import sisepuede.utilities._toolbox as sf
@@ -51,26 +53,41 @@ class AFOLU:
 
     Optional Arguments
     ------------------
-    - dynamic_npp_curve : Union[str, npp.NPPCurve, None] 
+    logger : Union[logging.Logger, None]
+        optional logger object to use for event logging
+
+    npp_curve : Union[str, npp.NPPCurve, None] 
         Optional specification of an NPP curve to use for dynamic forest 
         sequestration. In dynamic forest sequestration, forest sequestration 
         factors are used to fit NPP (net primary productivity) curves, which 
         vary over time. In general, young secondary forests sequester much more 
         than older secondary forests, with much of the annual growth 
         concentrated in the first 5-50 years. 
+            * None or invalid entry: dynamic NPP is not used
+            * "gamma": use the gamma function
+            * "sem": use the SEM function 
 
-        * None or invalid entry: dynamic NPP is not used
-        * "gamma": use the gamma function
-        * "sem": use the SEM function 
+    npp_include_primary_forest : bool
+        Include primary forest sequestration factor in integration target for
+        Net Primary Productivity (NPP) curve? If False, uses secondary forest 
+        (non-young) sequestration factor as long term integration target. Only
+        applies if `npp_curve` is specified as a valid curve.
 
-    logger : Union[logging.Logger, None]
-        optional logger object to use for event logging
+    npp_integration_windows : arraylike
+        Used for NPP curve fitting--to fit, integration is performed (or 
+        estimated) in the windows specified here, and the average value by time
+        period is compared to average annual sequestration factors that are 
+        read from data. Only applies if `npp_curve` is specified as a valid 
+        curve.
     """
 
     def __init__(self,
         attributes: ModelAttributes,
-        dynamic_npp_curve: Union[str, npp.NPPCurve, None] = None,
         logger: Union[logging.Logger, None] = None,
+        npp_curve: Union[str, npp.NPPCurve, None] = None,
+        npp_include_primary_forest: bool = False,
+        npp_integration_windows: Union[list, tuple, np.ndarray] = [20, 180, 500],
+        **kwargs,
     ) -> None:
 
         self.logger = logger
@@ -89,9 +106,13 @@ class AFOLU:
         self._initialize_subsector_vars_lvst()
         self._initialize_subsector_vars_soil()
 
-        self._initialize_models(
-            dynamic_npp_curve = dynamic_npp_curve,
+        self._initialize_models()
+        self._initialize_npp_properties(
+            npp_curve = npp_curve,
+            npp_include_primary_forest = npp_include_primary_forest,
+            npp_integration_windows = npp_integration_windows,
         )
+
         self._initialize_integrated_variables()
         self._initialize_other_properties()
 
@@ -376,7 +397,6 @@ class AFOLU:
 
 
     def _initialize_models(self,
-        dynamic_npp_curve: Union[str, npp.NPPCurve, None] = None,
         model_attributes: Union[ModelAttributes, None] = None,
     ) -> None:
         """
@@ -395,10 +415,6 @@ class AFOLU:
                 * self.cat_ippu_paper
                 * self.cat_ippu_wood
 
-            * NPP Curve fitting for dynamic forest sequestration
-
-                * self.curves_npp
-
             * The Land Use transition corrector optimization model
 
                 * self.q_adjuster
@@ -406,7 +422,7 @@ class AFOLU:
 
         Keyword Arguments
         -----------------
-        - dynamic_npp_curve: specification of dynamic NPP curve. Set to None
+        - npp_curve: specification of dynamic NPP curve. Set to None
             to use default secondary forest factor. 
         - model_attributes: ModelAttributes object used to instantiate
             models. If None, defaults to self.model_attributes.
@@ -445,26 +461,67 @@ class AFOLU:
         # used to adjust transition matrices using Quadratic Programming
         q_adjuster = suo.QAdjuster()
 
-        # used to fit NPP curves numerically
-        curves_npp = npp.NPPCurves([])
-        dynamic_npp_curve = (
-            dynamic_npp_curve 
-            if dynamic_npp_curve in curves_npp.curves
-            else None
-        )
-
 
         ##  SET PROPERTIES
 
         self.cat_enfu_biomass = cat_enfu_biomass
         self.cat_ippu_paper = cat_ippu_paper
         self.cat_ippu_wood = cat_ippu_wood
-        self.curves_npp = curves_npp
-        self.dynamic_npp_curve = dynamic_npp_curve
         self.model_enercons = model_enercons
         self.model_ippu = model_ippu
         self.model_socioeconomic = model_socioeconomic
         self.q_adjuster = q_adjuster
+
+        return None
+
+
+
+    def _initialize_npp_properties(self,
+        npp_curve: Union[str, npp.NPPCurve, None] = None,
+        npp_include_primary_forest: bool = False,
+        npp_integration_windows: Union[list, tuple, np.ndarray] = [20, 180, 500],
+    ) -> None:
+        """
+        Initialize properties related to the Net Primary Productivity estimator.
+            Sets the following properties:
+            
+            * NPP Curve fitting for dynamic forest sequestration
+
+                * self.curves_npp
+                * self.npp_include_primary_forest
+                    Include primary forest in the NPP integration? If True,
+                    will integrate so that the tail averages the primary forest
+                    sequestration value. In general, however, 
+                * self.npp_integration_windows
+                    Time period windows for integration matching. Each element 
+                    is the time span (sequentially) of young secondary, 
+                    secondary, and primary forests.
+        """
+
+        # used to fit NPP curves numerically
+        curves_npp = npp.NPPCurves([])
+        npp_curve = (
+            npp_curve 
+            if npp_curve in curves_npp.curves
+            else None
+        )
+
+        # check if an error needs to be thrown
+        error_q = not sf.islistlike(npp_integration_windows) 
+        error_q &= not isinstance(npp_integration_windows, tuple)
+        error_q &= npp_curve is not None
+        
+        if error_q:
+            tp = str(type(npp_integration_windows))
+            raise RuntimeError(f"Unable to initialize npp_curve {npp_curve}: invalid integration window of type {tp} specified. Must be array-like.")
+
+
+        ##  SET PROPERTIES
+
+        self.curves_npp = curves_npp
+        self.npp_curve = npp_curve
+        self.npp_include_primary_forest = npp_include_primary_forest
+        self.npp_integration_windows = npp_integration_windows
 
         return None
 
@@ -1581,21 +1638,18 @@ class AFOLU:
 
 
 
-    def get_frst_sequestration_dynamic(self,
+    def get_frst_sequestration_from_npp(self,
         df_afolu_trajectories: pd.DataFrame,
         arrs_lndu_conversion: np.ndarray,
         arrs_lndu_prevalence: np.ndarray,
         attr_lndu: Union[AttributeTable, None] = None,
-        dynamic_forests: bool = True,
-        max_age_young_secondary_forest: int = 20,
         **kwargs,
     ) -> Tuple:
         """
-        Calculate forest sequestration. If using dynamic forest sequestration,
-            estimates a sequestration curve and applies it over time. 
-            Otherwise,
+        Calculate forest sequestration using NPP.
 
-        NOTE: all secondary sequestration at time t = 0 
+        NOTE: all secondary sequestration at time t = 0 is assumed to use the
+            average specified sequestration factor.
 
         
         Function Arguments
@@ -1606,13 +1660,10 @@ class AFOLU:
         ------------------
         - attr_lndu: optional land use attribute table
         - dynamic_forests: use dynamic forest sequestration?
-        - max_age_young_secondary_forest: maximum age (in time periods) of young 
-            secondary forests. Only applies if using dynamic forest 
-            sequestration
         - kwargs: passed to the following methods:
             * get_npp_frst_sequestration_factor_vectors()
         """
-
+        
         ##  SOME INIT
 
         attr_lndu = (
@@ -1628,7 +1679,7 @@ class AFOLU:
             **kwargs,
         )
 
-        return None
+        return df_sf_groups
 
 
 
@@ -2607,12 +2658,16 @@ class AFOLU:
 
     def get_npp_biomass_sequestration_curves(self,
         df_ordered_sequestration: pd.DataFrame,
-        curve_npp: Union[str, npp.Curve, None] = None,
+        curve_npp: Union[str, npp.NPPCurve, None] = None,
         field_ord_1: str = "young",
         field_ord_2: str = "secondary",
         field_ord_3: str = "primary",
+        force_convergence: bool = False,
+        include_primary_forest_in_npp: Union[bool, None] = None,
+        maxiter: int = 500,
+        method: str = "SLSQP",
         params_init: Union[np.ndarray, None] = None,
-        vec_widths: Union[np.ndarray, None] = np.array([20, 180, 500]),
+        vec_widths: Union[np.ndarray, None] = None,
         **kwargs,
     ) -> Dict[int, 'scipy.optimize._optimize.OptimizeResult']:
         """
@@ -2622,42 +2677,80 @@ class AFOLU:
 
             (young, secondary, primary, )
 
-            sequestration factors
+            sequestration factors. 
 
-        Function Arguments
-        ------------------
-        - df_ordered_sequestration: data frame containing ordered sequestration by
-            time period group
+        Notes
+        -----
+        Can be called from any sector--in agrc (woody perennial), exclude
+            primary forest. 
+
+
+        Arguments
+        ---------
+        df_ordered_sequestration : pd.DataFrame
+            data frame containing ordered sequestration by time period group   
+            (output of, e.g., get_npp_frst_sequestration_factor_vectors())
 
         Keyword Arguments
         -----------------
-        - curve_npp: curve to use for NPP. Options are:
-            - "gamma"
-            - "sem"
-        - field_ord_i: ordered field name to use as sequestration factors in 
-            afult._get_estimated_parameters()
-        - params_init: initial parameters to perturb for sequestration curve shape
-        - vec_widths: vector of widths to use for integral estimate in NPP curve
+        curve_npp : Union[str, npp.NPPCurve, None]
+            Curve to use for NPP. Valid string options are:
+                - "gamma"
+                - "sem"
+        field_ord_i : str
+            ordered field name to use as sequestration factors
+        force_convergence : bool
+            force parameter a in SEM to converge to final value? Only applies
+            if curve_npp is "sem"
+        include_primary_forest_in_npp : bool
+            Include primary forest in the NPP curve fitting? If None, defaults 
+            to self.npp_include_primary_forest
+        maxiter : int
+            maximum number of iterations of solver
+        method : str
+            valid solver for scipy.optimize.minimize
+        params_init : Union[np.ndarray, None]
+            Initial parameters to perturb for sequestration curve shape
+        vec_widths : Union[np.ndarray, None]
+            Vector of widths to use for integral estimate in NPP curve
         """
 
         ##  INITIALIZATION
 
-        curve_npp = (
-            self.dynamic_npp_curve 
-            if curve_npp is None
-            else self.curves_npp.get_curve(curve_npp, )
-        )
-
+        curve_npp = self.npp_curve if curve_npp is None else curve_npp
+        curve_npp = self.curves_npp.get_curve(curve_npp, )
         if curve_npp is None:
             return None
 
+        # initialize info for NPPCurves input
+        vec_widths = (
+            self.npp_integration_windows.copy()
+            if vec_widths is None
+            else vec_widths
+        )
+
+        # include primary forest in curve fitting? 
+        # reduce the targets/widths if not including it
+        include_primary_forest_in_npp = (
+            self.npp_include_primary_forest
+            if not isinstance(include_primary_forest_in_npp, bool)
+            else include_primary_forest_in_npp
+        )
+
+        fields_targets = [field_ord_1, field_ord_2, field_ord_3]
+        if not include_primary_forest_in_npp:
+            fields_targets = fields_targets[0:2]
+            vec_widths = vec_widths[0:2]
 
         dict_out = {}
+
+
+        ##  ITERATE OVER EACH GROUP TO BUILD PARAMETERS
         
         for i, row in df_ordered_sequestration.iterrows():
 
             # get the factors and the parameter curve
-            vec_factors = row[[field_ord_1, field_ord_2, field_ord_3]].to_numpy()
+            vec_factors = row[fields_targets].to_numpy()
             tol = self.get_npp_convergence_tolerance(row, **kwargs)
 
             # update internal curves and get parameters
@@ -2669,7 +2762,12 @@ class AFOLU:
             )
             
             params = self.curves_npp.fit(
-                curve_npp, 
+                curve_npp,
+                force_convergence = force_convergence,
+                method = method,
+                options = {
+                    "maxiter": maxiter,
+                },
                 tol = tol, 
                 vec_params_0 = params_init,
             )
@@ -2856,6 +2954,92 @@ class AFOLU:
         mat_out = mat_out.reshape((n, n))
         
         return mat_out
+
+
+
+    def plot_npp_get_window(self,
+        x_range: Union[tuple, None] = None,
+    ) -> tuple:
+        """Get the plot x_range for showing the fit NPP curve
+
+        Arguments
+        ---------
+        x_range : Union[tuple, None]
+            Optional range. If None, defaults to sum over 
+            self.npp_integration_windows. If excluding primary, only takes
+            first two elements of the window.
+        """
+        # check if valid
+        if isinstance(x_range, tuple):
+            ret = sf.isnumber(x_range[0])
+            ret &= sf.isnumber(x_range[1])
+            ret &= (x_range[0] >= 0) if ret else ret
+            ret &= (x_range[0] < x_range[1]) if ret else ret
+            
+            if ret:
+                return x_range
+
+        # otherwise, use default
+        window = self.npp_integration_windows.copy()
+        if not self.npp_include_primary_forest:
+            window = window[0:-1]
+        window = (0, sum(window))
+
+        return window
+
+
+
+    def plot_npp_fit_curve(self,
+        key: tuple,
+        dict_fit_parameters: dict,
+        figtuple: Union[tuple, None] = None,
+        x_range: Union[tuple, None] = None,
+        **kwargs,
+    ) -> Union['plt.Plot', None]:
+        """Plot a fitted NPP curve
+
+        Arguments
+        ---------
+        key : tuple
+            (tp_group, npp_curve) tuple to plot in dict_fit_parameters
+        dict_fit_parameters : dict
+            Dictionary of fit curve parameters to pull from
+        figtuple : tuple
+            Optional fig, ax tuple to pass from matplotlib.pyplot
+        x_range : optional specification of x_range to plot
+        """
+        # try the result
+        result = dict_fit_parameters.get(key)
+        if result is None:
+            return None 
+
+        # some init of curve
+        tp, curve_name = key
+        curve = self.curves_npp.get_curve(curve_name)
+        if curve is None:
+            return None
+
+        # get the per time-period estimated average 
+        estimated_averages = self.curves_npp.estimate_integral(curve_name, *result.x, )
+        x_range = self.plot_npp_get_window(x_range, )
+        
+        t = np.arange(x_range[0], x_range[1], self.curves_npp.dt)
+        y = curve(t, *result.x)
+
+        fig, ax = (
+            subplots(figsize = (10, 8))
+            if not is_valid_figtuple(figtuple, )
+            else figtuple
+        )
+            
+        
+        out = ax.plot(
+            t, 
+            y,
+            **kwargs,
+        )
+        
+        return out
 
 
 
