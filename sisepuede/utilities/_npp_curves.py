@@ -401,12 +401,12 @@ class NPPCurves:
 
         for i, w in enumerate(vec_widths):
 
-            flr = vec_widths[i - 1] if i >= 1 else 0
-            t = np.arange(flr, w, dt) + dt/2
+            flr = sum(vec_widths[0:i]) if i >= 1 else 0
+            t = np.arange(flr, flr + w, dt) + dt/2
             
             totals = curve(t, *args)
             avg = totals.sum()*dt
-            out[i] = avg/(w - flr) if w != flr else 0.0
+            out[i] = avg/w if w != 0 else 0.0
 
         return out
     
