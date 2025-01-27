@@ -763,6 +763,68 @@ def days_per_month(
 
 
 
+def df_fillna_propagate_condition(
+    vec: np.ndarray,
+    n: int,
+    i: int,
+    forward: bool, 
+) -> bool:
+    """
+    Support for df_fillna_propagate
+    """
+    out = (
+        np.isnan(vec[n - i - 1])
+        if forward
+        else np.isnan(vec[i])
+    )
+
+    return out
+
+
+
+def df_fillna_propagate_value(
+    df: pd.DataFrame,
+    value: Any,
+    column: str,
+    forward: bool = True,
+) -> pd.DataFrame:
+    """
+    Fill forward or backward a specified value in column of df. Inplace 
+        function. Does not appear to be a method in pd.DataFrame capable of 
+        doing this.
+
+        forward = False will backfill; True will forward fill.
+    """
+
+    if column not in df.columns:
+        return df
+
+    # find nans
+    vec = df[column].to_numpy().copy()
+    nans = np.where(np.isnan(vec))[0]
+    if len(nans) == 0:
+        return df 
+
+    # if there's nothing to fill, return the original df
+    n = len(vec)
+    nothing_to_fill = (0 not in nans) & (not forward)
+    nothing_to_fill |= (n - 1 not in nans) & forward
+    if nothing_to_fill:
+        return df
+
+    # iterate forward
+    i = 0
+    while df_fillna_propagate_condition(vec, n, i, forward, ):
+        ind = (n - 1 - i) if forward else i
+        vec[ind] = value
+        i += 1
+
+    df[column] = vec
+
+    return None
+
+
+
 def df_to_tuples(
     df_in: pd.DataFrame,
     nan_to_none: bool = False

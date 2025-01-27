@@ -1622,7 +1622,7 @@ class AFOLU:
     
 
 
-    def get_lndu_areas_to_from(self,
+    def get_lndu_areas_to_from_remaining(self,
         arr_converted: np.ndarray, 
         ind: int,
     ) -> Tuple[float, float]:
@@ -1630,13 +1630,22 @@ class AFOLU:
         For a conversion matrix `arr_converted` and land use index, calculate 
             how much secondary area was added to (column sums) and lost from 
             (row sums).
+
+            Returns a tuple with 
+
+            (
+                area_to,
+                area_from,
+                area_remaining
+            )
         """
         n, _ = arr_converted.shape
         w = np.array([i for i in range(n) if i != ind])
 
         area_to = arr_converted[w, ind].sum()
         area_from = arr_converted[ind, w].sum()
-        out = (area_to, area_from, )
+        area_remaining = arr_converted[w, w]
+        out = (area_to, area_from, area_remaining, )
 
         return out
 
@@ -1645,8 +1654,11 @@ class AFOLU:
     def get_frst_sequestration_from_npp(self,
         df_afolu_trajectories: pd.DataFrame,
         arrs_lndu_conversion: np.ndarray,
-        arrs_lndu_prevalence: np.ndarray,
+        vec_lndu_area_init: np.ndarray,
         attr_lndu: Union[AttributeTable, None] = None,
+        field_sfv_secondary: str = "secondary",
+        key_cmf: str = "cmf",
+        key_params: str = "params",
         npp_curve: Union[str, None] = None,
         **kwargs,
     ) -> Tuple:
@@ -1659,17 +1671,28 @@ class AFOLU:
         
         Function Arguments
         ------------------
-        - df_afolu_trajectories: data frame containing input trajectories
-        - arrs_lndu_conversion: arrays of converted areas in terms of 
-            self.modvar_lndu_area_by_cat
+        df_afolu_trajectories : pd.DataFrame
+            data frame containing input trajectories
+        arrs_lndu_conversion : np.ndarray
+            arrays of converted areas in terms of self.modvar_lndu_area_by_cat
+        vec_lndu_area_init : np.ndarray
+            vector (by lndu category) of initial land use prevalance
             
 
         Keyword Arguments
         ------------------
-        - attr_lndu: optional land use attribute table
-        - dynamic_forests: use dynamic forest sequestration?
-        - npp_curve: curve to use? If None, use self.npp_curve
-        - kwargs: passed to the following methods:
+        attr_lndu : Union[AttributeTable, None]
+            optional land use attribute table
+        field_sfv_secondary : str
+            field to use for standard secondary factor
+        key_cmf : str
+            key in curve group subdicts storing cmf
+        key_params : str
+            key in curve group subdicts storing parameter results
+        npp_curve : Union[str, None]
+            curve to use? If None, use self.npp_curve
+        kwargs :
+            passed to the following methods:
             * get_npp_frst_sequestration_factor_vectors()
             * get_npp_biomass_sequestration_curves()
         """
@@ -1685,27 +1708,40 @@ class AFOLU:
         # stick to using the name
         npp_curve = self.npp_curve if (npp_curve is None) else npp_curve
 
+        # 
         # get groups of sequestration factors and NPP curves
-        df_sf_groups = self.get_npp_frst_sequestration_factor_vectors(
+        (
+            df_sf_groups,
+            arr_sf_secondary,
+            arr_sf_secondary_young,  # HEREHEREHERE
+        ) = self.get_npp_frst_sequestration_factor_vectors(
             df_afolu_trajectories,
+            field_ord_2 = field_sfv_secondary, 
+            return_factors = True,
             **kwargs,
         )
 
         dict_curves = self.get_npp_biomass_sequestration_curves(
             df_sf_groups,
+            key_cmf = key_cmf,
+            key_params = key_params,
             **kwargs,
         )
         
-
+        
         # get an array to collapse
-        tps = df_afolu_trajectories[self.model_attributes.dim_time_period].to_numpy()
+        field_cmf = "cumulative_mass"
+        field_tp = self.model_attributes.dim_time_period
+        tps = df_afolu_trajectories[field_tp].to_numpy()
         n_tp = len(tps)
 
         # arrs to collapse: if the are of secondary forests declines, then assume that pre-existing forest was cut into first
-        #    - arr_sequestration_to_collapse: sequestration totals by year
         #    - arr_area_to_collapse: areas converted in by year
-        arr_sequestration_to_collapse = np.zeros((n_tp, n_tp))
+        #    - arr_cumulative_mass_to_collapse: cumulative mass by year for planted forests; used to scale conversion factors 
+        #    - arr_sequestration_to_collapse: sequestration totals by year
         arr_area_to_collapse = np.zeros((n_tp, n_tp))
+        arr_cumulative_mass_to_collapse = np.zeros((n_tp, n_tp))
+        arr_sequestration_to_collapse = np.zeros((n_tp, n_tp))
 
         # initialize the tp, curve tuple and the curve
         tup_call = None 
@@ -1713,33 +1749,116 @@ class AFOLU:
 
 
         ##  GET SEQUESTRATION BY YEAR
+        
+        sf_frst_secondary_init = arr_sf_secondary[0, self.ind_frst_scnd]
+
+        # ACCOUNTING VECTORS
+        #    - vec_area_secondary_from_original stores the area of secondary forest that was initialized that remains after convesions occur 
+        #    - vec_area_secondary_removed_from_new: holds the are of secondary converted away that was removed from NEW forests (see below)
+        vec_area_secondary_from_original = np.ones(n_tp)*vec_lndu_area_init[self.ind_lndu_fsts]
+        area_converted_from_total = 0
 
         for (i, arr) in enumerate(arrs_lndu_conversion):
-            
+
             tp = tps[i]
             tup = (tp, npp_curve)
-            area_to, area_from = self.get_lndu_areas_to_from(arr, self.ind_lndu_fsts, )
+            area_to, area_from, area_remaining = self.get_lndu_areas_to_from_remaining(arr, self.ind_lndu_fsts, )
 
-            # get last available parameters
-            tup_call = tup if tup in dict_curves.keys() else tup_call
-            params = dict_curves.get(tup_call, )
-            if params is None:
-                continue # this is an error
+            # this should always initialize the tuple since the first time period will have variables
+            if tup in dict_curves.keys():
+
+                tup_call = tup
+                dict_cur = dict_curves.get(tup_call, )
+                
+                # ensure cmf and parameters are defined
+                cmf = dict_cur.get(key_cmf, )
+                params = dict_cur.get(key_params, )
+                if (params is None) | (cmf is None):
+                    continue 
+
+                df_cmf = self._get_frst_sequestration_from_npp_build_cmf_df(
+                    df_afolu_trajectories,
+                    cmf,
+                    field_cmf,
+                    field_tp,
+                )
             
+            
+            # safety check
+            if tup_call is None:
+                continue
+
+
+            # get area to use original sequestration factor for; then remove land converted away for NEXT iteration
+            vec_area_secondary_from_original[i] -= area_converted_from_total
+            area_converted_from_total += area_from
+
             # get the domain and add to the sequestration total
             vec_t = tps[i:] - tps[i]
+            arr_area_to_collapse[i:, i] = area_to
             arr_sequestration_to_collapse[i:, i] = curve(vec_t, *params.x)*area_to
+
+        # set area removed from new as any excess over "original" secondary
+        vec_area_secondary_removed_from_new = -1*sf.vec_bounds(
+            vec_area_secondary_from_original,
+            (-np.inf, 0)
+        )
+        vec_area_secondary_from_original = vec_area_secondary_from_original - vec_area_secondary_removed_from_new
+        vec_area_secondary_new = arr_area_to_collapse.sum(axis = 1,)
+
+        # calculate the fraction of NEW secondary that is lost
+        vec_frac_area_new_secondary_lost = np.nan_to_num(
+            vec_area_secondary_removed_from_new/vec_area_secondary_new,
+            0.0,
+            posinf = 0.0,
+        )
+
+        # finally, actually get secondary forest sequestration
+        vec_sequestration_secondary = arr_sequestration_to_collapse.sum(axis = 1)
+        vec_sequestration_secondary *= (1 - vec_frac_area_new_secondary_lost)
+        vec_sequestration_secondary += vec_area_secondary_from_original*sf_frst_secondary_init
+
+        return vec_sequestration_secondary
+
+
+
+    def _get_frst_sequestration_from_npp_build_cmf_df(self,
+        df_afolu_trajectories: pd.DataFrame,
+        cmf: np.ndarray, 
+        field_cmf: str,
+        field_tp: str,
+    ) -> pd.DataFrame:
+        """
+        Support function for get_frst_sequestration_from_npp()
         
-
-
-
-
-            
+        Arguments
+        ---------
+        cmf : np.ndarray
+            2d numpy array (column 1 -> time periods, column 2 -> values)
         
+        """
+        # build the cmf data frame
+        df_cmf = (
+            pd.merge(
+                df_afolu_trajectories[[field_tp]],
+                pd.DataFrame(
+                    cmf,
+                    columns = [field_tp, field_cmf],
+                ),
+                how = "left",
+            )
+        )
 
+        # fill in values
+        sf.df_fillna_propagate_value(df_cmf, 0.0, field_cmf, forward = False,)
+        sf.df_fillna_propagate_value(df_cmf, 1.0, field_cmf, forward = True,)
+        df_cmf.interpolate(
+            inplace = True,
+            method = "linear",
+        )
 
-        return arr_sequestration_to_collapse
-
+        return df_cmf
+    
 
 
     def get_frst_sequestration_factors(self,
@@ -2722,6 +2841,8 @@ class AFOLU:
         field_ord_2: str = "secondary",
         field_ord_3: str = "primary",
         force_convergence: bool = False,
+        key_cmf: str = "cmf",
+        key_params: str = "params",
         include_primary_forest_in_npp: Union[bool, None] = None,
         maxiter: int = 500,
         method: str = "SLSQP",
@@ -2761,6 +2882,10 @@ class AFOLU:
         force_convergence : bool
             force parameter a in SEM to converge to final value? Only applies
             if curve_npp is "sem"
+        key_cmf : str
+            Key in subdictionaries storing cmf
+        key_params : str
+            Key in subdictionaries storing parameters
         include_primary_forest_in_npp : bool
             Include primary forest in the NPP curve fitting? If None, defaults 
             to self.npp_include_primary_forest
@@ -2826,6 +2951,8 @@ class AFOLU:
             )
             t0 = time.time()
 
+            ##  GET PARAMETERS AND CMF
+
             params = self.curves_npp.fit(
                 curve_npp,
                 force_convergence = force_convergence,
@@ -2837,6 +2964,12 @@ class AFOLU:
                 vec_params_0 = params_init,
             )
 
+            arr_cmf = self.curves_npp.get_assumed_steady_state_sem_cumulative_mass(
+                *params.x,
+                return_type = "array_collapsed_to_tp",
+                vec_widths = vec_widths,
+            )
+
             # report fit time
             t_elapse = sf.get_time_elapsed(t0)
             self._log(
@@ -2845,8 +2978,14 @@ class AFOLU:
             )
     
             tp = int(row[self.model_attributes.dim_time_period])
-            dict_out.update({(tp, curve_npp.name, ): params, })
-
+            dict_out.update(
+                {
+                    (tp, curve_npp.name, ): {
+                        key_cmf: arr_cmf,
+                        key_params: params, 
+                    }
+                }
+            )
             
             
         # remove existing inputs
@@ -2914,10 +3053,24 @@ class AFOLU:
         field_ord_1: str = "young",
         field_ord_2: str = "secondary",
         field_ord_3: str = "primary",
+        return_factors: bool = False,
         **kwargs,
-    ) -> Tuple:
+    ) -> Union[pd.DataFrame, Tuple[pd.DataFrame]]:
         """
-        Retrieve sequestration factor vectors for use in building estimated curve
+        Retrieve sequestration factor vectors for use in building estimated 
+            curve. 
+
+        Return
+        ------    
+        Set return_factors = True to return a tuple of the form
+            (
+                df_duplicates,
+                arr_frst_ef_sequestration,
+                arr_frst_ef_sequestration_young,
+            )
+
+            with sequestration factors in terms of (self.modvar_frst_sq_co2)
+            units of mass and self.model_socioeconomic.modvar_gnrl_area area
         """
 
         ##  GET SEQUESTRATION FACTORS
@@ -2958,7 +3111,13 @@ class AFOLU:
             .sort_values(by = [field_tp])
         )
 
-        return df_duplicates
+        out = (
+            df_duplicates
+            if not return_factors
+            else (df_duplicates, arr_frst_ef_sequestration, arr_frst_ef_sequestration_young, )
+        )
+
+        return out
     
 
 

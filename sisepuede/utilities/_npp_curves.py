@@ -3,6 +3,7 @@ Store functions to support AFOLU model
 """
 
 import numpy as np
+import pandas as pd
 import scipy.optimize as sco
 import sisepuede.utilities._toolbox as sf
 from typing import *
@@ -27,12 +28,14 @@ class NPPCurve:
         func: callable,
         bounds: callable,
         defaults: np.ndarray,
+        derivative: Union[callable, None] = None,
         jacobian: Union[callable, None] = None,
         name: Union[str, None] = None,
     ) -> None:
         
         self.bounds = bounds
         self.defaults = defaults
+        self.derivative = derivative
         self.function = func
         self.jacobian = jacobian
         self.name = name
@@ -153,6 +156,24 @@ def _jacobian_gamma(
 # SEM CURVE
 #
 
+def _bounds_sem(
+    vec_target: np.ndarray,
+    *args,
+    force_convergence: bool = True,
+    **kwargs,
+) -> float:
+    """
+    Set bounds for minimization of gamma
+    """ 
+
+    out = [(0, None) for x in range(4)]
+    if force_convergence:
+        out[0] = (vec_target[-1], vec_target[-1])
+
+    return out
+
+
+
 def _curve_sem(
     t: float,
     a: float,
@@ -173,22 +194,25 @@ def _curve_sem(
 
 
 
-def _bounds_sem(
-    vec_target: np.ndarray,
-    *args,
-    force_convergence: bool = True,
-    **kwargs,
+def _deriv_sem(
+    t: float,
+    a: float,
+    b: float, 
+    c: float,
+    d: float,
 ) -> float:
     """
-    Set bounds for minimization of gamma
-    """ 
+    First-order derivative of the SEM curve (Chen et al.) for NPP (wrt t)
+    """
 
-    out = [(0, None) for x in range(4)]
-    if force_convergence:
-        out[0] = (vec_target[-1], vec_target[-1])
+    # intermediate variables
+    u = (t**d)*b/(c**d)
+    exp = np.exp(t/c)
+
+    out = u*d/t - u/c + 1/c
+    out *= a/exp
 
     return out
-
 
 
 
@@ -305,6 +329,7 @@ class NPPCurves:
             _curve_sem,
             _bounds_sem,
             _PARAMS_DEFAULT_SEM,
+            derivative = _deriv_sem,
             name = curve_name_sem,
         )
 
@@ -467,6 +492,213 @@ class NPPCurves:
         )
 
         return result
+    
+
+
+    def get_assumed_steady_state_sem(self,
+        *args,
+        dt: Union[float, None] = None,
+        tol: float = 0.0000001,
+        vec_widths: Union[np.ndarray, None] = None,
+    ) -> int:
+        """
+        Find the starting point for assumed steady state
+        """
+        curve_npp = self.get_curve("sem")
+        vec_widths = self.get_widths(vec_widths, )
+        dt = self.get_dt(dt, )
+
+        window_max = sum(vec_widths)
+
+        # get domain and derivative
+        t = np.arange(0, window_max, dt)
+        out = curve_npp.derivative(t, *args, )
+        i_0 = self.get_assumed_steady_state_sem_p0(out, )
+        if i_0 is None:
+            return None
+
+        # iterate forward
+        i_1 = self.get_assumed_steady_state_sem_p1(out, i_0, tol = tol, )
+
+        return i_1
+    
+
+
+    def get_assumed_steady_state_sem_cumulative_mass(self,
+        *args,
+        dt: Union[float, None] = None,
+        force_imax_ceiling: bool = True,
+        return_type: str = "vector",
+        tol: float = 0.0000001,
+        vec_widths: Union[np.ndarray, None] = None,
+    ) -> np.ndarray:
+        """
+        For a parameterization, get the cumulative fraction of biomass used. 
+        
+
+        Arguments
+        ---------
+        *args : floats
+            ordered parameters passed to curve
+
+        Keyword Arguments
+        -----------------
+        dt : Union[float, None]
+            Optional dt step used to estimate integral. If None, defaults to 
+            self.dt
+        force_imax_ceiling : bool
+            Set to True to force the assumed steady state arrive to be an 
+            integer, i.e., the ceiling of the determined i_max. This is 
+            convenient for setting tp-based output (e.g., if 
+            return_type == "array_collapsed_to_tp")
+        return_array : str
+            "array" : return an N x 2 array, where the first column are time 
+                periods (in units of dt) and the second period is the cumulative 
+                mass
+            "array_collapsed_to_tp"  return an N_TP x 2 array, where the first 
+                column are time periods (in units of time period) and the second 
+                period is the cumulative mass
+            "vector" : return a vector of cmf values by dt to imax
+        tol : float
+            convergence tolerance for steady state id
+        vec_widths : array_like
+            vector of integration windows used to determine domain of 
+            integration and search
+        """
+        # get 
+        curve_npp = self.get_curve("sem")
+        vec_widths = self.get_widths(vec_widths, )
+        dt = self.get_dt(dt, )
+
+        # y
+        i_max = self.get_assumed_steady_state_sem(
+            *args,
+            tol = tol,
+            vec_widths = vec_widths,
+        )
+        if i_max is None:
+            return None
+        
+        if force_imax_ceiling:
+            i_max = np.ceil(i_max*dt)/dt
+
+
+        # init 
+        t = np.arange(i_max)*dt + dt/2
+        vals = curve_npp(t, *args, )
+        cmf = np.cumsum(vals)
+        cmf /= cmf[-1]
+
+        # return the vector alone?
+        if return_type == "vector":
+            return cmf
+        
+        
+        ##  CONTINUE WITH ARRAY BUILDING IF NECESSARY
+
+        arr_out = np.zeros((len(t), 2))
+        arr_out[:, 0] = t
+        arr_out[:, 1] = cmf
+
+        if return_type == "array_collapsed_to_tp":
+            arr_out = self.get_assumed_steady_state_sem_mass_collapse(
+                arr_out,
+                return_type = "array",
+            )
+
+        return arr_out
+
+
+
+    def get_assumed_steady_state_sem_mass_collapse(self,
+        arr_out: np.ndarray,
+        field_t: str = "t",
+        field_t_new: str = "t_new",
+        field_val: str = "value",
+        return_type: str = "array",
+    ) -> Union[np.ndarray, pd.DataFrame]:
+        """
+        Do the collapse to return the collapsed mass array. Valid return_type
+            values are "array" or "dataframe"
+        """
+
+        df_out = pd.DataFrame(
+            arr_out, 
+            columns = [field_t, field_val],
+        )
+        df_out[field_t_new] = np.floor(df_out[field_t])
+
+        df_out = (
+            df_out[[field_t_new, field_val]]
+            .groupby([field_t_new])
+            .agg(
+                {
+                    field_t_new: "first",
+                    field_val: "max",
+                }
+            )
+            .reset_index(drop = True, )
+        )
+
+        df_out = (
+            df_out
+            if return_type == "dataframe"
+            else df_out.to_numpy()
+        )
+
+        return df_out
+    
+
+
+    def get_assumed_steady_state_sem_p0(self,
+        out: np.ndarray,
+    ) -> Union[int, None]:
+        """
+        Find the starting point to iterate until steady state is reached.
+        """
+
+        # iterate over window
+        i_max = None
+        i_min = None
+        
+        for i, val in enumerate(out):
+            if i == 0:
+                df = 0
+                continue
+        
+            df_last = df
+            df = val - out[i - 1]
+        
+            # (np.sign(df) != np.sign(df_last))
+            if ((df < 0) & (df_last > 0)) & (i > 1):
+                i_max = i
+                
+            elif ((df > 0) & (df_last < 0)) & (i > 1):
+                i_min = i
+                
+
+        # need to cross the max first too
+        if (i_max is None) or (i_min is None):
+            return None
+
+        return i_min
+
+
+
+    def get_assumed_steady_state_sem_p1(self,
+        out: np.ndarray,
+        i_0: int,
+        tol: float = 0.0000001,
+    ) -> Union[int, None]:
+        """
+        Iterate from i_0 until steady state
+        """
+
+        i = i_0
+        while (np.abs(out[i]) > tol) & (i < len(out) - 1):
+            i += 1
+
+        return i
 
 
 
