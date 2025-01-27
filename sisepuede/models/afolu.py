@@ -1661,7 +1661,7 @@ class AFOLU:
         key_params: str = "params",
         npp_curve: Union[str, None] = None,
         **kwargs,
-    ) -> Tuple:
+    ) -> Tuple[np.ndarray]:
         """
         Calculate forest sequestration using NPP.
 
@@ -1771,18 +1771,19 @@ class AFOLU:
                 dict_cur = dict_curves.get(tup_call, )
                 
                 # ensure cmf and parameters are defined
-                cmf = dict_cur.get(key_cmf, )
+                arr_cmf = dict_cur.get(key_cmf, )
                 params = dict_cur.get(key_params, )
-                if (params is None) | (cmf is None):
+                if (params is None) | (arr_cmf is None):
                     continue 
 
-                df_cmf = self._get_frst_sequestration_from_npp_build_cmf_df(
+                arr_cmf = self._get_frst_sequestration_from_npp_build_cmf_df(
                     df_afolu_trajectories,
-                    cmf,
+                    arr_cmf,
                     field_cmf,
                     field_tp,
+                    return_type = "array",
                 )
-            
+
             
             # safety check
             if tup_call is None:
@@ -1796,6 +1797,14 @@ class AFOLU:
             # get the domain and add to the sequestration total
             vec_t = tps[i:] - tps[i]
             arr_area_to_collapse[i:, i] = area_to
+            """
+            HEREHEREHERE
+
+            NOTE: This approach of iteratively pushing the cmf down (1 by 1) 
+            assumes that time periods are implemented correctly as 
+            t, t + 1, t + 2, etc. with no gaps
+            """
+            arr_cumulative_mass_to_collapse[i:, i] = arr_cmf[0:(n_tp - i), 1]*area_to
             arr_sequestration_to_collapse[i:, i] = curve(vec_t, *params.x)*area_to
 
         # set area removed from new as any excess over "original" secondary
@@ -1813,12 +1822,22 @@ class AFOLU:
             posinf = 0.0,
         )
 
-        # finally, actually get secondary forest sequestration
+        ##  CALCULATE OUTPUTS
+        #   Assumes that conversions out of secondary hit older secondary forests first.
+        #    - get secondary forest sequestration
+        #    - get average biomass conversion scalar
         vec_sequestration_secondary = arr_sequestration_to_collapse.sum(axis = 1)
         vec_sequestration_secondary *= (1 - vec_frac_area_new_secondary_lost)
         vec_sequestration_secondary += vec_area_secondary_from_original*sf_frst_secondary_init
 
-        return vec_sequestration_secondary
+        # get the scalar for land use conversion to apply
+        vec_conversion_scalar = arr_cumulative_mass_to_collapse.sum(axis = 1)/vec_area_secondary_new
+        vec_conversion_scalar *= vec_frac_area_new_secondary_lost
+        vec_conversion_scalar += 1 - vec_frac_area_new_secondary_lost
+
+        out = (vec_sequestration_secondary, vec_conversion_scalar, vec_frac_area_new_secondary_lost)
+
+        return out
 
 
 
@@ -1827,6 +1846,7 @@ class AFOLU:
         cmf: np.ndarray, 
         field_cmf: str,
         field_tp: str,
+        return_type: str = "dataframe",
     ) -> pd.DataFrame:
         """
         Support function for get_frst_sequestration_from_npp()
@@ -1835,6 +1855,8 @@ class AFOLU:
         ---------
         cmf : np.ndarray
             2d numpy array (column 1 -> time periods, column 2 -> values)
+        return_type : str
+            "dataframe" or "array"
         
         """
         # build the cmf data frame
@@ -1856,6 +1878,9 @@ class AFOLU:
             inplace = True,
             method = "linear",
         )
+
+        if return_type == "array":
+            df_cmf = df_cmf.to_numpy()
 
         return df_cmf
     
