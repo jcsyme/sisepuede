@@ -1439,6 +1439,39 @@ class AFOLU:
             raise ValueError(msg)
 
         return None
+
+
+
+    def format_lndu_conversion_emissions_and_scale_secondary_forest(self,
+        arrs_lndu_emissions_conv_matrices: np.ndarray,
+        scalar_secondary_forest_conversions: Union[np.ndarray, float] = 1.0,
+    ) -> pd.DataFrame:
+        """
+        Scale conversion emissions *out* of secondary forest based on biomass
+            accumulation from NPP (calculate assuming that original secondary
+            is coverted first)
+        """
+        arrs_out = arrs_lndu_emissions_conv_matrices.copy()
+        n, _ = arrs_out[0].shape
+        w = np.where(np.arange(n) != self.ind_lndu_fsts)[0]
+
+        for i, arr in enumerate(arrs_out):
+            arr[self.ind_lndu_fsts, w] *= (
+                scalar_secondary_forest_conversions[i]
+                if isinstance(scalar_secondary_forest_conversions, np.ndarray)
+                else scalar_secondary_forest_conversions
+            )
+            arrs_out[i] = arr
+
+        # scale the secondary forest conversion emissions and convert land use conversion emission totals to config
+        df_lndu_emissions_conv_matrices = self.format_transition_matrix_as_input_dataframe(
+            arrs_out,
+            exclude_time_period = True,
+            modvar = self.modvar_lndu_emissions_conv,
+        )
+
+        return df_lndu_emissions_conv_matrices
+        
     
 
 
@@ -1651,10 +1684,94 @@ class AFOLU:
 
 
 
+    def get_frst_area_from_df(self,
+        df_land_use: pd.DataFrame,
+        attr_frst: AttributeTable,
+    ) -> np.ndarray:
+        """
+        Retrieve the area of forest types as a numpy array
+        """
+        # get ordered fields from land use
+        fields_lndu_forest_ordered = [self.dict_cats_frst_to_cats_lndu.get(x) for x in attr_frst.key_values]
+        fields_ext = self.model_attributes.build_variable_fields(
+            self.modvar_lndu_area_by_cat,
+            restrict_to_category_values = fields_lndu_forest_ordered,
+        )
+        arr_area_frst = np.array(df_land_use[fields_ext])
+        
+        return arr_area_frst
+    
+
+    
+    def get_frst_methane_factors(self,
+        df_afolu_trajectories: pd.DataFrame,
+    ) -> pd.DataFrame:
+        """
+        Get forest methane emission factors in terms of output emission mass and
+            self.model_socioeconomic.modvar_gnrl_area area units.
+        """
+        arr_frst_ef_methane = self.model_attributes.extract_model_variable(#
+            df_afolu_trajectories, 
+            self.modvar_frst_ef_ch4, 
+            override_vector_for_single_mv_q = True, 
+            return_type = "array_units_corrected",
+        )
+        arr_frst_ef_methane *= self.model_attributes.get_variable_unit_conversion_factor(
+            self.model_socioeconomic.modvar_gnrl_area,
+            self.modvar_frst_ef_ch4,
+            "area"
+        )
+
+        return arr_frst_ef_methane
+    
+
+    
+    def get_frst_sequestration_and_land_use_conversion_emission(self,
+        df_afolu_trajectories: pd.DataFrame,
+        arrs_lndu_conversion: np.ndarray,
+        arrs_lndu_conversion_emissions: np.ndarray,
+        arr_lndu_areas: np.ndarray,
+        arr_frst_areas: np.ndarray,
+        **kwargs,
+    ) -> Tuple[np.ndarray]:
+        """
+        Get forest sequestration
+        """
+        if self.npp_curve is None:
+
+            out = self.get_frst_sequestration_static(
+                df_afolu_trajectories,
+                arr_frst_areas,
+            )
+
+            scalar = 1.0
+
+        else:
+            out, scalar = self.get_frst_sequestration_from_npp(
+                df_afolu_trajectories,
+                arrs_lndu_conversion,
+                arr_lndu_areas,
+                arr_frst_areas,
+                **kwargs
+            )
+
+        # scale conversion estimates based on secondary forest biomass growth (scaled) and add to output list
+        df_lndu_emissions_conversion = self.format_lndu_conversion_emissions_and_scale_secondary_forest(
+            arrs_lndu_conversion_emissions, 
+            scalar_secondary_forest_conversions = scalar,
+        )
+
+        out.append(df_lndu_emissions_conversion)
+
+        return out
+    
+    
+
     def get_frst_sequestration_from_npp(self,
         df_afolu_trajectories: pd.DataFrame,
         arrs_lndu_conversion: np.ndarray,
-        vec_lndu_area_init: np.ndarray,
+        arr_lndu_areas: np.ndarray, #arr_land_use
+        arr_frst_areas: np.ndarray,
         attr_lndu: Union[AttributeTable, None] = None,
         field_sfv_secondary: str = "secondary",
         key_cmf: str = "cmf",
@@ -1675,8 +1792,8 @@ class AFOLU:
             data frame containing input trajectories
         arrs_lndu_conversion : np.ndarray
             arrays of converted areas in terms of self.modvar_lndu_area_by_cat
-        vec_lndu_area_init : np.ndarray
-            vector (by lndu category) of initial land use prevalance
+        arr_lndu_areas : np.ndarray
+            Array (by lndu category) of land use prevalence long by time period
             
 
         Keyword Arguments
@@ -1712,8 +1829,8 @@ class AFOLU:
         # get groups of sequestration factors and NPP curves
         (
             df_sf_groups,
-            arr_sf_secondary,
-            arr_sf_secondary_young,  # HEREHEREHERE
+            arr_frst_sf,
+            _,
         ) = self.get_npp_frst_sequestration_factor_vectors(
             df_afolu_trajectories,
             field_ord_2 = field_sfv_secondary, 
@@ -1728,7 +1845,20 @@ class AFOLU:
             **kwargs,
         )
         
-        
+        # get CH4 factors
+        arr_frst_ef_methane = self.model_attributes.extract_model_variable(#
+            df_afolu_trajectories, 
+            self.modvar_frst_ef_ch4, 
+            override_vector_for_single_mv_q = True, 
+            return_type = "array_units_corrected",
+        )
+        arr_frst_ef_methane *= self.model_attributes.get_variable_unit_conversion_factor(
+            self.model_socioeconomic.modvar_gnrl_area,
+            self.modvar_frst_ef_ch4,
+            "area"
+        )
+
+
         # get an array to collapse
         field_cmf = "cumulative_mass"
         field_tp = self.model_attributes.dim_time_period
@@ -1750,13 +1880,20 @@ class AFOLU:
 
         ##  GET SEQUESTRATION BY YEAR
         
-        sf_frst_secondary_init = arr_sf_secondary[0, self.ind_frst_scnd]
+        sf_frst_secondary_init = arr_frst_sf[0, self.ind_frst_scnd]
 
         # ACCOUNTING VECTORS
-        #    - vec_area_secondary_from_original stores the area of secondary forest that was initialized that remains after convesions occur 
-        #    - vec_area_secondary_removed_from_new: holds the are of secondary converted away that was removed from NEW forests (see below)
-        vec_area_secondary_from_original = np.ones(n_tp)*vec_lndu_area_init[self.ind_lndu_fsts]
+        #    - vec_area_secondary_remaining_from_original stores the area of secondary forest that was initialized that remains after convesions occur 
+        #    - vec_area_converted_from_total: area in each time period of forest converted away from secondary forests
+        #    - vec_area_converted_from_original: area in each time period of forest converted away from secondary forests from original stock
+        #    - vec_area_new_total: total area converted to new w/o removing losses 
+        vec_area_secondary_remaining_from_original = np.ones(n_tp)*arr_lndu_areas[0, self.ind_lndu_fsts]
+        vec_area_converted_from_total = np.zeros(n_tp)
+        vec_area_new_total = np.zeros(n_tp)
+        
+        # 
         area_converted_from_total = 0
+        area_converted_to_total = 0
 
         for (i, arr) in enumerate(arrs_lndu_conversion):
 
@@ -1791,8 +1928,13 @@ class AFOLU:
 
 
             # get area to use original sequestration factor for; then remove land converted away for NEXT iteration
-            vec_area_secondary_from_original[i] -= area_converted_from_total
+            vec_area_secondary_remaining_from_original[i] -= area_converted_from_total
+            vec_area_converted_from_total[i] = area_from
+            vec_area_new_total[i] = area_converted_to_total
+
+            # update aggreate areas
             area_converted_from_total += area_from
+            area_converted_to_total += area_to
 
             # get the domain and add to the sequestration total
             vec_t = tps[i:] - tps[i]
@@ -1803,39 +1945,89 @@ class AFOLU:
             NOTE: This approach of iteratively pushing the cmf down (1 by 1) 
             assumes that time periods are implemented correctly as 
             t, t + 1, t + 2, etc. with no gaps
+
+            NOTE: the value of arr_sequestration_to_collapse at time i is 0, so
+                area_to doesn't apply until i + 1. This means that sequestration
+                factors (and biomass conversion scalars) aren't affected until
+                t = i + 1
             """
-            arr_cumulative_mass_to_collapse[i:, i] = arr_cmf[0:(n_tp - i), 1]*area_to
+        
             arr_sequestration_to_collapse[i:, i] = curve(vec_t, *params.x)*area_to
+            if i < n_tp - 1:
+                arr_cumulative_mass_to_collapse[(i + 1):, i] = arr_cmf[0:(n_tp - i - 1), 1]*area_to
+
 
         # set area removed from new as any excess over "original" secondary
-        vec_area_secondary_removed_from_new = -1*sf.vec_bounds(
-            vec_area_secondary_from_original,
-            (-np.inf, 0)
+        vec_area_secondary_remaining_from_original = sf.vec_bounds(
+            vec_area_secondary_remaining_from_original,
+            (0, np.inf)
         )
-        vec_area_secondary_from_original = vec_area_secondary_from_original - vec_area_secondary_removed_from_new
-        vec_area_secondary_new = arr_area_to_collapse.sum(axis = 1,)
+        vec_area_converted_from_original = sf.vec_bounds(
+            vec_area_converted_from_total,
+            [(0, x) for x in vec_area_secondary_remaining_from_original]
+        )
+        vec_area_converted_from_new = vec_area_converted_from_total - vec_area_converted_from_original
 
-        # calculate the fraction of NEW secondary that is lost
-        vec_frac_area_new_secondary_lost = np.nan_to_num(
-            vec_area_secondary_removed_from_new/vec_area_secondary_new,
-            0.0,
-            posinf = 0.0,
+        # new forest is total inflow, bounded above by area of forest
+        vec_area_new_total_capped = sf.vec_bounds(
+            vec_area_new_total,
+            [(0, x) for x in arr_lndu_areas[:, self.ind_lndu_fsts]]
         )
+        
 
         ##  CALCULATE OUTPUTS
         #   Assumes that conversions out of secondary hit older secondary forests first.
         #    - get secondary forest sequestration
         #    - get average biomass conversion scalar
+
+        # get base sequestration
+        arr_sequestration = arr_frst_areas*arr_frst_sf
+
+        # total secondary is scaled by how much is actually near 
         vec_sequestration_secondary = arr_sequestration_to_collapse.sum(axis = 1)
-        vec_sequestration_secondary *= (1 - vec_frac_area_new_secondary_lost)
-        vec_sequestration_secondary += vec_area_secondary_from_original*sf_frst_secondary_init
+        vec_sequestration_secondary *= np.nan_to_num(vec_area_new_total_capped/vec_area_new_total, 0.0, posinf = 0.0, )
+        vec_sequestration_secondary += vec_area_secondary_remaining_from_original*sf_frst_secondary_init
+        arr_sequestration[:, self.ind_frst_scnd] = vec_sequestration_secondary
 
         # get the scalar for land use conversion to apply
-        vec_conversion_scalar = arr_cumulative_mass_to_collapse.sum(axis = 1)/vec_area_secondary_new
-        vec_conversion_scalar *= vec_frac_area_new_secondary_lost
-        vec_conversion_scalar += 1 - vec_frac_area_new_secondary_lost
+        vec_frac_area_converted_from_new = vec_area_converted_from_new/vec_area_converted_from_total
+        vec_conversion_scalar = arr_cumulative_mass_to_collapse.sum(axis = 1)/vec_area_new_total # weighted average of 
+        vec_conversion_scalar *= vec_frac_area_converted_from_new
+        vec_conversion_scalar += 1 - vec_frac_area_converted_from_new
+        vec_conversion_scalar = np.nan_to_num(vec_conversion_scalar, nan = 1.0, posinf = 1.0, )
 
-        out = (vec_sequestration_secondary, vec_conversion_scalar, vec_frac_area_new_secondary_lost)
+        # get methane emissions
+        arr_frst_ef_methane = self.get_frst_methane_factors(df_afolu_trajectories, )
+        arr_frst_emission_methane = arr_frst_areas*arr_frst_ef_methane
+
+        # this seris:
+        #    1. normalizes the cumulative mass curve per unit new
+        #    2. multiplies by total new area
+        #    3. adds "1" * area of secondary remaining from original
+        #    4. divides by total area of f
+        vec_frst_prevalence_scalar = arr_cumulative_mass_to_collapse.sum(axis = 1)/vec_area_new_total
+        vec_frst_prevalence_scalar *= vec_area_new_total_capped
+        vec_frst_prevalence_scalar += vec_area_secondary_remaining_from_original
+        vec_frst_prevalence_scalar /= arr_lndu_areas[:, self.ind_lndu_fsts]
+        vec_frst_prevalence_scalar = np.nan_to_num(vec_frst_prevalence_scalar, nan = 1.0, posinf = 1.0, )
+        
+        vec_frst_ef_ch4_secondary = arr_frst_ef_methane[:, self.ind_frst_scnd]*vec_frst_prevalence_scalar
+        arr_frst_emission_methane[:, self.ind_frst_scnd] = arr_frst_areas[:, self.ind_frst_scnd]*vec_frst_ef_ch4_secondary
+
+
+        # convert to dataframes and return
+        out = [
+            self.model_attributes.array_to_df(
+                -1*arr_sequestration, 
+                self.modvar_frst_emissions_co2_sequestration
+            ),
+            self.model_attributes.array_to_df(
+                arr_frst_emission_methane, 
+                self.modvar_frst_emissions_ch4
+            )
+        ]
+
+        out = (out, vec_conversion_scalar,)
 
         return out
 
@@ -1924,6 +2116,40 @@ class AFOLU:
         )
 
         return arr_frst_ef_sequestration
+    
+
+
+    def get_frst_sequestration_static(self,
+        df_afolu_trajectories: pd.DataFrame,
+        arr_area_frst: np.ndarray,
+    ) -> List[pd.DataFrame]:
+        """
+        Retrieve static sequestration and ch4 emissions; used if NPP is not 
+            specified. Returns a list with elements related to forests:
+
+            [
+                df_sequestration,
+                df_emission_method,
+            ]
+        """
+        # get different variables
+        arr_frst_ef_sequestration = self.get_frst_sequestration_factors(df_afolu_trajectories, )
+        arr_frst_ef_methane = self.get_frst_methane_factors(df_afolu_trajectories, )
+    
+
+        # build output variables
+        out = [
+            self.model_attributes.array_to_df(
+                -1*arr_area_frst*arr_frst_ef_sequestration, 
+                self.modvar_frst_emissions_co2_sequestration
+            ),
+            self.model_attributes.array_to_df(
+                arr_area_frst*arr_frst_ef_methane, 
+                self.modvar_frst_emissions_ch4
+            )
+        ]
+
+        return out
 
 
 
@@ -3113,12 +3339,11 @@ class AFOLU:
             modvar_sequestration = self.modvar_frst_sq_co2_young_secondary, 
         )
         
-        arr_frst_ef_sequestration_young *= self.model_attributes.get_variable_unit_conversion_factor(
-            self.modvar_frst_sq_co2_young_secondary,
-            self.modvar_frst_sq_co2,
-            "mass"
-        )
-
+        #arr_frst_ef_sequestration_young *= self.model_attributes.get_variable_unit_conversion_factor(
+        #    self.modvar_frst_sq_co2_young_secondary,
+        #    self.modvar_frst_sq_co2,
+        #    "mass"
+        #)
         
         # build data frame that is ordered--use this for sorting and dropping duplicates
         field_tp = self.model_attributes.dim_time_period
@@ -4039,7 +4264,7 @@ class AFOLU:
         arrs_land_conv[i] = arr_land_conv
         arrs_transitions_adj[i] = trans_adj
 
-        return (
+        out = (
             arr_agrc_change_to_net_imports_lost,
             arr_agrc_frac_cropland,
             arr_agrc_net_import_increase,
@@ -4052,8 +4277,10 @@ class AFOLU:
             arr_lvst_pop_adj,
             arrs_land_conv,
             arrs_transitions_adj,
-            arrs_yields_per_livestock
+            arrs_yields_per_livestock,
         )
+    
+        return out
 
 
 
@@ -5032,12 +5259,6 @@ class AFOLU:
             "mass"
         )
 
-        # convert land use conversion emission totals to config
-        df_lndu_emissions_conv_matrices = self.format_transition_matrix_as_input_dataframe(
-            arrs_lndu_emissions_conv_matrices,
-            exclude_time_period = True,
-            modvar = self.modvar_lndu_emissions_conv,
-        )
 
         # convert land use conversion areas totals to config area
         df_lndu_area_conv_matrices = self.format_transition_matrix_as_input_dataframe(
@@ -5097,8 +5318,6 @@ class AFOLU:
                 self.modvar_lndu_emissions_conv_away, 
                 include_scalars = True
             ),
-            # matrix of conversion emissions
-            df_lndu_emissions_conv_matrices,
 
             self.model_attributes.array_to_df(
                 arr_lvst_change_to_net_imports_lost, 
@@ -5265,53 +5484,20 @@ class AFOLU:
         #    FORESTRY    #
         ##################
 
-        # get ordered fields from land use
-        fields_lndu_forest_ordered = [self.dict_cats_frst_to_cats_lndu.get(x) for x in attr_frst.key_values]
-        fields_ext = self.model_attributes.build_variable_fields(
-            self.modvar_lndu_area_by_cat,
-            restrict_to_category_values = fields_lndu_forest_ordered,
+        arr_area_frst = self.get_frst_area_from_df(df_land_use, attr_frst, )
+
+        # TEMPTEMPTEMP
+        list_frst_ests = self.get_frst_sequestration_and_land_use_conversion_emission(
+            df_afolu_trajectories,
+            arrs_lndu_land_conv,
+            arrs_lndu_emissions_conv_matrices,
+            arr_land_use,
+            arr_area_frst,
         )
-        arr_area_frst = np.array(df_land_use[fields_ext])
+
+        df_out += list_frst_ests
+
         
-        # get different variables
-        arr_frst_ef_sequestration = self.model_attributes.extract_model_variable(#
-            df_afolu_trajectories, 
-            self.modvar_frst_sq_co2, 
-            override_vector_for_single_mv_q = True, 
-            return_type = "array_units_corrected",
-        )
-
-        arr_frst_ef_sequestration *= self.model_attributes.get_variable_unit_conversion_factor(
-            self.model_socioeconomic.modvar_gnrl_area,
-            self.modvar_frst_sq_co2,
-            "area"
-        )
-
-        arr_frst_ef_methane = self.model_attributes.extract_model_variable(#
-            df_afolu_trajectories, 
-            self.modvar_frst_ef_ch4, 
-            override_vector_for_single_mv_q = True, 
-            return_type = "array_units_corrected",
-        )
-        arr_frst_ef_methane *= self.model_attributes.get_variable_unit_conversion_factor(
-            self.model_socioeconomic.modvar_gnrl_area,
-            self.modvar_frst_ef_ch4,
-            "area"
-        )
-
-        # build output variables
-        df_out += [
-            self.model_attributes.array_to_df(
-                -1*arr_area_frst*arr_frst_ef_sequestration, 
-                self.modvar_frst_emissions_co2_sequestration
-            ),
-            self.model_attributes.array_to_df(
-                arr_area_frst*arr_frst_ef_methane, 
-                self.modvar_frst_emissions_ch4
-            )
-        ]
-
-
         ##  FOREST FIRES
 
         # initialize some variables that are called below
@@ -5395,7 +5581,10 @@ class AFOLU:
 
         # add to output
         df_out += [
-            self.model_attributes.array_to_df(np.sum(arr_frst_emissions_co2_fires, axis = 1), self.modvar_frst_emissions_co2_fires)
+            self.model_attributes.array_to_df(
+                np.sum(arr_frst_emissions_co2_fires, axis = 1), 
+                self.modvar_frst_emissions_co2_fires
+            )
         ]
 
 
