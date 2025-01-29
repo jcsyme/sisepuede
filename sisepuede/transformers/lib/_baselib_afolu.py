@@ -544,7 +544,7 @@ def transformation_frst_reduce_deforestation(
             vec_ramp,
             model_attributes,
             model_afolu = model_afolu,
-            **kwargs,
+            **kwargs, # NOTE: STRATEGY ID IS ADDED HERE
         )
 
         if df_out is None:
@@ -575,6 +575,7 @@ def transformation_frst_increase_reforestation(
     model_attributes: ma.ModelAttributes,
     cats_inflow_restriction: Union[List[str], None] = None,
     model_afolu: Union[mafl.AFOLU, None] = None,
+    strategy_id: Union[int, None] = None,
     **kwargs
 ) -> pd.DataFrame:
     """
@@ -680,6 +681,7 @@ def transformation_frst_increase_reforestation(
             model_attributes,
             cats_stable = cats_stable,
             model_afolu = model_afolu,
+            strategy_id = strategy_id,
             #**kwargs
         )
 
@@ -698,7 +700,7 @@ def transformation_frst_increase_reforestation(
         if use_fake_region
         else None
     )
-    
+
     return df_out
 
 

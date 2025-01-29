@@ -93,6 +93,7 @@ class Strategy:
         self._initialize_function(
             transformation_codes,
             transformations,
+            delim = delim,
         )
 
         self._initialize_table(
@@ -129,11 +130,13 @@ class Strategy:
     def _initialize_function(self,
         transformation_codes: Union[str, List[Union[str, int]]],
         transformations: trn.Transformations,
+        delim: str = "|",
     ) -> None:
         """
         Initialize the transformation function. Sets the following
             properties:
 
+            * self.delimiter_transformation_codes
             * self.function
             * self.function_list (list of callables, even if one callable is 
                 passed. Allows for quick sharing across classes)
@@ -146,6 +149,7 @@ class Strategy:
         func = self.get_transformation_list(
             transformation_codes,
             transformations,
+            delim = delim,
         )
 
 
@@ -201,6 +205,7 @@ class Strategy:
         if function is None:
             raise ValueError(f"Invalid type {type(func)}: the object 'func' is not callable.")
         
+        self.delimiter_transformation_codes = delim
         self.function = function
         self.function_list = function_list
         
@@ -1418,6 +1423,7 @@ class Strategies:
             ##  ITERATE OVER FUNCTIONAL TRANSFORMATIONS
 
             for i, strat in enumerate(strategies):
+
                 t0_cur = time.time()
                 strategy = self.get_strategy(strat)
 
@@ -1458,9 +1464,28 @@ class Strategies:
                     .reset_index(drop = True)
                 )
 
-                # global dc
-                # dc = df_cur.copy()
-        
+                # verify that strategy ids are being passed properly--this ios sometimes a problem with transformer base functions
+                if len(df_cur[self.key_strategy].unique()) == 1:    
+                    msg = f"""Error trying to build strategy {self.key_strategy} = {strategy.id_num}: 
+                    At least one transformer function (or transformer baselib function) is not properly 
+                    associated with a strategy_id. Check the functions and rebuiild.
+                    """
+                    self._log(msg, type_log = "error", )
+
+                    continue
+
+                """
+                Needed for troubleshooting sometimes:
+
+                global dc
+                global dc2
+
+                if strat == 1006:
+                    dc = df_cur.copy() 
+                elif strat == 1007:
+                    dc2 = df_cur.copy()
+                """;
+
                 # split the current transformation into 
                 dict_cur = self.build_templates_dictionary_from_current_transformation(
                     df_cur,
@@ -1629,18 +1654,18 @@ class Strategies:
             dict_update[sector_abv].update(dict_write_cur)
 
         return dict_update
-
+    
 
 
     def build_whirlpool_strategies(self,
         strategy: Union[int, str, None],
         code_prepend: str = "WHIRLPOOL",
-        delim: Union[str, None] = "|",
+        delim: Union[str, None] = None,
         ids: Union[None, List[int]] = None,
-    ) -> pd.DataFrame:
+    ) -> Union[pd.DataFrame, None]:
         """
-        Build strategies designed by removing transformations 1-by-1 from a strategy
-            (whirlpool--kind of the inverse of a tornado)
+        Build strategies designed by removing transformations 1-by-1 from a 
+            strategy (whirlpool--kind of the inverse of a tornado)
 
         Function Arguments
         ------------------
@@ -1650,8 +1675,8 @@ class Strategies:
         -----------------
         - code_prepend: code to prepend 
         - delim: delimiter used to split transformation specifications
-        - ids: optional specification of IDs. If None, automatically starts 1 above\
-            highest define strategy id.
+        - ids: optional specification of IDs. If None, automatically starts 1 
+            above the highest defined strategy id.
         """
         # get the strategy and transformation codes asociated with it
         strat = self.get_strategy(strategy, )
@@ -1663,6 +1688,12 @@ class Strategies:
             self.transformations,
         )
         codes = sorted([x.code for x in transformations_deconstruct])
+
+        delim = (
+            self.delimiter_transformation_codes
+            if not isinstance(delim, str)
+            else delim
+        )
 
 
         ##  START BUILDING FIELDS
@@ -1686,7 +1717,7 @@ class Strategies:
             if continue_q:
                 continue
             
-            
+            # otherwise, remove codes one by one
             if i == 0:
                 codes_cur = codes[i+1:]
         
@@ -1733,7 +1764,7 @@ class Strategies:
         )
 
         df_out = df_out[self.attribute_table.table.columns]
-        
+                
         return df_out
     
 
