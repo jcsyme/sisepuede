@@ -1423,6 +1423,8 @@ class Strategies:
             ##  ITERATE OVER FUNCTIONAL TRANSFORMATIONS
 
             for i, strat in enumerate(strategies):
+
+                print(f"strat = {strat}")
                 t0_cur = time.time()
                 strategy = self.get_strategy(strat)
 
@@ -1463,9 +1465,28 @@ class Strategies:
                     .reset_index(drop = True)
                 )
 
-                # global dc
-                # dc = df_cur.copy()
-        
+                # verify that strategy ids are being passed properly--this ios sometimes a problem with transformer base functions
+                if len(df_cur[self.key_strategy].unique()) == 1:    
+                    msg = f"""Error trying to build strategy {self.key_strategy} = {strategy.id_num}: 
+                    At least one transformer function (or transformer baselib function) is not properly 
+                    associated with a strategy_id. Check the functions and rebuiild.
+                    """
+                    self._log(msg, type_log = "error", )
+
+                    continue
+
+                """
+                Needed for troubleshooting sometimes:
+
+                global dc
+                global dc2
+
+                if strat == 1006:
+                    dc = df_cur.copy() 
+                elif strat == 1007:
+                    dc2 = df_cur.copy()
+                """;
+
                 # split the current transformation into 
                 dict_cur = self.build_templates_dictionary_from_current_transformation(
                     df_cur,
