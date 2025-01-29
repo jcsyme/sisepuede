@@ -1424,7 +1424,6 @@ class Strategies:
 
             for i, strat in enumerate(strategies):
 
-                print(f"strat = {strat}")
                 t0_cur = time.time()
                 strategy = self.get_strategy(strat)
 
