@@ -47,6 +47,11 @@ vignettes/*.pdf
 **/.DStore
 **/.DS_Store
 
+# pyc files
+*.pyc
+*/*.pyc
+**/*.pyc
+
 # tmp and out
 /build/*
 /sisepuede/tmp/*
