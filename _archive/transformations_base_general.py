@@ -109,7 +109,8 @@ def prepare_demand_scalars(
             vec_base = np.array(row[fields].iloc[0]).astype(float)
             df[fields] = np.nan_to_num(
                 np.array(df[fields])/vec_base, 
-                1.0
+                nan = 1.0,
+                posinf = 1.0,
             )
 
     df_out = pd.concat(df_out, axis = 0).reset_index(drop = True)
@@ -466,7 +467,11 @@ def transformation_general(
 
                     # get distribution to transfer--check that it does not violate bounds if specified
                     vec_source_initial = arr_base_source[tp_baseline, :]
-                    vec_distribution_transfer = np.nan_to_num(vec_source_initial/sum(vec_source_initial), 0.0)
+                    vec_distribution_transfer = np.nan_to_num(
+                        vec_source_initial/sum(vec_source_initial), 
+                        nan = 0.0, 
+                        posinf = 0.0, 
+                    )
                     vec_transfer = magnitude_transfer*vec_distribution_transfer
 
                     vec_source_new = sf.vec_bounds(vec_source_initial - vec_transfer, bounds)
@@ -736,7 +741,7 @@ def transformation_general_shift_fractions_from_modvars(
             # values at first time period, initial total of target columns, and associated pmf
             vec_initial_vals = np.array(df_in[fields].iloc[0]).astype(float)
             val_initial_target = vec_initial_vals.sum() if magnitude_relative_to_baseline else 0.0
-            vec_initial_distribution = np.nan_to_num(vec_initial_vals/vec_initial_vals.sum(), 1.0, posinf = 1.0)
+            vec_initial_distribution = np.nan_to_num(vec_initial_vals/vec_initial_vals.sum(), nan = 1.0, posinf = 1.0, )
 
             # get the current total value of fractions
             vec_final_vals = np.array(df_in[fields].iloc[n_tp - 1]).astype(float)
@@ -746,11 +751,15 @@ def transformation_general_shift_fractions_from_modvars(
 
             target_value = float(sf.vec_bounds(magnitude + val_initial_target, (0.0, target_supremum)))#*dict_modvar_specs.get(modvar_target)
             magnitude_adj = target_value - val_initial_target
-            scale_non_elec = np.nan_to_num((target_supremum - target_value)/(target_supremum - val_final_target), 0.0, posinf = 0.0)
+            scale_non_elec = np.nan_to_num(
+                (target_supremum - target_value)/(target_supremum - val_final_target), 
+                nan = 0.0, 
+                posinf = 0.0,
+            )
             # 
             target_distribution = magnitude_adj*np.array([dict_modvar_specs.get(x) for x in modvars_target]) + val_initial_target*vec_initial_distribution
             target_distribution /= max(magnitude_adj + val_initial_target, 1.0) 
-            target_distribution = np.nan_to_num(target_distribution, 0.0, posinf = 0.0)
+            target_distribution = np.nan_to_num(target_distribution, nan = 0.0, posinf = 0.0, )
 
             dict_target_distribution = dict((x, target_distribution[i]) for i, x in enumerate(modvars_target))
 
@@ -778,7 +787,7 @@ def transformation_general_shift_fractions_from_modvars(
                 val_final = vec_old[n_tp - 1]
 
                 val_new = (
-                    np.nan_to_num(val_final, 0.0, posinf = 0.0)*scale_non_elec 
+                    np.nan_to_num(val_final, nan = 0.0, posinf = 0.0, )*scale_non_elec 
                     if (modvar not in modvars_target) 
                     else dict_target_distribution.get(modvar)
                 )

@@ -1277,7 +1277,7 @@ def transformation_support_lndu_specify_transitions(
             i, j = key
             mag_target = vec[t]
             mag_cur = q[i, j]
-            scalar = np.nan_to_num(mag_target/mag_cur, nan = 1.0, posinf = 1.0)
+            scalar = np.nan_to_num(mag_target/mag_cur, nan = 1.0, posinf = 1.0, )
 
             dict_adj.update({key: scalar})
 
@@ -1691,7 +1691,7 @@ def transformation_support_lndu_transition_to_category_targets_single_region(
         ind_row = min(ind_row, arr_target_shares.shape[0] - 1)
         scalars_to_adj = np.nan_to_num(
             arr_target_shares[ind_row, :]/x_next_unadj[inds_to_modify],
-            0.0,
+            nan = 0.0,
             posinf = 0.0
         )
 
