@@ -937,7 +937,11 @@ class EnergyConsumption:
         # get energy intensity
         index_inen_agrc = attr_inen.get_key_value_index(self.cat_inen_agricultural)
         vec_inen_energy_intensity_agrc_lvst = arr_inen_init_energy_consumption_agrc[:, index_inen_agrc].copy()
-        vec_inen_energy_intensity_agrc_lvst = np.nan_to_num(vec_inen_energy_intensity_agrc_lvst/vec_inen_prod_agrc_lvst, 0.0, posinf = 0.0)
+        vec_inen_energy_intensity_agrc_lvst = np.nan_to_num(
+            vec_inen_energy_intensity_agrc_lvst/vec_inen_prod_agrc_lvst, 
+            nan = 0.0, 
+            posinf = 0.0,
+        )
 
         # return index + vectors
         tup_out = index_inen_agrc, vec_inen_energy_intensity_agrc_lvst, vec_inen_prod_agrc_lvst
@@ -1111,7 +1115,7 @@ class EnergyConsumption:
         )/scalar_pivot
         
         # convert to price per unit of energy, then convert to energy units
-        arr_price_per_energy = np.nan_to_num(arr_price/arr_density, 0.0, posinf = 0.0)
+        arr_price_per_energy = np.nan_to_num(arr_price/arr_density, nan = 0.0, posinf = 0.0, )
         arr_price_per_energy /= scalar_energy
         
         return arr_price_per_energy
@@ -1194,8 +1198,8 @@ class EnergyConsumption:
         
         arr_price_per_energy = np.nan_to_num(
             arr_price_per_energy/scalar_energy,
-            0.0,
-            posinf = 0.0
+            nan = 0.0,
+            posinf = 0.0,
         )
         
         return arr_price_per_energy
@@ -1256,7 +1260,7 @@ class EnergyConsumption:
         arr_ef_per_config_energy = arr_ef_mass_per_volume/(array_energy_density*scalar_volume) #tonne/m3 / (mj/litre*(litre/m3)) -> (tonne/m3)/(mj/m3) => tonne/mj
         arr_ef_per_config_energy *= scalar_energy # tonne/mj * (mj/pj) =? tonne/pj
         arr_ef_per_config_energy *= scalar_mass # tonne/pj * (mt/tonne) = mt/pj
-        arr_ef_per_config_energy = np.nan_to_num(arr_ef_per_config_energy, 0, posinf = 0)
+        arr_ef_per_config_energy = np.nan_to_num(arr_ef_per_config_energy, nan = 0.0, posinf = 0.0, )
 
         return arr_ef_per_config_energy
 
@@ -1662,10 +1666,10 @@ class EnergyConsumption:
                 return_type = "array_base",
             )
 
-            arr_frac_norm += np.nan_to_num(arr_frac/arr_efficiency, 0.0)
+            arr_frac_norm += np.nan_to_num(arr_frac/arr_efficiency, nan = 0.0, posinf = 0.0, )
 
         # project demand forward
-        arr_demand = np.nan_to_num(arr_consumption/arr_frac_norm, 0.0)
+        arr_demand = np.nan_to_num(arr_consumption/arr_frac_norm, nan = 0.0, posinf = 0.0, )
         if (arr_elastic_driver is not None) and (arr_elasticity is not None):
             arr_growth_demand = sf.project_growth_scalar_from_elasticity(
                 arr_elastic_driver, 
@@ -1703,7 +1707,7 @@ class EnergyConsumption:
             )
 
             # use consumption by fuel type and efficiency to get output demand for each fuel (in output energy units specified in config)
-            arr_consumption_fuel = np.nan_to_num(arr_demand*arr_frac/arr_efficiency, 0.0)
+            arr_consumption_fuel = np.nan_to_num(arr_demand*arr_frac/arr_efficiency,nan = 0.0, posinf = 0.0, )
             dict_consumption_by_fuel_out.update({modvar_fuel_frac: arr_consumption_fuel})
 
         return arr_demand, dict_consumption_by_fuel_out
@@ -1809,11 +1813,11 @@ class EnergyConsumption:
             # get efficiency, then fuel fractions
             vec_efficiency = arr_enfu_efficiency[:, index_enfu_fuel]
             arr_frac = dict_fuel_fracs.get(modvar_fuel_frac)
-            arr_frac_norm += np.nan_to_num(arr_frac.transpose()/vec_efficiency, nan = 0.0, posinf = 0.0)
+            arr_frac_norm += np.nan_to_num(arr_frac.transpose()/vec_efficiency, nan = 0.0, posinf = 0.0, )
 
         # transpose again and project demand forward
         arr_frac_norm = arr_frac_norm.transpose()
-        arr_demand = np.nan_to_num(vec_consumption_intensity_initial/arr_frac_norm[0], nan = 0.0, posinf = 0.0)
+        arr_demand = np.nan_to_num(vec_consumption_intensity_initial/arr_frac_norm[0], nan = 0.0, posinf = 0.0, )
         arr_demand = sf.do_array_mult(arr_driver, arr_demand)
         arr_demand *= arr_inen_demscalar
 
@@ -1828,7 +1832,14 @@ class EnergyConsumption:
             arr_frac = dict_fuel_fracs.get(modvar_fuel_frac)
 
             # use consumption by fuel type and efficiency to get output demand for each fuel (in output energy units specified in config)
-            arr_consumption_fuel = np.nan_to_num((arr_demand*arr_frac).transpose()/vec_efficiency, nan = 0.0, posinf = 0.0).transpose()
+            arr_consumption_fuel = (
+                np.nan_to_num(
+                    (arr_demand*arr_frac).transpose()/vec_efficiency, 
+                    nan = 0.0, 
+                    posinf = 0.0,
+                )
+                .transpose()
+            )
             dict_consumption_by_fuel_out.update({modvar_fuel_frac: arr_consumption_fuel})
 
         return arr_demand, dict_consumption_by_fuel_out
@@ -3527,10 +3538,21 @@ class EnergyConsumption:
 
             # update vehicle demand by category and total mass distance
             if category == self.cat_trde_frgt:
-                array_trde_vehicle_dem_cur_by_cat = np.nan_to_num(array_trde_dem_cur_by_cat/array_trns_avg_load_freight, 0.0, neginf = 0.0, posinf = 0.0)*scalar_tnrs_length_demfrieght_to_dempass
+                array_trde_vehicle_dem_cur_by_cat = np.nan_to_num(
+                    array_trde_dem_cur_by_cat/array_trns_avg_load_freight, 
+                    nan = 0.0, 
+                    neginf = 0.0, 
+                    posinf = 0.0,
+                )
+                array_trde_vehicle_dem_cur_by_cat *= scalar_tnrs_length_demfrieght_to_dempass
                 array_trns_total_mass_distance_demand += array_trde_dem_cur_by_cat
             else:
-                array_trde_vehicle_dem_cur_by_cat = np.nan_to_num(array_trde_dem_cur_by_cat/array_trns_occ_rate_passenger, 0.0, neginf = 0.0, posinf = 0.0)
+                array_trde_vehicle_dem_cur_by_cat = np.nan_to_num(
+                    array_trde_dem_cur_by_cat/array_trns_occ_rate_passenger, 
+                    nan = 0.0, 
+                    neginf = 0.0, 
+                    posinf = 0.0,
+                )
                 array_trns_total_passenger_demand += array_trde_dem_cur_by_cat
             
             # add in total vehicle-km demand
@@ -3702,7 +3724,12 @@ class EnergyConsumption:
             if (arr_trns_fuel_efficiency_cur is not None):
 
                 # get demand for fuel in terms of modvar_trns_fuel_efficiency_cur, then get scalars to conert to emission factor fuel volume units
-                arr_trns_fueldem_cur_fuel = np.nan_to_num(arr_trns_vehdem_cur_fuel/arr_trns_fuel_efficiency_cur, neginf = 0.0, posinf = 0.0)
+                arr_trns_fueldem_cur_fuel = np.nan_to_num(
+                    arr_trns_vehdem_cur_fuel/arr_trns_fuel_efficiency_cur, 
+                    nan = 0.0,
+                    neginf = 0.0, 
+                    posinf = 0.0,
+                )
                 arr_trns_energydem_cur_fuel = (arr_trns_fueldem_cur_fuel.transpose()*vec_trns_volumetric_enerdensity_by_fuel).transpose()
                 arr_trns_energydem_cur_fuel *= self.model_attributes.get_variable_unit_conversion_factor(
                     modvar_trns_fuel_efficiency_cur,
@@ -3787,9 +3814,9 @@ class EnergyConsumption:
                 # calculate energy demand and write in terms of output units
                 arr_trns_energydem_elec = np.nan_to_num(
                     arr_trns_vehdem_cur_fuel/arr_trns_elect_efficiency_cur, 
-                    0.0,
+                    nan = 0.0,
                     posinf = 0.0, 
-                    neginf = 0.0
+                    neginf = 0.0,
                 )
 
                 arr_trns_energydem_elec *= self.model_attributes.get_scalar(

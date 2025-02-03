@@ -1732,7 +1732,7 @@ class EnergyProduction:
         vec_enfu_total_production += vec_enfu_exports
 
         # emissions are allocated according to domestic production; exports - domestic demand (assume that imports are used homogenously and distributed proportional to subsector demands)
-        vec_enfu_frac_from_exports = np.nan_to_num(vec_enfu_exports / vec_enfu_total_production, 0.0, posinf = 0.0)
+        vec_enfu_frac_from_exports = np.nan_to_num(vec_enfu_exports / vec_enfu_total_production, nan = 0.0, posinf = 0.0, )
         vec_enfu_frac_from_others = 1 - vec_enfu_frac_from_exports
 
         for subsec in dict_subsector_to_energy_demand_proportions.keys():
@@ -3328,7 +3328,7 @@ class EnergyProduction:
                 
                 vec_scale_response = vec_entc_msp_all - vec_entc_msp_no_growth_post_adj
                 vec_scale_response /= vec_entc_msp_all - vec_entc_msp_no_growth
-                vec_scale_response = np.nan_to_num(vec_scale_response, 1.0, posinf = 1.0)
+                vec_scale_response = np.nan_to_num(vec_scale_response, nan = 1.0, posinf = 1.0, )
                 
                 for j in inds_response:
                     arr_entc_msp[:, j] *= vec_scale_response
@@ -5722,7 +5722,11 @@ class EnergyProduction:
         df_iar[self.field_nemomod_mode] = df_iar[self.field_nemomod_technology].replace(dict_tech_to_mode)
 
         # convert efficiency to input_activity_ratio_ratio
-        df_iar[self.field_nemomod_value] = np.nan_to_num(1/np.array(df_iar[self.field_nemomod_value]), max_ratio, posinf = max_ratio)
+        df_iar[self.field_nemomod_value] = np.nan_to_num(
+            1/np.array(df_iar[self.field_nemomod_value]), 
+            nan = max_ratio, 
+            posinf = max_ratio,
+        )
         # re-sort using hierarchy
         df_iar = self.add_multifields_from_key_values(
             df_iar,
@@ -5962,8 +5966,8 @@ class EnergyProduction:
         # scale import fractions by ratio of demands to (demands + exports)
         arr_enfu_import_fractions_adj = np.nan_to_num(
             tuple_enfu_production_and_demands[0]/(tuple_enfu_production_and_demands[0] + tuple_enfu_production_and_demands[2]),
-            1.0,
-            posinf = 1.0
+            nan = 1.0,
+            posinf = 1.0,
         )
         arr_enfu_import_fractions_adj *= arr_enfu_import_fractions
 
@@ -6934,7 +6938,7 @@ class EnergyProduction:
 
         arr_enfu_production[:, self.ind_enfu_elec] = np.nan_to_num(
             arr_enfu_production[:, self.ind_enfu_elec]/(1 - arr_transmission_loss[:, self.ind_enfu_elec]), 
-            0.0, 
+            nan = 0.0, 
             posinf = 0.0,
         )
 
@@ -6956,7 +6960,11 @@ class EnergyProduction:
         )
 
         # get technology lower limit total as a fraction of estimated demand for electricity
-        vec_fraction_tech = np.nan_to_num(vec_entc_prod_lower_limit/arr_enfu_production[:, self.ind_enfu_elec], 0.0, posinf = 0.0)
+        vec_fraction_tech = np.nan_to_num(
+            vec_entc_prod_lower_limit/arr_enfu_production[:, self.ind_enfu_elec], 
+            nan = 0.0, 
+            posinf = 0.0,
+        )
         
         return vec_fraction_tech
    
@@ -7039,7 +7047,7 @@ class EnergyProduction:
 
         arr_enfu_production[:, self.ind_enfu_elec] = np.nan_to_num(
             arr_enfu_production[:, self.ind_enfu_elec]/(1 - arr_transmission_loss[:, self.ind_enfu_elec]), 
-            0.0, 
+            nan = 0.0, 
             posinf = 0.0,
         )
 

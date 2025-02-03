@@ -391,8 +391,8 @@ def transformation_entc_clean_hydrogen(
         vec_total_adjust = arr_adjust.sum(axis = 1)
 
         # if the total does not exceed 1, div by 1; if it does, divide by that total
-        vec_exceed_one = sf.vec_bounds(vec_total_maintain + vec_total_adjust - 1, (0.0, np.inf))
-        vec_scalar_adj = np.nan_to_num((vec_total_adjust - vec_exceed_one)/vec_total_adjust, 0.0, posinf = 0.0)
+        vec_exceed_one = sf.vec_bounds(vec_total_maintain + vec_total_adjust - 1, (0.0, np.inf), )
+        vec_scalar_adj = np.nan_to_num((vec_total_adjust - vec_exceed_one)/vec_total_adjust, nan = 0.0, posinf = 0.0, )
 
         arr_adjust = sf.do_array_mult(arr_adjust, vec_scalar_adj)
 
@@ -996,7 +996,7 @@ def transformation_entc_renewable_target(
             if scale_non_renewables_to_match_surplus_msp:
                 v_total = sum(list(magnitude_renewables_by_region.values()))
                 magnitude_renewables_by_region = dict(
-                    (k, np.nan_to_num(magnitude*v/v_total, 0.0))
+                    (k, np.nan_to_num(magnitude*v/v_total, nan = 0.0, posinf = 0.0, ))
                     for k, v in magnitude_renewables_by_region.items()
                 )
 
@@ -1191,7 +1191,8 @@ def transformation_entc_renewable_target(
             
             vec_entc_scale_msp_renewable_specified = np.nan_to_num(
                 vec_entc_msp_renewable_specified_cap/vec_entc_total_msp_renewables_specified,
-                1.0,
+                nan = 1.0,
+                posinf = 1.0,
             )
 
             # get the fields to scale
@@ -1228,7 +1229,8 @@ def transformation_entc_renewable_target(
             vec_scale_match_unspecified = vec_entc_total_msp_renewable_cap - vec_entc_total_msp_renewables_specified
             vec_scale_unspecified = np.nan_to_num(
                 vec_scale_match_unspecified/vec_entc_total_msp_renewables_unspecified,
-                posinf = 0.0
+                nan = 0.0,
+                posinf = 0.0,
             )
 
             # get the fields to scale (unspecified)
@@ -1352,7 +1354,8 @@ def transformation_entc_renewable_target(
         vec_entc_fields_to_scale = np.array(df_out[fields_drop]).sum(axis = 1)
         vec_entc_scalar_drops_to_surplus = np.nan_to_num(
             vec_entc_msp_surplus/vec_entc_fields_to_scale,
-            0.0
+            nan = 0.0,
+            posinf = 0.0,
         )
 
         for field in fields_drop:
@@ -1964,18 +1967,18 @@ def transformation_inen_shift_modvars(
 
                 vec_initial_vals = np.array(df_in[fields].iloc[0]).astype(float)
                 val_initial_target = vec_initial_vals.sum() if magnitude_relative_to_baseline else 0.0
-                vec_initial_distribution = np.nan_to_num(vec_initial_vals/vec_initial_vals.sum(), 1.0, posinf = 1.0)
+                vec_initial_distribution = np.nan_to_num(vec_initial_vals/vec_initial_vals.sum(), nan = 1.0, posinf = 1.0, )
 
                 # get the current total value of fractions
                 vec_final_vals = np.array(df_in[fields].iloc[n_tp - 1]).astype(float)
                 val_final_target = sum(vec_final_vals)
 
                 target_value = float(sf.vec_bounds(magnitude + val_initial_target, (0.0, 1.0)))#*dict_modvar_specs.get(modvar_target)
-                scale_non_elec = np.nan_to_num((1 - target_value)/(1 - val_final_target), 0.0, posinf = 0.0)
+                scale_non_elec = np.nan_to_num((1 - target_value)/(1 - val_final_target), nan = 0.0, posinf = 0.0, )
 
                 target_distribution = magnitude*np.array([dict_modvar_specs.get(x) for x in modvars_target]) + val_initial_target*vec_initial_distribution
                 target_distribution /= max(magnitude + val_initial_target, 1.0) 
-                target_distribution = np.nan_to_num(target_distribution, 0.0, posinf = 0.0)
+                target_distribution = np.nan_to_num(target_distribution, nan = 0.0, posinf = 0.0, )
 
                 dict_target_distribution = dict((x, target_distribution[i]) for i, x in enumerate(modvars_target))
 
@@ -1993,7 +1996,7 @@ def transformation_inen_shift_modvars(
                     vec_old = np.array(df_in[field_cur])
                     val_final = vec_old[n_tp - 1]
                     val_new = (
-                        np.nan_to_num(val_final, 0.0, posinf = 0.0)*scale_non_elec 
+                        np.nan_to_num(val_final, nan = 0.0, posinf = 0.0, )*scale_non_elec 
                         if (modvar not in modvars_target) 
                         else dict_target_distribution.get(modvar)
                     )
@@ -2549,7 +2552,7 @@ def transformation_trns_fuel_shift_to_target(
                 tp_baseline = (n_tp - 1) if (baseline_period == "final") else 0
                 vec_target_baseline_total = np.array(df_in[fields_target]).astype(float).sum(axis = 1)
                 vec_initial_vals = np.array(df_in[fields_target].iloc[tp_baseline]).astype(float)
-                vec_initial_distribution = np.nan_to_num(vec_initial_vals/vec_initial_vals.sum(), 1.0, posinf = 1.0)
+                vec_initial_distribution = np.nan_to_num(vec_initial_vals/vec_initial_vals.sum(), nan = 1.0, posinf = 1.0, )
 
                 # set magnitude
                 magnitude_shift = vec_initial_vals.sum()*magnitude if (magnitude_type in ["baseline_scalar"]) else magnitude
@@ -2598,14 +2601,14 @@ def transformation_trns_fuel_shift_to_target(
                 vec_target_with_ramp = sf.vec_bounds(magnitude_shift*vec_ramp + vec_magnitude_base, (0.0, 1.0))
                 scale_non_elec = np.nan_to_num(
                     (vec_bounds - vec_target_with_ramp)/(vec_bounds - vec_target_baseline_total), 
-                    0.0, 
-                    posinf = 0.0
+                    nan = 0.0, 
+                    posinf = 0.0,
                 )
 
                 target_distribution = magnitude_shift*np.array([dict_modvar_specs.get(x) for x in modvars_target]) 
                 target_distribution += val_initial_target*vec_initial_distribution
                 target_distribution /= max(magnitude_shift + val_initial_target, 1.0) 
-                target_distribution = np.nan_to_num(target_distribution, 0.0, posinf = 0.0)
+                target_distribution = np.nan_to_num(target_distribution, nan = 0.0, posinf = 0.0, )
 
                 dict_target_distribution = dict((x, target_distribution[i]) for i, x in enumerate(modvars_target))
 
@@ -2630,7 +2633,7 @@ def transformation_trns_fuel_shift_to_target(
                     # NOTE: scale_non_elec (defined above) includes the mix that is (1 - vec_ramp) if all modvars are specified
                     vec_old = np.array(df_in[field_cur])
                     vec_new = (
-                        np.nan_to_num(vec_old*scale_non_elec, 0.0, posinf = 0.0) 
+                        np.nan_to_num(vec_old*scale_non_elec, nan = 0.0, posinf = 0.0) 
                         if (modvar not in modvars_target) 
                         else dict_target_distribution.get(modvar)*vec_ramp + (1 - vec_ramp)*vec_old
                     )
@@ -2759,7 +2762,7 @@ def transformation_trns_electrify_category_to_target_old(
                     val_new = (
                         np.nan_to_num(
                             (val_final/(1 - val_final_elec))*scale_non_elec,
-                            0.0, 
+                            nan = 0.0, 
                             posinf = 0.0
                         ) 
                         if (field_cur != field_elec) 

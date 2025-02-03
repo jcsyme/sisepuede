@@ -1702,8 +1702,8 @@ class CircularEconomy:
         
         # initialize total waste array, which will be reduced through recylcing and composting before being divided up between incineration, landfilling, and open dumping
         array_waso_total_by_category = array_waso_isw_total_by_category + array_waso_msw_total_by_category
-        array_waso_frac_isw_total_by_cat = np.nan_to_num(array_waso_isw_total_by_category/array_waso_total_by_category, 0.0)
-        array_waso_frac_msw_total_by_cat = np.nan_to_num(array_waso_msw_total_by_category/array_waso_total_by_category, 0.0)
+        array_waso_frac_isw_total_by_cat = np.nan_to_num(array_waso_isw_total_by_category/array_waso_total_by_category, nan = 0.0, )
+        array_waso_frac_msw_total_by_cat = np.nan_to_num(array_waso_msw_total_by_category/array_waso_total_by_category, nan = 0.0, )
         
         # add to output data frame
         df_out += [

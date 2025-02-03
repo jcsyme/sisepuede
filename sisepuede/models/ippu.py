@@ -717,7 +717,8 @@ class IPPU:
         vec_new_housing_stock_changes = sf.vec_bounds(vec_hh[1:] - vec_hh[0:-1], (0, np.inf))
         new_stock_final_period = np.nan_to_num(
             np.round(vec_new_housing_stock_changes[-1]**2/vec_new_housing_stock_changes[-2]), 
-            0.0
+            nan = 0.0,
+            posinf = 0.0,
         )
 
         vec_new_housing_stock_changes = np.insert(
@@ -1189,7 +1190,11 @@ class IPPU:
             var_bounds = (0, np.inf),
         )
 
-        arr_ippu_harvested_wood = np.nan_to_num(array_ippu_production/arr_ippu_ratio_of_production_to_wood_harvesting, 0.0, posinf = 0.0)
+        arr_ippu_harvested_wood = np.nan_to_num(
+            array_ippu_production/arr_ippu_ratio_of_production_to_wood_harvesting, 
+            nan = 0.0, 
+            posinf = 0.0,
+        )
         arr_ippu_harvested_wood *= self.model_attributes.get_variable_unit_conversion_factor(
             modvar_prod_qty_init,
             modvar_demand_for_harvested_wood,

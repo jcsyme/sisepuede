@@ -352,7 +352,7 @@ class Socioeconomic:
             axis = 1,
         )
 
-        vec_gdp_per_capita = np.nan_to_num(vec_gdp/vec_pop, 0.0, posinf = 0.0)
+        vec_gdp_per_capita = np.nan_to_num(vec_gdp/vec_pop, nan = 0.0, posinf = 0.0, )
         vec_gdp_per_capita *= self.model_attributes.get_variable_unit_conversion_factor(
             self.modvar_econ_gdp,
             self.modvar_econ_gdp_per_capita,

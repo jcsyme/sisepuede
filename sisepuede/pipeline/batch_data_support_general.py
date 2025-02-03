@@ -309,7 +309,7 @@ def exogenous_demands_to_sispeuede_ies(
 
         # get elasticity of production to driver
         arr_elast = sf.do_array_mult(arr_dem_change, 1/vec_driver_change)
-        arr_elast = np.nan_to_num(arr_elast, 1.0, posinf = 1.0, neginf = -1.0)
+        arr_elast = np.nan_to_num(arr_elast, nan = 1.0, posinf = 1.0, neginf = -1.0)
 
         df_elast = pd.DataFrame(arr_elast, columns = fields_elast)
         df_hist = pd.concat([df_hist, df_elast], axis = 1)

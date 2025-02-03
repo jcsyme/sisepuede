@@ -1138,8 +1138,8 @@ class AFOLU:
                 (sums_row_mask - mask_shift_total)/sums_row_mask, 
                 (0, np.inf)
             ), 
-            1.0, 
-            posinf = 1.0
+            nan = 1.0, 
+            posinf = 1.0,
         )
 
         # get the masked nodes, multiply by the response scalar (at applicable columns, denoted by mat_mask_response_nodes), then add to
@@ -1985,7 +1985,11 @@ class AFOLU:
 
         # total secondary is scaled by how much is actually near 
         vec_sequestration_secondary = arr_sequestration_to_collapse.sum(axis = 1)
-        vec_sequestration_secondary *= np.nan_to_num(vec_area_new_total_capped/vec_area_new_total, 0.0, posinf = 0.0, )
+        vec_sequestration_secondary *= np.nan_to_num(
+            vec_area_new_total_capped/vec_area_new_total, 
+            nan = 0.0, 
+            posinf = 0.0, 
+        )
         vec_sequestration_secondary += vec_area_secondary_remaining_from_original*sf_frst_secondary_init
         arr_sequestration[:, self.ind_frst_scnd] = vec_sequestration_secondary
 
@@ -2888,7 +2892,11 @@ class AFOLU:
                 else 1.0
             )
             
-            scale_max_out_states = np.nan_to_num(delta_area/area_incoming_from_max_out_states_at_current, 0.0, posinf = 0.0)
+            scale_max_out_states = np.nan_to_num(
+                delta_area/area_incoming_from_max_out_states_at_current, 
+                nan = 0.0, 
+                posinf = 0.0,
+            )
             scale_max_out_states = min(max(1 + scale_max_out_states, 0), max_scale)
             scalar_adj += mask_max_out_states*scale_max_out_states
 
@@ -2908,7 +2916,11 @@ class AFOLU:
             # scalar is capped at one, so we are effectively applying this to only scalable indices
             area = np.dot(vec_x, q_j)
             area_unscalable = np.dot(vec_x[w_unscalable], q_j[w_unscalable])
-            scalar_cur = np.nan_to_num((area_target - area_unscalable)/(area - area_unscalable), 1.0, posinf = 1.0)
+            scalar_cur = np.nan_to_num(
+                (area_target - area_unscalable)/(area - area_unscalable), 
+                nan = 1.0, 
+                posinf = 1.0,
+            )
             if (scalar_cur < 0):
                 break
             scalar_adj *= scalar_cur
@@ -2995,7 +3007,7 @@ class AFOLU:
             #
             vec_agrc_avg_soc_cur = np.sum(arr_agrc_crop_area*dict_soil_fracs_to_use_agrc[modvar], axis = 1)
             vec_soil_ef1_soc_est += vec_agrc_avg_soc_cur*arr_soil_ef1_organic[:, ind_soil]/vec_soil_area_crop_pasture
-            vec_agrc_avg_soc_cur = np.nan_to_num(vec_agrc_avg_soc_cur/vec_agrc_area, 0.0, posinf = 0.0)
+            vec_agrc_avg_soc_cur = np.nan_to_num(vec_agrc_avg_soc_cur/vec_agrc_area, nan = 0.0, posinf = 0.0, )
             vec_agrc_avg_soc_cur *= arr_soil_soc_stock[:, ind_soil]*arr_lndu_factor_soil_carbon[:, self.ind_lndu_crop]*arr_lndu_factor_soil_management[:, self.ind_lndu_crop]
             vec_agrc_avg_soc += vec_agrc_avg_soc_cur*arr_lndu_frac_mineral_soils[:, self.ind_lndu_crop]
 
@@ -3023,7 +3035,14 @@ class AFOLU:
             #
 
             arr_frst_avg_soc_cur = arr_lndu_area[:, inds_lndu]*dict_soil_fracs_to_use_frst[modvar][:, inds_frst]
-            arr_frst_avg_soc_cur = np.nan_to_num(arr_frst_avg_soc_cur/arr_lndu_area[:, inds_lndu], 0.0, posinf = 0.0).transpose()
+            arr_frst_avg_soc_cur = (
+                np.nan_to_num(
+                    arr_frst_avg_soc_cur/arr_lndu_area[:, inds_lndu], 
+                    nan = 0.0, 
+                    posinf = 0.0,
+                )
+                .transpose()
+            )
             arr_frst_avg_soc_cur *= arr_soil_soc_stock[:, ind_soil]*arr_lndu_factor_soil_carbon[:, inds_lndu].transpose()
             arr_frst_avg_soc += arr_frst_avg_soc_cur.transpose()*arr_lndu_frac_mineral_soils[:, inds_lndu]
 
@@ -3055,7 +3074,14 @@ class AFOLU:
             )
 
             # get average SOC for the curent soil type
-            arr_lndu_avg_soc_cur = np.nan_to_num(arr_lndu_avg_soc_cur/arr_lndu_area[:, inds_lndu], 0.0, posinf = 0.0).transpose()
+            arr_lndu_avg_soc_cur = (
+                np.nan_to_num(
+                    arr_lndu_avg_soc_cur/arr_lndu_area[:, inds_lndu], 
+                    nan = 0.0, 
+                    posinf = 0.0,
+                )
+                .transpose()
+            )
             arr_lndu_avg_soc_cur *= arr_soil_soc_stock[:, ind_soil]*arr_lndu_factor_soil_carbon[:, inds_lndu].transpose()
             arr_lndu_avg_soc_cur *= arr_lndu_factor_soil_management[:, inds_lndu].transpose()
 
@@ -3615,7 +3641,14 @@ class AFOLU:
         # get the demand
         vec_lvst_domestic_demand_init = sf.vec_bounds(vec_lvst_production_init - arr_lvst_exports_unadj[0], (0, np.inf))
         vec_lvst_domestic_demand_init /= (1 - arr_lvst_frac_imported[0])
-        vec_lvst_domestic_demand_init = sf.vec_bounds(np.nan_to_num(vec_lvst_domestic_demand_init, 0.0, posinf = 0.0), (0, np.inf))
+        vec_lvst_domestic_demand_init = sf.vec_bounds(
+            np.nan_to_num(
+                vec_lvst_domestic_demand_init, 
+                nan = 0.0, 
+                posinf = 0.0,
+            ), 
+            (0, np.inf),
+        )
         
         # project aggregate domestic demand forward
         vec_gnrl_frac_eating_red_meat_scalar = sf.vec_bounds(vec_gnrl_frac_eating_red_meat/vec_gnrl_frac_eating_red_meat[0], (0, 1))
@@ -3721,7 +3754,7 @@ class AFOLU:
             var_bounds = (0, np.inf),
         )
         vec_agrc_demscale = vec_gnrl_frac_eating_red_meat + vec_agrc_diet_exchange_scalar - vec_gnrl_frac_eating_red_meat*vec_agrc_diet_exchange_scalar
-        vec_agrc_demscale = np.nan_to_num(vec_agrc_demscale/vec_agrc_demscale[0], 1.0, posinf = 1.0)
+        vec_agrc_demscale = np.nan_to_num(vec_agrc_demscale/vec_agrc_demscale[0], nan = 1.0, posinf = 1.0, )
         
         # get categories that need to be scaled
         vec_agrc_scale_demands_for_veg = np.array(
@@ -3739,7 +3772,14 @@ class AFOLU:
         
         vec_agrc_domestic_demand_init = sf.vec_bounds(vec_agrc_yield_init - arr_agrc_exports_unadj[0], (0, np.inf))
         vec_agrc_domestic_demand_init /= (1 - arr_agrc_frac_imported[0])
-        vec_agrc_domestic_demand_init = sf.vec_bounds(np.nan_to_num(vec_agrc_domestic_demand_init, 0.0, posinf = 0.0), (0, np.inf))
+        vec_agrc_domestic_demand_init = sf.vec_bounds(
+            np.nan_to_num(
+                vec_agrc_domestic_demand_init, 
+                nan = 0.0, 
+                posinf = 0.0,
+            ), 
+            (0, np.inf)
+        )
         
         # split out livestock demands and human consumption
         vec_agrc_domestic_demand_init_lvstfeed = vec_agrc_domestic_demand_init*arr_agrc_frac_feed[0]
@@ -3768,7 +3808,9 @@ class AFOLU:
             var_bounds = (0, 1),
         )
         vec_agrc_frac_production_wasted_scalar = np.nan_to_num(
-            (1 - vec_agrc_frac_production_wasted[0])/(1 - vec_agrc_frac_production_wasted), posinf = 0.0,
+            (1 - vec_agrc_frac_production_wasted[0])/(1 - vec_agrc_frac_production_wasted), 
+            nan = 0.0, 
+            posinf = 0.0,
         )
        
         arr_agrc_production_nonfeed_unadj = (arr_agrc_production_nonfeed_unadj.transpose()*vec_agrc_frac_production_wasted_scalar).transpose()
@@ -4129,11 +4171,19 @@ class AFOLU:
 
             # adjust yields for import/export scalar
             vec_agrc_proj_yields_adj = vec_agrc_proj_yields + vec_agrc_unmet_demand_yields_lost
-            vec_agrc_yield_factors_adj = np.nan_to_num(vec_agrc_proj_yields_adj/vec_agrc_cropland_area_proj, 0.0, posinf = 0.0) # replaces arr_agrc_yield_factors[i + 1] below
+            vec_agrc_yield_factors_adj = np.nan_to_num(
+                vec_agrc_proj_yields_adj/vec_agrc_cropland_area_proj, 
+                nan = 0.0, 
+                posinf = 0.0,
+            ) # replaces arr_agrc_yield_factors[i + 1] below
             vec_agrc_total_dem_yield = vec_agrc_proj_yields_adj + vec_agrc_unmet_demand_yields_to_impexp
 
             # now, generate modified crop areas and net surplus of crop areas
-            vec_agrc_dem_cropareas = np.nan_to_num(vec_agrc_total_dem_yield/vec_agrc_yield_factors_adj, posinf = 0.0)
+            vec_agrc_dem_cropareas = np.nan_to_num(
+                vec_agrc_total_dem_yield/vec_agrc_yield_factors_adj, 
+                nan = 0.0, 
+                posinf = 0.0,
+            )
             vec_agrc_unmet_demand = vec_agrc_dem_cropareas - vec_agrc_cropland_area_proj
             vec_agrc_reallocation_target = vec_agrc_unmet_demand*vec_lndu_yrf[i + 1]
 
@@ -4188,7 +4238,7 @@ class AFOLU:
             vec_lvst_reallocation = vec_lvst_reallocation_target - vec_lvst_net_imports_increase_adjustment
             vec_lvst_net_import_increase = vec_lvst_unmet_demand - vec_lvst_reallocation # demand for livestock met by increasing net imports (neg => net exports)
             vec_lvst_pop_adj += vec_lvst_reallocation
-            vec_lvst_dem_gr_iterator = np.nan_to_num(vec_lvst_pop_adj/arr_lvst_dem[0], 1.0, posinf = 1.0)
+            vec_lvst_dem_gr_iterator = np.nan_to_num(vec_lvst_pop_adj/arr_lvst_dem[0], nan = 1.0, posinf = 1.0, )
 
             # update output arrays
             arr_lvst_pop_adj[i + 1] = np.round(vec_lvst_pop_adj).astype(int)
@@ -4505,7 +4555,7 @@ class AFOLU:
             # calculate the change and growth rate
             vec_scoe_biomass_fuel_demand_change = np.nan_to_num(
                 vec_scoe_biomass_fuel_demand[1:]/vec_scoe_biomass_fuel_demand[0:-1], 
-                1.0, 
+                nan = 1.0, 
                 posinf = 1.0,
             )
             vec_scoe_biomass_fuel_demand_growth_rate = np.cumprod(
@@ -6330,7 +6380,7 @@ class AFOLU:
             var_bounds = (0, 1),
         )
 
-        arr_agrc_crop_drymatter_per_unit = np.nan_to_num(arr_soil_yield/arr_soil_crop_area, 0.0, posinf = 0.0)
+        arr_agrc_crop_drymatter_per_unit = np.nan_to_num(arr_soil_yield/arr_soil_crop_area, nan = 0.0, posinf = 0.0, )
         arr_agrc_crop_drymatter_per_unit = arr_agrc_regression_m*arr_agrc_crop_drymatter_per_unit + arr_agrc_regression_b
         arr_agrc_crop_drymatter_above_ground = arr_agrc_crop_drymatter_per_unit*arr_soil_crop_area
         
