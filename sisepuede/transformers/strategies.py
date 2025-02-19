@@ -111,12 +111,13 @@ class Strategy:
         **kwargs,
     ) -> pd.DataFrame:
 
-        if self.table is not None:
+        if (self.table is not None) and ("df_input" not in kwargs.keys()):
             out = self.table
 
         else:
             out = self.function(*args, **kwargs)
-            self.table = out # update the table
+            if "df_input" not in kwargs.keys():
+                self.table = out # update the table if running with defaults
 
         return out
 
@@ -166,7 +167,8 @@ class Strategy:
                 f"""
                 Composite Transformer function for {self.name}
                 """
-                out = None
+                # out = None
+                out = kwargs.get("df_input")
                 for f in func:
                     out = f(
                         df_input = out, 
@@ -189,6 +191,7 @@ class Strategy:
                 )
 
                 out = out.function(
+                    df_input = kwargs.get("df_input"),
                     strat = self.id_num,
                 )
                 
@@ -1437,7 +1440,10 @@ class Strategies:
 
                 # build strategies (baseline and alternative)
                 try:
+                    #HEREHEREHERE
+                    print(f"starting strat {strat} with input shape {df.shape}")
                     df_out_list[1] = strategy(df_input = df, )
+                    print(f"strat {strat} with output shape {df_out_list[1].shape}")
 
                     t_elapse = sf.get_time_elapsed(t0_cur)
                     self._log(
@@ -1476,15 +1482,15 @@ class Strategies:
 
                 """
                 Needed for troubleshooting sometimes:
-
+                """;
                 global dc
                 global dc2
-
-                if strat == 1006:
+                print(f'here = {strat}')
+                if strat == 0:
                     dc = df_cur.copy() 
-                elif strat == 1007:
+                elif strat == 1009:
                     dc2 = df_cur.copy()
-                """;
+                
 
                 # split the current transformation into 
                 dict_cur = self.build_templates_dictionary_from_current_transformation(
