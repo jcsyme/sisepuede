@@ -2286,12 +2286,12 @@ def mix_tensors(
     # check input of v_0
     if not islistlike(vec_b0):
         return None
-        
-    v_0 = np.array(vec_b0)
-
+    
     # if v_0 checks out, check that both are not None
+    v_0 = np.array(vec_b0)
     if (vec_b1 is None) | (vec_mix is None):
         return v_0
+    
     v_1 = np.array(vec_b1)
     v_alpha = np.array(vec_mix)
 

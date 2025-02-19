@@ -1,5 +1,6 @@
 # imports
 import numpy as np
+import os, os.path
 import pandas as pd
 from typing import *
 
@@ -170,7 +171,7 @@ def get_overlay_bounds(
     return tup_out
 
     
-    
+
 def get_rioxarray_row_areas(
     rx_array: 'xarray.DataArray',
     decimals: int = 8,
@@ -318,5 +319,7 @@ def iterate_high_to_low(
         i += 1
 
     return inds_low_x_by_high_res
+
+
 
 

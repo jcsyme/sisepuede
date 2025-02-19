@@ -2006,7 +2006,7 @@ class YAMLConfiguration:
     - fp: file path to YAML file to read in OR dictionary
     """
     def __init__(self,
-        fp: Union[dict, str],
+        fp: Union[dict, str, pathlib.Path],
     ) -> None:
         
         self._initialize_data(fp)

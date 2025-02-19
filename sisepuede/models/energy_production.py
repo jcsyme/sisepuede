@@ -2046,7 +2046,7 @@ class EnergyProduction:
                 vec_mass_biogas = np.sum(array_mass_biogas, axis = 1)
 
                 # convert units -- first, in terms of mass incinerated, then in terms of energy density
-                vec_enfu_energy_density_cur =  vec_enfu_energy_density_gravimetric/self.model_attributes.get_variable_unit_conversion_factor(
+                vec_enfu_energy_density_cur = vec_enfu_energy_density_gravimetric/self.model_attributes.get_variable_unit_conversion_factor(
                     self.modvar_enfu_energy_density_gravimetric,
                     modvar_biogas,
                     "mass"

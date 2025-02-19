@@ -5141,10 +5141,23 @@ class ModelAttributes:
 
 
     def build_default_sampling_range_df(self,
+        field_variable: str = "variable", 
+        field_variable_field: str = "variable_field",
+        include_modvar: bool = False,
     ) -> pd.DataFrame:
         """
         Build a sampling range dataframe from defaults contained in
             AttributeTables.
+        
+        Keyword Arguments
+        -----------------
+        field_variable : str
+            field in output dataframe to use for variable (model variable)
+        field_variable_field : str
+            field in output dataframe to use for variable field
+        include_modvar : str
+            include the model variable in the output?
+
         """
         df_out = []
         # set field names
@@ -5180,15 +5193,17 @@ class ModelAttributes:
                     )
                     mvs = self.dict_model_variables_to_variable_fields[variable]
 
-                    df_out.append(
-                        pd.DataFrame(
-                            {
-                                "variable": mvs, 
-                                field_max: [max_ftp_scalar for x in mvs], 
-                                field_min: [min_ftp_scalar for x in mvs]
-                            }
-                        )
+                    df_cur = pd.DataFrame(
+                        {
+                            field_variable_field: mvs, 
+                            field_max: [max_ftp_scalar for x in mvs], 
+                            field_min: [min_ftp_scalar for x in mvs]
+                        }
                     )
+                    if include_modvar:
+                        df_cur[field_variable] = variable
+                    
+                    df_out.append(df_cur, )
 
         df_out = pd.concat(df_out, axis = 0).reset_index(drop = True)
 
