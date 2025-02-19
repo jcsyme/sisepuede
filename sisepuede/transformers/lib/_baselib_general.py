@@ -507,7 +507,7 @@ def transformation_general(
 
                     # get distribution to transfer--check that it does not violate bounds if specified
                     vec_source_initial = arr_base_source[tp_baseline, :]
-                    vec_distribution_transfer = np.nan_to_num(vec_source_initial/sum(vec_source_initial), 0.0)
+                    vec_distribution_transfer = np.nan_to_num(vec_source_initial/sum(vec_source_initial), nan = 0.0)
                     vec_transfer = magnitude_transfer*vec_distribution_transfer
 
                     vec_source_new = sf.vec_bounds(vec_source_initial - vec_transfer, bounds)
