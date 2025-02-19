@@ -111,14 +111,16 @@ class Strategy:
         **kwargs,
     ) -> pd.DataFrame:
 
-        if self.table is not None:
+        if (self.table is not None) and ("df_input" not in kwargs.keys()):
             out = self.table
 
         else:
             out = self.function(*args, **kwargs)
-            self.table = out # update the table
+            if "df_input" not in kwargs.keys():
+                self.table = out # update the table if running with defaults
 
         return out
+
 
 
 
@@ -166,7 +168,8 @@ class Strategy:
                 f"""
                 Composite Transformer function for {self.name}
                 """
-                out = None
+                # out = None
+                out = kwargs.get("df_input")
                 for f in func:
                     out = f(
                         df_input = out, 
@@ -189,6 +192,7 @@ class Strategy:
                 )
 
                 out = out.function(
+                    df_input = kwargs.get("df_input"),
                     strat = self.id_num,
                 )
                 
