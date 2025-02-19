@@ -1758,7 +1758,7 @@ def get_vector_growth_rates_from_first_element(
     ------------------
     - arr: input array to use to derive growth rates
     """
-    arr = np.nan_to_num(arr[1:]/arr[0:-1], 0.0, posinf = 0.0)
+    arr = np.nan_to_num(arr[1:]/arr[0:-1], nan = 0.0, posinf = 0.0)
     elem_concat = np.ones((1, )) if (len(arr.shape) == 1) else np.ones((1, arr.shape[1]))
     arr = np.concatenate([elem_concat, arr], axis = 0)
     arr = np.cumprod(arr, axis = 0)
