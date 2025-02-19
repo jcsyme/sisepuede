@@ -1691,7 +1691,7 @@ def transformation_support_lndu_transition_to_category_targets_single_region(
         ind_row = min(ind_row, arr_target_shares.shape[0] - 1)
         scalars_to_adj = np.nan_to_num(
             arr_target_shares[ind_row, :]/x_next_unadj[inds_to_modify],
-            0.0,
+            nan = 0.0,
             posinf = 0.0
         )
 

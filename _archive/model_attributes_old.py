@@ -4609,7 +4609,7 @@ class ModelAttributes:
         if force_sum_equality:
             for modvar in modvars:
                 arr_cur = dict_arrs[modvar]
-                arr_cur = np.nan_to_num(arr_cur/arr, 0.0)
+                arr_cur = np.nan_to_num(arr_cur/arr, nan = 0.0)
                 dict_arrs.update({modvar: arr_cur})
         else:
             # correction sums if within correction threshold
