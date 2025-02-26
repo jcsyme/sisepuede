@@ -497,7 +497,6 @@ class Regions:
         if region_grouping not in self.region_groupings:
 
             if stop_on_error:
-                valid_regions = sf.format_print_list(self.region_groupings)
                 msg = f"""
                 Invalid region grouping '{region_grouping}' specified: valid 
                 region groupings are defined in Regions.attributes and include
@@ -966,20 +965,30 @@ class Regions:
 
 
     def get_region_group(self,
-        region: Union[str, int], 
+        region: Union[int, str], 
         region_grouping: str,
-    ) -> pd.DataFrame:
+        stop_on_error: bool = False,
+    ) -> Union[str, None]:
         """
         Get a regional grouping for a region by type
 
         Function Arguments
         ------------------
-        - region: region name, ISO Alpha 3, or ISO numeric code
-        - region_grouping: either "un" or "world_bank". The group used to group
-            the regions in the data frame
+        region : Union[int, str]
+            region name, ISO Alpha 3, or ISO numeric code
+        region_grouping : str
+            Either region grouping specified in the attribute table. Can 
+            include:
+            * ipcc_estimated_afolu
+            * ipcc_ar5
+            * un
+            * un_sub
+            * world_bank_global
 
         Keyword Arguments
         -----------------
+        stop_on_error : bool
+            Stop if the region grouping isn't found?
         """
         
         ##  INITIALIZATION AND CHECKS
@@ -994,7 +1003,7 @@ class Regions:
                 {self.region_groupings}
                 """
                 raise RuntimeError(msg)
-            return df_in
+            return None
 
         # get it as a key, then use attribute function
         region = self.return_region_or_iso(
