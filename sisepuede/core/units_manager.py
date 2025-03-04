@@ -9,6 +9,11 @@ import sisepuede.core.model_variable as mv
 import sisepuede.utilities._toolbox as sf
 
 
+class InvalidUnitError(Exception):
+    pass
+
+
+
 
 class Units:
     """
@@ -304,6 +309,7 @@ class Units:
     def get_unit_key(self,
         unit_specification: str,
         flags_missing: Union[Any, List[Any]] = "none",
+        stop_on_missing: bool = False,
     ) -> Union[str, None]:
         """
         Based on an input unit value, try to get the unit key from the attribute
@@ -314,6 +320,7 @@ class Units:
         - unit_specification: input unit specification to attempt to retrieve 
             key for
         - flags_missing: optional flag or list of flags to signify as missing
+        - stop_on_missing: raise an error if the key is not found?
         """
         # initialize and check for missing flags
         attr = self.attribute_table
@@ -350,6 +357,11 @@ class Units:
             
             out = dict_map.get(unit_specification)
             out = None if (out in flags_missing) else out
+
+        # if asking for error, raise one
+        if (out is None) and (stop_on_missing):
+            raise InvalidUnitError(f"Unit key value '{unit_specification}' not found in units '{self.key}'.")
+        
 
         return out
 

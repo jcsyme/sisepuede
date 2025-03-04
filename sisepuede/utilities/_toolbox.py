@@ -1994,7 +1994,6 @@ def logistic_ramp(
 
 
 
-
 def match_df_to_target_df(
     df_target: pd.DataFrame,
     df_source: pd.DataFrame,
@@ -2502,6 +2501,95 @@ def orient_df_by_reference_vector(
 
     # drop the sort field if needed
     df_out.drop([field_compare], axis = 1, inplace = True) if drop_field_compare else None
+
+    return df_out
+
+
+
+def overwrite_df_nas_from_source(
+    df_target: pd.DataFrame,
+    df_source: pd.DataFrame,
+    fields_index: list,
+    fields_to_replace: str = None,
+) -> pd.DataFrame:
+    """
+    Using values from df_source, overwrite any NA values in df_target.
+
+    Function Arguments
+    ------------------
+    - df_target: target data frame, which will have values replaced with NA 
+        values from df_source
+    - df_source: source data to use to replace
+    - fields_index: list of index fields
+
+    Keyword Arguments
+    -----------------
+    - fields_to_replace: fields to replace in merge. If None, defaults to all 
+        available.
+    - fillna_value: value to use to fill nas in data frame
+    - overwrite_only: only overwrite columns in df_target with those in 
+        df_source. If False, will merge in fields that are not in df_target.
+    - try_interpolate: if True, will try to fill downward any missing pieces
+        before filling nas
+    """
+
+    if not isinstance(df_source, pd.DataFrame) or not isinstance(df_target, pd.DataFrame):
+        return df_target
+        
+    # get some fields
+    check_fields(df_target, fields_index)
+    check_fields(df_source, fields_index)
+
+    # get fields to replace
+    fields_dat_source = [x for x in df_source.columns if (x not in fields_index)]
+    fields_dat_source = [x for x in fields_dat_source if (x in df_target.columns)]
+    fields_dat_source = (
+        [x for x in fields_dat_source if x in fields_to_replace] 
+        if islistlike(fields_to_replace)
+        else fields_dat_source
+    )
+
+    # if no fields are available, return the target data frame
+    if len(fields_dat_source) == 0:
+        return df_target
+
+
+    # make a copy and rename
+    df_out = None
+    
+    for field in fields_dat_source:
+        df_cur = df_target[fields_index + [field]]
+
+        vec_isna = df_cur[field].isna()
+        df_na = df_cur[vec_isna]
+        df_not_na = df_cur[~vec_isna]
+
+        # update
+        if df_not_na.shape != df_cur.shape:
+            df_na = pd.merge(
+                df_na[fields_index],
+                df_source[fields_index + [field]],
+                how = "left",
+            )
+
+            df_not_na = (
+                pd.concat(
+                    [df_not_na, df_na],
+                    axis = 0
+                )
+                .reset_index(drop = True, )
+            )
+
+        df_out = (
+            df_not_na
+            if df_out is None
+            else pd.merge(
+                df_out,
+                df_not_na,
+                how = "outer",
+            )
+        )
+
 
     return df_out
 
@@ -3292,7 +3380,7 @@ def seteq(
 
     E.g., 
 
-        sf.seteq([1, 2, 4, 3], [1, 2, 2, 4, 4, 4, 3]) 
+        seteq([1, 2, 4, 3], [1, 2, 2, 4, 4, 4, 3]) 
 
         will return True
 
