@@ -1,5 +1,7 @@
-cms_category,cat_forest,forest_subtype
-0,none,none
-1,primary,none
-2,secondary,young
-3,secondary,old
+﻿cms_category,cat_forest,forest_subtype,ipcc_status_condition,ipcc_age_yr
+0,none,none,none,none
+1,primary,none,Primary,>20
+2,secondary,young,"Secondary
+≤20 years",<20
+3,secondary,old,"Secondary
+>20 years",>20
