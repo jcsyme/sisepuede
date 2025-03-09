@@ -1696,7 +1696,7 @@ class Strategies:
         codes = sorted([x.code for x in transformations_deconstruct])
 
         delim = (
-            self.delimiter_transformation_codes
+            strat.delimiter_transformation_codes
             if not isinstance(delim, str)
             else delim
         )
