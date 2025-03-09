@@ -10,117 +10,124 @@ _PARAMS_SEQUESTRATION_CURVE_EST = np.array([0.1323, 1.0642, 6.3342, 3.455], )
 
 
 
+# NOTE: keys must be immutable! What can we use?
+dictionary = {
+    key_1: value_1,
+    key_2: value_2,
+    .
+    .
+    .``
+}
+
+# NOTE: keys must be immutable! What can we use?
+#   0
 
 
-def get_frst_area_new_secondary(self,
-    arr_converted: np.ndarray, 
-    ind: Union[int, None] = None,
-) -> float:
+
+def bubble_sort(
+    vec: list,
+) -> list:
     """
-    For a conversion matrix `arr_converted`, calculate how much secondary
-        forest is newly formed.
+    Implement bubble sort
     """
-    ind = self.ind_lndu_fsts if not sf.isnumber(ind, integer = True) else ind
 
-    n, _ = arr_converted.shape
-    w = np.array([i for i in range(n) if i != ind])
-    out = arr_converted[w, ind].sum()
+    n = len(vec)
+    
+    for j in range(n - 1):
+        
+        # assume no swaps occur
+        swap_occured = False
+
+        for i in range(1, n - j):
+            if vec[i] >= vec[i - 1]: continue
+                
+            # swap
+            vec[i - 1], vec[i] = vec[i], vec[i -1 ]
+            swap_occured = True
+        
+        # no sense continuing if we don't have to
+        if not swap_occured: break
+
+    return vec
+
+
+
+
+
+def o_1(
+   vec: list,
+) -> list:
+   """
+   Demonstrate an O(1)--here, the output is independent of list size
+   """
+   n = len(vec)
+   return n**2
+
+
+
+def o_n(
+    vec: np.ndarray,
+) -> np.ndarray:
+    
+    """
+    Demonstrate an O(n)--here, the number of operations scales linearly
+    """
+    n = vec.shape[0]
+    out = np.zeros(vec.shape)
+
+    for i in range(n):
+        out[i] = vec[i]**2 if vec[i] < i**2 else vec[i]**-0.89
+
+    return out
+
+        
+
+def o_n2(
+    vec: np.ndarray,
+) -> np.ndarray:
+    
+    """
+    Demonstrate an O(n^2)--here, the number of operations scales in polynomial 
+        time
+    """
+    n = vec.shape[0]
+    out = np.zeros(n, n)
+
+    for i in range(n):
+        for j in range(n):
+            out[i, j] = func(i, j, n)
 
     return out
 
 
 
-def get_frst_sequestration_dynamic(self,
-    df_afolu_trajectories: pd.DataFrame,
-    arrs_lndu_conversion: np.ndarray,
-    arrs_lndu_prevalence: np.ndarray,
-    attr_lndu: Union[AttributeTable, None] = None,
-    dynamic_forests: bool = True,
-    max_age_young_secondary_forest: int = 20,
-    **kwargs,
-) -> Tuple:
-    """
-    Calculate forest sequestration. If using dynamic forest sequestration,
-        estimates a sequestration curve and applies it over time. 
-        Otherwise,
-
-    NOTE: all secondary sequestration at time t = 0 
-
+def o_2n(
+    vec: np.ndarray,
+) -> np.ndarray:
     
-    Function Arguments
-    ------------------
-    - df_afolu_trajectories: data frame containing input trajectories
-
-    Keyword Arguments
-    ------------------
-    - attr_lndu: optional land use attribute table
-    - dynamic_forests: use dynamic forest sequestration?
-    - max_age_young_secondary_forest: maximum age (in time periods) of young 
-        secondary forests. Only applies if using dynamic forest 
-        sequestration
-    - kwargs: passed to the following methods:
-         * get_npp_frst_sequestration_factor_vectors()
     """
-
-    ##  SOME INIT
-
-    attr_lndu = (
-        self.model_attributes.get_attribute_table(self.model_attributes.subsec_name_lndu)
-        if attr_lndu is None
-        else attr_lndu
-    )
-
-
-    # get groups of sequestration factors
-    df_sf_groups = self.get_npp_frst_sequestration_factor_vectors(
-        df_afolu_trajectories,
-        **kwargs,
-    )
-
-
-
-def get_frst_sequestration_factors(self,
-    df_afolu_trajectories: pd.DataFrame,
-    modvar_area: Union[str, mv.ModelVariable, None] = None,
-    modvar_sequestration: Union[str, mv.ModelVariable, None] = None,
-    override_vector_for_single_mv_q: bool = True,
-    **kwargs,
-) -> Tuple:
+    Demonstrate an O(2^n)--here, the number of operations scales exponentially
     """
-    Retrieve the sequestration factors for forest in terms of 
-        modvar_sequestration units and modvar_area
-    """
-    # get area variable
-    modvar_area = self.model_attributes.get_variable(modvar_area)
-    if modvar_area is None:
-        modvar_area = self.model_socioeconomic.modvar_gnrl_area 
+    n = vec.shape[0]
+    ps = power_set(n)
+    out = np.zeros(len(ps))
 
-    # get sequetration factor variable
-    modvar_sequestration = self.model_attributes.get_variable(modvar_sequestration)
-    if modvar_sequestration is None:
-        modvar_sequestration = self.modvar_frst_sq_co2
+    for i, subset in enumerate(out):
+        out[i] = func(subset)
+
+    return out
 
 
-    # get sequestration factors
-    arr_frst_ef_sequestration = self.model_attributes.extract_model_variable(
-        df_afolu_trajectories, 
-        modvar_sequestration, 
-        override_vector_for_single_mv_q = override_vector_for_single_mv_q, 
-        return_type = "array_units_corrected",
-        **kwargs,
+
+
+v_best = None
+k_best = None
+
+for k, v in dict.items():
+    v_best = v if v_best is None else (
+        v if v < v_best else v_best
     )
 
-    arr_frst_ef_sequestration *= self.model_attributes.get_variable_unit_conversion_factor(
-        modvar_area,
-        modvar_sequestration,
-        "area"
+    v_best = v if v_best is None else (
+        v if v < v_best else v_best
     )
-
-    return arr_frst_ef_sequestration
-
-    
-
-
-        
-
-

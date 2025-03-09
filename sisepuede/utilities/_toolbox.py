@@ -1117,6 +1117,64 @@ def fill_df_rows_from_df(
 
 
 
+def fill_df_fields_from_ratios(
+    df: pd.DataFrame,
+    fields_ordering_ratios: List[str],
+) -> pd.DataFrame:
+    """Follow, in order, fields_ordering_ratios [f1, f2, ...] to estimate the 
+        ratios of [f2/f1, f3/f2, ... , fn/fn-1, fn-1/fn,... f1/f2], then use
+        these to iteratively fill NAs in columns in df.
+
+    Function Arguments
+    ------------------
+    df : pd.DataFrame
+        data frame to fill
+    fields_ordering_ratios : List[str]
+        Ordered fields to fill
+    """
+
+    df_out = df.copy()
+
+    i = 0
+    n = len(fields_ordering_ratios)
+
+    # go up and down the ordered list to build regression estimates
+    v = list(range(n)) 
+    v += reversed(v[:-1])
+    n_v = len(v)
+
+    # fill all na
+    while (df_out.dropna().shape != df_out.shape) & (i < n_v - 1):
+
+        ind_x = v[i%n_v]
+        ind_y = v[(i + 1)%n_v]
+        field_x = fields_ordering_ratios[ind_x]
+        field_y = fields_ordering_ratios[ind_y]
+
+        df_cur = df[[field_x, field_y]].dropna()
+        x = df_cur[[field_x]].to_numpy()
+        y = df_cur[field_y].to_numpy()
+
+        # get model and update
+        w = np.where(x != 0)[0]
+        ratio = np.mean(y[w]/x[w])
+
+        # if there're missing values to fill, fill them
+        w = np.where(
+            ~df_out[field_x].isna()
+            & df_out[field_y].isna()
+        )[0]
+        
+        if len(w) != 0:
+            x_new = df_out[field_x].to_numpy()[w]
+            df_out[field_y].iloc[w] = ratio*x_new
+        
+        i += 1
+    
+    return df_out
+
+
+
 def fill_nas_for_simplex(
     df: pd.DataFrame,
     chop_val: float = 10.0**(-12),
