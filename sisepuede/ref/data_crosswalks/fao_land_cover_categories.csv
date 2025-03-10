@@ -3,7 +3,7 @@ Artificial surfaces (including urban and associated areas),settlements
 Herbaceous crops,croplands
 Woody crops,croplands
 Multiple or layered crops,croplands
-Grassland,grasslands
+Grassland,grasslands_agg
 Tree-covered areas,forests_agg
 Mangroves,forests_mangroves
 Shrub-covered areas,shrublands
