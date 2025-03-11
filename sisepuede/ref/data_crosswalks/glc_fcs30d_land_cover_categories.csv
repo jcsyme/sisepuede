@@ -1,37 +1,37 @@
-﻿LC Id,Classification System,RGB value,Color
-10,Rainfed cropland,"-255,255,100",
-11,Herbaceous cover cropland,"-255,255,100",
-12,Tree or shrub cover (Orchard) cropland,"(255,255,0)",
-20,Irrigated cropland,"-170,240,240",
-51,Open evergreen broadleaved forest,"(76,115,0)",
-52,Closed evergreen broadleaved forest,"(0,100,0)",
-61,Open deciduous broadleaved forest (0.15<fc<0.4),"(170,200,0)",
-62,Closed deciduous broadleaved forest (fc>0.4),"(0,160,0)",
-71,Open evergreen needle-leaved forest (0.15< fc <0.4),"(0,80,0)",
-72,Closed evergreen needle-leaved forest (fc >0.4),"(0,60,0)",
-81,Open deciduous needle-leaved forest (0.15< fc <0.4),"(40,100,0)",
-82,Closed deciduous needle-leaved forest (fc >0.4),"(40,80,0)",
-91,Open mixed leaf forest (broadleaved and needle-leaved),"(160,180,50)",
-92,Closed mixed leaf forest (broadleaved and needle-leaved),"(120,130,0)",
-120,Shrubland,"(150,100,0)",
-121,Evergreen shrubland,"(150,75,0)",
-122,Deciduous shrubland,"(150,100,0)",
-130,Grassland,"(255,180,50)",
-140,Lichens and mosses,"-255,220,210",
-150,Sparse vegetation (fc<0.15),"-255,235,175",
-152,Sparse shrubland (fc<0.15),"-255,210,120",
-153,Sparse herbaceous (fc<0.15),"-255,235,175",
-181,Swamp,"(0,168,132)",
-182,Marsh,"-115,255,223",
-183,Flooded flat,"-158,187,215",
-184,Saline,"-130,130,130",
-185,Mangrove,"-245,122,182",
-186,Salt marsh,"-102,205,171",
-187,Tidal flat,"(68,79,137)",
-190,Impervious surfaces,"(195,20,0)",
-200,Bare areas,"-255,245,215",
-201,Consolidated bare areas,"-220,220,220",
-202,Unconsolidated bare areas,"-255,245,215",
-210,Water body,"(0,70,200)",
-220,Permanent ice and snow,"-255,255,255",
-"0, 250",Filled value,"-255,255,255",
+﻿LC Id,Classification System,RGB value,Color,``$CAT-LANDUSE$``
+10,Rainfed cropland,"-255,255,100",,croplands
+11,Herbaceous cover cropland,"-255,255,100",,croplands
+12,Tree or shrub cover (Orchard) cropland,"(255,255,0)",,croplands
+20,Irrigated cropland,"-170,240,240",,croplands
+51,Open evergreen broadleaved forest,"(76,115,0)",,forest_agg
+52,Closed evergreen broadleaved forest,"(0,100,0)",,forest_agg
+61,Open deciduous broadleaved forest (0.15<fc<0.4),"(170,200,0)",,forest_agg
+62,Closed deciduous broadleaved forest (fc>0.4),"(0,160,0)",,forest_agg
+71,Open evergreen needle-leaved forest (0.15< fc <0.4),"(0,80,0)",,forest_agg
+72,Closed evergreen needle-leaved forest (fc >0.4),"(0,60,0)",,forest_agg
+81,Open deciduous needle-leaved forest (0.15< fc <0.4),"(40,100,0)",,forest_agg
+82,Closed deciduous needle-leaved forest (fc >0.4),"(40,80,0)",,forest_agg
+91,Open mixed leaf forest (broadleaved and needle-leaved),"(160,180,50)",,forest_agg
+92,Closed mixed leaf forest (broadleaved and needle-leaved),"(120,130,0)",,forest_agg
+120,Shrubland,"(150,100,0)",,shrublands
+121,Evergreen shrubland,"(150,75,0)",,shrublands
+122,Deciduous shrubland,"(150,100,0)",,shrublands
+130,Grassland,"(255,180,50)",,grasslands
+140,Lichens and mosses,"-255,220,210",,grasslands
+150,Sparse vegetation (fc<0.15),"-255,235,175",,other
+152,Sparse shrubland (fc<0.15),"-255,210,120",,other
+153,Sparse herbaceous (fc<0.15),"-255,235,175",,other
+181,Swamp,"(0,168,132)",,wetlands
+182,Marsh,"-115,255,223",,wetlands
+183,Flooded flat,"-158,187,215",,wetlands
+184,Saline,"-130,130,130",,wetlands
+185,Mangrove,"-245,122,182",,forests_mangroves
+186,Salt marsh,"-102,205,171",,wetlands
+187,Tidal flat,"(68,79,137)",,wetlands
+190,Impervious surfaces,"(195,20,0)",,settlements
+200,Bare areas,"-255,245,215",,other
+201,Consolidated bare areas,"-220,220,220",,other
+202,Unconsolidated bare areas,"-255,245,215",,other
+210,Water body,"(0,70,200)",,flooded
+220,Permanent ice and snow,"-255,255,255",,other
+"0, 250",Filled value,"-255,255,255",,

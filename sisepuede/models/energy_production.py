@@ -8522,8 +8522,7 @@ class EnergyProduction:
         tuple_enfu_production_and_demands: Union[Tuple[pd.DataFrame], None] = None,
         **kwargs
     ) -> Dict[str, pd.DataFrame]:
-        """
-        Format the TotalTechnologyAnnualActivityLowerLimit input tables for 
+        """Format the TotalTechnologyAnnualActivityLowerLimit input tables for 
             NemoMod based on SISEPUEDE configuration parameters, input 
             variables, integrated model outputs, and reference tables.
 
@@ -8573,6 +8572,7 @@ class EnergyProduction:
                 arr_enfu_imports, 
                 arr_enfu_production
             )
+
         - **kwargs: passed to self.get_entc_maxprod_increase_adjusted_msp
         """
 
@@ -8676,8 +8676,7 @@ class EnergyProduction:
         field_year: str = "year",
         time_period_as_year: bool = None,
     ) -> pd.DataFrame:
-        """
-        Initialize a data frame that has the correct dimensions for SISEPUEDE
+        """Initialize a data frame that has the correct dimensions for SISEPUEDE
 
         Function Arguments
         ------------------
@@ -10199,7 +10198,7 @@ class EnergyProduction:
             projection_time_periods
         ) = self.model_attributes.check_projection_input_df(
             df_elec_trajectories, 
-            True, 
+            True,
             True, 
             True,
         )
