@@ -22,6 +22,14 @@ _MODULE_UUID = "823CC6A2-0A23-4AB8-8324-0692DF4AE4A0"
 
 
 
+##  BUILD SOME ERRORS
+
+class InvalidModelVariable(Exception):
+    pass
+
+
+
+
 class ModelAttributes:
     """
     A centralized object for managing inter-sectoral objects, dimensions,
@@ -3979,6 +3987,95 @@ class ModelAttributes:
         np.put_along_axis(array_default, inds, array_vals, axis = 1)
 
         return array_default
+    
+
+
+    def overwrite_variable_from_mix(self,
+        df_trajectories: pd.DataFrame,
+        modvar: Union[str, mv.ModelVariable],
+        modvar_mix: Union[str, mv.ModelVariable],
+        dict_category_map: Dict[str, str], 
+    ) -> pd.DataFrame:
+        """Use a mixing fraction to mix between a base value category and 
+            another (mapped) cateory within a variable to pre-process inputs. 
+            Used to allow bound-1 to be overwritten by the mix (see 
+            `dict_category_ap`).
+
+            EXAMPLE: Used to overwrite CCS variables with a mix between base 
+            (no-CCS) and CCS.
+
+            NOTE: Requires that variables are in the same subsector. 
+
+        Function Arguments
+        ------------------
+        df_trajectories : pd.DataFrame
+            DataFrame containing trajectories to overwrite
+        movdar : Union[str, ModelVariable]
+            ModelVariable to update
+        modvar_bound_1 : Union[str, ModelVariable]
+            ModelVariable to use for top-end bounds in mix
+        modvar_mix : Union[str, ModelVariable]
+            ModelVariable used to denote mixing fraction. 
+            **NOTE** that the fraction mix is in terms of bound 1
+        dict_category_map : Dict[str, str]
+            Dictionary mapping category with bound 0 (the value at mix = 0) to 
+            bound 1 (the value at mix = 1)
+        """
+
+        # get variables
+        modvar = self.get_variable(modvar, stop_on_missing = True, )
+        modvar_mix = self.get_variable(modvar_mix, stop_on_missing = True, )
+
+        # check that they have the same category dims
+        subsec = modvar.get_property("subsector")
+        if subsec != modvar_mix.get_property("subsector"):
+            return df_trajectories
+        
+        attr = self.get_attribute_table(subsec, )
+        
+
+        # retrieve the arrays
+        arr_modvar = self.extract_model_variable(
+            df_trajectories,
+            modvar,
+            expand_to_all_cats = True,
+            return_type = "array_base",
+        )
+        
+        arr_modvar_mix = self.extract_model_variable(
+            df_trajectories,
+            modvar_mix,
+            expand_to_all_cats = True,
+            return_type = "array_base",
+            var_bounds = (0, 1),
+        )
+
+
+        # iterate over cats
+        for cat_0, cat_1 in dict_category_map.items():
+            ind_0 = attr.get_key_value_index(cat_0)
+            ind_1 = attr.get_key_value_index(cat_1)
+
+            # get the vecs to mix + fraction
+            vec_0 = arr_modvar[:, ind_0]
+            vec_1 = arr_modvar[:, ind_1]
+            vec_frac = arr_modvar_mix[:, ind_1]
+
+            # update array
+            vec_new = vec_0 + (vec_1 - vec_0)*vec_frac
+            arr_modvar[:, ind_1] = vec_new
+
+
+        # set the new dataframe and overwrite
+        df = self.array_to_df(
+            arr_modvar,
+            modvar, 
+            reduce_from_all_cats_to_specified_cats = True,
+        )
+
+        df_trajectories[modvar.fields] = df
+
+        return df_trajectories
 
 
 
@@ -4366,15 +4463,20 @@ class ModelAttributes:
 
     def get_variable(self,
         modvar: Union[str, mv.ModelVariable],
+        stop_on_missing: bool = False,
     ) -> Union[mv.ModelVariable, None]:
         """
-        Get a model variable
+        Get a model variable. If stop_on_missing is True, will throw a
+            InvalidModelVariable error if the variable is not found.
         """
         out = (
             modvar
             if mv.is_model_variable(modvar)
             else self.dict_variables.get(modvar)
         )
+
+        if (out is None) & stop_on_missing:
+            raise InvalidModelVariable(f"Variable '{modvar}' not found.")
 
         return out
 

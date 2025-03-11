@@ -1015,9 +1015,9 @@ class EnergyProduction:
             * self.key_oar
             * self.modvar_entc_****
         """
-
+       
         # Energy (Electricity) Technology Variables
-        self.modvar_entc_nemomod_capital_cost = "NemoMod CapitalCost"
+        self.modvar_ccs_achievement_frac = "Carbon Capture Achievement Fraction"
         self.modvar_entc_ef_scalar_ch4 = ":math:\\text{CH}_4 NemoMod EmissionsActivityRatio Scalar"
         self.modvar_entc_ef_scalar_co2 = ":math:\\text{CO}_2 NemoMod EmissionsActivityRatio Scalar"
         self.modvar_entc_ef_scalar_n2o = ":math:\\text{N}_2\\text{O} NemoMod EmissionsActivityRatio Scalar"
@@ -1044,6 +1044,7 @@ class EnergyProduction:
         self.modvar_entc_fuelprod_output_activity_ratio_natural_gas = "Fuel Production NemoMod OutputActivityRatio Natural Gas"
         self.modvar_entc_fuelprod_output_activity_ratio_oil = "Fuel Production NemoMod OutputActivityRatio Oil"
         self.modvar_entc_max_elec_prod_increase_for_msp = "Maximum Production Increase Fraction to Satisfy MinShareProduction Electricity"
+        self.modvar_entc_nemomod_capital_cost = "NemoMod CapitalCost"
         self.modvar_entc_nemomod_discounted_capital_investment = "NemoMod Discounted Capital Investment"
         self.modvar_entc_nemomod_discounted_operating_costs = "NemoMod Discounted Operating Costs"
         self.modvar_entc_nemomod_emissions_ch4_elec = "NemoMod :math:\\text{CH}_4 Emissions from Electricity Generation"
@@ -2060,6 +2061,46 @@ class EnergyProduction:
         out = (vec_enfu_total_energy_biogas, vec_enfu_minimum_fuel_energy_to_electricity_biogas)
 
         return out
+    
+
+
+    def get_dict_tech_base_to_ccs(self,
+        field_prepend_ccs: str = "ccs",
+    ) -> Dict[str, str]:
+        """Get a dictionary mapping each non-ccs tech to its associated ccs counterpart 
+            for mixing.
+
+        Function Arguments
+        ------------------
+
+        Keyword Arguments
+        -----------------
+        field_prepend_ccs : str
+            Prependage to category field storing the CCS tech associated with base
+            technology
+        """
+        subsec = self.model_attributes.subsec_name_entc
+        
+        # get the attribute 
+        attr_entc = self.model_attributes.get_attribute_table(subsec)
+        pycat_tech = self.model_attributes.get_subsector_attribute(subsec, "pycategory_primary_element")
+        field_ccs_tech = f"{field_prepend_ccs}_{pycat_tech}"
+
+        # filter
+        tab = attr_entc.table
+        dict_out = tab[
+            tab[field_ccs_tech]
+            .apply(clean_schema)
+            .isin(attr_entc.key_values)
+        ]
+
+        # output dictionary
+        dict_out = dict(
+            (k, clean_schema(v)) 
+            for k, v in sf.build_dict(dict_out[[pycat_tech, field_ccs_tech]]).items()
+        )
+
+        return dict_out
 
 
 
@@ -8385,6 +8426,90 @@ class EnergyProduction:
     
 
 
+    def overwrite_ccs_variables(self,
+        df_trajectories: pd.DataFrame,
+        dict_category_map: Union[Dict[str, str], None] = None,
+        modvar_mix: Union[str, mv.ModelVariable, None] = None,
+    ) -> pd.DataFrame:
+        """Use a mixing fraction to mix between a base value category and 
+            another (mapped) cateory within a variable to pre-process inputs. 
+            Used to allow bound-1 to be overwritten by the mix (see 
+            `dict_category_ap`).
+
+            EXAMPLE: Used to overwrite CCS variables with a mix between base 
+            (no-CCS) and CCS.
+
+            NOTE: Requires that variables are in the same subsector. 
+
+        Function Arguments
+        ------------------
+        df_trajectories : pd.DataFrame
+            DataFrame containing trajectories to overwrite
+        movdar : Union[str, ModelVariable]
+            ModelVariable to update
+        modvar_bound_1 : Union[str, ModelVariable]
+            ModelVariable to use for top-end bounds in mix
+        
+
+        Keyword Arguments
+        -----------------
+        dict_category_map : Dict[str, str]
+            Dictionary mapping category with bound 0 (the value at mix = 0) to 
+            bound 1 (the value at mix = 1). If None, defaults to 
+            self.get_dict_tech_base_to_ccs()
+        modvar_mix : Union[str, ModelVariable]
+            ModelVariable used to denote mixing fraction. Defaults to 
+            self.modvar_ccs_achievement_frac
+            **NOTE** that the fraction mix is in terms of bound 1
+        """
+        ##  INITIALIZE SOME PIECES
+        
+        # get mixing model variables
+        modvar_mix = (
+            self.modvar_ccs_achievement_frac
+            if modvar_mix is None
+            else modvar_mix
+        )
+
+        modvar_mix = self.model_attributes.get_variable(
+            modvar_mix, 
+            stop_on_missing = True, 
+        )
+
+        dict_category_map = (
+            self.get_dict_tech_base_to_ccs()
+            if not isinstance(dict_category_map, dict)
+            else dict_category_map
+        )
+
+        
+        ##  ITERATE OVER VARIABLES TO UPDATE
+        
+        modvars_to_mix = [
+            self.modvar_entc_ef_scalar_ch4,
+            self.modvar_entc_ef_scalar_co2,
+            self.modvar_entc_ef_scalar_n2o,
+            self.modvar_entc_efficiency_factor_technology,
+            self.modvar_entc_nemomod_capital_cost,
+            self.modvar_entc_nemomod_fixed_cost,
+            self.modvar_entc_nemomod_variable_cost,
+        ]
+
+        # initialize output 
+        df_out = df_trajectories.copy()
+
+        for modvar in modvars_to_mix:
+            df_out = self.model_attributes.overwrite_variable_from_mix(
+                df_out,
+                modvar,
+                modvar_mix,
+                dict_category_map,
+            )
+
+        return df_out
+    
+
+
     def update_ttal_dictionary_with_limit_from_msp(self,
         df_elec_trajectories: pd.DataFrame,
         dict_ttal: Union[Dict[str, pd.DataFrame], None],
@@ -10078,6 +10203,9 @@ class EnergyProduction:
             True, 
             True,
         )
+
+        # overwrite CCS characteristic variables using mix
+        df_elec_trajectories = self.overwrite_ccs_variables(df_elec_trajectories, )
 
         # check the dictionary of reference tables
         dict_ref_tables = self.dict_nemomod_reference_tables if (dict_ref_tables is None) else dict_ref_tables

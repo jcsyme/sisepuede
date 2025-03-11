@@ -113,7 +113,7 @@ class ModelVariable:
         keys_additional: Union[List[str], Dict[str, str], None] = None,
         logger: Union[logging.Logger, None] = None,
         stop_without_default: bool = False,
-    ):
+    ) -> None:
 
         self.logger = logger
         self._initialize_keys(
@@ -157,6 +157,17 @@ class ModelVariable:
         out = self.get(obj, **kwargs,)
 
         return out
+    
+
+
+    def __repr__(self,
+    ) -> None:
+        
+        out = "\n\t".join(self.fields)
+        out = f"ModelVariable: {self.name}\nFields:\n\t{out}"
+
+        return out
+    
 
 
 
@@ -759,25 +770,24 @@ class ModelVariable:
     def get_category_definition(self,
         category_definition: Union[at.AttributeTable, Dict[str, at.AttributeTable], List[at.AttributeTable]],
     ) -> Union[Dict[str, at.AttributeTable], None]:
-   
-        """
-        Read in category_definition and convert to dictionary for use in 
+        """Read in category_definition and convert to dictionary for use in 
             _initialize_categories()
 
 
         Function Arguments
         ------------------
-        - category_definition: initializer for variable categories (i.e., 
-            mutable elements in the variable schema). Can be:
-            * attribute_table.AttributeTable: Can be provided if there is only a
-                single known mutable element
-            * Dict[str, attribute_table.AttributeTable]: Can be provided if 
-                there are multiple mutable elements or a number of tables in a 
-                centralized location. 
-                * NOTE: Dictionary keys are assumed to be the corresponding 
-                    AttributeTable.key
-            * List[attribute_table.AttributeTable]: optional list of 
-                AttributeTable objects
+        category_definition : Union[at.AttributeTable, Dict[str, at.AttributeTable], List[at.AttributeTable]]
+            Initializer for variable categories (i.e., mutable elements in the 
+            variable schema). Can be:
+                * attribute_table.AttributeTable: Can be provided if there is 
+                    only a single known mutable element
+                * Dict[str, attribute_table.AttributeTable]: Can be provided if 
+                    there are multiple mutable elements or a number of tables in 
+                    a centralized location. 
+                    * NOTE: Dictionary keys are assumed to be the corresponding 
+                        AttributeTable.key
+                * List[attribute_table.AttributeTable]: optional list of 
+                    AttributeTable objects
         """
         # initialize
         category_definition_out = {}
@@ -803,8 +813,7 @@ class ModelVariable:
     def get_categories_from_specification(self,
         category_str: Union[List[str], str],
     ) -> Union[List[str], None]:
-        """
-        Split categories defined in a string into a list. Performs checks on
+        """Split categories defined in a string into a list. Performs checks on
             specification to ensure that elements are cleaned. 
         """
         
@@ -841,11 +850,10 @@ class ModelVariable:
         name: str,
         fs_safe: bool = False,
     ) -> str:
-        """
-        Return the cleaned version of the name, which excludes LaTeX, Markdown,
-            and RST special characters that are part of the full name. Set 
-            fs_safe = True to generate file system safe version (no spaces, all 
-            lower case)
+        """Return the cleaned version of the name, which excludes LaTeX, 
+            Markdown, and RST special characters that are part of the full name. 
+            Set fs_safe = True to generate file system safe version (no spaces, 
+            all lower case)
         """
         chars_repl = [":math:\\text", "{", "}_", "}"]
 
@@ -867,19 +875,20 @@ class ModelVariable:
         default_if_missing: Any = np.nan,
         stop_without_default: bool = False,
     ) -> None:
-        """
-        Get the default value based on the initialization dictionary. 
+        """Get the default value based on the initialization dictionary. 
 
 
         Function Arguments
         ------------------
-        - dict_varinfo: dictionary containing key self.key_default_value
+        dict_varinfo : dict
+            Dictionary containing key self.key_default_value
         
         Keyword Arguments
         -----------------
-        - default_if_missing: default value if not found
-        - stop_without_default: if no default value is found, stop?  If not, 
-            defaults to np.nan
+        default_if_missing : Any
+            Default value if not found
+        stop_without_default : bool
+            If no default value is found, stop?  If not, defaults to np.nan
         """
 
         if not isinstance(dict_varinfo, dict):
@@ -903,8 +912,7 @@ class ModelVariable:
 
     def get_merged_category_key_dictionary(self,
     ) -> dict:
-        """
-        Passing dict_category_key_space to dict_category space in
+        """Passing dict_category_key_space to dict_category space in
             get_categories_by_element() can allow for users to specify 
             categories that fall outside of the variable definition. 
         
@@ -943,8 +951,7 @@ class ModelVariable:
         prop: str,
         return_on_none: Any = None,
     ) -> Any:
-        """
-        Try to retrieve the variable prop--associated with dict_varinfo--
+        """Try to retrieve the variable prop--associated with dict_varinfo--
             for the variable. Returns `return_on_none` if no value is found.
         """
         out = self.dict_varinfo.get(prop, return_on_none)
@@ -956,17 +963,19 @@ class ModelVariable:
     def get_variable_init_dictionary(self,
         variable_init: Union[dict, pd.DataFrame, pd.Series],
     ) -> dict:
-        """
-        Verify the variable initialization dictionary, pd.Series, or 
+        """Verify the variable initialization dictionary, pd.Series, or 
             pd.DataFrame and convert to a dictionary.
 
         Function Arguments
         ------------------
-        - variable_init: initializer for the variable. Can be:
-            * dict: a dictionary mapping keys to a value
-            * pd.DataFrame: a Pandas DataFrame whose first row is used to 
-                initialize variable elements by smapping fields (key) to values
-            * pd.Series: a Pandas Series used to map indicies (key) to values
+        variable_init : Union[dict, pd.DataFrame, pd.Series]
+            Initializer for the variable. Can be:
+                * dict: a dictionary mapping keys to a value
+                * pd.DataFrame: a Pandas DataFrame whose first row is used to 
+                    initialize variable elements by smapping fields (key) to 
+                    values
+                * pd.Series: a Pandas Series used to map indicies (key) to 
+                    values
         """
 
         # check type
@@ -996,6 +1005,90 @@ class ModelVariable:
 
 
         return variable_init
+
+
+
+    def overwrite_ccs_variables(self,
+        df_trajectories: pd.DataFrame,
+        dict_category_map: Union[Dict[str, str], None] = None,
+        modvar_mix: Union[str, mv.ModelVariable, None] = None,
+    ) -> pd.DataFrame:
+        """Use a mixing fraction to mix between a base value category and 
+            another (mapped) cateory within a variable to pre-process inputs. 
+            Used to allow bound-1 to be overwritten by the mix (see 
+            `dict_category_ap`).
+
+            EXAMPLE: Used to overwrite CCS variables with a mix between base 
+            (no-CCS) and CCS.
+
+            NOTE: Requires that variables are in the same subsector. 
+
+        Function Arguments
+        ------------------
+        df_trajectories : pd.DataFrame
+            DataFrame containing trajectories to overwrite
+        movdar : Union[str, ModelVariable]
+            ModelVariable to update
+        modvar_bound_1 : Union[str, ModelVariable]
+            ModelVariable to use for top-end bounds in mix
+        
+
+        Keyword Arguments
+        -----------------
+        dict_category_map : Dict[str, str]
+            Dictionary mapping category with bound 0 (the value at mix = 0) to 
+            bound 1 (the value at mix = 1). If None, defaults to 
+            self.get_dict_tech_base_to_ccs()
+        modvar_mix : Union[str, ModelVariable]
+            ModelVariable used to denote mixing fraction. Defaults to 
+            self.modvar_ccs_achievement_frac
+            **NOTE** that the fraction mix is in terms of bound 1
+        """
+        ##  INITIALIZE SOME PIECES
+        
+        # get mixing model variables
+        modvar_mix = (
+            self.modvar_ccs_achievement_frac
+            if modvar_mix is None
+            else modvar_mix
+        )
+
+        modvar_mix = self.model_attributes.get_variable(
+            modvar_mix, 
+            stop_on_missing = True, 
+        )
+
+        dict_category_map = (
+            self.get_dict_tech_base_to_ccs()
+            if not isinstance(dict_category_map, dict)
+            else dict_category_map
+        )
+
+        
+        ##  ITERATE OVER VARIABLES TO UPDATE
+        
+        modvars_to_mix = [
+            self.modvar_entc_ef_scalar_ch4,
+            self.modvar_entc_ef_scalar_co2,
+            self.modvar_entc_ef_scalar_n2o,
+            self.modvar_entc_efficiency_factor_technology,
+            self.modvar_entc_nemomod_capital_cost,
+            self.modvar_entc_nemomod_fixed_cost,
+            self.modvar_entc_nemomod_variable_cost,
+        ]
+
+        # initialize output
+        df_out = df_trajectories.copy()
+
+        for modvar in modvars_to_mix:
+            df_out = self.model_attributes.overwrite_variable_from_mix(
+                df_out,
+                modvar,
+                modvar_mix,
+                dict_category_map,
+            )
+
+        return df_out
     
 
 
@@ -1005,8 +1098,7 @@ class ModelVariable:
         delim_dict: str = ",",
         endpoints_dict: Tuple[str] = ("(", ")"),
     ) -> Union[Dict[str, str], str, None]:
-        """
-        Read input categories_string and parse into a string or dictionary 
+        """Read input categories_string and parse into a string or dictionary 
             mapping mutable elements to the applicable category string. 
 
         If categories_string is specified as a dictionary, then 
@@ -1015,15 +1107,15 @@ class ModelVariable:
 
         Function Arguments
         ------------------
-        - categories_string: categories specification string from attribute 
-            table
+        categories_string : str
+            categories specification string from attribute table
 
         Keyword Arguments
         -----------------
-        - assignment_dict: assignment string in the dictionary that maps
-            keys to values 
-        - delim_dict: delimiter in dictionaries splitting key value pairs 
-        - endpoints_dict
+        assignment_dict : str
+            assignment string in the dictionary that maps keys to values 
+        delim_dict : str delimiter in dictionaries splitting key value pairs 
+        endpoints_dict : Tuple[str]
         """
 
         # check input
