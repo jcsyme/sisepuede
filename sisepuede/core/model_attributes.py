@@ -5138,7 +5138,7 @@ class ModelAttributes:
             )
 
             if attr_subsector is None:
-                raise RuntimError(f"Subsector {subsector} not found.")
+                raise RuntimeError(f"Subsector {subsector} not found.")
 
             sf.check_fields(attr_subsector.table, [field_attribute])
 
@@ -5200,6 +5200,39 @@ class ModelAttributes:
         ]
 
         return out
+
+
+
+    def build_modvar_attributes(self,
+        key: str = "variable",
+        return_type: str = "data_frame",
+    ) -> Union['AttributeTable', pd.DataFrame]:
+        """
+        Build an attribute table for ModelVariables. Set 
+        `return_type = "attribute_table"` to return an AttributeTable
+        """
+        # initialize fields, list of variables, and output data frame
+        all_vars = self.all_variables
+        field_gas = self.get_other_attribute_table("emission_gas").key
+        df_out = pd.DataFrame({key: all_vars, })
+
+        # add units
+        for unit in self.all_units:
+            df_out[unit] = df_out[key].apply(
+                self.get_variable_characteristic,
+                args = (f"{self.attribute_group_key_unit}_{unit}", )
+            )
+
+        # add gas 
+        df_out[field_gas] = df_out[key].apply(
+            self.get_variable_characteristic,
+            args = (self.varchar_str_emission_gas, )
+        )
+
+        if return_type == "attribute_table":
+            df_out = AttributeTable(df_out, key, )
+        
+        return df_out
     
     
 
@@ -5316,39 +5349,59 @@ class ModelAttributes:
     def build_variable_dataframe_by_sector(self,
         sectors_build: Union[List[str], str, None],
         df_trajgroup: Union[pd.DataFrame, None] = None,
+        field_model_variable: str = "variable",
         field_subsector: str = "subsector",
-        field_variable: str = "variable",
+        field_variable_field: str = "variable_field",
         field_variable_trajectory_group: str = "variable_trajectory_group",
+        include_model_variable: bool = False,
+        include_model_variable_attributes: bool = False,
         include_simplex_group_as_trajgroup: bool = False,
         include_time_periods: bool = True,
         vartype: str = "input",
+        **kwargs,
     ) -> pd.DataFrame:
-        """
-        Build a data frame of all variables long by subsector and variable.
-            Optional includion of time_periods.
+        """Build a data frame of all variable fields long by subsector and 
+            variable. Optional includion of time_periods, model variable, 
+            simplex group, and model variable attributes (units and gas).
 
         Function Arguments
         ------------------
-        - sectors_build: sectors to include subsectors for
+        sectors_build : Union[List[str], str, None]
+            Sectors to include subsectors for. If None, builds for all.
 
         Keyword Arguments
         -----------------
-        - df_trajgroup: optional dataframe mapping each field variable to 
-            trajectory groups. 
-            * Must contain field_subsector, field_variable, and 
-                field_variable_trajectory_group as fields
-            * Overrides include_simplex_group_as_trajgroup if specified and 
-                conflicts occur
-        - field_subsector: subsector field for output data frame
-        - field_variable: variable field for output data frame
-        - field_variable_trajectory_group: field giving the output variable
-            trajectory group (only included if
-            include_simplex_group_as_trajgroup == True)
-        - include_simplex_group_as_trajgroup: include variable trajectory group 
-            defined by Simplex Group in attribute tables?
-        - include_time_periods: include time periods? If True, makes data frame
+        df_trajgroup : Union[pd.DataFrame, None]
+            Optional dataframe mapping each field variable to trajectory groups. 
+                * Must contain `field_subsector`, `field_variable_field`, and 
+                    `field_variable_trajectory_group` as fields
+                * Overrides `include_simplex_group_as_trajgroup` if specified 
+                    and conflicts occur
+        field_model_variable : str
+            Field storing the model variable (if `include_model_variable`) in 
+            the output DataFrame
+        field_subsector : str
+            Subsector field for output data frame
+        field_variable_field : str
+            Field storing the variable field for output DataFrame
+        field_variable_trajectory_group : str
+            Field giving the output variable
+            trajectory group (only included if 
+            `include_simplex_group_as_trajgroup`)
+        include_model_variable : bool
+            Include the model variable in the output DataFrame in 
+            `field_model_variable`?
+        include_model_variable_attributes : bool
+            Include attributes (units and gas) associated with the 
+            ModelVariable? Only applicable if `include_model_variable`
+        include_simplex_group_as_trajgroup : bool
+            Include variable trajectory group defined by Simplex Group in 
+            attribute tables?
+        include_time_periods : bool
+            Include time periods? If True, makes data frame
             long by time period
-        - vartype: "input" or "output"
+        vartype : str
+            "input" or "output"
         """
         df_out = []
         sectors_build = self.get_sector_list_from_projection_input(sectors_build)
@@ -5367,7 +5420,7 @@ class ModelAttributes:
                 df_out += [(subsector, x) for x in vars_cur]
 
         # convert to data frame and return
-        fields_sort = [field_subsector, field_variable]
+        fields_sort = [field_subsector, field_variable_field]
         df_out = pd.DataFrame(
             df_out,
             columns = fields_sort
@@ -5375,7 +5428,7 @@ class ModelAttributes:
 
         # include simplex group as a trajectory group?
         if include_simplex_group_as_trajgroup:
-            col_new = list(df_out[field_variable].apply(self.get_simplex_group))
+            col_new = list(df_out[field_variable_field].apply(self.get_simplex_group))
             df_out[field_variable_trajectory_group] = col_new
             df_out[field_variable_trajectory_group] = df_out[field_variable_trajectory_group].astype("float")
         
@@ -5385,11 +5438,11 @@ class ModelAttributes:
             fields_sort_with_tg = fields_sort + [field_variable_trajectory_group]
 
             if (
-                set([field_variable, field_variable_trajectory_group])
+                set([field_variable_field, field_variable_trajectory_group])
                 .issubset(set(df_trajgroup.columns))
             ):
                 df_trajgroup.dropna(
-                    subset = [field_variable, field_variable_trajectory_group],
+                    subset = [field_variable_field, field_variable_trajectory_group],
                     how = "any",
                     inplace = True
                 )
@@ -5399,16 +5452,16 @@ class ModelAttributes:
                 # - variables that are assigned and in df_trajgroup
                 if (field_variable_trajectory_group in df_out.columns):
                     
-                    vars_to_assign = sorted(list(df_trajgroup[field_variable].unique()))
+                    vars_to_assign = sorted(list(df_trajgroup[field_variable_field].unique()))
                     tgs_to_assign = sorted(list(df_trajgroup[field_variable_trajectory_group].unique()))
                     # split into values to keep (but re-index) and those to overwrite
                     df_out_keep = df_out[
-                        ~df_out[field_variable]
+                        ~df_out[field_variable_field]
                         .isin(vars_to_assign)
                     ]
                     df_out_overwrite = (
                         df_out[
-                            df_out[field_variable]
+                            df_out[field_variable_field]
                             .isin(vars_to_assign)
                         ]
                         .drop(
@@ -5461,7 +5514,22 @@ class ModelAttributes:
                         how = "left",
                     )
 
+        # add model variable?
+        if include_model_variable:
+            df_out[field_model_variable] = (
+                df_out[field_variable_field]
+                .apply(self.dict_variable_fields_to_model_variables.get)
+            )
+            
+            # include attributes?
+            if include_model_variable_attributes:
+                df_out = pd.merge(
+                    df_out,
+                    self.build_modvar_attributes(key = field_model_variable, ),
+                    how = "left",
+                )
 
+        # add time periods?
         if include_time_periods:
             attr_time_period = self.get_dimensional_attribute_table(
                 self.dim_time_period
@@ -6041,24 +6109,19 @@ class ModelAttributes:
     
 
 
-    def get_simplex_group(self, #FIXED
-        modvar: Union[str, mv.ModelVariable],
+    def get_simplex_group(self,
+        variable_field: str,
     ) -> Union[int, None]:
         """
-        Return a simplex group from a variable.
+        Return a simplex group from a field.
 
         Function Arguments
         ------------------
-        - modvar: field variable OR ModelVariable object. Cannot be done from 
-            modvar since one modvar may have components associated with 
-            different simplex groups
+        variable_field : str
+            Variable field to get simplex group for
         """
 
-        modvar = self.get_variable(modvar)
-        if modvar is None:
-            return None
-            
-        out = self.dict_field_to_simplex_group.get(modvar.name)
+        out = self.dict_field_to_simplex_group.get(variable_field)
         
         return out
     

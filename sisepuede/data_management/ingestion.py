@@ -279,8 +279,9 @@ class InputTemplate:
 			sectors,
 			df_trajgroup = df_trajgroup,
 			field_subsector = field_req_subsector,
-			field_variable = field_req_variable,
+			field_variable_field = field_req_variable,
 			field_variable_trajectory_group = field_req_variable_trajectory_group,
+			include_model_variable = False,
 			include_simplex_group_as_trajgroup = include_simplex_group_as_trajgroup,
 			include_time_periods = True,
 		)

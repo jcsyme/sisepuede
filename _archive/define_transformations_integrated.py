@@ -1399,9 +1399,9 @@ class TransformationsIntegrated:
 
         fields_var_all = self.model_attributes.build_variable_dataframe_by_sector(
             None, 
-            include_time_periods = False
+            include_time_periods = False,
         )
-        fields_var_all = list(fields_var_all["variable"])
+        fields_var_all = list(fields_var_all["variable_field"])
         
         
         # initialize baseline dataframe
@@ -1420,7 +1420,7 @@ class TransformationsIntegrated:
                 self.time_periods.field_time_period
             ] 
             if (attr_strat.key in df_out.columns) 
-            else [field_time_period]
+            else [self.time_periods.field_time_period]
         )
         
         

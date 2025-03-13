@@ -756,8 +756,8 @@ class AFOLU:
         self.modvar_lndu_area_converted = "Area of Land Use Converted"
         self.modvar_lndu_area_converted_from_type = "Area of Land Use Converted Away from Type"
         self.modvar_lndu_area_converted_to_type = "Area of Land Use Converted to Type"
-        self.modvar_lndu_constraint_area_max = "Maximum Area" #NEW
-        self.modvar_lndu_constraint_area_min = "Minimum Area" #NEW
+        self.modvar_lndu_constraint_area_max = "Maximum Area"  # NEW
+        self.modvar_lndu_constraint_area_min = "Minimum Area"  # NEW
         self.modvar_lndu_ef_co2_conv = ":math:\\text{CO}_2 Land Use Conversion Emission Factor"
         self.modvar_lndu_emissions_conv = ":math:\\text{CO}_2 Emissions from Land Use Conversion"
         self.modvar_lndu_emissions_conv_away = ":math:\\text{CO}_2 Emissions from Conversion Away from Land Use Type"

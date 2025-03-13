@@ -14,6 +14,18 @@ import sisepuede.utilities._toolbox as sf
 
 
 
+##  SOME ERRORS
+
+class InvalidRegion(Exception):
+    pass
+
+class InvalidRegionGroup(Exception):
+    pass
+
+class InvalidTimePeriod(Exception):
+    pass
+
+
 
 _MODULE_UUID = "6B7410BF-A491-42F9-B904-5AB526C74180"
 
@@ -406,12 +418,12 @@ class Regions:
         if field_merge not in df_in.columns:
             if stop_on_error:
                 valid_regions = sf.format_print_list(self.region_groupings)
-                msg = f"""
-                Region merge field {field_merge} not found in df_in in
-                aggregate_df_by_region_group(). Check to ensure the field is
-                specified correctly.
+                msg = f"""Region merge field {field_merge} not found in df_in in aggregate_df_by_region_group(). 
+                
+                Check to ensure the field is specified correctly.
                 """
-                raise RuntimeError(msg)
+                raise KeyError(msg)
+            
             return df_in
 
 
@@ -502,7 +514,7 @@ class Regions:
                 region groupings are defined in Regions.attributes and include
                 {self.region_groupings}
                 """
-                raise RuntimeError(msg)
+                raise InvalidRegionGroup(msg)
 
             return None
 
@@ -597,7 +609,7 @@ class Regions:
         # raise an error if the region field is not found
         if field_region not in df.columns:
             msg = f"Error in fill_missing_regions: region field {field_region} not found in the input data frame."
-            raise RuntimeError(msg)
+            raise KeyError(msg)
 
         fields_index = [x for x in df.columns if x not in [field_region] + fields_data]
 
@@ -703,7 +715,7 @@ class Regions:
         # check the region grouping
         if region_grouping not in self.region_groupings:
             msg = f"Error in fill_missing_regions_grouping_average: invalid region grouping '{region_grouping}'."
-            raise RuntimeError(msg)
+            raise InvalidRegionGroup(msg)
 
         # next, get region groupings that need to be retrieved 
         all_group_vals = set(
@@ -999,10 +1011,9 @@ class Regions:
                 valid_regions = sf.format_print_list(self.region_groupings)
                 msg = f"""
                 Invalid region grouping '{region_grouping}' specified in 
-                aggregate_df_by_region_group(): valid regions are 
-                {self.region_groupings}
+                aggregate_df_by_region_group(): valid regions are {self.region_groupings}
                 """
-                raise RuntimeError(msg)
+                raise InvalidRegionGroup(msg)
             return None
 
         # get it as a key, then use attribute function
@@ -1491,21 +1502,15 @@ class Regions:
         valid_inputs = ["fao_region_code", "iso", "iso_numeric", "region"]
         if input_code_type not in valid_inputs:
             valid_inputs_print = sf.format_print_list()
-            msg = f"""
-            f"Error in convert_region_codes: invalid input type 
-            '{input_code_type}'. Valid inputs are {valid_inputs_print}"
-            """
-            raise RuntimeError(msg)
+            msg = f"Invalid input type '{input_code_type}' in convert_region_codes(). Valid inputs are {valid_inputs_print}."
+            raise TypeError(msg)
 
         # check outputs
         valid_outputs = sorted(list(dict_type_to_attribute_field.keys()))
         if output_code_type not in valid_outputs:
             valid_outputs_print = sf.format_print_list()
-            msg = f"""
-            f"Error in convert_region_codes: invalid output type 
-            '{input_code_type}'. Valid inputs are {valid_outputs_print}"
-            """
-            raise RuntimeError(msg)
+            msg = f"Invalid output type '{output_code_type}' in convert_region_codes(). Valid inputs are {valid_outputs_print}."
+            raise TypeError(msg)
 
         
         ##  BUILD OUTPUT TABLE
@@ -2048,7 +2053,7 @@ class YAMLConfiguration:
         else: 
             tp = str(type(fp))
             msg = f"Invalid type '{tp}' specified for YAMLConfiguration: fp must be of type 'str' or 'dict'."
-            raise RuntimeError(msg)
+            raise TypeError(msg)
 
 
         ##  SET PROPERTIES

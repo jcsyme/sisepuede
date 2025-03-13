@@ -1270,8 +1270,7 @@ class Strategies:
         strategies: Union[List[str], List[int], None] = None,
         **kwargs,
     ) -> pd.DataFrame:
-        """
-        Return a long (by model_attributes.dim_strategy_id) concatenated
+        """Return a long (by model_attributes.dim_strategy_id) concatenated
             DataFrame of transformations.
 
         Function Arguments
@@ -1279,26 +1278,32 @@ class Strategies:
 
         Keyword Arguments
         -----------------
-        - df_base_trajectories: baseline (untransformed) data frame to use to 
-            build strategies. Must contain self.key_region and 
-            model_attributes.dim_time_period in columns. If None, defaults
-            to self.baseline_inputs
-        - df_exogenous_strategies: optional exogenous strategies to pass. Must 
+        df_base_trajectories : Union[pd.DataFrame, None]
+            baseline (untransformed) data frame to use to build strategies. Must 
             contain self.key_region and model_attributes.dim_time_period in 
-            columns. If None, no action is taken. 
-        - regions: optional list of regions to build strategies for. If None, 
-            defaults to all defined.
-        - replace_template: replace template if it exists? If False, tries to 
-            overwrite existing sheets.
-        - return_q: return an output dictionary? If True, will return all 
-            templates in the form of a dictionary. Otherwise, writes to output 
-            path implied by SISEPUEDEFileStructure
-        - sectors: optional sectors to specify for export. If None, will export 
-            all.
-        - strategies: strategies to build for. Can be a mixture of strategy_ids
-            and names. If None, runs all available. 
-        - **kwargs: passed to self.input_template.template_from_inputs(). 
-            Notable keyword arguments include:
+            columns. If None, defaults to self.baseline_inputs
+        df_exogenous_strategies : Union[pd.DataFrame, None]
+            Optional exogenous strategies to pass. Must contain self.key_region 
+            and model_attributes.dim_time_period in columns. If None, no action 
+            is taken. 
+        regions : Union[List[str], None]
+            Optional list of regions to build strategies for. If None, defaults 
+            to all defined.
+        replace_template : bool
+            Replace template if it exists? If False, tries to overwrite existing 
+            sheets.
+        return_q : bool
+            Return an output dictionary? If True, will return all templates in 
+            the form of a dictionary. Otherwise, writes to output path implied 
+            by SISEPUEDEFileStructure
+        sectors : Union[List[str], str]
+            Optional sectors to specify for export. If None, will export all.
+        strategies : Union[List[str], List[int], None]
+            Strategies to build for. Can be a mixture of strategy_ids and names. 
+            If None, runs all available. 
+        **kwargs
+            Passed to self.input_template.template_from_inputs(). Notable 
+            keyword arguments include:
 
             - df_trajgroup: optional dataframe mapping each field variable to 
                 trajectory groups. (default None)
@@ -1324,7 +1329,7 @@ class Strategies:
             None, 
             include_time_periods = False,
         )
-        fields_var_all = list(fields_var_all["variable"])
+        fields_var_all = list(fields_var_all["variable_field"])
         
         
         # initialize baseline dataframe
@@ -1340,7 +1345,7 @@ class Strategies:
                 self.key_time_period
             ] 
             if (self.attribute_table.key in df_out.columns) 
-            else [field_time_period]
+            else [self.key_time_period]
         )
         
         
