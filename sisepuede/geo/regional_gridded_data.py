@@ -114,13 +114,12 @@ class RegionalGriddedData:
         if not isinstance(indexing_geo_array, np.ndarray):
             tp = str(type(indexing_geo_array))
             
-            msg = f"""
-            Error instantiating indexing geo array in RegionalTransitionMatrix: invalid type
+            msg = f"""Error instantiating indexing geo array in RegionalTransitionMatrix: invalid type
             '{tp}' entered for indexing_geo_array. The array must be of type xarray.DataArray
             or numpy.ndarray.
             """
             
-            raise ValueError(msg)
+            raise TypeError(msg)
 
         # get the regional identifer and identify grids
         region_id = getattr(self, region_identifier)
@@ -128,12 +127,11 @@ class RegionalGriddedData:
         w = np.where(indexing_geo_array == region_id);
         
         if len(w[0]) == 0:
-            msg = f"""
-            Error instantiating indexing geo array in RegionalTransitionMatrix: region 
+            msg = f"""Error instantiating indexing geo array in RegionalTransitionMatrix: region 
             '{self.region}' not found in the indexing array. Transition matrices cannot be 
             calculated without indexing.
             """
-            raise RuntimeError(msg)
+            raise sc.InvalidRegion(msg)
         
         
         ##  SET PROPERTIES

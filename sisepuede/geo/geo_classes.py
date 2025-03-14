@@ -11,6 +11,13 @@ import sisepuede.geo.geo_functions as gf
 import sisepuede.utilities._toolbox as sf
 
 
+# SET UUID 
+
+_MODULE_UUID = "61376014-8CBD-4210-AA5C-AE2ECBC1318A"
+
+
+
+##  CLASSES
 
 class Grid:
     """
@@ -34,7 +41,9 @@ class Grid:
         # must initialize grid first, then order
         self._initialize_grid(df_in, decimals,)
         self._initialize_coords()
-        
+        self._initialize_uuid()
+
+        return None
     
     
     
@@ -174,6 +183,22 @@ class Grid:
         self.data = data
         self.shape = dims
         
+        return None
+    
+
+
+    def _initialize_uuid(self,
+    ) -> None:
+        """
+        Initialize the UUID. Sets the following properties:
+
+            * self.is_grid
+            * self._uuid
+        """
+
+        self.is_grid = True
+        self._uuid = _MODULE_UUID
+
         return None
     
     
@@ -333,7 +358,10 @@ class GriddedDataset:
             key_indexing_grid,
             str_prepend_array_dataset = str_prepend_array_dataset,
         )
-    
+
+        self._initialize_uuid()
+
+        return None
     
     
     
@@ -465,6 +493,22 @@ class GriddedDataset:
         self.all_datasets = all_datasets
 
         return None
+
+
+
+    def _initialize_uuid(self,
+    ) -> None:
+        """
+        Initialize the UUID. Sets the following properties:
+
+            * self.is_gridded_dataset
+            * self._uuid
+        """
+
+        self.is_gridded_dataset = True
+        self._uuid = _MODULE_UUID
+
+        return None
         
     
     
@@ -493,57 +537,27 @@ class GriddedDataset:
 
 
 
+##  FUNCTIONS TO CHECK
 
-class GridFeature:
+def is_gridded_dataset(
+    obj: Any,
+) -> bool:
     """
-    Extract a feature
-    
-    Initialization Arguments
-    ------------------------
-    - grid: support_classes.Grid object to extract from
-    - feature: value to extract
+    check if obj is a GriddedDataset object
     """
-    
-    def __init__(self,
-        grid: Grid,
-        feature: Union[int, float, str],
-    ):
-        
-        self._initialize_feature(grid, feature)
-        
-        
-    
-    
-    def _initialize_feature(self,
-        grid: Grid,
-        feature: Union[int, float, str],
-    ) -> None:
-        """
-        Initialize the feature index and some other information. Sets the
-            following properties:
-            
-            self.feature
-            self.feature_index
-                NOTE: this index is oriented as (x, y), flipped from the numpy 
-                array default of (row, col))
-        """
-        
-        # initialize properties
-        self.feature = None
-        self.feature_index = None
-        
-        # check
-        w = np.where(grid.data == feature)
-        if len(w[0]) == 0:
-            return None
-        
-        
-        # modify feature specification - 
-        self.feature = feature
-        self.feature_index = (w[1], w[0])
-        
-        return None
-        
+
+    out = hasattr(obj, "is_gridded_dataset")
+    uuid = getattr(obj, "_uuid", None)
+
+    out &= (
+        uuid == _MODULE_UUID
+        if uuid is not None
+        else False
+    )
+
+    return out
+
+
         
 
 
