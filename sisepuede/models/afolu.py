@@ -1480,11 +1480,10 @@ class AFOLU:
         exclude_time_period: bool = False,
         field_key: str = "key",
         key_vals: Union[List[str], None] = None,
-        modvar: Union[str, None] = None,
+        modvar: Union[str, 'ModelVariable', None] = None,
         vec_time_periods: Union[List, np.ndarray, None] = None,
     ) -> Union[pd.DataFrame, None]:
-        """
-        Convert an input transition matrix mat to a wide dataframe using 
+        """Convert an input transition matrix mat to a wide dataframe using 
             AFOLU.modvar_lndu_prob_transition as variable template
 
         NOTE: Returns None on error.
@@ -1492,30 +1491,36 @@ class AFOLU:
 
         Function Arguments
         ------------------
-        - mat: row-stochastic transition matrix to format as wide data frame OR
+        mat : np.ndarray
+            Row-stochastic transition matrix to format as wide data frame OR
             array of row-stochastic transition matrices to format. If specifying
             as array matrices, format_transition_matrix_as_input_dataframe()
             will interpret as being associated with sequential time periods. 
-                * NOTE: Time periods can be specified using vec_time_periods. 
-                    Time periods specified in this way must have the same length
-                    as the array of matrices.
+            * NOTE: Time periods can be specified using vec_time_periods. 
+                Time periods specified in this way must have the same length
+                as the array of matrices.
 
         Keyword Arguments
         -----------------
-        - exclude_time_period: drop time period from data frame?
-        - field_key: temporary field to use for merging
-        - key_vals: ordered land use categories representing states in mat. If
-            None, default to attr_lndu.key_values. Should be of length n for
-             mat an nxn transition matrix.
-        - modvar: optional specification of I/J model variable to use. If None,
+        exclude_time_period : bool
+            Drop time period from data frame?
+        field_key : str
+            Temporary field to use for merging
+        key_vals : Union[List[str], None]
+            Ordered land use categories representing states in mat. If None, 
+            defaults to attr_lndu.key_values. Should be of length n for an nxn 
+            transition matrix.
+        modvar : Union[str, 'ModelVariable', None]
+            Optional specification of I/J model variable to use. If None,
             defaults to transition probability 
             (self.modvar_lndu_prob_transition)
-        - vec_time_periods: optional vector of time periods to specify for 
-            matrices. Does not affect implementation with single matrix. If
-            None and mat is an array of arrays, takes value of: 
-            
-            * ModelAttributes.time_period key_values (if mat is of same length)
-            * range(len(mat)) otherwise
+        vec_time_periods : Union[List, np.ndarray, None]
+            Optional vector of time periods to specify for matrices. Does not 
+            affect implementation with single matrix. If None and mat is an 
+            array of arrays, takes value of: 
+                * ModelAttributes.time_period key_values (if mat is of same 
+                    length)
+                * range(len(mat)) otherwise
         """
         attr_lndu = self.model_attributes.get_attribute_table(self.subsec_name_lndu)
         field_time_period = self.model_attributes.dim_time_period
@@ -1532,28 +1537,7 @@ class AFOLU:
             if self.model_attributes.get_variable(modvar) is not None
             else self.modvar_lndu_prob_transition
         )
-        """
-        # PRESERVING IN CASE ISSUES ARISE WITH REVISION
 
-        # setup as matrix
-        df_mat = pd.DataFrame(mat, columns = key_vals)
-        df_mat[field_key] = key_vals
-        df_mat_melt = pd.melt(df_mat, id_vars = [field_key], value_vars = key_vals).sort_values(by = [field_key, "variable"])
-
-        # get field names
-        fields_names = self.model_attributes.build_variable_fields(
-            self.modvar_lndu_prob_transition,
-            restrict_to_category_values = key_vals
-        )
-
-        df_mat_melt["field"] = fields_names
-        df_mat_melt.set_index("field", inplace = True)
-        df_mat_melt = df_mat_melt[["value"]].transpose().reset_index(drop = True)
-        
-        # doing this only to drop index
-        df_out = pd.DataFrame()
-        df_out[df_mat_melt.columns] = df_mat_melt[df_mat_melt.columns]
-        """;
 
         ##  INITIALIZATION AND CHECKS
 
@@ -1659,8 +1643,7 @@ class AFOLU:
         arr_converted: np.ndarray, 
         ind: int,
     ) -> Tuple[float, float]:
-        """
-        For a conversion matrix `arr_converted` and land use index, calculate 
+        """For a conversion matrix `arr_converted` and land use index, calculate 
             how much secondary area was added to (column sums) and lost from 
             (row sums).
 
@@ -1688,8 +1671,7 @@ class AFOLU:
         df_land_use: pd.DataFrame,
         attr_frst: AttributeTable,
     ) -> np.ndarray:
-        """
-        Retrieve the area of forest types as a numpy array
+        """Retrieve the area of forest types as a numpy array
         """
         # get ordered fields from land use
         fields_lndu_forest_ordered = [self.dict_cats_frst_to_cats_lndu.get(x) for x in attr_frst.key_values]
@@ -1706,9 +1688,8 @@ class AFOLU:
     def get_frst_methane_factors(self,
         df_afolu_trajectories: pd.DataFrame,
     ) -> pd.DataFrame:
-        """
-        Get forest methane emission factors in terms of output emission mass and
-            self.model_socioeconomic.modvar_gnrl_area area units.
+        """Get forest methane emission factors in terms of output emission mass 
+            and self.model_socioeconomic.modvar_gnrl_area area units.
         """
         arr_frst_ef_methane = self.model_attributes.extract_model_variable(#
             df_afolu_trajectories, 
@@ -1734,8 +1715,7 @@ class AFOLU:
         arr_frst_areas: np.ndarray,
         **kwargs,
     ) -> Tuple[np.ndarray]:
-        """
-        Get forest sequestration
+        """Get forest sequestration and land use conversion emissions.
         """
         if self.npp_curve is None:
 
@@ -1779,8 +1759,7 @@ class AFOLU:
         npp_curve: Union[str, None] = None,
         **kwargs,
     ) -> Tuple[np.ndarray]:
-        """
-        Calculate forest sequestration using NPP.
+        """Calculate forest sequestration using NPP.
 
         NOTE: all secondary sequestration at time t = 0 is assumed to use the
             average specified sequestration factor.
@@ -1940,8 +1919,6 @@ class AFOLU:
             vec_t = tps[i:] - tps[i]
             arr_area_to_collapse[i:, i] = area_to
             """
-            HEREHEREHERE
-
             NOTE: This approach of iteratively pushing the cmf down (1 by 1) 
             assumes that time periods are implemented correctly as 
             t, t + 1, t + 2, etc. with no gaps
@@ -2044,8 +2021,7 @@ class AFOLU:
         field_tp: str,
         return_type: str = "dataframe",
     ) -> pd.DataFrame:
-        """
-        Support function for get_frst_sequestration_from_npp()
+        """Support function for get_frst_sequestration_from_npp()
         
         Arguments
         ---------
@@ -2053,7 +2029,6 @@ class AFOLU:
             2d numpy array (column 1 -> time periods, column 2 -> values)
         return_type : str
             "dataframe" or "array"
-        
         """
         # build the cmf data frame
         df_cmf = (
@@ -2089,8 +2064,7 @@ class AFOLU:
         override_vector_for_single_mv_q: bool = True,
         **kwargs,
     ) -> Tuple:
-        """
-        Retrieve the sequestration factors for forest in terms of 
+        """Retrieve the sequestration factors for forest in terms of 
             modvar_sequestration units and modvar_area
         """
         # get area variable
@@ -2127,8 +2101,7 @@ class AFOLU:
         df_afolu_trajectories: pd.DataFrame,
         arr_area_frst: np.ndarray,
     ) -> List[pd.DataFrame]:
-        """
-        Retrieve static sequestration and ch4 emissions; used if NPP is not 
+        """Retrieve static sequestration and ch4 emissions; used if NPP is not 
             specified. Returns a list with elements related to forests:
 
             [
@@ -2162,9 +2135,8 @@ class AFOLU:
         vec_lndu_area_init: np.ndarray,
         modvar_area_target: Union[str, 'ModelVariable', None] = None,
     ) -> Tuple[np.ndarray, np.ndarray]:
-        """
-        Check constraints specified for land use classes. Ensures that initial 
-            conditions do not conflict with constraints by adjusting any 
+        """Check constraints specified for land use classes. Ensures that 
+            initial conditions do not conflict with constraints by adjusting any 
             specified constraints. Returns a tuple\
             
             (
@@ -2176,14 +2148,17 @@ class AFOLU:
 
         Function Arguments
         ------------------
-        - df_afolu_trajectories: data frame containing input trajectories
-        - vec_lndu_area_init: initial land use prevalance vector in terms of 
+        df_afolu_trajectories : pd.DataFrame
+            DataFrame containing input trajectories
+        vec_lndu_area_init : np.ndarray
+            Initial land use prevalance vector in terms of 
             AFOLU.Socioeconomic.modvar_gnrl_area
 
         Keyword Arguments
         -----------------
-        - modvar_area_target: model variable to use for output units. If not
-            properly specified as a varable name or model variable, defaults to
+        modvar_area_target : Union[str, ModelVariable, None]
+            ModelVariable to use for output units. If not properly specified as 
+            a varable name or model variable, defaults to
             AFOLU.model_socioeconomic.modvar_gnrl_area
         """
         modvar_area_target = self.model_attributes.get_variable(modvar_area_target)
@@ -2255,23 +2230,26 @@ class AFOLU:
         cats_max_out: Union[List[str], None] = None,
         lmo_approach: Union[str, None] = None,
     ) -> np.ndarray:
-        """
-        Retrieve the vector of scalars to apply to land use based on an input 
+        """Retrieve the vector of scalars to apply to land use based on an input 
             preliminary scalar and configuration parameters for "maxing out" 
             transition probabilities.
 
         Function Arguments
         ------------------
-        - scalar_in: input scalar
+        scalar_in : Union[int, float]
+            Input scalar
 
         Keyword Arguments
         -----------------
-        - attribute_land_use: AttributeTable for $CAT-LANDUSE$. If None, use 
-            self.model_attributes default.
-        - cats_max_out: categories that are available to be maxed out. If None, 
-            defaults to AFOLU.cats_lndu_max_out_transition_probs
-        - lmo_approach: approach to take for land use max out approach. If None,
-            defaults to configuration. Values are:
+        attribute_land_use : AttributeTable
+            AttributeTable for $CAT-LANDUSE$. If None, use self.model_attributes 
+            default.
+        cats_max_out : Union[List[str], None]
+            Categories that are available to be maxed out. If None, defaults to 
+            AFOLU.cats_lndu_max_out_transition_probs
+        lmo_approach : Union[str, None]
+            Approach to take for land use max out approach. If None, defaults to 
+            configuration. Values are:
 
             * "decrease_only": apply "max_out" approach only if scalar < 1
             * "increase_only": apply "max_out" approach only if scalar > 1

@@ -320,6 +320,23 @@ def build_repeating_vec(
 
 
 
+def bounded_outer_diff(
+    vec: np.ndarray,
+    bounds: tuple = (0, np.inf),
+) -> np.ndarray:
+    """
+    Map vector to its outer product s.t. A_{ij} = vec_i - vec_j. Optional
+        inclusion of bounds
+    """
+    out = vec_bounds(
+        np.subtract.outer(vec, vec), # apply the ufunc using outer
+        bounds,
+    )
+    
+    return out
+
+
+
 def call_with_varkwargs(
     func: callable,
     *args,
