@@ -249,10 +249,9 @@ class Grid:
         bound: Union[float, int],
         axis: str,
     ) -> Union[int, None]:
-        """
-        Get the index in self.centroids_AXIS (AXIS = x or y) for the grid cell 
-            containing the bound. If the bound is itself a grid cell boundary,
-            returns the index of the upper- or left-most cell. 
+        """Get the index in self.centroids_AXIS (AXIS = x or y) for the grid 
+            cell containing the bound. If the bound is itself a grid cell 
+            boundary, returns the index of the upper- or left-most cell. 
         
         Returns None if an invalid type is entered for bound or -999 if a valid
             value for bound is entered but it falls outside the grid.
@@ -326,22 +325,22 @@ class Grid:
 
 
 class GriddedDataset:
-    """
-    Group all data on the same grid into one dataset
+    """Group all data on the same grid into one dataset
     
     Initialization Arguments
     ------------------------
-    - dict_datasets: dictionary mapping a string (name) to RioXArray containing
-        gridded data
-    - key_indexing_grid: string giving the key in dict_datasets to use for 
-        indexing regions. This grid is used to calculate dimensions, 
-        coordinates, and areas of cells.
+    dict_datasets : Dict[str, 'xarray.DataArray']
+        Dictionary mapping a string (name) to RioXArrays containing gridded data
+    key_indexing_grid : str
+        String giving the key in dict_datasets to use for indexing regions. This 
+        grid is used to calculate dimensions, coordinates, and areas of cells.
         
     Optional Arguments
     ------------------
-    - logger: optional logging.Logger object to used for logging
-    - str_prepend_array_dataset: string to prepend to array datasets that are 
-        added
+    logger : Union[logging.Logger, None]
+        optional logging.Logger object to used for logging
+    str_prepend_array_dataset : str 
+        string to prepend to array datasets that are added
     """
     
     def __init__(self,

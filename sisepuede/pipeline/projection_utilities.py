@@ -25,9 +25,8 @@ def repeat_value(
     include_historical: bool = True,
     max_error: Union['Real', None] = None,
 ) -> pd.DataFrame:
-    """
-    Using a historical band (lookback) of recent data, to generate a value and
-        repeat going forward. Options include
+    """Using a historical band (lookback) of recent data, to generate a value 
+        and repeat going forward. Options include
 
         * use a mean (including the last value) over `n_time_periods_lookback`
         * regress over the lookback to identify a target value (useful if 
@@ -36,24 +35,32 @@ def repeat_value(
 
     Function Arguments
     ------------------
-    - df_to_project: data frame to project forth using historical repeat
-    - time_periods_project: time periods to project to; must exclude historical
-        data.
-    - method: one of the following:
+    df_to_project : pd.DataFrame
+        DataFrame to project forth using historical repeat
+    time_periods_project : List[int]
+        Time periods to project to; must exclude historical data.
+    method : str
+        One of the following:
         * "linear_regression"
         * "mean"
-    - n_time_periods_lookback: number of time periods to use for mean. If 1, 
-        uses last available year; if 2, uses mean of last 2 years, etc.
-    - field_time_period: field storing time index
-    - fields_data: fields to project
+    n_time_periods_lookback : int
+        Number of time periods to use for mean. If 1, uses last available year; 
+        if 2, uses mean of last 2 years, etc.
+    field_time_period : str
+        Field storing time index
+    fields_data : List[str]
+        Fields to project
 
     Keyword Arguments
     -----------------
-    - fields_group: optional specification of grouping fields
-    - include_historical: return a data frame with the historical data included.
-    - max_error: maximum deviation, as error, from mean allowed. Can be used to 
-        ensure regression projections--which may be derived from noisy data--do
-        not unreasonably exceed historical means based on short-term trends
+    fields_group : Union[List[str], None]
+        Optional specification of grouping fields
+    include_historical : bool
+        Return a data frame with the historical data included.
+    max_error : Union['Real', None]
+        Maximum deviation, as error, from mean allowed. Can be used to ensure 
+        regression projections--which may be derived from noisy data--do not 
+        unreasonably exceed historical means based on short-term trends
     """
 
     ##  INITIALIZATION AND CHECKS
@@ -143,7 +150,7 @@ def repeat_value(
             n_reps
         )
 
-        df_rep[field_time_period] = range(tp_max_available + 1, tp_max_proj + 1)
+        df_rep[field_time_period] = list(range(tp_max_available + 1, tp_max_proj + 1))
 
         df_rep = (
             df_rep[

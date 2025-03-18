@@ -18,9 +18,8 @@ import sisepuede.utilities._toolbox as sf
 #####################
 
 class RegionalGriddedData:
-    """
-    Initialize a regional gridded dataset. Includes specialized operations for
-        datasets within a region, including:
+    """Initialize a regional gridded dataset. Includes specialized operations 
+        for datasets within a region, including:
 
         * generating transition matrices from one dataset to the next
 

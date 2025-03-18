@@ -323,13 +323,17 @@ def build_repeating_vec(
 def bounded_outer_diff(
     vec: np.ndarray,
     bounds: tuple = (0, np.inf),
+    vec_2: Union[np.ndarray, None] = None,
 ) -> np.ndarray:
     """
     Map vector to its outer product s.t. A_{ij} = vec_i - vec_j. Optional
-        inclusion of bounds
+        inclusion of bounds and secondary vector (vec_2) to include in outer
+        subtraction product. 
     """
+    vec_2 = vec if not isinstance(vec_2, np.ndarray) else vec_2
+
     out = vec_bounds(
-        np.subtract.outer(vec, vec), # apply the ufunc using outer
+        np.subtract.outer(vec, vec_2), # apply the ufunc using outer
         bounds,
     )
     
@@ -1173,7 +1177,7 @@ def fill_df_fields_from_ratios(
         y = df_cur[field_y].to_numpy()
 
         # get model and update
-        w = np.where(x != 0)[0]
+        w = np.where(x != 0)[0] 
         ratio = np.mean(y[w]/x[w])
 
         # if there're missing values to fill, fill them
@@ -1183,8 +1187,11 @@ def fill_df_fields_from_ratios(
         )[0]
         
         if len(w) != 0:
-            x_new = df_out[field_x].to_numpy()[w]
-            df_out[field_y].iloc[w] = ratio*x_new
+            #x_new = df_out[field_x].to_numpy()[w]
+            #df_out[field_y].iloc[w] = ratio*x_new
+            x_new = df_out[field_x].to_numpy()
+            x_new[w] *= ratio
+            df_out[field_y] = x_new
         
         i += 1
     
@@ -1715,23 +1722,26 @@ def get_dimensional_values(
     delim: str = ",",
     return_type: type = int,
 ) -> List[int]:
-    """
-    Read in dimensional values from a string OR a csv file. `keys_in` can be a list of values separated by
-        `delim`, or a path to a text file--the text file will be read as a data
-        frame and must contain column header key.
+    """Read in dimensional values from a string OR a csv file. `keys_in` can be 
+        a list of values separated by `delim`, or a path to a text file--the 
+        text file will be read as a data frame and must contain column header 
+        key.
     
     Function Arguments
     ------------------
-    - keys_in: 
+    keys_in : Union[List[str], str]
         * if not os.path.exists(keys_in): list of values separated by `delim`
         * if os.path.exists(keys_in): tries to read as a csv, pulling from
              column `key`
-    - key: optional column specification
+    key : str
+        Optional column specification
 
     Keyword Arguments
     -----------------
-    - delim: delimitter to use for input strings
-    - return_type: type to convert output to
+    delim : str
+        Delimitter to use for input strings
+    return_type : type
+        Type to convert output to
     """
 
     values = None
@@ -1783,17 +1793,21 @@ def get_index_fields_count(
     fields_index: Union[List[str], None] = None,
 ) -> pd.DataFrame:
     """
+
     Function Arguments
     ------------------
-    - df_in: DataFrame containing data to get count by
+    df_in : pd.DataFrame
+        DataFrame containing data to get count by
     
     Keyword Arguments
     -----------------
-    - field_count: field storing number of rows associated with the 
-        grouping
-    - field_frac: add fraction?
-    - fields_index: optional specification of fields to group by. If None, 
-        uses all fields in input data
+    field_count : str
+        Field storing number of rows associated with the grouping
+    field_frac : str
+        Add fraction?
+    fields_index : Union[List[str], None]
+        Optional specification of fields to group by. If None, uses all fields 
+        in input data
     """
     fields_index = (
         list(df_in.columns)
@@ -1822,35 +1836,38 @@ def get_repeating_vec_element_inds(
     inds: Union[list, np.ndarray],
     n_elements: int,
     n_repetitions_inner: Union[int, None],
-    n_repetitions_outer: Union[int, None]
+    n_repetitions_outer: Union[int, None],
 ) -> np.ndarray:
-    """
-    Get indices for elements specified from an input indexing vector, which
+    """Get indices for elements specified from an input indexing vector, which
         indexes a vector that has been repeated an inner number of times
         (within the cycle) and an outer number of times (number of times to
         cycle).
 
     Function Arguments
     ------------------
-    - inds: indices to extract from an np.ndarray of values that is repeated
-        using build_repeating_vec.
-    - n_elements: number of elements contained in the original array
-    - n_repetitions_inner: number of inner repetitions. E.g., for a vector
-        vec = [0, 1, 2], if n_repetitions_inner = 3, then the inner component
-        (the component that is repeated an outer # of times) would be
+    inds : Union[list, np.ndarray]
+        Indices to extract from an np.ndarray of values that is repeated using 
+        build_repeating_vec.
+    n_elements : int
+        Number of elements contained in the original array
+    n_repetitions_inner : Union[int, None]
+        Number of inner repetitions. E.g., for a vector vec = [0, 1, 2], if 
+        n_repetitions_inner = 3, then the inner component (the component that is 
+        repeated an outer # of times) would be
 
         vec_inner = [0, 0, 0, 1, 1, 1, 2, 2, 2]
 
-    - n_repetitions_outer: number of outer repetitions. E.g., for vec_inner from
-        above, if n_repetitions_outer = 3, then the final output component would
-        be
+    n_repetitions_outer : Union[int, None]
+        Number of outer repetitions. E.g., for vec_inner from above, if 
+        n_repetitions_outer = 3, then the final output component would be
 
         vec = [0, 0, 0, 1, 1, 1, 2, 2, 2, 0, 0, 0, 1, 1, 1, 2, 2, 2, 0, 0, 0, 1, 1, 1, 2, 2, 2]
     """
     try:
         inds = np.array([x for x in inds if x < n_elements])
     except Exception as e:
-        raise RuntimeException(f"Error trying to set inds in get_repeating_vec_element_inds(): {e}")
+        raise RuntimeError(f"Error trying to set inds in get_repeating_vec_element_inds(): {e}")
+    
     inds = inds if (len(inds.shape) == 1) else inds.flatten()
 
     # generate indices for the desired elements in the inner vector
@@ -1874,8 +1891,7 @@ def get_time_elapsed(
     t_0: float,
     n_digits: int = 2
 ) -> str:
-    """
-    Get the time elapsed from reference point t_0. Use `n_digits` to specify 
+    """Get the time elapsed from reference point t_0. Use `n_digits` to specify 
         rounding.
     """
     t_elapsed = np.round(time.time() - t_0, n_digits)
@@ -1885,15 +1901,15 @@ def get_time_elapsed(
 
 
 def get_vector_growth_rates_from_first_element(
-    arr: np.ndarray
+    arr: np.ndarray,
 ) -> np.ndarray:
-    """
-    Using a 1- or 2-dimentionsal Numpy array, get growth scalars (columnar) 
+    """Using a 1- or 2-dimentionsal Numpy array, get growth scalars (columnar) 
         relative to the first element
 
     Function Arguments
     ------------------
-    - arr: input array to use to derive growth rates
+    arr : np.ndarray
+        Input array to use to derive growth rates
     """
     arr = np.nan_to_num(arr[1:]/arr[0:-1], nan = 0.0, neginf = 0.0, posinf = 0.0, )
     elem_concat = np.ones((1, )) if (len(arr.shape) == 1) else np.ones((1, arr.shape[1]))
@@ -1910,25 +1926,27 @@ def group_df_as_dict(
     fields_out_set: Union[List[str], str, None] = None,
     singleton_as_tuple: bool = False,
 ) -> Union[Dict[Tuple, pd.DataFrame], None]:
-    """
-    Group a data frame df_in by fields group and return a dictionary of unique 
-        fields_group -> applicable rows in the DataFrame.
+    """Group a data frame df_in by fields group and return a dictionary of 
+        unique fields_group -> applicable rows in the DataFrame.
         
     Returns None if fields_group is not specified properly (including specifying 
         no fields)
 
     Function Arguments
     ------------------
-    - df_in: input data frame to use
-    - fields_group: fields to group on for generating the dictionary
+    df_in : pd.DataFrame 
+        Input data frame to use
+    fields_group : List[str]
+        Fields to group on for generating the dictionary
 
     Keyword Arguments
     -----------------
-    - fields_out_set: If not None, then will extract unique elements in these 
-        fields (if a list, as a data frame of unique rows; if a single element,
-        then as a set)
-    - singleton_as_tuple: for single groupers, return a tuple as the key (pandas
-        default)?
+    fields_out_set : Union[List[str], str, None]
+        If not None, then will extract unique elements in these fields (if a 
+        list, as a data frame of unique rows; if a single element, then as a 
+        set)
+    singleton_as_tuple : bool
+        For single groupers, return a tuple as the key (pandas default)?
     """
     
     fields_group = [x for x in fields_group if x in df_in.columns]
@@ -3242,17 +3260,19 @@ def repeat_df(
     n_repetitions: int,
     axis: int = 0,
 ) -> pd.DataFrame:
-    """
-    Repeat a data frame.
+    """Repeat a data frame.
 
     Function Arguments
     ------------------
-    - df: data frame to repeat
-    - n_repetitions: number of repetitions
+    df : pd.DataFrame
+        DataFrame to repeat
+    n_repetitions : int
+        Number of repetitions
 
     Keyword Arguments
     -----------------
-    - axis: 0 to repeat along rows (vertical concatenation), 1 to repeat along 
+    axis : int
+        0 to repeat along rows (vertical concatenation), 1 to repeat along 
         columns (horizontal concatenation)
     """
 
@@ -3285,7 +3305,7 @@ def repeat_df(
     df_out = np.repeat(
         df.to_numpy(), 
         n_repetitions, 
-        axis = 0
+        axis = 0,
     )
 
     if axis == 1:
