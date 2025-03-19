@@ -1189,9 +1189,10 @@ def fill_df_fields_from_ratios(
         if len(w) != 0:
             #x_new = df_out[field_x].to_numpy()[w]
             #df_out[field_y].iloc[w] = ratio*x_new
-            x_new = df_out[field_x].to_numpy()
-            x_new[w] *= ratio
-            df_out[field_y] = x_new
+            x_new = df_out[field_x].to_numpy()[w].copy()*ratio
+            y_new = df_out[field_y].to_numpy()
+            y_new[w] = x_new
+            df_out[field_y] = y_new
         
         i += 1
     
