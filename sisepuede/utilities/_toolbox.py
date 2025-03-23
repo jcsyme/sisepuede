@@ -36,7 +36,7 @@ class yaml_quoted(str):
 
 
 def quoted_presenter(
-    dumper, 
+    dumper: 'YAMLDumper', 
     data: str,
 ):
     out = dumper.represent_scalar(
@@ -730,6 +730,24 @@ def clean_row_stochastic_matrix(
     
     return mat
 
+
+
+def _concat_df(
+    dfs: Union[pd.DataFrame, List[pd.DataFrame]],
+    axis: int = 0,
+    **kwargs,
+) -> pd.DataFrame:
+    
+    dfs = [dfs] if isinstance(dfs, pd.DataFrame) else dfs
+    if not islistlike(dfs):
+        return dfs
+    
+    out = (
+        pd.concat(dfs, axis = axis, **kwargs, )
+        .reset_index(drop = True, )
+    )
+
+    return out
 
 
 
@@ -2283,10 +2301,9 @@ def merge_replace(
     merge_type: str = "inner",
     replace: bool = True,
 ) -> pd.DataFrame:
-    """
-    Replace a field in df with a map dataframe (df_to_merge). df_to_merge should 
-        only have 2 columns. Merges on a shared field between df and df_to_merge;
-        e.g., suppose
+    """Replace a field in df with a map dataframe (df_to_merge). df_to_merge 
+        should only have 2 columns. Merges on a shared field between df and 
+        df_to_merge; e.g., suppose
         
         df.columns = (A, B, C, D) and
         df_to_merge.columns = (B, E);
@@ -2299,14 +2316,19 @@ def merge_replace(
         
     Function Arguments
     ------------------
-    - df: data frame with a field to replace
-    - df_to_merge: data frame with new field to overwrite
+    df : pd.DataFrame
+        DataFrame with a field to replace
+    df_to_merge : pd.DataFrame
+        DataFrame with new field to overwrite
 
     Keyword Arguments
     -----------------
-    - merge_type: "inner", "outer", "left" (does not support right)
+    merge_type : str
+        * "inner"
+        * "outer"
+        * "left" (does not support right)
         NOTE: "left" left joins df_to_merge to df
-    - replace: replace the old field in df with the new one in df_to_merge
+    replace: replace the old field in df with the new one in df_to_merge
     """
     ##  CHECKS
     
@@ -2361,20 +2383,23 @@ def mix_tensors(
     vec_b0: np.ndarray,
     vec_b1: Union[np.ndarray, None],
     vec_mix: Union[np.ndarray, None],
-    constraints_mix: Tuple[int, int] = (0, 1),
+    constraints_mix: Tuple['Real', 'Real'] = (0, 1),
 ) -> np.ndarray:
-    """
-    Mix abstract arrays of the same shape
+    """Mix abstract arrays of the same shape
 
     Function Arguments
     ------------------
-    - vec_b0: array bound zero
-    - vec_b1: array bound one
-    - vec_mix: float or array (of same shape as vec_b0, vec_b1) used to mix
+    vec_b0 : np.ndarray
+        Array bound zero
+    vec_b1 : Union[np.ndarray, None]
+        Array bound one
+    vec_mix : Union[np.ndarray, None]
+        Float or array (of same shape as vec_b0, vec_b1) used to mix
 
     Keyword Arguments
     -----------------
-    - constraints_mix: constraints on mixing fractions
+    constraints_mix : Tuple[int, int]
+        constraints on mixing fractions
     """
     # check input of v_0
     if not islistlike(vec_b0):
@@ -2431,26 +2456,30 @@ def _optional_log(
     warn_if_none: bool = True,
     **kwargs
 ):
-    """
-    Log using logging.Logger if an object is defined; Otherwise, no action.
+    """Log using logging.Logger if an object is defined; Otherwise, no action.
 
     Function Arguments
     ------------------
-    - logger: logging.Logger object used to log events. If None, no action is
-        taken
-    - msg: msg to pass in log
+    logger : Union[logging.Logger, None] 
+        Logger object used to log events. If None, no action is taken unless
+        warn_if_none (passed to warning)
+    msg : str
+        Msg to pass in log
 
     Keyword Arguments
     -----------------
-    - type_log: type of log to execute. Acceptable values are:
+    type_log : str
+        Type of log to execute. Acceptable values are:
         * "critical": logger.critical(msg)
         * "debug": logger.debug(msg)
         * "error": logger.error(msg)
         * "info": logger.info(msg)
         * "log": logger.log(msg)
         * "warning": logger.warning(msg)
-    - warn_if_none: pass a message through warnings.warn() if logger is None
-    - **kwargs: passed as logger.METHOD(msg, **kwargs)
+    warn_if_none : bool
+        Pass a message through warnings.warn() if logger is None
+    **kwargs
+        Passed as logger.METHOD(msg, **kwargs)
 
     See https://docs.python.org/3/library/logging.html for more information on
         Logger methods and calls
@@ -2485,6 +2514,8 @@ def _optional_log(
 
     elif warn_if_none:
         warnings.warn(f"Warning passed from optional_log: {msg}.")
+
+    return None
 
 
 

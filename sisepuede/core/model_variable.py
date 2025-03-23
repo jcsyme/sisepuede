@@ -1330,25 +1330,28 @@ class ModelVariable:
         fill_value: Any = None,
         **kwargs,
     ) -> Union[List[Any], np.ndarray, pd.DataFrame, None]:
-        """
-        Retrieve the variable from an input object ordered by self.fields.
+        """Retrieve the variable from an input object ordered by self.fields.
 
         Function Arguments
         ------------------
-        - obj: the input object to retrieve the variable from
+        obj : Union[pd.DataFrame, pd.Series, Dict[str, Any]]
+            The input object to retrieve the variable from
 
         Keyword Arguments
         -----------------
-        - expand_to_all_categories: extract and expand output to all categories? 
-        - extraction_logic: set logic used on extraction
+        expand_to_all_categories : bool
+            Extract and expand output to all categories? 
+        extraction_logic : str
+            Set logic used on extraction
             * "all": throws an error if any field in self.fields is missing
             * "any": extracts any field in self.fields available in `obj`
                 and fills any missing values with fill_value (or default value)
-        - fill_value: if `expand_to_all_categories == True` OR 
-            `extract_any == True`, missing categories will be filled with this
-            value (cannot be None). 
+        fill_value : Any
+            If `expand_to_all_categories == True` OR `extract_any == True`, 
+            missing categories will be filled with this value (cannot be None). 
             * If None, reverts to self.default_value
-        - **kwargs: additional method specific keyword arguments. 
+        **kwargs : 
+            Additional method specific keyword arguments. 
             * If obj is a pd.DataFrame:
                 - return_type: one of the following values:
                     * "data_frame": return the subset data frame that includes 

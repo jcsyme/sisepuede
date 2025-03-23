@@ -1,8 +1,31 @@
-import numpy as np
 import os, os.path
 import pandas as pd
+import pathlib
 import sqlalchemy
 from typing import *
+
+
+
+##  SOME ERROR CLASSES
+
+class SQLConnectionError(Exception):
+    pass
+
+class SQLEngineError(Exception):
+    pass
+
+class SQLReadError(Exception):
+    pass
+
+class SQLWriteError(Exception):
+    pass
+
+
+
+##  SOME GLOBAL VARIABLES
+
+_ENGINE_PREPEND_SQLITE = "sqlite:///"
+_EXTENSION_SQLITE = ".sqlite"
 
 
 
@@ -82,15 +105,15 @@ def fetch_query_as_df(
             df_out = pd.read_sql_query(query, con)
         except Exception as e:
             # LOGHERE
-            raise RuntimeError(f"Error in get_query: the service returned error '{e}'.\n\nQuery:\n\t'{query}'.")
+            raise SQLReadError(f"The engine returned error '{e}' in fetch_query_as_df().\n\nQuery:\n\t'{query}'.")
 
     return df_out
 
 
 
 def format_listlike_elements_for_filter_query(
-    elements: Union[List, Tuple, np.ndarray, None],
-    fields: Union[List, Tuple, np.ndarray, None],
+    elements: Union[List, Tuple, 'numpy.ndarray', None],
+    fields: Union[List, Tuple, 'numpy.ndarray', None],
     query_logic: str = "and"
 ) -> str:
     """
@@ -288,6 +311,57 @@ def generate_schema_from_df(
 
 
 
+def get_db_engine(
+    db_engine: Union[str, pathlib.Path, sqlalchemy.engine.Engine],
+    verify_path: bool = True,
+) -> sqlalchemy.engine.Engine:
+    """Get an engine from a file path or sqlalchemy engine. Allows for functions
+        to pass either; instantiates an SQLite engine at path if db_engine 
+        specified as a string.
+
+    Function Arguments
+    ------------------
+    db_engine : Union[str, pathlib.Path, sqlalchemy.engine]
+        An existing SQLAlchemy database engine or a file path to an SQLite 
+        database used to establish a connection.
+        * If a string is specifed, assumes it is a file path.
+
+    Keyword Arguments
+    -----------------
+    verify_path : bool
+        If false, doesn't require the database to exist. Otherwise, will create
+        the path.
+    """
+    # check input specification
+    if isinstance(db_engine, (str, pathlib.Path, )):
+        try_create = os.path.exists(db_engine) if verify_path else True
+        try_create &= (
+            db_engine.endswith(_EXTENSION_SQLITE)
+            if isinstance(db_engine, str)
+            else (db_engine.suffix == _EXTENSION_SQLITE)
+        )
+
+        if not try_create:
+            msg = f"""Invalid path specification '{db_engine}': unable to create engine. Check that the path 
+            exists if `verfy_path` is True and that the file has the extension '{_EXTENSION_SQLITE}'.
+            """
+            raise RuntimeError(msg)
+
+        try:
+            db_engine = sqlalchemy.create_engine(f"{_ENGINE_PREPEND_SQLITE}{db_engine}")
+
+        except Exception as e:
+            raise SQLEngineError(f"Error establishing sqlite engine at {db_engine}: {e} ")
+
+    
+    elif not isinstance(db_engine, sqlalchemy.engine.Engine):
+        t = type(db_engine)
+        raise TypeError(f"Invalid db_engine type {t}: only types str, sqlalchemy.engine.Engine are valid.")
+    
+    return db_engine
+
+
+
 def get_table_names(
     engine:sqlalchemy.engine,
     error_return: Union[Any, None] = None,
@@ -443,7 +517,7 @@ def sql_table_to_df(
             df_out = pd.read_sql_query(query, con)
         except Exception as e:
             # LOGHERE
-            raise RuntimeError(f"Error in sql_table_to_df: the service returned error '{e}'.\n\nQuery:\n\t'{query}'.")
+            raise SQLReadError(f"The service returned error '{e}' in sql_table_to_df().\n\nQuery:\n\t'{query}'.")
 
 
     return df_out
@@ -451,51 +525,40 @@ def sql_table_to_df(
 
 
 def _write_dataframes_to_db(
-    dict_tables: dict,
-    db_engine: Union[sqlalchemy.engine.Engine, str],
+    dict_tables: Dict[str, pd.DataFrame],
+    db_engine: Union[str, pathlib.Path, sqlalchemy.engine],
     preserve_table_schema: bool = True,
     append_q: bool = False,
 ) -> None:
-    """
-    Write a dictionary of tables to an SQL database.
+    """Write a dictionary of tables to an SQL database.
 
     Function Arguments
     ------------------
-    - dict_tables: dictionary of form {TABLENAME: pd.DataFrame, ...} used to 
-        write the table to the database
-    - db_engine: an existing SQLAlchemy database engine or a file path to an 
-        SQLite database used to establish a connection
+    dict_tables : dict
+        Dictionary of form {TABLENAME: pd.DataFrame, ...} used to write the 
+        table to the database
+    db_engine : Union[str, pathlib.Path, sqlalchemy.engine]
+        An existing SQLAlchemy database engine or a file path to an SQLite 
+        database used to establish a connection
         * If a file path is specified, the connection will be opened and closed 
             within the function
 
     Keyword Arguments
     -----------------
-    - preserve_table_schema: preserve existing schema? If so, before writing new 
-        tables, rows in existing tables will be deleted and the table will be 
-        appended.
-    - append_q: set to True top append tables to existing tables if they exist 
-        in the database
+    preserve_table_schema : bool
+        Preserve existing schema? If so, before writing new tables, rows in 
+        existing tables will be deleted and the table will be appended.
+    append_q : bool
+        Set to True top append tables to existing tables if they exist in the 
+        database
     """
 
-    # check input specification
-    if isinstance(db_engine, str):
-        if os.path.exists(db_engine) and db_engine.endswith(".sqlite"):
-            try:
-                db_engine = sqlalchemy.create_engine(f"sqlite:///{db_engine}")
-
-            except Exception as e:
-                raise ValueError(f"Error establishing a connection to sqlite database at {db_engine}: {e} ")
-    
-    elif not isinstance(db_engine, sqlalchemy.engine.Engine):
-        t = type(db_engine)
-        raise ValueError(f"Invalid db_con type {t}: only types str, sqlalchemy.engine.Engine are valid.")
-
-
-    # get available tables
+    # check input specification and get available tables
+    db_engine = get_db_engine(db_engine, )
     tables_avail = get_table_names(db_engine, error_return = [])
 
-    #with db_engine.connect() as con:
 
+    # iterate over each table to try to write
     for table in dict_tables.keys():
         
         df_write = dict_tables.get(table)

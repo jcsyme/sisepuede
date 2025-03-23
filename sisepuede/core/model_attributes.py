@@ -17,15 +17,25 @@ import sisepuede.utilities._toolbox as sf
 
 
 
+##  BUILD SOME ERRORS
+
+class InvalidModelVariable(Exception):
+    pass
+
+
+class InvalidModelUnits(Exception):
+    pass
+
+
+
+##  SOME GLOBAL VARIABLES
+
 
 _MODULE_UUID = "823CC6A2-0A23-4AB8-8324-0692DF4AE4A0"   
 
 
 
-##  BUILD SOME ERRORS
 
-class InvalidModelVariable(Exception):
-    pass
 
 
 
@@ -2739,18 +2749,19 @@ class ModelAttributes:
         filter_on_emitting_only: bool = True,
         return_type: str = "list",
     ) -> Union[Dict[str, str], List[str]]:
-        """
-        Generate a list of all subsector emission total fields added to
-            model outputs. 
+        """Generate a list of all subsector emission total fields added to model 
+            outputs. 
         
         Function Arguments
         ------------------
 
         Keyword Arguments
         -----------------
-        - filter_on_emitting_only: set to `False` to include nominal fields for 
-            non-emitting subsectors.
-        - return_type: one of the following types
+        filter_on_emitting_only : bool
+            Set to `False` to include nominal fields for non-emitting 
+            subsectors.
+        return_type : str
+            One of the following types
             * "dict": dictionary mapping subsectors to its associated total
                 emission field
             * "dict_abv": same as dict, but with subsector abbreviations instead
@@ -2811,17 +2822,18 @@ class ModelAttributes:
 
     def get_attribute_table(self, #FIXED
         subsector: str,
-        table_type = "primary_category",
+        table_type: str = "primary_category",
     ) -> Union[AttributeTable, None]:
-        """
-        Simplify retrieval of attribute tables within functions. 
+        """Simplify retrieval of attribute tables within functions. 
 
         Function Arguments
         ------------------
-
+        subsector : str
+            Subsector to retrieve
         Keyword Arguments
         -----------------
-        - table_type: one of the following values
+        table_type : str
+            One of the following values
             * "primary_category": primary category table associated with the 
                 subsector
             * "variable_definitions"
@@ -2857,17 +2869,16 @@ class ModelAttributes:
         dim: str,
         infer_baseline_as_minimum: bool = True,
     ) -> int:
-
-        """
-        Return the scenario id associated with a baseline scenario (as specified 
-            in the attribute table)
+        """Return the scenario id associated with a baseline scenario (as 
+            specified in the attribute table)
 
         Function Arguments
         ------------------
-        - dim: a scenario dimension specified in an attribute table 
+        dim : str
+            A scenario dimension specified in an attribute table 
             (attribute_dim_####.csv) within the ModelAttributes class
-        - infer_baseline_as_minimum: If True, infers the baseline scenario as 
-            the minimum specified.
+        infer_baseline_as_minimum : 
+            If True, infers the baseline scenario as the minimum specified.
         """
         if dim not in self.all_dims:
             fpl = sf.format_print_list(self.all_dims)
@@ -2918,9 +2929,8 @@ class ModelAttributes:
     def get_category_replacement_field_dict(self,
         modvar: Union[str, mv.ModelVariable],
     ) -> Union[dict, None]:
-        """
-        Replace SISEPUEDE categories with the target field associated with the
-            model variable `modvar`. Returns None if the variable is not 
+        """Replace SISEPUEDE categories with the target field associated with 
+            the model variable `modvar`. Returns None if the variable is not 
             associated with a category.
         """
         
@@ -2947,8 +2957,7 @@ class ModelAttributes:
         df_in: pd.DataFrame, 
         df_in_shared: pd.DataFrame = None,
     ) -> list:
-        """
-        Get all dimensions of analysis in a data frame - can be used on two 
+        """Get all dimensions of analysis in a data frame - can be used on two 
             data frames for merges
         """
         domain = set(df_in.columns)
@@ -2965,8 +2974,7 @@ class ModelAttributes:
         dimension: str,
         stop_on_error: bool = False,
     ) -> Union[AttributeTable, None]:
-        """
-        Retrieve a dimension of analysis attribute table.
+        """Retrieve a dimension of analysis attribute table.
         """
 
         if dimension not in self.all_dims:
@@ -3007,9 +3015,8 @@ class ModelAttributes:
         modvars: Union[str, List[str]],
         sort: bool = False,
     ) -> Union[List[str], None]:
-        """
-        Using a list of model variables (or individual), return list of fields.
-            Option to sort using sort = True
+        """Using a list of model variables (or individual), return list of 
+            fields. Option to sort using sort = True
         """
         
         modvars = [modvars] if isinstance(modvars, str) else list(modvars)
@@ -3031,9 +3038,9 @@ class ModelAttributes:
     def get_fluorinated_compound_dictionaries(self, #FIXED
         field_fc_designation: str = "flourinated_compound_designation",
     ) -> Dict[str, List[str]]:
-        """
-        Build a dictionary mapping FC designation to a list of gasses. Generates 
-            a dictionary with the following keys (from gas attribute table):
+        """Build a dictionary mapping FC designation to a list of gasses. 
+            Generates a dictionary with the following keys (from gas attribute 
+            table):
             
             * hfc
             * none
@@ -3042,8 +3049,9 @@ class ModelAttributes:
         
         Keyword Arguments
         -----------------
-        - field_fc_designation: field in emission_gas attribute table containing
-            the fluorinated compound designation of the gas 
+        field_fc_designation : str
+            Field in emission_gas attribute table containing the fluorinated 
+            compound designation of the gas 
         """
         
         attr_gas = self.get_other_attribute_table("emission_gas")
@@ -3081,24 +3089,29 @@ class ModelAttributes:
         skip_none_q: bool = False,
         return_type: type = list,
     ) -> list:
-        """
-        Get attribute column from an attribute table ordered the same as key 
+        """Get attribute column from an attribute table ordered the same as key 
             values.
 
         Function Arguments
         ------------------
-        - subsector: subsector to get categories in
-        - attribute: attribute to retrieve ordered outcomes for
+        subsector : str
+            Subsector to get categories in
+        attribute : str
+            Sttribute to retrieve ordered outcomes for
 
         Keyword Arguments
         -----------------
-        - attr_type: either "primary_category" or "variable_definitions". Passed
-            to get_attribute_table(subsect, table_type = attr_type, )
-        - clean_attribute_schema_q: clean the target attribute using 
-            mv.clean_element
-        - flag_none: string identifying values as none
-        - skip_none_q: if True, will skip values identifyed == flag_none
-        - return_type: output return type. Acceptable types include 
+        attr_type : str
+            Either "primary_category" or "variable_definitions". Passed to 
+            get_attribute_table(subsect, table_type = attr_type, )
+        clean_attribute_schema_q : bool
+            Clean the target attribute using mv.clean_element
+        flag_none : str
+            String identifying values as none
+        skip_none_q : bool
+            If True, will skip values identifyed == flag_none
+        return_type : type
+            Output return type. Acceptable types include 
             * dict
             * list
             * np.ndarray
@@ -3160,10 +3173,9 @@ class ModelAttributes:
         flag_none: str = "none",
         return_type: str = "vars"
     ) -> Union[List[int], List[str]]:
-        """
-        Return a list of variables from one subsector that are ordered according 
-            to a primary category (which the variables are mapped to) from 
-            another subsector
+        """Return a list of variables from one subsector that are ordered 
+            according to a primary category (which the variables are mapped to) 
+            from another subsector
         """
         # get var requirements for the variable subsector + the attribute for the target categories
         attr_vr_var = self.get_attribute_table(subsector_var, "variable_definitions")
@@ -3193,8 +3205,7 @@ class ModelAttributes:
     def get_other_attribute_table(self, #FIXED
         attribute: str,
     ) -> AttributeTable:
-        """
-        Simplify retrieval of an `other` attribute object.
+        """Simplify retrieval of an `other` attribute object.
         """
 
         # get different table by different type
@@ -3209,17 +3220,18 @@ class ModelAttributes:
         regions: Union[List[str], str, None], 
         attribute_region: Union[AttributeTable, None] = None,
     ) -> List[str]:
-        """
-        Return a list of regions validly defined within Model Attributes.
+        """Return a list of regions validly defined within Model Attributes.
 
         Function Arguments
         ------------------
-        - regions: List of regions or string of region to run. If None, defaults 
-            to configuration specification.
+        regions : Union[List[str], str, None]
+            List of regions or string of region to run. If None, defaults to 
+            configuration specification.
 
         Keyword Arguments
         -----------------
-        - attribute_region: optional regional attribute to specify
+        attribute_region : Union[AttributeTable, None]
+            Optional regional attribute to specify
         """
 
         attribute_region = (
@@ -3244,8 +3256,7 @@ class ModelAttributes:
         sector: str,
         return_type: str,
     ) -> Union[float, int, str, None]:
-        """
-        Retrieve different attributes associated with a sector
+        """Retrieve different attributes associated with a sector
         """
 
         # check sector specification
@@ -3289,8 +3300,7 @@ class ModelAttributes:
 
     def get_sector_attribute_table(self, #FIXED
     ) -> Union[AttributeTable, None]:
-        """
-        Retrieve the sector attribute table.
+        """Retrieve the sector attribute table.
         """
         # retrieve some dictionaries
         dict_other = self.dict_attributes.get(self.attribute_group_key_other)
@@ -3307,8 +3317,7 @@ class ModelAttributes:
         sector: str,
         return_type: str = "name",
     ) -> List[str]:
-        """
-        Return a list of subsectors by sector. 
+        """Return a list of subsectors by sector. 
 
         Set return_type = "name" to return the name or "abv"/"abbreviation" to 
             return 4-character subsector codes.
@@ -3340,8 +3349,7 @@ class ModelAttributes:
         sector: str,
         **kwargs,
     ) -> Union[List[str], None]:
-        """
-        Return a list of all model variables associated with a sector
+        """Return a list of all model variables associated with a sector
         
         **kwargs include "var_type", which can be used to obtain input or output
             variables
@@ -3747,8 +3755,7 @@ class ModelAttributes:
 
     def get_variable_dict(self, #FIXED 
     ) -> None:
-        """
-        Initialize the units defined in the input attribute unit tables. Sets
+        """Initialize the units defined in the input attribute unit tables. Sets
             the following properties:
 
             * self.dict_variables
@@ -6608,6 +6615,30 @@ class ModelAttributes:
 
 
         return dict_field_to_simplex_group
+    
+    
+
+    def get_variables_by_type(self,
+        variable_type: str,
+        attribute: str = "variable_type",
+    ) -> List['ModelVariable']:
+        """Get ModelVariables by input or output
+        """
+        
+        out = []
+        
+        for modvar in self.all_variables:
+            # get the variable and verify the attribute is present
+            modvar = self.get_variable(modvar, )
+            attr = modvar.get_property(attribute)
+            if not isinstance(attr,str):
+                continue
+
+            # if it matches, add to output
+            if attr.lower() == variable_type.lower():
+                out.append(modvar)
+
+        return out
 
 
 
