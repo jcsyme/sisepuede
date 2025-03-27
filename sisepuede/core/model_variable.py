@@ -1386,31 +1386,35 @@ class ModelVariable:
         fill_value: Any = None,
         return_type: str = "data_frame",
     ) -> Union[List[Any], np.ndarray, pd.DataFrame, None]:
-        """
-        Retrieve the variable from a pandas DataFrame
+        """Retrieve the variable from a pandas DataFrame
 
         Function Arguments
         ------------------
-        - df: the input DataFrame to retrieve the variable from
+        df : pd.DataFrame
+            The input DataFrame to retrieve the variable from
 
         Keyword Arguments
         -----------------
-        - expand_to_all_categories: extract and expand output to all categories? 
-        - extraction_logic: set logic used on extraction
+        expand_to_all_categories : bool
+            Extract and expand output to all categories? 
+        extraction_logic : str
+            Set logic used on extraction. Must be one of the following:
             * "all": throws an error if any field in self.fields is missing
             * "any": extracts any field in self.fields available in `obj`
             * "any_fill": extracts any field in self.fields available in `obj`
                 and fills any missing values with fill_value (or default value)
-        - fields_additional: optional specification of additional fields to
-            extract (such as index fields)
-        - fill_value: if `expand_to_all_categories == True` OR 
-            `extract_any == True`, missing categories will be filled with this
-            value. 
+        fields_additional : Union[List[str], None]
+            Optional specification of additional fields to extract (such as 
+            index fields)
+        fill_value : Any
+            If `expand_to_all_categories == True` OR `extract_any == True`, 
+            missing categories will be filled with this value. 
             * If None, reverts to self.default_value
-        - return_type: one of the following values:
-            * "data_frame": return the subset data frame that includes the 
-                variable
+        return_type : str
+            One of the following values:
             * "array": return a numpy array
+            * "data_frame": return the subset data frame that includes the 
+                variable  
         """
         
         ##  INITIALIZATION
@@ -1527,23 +1531,26 @@ class ModelVariable:
 
 
 class VariableSchema:
-    """
-    Create a variable schema class that stores information on the base schema
+    """Create a variable schema class that stores information on the base schema
 
     Initialization Arguments
     ------------------------
-    - schema_raw: initialization schema
+    schema_raw : str
+        Initialization schema
     
     Optional Arguments
     ------------------
-    - container_elements: string used to delimit elements--such as a category, 
-        unit, or gas--within a schema
-    - container_expressions: substring used to parse out schema and associated
-            elements
-    - flag_dim: protected string that allows users to pass the same mutable
-        element as multiple dimensions (e.g., field_$CAT-X-DIM1$_$CAT-X-DIM2$
-        passes the element X twice) and giving the outer product of the space 
-    - space_char: character used to replace spaces
+    container_elements : str
+        String used to delimit elements--such as a category, unit, or 
+        gas--within a schema
+    container_expressions : str
+        Substring used to parse out schema and associated elements
+    flag_dim : str
+        Protected string that allows users to pass the same mutable element as 
+        multiple dimensions (e.g., field_$CAT-X-DIM1$_$CAT-X-DIM2$ passes the 
+        element X twice) and giving the outer product of the space 
+    space_char : str
+        Character used to replace spaces
     """
 
     def __init__(self,
@@ -2184,8 +2191,7 @@ def decompose_schema(
 def is_model_variable(
     obj: Any,
 ) -> bool:
-    """
-    Determine if the object is a ModelVariable
+    """Determine if the object is a ModelVariable
     """
     out = hasattr(obj, "is_model_variable")
     uuid = getattr(obj, "_uuid", None)
@@ -2203,8 +2209,7 @@ def is_model_variable(
 def unclean_category(
     cat: str
 ) -> str:
-    """
-    Convert a category to "unclean" by adding tick marks
+    """Convert a category to "unclean" by adding tick marks
     """
     return f"``{cat}``"
 

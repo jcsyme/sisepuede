@@ -38,7 +38,7 @@ def is_valid_figtuple(
 
 def plot_stack(
     df: pd.DataFrame,
-    fields: pd.DataFrame, 
+    fields: List[str],
     dict_formatting: Union[Dict[str, Dict[str, Any]], None] = None,
     field_x: Union[str, None] = None,
     figsize: Tuple = (18, 12),
@@ -48,20 +48,21 @@ def plot_stack(
     title: Union[str, None] = None,
     **kwargs,
 ) -> Union['matplotlib.Plot', None]:
-    """
-    plt.plot.area() cannot handle negative trajctories. Use plt.stackplot to 
+    """plt.plot.area() cannot handle negative trajctories. Use plt.stackplot to 
         facilitate stacked area charts for trajectories that may shift between 
         positive and negative.
     
     Function Arguments
     ------------------
-    - df: data frame to pull data from
-    - fields: fields to plot
+    df : pd.DataFrame
+        DataFrame to pull data from
+    fields : List[str]
+        Fields to plot
 
     Keyword Arguments
     ----------------- 
-    - dict_formatting: optional dictionary used to pass field-specific 
-        formatting; e.g., use 
+    dict_formatting : Union[Dict[str, Dict[str, Any]], None]
+        Optional dictionary used to pass field-specific formatting; e.g., use 
         
         dict_formatting = {
             field_i: {
@@ -72,20 +73,26 @@ def plot_stack(
         
         to pass formatting keywords for fields
 
-    - field_x: optional field `x` in data frame to use for x axis
-    - figsize: figure size to use. Only used if `figtuple` is not a valid 
+    field_x : Union[str, None]
+        Optional field `x` in data frame to use for x axis
+    figsize : Tuple
+        Figure size to use. Only used if `figtuple` is not a valid 
         (Figure, Axis) pair
-    - figtuple: optional tuple of form `(fig, ax)` (result of plt.subplots) to 
-        pass. Allows users to predefine information about the fig, ax outside of
-        this function, then plot within those confines
-    - label_x: optional label to pass for x axis. Only used if `figtuple` is
-        not a valid (Figure, Axis) pair
-    - label_y: optional label to pass for y axis. Only used if `figtuple` is
-        not a valid (Figure, Axis) pair
-    - title: optional title to pass. Only used if `figtuple` is not a valid 
+    figtuple : Union[Tuple, None]
+        Optional tuple of form `(fig, ax)` (result of plt.subplots) to pass. 
+        Allows users to predefine information about the fig, ax outside of this 
+        function, then plot within those confines
+    label_x : Union[str, None]
+        Optional label to pass for x axis. Only used if `figtuple` is not a 
+        valid (Figure, Axis) pair
+    label_y : Union[str, None]
+        Optional label to pass for y axis. Only used if `figtuple` is not a 
+        valid (Figure, Axis) pair
+    title : Union[str, None]
+        Optional title to pass. Only used if `figtuple` is not a valid 
         (Figure, Axis) pair
-    - **kwargs: passed to ax.stackplot, ax.set_xlabel, ax.set_ylabel, and 
-        ax.set_title
+    **kwargs
+        Passed to ax.stackplot, ax.set_xlabel, ax.set_ylabel, and ax.set_title
     """
     
     # check field x
@@ -173,6 +180,19 @@ def plot_stack(
 
     
 
+    ##  GET kwargs FOR CALLING 
+
+    dict_kwargs = dict((k, v) for (k, v) in kwargs.items())
+    dict_kwargs.update(
+        {
+            "data": df_pos,
+            "labels": fields_plot
+        }
+    )
+    dict_kwargs.update({"colors": color, }) if color is not None else None
+
+
+
     ##  SPECIFY AND FORMAT AXES
     
     # check if the figtuple specification is ok
@@ -211,15 +231,6 @@ def plot_stack(
             
     
     ##  PLOT THE POSITIVE AND NEGATIVE COMPONENTS
-    
-    dict_kwargs = dict((k, v) for (k, v) in kwargs.items())
-    dict_kwargs.update(
-        {
-            "data": df_pos,
-            "labels": fields_plot
-        }
-    )
-    dict_kwargs.update({"colors": color, }) if color is not None else None
     
     sf.call_with_varkwargs(
         ax.stackplot,

@@ -11,52 +11,61 @@ import sisepuede.utilities._toolbox as sf
 
 
 class LHSDesign:
-	"""
-	LHSDesign stores LHC sample tables for Xs and Ls, managing different designs 
-		based on a design_id attribute table
+	"""LHSDesign stores LHC sample tables for Xs and Ls, managing different 
+	    designs based on a design_id attribute table
 
 	Initialization Arguments
 	------------------------
-	- attribute_design_id: AttributeTable containing information on the 
-		uncertainty design, including transformation parameters for assesseing 
-		uncertainties in lever (strategy) effects
-	- field_lhs_key: field to use to as a key for indexing unique LHS trials
+	attribute_design_id : AttributeTable
+	    AttributeTable containing information on the uncertainty design, 
+		including transformation parameters for assesseing uncertainties in 
+		lever (strategy) effects
+	field_lhs_key : Union[str, None]
+	    Field to use to as a key for indexing unique LHS trials
 
 	Keyword Arguments
 	------------------
 	The following arguments can be set at initialization and/or updated 
 		dynamically with LHSDesign._set_lhs_parameters():
-	- n_factors_l: optional number of factors associated with lever (strategy) 
+	n_factors_l : Union[int, None]
+	    Optional number of factors associated with lever (strategy) 
 		uncertainties to set at initialization
-	- n_factors_x: optional number of factors associated with exogenous 
-		uncertainties to set at initialization
-	- n_trials: optional number of trials to set at initialization
-	- random_seed: optional random seed to specify in generation of tables 
-		(sequentially increases by one for ach additional LHS table)
+	n_factors_x : Union[int, None]
+	    Optional number of factors associated with exogenous uncertainties to 
+		set at initialization
+	n_trials : Union[int, None]
+	    Optional number of trials to set at initialization
+	random_seed : Union[int, None]
+	    Optional random seed to specify in generation of tables (sequentially 
+		increases by one for ach additional LHS table)
 
-	Additional arguments:
-	- default_return_type: governs output type for LHS arrays
+	Additional Keyword Arguments
+	----------------------------
+	default_return_type : type
+	    Governs output type for LHS arrays
 		* pd.DataFrame or np.ndarray
-	- field_transform_b: field in AttributeTable giving the value of `b` for 
-		each design_id
-	- field_transform_m: field in AttributeTable giving the value of `m` for 
-		each design_id
-	- field_transform_inf: field in AttributeTable giving the value of `inf` 
-		for each design_id
-	- field_transform_sup: field in AttributeTable giving the value of `sup` 
-		for each design_id
-	- field_vary_l: field in AttributeTable giving the binary value of whether 
-		or not to vary lever effects
-	- field_vary_x: field in AttributeTable giving the binary value of whether 
-		or not to vary exogenous uncertainties
-	- fields_factors_l: fields used to name factors associated with lever 
-		effects in LHS tables retrieved using 
-		LHSDesign.retrieve_lhs_tables_by_design()
+	field_transform_b : str
+	    Field in AttributeTable giving the value of `b` for each design_id
+	field_transform_m : str
+	    Field in AttributeTable giving the value of `m` for each design_id
+	field_transform_inf : str
+	    Field in AttributeTable giving the value of `inf` for each design_id
+	field_transform_sup : str
+	    Field in AttributeTable giving the value of `sup` for each design_id
+	field_vary_l : str
+	    Field in AttributeTable giving the binary value of whether or not to 
+		vary lever effects
+	field_vary_x : str
+	    Field in AttributeTable giving the binary value of whether or not to 
+		vary exogenous uncertainties
+	fields_factors_l : Union[List[str], List[int], None]
+	    Fields used to name factors associated with lever effects in LHS tables 
+		retrieved using LHSDesign.retrieve_lhs_tables_by_design()
 		* If None, defaults to numnerical ordering 
 			(i.e., 0, 1, 2, ... , n_factors_l - 1)
-	- fields_factors_x: fields used to name factors associated with exogenous 
-		uncertainties in LHS tables retrieved using 
-		self.retrieve_lhs_tables_by_design()
+	fields_factors_x : Union[List[str], List[int], None]
+	    Fields used to name factors associated with exogenous uncertainties in 
+		LHS tables retrieved using self.retrieve_lhs_tables_by_design()
 		* If None, defaults to numnerical ordering 
 			(i.e., 0, 1, 2, ... , n_factors_x - 1)
 
@@ -64,9 +73,8 @@ class LHSDesign:
 			reset using LHSDesign._set_lhs_parameters(), then the associated 
 			fields_factors_# should also be updated. If not, the fields are 
 			reset to numerical indexing.
-
-	- ignore_trial_flag: flag in output LHS tables to use as a flag. Should be 
-		a negative float
+	ignore_trial_flag : float
+	    Flag in output LHS tables to use as a flag. Should be a negative float
 	"""
 
 	def __init__(self,

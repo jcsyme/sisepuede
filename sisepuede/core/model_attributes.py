@@ -4117,6 +4117,79 @@ class ModelAttributes:
 
 
 
+    def rescale_fields_to_target(self,
+        df_factors: pd.DataFrame,
+        fields_data: List[str],
+        modvar_target: Union[str, mv.ModelVariable],
+        dict_units_source: Dict[str, int],
+    ) -> pd.DataFrame:
+        """Rescale factors to match units values for target variable 
+            modvar_target. 
+
+        Function Arguments
+        ------------------
+        df_factors : pd.DataFrame
+            DataFrame storing fields to rescale
+        fields_data : pd.DataFrame
+            Fields storing data to rescale
+        modvar_target : str
+            ModelVariable used to extract target units
+        dict_units_source_multiplier : Dict[str, int]
+            Map of units to multiplier effect. Takes form:
+            
+                {
+                    MODELATTRIBUTES_UNIT: (unit_name, exponent,)
+                    ...
+                }
+
+                where exponent is 1 to multiply the target unit by the source 
+                -> target conversion factor and -1 to divide by source -> target 
+                and unit_name is the name of the unit associated with the source 
+                unit type
+
+                ("kg", 1)
+
+
+        Keyword Arguments
+        ----------------- 
+        """
+
+        ##  SOME INIT
+
+        # check data fields    
+        fields_data = [x for x in fields_data if x in df_factors.columns]
+        if len(fields_data) == 0:
+            return df_factors
+        
+        # get the units objects
+        modvar_target = self.get_variable(modvar_target, )
+        scalar = 1
+        
+        for unit, tup in dict_units_source.items():
+            # check unit
+            uobj = self.get_unit(unit)
+            unit_target = modvar_target.attribute(f"{self.attribute_group_key_unit}_{unit}")
+            if (uobj is None) | (unit_target is None):
+                continue
+
+            # get the unit name and multiplies; check
+            unit_name, exp = tup
+            unit_name = uobj.get_unit_key(unit_name, stop_on_missing = True, )
+            if (exp not in [-1, 1, -1.0, 1.0]):
+                raise ValueError(f"Invalid specification of {exp} for unit {unit}: must be in 1, -1")
+
+            scalar *= uobj.convert(unit_name, unit_target)**(exp)
+
+        # units.convert(a, b) gives ratio b/a
+        df_factors_out = df_factors.copy()
+        arr_factors = df_factors_out[fields_data].to_numpy()
+        arr_factors *= scalar
+        df_factors_out[fields_data] = arr_factors
+        
+        return df_factors_out
+
+
+
 
     #########################################################################
     #    QUICK RETRIEVAL OF FUNDAMENTAL TRANSFORMATIONS (GWP, MASS, ETC)    #
@@ -4129,26 +4202,29 @@ class ModelAttributes:
         config_str: Union[str, None],
         stop_on_error: bool = True,
     ) -> Union[float, None]:
-        """
-        For a given unit, get the scalar to convert to units unit_to_match. 
-            Used for area, energy, length, mass, monetary, power, volume, 
-            and other conversions.
+        """For a given unit, get the scalar to convert to units unit_to_match. 
+            Used for area, energy, length, mass, monetary, power, volume, and 
+            other conversions.
 
         Function Arguments
         ------------------
-        - unit_type: the unit name, passed to self.get_unit() (e.g., "area")
-        - unit: a unit from a specified unit dimension (e.g., "km")
-        - unit_to_match: A unit value to match unit to. The scalar `a` that is 
-            returned is multiplied by unit, i.e., 
+        unit_type : str
+            The unit name, passed to self.get_unit() (e.g., "area")
+        unit : str
+            A unit from a specified unit dimension (e.g., "km")
+        unit_to_match : Union[str, None]
+            A unit value to match unit to. The scalar `a` that is returned is 
+            multiplied by unit, i.e., 
                 unit*a = unit_to_match
             If None (default), uses the configuration value
-        - config_str: the configuration parameter associated with the defualt 
-            unit
+        config_str : Union[str, None]
+            The configuration parameter associated with the defualt unit
         
         Keyword Arguments
         -----------------
-        - stop_on_error: throw an error on bad unit? If False and a unit is 
-            invalid, returns None
+        stop_on_error : bool
+            Throw an error on bad unit? If False and a unit is invalid, returns 
+            None
         """
 
         unit_to_match = (
@@ -5610,15 +5686,15 @@ class ModelAttributes:
         restrict_to_category_values: Union[Dict[str, List[str]], List[str], str, None] = None,
         sort: bool = True,
         variable_type: Union[str, None] = None,
+        **kwargs,
     ) -> List[str]:
-        """
-        Build a list of fields (complete variable schema from a data frame) 
+        """Build a list of fields (complete variable schema from a data frame) 
             based on the subsector and variable name.
 
         Function Arguments
         ------------------
-        - variable_specification: specification for variables to build. Accepts
-            the following options:
+        variable_specification : Union[ModelVariable, str, List[ModelVariable], List[str], None]
+            Specification for variables to build. Accepts the following options:
 
             * sector: sector name or abbreviation
             * subsector: subsector name or abbreviation
@@ -5627,12 +5703,10 @@ class ModelAttributes:
 
         Keyword Arguments
         -----------------
-        - category_restrictions_as_full_spec: Passed to each 
-            ModelVariable.build_fields(). Set to True to treat 
+        category_restrictions_as_full_spec : bool
+            Passed to each ModelVariable.build_fields(). Set to True to treat 
             `restrict_to_category_values` as the full specification dictionary
-        - restrict_to_category_values: default is None. If None, applies to all 
-            categories specified in attribute tables. 
-
+        restrict_to_category_values : Union[Dict[str, List[str]], List[str], str, None]
             * dict: should map a mutable element to a list of categories
                     associated with that element. 
                     * RETURNS: list of fields
@@ -5640,19 +5714,18 @@ class ModelAttributes:
                 schema is 1; assumes that categories are associated with 
                 that element.
                 * RETURNS: list of fields
-
-                NOTE: If the mutable elements are all associated with a 
-                single root element (e.g., cat_landuse_dim1 and 
-                cat_landuse_dim2 both share the parent cat_landuse), then 
-                a list is assumed to specify the space for the root element;
-                all dimensions will take this restriction.
-                
+                * NOTE: If the mutable elements are all associated with a 
+                    single root element (e.g., cat_landuse_dim1 and 
+                    cat_landuse_dim2 both share the parent cat_landuse), then a 
+                    list is assumed to specify the space for the root element;
+                    all dimensions will take this restriction.
             * str: only available if the number of mutable elements in the
                 schema is 1; behavior is the same as a single-element list.
                 * RETURNS: field (string) or None if the category is not
                     associated with the variable subsector
-
-            * NOTE: careful when using if variable_specification includes model
+            * None: applies to all categories specified in attribute tables. 
+            
+            NOTE: careful when using if variable_specification includes model
                 variables for multiple sectors; if categories are specified as
                 a list, the function operates under the assumption that *all*
                 variables are restricted to the same categories.
@@ -5669,8 +5742,12 @@ class ModelAttributes:
                 category_restrictions is treated as the initialization 
                 dictionary
 
-        - sort: sort the output 
-        - variable_type: input or output. If None, defaults to input.
+        sort : bool
+            Sort the output fields?
+        variable_type : str
+            * "input"
+            * "output" 
+            * If None, defaults to input
         """
 
         ##  INITIALIZATION 
@@ -5734,21 +5811,23 @@ class ModelAttributes:
 
 
     def check_category_restrictions(self, 
-        categories_to_restrict_to: Union[List, None], 
+        categories_to_restrict_to: Union[List[str], None], 
         attribute_table: AttributeTable, 
         stop_process_on_error: bool = True,
     ) -> Union[List, None]:
-        """
-        Check category subsets that are specified.
+        """Check category subsets that are specified.
 
         Function Arguments
         ------------------
-        - categories_to_restrict_to: categories to check against attribute_table
-        - attribute_table: AttributeTable to use to check categories
+        categories_to_restrict_to : Union[List[str], None]
+            Categories to check against attribute_table
+        attribute_table AttributeTable 
+            AttributeTable to use to check categories
 
         Keyword Arguments
         -----------------
-        - stop_process_on_error: throw an error?
+        stop_process_on_error : bool
+            throw an error?
         """
         if categories_to_restrict_to is not None:
             
@@ -5781,25 +5860,24 @@ class ModelAttributes:
         variable_specification: Union[mv.ModelVariable, str, List[mv.ModelVariable], List[str], None],
         return_type: str = "variable_name",
     ) -> Union[List[mv.ModelVariable], List[str], None]:
-        """
-        Decompose variable_specification into a list of model variables. Allows
-            for a range of specifications of variables, including sector, 
+        """Decompose variable_specification into a list of model variables. 
+            Allows for a range of specifications of variables, including sector, 
             subsector, variable name, and ModelVariable objects.
 
         Function Arguments
         ------------------
-        - variable_specification: specification for variables to build. Accepts
-            the following options:
-
-            * sector: sector name or abbreviation
-            * subsector: subsector name or abbreviation
-            * variable name: name of a variable to retrieve
-            * model variable: model variable object used to define fields
+        variable_specification : Union[ModelVariable, str, List[ModelVariable], List[str], None]
+            Specification for variables to build. Accepts the following options.
+                * sector: sector name or abbreviation
+                * subsector: subsector name or abbreviation
+                * variable name: name of a variable to retrieve
+                * model variable: model variable object used to define fields
         
         Keyword Arguments
         -----------------
-        - return_type: one of the following types:
-            * "variable": list of mv.ModelVariable objects
+        return_type : str
+            One of the following types.
+            * "variable": list of ModelVariable objects
             * "variable_name": list of variable names as strings
         """
         

@@ -21,29 +21,37 @@ import sisepuede.utilities._toolbox as sf
 
 
 class SISEPUEDEModels:
-	"""
-	Instantiate models for SISEPUEDE.
+	"""Instantiate models for SISEPUEDE.
 
 	Initialization Arguments
 	------------------------
-	- model_attributes: ModelAttributes object used to manage variables and
-		coordination
+	model_attributes : ModelAttributes
+	    ModelAttributes object used to manage variables and coordination
 
 	Optional Arguments
 	------------------
-	- allow_electricity_run: allow the electricity model to run (high-runtime
-		model)
-		* Generally should be left to True
-	- fp_nemomod_reference_files: directory housing reference files called by
-		NemoMod when running electricity model
+	allow_electricity_run : bool
+	    Allow the EnergyProduction model to run (high-runtime model)?
+		* Should be left to True when running the model. Setting to False allows
+            access to methods and properties without connecting to Julia and/or
+			accessing the .project() method.
+	fp_julia : Union[str, None]
+        Path to Julia files in subdirectory to use. If None, cannot access Julia
+        for EnergyProduction model. 
+	fp_nemomod_reference_files : Union[str, None]
+	    Directory housing reference files called by NemoMod when running 
+		electricity model
 		* REQUIRED TO RUN ELECTRICITY MODEL
-	- fp_nemomod_temp_sqlite_db: optional file path to use for SQLite database
-		used in Julia NemoMod Electricity model
+	fp_nemomod_temp_sqlite_db: Union[str, None]
+	    Optional file path to use for SQLite database used in Julia NemoMod 
+		EnergyProduction model
 		* If None, defaults to a temporary path sql database
-	- initialize_julia: initialize julia? If False, only initializes non-julia
-		EnergyProduction methods and properties, which is often useful for
-		accesing methods and variables, but does not allow the model to run.
-	- logger: optional logging.Logger object used to log model events
+	initialize_julia : bool
+	    Initialize julia? If False, only initializes non-julia EnergyProduction 
+		methods and properties, which is often useful for accesing methods and 
+		variables, but does not allow the model to run.
+	logger : Union[logging.Logger, None]
+	    optional logging.Logger object used to log model events
 	"""
 	def __init__(self,
 		model_attributes: ModelAttributes,
@@ -87,8 +95,7 @@ class SISEPUEDEModels:
 		model_attributes: ModelAttributes,
 		logger: Union[logging.Logger, None] = None,
 	) -> None:
-		"""
-		Initialize key attributes for the model. Initializes the following 
+		"""Initialize key attributes for the model. Initializes the following 
 			properties:
 
 			* self.logger
@@ -109,9 +116,8 @@ class SISEPUEDEModels:
 	def _initialize_models(self,
 		initialize_julia: bool = True,
 	) -> None:
-		"""
-		Initialize the path to NemoMod reference files required for ingestion. Initializes
-			the following properties:
+		"""Initialize the path to NemoMod reference files required for ingestion. 
+		    Initializes the following properties:
 
 			* self.allow_electricity_run
 			* self.fp_nemomod_reference_files
@@ -145,13 +151,13 @@ class SISEPUEDEModels:
 	def _initialize_path_julia(self,
 		fp_julia: Union[str, None]
 	) -> None:
-		"""
-		Initialize the path to the NemoMod SQL database used to execute runs. Initializes
-			the following properties:
+		"""Initialize the path to the NemoMod SQL database used to execute runs. 
+		    Initializes the following properties:
 
 			* self.fp_julia
 
-			NOTE: Will set `self.allow_electricity_run = False` if the path is not found.
+		NOTE: Will set `self.allow_electricity_run = False` if the path is 
+			not found.
 		"""
 
 		self.fp_julia = None
@@ -252,17 +258,20 @@ class SISEPUEDEModels:
 		type_log: str = "log",
 		**kwargs
 	) -> None:
-		"""
-		Clean implementation of sf._optional_log in-line using default logger. See ?sf._optional_log for more information
+		"""Clean implementation of sf._optional_log in-line using default 
+		    logger. See ?sf._optional_log for more information
 
 		Function Arguments
 		------------------
-		- msg: message to log
+		msg : str
+		    Message to log
 
 		Keyword Arguments
 		-----------------
-		- type_log: type of log to use
-		- **kwargs: passed as logging.Logger.METHOD(msg, **kwargs)
+		type_log : str
+		    Type of log to use
+		**kwargs
+		    Passed as logging.Logger.METHOD(msg, **kwargs)
 		"""
 		sf._optional_log(self.logger, msg, type_log = type_log, **kwargs)
 
@@ -282,9 +291,8 @@ class SISEPUEDEModels:
 		output_only: bool = True,
 		thresholds: Tuple[float, float] = (10**(-5), 10**6),
 	) -> Union[bool, None]:
-		"""
-		Verify numerical integrity of results by looking for fields that include 
-			extreme outliers based on the skew function defined. 
+		"""Verify numerical integrity of results by looking for fields that 
+		    include extreme outliers based on the skew function defined. 
 		
 		Returns:
 			* True: if *no* columnar values of verification_function are outside
@@ -295,15 +303,18 @@ class SISEPUEDEModels:
 			
 		Function Arguments
 		------------------
-		- df_results: data frame containing raw output results to verify
-		- verification_function: function that is applied along axis to verify 
-			values and compare against thresholds
+		df_results : pd.DataFrame
+		    DataFrame containing raw output results to verify
+		verification_function : Callable
+		    Function that is applied along axis to verify values and compare 
+			against thresholds
 		
 		Keyword Arguments
 		------------------
-		- epsilon: numerical value used to determine error in sf.vec_bounds 
-			comparison
-		- fields_check: optional specification of:
+		epsilon : float
+		    Numerical value used to determine error in sf.vec_bounds comparison
+		fields_check : Union[List[str], str, None]
+		    Optional specification of:
 			* subset of fields to check (listlike)
 			* "emissions_output" (to only check emissions output fields) 
 				* NOT SUPPORTED AT MOMENT
@@ -312,13 +323,16 @@ class SISEPUEDEModels:
 			* None (to check all fields not associated with fields_ind)
 			* NOTE: If any elements intersect with fields_ind, fields_ind takes 
 				priority
-		- fields_index: fields to treat as index fields (exempt from checking). 
-			If None, check every field in the data frame. If None, uses all 
-			indices 
-		- ignore_nas: ignore any nas produced by verification function
-		- output_only: check only output fields
-		- thresholds: Tuple specifying lower and upper limits of 
-			verification_function value
+		fields_index : Union[List[str], None]
+		    Fields to treat as index fields (exempt from checking). If None, 
+			check every field in the data frame. If None, uses all indices 
+		ignore_nas : bool
+		    Ignore any nas produced by verification function
+		output_only : bool
+		    Check only output fields?
+		thresholds : Tuple[float, float]
+		    Tuple specifying lower and upper limits of verification_function 
+			value
 		"""
 		
 		# check fields and threshold specification

@@ -67,8 +67,7 @@ def add_data_frame_fields_from_dict(
     prepend_q: bool = True,
     sort_input_fields: bool = False,
 ) -> pd.DataFrame:
-    """
-    Inplace operator for adding fields to a dataframe.
+    """Inplace operator for adding fields to a dataframe.
         * New fields are entered as a key in `dict_field_vals`, and new values
             for the dataframe are entered as values
         * Values may be passed as a single value (e.g., str, int, float) or a
@@ -76,20 +75,27 @@ def add_data_frame_fields_from_dict(
 
     Function Arguments
     ------------------
-    - df: DataFrame to add index fields to
-    - dict_field_vals: dictionary mapping a new field (key) to value (value)
+    df : pd.DataFrame
+        DataFrame to add index fields to
+    dict_field_vals : dict
+        Dictionary mapping a new field (key) to value (value)
 
     Keyword Arguments
     -----------------
-    - field_hierarchy: field hierachy (ordering) for new fields. Only used if
+    field_hierarchy : Union[None, list, np.ndarray]
+        Field hierachy (ordering) for new fields. Only used if 
         `prepend_q` = True. If None, default to sorted()
-    - overwrite_fields: for key in dict_field_vals.keys(), overwrite field `key`
-        if present in `df`?
-    - pass_none_to_shift_index: if True, allows a field to be passed as a key in 
-        dict_field_vals with a map to None without overwriting values in the 
-        field. If False, the field is ignored.
-    - prepend_q: prepend the new fields to the data frame (ordered fields)
-    - sort_input_fields: sort fields of df before adding new fields?
+    overwrite_fields : bool
+        For key in dict_field_vals.keys(), overwrite field `key` if present in 
+        `df`?
+    pass_none_to_shift_index : bool
+        If True, allows a field to be passed as a key in dict_field_vals with a 
+        map to None without overwriting values in the field. If False, the field 
+        is ignored.
+    prepend_q : bool
+        Prepend the new fields to the data frame (ordered fields) 
+    sort_input_fields : bool
+        Sort the input fields on new data frame?
     """
 
 
@@ -136,6 +142,7 @@ def add_data_frame_fields_from_dict(
             else:
                 if val is not None:
                     df[key] = val
+
                 # allow a value of "None" to push the field `key` to index?
                 (
                     fields_added_successfully.append(key) 
@@ -1110,19 +1117,22 @@ def explode_merge(
 def fill_df_rows_from_df(
     df_target: pd.DataFrame,
     df_source: pd.DataFrame,
-    fields_merge: list,
-    fields_subset: list
+    fields_merge: List[str],
+    fields_subset: List[str],
 ) -> pd.DataFrame:
-    """
-    Fill missing rows in df_target with rows available in df_subset.
+    """Fill missing rows in df_target with rows available in df_subset.
 
     Function Arguments
     ------------------
-    - df_target: data frame containing NAs to be filled from df_source
-    - df_source: data frame containing rows to use for filling NAs
-    - fields_merge: fields in df_target and df_source to use for merging rows
-        from df_source to df_target
-    - fields_subset: fields in df_target to source from df_source
+    df_target : pd.DataFrame 
+        DataFrame containing NAs to be filled from df_source
+    df_source : pd.DataFrame
+        DataFrame containing rows to use for filling NAs
+    fields_merge : List[str]
+        Fields in df_target and df_source to use for merging rows from df_source 
+        to df_target
+    fields_subset : List[str]
+        Fields in df_target to source from df_source
     """
 
     # check specifications
@@ -1274,20 +1284,23 @@ def filter_data_frame_by_group(
     field_value: str,
     val_exclude: float = 0.0
 ) -> pd.DataFrame:
-    """
-    Filter a data frame to remove all entries in a group have a single 
+    """Filter a data frame to remove all entries in a group have a single 
         value.
     
     Function Arguments
     ------------------
-    - df_in: data frame to filter
-    - fields_group: fields to use to set up groups
-    - field_value: field to use as filtering value
+    df_in : pd.DataFrame
+        DataFrame to filter
+    fields_group : List[Any]
+        Fields to use to set up groups
+    field_value : str
+        Field to use as filtering value
 
     Keyword Arguments
     -----------------
-    - val_exclude: exclude groups that are associated with *only* this value
-        (generally zero)
+    val_exclude : float
+        Exclude groups that are associated with *only* this value (generally 
+        zero)
     """
     # check fields
     fields_group = [x for x in fields_group if x in df_in.columns]
@@ -1327,9 +1340,8 @@ def filter_df_on_reference_df_rows(
     filter_method: str = "any",
     keep_comparison: bool = False
 ) -> pd.DataFrame:
-    """
-    Compare two data frames and drop rows from df_filter that are contained in
-        df_reference. Merges on fields_index and filters based on
+    """Compare two data frames and drop rows from df_filter that are contained 
+        in df_reference. Merges on fields_index and filters based on
         fields_compare. In each row, values associated with fields_index in
         df_filter are compared to rows in df_reference with the same index rows.
         If the values are different, then the row is kep in df_filter. If the
@@ -1337,22 +1349,29 @@ def filter_df_on_reference_df_rows(
 
     Function Arguments
     ------------------
-    - df_filter: DataFrame to filter based on rows from df_reference
-    - df_reference: DataFrame to use as a reference.
-    - fields_index: fields in both to use for indexing
-    - fields_compare: fields to use for comparison
+    df_filter : pd.DataFrame
+        DataFrame to filter based on rows from df_reference
+    df_reference: pd.DataFrame
+        DataFrame to use as a reference.
+    fields_index: List[str]
+        Fields in both to use for indexing
+    fields_compare : List[str]
+        Fields to use for comparison
 
     Keyword Arguments
     -----------------
-    - fields_groupby: fields that group rows; if any (or all) rows differ within
-        this group, the group will be kept. If they are all the same, the group
-        will be dropped.
-    - filter_method: "all" or "any"
-        * Set to "any" to keep rows where *any* field contained in
-            fields_compare is different.
-        * Set to "any" to keep rows where *all* fields contained in
-            fields_compare are different.
-    - keep_comparison: keep fields used for comparison?
+    fields_groupby : Union[List[str], None]
+        Fields that group rows; if any (or all) rows differ within this group, 
+        the group will be kept. If they are all the same, the group will be
+        dropped.
+    filter_method : str
+        One of the following values:
+        * "all": to keep rows where *all* fields contained in fields_compare are
+             different.
+        * "any": to keep rows where *any* field contained in fields_compare is 
+            different.
+    keep_comparison : bool
+        Keep fields used for comparison?
     """
     # check field specifications
     set_fields_both = set(df_filter.columns) & set(df_reference.columns)
@@ -1429,8 +1448,7 @@ def filter_tuple(
     tup: Tuple,
     ignore_inds: Union[List[int], int]
 ) -> Tuple[Any]:
-    """
-    Filter a tuple to ignore indices at ignore_inds. Accepts a list of
+    """Filter a tuple to ignore indices at ignore_inds. Accepts a list of
         integers or a single integer.
     """
     ignore_inds = [ignore_inds] if isinstance(ignore_inds, int) else ignore_inds
@@ -2115,26 +2133,30 @@ def match_df_to_target_df(
     overwrite_only: bool = True,
     try_interpolate: bool = False,
 ) -> pd.DataFrame:
-    """
-    Merge df_source to df_target, overwriting data fields in df_target with 
+    """Merge df_source to df_target, overwriting data fields in df_target with 
         those in df_source
 
     Function Arguments
     ------------------
-    - df_target: target data frame, which will have values replaced with values 
-        in df_source
-    - df_source: source data to use to replace
-    - fields_index: list of index fields
+    df_target : pd.DataFrame
+        Target data frame, which will have values replaced with values in 
+        df_source
+    df_source : pd.DataFrame
+        Source data to use to replace
+    fields_index : List[str]
+        List of index fields
 
     Keyword Arguments
     -----------------
-    - fields_to_replace: fields to replace in merge. If None, defaults to all 
-        available.
-    - fillna_value: value to use to fill nas in data frame
-    - overwrite_only: only overwrite columns in df_target with those in 
-        df_source. If False, will merge in fields that are not in df_target.
-    - try_interpolate: if True, will try to fill downward any missing pieces
-        before filling nas
+    fields_to_replace : str
+        Fields to replace in merge. If None, defaults to all available.
+    fillna_value : Union[int, float, str]
+        Value to use to fill nas in data frame
+    overwrite_only : bool
+        Only overwrite columns in df_target with those in df_source. If False, 
+        will merge in fields that are not in df_target.
+    try_interpolate : bool
+        If True, will try to fill downward any missing pieces before filling nas
     """
 
     # get some fields
@@ -2193,8 +2215,7 @@ def match_df_to_target_df(
 def mean_median_ratio(
     vec: np.ndarray,
 ) -> np.ndarray:
-    """
-    Get a function for checking a measure of skew; used in checking output
+    """Get a function for checking a measure of skew; used in checking output
     """
     
     mu = vec.mean()
@@ -2212,27 +2233,29 @@ def mean_median_ratio(
 
 
 def merge_output_df_list(
-    dfs_output_data: list,
-    model_attributes,
-    merge_type: str = "concatenate",
+    dfs_output_data: List[pd.DataFrame],
+    model_attributes: 'ModelAttributes',
     additional_dimensions: Union[List[str], None] = None,
+    merge_type: str = "concatenate",
 ) -> pd.DataFrame:
-    """
-    Merge data frames together into a single output when they share ordered 
+    """Merge data frames together into a single output when they share ordered 
         dimensions of analysis (from ModelAttribute class)
 
     Function Arguments
     ------------------
-    - dfs_output_data: list of data frames to join
-    - model_attributes: model_attributes.ModelAttributes object (NOT referenced 
-        here to avoid loading package, which would create circular logic)
+    dfs_output_data : 
+        List of data frames to join
+    model_attributes : ModelAttributes
+        ModelAttributes object used to access dimensions of analysis etc.
     
     Keyword Arguments
     -----------------
-    - additional_dimensions: optional specification of additional dimensions to 
-        join on
-    - merge_type: "concatenate" or "merge". "merge" is slower but may be 
-        necessary if row indices are not the same across 
+    additional_dimensions : Union[List[str], None]
+        Optional specification of additional dimensions to join on
+    merge_type : str
+        * "concatenate": verify index equality and concatenate
+        * "merge": slower, but may be necessary if row indices are not the 
+            same across inputs
     """
     # check type
     valid_merge_types = ["concatenate", "merge"]
@@ -2328,7 +2351,8 @@ def merge_replace(
         * "outer"
         * "left" (does not support right)
         NOTE: "left" left joins df_to_merge to df
-    replace: replace the old field in df with the new one in df_to_merge
+    replace : bool
+        Replace the old field in df with the new one in df_to_merge?
     """
     ##  CHECKS
     
@@ -2593,22 +2617,25 @@ def orient_df_by_reference_vector(
     field_merge_tmp: str = "ID_SORT_",
     drop_field_compare: bool = False
 ) -> pd.DataFrame:
-    """
-    Ensure that data frame field `field_compare` is ordered properly (in the 
+    """Ensure that data frame field `field_compare` is ordered properly (in the 
         same ordering as `vector_reference`). Returns a data frame with the 
         correct row ordering.
 
     Function Arguments
     ------------------
-    - df_in: data frame to check
-    - vector_reference: reference vector used to order df_in[field_compare].
-    - field_compare: field to order df_in by
+    df_in : pd.DataFrame
+        DataFrame to check
+    vector_reference : Union[list, np.ndarray]
+        Reference vector used to order df_in[field_compare].
+    field_compare : str
+        Field to order df_in by
 
     Keyword Arguments
     -----------------
-    - field_merge_tmp: temporary field to use for sorting. Should not be in
-        df_in.columns
-    - drop_field_compare: drop the comparison field after orienting
+    field_merge_tmp : str 
+        Temporary field to use for sorting. Should not be in df_in.columns
+    drop_field_compare : bool
+        Drop the comparison field after orienting
 
     Note
     ----

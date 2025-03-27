@@ -757,15 +757,16 @@ class IterativeDatabaseTable:
 		dict_subset: Union[Dict[str, List], None] = None,
 		fields_select: Union[List[str], None] = None,
 		drop_duplicates: bool = False,
-		query_logic: str = "and"
+		query_logic: str = "and",
+		**kwargs,
 	) -> pd.DataFrame:
-		"""
-		Read a subset of rows from a table
+		"""Read a subset of rows from a table.
 
 		Optional Arguments
 		------------------
-		- dict_subset: dictionary with keys that are columns in the table and values,
-			given as a list, to subset the table. dict_subset is written as:
+		dict_subset: Union[Dict[str, List], None]
+		    Dictionary with keys that are columns in the table and values, given 
+			as a list, to subset the table. dict_subset is written as:
 
 			dict_subset = {
 				field_a = [val_a1, val_a2, ..., val_am],
@@ -774,16 +775,19 @@ class IterativeDatabaseTable:
 				.
 				.
 			}
-		- fields_select: fields to read in. Reducing the number of fields to read
+		fields_select : Union[List[str], None]
+		    Fields to read in. Reducing the number of fields to read
 			can speed up the ingestion process and reduce the data frame's memory
 			footprint.
 
 		Keyword Arguments
 		-----------------
-		- drop_duplicates: drop duplicates in the CSV when reading?
+		drop_duplicates : bool
+		    Drop duplicates in the CSV when reading?
 			* Default is False to improve speeds
 			* Set to True to ensure that only unique rows are read in
-		- query_logic: default is "and". Subsets table to as
+		query_logic : str
+		    Default is "and". Subsets table to as
 
 			where field_a in (val_a1, val_a2, ..., val_am) ~ field_b in (val_b1, val_b2, ..., val_bn)...
 
