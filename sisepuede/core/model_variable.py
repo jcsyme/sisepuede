@@ -17,15 +17,28 @@ import re
 import sisepuede.utilities._toolbox as sf
 
 
+##  GLOBAL VARIABLES
 
+# delimter default for category specification
+_DELIM_CATEGORIES = "|"
 
+# flags in attributes
+_FLAG_ALL_CATS = "all"
+_FLAG_NO_DIMS = "none"
+
+# keys in attribute tables
+_KEY_CATEGORIES = "categories"
+_KEY_DEFAULT_VALUE = "default_value"
+_KEY_NAME = "variable"
+_KEY_VARIABLE_SCHEMA = "variable_schema"
+
+# module UUID
 _MODULE_UUID = "B8F334CA-D27C-48F2-811E-940147546299"      
 
 
 
 class ModelVariable:
-    """
-    Build a ModelVariable object. The ModelVariable stores information about
+    """Build a ModelVariable object. The ModelVariable stores information about
         the variables, including categories, dimensions to the variable, units,
         and more. 
 
@@ -49,15 +62,18 @@ class ModelVariable:
 
     Initialization Arguments
     ------------------------
-    - variable_init: initializer for the variable. Can be:
+    variable_init : Union[dict, pd.DataFrame, pd.Series]
+        Initializer for the variable. Can be:
         * dict: a dictionary mapping keys to a value
         * pd.DataFrame: a Pandas DataFrame whose first row is used to initialize 
             variable elements by smapping fields (key) to values
         * pd.Series: a Pandas Series used to map indicies (key) to values
 
 
-    - category_definition: initializer for variable categories (i.e., mutable
-        elements in the variable schema). Can be:
+    element_definition : Union[at.AttributeTable, Dict[str, at.AttributeTable], List[at.AttributeTable]]
+        Initializer for variable categories (i.e., mutable elements in the 
+        variable schema). Can be:
+
         * attribute_table.AttributeTable: Can be provided if there is only a
             single known mutable element
         * Dict[str, attribute_table.AttributeTable]: Can be provided if there
@@ -70,32 +86,41 @@ class ModelVariable:
 
     Optional Initialization Arguments
     ---------------------------------
-    - attribute_as_property: try to initialize attributes as properties of the
-        model variable itself? If true, sets an attribute passed in the variable
-        schema as an accessible property of the ModelVariable.
+    attribute_as_property : bool
+        Try to initialize attributes as properties of the ModelVariable itself? 
+        If true, sets an attribute passed in the variable schema as an 
+        accessible property of the ModelVariable.
+
         * E.g., if "unit_mass" is an attribute from the schema, then it is 
             accessible from ModelVariable.unit_mass if 
             attribute_as_property == True.
         * NOTE: this should be used with caution. If an attribute conflicts with
             an existing property, it will not be set. 
 
-    - delim_categories: delimeter used to split categories specified in 
-        variable_init
-    - flag_all_cats: flag in category specification used to point to the use of 
-        all category values to define the variable
-    - flag_no_dims: flag in category specification used to point to the use of 
-        no category values to define the variable
-    - key_categories: key in `variable_init` storing category specifications
+    delim_categories : str
+        Delimeter used to split categories specified in variable_init
+    flag_all_cats : str
+        Flag in category specification used to point to the use of all category 
+        values to define the variable
+    flag_no_dims : str
+        Flag in category specification used to point to the use of no category 
+        values to define the variable
+    key_categories : str
+        Key in `variable_init` storing category specifications
         NOTE: set to "all" to specify all categories for a given mutable element
-    - key_default_value: key in `variable_init` storing the default value of the
-        variable if it is not found. 
-    - key_name: key in `variable_init` storing the name of the variable
-    - key_schema: key in `variable_init` storing the schema specification
-    - keys_additional: additional keys to include as properties of the 
-        ModelVariable. If None, will store all fields (indcies) specified in 
-        variable_init as properties
-    - logger: optional context-dependent logger to pass
-    - stop_without_default: if no default value is found, stop?  If not, 
+    key_default_value : str
+        Key in `variable_init` storing the default value of the variable if it 
+        is not found. 
+    key_name : str
+        Key in `variable_init` storing the name of the variable
+    key_schema : str
+        Key in `variable_init` storing the schema specification
+    keys_additional : Union[List[str], Dict[str, str], None]
+        Additional keys to include as properties of the ModelVariable. If None, 
+        will store all fields (indcies) specified in variable_init as properties
+    logger : Union[logging.Logger, None]
+        Optional context-dependent logger to pass
+    stop_without_default: if no default value is found, stop?  If not, 
         defaults to np.nan
     """
     
@@ -103,13 +128,13 @@ class ModelVariable:
         variable_init: Union[dict, pd.DataFrame, pd.Series],
         element_definition: Union[at.AttributeTable, Dict[str, at.AttributeTable], List[at.AttributeTable]],
         attribute_as_property: bool = True,
-        delim_categories: str = "|",
-        flag_all_cats: str = "all",
-        flag_no_dims: str = "none",
-        key_categories: str = "categories",
-        key_default_value: str = "default_value",
-        key_name: str = "variable",
-        key_schema: str = "variable_schema",
+        delim_categories: str = _DELIM_CATEGORIES,
+        flag_all_cats: str = _FLAG_ALL_CATS,
+        flag_no_dims: str = _FLAG_NO_DIMS,
+        key_categories: str = _KEY_CATEGORIES,
+        key_default_value: str = _KEY_DEFAULT_VALUE,
+        key_name: str = _KEY_NAME,
+        key_schema: str = _KEY_VARIABLE_SCHEMA,
         keys_additional: Union[List[str], Dict[str, str], None] = None,
         logger: Union[logging.Logger, None] = None,
         stop_without_default: bool = False,
@@ -375,15 +400,14 @@ class ModelVariable:
     def _initialize_properties(self,
         variable_init: Union[dict, pd.DataFrame, pd.Series],
         attribute_as_property: bool = True,
-        delim_categories: str = "|",
-        flag_all_cats: str = "all",
-        flag_no_dims: str = "none",
+        delim_categories: str = _DELIM_CATEGORIES,
+        flag_all_cats: str = _FLAG_ALL_CATS,
+        flag_no_dims: str = _FLAG_NO_DIMS,
         stop_without_default: bool = False,
     ) -> None:
-        """
-        Set properties derived from attribute table. Sets properties associated 
-            with self.keys_required in addition to others specified in the 
-            attribute table.
+        """Set properties derived from attribute table. Sets properties 
+            associated with self.keys_required in addition to others specified 
+            in the attribute table.
         
         Sets the following properties:
 
@@ -424,7 +448,8 @@ class ModelVariable:
 
         Function Arguments
         ------------------
-        - variable_init: initializer for the variable. Can be:
+        variable_init : Union[dict, pd.DataFrame, pd.Series]
+            Initializer for the variable. Can be:
             * dict: a dictionary mapping keys to a value
             * pd.DataFrame: a Pandas DataFrame whose first row is used to 
                 initialize variable elements by mapping fields (key) to values
@@ -432,20 +457,27 @@ class ModelVariable:
         
         Keyword Arguments
         -----------------
-        - attribute_as_property: try to initialize attributes as properties of 
-            the model variable itself? If true, sets an attribute passed in the 
-            variable schema as an accessible property of the ModelVariable.
+        attribute_as_property : bool
+            Try to initialize attributes as properties of the model variable 
+            itself? If true, sets an attribute passed in the variable schema as 
+            an accessible property of the ModelVariable.
+
             * E.g., if "unit_mass" is an attribute from the schema, then it is 
                 accessible from ModelVariable.unit_mass if 
                 attribute_as_property == True.
             * NOTE: this should be used with caution. If an attribute conflicts 
                 with an existing property, it will not be set. 
-        - delim_categories: delimeter used to split categories specified in 
-            variable_init
-        - flag_all_cats: flag in category specification used to point to the use
-            of all category values to define the variable
-        - stop_without_default: if no default value is found, stop?  If not, 
-            defaults to np.nan
+
+        delim_categories : str
+            Delimeter used to split categories specified in variable_init
+        flag_all_cats : str
+            Flag in category specification used to point to the use of all 
+            category values to define the variable
+        flag_no_dims : str
+            Flag in category specification used to point to the use of no 
+            category values to define the variable
+        stop_without_default : bool
+            If no default value is found, stop?  If not, defaults to np.nan
         """
         
         # get the variable information dictionary
@@ -520,8 +552,7 @@ class ModelVariable:
 
     def _initialize_uuid(self,
     ) -> None:
-        """
-        Initialize the UUID
+        """Initialize the UUID
         """
 
         self._uuid = _MODULE_UUID
@@ -535,18 +566,20 @@ class ModelVariable:
         type_log: str = "log",
         **kwargs
     ) -> None:
-        """
-        Clean implementation of sf._optional_log in-line using default logger.
-            See ?sf._optional_log for more information.
+        """Clean implementation of sf._optional_log in-line using default 
+            logger. See ?sf._optional_log for more information.
 
         Function Arguments
         ------------------
-        - msg: message to log
+        msg : str
+            Message to log
 
         Keyword Arguments
         -----------------
-        - type_log: type of log to use
-        - **kwargs: passed as logging.Logger.METHOD(msg, **kwargs)
+        type_log : str
+            Type of log to use
+        **kwargs : 
+            Passed as logging.Logger.METHOD(msg, **kwargs)
         """
         sf._optional_log(self.logger, msg, type_log = type_log, **kwargs)
 
@@ -561,9 +594,8 @@ class ModelVariable:
         dict_category_space: Union[Dict[str, List[str]], None],
         return_on_none: Union[Any, None] = None,
     ) -> Dict:
-        """
-        Initialize the dictionary mapping the variable schema's mutable elements 
-            to categories in the variable field. Differs from 
+        """Initialize the dictionary mapping the variable schema's mutable 
+            elements to categories in the variable field. Differs from 
             self.dict_category_key_space in that the keys are schema mutable 
             elements, not root elements. 
 
@@ -575,12 +607,14 @@ class ModelVariable:
         
         Function Arguments
         ------------------
-        - dict_category_space: optional dictionary specifying the space of 
-            possible. If None, no checks are performed
+        dict_category_space : Union[Dict[str, List[str]], None]
+            Optional dictionary specifying the space of possible. If None, no 
+            checks are performed
 
         Keyword Arguments
         -----------------
-        - return_on_none: element to return if dict_category_space is None
+        return_on_none : Union[Any, None]
+            Element to return if dict_category_space is None
         """
 
         dict_out = return_on_none
@@ -617,8 +651,7 @@ class ModelVariable:
         category_subspace: Union[Dict[str, str], str, None] = None,
         dict_category_space: Union[Dict[str, List[str]], None] = None,
     ) -> Union[Dict[str, Union[List[str], None]], None]:
-        """
-        Convert categories specified in an attribute table into a dictionary
+        """Convert categories specified in an attribute table into a dictionary
             where keys are cleaned mutable elements of the variable schema and
             values are lists of category restrictions for that element. 
         
@@ -632,12 +665,14 @@ class ModelVariable:
         
         Keyword Arguments
         -----------------
-        - category_subspace: either a single string of delimited categories or
-            a dictionary mapping a mutable element to a delimited string. 
+        category_subspace : Union[Dict[str, str], str, None]
+            Either a single string of delimited categories or a dictionary 
+            mapping a mutable element to a delimited string. 
             * If None, uses those specified in self.dict_varinfo (in 
-            self.key_categories)
-        - dict_category_space: optional dictionary specifying the space of 
-            possible. If None, no checks are performed
+                self.key_categories)
+        dict_category_space : Union[Dict[str, List[str]], None]
+            Optional dictionary specifying the space of possible. If None, no 
+            checks are performed
         """
         # check specification
         proceed = isinstance(category_subspace, dict)
@@ -1113,8 +1148,7 @@ class ModelVariable:
         elem: str,
         value: Any,
     ) -> str:
-        """
-        In schema `schema`, replace the mutable elemenet `elem` with value 
+        """In schema `schema`, replace the mutable elemenet `elem` with value 
             `value`
         """
         
@@ -1137,8 +1171,7 @@ class ModelVariable:
         attr: str,
         return_on_none: Union[Any, None] = None,
     ) -> Any:
-        """
-        Retrieve an attribute attr from the model variable. If not found,
+        """Retrieve an attribute attr from the model variable. If not found,
             returns value return_on_none.
         """
         out = self.schema.get_attribute(
@@ -1156,20 +1189,21 @@ class ModelVariable:
         category_restrictions_as_full_spec: bool = False,
         stop_on_error: bool = True,
     ) -> Union[List[str], None]:
-        """
-        Build fields associated with the variable.
+        """Build fields associated with the variable.
         
         Function Argumnents
         -------------------
         
         Keyword Argumnents
         ------------------
-        - allow_full_space: Allow the variable to access categories in the 
-            complete space, beyond those for which it is defined? If True, can
-            let the variable be built for undefined categories. 
-        - category_restrictions: optional dictionary to overwrite 
-            `self.dict_category_keys` with; i.e., keys in category_restrictions 
-            will overwrite those in `self.dict_category_keys` IF 
+        allow_full_space : bool
+            Allow the variable to access categories in the complete space, 
+            beyond those for which it is defined? If True, can let the variable 
+            be built for undefined categories. 
+        category_restrictions : Union[Dict[str, List[str]], List[str], str, None]
+            Optional dictionary to overwrite `self.dict_category_keys` with; 
+            i.e., keys in `category_restrictions` will overwrite those in 
+            `self.dict_category_keys` IF 
             `category_restrictions_as_full_spec == False`. Accepts the following
             types:
                 * dict: should map a mutable element to a list of categories
@@ -1197,9 +1231,11 @@ class ModelVariable:
                 category_restrictions is treated as the initialization 
                 dictionary
             
-        - category_restrictions_as_full_spec: Set to True to treat 
-            `category_restrictions` as the full specification dictionary
-        - stop_on_error: set to False to return None on a known error. 
+        category_restrictions_as_full_spec : bool
+            Set to True to treat `category_restrictions` as the full 
+            specification dictionary
+        stop_on_error : bool
+            Set to False to return None on a known error. 
         """
         
         # INITIALIZATION
@@ -1523,6 +1559,61 @@ class ModelVariable:
         df_out = df_out.to_numpy() if (return_type == "array") else df_out
 
         return df_out
+    
+
+
+    def spawn_default_dataframe(self,
+        df_base: Union[pd.DataFrame, None] = None,
+        fill_value: Union[Any, None] = None,
+        length: Union[int, None] = None,
+    ) -> pd.DataFrame:
+        """Spawn a DataFrame of defaults of length 1. Specify either the 
+            `df_base` or `length` keyword arguments to expand. If both are 
+            specified, `df_base` takes precendence. 
+
+
+        Keyword Arguments
+        -----------------
+        df_base : Union[pd.DataFrame, None]
+            Optional base DataFrame to use for concatenation. Will return a 
+            DataFrame of variables concatenated (by column) to this DataFrame if 
+            passed.
+        fill_value : Union[Any, None]
+            Optional fill value to pass
+        length : Union[int, None]
+            Optional length to pass for output.
+        """
+        field_dummy = "_DUMmYF__IELD_TO_DROP_xmq1"
+        
+        # set default
+        if not (sf.isnumber(length, integer = True) | isinstance(df_base, pd.DataFrame)):
+            length = 1
+
+        # initialize output
+        df_out = (
+            pd.DataFrame({field_dummy: range(length)})
+            if not isinstance(df_base, pd.DataFrame)
+            else df_base.copy()
+        )
+        fields_ext = list(df_out.columns)
+
+        # get default value
+        fill_value = fill_value if fill_value is not None else self.default_value
+
+        # update data frame
+        df_out[self.fields[0]] = fill_value
+        df_out = self.get_from_dataframe(
+            df_out,
+            expand_to_all_categories = True,
+            extraction_logic = "any_fill",
+            fields_additional = fields_ext,
+            fill_value = fill_value, 
+        )
+
+        if field_dummy in df_out.columns: 
+            df_out.drop(columns = field_dummy, inplace = True, )
+
+        return df_out
 
 
 
@@ -1585,8 +1676,7 @@ class VariableSchema:
         flag_dim: str = "DIM",
         space_char: str = "-",
     ) -> None:
-        """
-        Initialize some key properties of the schema. Sets the following 
+        """Initialize some key properties of the schema. Sets the following 
             properties:
 
             * self.container_elements:
@@ -1603,15 +1693,17 @@ class VariableSchema:
 
         Keyword Arguments
         -----------------
-        - container_elements: string used to delimit elements--such as a 
-            category, unit, or gas--within a schema
-        - container_expressions: substring used to parse out schema and 
-            associated elements
-        - flag_dim: protected string that allows users to pass the same mutable
-            element as multiple dimensions (e.g., 
-            field_$CAT-X-DIM1$_$CAT-X-DIM2$ passes the element X twice) and 
-            giving the outer product of the space 
-        - space_char: character used to replace spaces
+        container_elements : str
+            String used to delimit elements--such as a category, unit, or gas--
+            within a schema
+        container_expressions : str
+            Substring used to parse out schema and associated elements
+        flag_dim : str
+            Protected string that allows users to pass the same mutable element 
+            as multiple dimensions (e.g., field_$CAT-X-DIM1$_$CAT-X-DIM2$ passes 
+            the element X twice) and giving the outer product of the space 
+        space_char : str
+            Character used to replace spaces
         """
 
         # check some specifications
@@ -1665,8 +1757,7 @@ class VariableSchema:
     def _initialize_schema(self,
         schema_raw: str,
     ) -> None:
-        """
-        Initialize some key properties of the schema. Sets the following 
+        """Initialize some key properties of the schema. Sets the following 
             properties:
 
             * self.attributes: 
@@ -1698,7 +1789,8 @@ class VariableSchema:
 
         Function Arguments
         ------------------
-        - schema_raw: raw input schema string to intialize
+        schema_raw : str
+            Raw input schema string to intialize
 
         Keyword Arguments
         -----------------
@@ -1783,18 +1875,19 @@ class VariableSchema:
         schema: str,
         clean: bool = False,
     ) -> Union[List[str], None]:
-        """
-        Retrieve mutable elements (e.g., categories) from schema. Returns an
+        """Retrieve mutable elements (e.g., categories) from schema. Returns an
             ordered list of elements (ordered by appearance) or None if no 
             mutable elements are found. 
 
         Function Arguments
         ------------------
-        - schema: schema (with attributes filled) to extract elements from
+        schema : str
+            Schema (with attributes filled) to extract elements from
 
         Keyword Arguments
         -----------------
-        - clean: clean the output elements?
+        clean : bool
+            Clean the output elements?
         """
 
         list_elements = self.regex_elements.findall(schema)
@@ -1824,13 +1917,13 @@ class VariableSchema:
     def clean_element(self,
         element: str, 
     ) -> Union[str, None]:
-        """
-        Clean a variable schema element to a manageable, shared name that excludes
-            special characters.
+        """Clean a variable schema element to a manageable, shared name that 
+            excludes special characters.
 
         Function Arguments
         ------------------
-        - element: element to clean
+        element : str
+            Element to clean
 
         Keyword Arguments
         -----------------
@@ -1851,9 +1944,8 @@ class VariableSchema:
         key: str,
         return_on_none: Union[Any, None] = None,
     ) -> Union[str, None]:
-        """
-        Retrieve an attribute of a variable schema associated with key. If none
-            is found, returns None. 
+        """Retrieve an attribute of a variable schema associated with key. If 
+            none is found, returns None. 
             
         NOTE: Looks for the key in two stages. It starts by checking if the key
             is cleaned; if not found, it defaults to the original element and
@@ -1861,11 +1953,13 @@ class VariableSchema:
 
         Function Arguments
         ------------------
-        - key: attribute to retrieve
+        key : str
+            Attribute to retrieve
 
         Keyword Arguments
         -----------------
-        - return_on_none: value to return if no key is found
+        return_on_none : Union[Any, None]
+            Value to return if no key is found
         """
         # if in the clean dictionary, assume that it is the cleaned version of the key
         key = self.dict_attribute_keys_clean_to_attribute_keys.get(key, key) 
@@ -1879,8 +1973,7 @@ class VariableSchema:
         dict_melems_to_melems_clean: Union[Dict[str, str], None] = None,
         mutable_elements_ordered: Union[Dict[str, str], None] = None,
     ) -> Dict:
-        """
-        Build a dictionary to map root elements to all child elements; maps
+        """Build a dictionary to map root elements to all child elements; maps
             clean and unclean elements to the same dictionary. 
 
         Function Arguments
@@ -1888,10 +1981,10 @@ class VariableSchema:
 
         Keyword Arguments
         -----------------
-        - dict_melems_to_melems_clean: dictionary mapping mutable elements to 
-            their cleaned version
-        - mutable_elements_ordered: list of ordered (by replacement hierarchy) 
-            mutable elements 
+        dict_melems_to_melems_clean : Union[Dict[str, str], None]
+            Dictionary mapping mutable elements to their cleaned version
+        mutable_elements_ordered : Union[Dict[str, str], None]
+            List of ordered (by replacement hierarchy) mutable elements 
         """
         
         ##  INITIALIZE
@@ -1943,8 +2036,7 @@ class VariableSchema:
         return_on_none: Union[Any, None] = None,
         return_regex: bool = False,
     ) -> Union[str, None]:
-        """
-        Retrieve the value of a mutable element 
+        """Retrieve the value of a mutable element 
             
         NOTE: Looks for the element in two stages. It starts by checking if the 
             element is cleaned; if not found, it defaults to the original
@@ -1952,13 +2044,17 @@ class VariableSchema:
 
         Function Arguments
         ------------------
-        - field: field to try to retrieve the element from
-        - element: element to retrieve
+        field : str
+            Field to try to retrieve the element from
+        element : str
+            Element to retrieve
 
         Keyword Arguments
         -----------------
-        - return_on_none: value to return if no key is found
-        - return_regex: return the regular expression used to match?
+        return_on_none : Union[Any, None]
+            Value to return if no key is found
+        return_regex : bool
+            Return the regular expression used to match?
         """
 
         # try getting the element from the clean dictionary; if not present, assume original form
@@ -1986,8 +2082,7 @@ class VariableSchema:
     def get_root_element(self,
         elem: str,
     ) -> Union[Tuple, None]:
-        """
-        For a mutable element `elem`, get the root element--i.e., stripped of 
+        """For a mutable element `elem`, get the root element--i.e., stripped of 
             dimensional specification.
             
             E.g., maps 
@@ -2004,7 +2099,8 @@ class VariableSchema:
         
         Function Arguments
         ------------------
-        - elem: element to retrieve root from
+        elem : str
+            Element to retrieve root from
         """
         
         if not isinstance(elem, str):
@@ -2034,22 +2130,22 @@ class VariableSchema:
 
 
     def replace(self,
-        dict_repl: str,
+        dict_repl: Dict[str, str],
         keys_are_clean: bool = False,
     ) -> str:
-        """
-        Replace the schema with mutable elements as specified in the dictionary
-            dict_repl. Returns a string.
+        """Replace the schema with mutable elements as specified in the 
+            dictionary dict_repl. Returns a string.
 
         Function Arguments
         ------------------
-        - dict_repl: dictionary mapping mutable elements (unclean if clean_keys
-            is False OR clean if clean_keys is True) to new strings
+        dict_repl : Dict[str, str]
+            Dictionary mapping mutable elements (unclean if clean_keys is False 
+            OR clean if clean_keys is True) to new strings
 
         Keyword Arguments
         -----------------
-        - keys_are_clean: set to True if the keys in dict_repl are cleaned 
-            mutable elements
+        keys_are_clean : bool
+            Set to True if the keys in dict_repl are cleaned mutable elements
         """
 
         dict_replace = dict_repl
@@ -2085,21 +2181,23 @@ def clean_element(
     container_expressions: str = "``",
     space_char: str = "-",
 ) -> Union[str, None]:
-    """
-    Clean a variable schema element to a manageable, shared name that excludes
-        special characters.
+    """Clean a variable schema element to a manageable, shared name that 
+        excludes special characters.
 
     Function Arguments
     ------------------
-    - element: element to clean
+    element : str
+        Element to clean
 
     Keyword Arguments
     -----------------
-    - container_elements: string used to delimit elements--such as a category, 
-        unit, or gas--within a schema
-    - container_expressions: substring used to parse out schema and associated
-        elements
-    - space_char: character used within an element in place of a space
+    container_elements: str
+        String used to delimit elements--such as a category, unit, or gas--
+        within a schema
+    container_expressions : str
+        Substring used to parse out schema and associated elements
+    space_char : str
+        Character used within an element in place of a space
     """
 
     if not isinstance(element, str):
@@ -2124,21 +2222,23 @@ def decompose_schema(
     return_type: str = "schema",
     space_char: str = "-",
 ) -> str:
-    """
-    Decompose a variable schema input `var_schema` into elements used in the
+    """Decompose a variable schema input `var_schema` into elements used in the
         ModelVariable class.
 
     Function Arguments
     ------------------
-    - var_schema: raw schema definition from variable definition
+    var_schema : str
+        Raw schema definition from variable definition
 
     Keyword Arguments
     -----------------
-    - container_elements: string used to delimit elements--such as a category, 
-        unit, or gas--within a schema
-    - container_expressions: substring used to parse out schema and associated
-        elements
-    - return_type: return type to pass. Can take the following values:
+    container_elements : str
+        String used to delimit elements--such as a category, unit, or gas--
+        within a schema
+    container_expressions : str 
+        Substring used to parse out schema and associated elements
+    return_type : str
+        Return type to pass. Can take the following values:
         * "all": return an ordered tuple with the following elements:
             - dict_replacements
             - schema (cleaned)
@@ -2146,7 +2246,8 @@ def decompose_schema(
         * "replacements": return the replacement dictinary defined in the raw 
             schema
         * "schema": return the schema only
-    - space_char: character used within an element in place of a space
+    space_char : str
+        Character used within an element in place of a space
     """
     valid_returns = ["all", "replacements", "schema"]
     return_type = "schema" if (return_type not in valid_returns) else return_type
