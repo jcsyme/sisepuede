@@ -17,9 +17,25 @@ dict_format = dict(
 )
 
 dict_format
+
 """
 
 
+def plot_emissions_stack(
+    model_attributes: 'ModelAttributes',
+) -> 'plt.Plot':
+    """
+    """
+
+    fields = matt.get_all_subsector_emission_total_fields()#[x for x in df_out.columns if (x.startswith("emission_co2e_subsector_total"))]
+    dict_format = dict(
+        (k, {"color": v}) for (k, v) in
+        matt.get_subsector_color_map().items()
+    )
+
+    dict_format
+
+    return None
 
 def plot_variable_stack(
     df: pd.DataFrame,
