@@ -426,28 +426,36 @@ def transformation_frst_reduce_deforestation(
     model_afolu: Union[mafl.AFOLU, None] = None,
     **kwargs
 ) -> pd.DataFrame:
-    """
-    Reduce deforestion by stopping transitions out of forest land use 
+    """Reduce deforestion by stopping transitions out of forest land use 
         categories.
 
     Function Arguments
     ------------------
-    - df_input: input data frame containing baseline trajectories
-    - magnitude: float specifying target fraction of forests that remain forests 
-        (applied to all forest categories)
-    - model_attributes: ModelAttributes object used to call strategies/
-        variables
-    - vec_ramp: ramp vec used for implementation
+    df_input : pd.DataFrame
+        Input DataFrame containing baseline trajectories
+    magnitude : Union[Dict[str, float], float]
+        float or dictionary specifying target fraction of forests that remain 
+        forests (applied to all forest categories unless dictionary defines them
+        individualy)
+    model_attributes : ModelAttributes 
+        ModelAttributes object used to call strategies/variables
+    vec_ramp : np.ndarray
+        Ramp vec used for implementation
 
     Keyword Arguments
     -----------------
-    - field_region: field in df_input that specifies the region
-    - model_afolu: optional AFOLU object to pass for variable access
-    - regions_apply: optional set of regions to use to define strategy. If None,
+    field_region : str
+        Field in df_input that specifies the region
+    model_afolu : Union[AFOLU, None]
+        Optional AFOLU object to pass for variable access
+    regions_apply : Union[List[str], None]
+        Optional set of regions to use to define strategy. If None,
         applies to all regions.
-    - strategy_id: optional specification of strategy id to add to output
-        dataframe (only added if integer)
-    - **kwargs: passed to 
+    strategy_id : Union[int, None]
+        Optional specification of strategy id to add to output dataframe (only 
+        added if integer)
+    **kwargs
+        Passed to 
         transformation_support_lndu_transition_to_category_targets_single_region()
     """
     

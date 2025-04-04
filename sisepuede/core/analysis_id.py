@@ -242,7 +242,7 @@ class AnalysisID:
 
 ##  CHECK OBJ STRING
 
-def is_model_variable(
+def is_analysis_id(
     obj: Any,
 ) -> bool:
     """Determine if the object is an AnalysisID

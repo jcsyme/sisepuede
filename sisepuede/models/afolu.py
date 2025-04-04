@@ -184,7 +184,7 @@ class AFOLU:
             "crops": "crop",
             "flooded_lands": "flod",
             "grasslands": "grss",
-            "other": "other",
+            "other": "othr",
             "pastures": "pstr",
             "settlements": "stlm",
             "shrublands": "shrb",
@@ -997,12 +997,14 @@ class AFOLU:
         mat_bounds: tuple = (0, 1),
         response_columns = None
     ) -> np.ndarray:
-        """
-        Rescale elements of a row-stochastic transition matrix Q (n x n) to 
+        """Rescale elements of a row-stochastic transition matrix Q (n x n) to 
             account for scalars applied to columns or entries defined in 
             dict_tuples_scale. The columns that are adjusted in response to 
             these exogenous scalars are said to be to subject to automated 
             rescaling.
+
+        NOTE: THIS FUNCTION IS DEPRECATED. 
+
 
         dict_tuples_scale is the mechanism for passing scalars to apply to a 
             transition matrix It accepts two types of tuples for keys
@@ -1162,8 +1164,8 @@ class AFOLU:
         vec_frst_k_hwp_wood: np.ndarray,
         n_tps_mean: int = 5,
     ) -> Union[Tuple[np.ndarray], None]:
-        """
-        Back project carbon stored in wood and paper products (c) and the exponential decay parameter k.
+        """Back project carbon stored in wood and paper products (c) and the 
+            exponential decay parameter k.
 
         Returns a tuple with the following elements:
 
@@ -1177,15 +1179,22 @@ class AFOLU:
 
         Function Arguments
         ------------------
-        - n_tps_lookback: number of time periods to look back
-        - vec_frst_c_paper: vector of c stored in paper products
-        - vec_frst_c_wood: vector of c stored in wood products
-        - vec_frst_k_hwp_paper: vector of decay variable k for paper
-        - vec_frst_k_hwp_wood: vector of decay variable k for wood
+        n_tps_lookback : int
+            Number of time periods to look back
+        vec_frst_c_paper : np.ndarray
+            Vector of c stored in paper products
+        vec_frst_c_wood : np.ndarray
+            Vector of c stored in wood products
+        vec_frst_k_hwp_paper : np.ndarray
+            Vector of decay variable k for paper
+        vec_frst_k_hwp_wood : np.ndarray
+            Vector of decay variable k for wood
 
         Keyword Arguments
         -----------------
-        - n_tps_mean: number of years to use to generate the mean rate of growth in HWP. Will not, in practice, exceed the number of observed years
+        - n_tps_mean : int
+            Number of years to use to generate the mean rate of growth in HWP. 
+            Will not, in practice, exceed the number of observed years
         """
         # return None if the lookback is invalid
         if n_tps_lookback <= 0:
@@ -1242,17 +1251,17 @@ class AFOLU:
         vec_soc: np.ndarray,
         approach: int = 1
     ):
-        """
-        Calculate the annual change in soil carbon using Approach 1 
-            (even though we have a transition matrix). 
+        """Calculate the annual change in soil carbon using Approach 1 (even 
+            though we have a transition matrix). 
 
         Function Arguments
         ------------------
-        - vec_soc: vector of soil carbon
+        vec_soc : np.ndarray
+            Vector of soil carbon
 
         Keyword Arguments
         -----------------
-        - approach: either 1 or 2
+        approach : int
             * 1: use IPCC approach 1
             * 2: use change in soil carbon year over year implied by vec_soc
 
@@ -1281,21 +1290,22 @@ class AFOLU:
         time_dependence_stock_change: int,
         shape_param: Union[float, int] = None,
     ) -> np.ndarray:
-        """
-        Calculate the SOC stock change with time dependence (includes some 
+        """Calculate the SOC stock change with time dependence (includes some 
             qualitative non-linearities)
 
         Function Arguments
         ------------------
-        - arrs_lndu_land_conv: arrays with land use conversion totals
-        - arrs_lndu_soc_conversion_factors: arrays with SOC conversion factors 
-            between types
-        - time_dependence_stock_change: time-dependent stock change factor to 
-            use
+        arrs_lndu_land_conv : 
+            Arrays with land use conversion totals
+        arrs_lndu_soc_conversion_factors : 
+            Arrays with SOC conversion factors between types
+        time_dependence_stock_change : 
+            Time-dependent stock change factor to use
 
         Keyword Arguments
         -----------------
-        - shape_param: parameter that expands the sigmoid. If None, defaults to 
+        shape_param : 
+            Parameter that expands the sigmoid. If None, defaults to 
             time_dependence_stock_change/10.
 
         Notes
