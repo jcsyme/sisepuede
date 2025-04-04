@@ -3270,7 +3270,7 @@ class Transformers:
             vec_implementation_ramp,
             df_input,
         )
-
+        """
         ##  BEGIN modify ramp to be a binary/start in another year HEREHERE - TEMP  ##
         vec_ramp = np.array(
             [float(int(x > 0)) for x in vec_implementation_ramp]
@@ -3283,11 +3283,12 @@ class Transformers:
             ]
         )
         ##  END ##
+        """;
 
         df_out = tba.transformation_frst_reduce_deforestation(
             df_input,
             magnitude,
-            vec_ramp,#self.vec_implementation_ramp,
+            vec_implementation_ramp,
             self.model_attributes,
             field_region = self.key_region,
             model_afolu = self.model_afolu,
