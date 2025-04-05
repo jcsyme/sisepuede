@@ -11,8 +11,19 @@ import sisepuede.utilities._toolbox as sf
 
 
 
+##  SOME GLOBALS
+
+
+# ERROR CLASSES
+
+class FODError(Exception):
+    pass
+
+
+# UUID 
 
 _MODULE_UUID = "985A7AD0-E7C8-4F6D-A40A-78318D3CB383"  
+
 
 
 
@@ -23,12 +34,14 @@ _MODULE_UUID = "985A7AD0-E7C8-4F6D-A40A-78318D3CB383"
 #####################################
 
 class CircularEconomy:
-    """
-    Use CircularEconomy to calculate emissions from waste management in
+    """Use CircularEconomy to calculate emissions from waste management in
         SISEPUEDE. Includes emissions from the following subsectors:
 
-        * Solid Waste (WASO)
+        * Solid Waste (WASO):
+            Emissions from the disposal, treatment, and use of solid waste
         * Wastewater Treatment (TRWW)
+            Emissions from the disposal and treatment of wastewater, including
+            at treatment facilitites.
 
     Additionally, includes the following non-emissions models:
 
@@ -42,11 +55,13 @@ class CircularEconomy:
 
     Intialization Arguments
     -----------------------
-    - model_attributes: ModelAttributes object used in SISEPUEDE
+    model_attributes : ModelAttributes 
+        ModelAttributes object used in SISEPUEDE to manage variables and units
 
     Optional Arguments
     ------------------
-    - logger: optional logger object to use for event logging
+    logger : Union[logging.Logger, None]
+        Optional logger object to use for event logging
 
     """
     def __init__(self,
@@ -552,55 +567,59 @@ class CircularEconomy:
         vec_oxf: np.ndarray = 0.0,
         vec_frac_captured: np.ndarray = 0.0,
     ) -> Tuple[np.ndarray, np.ndarray]:
-        """
-        Executes the First-Order Decay model for waste decomposition
+        """Executes the First-Order Decay model for waste decomposition
 
         Function Arguments
         ------------------
-        - array_waso_waste: np.ndarray of solid waste mass by category (2 dim)
-        - vec_ddocm_factors: np.ndarray vector (by category/column-wise) of 
-            DDOCm factors (DOC*DOCf) by waste category
-        - array_k: np.array (same shape as array_waso_waste) or vector (by 
-            category, or column-wise) of methane generation rates k. If a 
-            vector, k will be assumed to be constant for all time periods.
-        - vec_mcf: np.ndarray vector (by period, or row-wise) or scalar of 
-            methane correction values by time period (len should be same as 
-            array_waso_waste)
+        array_waso_waste : np.ndarray 
+            Array of solid waste mass by category (2 dim)
+        vec_ddocm_factors : np.ndarray 
+            Vector (by category/column-wise) of DDOCm factors (DOC*DOCf) by 
+            waste category
+        array_k: np.array 
+            Array with same shape as array_waso_waste OR vector (by category, or 
+            column-wise) of methane generation rates k. If a vector, k will be 
+            assumed to be constant for all time periods.
+        vec_mcf : np.ndarray 
+            Vector (by period, or row-wise) or scalar of methane correction 
+            values by time period (len should be same as array_waso_waste)
 
         Keyword Arguments
         -----------------
-        - vec_frac_captured: vector of fraction of biogas captured
-        - vec_oxf: np.ndarray vector (by period, or row-wise) or scalar of 
-            oxidisation factors. Should not exceed 0.1. Default is 0.
+        vec_frac_captured : np.ndarray
+            Vector of fraction of biogas captured
+        vec_oxf : np.ndarray 
+            Vector (by period, or row-wise) or scalar of oxidisation factors. 
+            Should not exceed 0.1. Default is 0.
         """
 
-        # check shapes
+        ##  RUN CHECKS ON SHAPES
+
         if len(array_waso_waste.shape) == 1:
             array_waso_waste = np.array([array_waso_waste]).transpose()
         
         elif len(array_waso_waste.shape) != 2:
-            raise ValueError(f"Error in FOD: array_waso_waste should be a two dimensional array (rows are time periods, columns are categories)")
-        
+            raise FODError(f"array_waso_waste should be a two dimensional array (rows are time periods, columns are categories)")
         
         if len(array_k.shape) == 1:
             if len(array_k) != array_waso_waste.shape[1]:
-                raise ValueError(f"Error in FOD: array_k does not have the same number of categories as array_waso_waste.")
+                raise FODError(f"array_k does not have the same number of categories as array_waso_waste.")
         
         elif len(array_k.shape) == 2:
             if array_k.shape != array_waso_waste.shape:
-                raise ValueError(f"Error in FOD: incompatible array specification of array_k (shape '{array_k.shape}'). It should have shape '{array_waso_waste.shape}'")
+                raise FODError(f"incompatible array specification of array_k (shape '{array_k.shape}'). It should have shape '{array_waso_waste.shape}'")
         
         elif len(vec_ddocm_factors) != array_waso_waste.shape[1]:
-                raise ValueError(f"Error in FOD: vec_ddocm_factors does not have the same number of categories as array_waso_waste.")
+            raise FODError(f"vec_ddocm_factors does not have the same number of categories as array_waso_waste.")
         
         elif len(vec_mcf) != array_waso_waste.shape[0]:
-                raise ValueError(f"Error in FOD: vec_mcf does not have the same time periods as array_waso_waste.")
+            raise FODError(f"vec_mcf does not have the same time periods as array_waso_waste.")
         
         elif (type(vec_oxf) == np.ndarray) & (len(vec_oxf) != array_waso_waste.shape[0]):
-            raise ValueError(f"Error in FOD: vec_oxf does not have the same time periods as array_waso_waste.")
+            raise FODError(f"vec_oxf does not have the same time periods as array_waso_waste.")
         
         elif (type(vec_frac_captured) == np.ndarray) & (len(vec_frac_captured) != array_waso_waste.shape[0]):
-            raise ValueError(f"Error in FOD: vec_frac_captured does not have the same time periods as array_waso_waste.")
+            raise FODError(f"vec_frac_captured does not have the same time periods as array_waso_waste.")
 
         # start building output array
         array_k = (
@@ -644,24 +663,29 @@ class CircularEconomy:
         n_periods: int = 10,
         bp_gr: float = None,
     ) -> np.ndarray:
-
-        """
-        Obtain the historical data for solid waste disposal based on a method 
-            (either "back_project" or "historical"). 
+        """Obtain the historical data for solid waste disposal based on a method 
+            (either "back_project" or "historical"). The "back_projct" method
+            allows for estimates of historical waste deposits to inform current
+            emissions from landfills.
             
         **CAUTION**: Historical is currently undefined.
 
         Keyword Arguments
         ------------------
-        - array: np.ndarray, optional. If method == "back_project", this array 
-            is used to back project waste. Can be set to None if using 
+        array : np.ndarray
+            Optional array. If method == "back_project", this array is used to 
+            back project waste generation. Can be set to None if using 
             historical
-        - method: str, "back_project" or "historical". Default is set in the 
-            configuration file.
-        - n_periods: int, number of periods to use in the back_project method. 
-            Reset if using historical.
-        - n_gr_periods: int number of periods in back_project method used to 
-            estimate growth rate.
+        method: str
+            Default is set in the configuration file. Should be one of:
+            * "back_project"
+            * "historical"
+        n_periods: int
+            Number of periods to use in the back_project method. Reset if using 
+            historical.
+        n_gr_periods : int 
+            Number of periods in back_project method used to estimate growth 
+            rate.
         """
         # retrieve methods
         method = (
@@ -714,29 +738,34 @@ class CircularEconomy:
     def get_waso_integrated_waste_passthroughs(self,
         df_ce_trajectories: pd.DataFrame,
         arr_waso_msw_totals: np.ndarray,
-        modvar_units: str, #modvar_waso_init_msw_generated_pc
+        modvar_units: Union[str, mv.ModelVariable], #modvar_waso_init_msw_generated_pc
         attr_waso: Union[AttributeTable, None] = None,
         key_attr_food: str = "food_category",
         key_attr_sludge: str = "sewage_sludge_category",
     ) -> np.ndarray:
-        """
-        Using array arr_waso_msw_totals (total waste), get optional integrated 
-            waste from from TRWW (sludge collection at wastewater treatment 
-            plants) and AGRC (supply chain loss of food).
+        """Using array arr_waso_msw_totals (total waste), get optional 
+            integrated waste from from TRWW (sludge collection at wastewater 
+            treatment plants) and AGRC (supply chain loss of food).
         
         Function Arguments
         ------------------
-        - df_ce_trajectories: data frame of input variables
-        - arr_waso_msw_totals: array of municipal solid waste totals by category
-            (expanded to all categories).
-        - modvar_units: model variable associated with arr_waso_msw_totals units 
-            (used for unit conversion).
+        df_ce_trajectories : pd.DataFrame
+            DataFrame of input variables
+        arr_waso_msw_totals : np.ndarray
+            Array of municipal solid waste totals by category (expanded to all 
+            categories).
+        modvar_units : Union[str, ModelVariable]
+            ModelVariable specification associated with arr_waso_msw_totals 
+            units (used for unit conversion).
         
         Keyword Arguments
         -----------------
-        - attr_waso: optional attribute table to pass for checks 
-        - key_attr_food: key in WASO attribute specifying food category
-        - key_attr_sludge: key in WASO attribute specifying sludge category
+        attr_waso : Union[AttributeTable, None]
+            Optional attribute table to pass for checks 
+        key_attr_food : str
+            Key in WASO attribute specifying food category
+        key_attr_sludge : str
+            Key in WASO attribute specifying sludge category
         """
 
         attr_waso = (
@@ -823,9 +852,8 @@ class CircularEconomy:
         vec_pop: np.ndarray, 
         vec_rates_gdp_per_capita: np.ndarray = None,
     ) -> np.array:
-        """
-        Projects protein consumption (in kg) based on livestock growth, or, if 
-            not integrated, a specified elasticity.
+        """Projects protein consumption (in kg) based on livestock growth, or, 
+            if not integrated, a specified elasticity.
         """
         
         # get scalar that represents the impact of a reduction of protein in the vegetarian diet
@@ -937,40 +965,44 @@ class CircularEconomy:
 
     def project_waste_liquid(self,
         df_ce_trajectories: pd.DataFrame,
-        df_se_internal_shared_variables: pd.DataFrame = None,
-        dict_dims: dict = None,
-        n_projection_time_periods: int = None,
-        projection_time_periods: list = None
+        df_se_internal_shared_variables: Union[pd.DataFrame, None] = None,
+        dict_dims: Union[dict, None] = None,
+        n_projection_time_periods: Union[int, None] = None,
+        projection_time_periods: Union[List[int], None] = None
     ) -> pd.DataFrame:
-        """
-        Project emissions and outputs from liquid waste and wastewater treatment 
-            subsectors project_waste_liquid() takes a data frame (ordered by 
-            time series) and returns a data frame of the same order
+        """Project emissions and outputs from liquid waste and wastewater 
+            treatment subsectors project_waste_liquid() takes a data frame 
+            (ordered by time series) and returns a data frame of the same order
 
         Function Arguments
         ------------------
-        - df_ce_trajectories: pd.DataFrame of input variable trajectories
-        - df_se_internal_shared_variables: Default = None. Data frame of 
-            socioeconomic projections that are used internally. If none, the 
-            socioeconomic model will be called to project based on the input 
-            data frame.
-        - dict_dims: dictionary of scenario dimensions (if applicable). 
-            Default = None. If none, ModelAttribute.check_projection_input_df() 
-            will be run to obtain it.
-        - n_projection_time_periods: number of time periods in the projection. 
-            Default = None. If none, ModelAttribute.check_projection_input_df() 
-            will be run to obtain it.
-        - projection_time_periods: list of time periods in the projection. 
-            Default = None. If none, ModelAttribute.check_projection_input_df() 
-            will be run to obtain it.
+        df_ce_trajectories : pd.DataFrame 
+            DataFrame of input variable trajectories
+        df_se_internal_shared_variables : Union[pd.DataFrame, None]
+            Optional DataFrame of socioeconomic projections that are used 
+            internally. 
+            * If None, the socioeconomic model will be called to project based 
+                on the input data frame.
+        dict_dims : Union[dict, None]
+            Optional dictionary of scenario dimensions (if applicable). 
+            * If none, ModelAttribute.check_projection_input_df() will be run to 
+                obtain it.
+        n_projection_time_periods : Union[int, None]
+            Optional number of time periods in the projection. 
+            * If none, ModelAttribute.check_projection_input_df() will be run to 
+                obtain it.
+        projection_time_periods : Union[List[int], None]
+            Optional list of time periods in the projection. 
+            * fI none, ModelAttribute.check_projection_input_df() will be run to 
+                obtain it.
 
 
         Notes
         -----
-        - df_ce_trajectories should have all input fields required (see 
+        * df_ce_trajectories should have all input fields required (see 
             CircularEconomy.required_variables for a list of variables to be 
             defined) for the Liquid Waste and Wastewater Treatment sectors
-        - the df_ce_trajectories.project_waste_liquid method will run on valid 
+        * The df_ce_trajectories.project_waste_liquid method will run on valid 
             time periods from 1 .. k, where k <= n (n is the number of time 
             periods). By default, it drops invalid time periods. If there are 
             missing time_periods between the first and maximum, data are 

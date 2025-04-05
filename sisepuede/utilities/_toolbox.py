@@ -1234,21 +1234,23 @@ def fill_nas_for_simplex(
     default_val: Union[float, int, None] = None,
     sum_val: Union[float, int] = 1,
 ) -> pd.DataFrame:
-    """
-    Split and re-combine a dataframe. If all rows are NA, fills with default_val
-        (if None, this is 1/n for an m x n data frame). Otherwise, fills with 
-        1 - row_total.
+    """Split and re-combine a dataframe. If all rows are NA, fills with 
+        default_val (if None, this is 1/n for an m x n data frame). Otherwise, 
+        fills with 1 - row_total.
         
     Function Arguments
     ------------------
-    - df: data frame to fill on. Columns should only include fields on the 
-        simplex
+    df : pd.DataFrame
+        DataFrame to fill on. Columns should only include fields on the simplex
     
     Keyword Arguments
     -----------------
-    - chop_val: acceptable rounding error. Errors < chop_val are set to 0
-    - default_val: optional default value to specify. If None, defaults to 1/n
-    - sum_val: total that the simplex should sum to
+    chop_val : float
+        Acceptable rounding error. Errors < chop_val are set to 0
+    default_val : Union[float, int, None]
+        Optional default value to specify. If None, defaults to 1/n
+    sum_val : Union[float, int]
+        Total that the simplex should sum to
     """
     
     for i, row in df.iterrows():

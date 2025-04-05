@@ -910,15 +910,15 @@ class ModelAttributes:
     def _initialize_config(self,
         fp_config: str
     ) -> None:
-        """
-        Initialize the config object. Sets the following parameters:
+        """Initialize the config object. Sets the following parameters:
 
             * self.attribute_configuration_parameters
             * self.configuration
 
         Function Arguments
         ------------------
-        - fp_config: path to configuration file to read from
+        fp_config : str
+            Path to configuration file to read from
         """
 
         # finally, create the full analytical parameter attribute table - concatenate_attribute_tables from attribute_table
@@ -950,8 +950,7 @@ class ModelAttributes:
 
     def _initialize_dims(self,           
     ) -> None:
-        """
-        Initialize some dimensional information 
+        """Initialize some dimensional information 
         
         Function Arguments
         ------------------
@@ -968,8 +967,7 @@ class ModelAttributes:
     def _initialize_emission_modvars_by_gas(self, #FIXED
         key_other_totals: str = "multigas",
     ) -> None:
-        """
-        Get dictionaries that gives all total emission component variables
+        """Get dictionaries that gives all total emission component variables
             by gas. Sets the following properties:
 
             * self.dict_gas_to_total_emission_fields
@@ -977,8 +975,9 @@ class ModelAttributes:
 
         Keyword Arguments
         -----------------
-        - key_other_totals: key to use for gasses that are associated with 
-            multiple gasses (if applicable)
+        key_other_totals : str
+            Key to use for gasses that are associated with multiple gasses (if 
+            applicable)
         """
         # get tables and initialize dictionary out
         all_tabs = self.dict_variable_definitions.keys()
@@ -1041,8 +1040,7 @@ class ModelAttributes:
 
     def _initialize_gas_attributes(self,
     ) -> None:
-        """
-        Initialize some shared gas attribute objects. Sets the following 
+        """Initialize some shared gas attribute objects. Sets the following 
             properties:
 
             * self.dict_fc_designation_to_gas
@@ -1071,9 +1069,8 @@ class ModelAttributes:
 
     def _initialize_other_attributes(self,           
     ) -> None:
-        """
-        Initialize other attributes defined in the input attribute unit tables. 
-            Modifies entries in 
+        """Initialize other attributes defined in the input attribute unit 
+            tables. Modifies entries in 
 
                 self.dict_attributes.get(self.attribute_group_key_other)
 
@@ -1115,8 +1112,7 @@ class ModelAttributes:
 
     def _initialize_other_dictionaries(self,
     ) -> None:
-        """
-        Initialize some dictionaries that are dependent on global variable 
+        """Initialize some dictionaries that are dependent on global variable 
             properties (must be initialized AFTER 
             self._initialize_variables_by_subsector()). Sets the following
             properties:
@@ -1144,8 +1140,8 @@ class ModelAttributes:
 
     def _initialize_sector_sets(self,
     ) -> None:
-        """
-        Initialize properties around subsectors. Sets the following properties:
+        """Initialize properties around subsectors. Sets the following 
+            properties:
 
             * self.all_sectors
             * self.all_sectors_abvs
@@ -1187,8 +1183,7 @@ class ModelAttributes:
 
     def _initialize_units(self,           
     ) -> None:
-        """
-        Initialize the units defined in the input attribute unit tables. 
+        """Initialize the units defined in the input attribute unit tables. 
             Modifies entries in 
 
                 self.dict_attributes.get(self.attribute_group_key_unit,
@@ -1251,8 +1246,7 @@ class ModelAttributes:
 
     def _initialize_uuid(self,
     ) -> None:
-        """
-        Initialize the UUID
+        """Initialize the UUID
         """
 
         self._uuid = _MODULE_UUID
@@ -1263,9 +1257,8 @@ class ModelAttributes:
 
     def _initialize_variables(self,           
     ) -> None:
-        """
-        Initialize variables as model_variable.ModelVariable objects. Sets the 
-            following properties:
+        """Initialize variables as model_variable.ModelVariable objects. Sets 
+            the following properties:
 
                 * self.dict_variables
 
@@ -1294,8 +1287,7 @@ class ModelAttributes:
 
     def _initialize_variables_by_subsector(self,
     ) -> None:
-        """
-        Initialize some dictionaries describing variables by subsector.
+        """Initialize some dictionaries describing variables by subsector.
             Initializes the following properties:
 
             * self.all_variables
@@ -1385,20 +1377,21 @@ class ModelAttributes:
         fields: List[str],
         allow_subset: bool = False,
     ) -> None:
-        """
-        Check a set of binary fields specificied in an attribute table to 
+        """Check a set of binary fields specificied in an attribute table to 
             determine if they specify a partition across the categories. Assumes
             fields are binary.
 
         Function Arguments
         ------------------
-        - attr: AttributeTable to check
-        - fields: fields to check
+        attr : AttributeTable
+            AttributeTable to check
+        fields : List[str]
+            Fields to check
 
         Keyword Arguments
         -----------------
-        - allow_subset: if True, then allows values associated with the fields
-            to go unassigned
+        allow_subset : bool
+            Allow values associated with the fields to go unassigned?
         """
 
         fields = [x for x in fields if x in attr.table.columns]
@@ -1419,8 +1412,7 @@ class ModelAttributes:
         fields: Union[List[str], str],
         force_sum_to_one: bool = False,
     ) -> None:
-        """
-        Check fields `fields` in attr to ensure they are all binary (1 or 0). 
+        """Check fields `fields` in attr to ensure they are all binary (1 or 0). 
             Set `force_sum_to_one` = True to ensure that exactly one record 
             associated with each field is 1.
         """
@@ -1469,8 +1461,7 @@ class ModelAttributes:
         integer_q: bool = False,
         nonnegative_q: bool = True,
     ) -> None:
-        """
-        Verify numeric fields in attr
+        """Verify numeric fields in attr
         """
         # loop over fields to do checks
         for fld in fields:
@@ -1536,35 +1527,40 @@ class ModelAttributes:
         type_primary: str = "primary_category",
         type_target: str = "primary_category",
     ) -> None:
-        """
-        Check the validity of categories specified as an attribute 
+        """Check the validity of categories specified as an attribute 
             (subsector_target) of a primary subsector category 
             (subsector_primary)
 
         Function Arguments
         ------------------
-        - dict_subsector_primary: dictionary of form {subsector_primary: 
-            field_attribute_target}. The key gives the primary subsector, 
-            and 'field_attribute_target' is the field in the attribute table 
-            associated with the categories to check.
+        dict_subsector_primary : dict
+            Dictionary of form {subsector_primary: field_attribute_target}. The 
+            key gives the primary subsector, and 'field_attribute_target' is the 
+            field in the attribute table associated with the categories to 
+            check.
             * NOTE: dict_subsector_primary can also be specified only as a 
                 string (subsector_primary) -- if dict_subsector_primary is a 
                 string, then field_attribute_target is assumed to be the primary 
                 python category of subsector_target (e.g., $CAT-TARGET$)
-        - subsector_target: target subsector to check values against
+        subsector_target : str
+            Target subsector to check values against
 
         Keyword Arguments
         -----------------
-        - allow_multiple_cats_q: allow the target field to specify multiple 
-            categories using the default delimiter (|)?
-        - flag_non: flag to use for identifying no value or no category
-        - injection_q: default = True. If injection_q, then target categories 
-            should be associated with a unique primary category (exclding those 
-            are specified as 'none').
-        - type_primary: Type of attribute table for the primary table; valid 
-            values are "primary_category" and "variable_definitions"
-        - type_target: Type of attribute table for the target table; valid 
-            values are "primary_category" and "variable_definitions"
+        allow_multiple_cats_q : bool
+            Allow the target field to specify multiple categories using the 
+            default delimiter (|)?
+        flag_non : str
+            Flag to use for identifying no value or no category
+        injection_q: bool
+            If injection_q, then target categories should be associated with a 
+            unique primary category (exclding those are specified as 'none').
+        type_primary : str
+            Type of attribute table for the primary table; valid values are 
+            "primary_category" and "variable_definitions"
+        type_target : str
+            Type of attribute table for the target table; valid values are 
+            "primary_category" and "variable_definitions"
         """
 
         ##  RUN CHECKS ON INPUT SPECIFICATIONS
@@ -4911,27 +4907,32 @@ class ModelAttributes:
 
     def _add_specified_total_fields_to_emission_total(self,
         df_in: pd.DataFrame,
-        varlist: list,
+        varlist: List[Union[str, mv.ModelVariable]],
     ) -> None:
-        """
-        Add a total of emission fields that are specified. Inline function 
+        """Add a total of emission fields that are specified. Inline function 
             (does not return).
 
         Function Arguments
         ------------------
-        - df_in: Data frame with emission outputs to be aggregated
-        - varlist: variables to include in the sum
+        df_in : pd.DataFrame
+            DataFrame with emission outputs to be aggregated
+        varlist : List[Union[str, mv.ModelVariable]]
+            ModelVariable specifications to include in the sum
         """
         #initialize dictionary
         dict_totals = {}
         dict_fields = {}
+
         # loop over variables to
-        for var in varlist:
-            subsec = self.get_variable_subsector(var, throw_error_q = False)
+        for modvar in varlist:
+
+            subsec = self.get_variable_subsector(modvar, throw_error_q = False)
+
             if subsec is not None:
-                array_cur = self.extract_model_variable(#
+
+                array_cur = self.extract_model_variable(
                     df_in, 
-                    var, 
+                    modvar, 
                     expand_to_all_cats = True, 
                     return_type = "array_base",
                 )
@@ -4941,15 +4942,23 @@ class ModelAttributes:
                     if (field_total in df_in.columns):
                         dict_totals.update({subsec: 0.0})
                         dict_fields.update({subsec: field_total})
+
                 dict_totals[subsec] += array_cur
+
             else:
-                warning(f"In _add_specified_total_fields_to_emission_total, subsector '{subsec}' not found. Skipping...")
+                warnings.warn(f"In _add_specified_total_fields_to_emission_total, subsector '{subsec}' not found. Skipping...")
 
         # next, update dataframe
         for subsec in dict_totals.keys():
             array_totals = np.sum(dict_totals[subsec], axis = 1)
             field_total = dict_fields[subsec]
-            cur_emissions = np.array(df_in[field_total]) if (field_total in df_in.columns) else 0
+
+            cur_emissions = (
+                np.array(df_in[field_total]) 
+                if (field_total in df_in.columns) 
+                else 0
+            )
+
             df_in[field_total] = cur_emissions + array_totals
 
         return None
@@ -4962,22 +4971,24 @@ class ModelAttributes:
         stop_on_missing_fields_q: bool = False,
         skip_non_emission_subsectors: bool = True,
     ) -> str:
-        """
-        Add a total of all emission fields (across those output variables 
+        """Add a total of all emission fields (across those output variables 
             specified with $EMISSION-GAS$). Inline operation on DataFrame that
             returns the subsector total.
 
         Function Arguments
         ------------------
-        - df_in: Data frame with emission outputs to be aggregated
-        - list_subsectors: subsectors to apply totals to
+        df_in : pd.DataFrame
+            DataFrame with emission outputs to be aggregated
+        list_subsectors : List[str]
+            Subsectors to apply totals to
 
         Keyword Arguments
         -----------------
-        - stop_on_missing_fields_q: default = False. If True, will stop if any 
-            component emission variables are missing.
-        - skip_non_emission_subsectors: skip subsectors that don't generate
-            emissions? Otherwise, adds a field without 0
+        stop_on_missing_fields_q : bool
+            If True, will stop if any component emission variables are missing
+        skip_non_emission_subsectors : bool
+            skip subsectors that don't generate emissions? Otherwise, adds a 
+            field with a 0
         """
 
         list_subsectors = (
@@ -4995,6 +5006,7 @@ class ModelAttributes:
             fld_nam = self.get_subsector_emission_total_field(subsector)
             flds_add = []
             for var in vars_subsec:
+
                 var_type = self.get_variable_attribute(var, "variable_type").lower()
                 gas = self.get_variable_characteristic(var, self.varchar_str_emission_gas)
 
@@ -5009,6 +5021,7 @@ class ModelAttributes:
 
             # check for missing fields; notify
             missing_fields = [x for x in flds_add if x not in df_in.columns]
+
             if len(missing_fields) > 0:
                 str_mf = sf.print_setdiff(set(df_in.columns), set(flds_add))
                 str_mf = f"Missing fields {str_mf}.%s"
@@ -5099,25 +5112,26 @@ class ModelAttributes:
         include_scalars: bool = False,
         reduce_from_all_cats_to_specified_cats: bool = False,
     ) -> pd.DataFrame:
-        """
-        Convert an input np.ndarray into a data frame that has the proper 
+        """Convert an input np.ndarray into a data frame that has the proper 
             variable labels (ordered by category for the appropriate subsector)
 
         Function Arguments
         ------------------
-        - arr_in: np.ndarray to convert to data frame. If entered as a vector, 
-            it will be converted to a (n x 1) array, where n = len(arr_in)
-        - modvar: the name of the model variable to use to name the dataframe OR
-            the ModelVariable object
+        arr_in : np.ndarray 
+            Array to convert to data frame. If entered as a vector, it will be 
+            converted to a (n x 1) array, where n = len(arr_in)
+        modvar : Union[str, mv.ModelVariable]
+            ModelVariable name to use to name the dataframe OR the ModelVariable 
+            object
 
         Keyword Arguments
         -----------------
-        - include_scalars: If True, will rescale to reflect emissions mass 
-            correction.
-        - reduce_from_all_cats_to_specified_cats: If True, the input data frame 
-            is given across all categories and needs to be reduced to the set of 
-            categories associated with the model variable (selects subset of 
-            columns).
+        include_scalars : bool
+            If True, will rescale to reflect emissions mass correction.
+        reduce_from_all_cats_to_specified_cats : bool
+            If True, the input data frame is given across all categories and 
+            needs to be reduced to the set of categories associated with the 
+            model variable (selects subset of columns).
         """
 
         # get subsector and fields to name based on variable HEREHERE
@@ -5173,13 +5187,12 @@ class ModelAttributes:
     def assign_keys_from_attribute_fields(self, #FIXED
         subsector: str,
         field_attribute: str,
-        dict_assignment: dict,
+        dict_assignment: Dict[str, str],
         clean_attr_key: bool = False,
         clean_field_vals: bool = True,
         table_type: str = "variable_definitions",
     ) -> tuple:
-        """
-        Assign key_values that are associated with a secondary category. Use 
+        """Assign key_values that are associated with a secondary category. Use 
             matchstrings defined in dict_assignment to create an output 
             dictionary.
 
@@ -5196,21 +5209,25 @@ class ModelAttributes:
 
         Function Arguments
         ------------------
-        - dict_assignment: dict. {match_str: assigned_dictionary_key} map a 
+        subsector : str
+            The subsector to pull the attribute table from
+        field_attribute : str
+            Field in the attribute table to use to split elements
+        dict_assignment : Dict[str, str]
+            Dict of form {match_str: assigned_dictionary_key} used to map a 
             variable match string to an assignment
-        - field_attribute: field in the attribute table to use to split elements
-        - subsector: the subsector to pull the attribute table from
         
         Keyword Arguments
         -----------------
-        - clean_attr_key: default is False. Apply clean_schema() to the keys 
-            that are assigned to the output dictionary (e.g., 
-            clean_schema(variable_name))
-        - clean_field_vals: default = True. Apply clean_schema() to the values 
-            found in attr_subsector[field_attribute]?
-        - table_type: default = "categories". Represents the type of attribute
-            table; valid values are 'categories', 'varreqs_all', and 
-            'varreqs_partial'
+        clean_attr_key : bool
+            Apply clean_schema() to the keys that are assigned to the output 
+            dictionary (e.g., clean_schema(variable_name))
+        clean_field_vals : bool
+            Apply clean_schema() to the values found in 
+            attr_subsector[field_attribute]?
+        table_type : str
+            Represents the type of attribute table; valid values are 
+            'categories', 'varreqs_all', and 'varreqs_partial'
         """
 
         # check the subsector and type specifications
@@ -5283,6 +5300,36 @@ class ModelAttributes:
         ]
 
         return out
+    
+
+
+    def build_emission_total_fields_info_df(self,
+    ) -> pd.DataFrame:
+        """Build a DataFrame mapping emission total fields to model variable 
+            and subsector
+        """
+
+        df = []
+        
+        for k, fields_emit in self.dict_gas_to_total_emission_fields.items():
+
+            for field in fields_emit:
+                modvar = self.dict_variable_fields_to_model_variables.get(field)
+                modvar = self.get_variable(modvar, )
+                subsec = modvar.get_property("subsector")
+
+                df.append([subsec, k, field, modvar.name], )
+
+        df = (
+            pd.DataFrame(
+                df, 
+                columns = ["subsector", "gas", "variable_field", "variable"],
+            )
+            .sort_values(by = ["subsector", "gas", "variable", "variable_field"])
+            .reset_index(drop = True, )
+        )
+
+        return df
 
 
 
@@ -5290,8 +5337,7 @@ class ModelAttributes:
         key: str = "variable",
         return_type: str = "data_frame",
     ) -> Union['AttributeTable', pd.DataFrame]:
-        """
-        Build an attribute table for ModelVariables. Set 
+        """Build an attribute table for ModelVariables. Set 
         `return_type = "attribute_table"` to return an AttributeTable
         """
         # initialize fields, list of variables, and output data frame
@@ -5363,8 +5409,7 @@ class ModelAttributes:
         field_variable_field: str = "variable_field",
         include_modvar: bool = False,
     ) -> pd.DataFrame:
-        """
-        Build a sampling range dataframe from defaults contained in
+        """Build a sampling range dataframe from defaults contained in
             AttributeTables.
         
         Keyword Arguments
@@ -5639,8 +5684,7 @@ class ModelAttributes:
         modvar_source: Union[str, mv.ModelVariable], 
         modvar_target: Union[str, mv.ModelVariable], 
     ) -> Union[List[str], None]:
-        """
-        Build a variable using an ordered set of categories associated with 
+        """Build a variable using an ordered set of categories associated with 
             another variable. Must have the same primary category
 
         BEHAVIOR:
@@ -5652,9 +5696,10 @@ class ModelAttributes:
 
         Function Arguments
         ------------------
-        - modvar_source: source model variable (includes source categories)
-        - modvar_target: target model variable (replaced with source categories)
-
+        modvar_source : Union[str, mv.ModelVariable]
+            Source model variable (includes source categories)
+        modvar_target : Union[str, mv.ModelVariable]
+            Target model variable (replaced with source categories)
         """
         # get source categories
         cats_source = self.get_variable_categories(modvar_source)
