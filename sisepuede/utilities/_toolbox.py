@@ -2977,30 +2977,38 @@ def ramp_value1(
 
     *defaults*
 
-    for linear:
-    set a = 0, b = 2, c = 1, d = r_0 + (n - r_0 - r_1)/2
+    for linear, set: 
+        a = 0, b = 2, c = 1, d = r_0 + (n - r_0 - r_1)/2
 
-    for sigmoid:
-    set a = 1, b = 0, c = math.e, d = r_0 + (n - r_0 - r_1)/2
+    for sigmoid, set:
+        a = 1, b = 0, c = math.e, d = r_0 + (n - r_0 - r_1)/2
 
 
     Function Arguments
     ------------------
-    - x: period to calculate
-    - n: number of time periods (total)
-    - a: sigmoid magnitude parameter; set to 0 for linear, 1 for full sigmoid
-    - b: linear coefficient; set to 2 for linear (div by 2) or 0 for sigmoid
-    - c: denominator exponee--in linear, set to 1 (adds term 1 + 1 to 
+    x : Union[float, int]
+        Period to calculate
+    n : int
+        Number of time periods (total)
+    a : int
+        Sigmoid magnitude parameter; set to 0 for linear, 1 for full sigmoid
+    b : int
+        Linear coefficient; set to 2 for linear (div by 2) or 0 for sigmoid
+    c : int
+        Denominator exponee--in linear, set to 1 (adds term 1 + 1 to 
         denominator); for sigmoid, set to np.e (1 + e)
 
-
+    
     Keyword Arguments
     -----------------
-    - d: centroid for sigmoid/linear function. If using a sigmoid, this is the
+    d : Union[float, int]
+        Centroid for logistic function in window. If using a sigmoid, this is the
         position of 0.5 in years >= r_0
-    - r_0: last period == 0; e.g., if r_0 = 4 and n = 10, then in a linear 
+    r_0 : int
+        Last period == 0; e.g., if r_0 = 4 and n = 10, then in a linear 
         function, we have
-    - r_1: first period == 1. If None, defaults to n
+    r_1 : Union[int, None]
+        First period == 1. If None, defaults to n
     """
     # set r_1
     r_1 = n - 1 if not isinstance(r_1, int) else r_1
@@ -3036,26 +3044,31 @@ def ramp_vector(
     r_1: Union[int, None] = None,
     window_logistic: Tuple[int, int] = (-8, 8),
 ) -> float:
-    """
-    Build a ramp vector for n time periods. Allows for the specifcation of a 
+    """Build a ramp vector for n time periods. Allows for the specifcation of a 
         linear vector, sigmoid, window within sigmoid, or some mix of the two.
         
 
     Function Arguments
     ------------------
-    - n: number of time periods (total)
+    n : int
+        Number of time periods (total)
 
     Keyword Arguments
     -----------------
-    - alpha_logistic: fraction of ramp function that is associated with the 
-        logistic. (1 - alpha_logistic) gives the fraction that is linear.
-    - d: centroid for logistic function in window
-    - r_0: last period == 0; e.g., if r_0 = 4 and n = 10, then in a linear 
+    alpha_logistic : float
+        Fraction of ramp function that is associated with the logistic. 
+        (1 - alpha_logistic) gives the fraction that is linear.
+    d : Union[float, int]
+        Centroid for logistic function in window
+    r_0 : int
+        Last period == 0; e.g., if r_0 = 4 and n = 10, then in a linear 
         function, we have
-    - r_1: first period == 1. If None, defaults to n
-    - window_logistic: window in standard logistic function (i.e., 
-        1/(1 + e^(-x)) that is shifted and stretched to create the sigmoid 
-        component. By default, use -8 to 8.
+    r_1 : Union[int, None]
+        First period == 1. If None, defaults to n
+    window_logistic : 
+        Window in standard logistic function (i.e., 1/(1 + e^(-x)) that is 
+        shifted and stretched to create the sigmoid component. By default, use 
+        -8 to 8.
         * NOTE: The window can be asymmetric around 0 to modify the timing of
             the ramp. 
             * If |w_1| > |w_0|, then the ramp will increase more in early time
@@ -3152,8 +3165,7 @@ def ramp_vector1(
     *args,
     **kwargs,
 ) -> float:
-    """
-    Build a ramp vector for n time periods
+    """Build a ramp vector for n time periods
 
     *defaults*
 
@@ -3166,20 +3178,26 @@ def ramp_vector1(
 
     Function Arguments
     ------------------
-    - n: number of time periods (total)
-    - a: sigmoid magnitude parameter; set to 0 for linear, 1 for full sigmoid
-    - b: linear coefficient; set to 2 for linear (div by 2) or 0 for sigmoid
-    - c: denominator exponee--in linear, set to 1 (adds term 1 + 1 to 
+    n : int
+        Number of time periods (total)
+    a : int
+        Sigmoid magnitude parameter; set to 0 for linear, 1 for full sigmoid
+    b : int
+        Linear coefficient; set to 2 for linear (div by 2) or 0 for sigmoid
+    c : int
+        Denominator exponee--in linear, set to 1 (adds term 1 + 1 to 
         denominator); for sigmoid, set to np.e (1 + e)
 
 
     Keyword Arguments
     -----------------
-    - d: centroid for sigmoid/linear function. If using a sigmoid, this is the
-        position of 0.5 in years >= r_0
-    - r_0: last period == 0; e.g., if r_0 = 4 and n = 10, then in a linear 
+    d : Union[float, int]
+        Centroid for logistic function in window
+    r_0 : int
+        Last period == 0; e.g., if r_0 = 4 and n = 10, then in a linear 
         function, we have
-    - r_1: first period == 1. If None, defaults to n
+    r_1 : Union[int, None]
+        First period == 1. If None, defaults to n
     """
 
     out = [ramp_value11(x, n, *args, **kwargs) for x in range(n)]
@@ -3197,8 +3215,7 @@ def read_array_from_file(
     delim: str = ",",
     skip_header: bool = True,
 ) -> np.ndarray:
-    """
-    Read an array from a file. min_ind is first row, max_ind is last row + 1
+    """Read an array from a file. min_ind is first row, max_ind is last row + 1
         (python style indexing). Only works with numeric values.
         
     Reads like data frame index, so 0 would be the first row of data (unless
@@ -3206,8 +3223,10 @@ def read_array_from_file(
         
     Keyword Arguments
     -----------------
-    - delim: data deliminter
-    - skip_header: skip the first row
+    delim : str
+        Data deliminter
+    skip_header : bool
+        Skip the first row?
     """
     
     skiprows = min_ind
@@ -3231,8 +3250,7 @@ def read_array_from_file(
 def read_ascii(
     fp: str
 ) -> Union[np.ndarray, None]:
-    """
-    Read a geo ascii table for storage from file fp
+    """Read a geo ascii table for storage from file fp
     """
     n_header = 6
     
@@ -3257,9 +3275,8 @@ def read_text(
     fp: str,
     as_lines: bool = True,
 ) -> Union[str, None]:
-    """
-    Read text file from path fp. Set as_lines = False to read as
-        a single text stream.
+    """Read text file from path fp. Set as_lines = False to read as a single 
+        text stream.
     """
     return_none = not isinstance(fp, str)
     return_none |= (
@@ -3285,16 +3302,17 @@ def read_yaml(
     fp: str,
     munchify_dict: bool = True,
 ) -> Union[Dict, munch.Munch, None]:
-    """
-    Read a yaml file 
+    """Read a yaml file 
     
     Function Arguments
     ------------------
-    - fp: path to yaml to read
+    fp : str
+        Path to yaml to read
     
     Keyword Arguments
     -----------------
-    - munchify_dict: convert to Munch object (nested class dictionaries)
+    munchify_dict : bool
+        Convert to Munch object (nested class dictionaries)
     """
     return_none = not isinstance(fp, str) 
     
@@ -3392,8 +3410,7 @@ def repl_array_val_twodim(
     val_repl: Any, 
     val_new: Any
 ) -> None:
-    """
-    Replace values in a two-dimensional array
+    """Replace values in a two-dimensional array
     """
 
     w = np.where(array == val_repl)
@@ -3409,21 +3426,24 @@ def replace_numerical_column_from_merge(
     df_source: pd.DataFrame,
     field_to_replace: str,
     field_temporary: str = "NEWFIELDTMP"
-):
-    """
-    Replace values in field_to_replace in df_source associated with values in
+) -> pd.DataFrame:
+    """Replace values in field_to_replace in df_source associated with values in
         df_replacement and shared index fields
 
     Function Arguments
     ------------------
-    - df_target: target data frame, which will have values replaced with values
-        in df_source
-    - df_source: source data to use to replace
-    - field_to_replace: field to replace in merge
+    df_target : pd.DataFrame
+        Target data frame, which will have values replaced with values in 
+        df_source
+    df_source : pd.DataFrame
+        Source data to use to replace
+    field_to_replace : str
+        Field to replace in merge
 
     Keyword Arguments
     -----------------
-    - field_temporary: temporary field used in reassignment
+    field_temporary : str
+        Temporary field used in reassignment
 
     Notes
     -----
@@ -3448,6 +3468,90 @@ def replace_numerical_column_from_merge(
         df_out[field_to_replace] = np.array(df_out[field_to_replace]) + np.array(df_out[field_temporary])
     # drop temporary field, sort by index
     df_out = df_out[df_target.columns].sort_index()
+
+    return df_out
+
+
+
+def rescale_input_classes_to_match_output(
+    df_in: pd.DataFrame,
+    dict_repl_totals: Dict[Tuple[str], pd.DataFrame],
+    field_indexing: str, # fao_obj.field_item
+    field_value: str, # fao_obj.field_value
+) -> pd.DataFrame:
+    """Rescale input classes to meet targets (input using dict_repl_totals).
+        Uniformly scales residual classes to preserve area. Must be long by
+        field_indexing, including 
+
+    Function Arguments
+    ------------------
+    df_in : pd.DataFrame
+        Input data frame storing land use class areas in form of 
+        get_land_cover_data()
+    dict_repl_totals : Dict[Tuple[str], pd.DataFrame]
+        Dictionary mapping classes that are scaled to meet a total. Classes are
+        stored in the tuple, while the aggregate target for those classes is 
+        stored in the value
+    field_indexing : str
+        Field storing values included in the keys in dict_repl_totals
+    field_value : str
+        Field storing values to rescale
+    
+    Keyword Arguments
+    -----------------
+    """
+
+    
+    df_out = df_in.copy()
+    
+    # get some totals
+    total_area = df_out[field_value].sum()
+    
+    #total_target = sum(v[field_value].sum() for v in dict_repl_totals.values())
+    total_target = sum(dict_repl_totals.values())
+    total_residual = total_area - total_target
+    
+    # split
+    items_target = sum((list(x) for x in dict_repl_totals.keys()), [])
+    
+    # get vectors
+    vec_items = df_out[field_indexing].to_numpy().copy()
+    vec_values = df_out[field_value].to_numpy().copy()
+
+    inds_target = np.isin(vec_items, items_target)
+    total_residual_original = vec_values[~inds_target].sum()
+    
+    # scale residuals
+    vec_values = np.where(
+        inds_target,
+        vec_values,
+        vec_values*total_residual/total_residual_original
+    )
+    
+    
+    # iterate over inputs
+    for k, v in dict_repl_totals.items():
+        
+        membership = np.isin(vec_items, k)
+        total_cur = vec_values[membership].sum()
+        #total_new = v[field_value].sum()
+        total_new = np.sum(v)
+        
+        # if there's only one value and it's zero, we just have to set it to the new value
+        new_vals = (
+            vec_values + total_new/len(k)
+            if (total_cur == 0.0)
+            else vec_values*total_new/total_cur
+        )
+
+        vec_values = np.where(
+            membership,
+            new_vals,
+            vec_values
+        )
+    
+        
+    df_out[field_value] = vec_values
 
     return df_out
 

@@ -1,12 +1,10 @@
-"""
-Use this file to build functions and methods that can generate metadata and/or
-    tables/other information (including figures) based on the Model Attributes
-    module.
+"""Use this file to build functions and methods that can generate metadata 
+    and/or tables/other information (including figures) based on the 
+    ModelAttributes object.
 """
 import itertools
 import pandas as pd
 from typing import *
-
 
 import sisepuede.core.model_attributes as ma
 import sisepuede.utilities._toolbox as sf
@@ -15,8 +13,7 @@ import sisepuede.utilities._toolbox as sf
 
 
 class InformationTableProperties:
-    """
-    Class to preserve information table properties across uses
+    """Class to preserve information table properties across uses
     """
 
     def __init__(self,
@@ -64,14 +61,13 @@ class InformationTableProperties:
 def build_emissions_information_table(
     model_attributes: ma.ModelAttributes,
 ) -> pd.DataFrame:
-    """
-    Build a data frame with rows giving gasses, gas names, model variables, 
+    """Build a data frame with rows giving gasses, gas names, model variables, 
         subsector, sector, and subsector field totals.
 
     Function Arguments
     ------------------
-    - model_attributes: model_attributes.ModelAttributes object used to generate
-        and manage variables
+    model_attributes : ModelAttributes 
+        ModelAttributes object used to generate and manage variables
     """
     attr_gas = model_attributes.get_other_attribute_table("emission_gas").attribute_table
     dict_gas_to_name = attr_gas.field_maps.get(f"{attr_gas.key}_to_name")
@@ -165,16 +161,16 @@ def build_variable_information_table(
     model_attributes: ma.ModelAttributes,
     modvars: Union[List[str], None],
 ) -> Union[pd.DataFrame, None]:
-    """
-    Build a data frame with rows giving gasses, gas names, model variables, 
+    """Build a data frame with rows giving gasses, gas names, model variables, 
         subsector, sector, and subsector field totals.
 
     Function Arguments
     ------------------
-    - model_attributes: model_attributes.ModelAttributes object used to generate
-        and manage variables
-    - modvars: model variables to build information for. If None, returns all
-        model variables.
+    model_attributes : ModelAttributes
+        ModelAttributes object used to generate and manage variables
+    modvars : Union[List[str], None]
+        Model variables to build information for. 
+        * If None, returns all ModelVariables
     """
     attr_gas = model_attributes.get_other_attribute_table("emission_gas").attribute_table
     dict_gas_to_name = attr_gas.field_maps.get(f"{attr_gas.key}_to_name")
