@@ -3478,11 +3478,15 @@ def rescale_input_classes_to_match_output(
     dict_repl_totals: Dict[Tuple[str], pd.DataFrame],
     field_indexing: str, # fao_obj.field_item
     field_value: str, # fao_obj.field_value
+    classes_stable: Union[List[Any], None] = None,
 ) -> pd.DataFrame:
     """Rescale input classes to meet targets (input using dict_repl_totals).
         Uniformly scales residual classes to preserve area. Must be long by
         field_indexing, including 
 
+    NOTE: if stable classes are specified, then the total that can be rescaled 
+        is capped at the total area less the area of stable classes.
+    
     Function Arguments
     ------------------
     df_in : pd.DataFrame
@@ -3499,16 +3503,41 @@ def rescale_input_classes_to_match_output(
     
     Keyword Arguments
     -----------------
+    classes_stable : Union[List[Any], None]
+        Optional list of classes to preserve as stable.
     """
 
     
     df_out = df_in.copy()
+
+    ##  SPLIT OUT STABLE COMPONENTS
+
+    classes_stable = [] if not islistlike(classes_stable) else classes_stable
+    df_out_stable = (
+        df_out[
+            df_out[field_indexing].isin(classes_stable)
+        ]
+        .copy()
+    )
+
+    df_out = df_out[
+        ~df_out[field_indexing].isin(classes_stable)
+    ]
+
     
-    # get some totals
+    ##  GET TOTALS AND INDICES FOR SCALING AND RESIDUALS
+
     total_area = df_out[field_value].sum()
     
-    #total_target = sum(v[field_value].sum() for v in dict_repl_totals.values())
-    total_target = sum(dict_repl_totals.values())
+    # cap the total target at total area; we do this because there might be classes that need to be stable
+    total_target_0 = sum(dict_repl_totals.values())
+    total_target = min(total_target_0, total_area, )
+
+    if total_target != total_target_0:
+        dict_repl_totals = dict(
+            (k, v*total_target/total_target_0) for k, v in dict_repl_totals.items()
+        )
+
     total_residual = total_area - total_target
     
     # split
@@ -3518,6 +3547,7 @@ def rescale_input_classes_to_match_output(
     vec_items = df_out[field_indexing].to_numpy().copy()
     vec_values = df_out[field_value].to_numpy().copy()
 
+    # indices that will be resecaled
     inds_target = np.isin(vec_items, items_target)
     total_residual_original = vec_values[~inds_target].sum()
     
@@ -3528,13 +3558,14 @@ def rescale_input_classes_to_match_output(
         vec_values*total_residual/total_residual_original
     )
     
+
+    ##  ITERATE OVER INPUTS TO RESCALE
     
     # iterate over inputs
     for k, v in dict_repl_totals.items():
         
         membership = np.isin(vec_items, k)
         total_cur = vec_values[membership].sum()
-        #total_new = v[field_value].sum()
         total_new = np.sum(v)
         
         # if there's only one value and it's zero, we just have to set it to the new value
@@ -3552,6 +3583,12 @@ def rescale_input_classes_to_match_output(
     
         
     df_out[field_value] = vec_values
+
+    # index hasn't been modified
+    df_out = (
+        pd.concat([df_out, df_out_stable])
+        .sort_index()
+    )
 
     return df_out
 
@@ -3951,6 +3988,84 @@ def subset_df(
     df: pd.DataFrame,
     dict_in: Union[Dict[str, List], None],
     dict_as_exclusionary: bool = False,
+    fields_force_group_complete: Union[List[str], None] = None,
+    **kwargs,
+) -> pd.DataFrame:
+    """Subset a dataframe using values associated with fields, passed in a 
+        filtering dictionary. 
+        
+    NOTE: Optionally, you can set `fields_force_group_complete` to force the 
+        subsets to be complete within a group. If this occurs, then groups the
+        DataFrame by the valid fields specified in the field and subsequently 
+        ensures that all elements specified in the dictionary are included in \
+        each group.
+
+
+    Function Arguments
+    ------------------
+    df : pd.DataFrame
+        DataFrame to subset using dictionary
+    dict_in : Union[Dict[str, List], None]
+        Dictionary used to reduce df that takes the following form:
+
+        dict_in = {
+            field_a = [v_a1, v_a2, v_a3, ... v_an],
+            field_b = v_b,
+            .
+            .
+            .
+        }
+
+        where `field_a` and `field_b` are fields in the data frame and
+
+            [v_a1, v_a2, v_a3, ... v_an]
+
+        is a list of acceptable values to filter on, and
+
+            v_b
+
+        is a single acceptable value for field_b.
+
+    Keyword Arguments
+    -----------------
+    dict_as_exclusionary : bool
+        Set to True to *exclude* values passed in the dictionary
+    fields_force_group_complete : Union[List[str], None]
+        Optional fields to specify as fields_group in 
+        subset_df_force_group_completeness. Some important notes:
+
+        * If None/not listlike:     calls subset_df_basic(), the generic form
+        * If []:                    applies forced group completeness to entire 
+                                    dataframe
+        * If list of fields:        applies forced group to valid group fields
+                                    (those contained in the DataFrame)
+    **kwargs
+        Ignored keyword arguments
+    """
+
+    if not islistlike(fields_force_group_complete):
+        df_out = subset_df_basic(
+            df,
+            dict_in,
+            dict_as_exclusionary = dict_as_exclusionary,
+        )
+
+    else:
+        df_out = subset_df_force_group_completeness(
+            df,
+            dict_in,
+            fields_force_group_complete,
+            dict_as_exclusionary = dict_as_exclusionary,
+        )
+
+    return df_out
+
+
+
+def subset_df_basic(
+    df: pd.DataFrame,
+    dict_in: Union[Dict[str, List], None],
+    dict_as_exclusionary: bool = False,
     **kwargs,
 ) -> pd.DataFrame:
     """Subset a dataframe using values associated with fields, passed in a 
@@ -4008,6 +4123,128 @@ def subset_df(
         )
 
     df_out = df.reset_index(drop = True, )
+
+    return df_out
+
+
+
+def subset_df_force_group_completeness(
+    df: pd.DataFrame,
+    dict_in: Union[Dict[str, List], None],
+    fields_group: List[str],
+    dict_as_exclusionary: bool = False,
+    **kwargs,
+) -> pd.DataFrame:
+    """Subset a dataframe using values associated with fields, passed in a 
+        filtering dictionary, and ensure that within subgroups the subsets
+        defined are complete (i.e., ALL elements in the subset are present)
+
+    Applies filtering to each group in the grouped DataFrame; then, ensures
+        that all elements specified in the dictionary are included in each 
+        group.
+
+    Function Arguments
+    ------------------
+    df : pd.DataFrame
+        DataFrame to subset using dictionary
+    dict_in : Union[Dict[str, List], None]
+        Dictionary used to reduce df that takes the following form:
+
+        dict_in = {
+            field_a = [v_a1, v_a2, v_a3, ... v_an],
+            field_b = v_b,
+            .
+            .
+            .
+        }
+
+        where `field_a` and `field_b` are fields in the data frame and
+
+            [v_a1, v_a2, v_a3, ... v_an]
+
+        is a list of acceptable values to filter on, and
+
+            v_b
+
+        is a single acceptable value for field_b.
+        
+    fields_group : List[str]
+        Fields to group on. Note
+        
+    Keyword Arguments
+    -----------------
+    dict_as_exclusionary : bool
+        Set to True to *exclude* values passed in the dictionary
+    **kwargs
+        Ignored keyword arguments
+    """
+
+    # check the input dictionary
+    dict_in = {} if not isinstance(dict_in, dict) else dict_in
+    dict_iter = dict(
+        (k, list(set([v] if not islistlike(v) else v)))
+        for k, v in dict_in.items() 
+        if k in df.columns
+    )
+    
+    if len(dict_iter) == 0:
+        return df
+
+    # here, filter the dictionary to 
+    if dict_as_exclusionary:
+        
+        dict_iter_new = {}
+        
+        for k, v in dict_iter.items():
+            
+            space = set(df[k].unique())
+            diff = space - set(v)
+
+            # if there are no possble elements in the complement, return an empty daataframe
+            if len(diff) == 0:
+                return df.iloc[0:0]
+
+            dict_iter_new.update({k: list(diff)})
+
+        dict_iter = dict_iter_new
+
+
+    ##  GROUP AND FILTER
+    
+    # check fields to group on 
+    fields_group = (
+        [x for x in fields_group if x in df.columns]
+        if islistlike(fields_group)
+        else []
+    )
+    
+    # set the groups; if no grouping fields are provided, apply to the entire DataFrame
+    dfg = (
+        df.groupby(fields_group)
+        if len(fields_group) > 0
+        else [(None, df)]
+    )
+
+    # initialize output data frame
+    df_out = []
+    
+    # 
+    for _, df_cur in dfg:
+
+        df_try = df_cur.copy()
+        
+        # otherwise, iterate over specifications to filter
+        for k, v in dict_iter.items():
+            df_try = df_try[df_try[k].isin(v)]
+
+        # verify that the set contained in the df is complete
+        keep = True
+        for k, v in dict_iter.items():
+            keep &= (len(df_try[k].unique()) == len(v))
+
+        if keep: df_out.append(df_try)
+
+    df_out = _concat_df(df_out, )
 
     return df_out
 
