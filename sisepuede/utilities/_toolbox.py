@@ -3951,16 +3951,18 @@ def subset_df(
     df: pd.DataFrame,
     dict_in: Union[Dict[str, List], None],
     dict_as_exclusionary: bool = False,
+    **kwargs,
 ) -> pd.DataFrame:
-    """
-    Subset a dataframe using values associated with fields, passed in a 
+    """Subset a dataframe using values associated with fields, passed in a 
         filtering dictionary
 
 
     Function Arguments
     ------------------
-    - df: data frame to reduce
-    - dict_in: dictionary used to reduce df that takes the following form:
+    df : pd.DataFrame
+        DataFrame to subset using dictionary
+    dict_in : Union[Dict[str, List], None]
+        Dictionary used to reduce df that takes the following form:
 
         dict_in = {
             field_a = [v_a1, v_a2, v_a3, ... v_an],
@@ -3982,13 +3984,18 @@ def subset_df(
 
     Keyword Arguments
     -----------------
-    - dict_as_exclusionary: set to True to *exclude* values passed in the 
-        dictionary
+    dict_as_exclusionary : bool
+        Set to True to *exclude* values passed in the dictionary
+    **kwargs
+        Ignored keyword arguments
     """
 
-
+    # check the input dictionary
     dict_in = {} if not isinstance(dict_in, dict) else dict_in
+    if len(dict_in) == 0:
+        return df
 
+    # otherwise, iterate over specifications
     for k, v in dict_in.items():
         if k not in df.columns:
             continue
@@ -4000,9 +4007,9 @@ def subset_df(
             else df[~df[k].isin(val)]
         )
 
-    df.reset_index(drop = True, inplace = True)
+    df_out = df.reset_index(drop = True, )
 
-    return df
+    return df_out
 
 
 
