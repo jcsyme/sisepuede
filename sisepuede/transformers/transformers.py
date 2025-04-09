@@ -3242,18 +3242,22 @@ class Transformers:
         strat: Union[int, None] = None,
         vec_implementation_ramp: Union[np.ndarray, Dict[str, int], None] = None,
     ) -> pd.DataFrame:
-        """Implement the "Stop Deforestation" FRST transformer on input DataFrame df_input. 
+        """Implement the "Stop Deforestation" FRST transformer on input 
+            DataFrame df_input. 
         
         Parameters
         ----------
         df_input : pd.DataFrame
             Optional data frame containing trajectories to modify
         magnitude : float
-            Magnitude of final primary forest transition probability into itself; higher magnitudes indicate less deforestation.
+            Magnitude of final primary forest transition probability into 
+            itself; higher magnitudes indicate less deforestation.
         strat : int
             Optional strategy value to specify for the transformation
         vec_implementation_ramp : Union[np.ndarray, Dict[str, int], None]
-            Optional vector or dictionary specifying the implementation scalar ramp for the transformation. If None, defaults to a uniform ramp that starts at the time specified in the configuration.
+            Optional vector or dictionary specifying the implementation scalar 
+            ramp for the transformation. If None, defaults to a uniform ramp 
+            that starts at the time specified in the configuration.
         """
         # check input dataframe
         df_input = (
