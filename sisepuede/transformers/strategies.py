@@ -1901,7 +1901,7 @@ class Strategies:
             ids = [x for x in ids if x not in keys]
             build_ids = len(ids) != len(trans_specs)
         elif sf.isnumber(ids, integer = True, ):
-            max_id = max(max_id, ids)
+            max_id = max(max_id, ids - 1)
                 
 
         ids = (
