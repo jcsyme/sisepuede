@@ -1842,8 +1842,12 @@ class Strategies:
         delim : Union[str, None]
             Delimiter used to split transformation specifications
         ids : Union[None, List[int]]
-            Optional specification of IDs. If None, automatically starts 1 
-            above the highest defined strategy id.
+            Optional specification of IDs. 
+            * int:          Specify the base id explicitly. Will take the 
+                            maximum between this value and max(existing_ids) + 1
+            * List[int]:    Specify ids explicitly. Must be of correct length.
+            * None:         Automatically start at 1 above the highest defined 
+                            strategy id.
         """
         # get the strategy and transformation codes asociated with it
         strat = self.get_strategy(strategy, )
@@ -1908,6 +1912,8 @@ class Strategies:
         if not build_ids:
             ids = [x for x in ids if x not in keys]
             build_ids = len(ids) != len(trans_specs)
+        elif sf.isnumber(ids, integer = True, ):
+            max_id = max(max_id, ids)
                 
 
         ids = (
