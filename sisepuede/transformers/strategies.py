@@ -1666,25 +1666,182 @@ class Strategies:
     
 
 
+    def build_tornado_strategies(self,
+        strategy_base: Union[int, str, None],
+        code_prepend: str = "TORNADO",
+        code_prependages_skip: Union[str, List[str]] = "PFLO",
+        delim: Union[str, None] = None,
+        delim_code: str = ":",
+        max_length_intersection: Union[int, None] = 0, 
+        strategy_stress: Union[int, str, None] = None,
+    ) -> Union[pd.DataFrame, None]:
+        """Build strategies designed by adding transformations 1-by-1 to a 
+            strategy
+
+        Function Arguments
+        ------------------
+        strategy_base : Union[int, str]
+            Strategy to add to the base. If None, defaults to base strategy
+        
+        Keyword Arguments
+        -----------------
+        code_prepend : str
+            Code to prepend to new strategies
+        delim : str 
+            Delimiter used to split transformation specifications
+        delim_code : str
+            Delimiter used to track transformation code hierarchy 
+        max_length_intersection : Union[int, None]
+            Optional specification of maximum size of intersection between 
+            strategy_base and potential strategies
+        strategy_stress : Union[int, str, None]
+            Optional strategy to decompose into tornado; if None, will build
+            tornado design for each defined transformation
+        """
+
+        ##  INITIALIZATION
+        
+        # get the strategy and transformation codes asociated with it
+        strategy_base = self.baseline_id if (strategy_base is None) else strategy_base
+        strat = self.get_strategy(strategy_base, )
+        if strat is None:
+            return None
+
+        code_base = strat.code
+        id_base = strat.id_num
+
+        # get code prependages to skip
+        code_prependages_skip = (
+            [code_prependages_skip]
+            if isinstance(code_prependages_skip, str)
+            else code_prependages_skip
+        )
+        code_prependages_skip = (
+            [] 
+            if not isinstance(code_prependages_skip, list)
+            else code_prependages_skip
+        )
+
+        # get transformations included in the base strategy
+        transformations_deconstruct = strat.get_transformation_list(
+            strat.transformation_specification,
+            self.transformations,
+        )
+        codes_base = sorted([x.code for x in transformations_deconstruct])
+
+        delim = (
+            strat.delimiter_transformation_codes
+            if not isinstance(delim, str)
+            else delim
+        )
+
+        
+        # set transformation codes to iterate over
+        codes_iter = self.transformations.all_transformation_codes
+
+        # restrict to one strategy's set?
+        if is_strategy(strategy_stress, ):
+            transformations_restrict = strategy_stress.get_transformation_list(
+                strategy_stress.transformation_specification,
+                self.transformations,
+            )
+
+            # filter down 
+            transformations_restrict = [x.code for x in transformations_restrict]
+            codes_iter = [
+                x.code for x in transformations_restrict if x in codes_iter
+            ]
+        
+        
+        ##  GET STRATEGY CODES TO ITERATE OVER
+
+        keys = self.attribute_table.key_values
+        id_new = max(self.attribute_table.key_values)
+
+        codes_new = []
+        ids_new = []
+        names_new = []
+        specs_new = []
+        
+        # set the maximum size of the intersection
+        max_length_intersection = np.inf if max_length_intersection is None else max_length_intersection
+        max_length_intersection = (
+            0 
+            if not sf.isnumber(max_length_intersection, integer = True) 
+            else max_length_intersection
+        )
+
+        # 
+        for code in codes_iter:
+            
+            transformation = self.transformations.get_transformation(code)
+            
+            # get the strategy and run some checks
+            skip = (code == self.transformations.code_baseline)
+            skip |= transformation in transformations_deconstruct
+            
+            if skip: continue
+
+            # setup the spcification
+            spec_new = (
+                [strat.transformation_specification, code]
+                if id_base != self.baseline_id
+                else [code]
+            )
+            spec_new = delim.join(spec_new)
+            
+            # new code and id
+            code_new = f"{code_prepend}{delim_code}{code}"
+            name_new = f"Add {code} to {strat.name}"
+            id_new += 1
+            
+            codes_new.append(code_new, )
+            ids_new.append(id_new, )
+            names_new.append(name_new, )
+            specs_new.append(spec_new, )
+
+
+        # build output datadrame
+        df_out = pd.DataFrame(
+            {
+                self.attribute_table.key: ids_new,
+                self.field_baseline_strategy: np.zeros(len(specs_new)),
+                self.field_description: ["" for x in specs_new],
+                self.field_strategy_code: codes_new,
+                self.field_strategy_name: names_new,
+                self.field_transformation_specification: specs_new,
+            }
+        )
+
+        df_out = df_out[self.attribute_table.table.columns]
+
+        return df_out
+    
+
+
     def build_whirlpool_strategies(self,
         strategy: Union[int, str, None],
         code_prepend: str = "WHIRLPOOL",
         delim: Union[str, None] = None,
         ids: Union[None, List[int]] = None,
     ) -> Union[pd.DataFrame, None]:
-        """
-        Build strategies designed by removing transformations 1-by-1 from a 
+        """Build strategies designed by removing transformations 1-by-1 from a 
             strategy (whirlpool--kind of the inverse of a tornado)
 
         Function Arguments
         ------------------
-        - strategy: strategy to remove from
+        strategy : Union[int, str, None]
+            Strategy to remove transformations from
         
         Keyword Arguments
         -----------------
-        - code_prepend: code to prepend 
-        - delim: delimiter used to split transformation specifications
-        - ids: optional specification of IDs. If None, automatically starts 1 
+        code_prepend : str
+            Code to prepend to the transformation codes to create new strategy
+            code.
+        delim : Union[str, None]
+            Delimiter used to split transformation specifications
+        ids : Union[None, List[int]]
+            Optional specification of IDs. If None, automatically starts 1 
             above the highest defined strategy id.
         """
         # get the strategy and transformation codes asociated with it
