@@ -1671,6 +1671,7 @@ class Strategies:
         delim_code: str = ":",
         max_length_intersection: Union[int, None] = 0, 
         strategy_stress: Union[int, str, None] = None,
+        **kwargs,
     ) -> Union[pd.DataFrame, None]:
         """Build strategies designed by adding transformations 1-by-1 to a 
             strategy
@@ -1737,6 +1738,7 @@ class Strategies:
         codes_iter = self.transformations.all_transformation_codes
 
         # restrict to one strategy's set?
+        strategy_stress = self.get_strategy(strategy_stress, )
         if is_strategy(strategy_stress, ):
             transformations_restrict = strategy_stress.get_transformation_list(
                 strategy_stress.transformation_specification,
@@ -1745,9 +1747,7 @@ class Strategies:
 
             # filter down 
             transformations_restrict = [x.code for x in transformations_restrict]
-            codes_iter = [
-                x.code for x in transformations_restrict if x in codes_iter
-            ]
+            codes_iter = [x for x in transformations_restrict if x in codes_iter]
         
         
         ##  GET STRATEGY CODES TO ITERATE OVER
@@ -1821,6 +1821,7 @@ class Strategies:
         code_prepend: str = "WHIRLPOOL",
         delim: Union[str, None] = None,
         ids: Union[None, List[int]] = None,
+        **kwargs,
     ) -> Union[pd.DataFrame, None]:
         """
         Build strategies designed by removing transformations 1-by-1 from a 
