@@ -1820,16 +1820,15 @@ class Strategies:
         strategy: Union[int, str, None],
         code_prepend: str = "WHIRLPOOL",
         delim: Union[str, None] = None,
-        ids: Union[None, List[int]] = None,
+        ids: Union[int, List[int], None] = None,
         **kwargs,
     ) -> Union[pd.DataFrame, None]:
-        """
-        Build strategies designed by removing transformations 1-by-1 from a 
+        """Build strategies designed by removing transformations 1-by-1 from a 
             strategy (whirlpool--kind of the inverse of a tornado)
 
         Function Arguments
         ------------------
-        - strategy: strategy to remove from
+        strategy: strategy to remove from
         
         Keyword Arguments
         -----------------
@@ -1901,6 +1900,8 @@ class Strategies:
         if not build_ids:
             ids = [x for x in ids if x not in keys]
             build_ids = len(ids) != len(trans_specs)
+        elif sf.isnumber(ids, integer = True, ):
+            max_id = max(max_id, ids)
                 
 
         ids = (
