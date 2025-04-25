@@ -1626,23 +1626,26 @@ def get_cols_as_grouped_proportions(
     drop_if_zero_sum: bool = False,
     include_other_fields: bool = True,
 ) -> Union[pd.DataFrame, None]:
-    """
-    Modify columns to be proportions based on a grouping of index fields. 
+    """Modify columns to be proportions based on a grouping of index fields. 
         Returns None if invalid fields are found. Otherwise, returns a DataFrame 
         with fields_data as proportions of the total within that column based on 
         grouping fields_group.
     
     Function Arguments
     ------------------
-    - df_in: DataFrame with columns to calculate proportions for
-    - fields_data: fields to calculate as proportions
-    - fields_group: fields to group on
+    df_in : pd.DataFrame
+        DataFrame with columns to calculate proportions for
+    fields_data : List[str]
+        Fields to calculate as proportions
+    fields_group : List[str]
+        Fields to group on
     
     Keyword Arguments
     -----------------
-    - drop_if_zero_sum: if the sum of columns is zero, drop?
-    - include_other_fields: include other data frame fields besides fields_data
-        and fields_group?
+    drop_if_zero_sum : bool
+        If the sum of columns is zero, drop?
+    include_other_fields : bool
+        Include other data frame fields besides fields_data and fields_group?
     """
     # verify fields and return None if 
     fields_data = [x for x in fields_data if x in df_in.columns]
