@@ -27,7 +27,20 @@ class InvalidTimePeriod(Exception):
 
 
 
+##########################
+#    GLOBAL VARIABLES    #
+##########################
+
+# module UUID
 _MODULE_UUID = "6B7410BF-A491-42F9-B904-5AB526C74180"
+
+# return types
+_RETURN_TYPE_ISO = "iso"
+_RETURN_TYPE_ISO_NUMERIC = "iso_numeric"
+_RETURN_TYPE_REGION = "region"
+
+
+
 
 ##################################
 #    INITIALIZATION FUNCTIONS    #
@@ -35,9 +48,8 @@ _MODULE_UUID = "6B7410BF-A491-42F9-B904-5AB526C74180"
 
 
 class Regions:
-    """
-    Leverage some simple region actions based on model attributes. Supports the
-        following actions for data:
+    """Leverage some simple region actions based on model attributes. Supports
+        the following actions for data:
 
         * Aggregation by World Bank global region
         * Finding the closest region (by population centroid)
@@ -51,13 +63,14 @@ class Regions:
 
     Initialization Arguments
     ------------------------
-    - model_attributes: ModelAttributes object used to coordinate attributes and
-        variables
+    model_attributes : ModelAttributes
+        ModelAttributes object used to coordinate attributes and variables
 
     Optional Arguments
     ------------------
-    - regex_region_groups: optional regular expression used to identify region
-        groups in the attribute table
+    regex_region_groups : Union[re.Pattern, None]
+        Optional regular expression used to identify region groups in the 
+        attribute table
     """
 
     def __init__(self,
@@ -176,6 +189,7 @@ class Regions:
             * self.key
             * self.regex_superregion
             * self.valid_region_groups
+            * self.valid_return_types
 
 
         """
@@ -235,6 +249,14 @@ class Regions:
         dict_region_to_un_region = attributes.field_maps.get(f"{attributes.key}_to_{field_un_global_region}")
         all_un_regions = sorted(list(dict_region_to_un_region.keys()))
 
+        
+        ##  SET VALID RETURN TYPES
+
+        valid_return_types = [
+            _RETURN_TYPE_ISO,
+            _RETURN_TYPE_ISO_NUMERIC,
+            _RETURN_TYPE_REGION
+        ]
 
         ##  SET PROPERTIES
 
@@ -261,6 +283,7 @@ class Regions:
         self.key = attributes.key
         self.regex_region_groups = regex_region_groups
         self.region_groupings = region_groupings
+        self.valid_return_types = valid_return_types
 
         return None
     
@@ -377,6 +400,65 @@ class Regions:
         
     """
 
+    def add_region_or_iso_field(self,
+        df: pd.DataFrame,
+        field_iso: Union[str, None] = None,
+        field_region: Union[str, None] = None,
+        **kwargs,
+    ) -> Union[str, None]:
+        """Return region for region entered as region or ISO.
+
+        Function Arguments
+        ------------------
+        df : pd.DataFrame
+            DataFrame to which to add region or iso field
+
+        Keyword Arguments
+        -----------------
+        field_iso: str
+            Field in df storing ISO code OR field to add with ISO code (if not 
+            in df)
+        field_region: str
+            Field in df storing region OR field to add with region (if not in 
+            df)
+        **kwargs
+            Passed to return_region_or_iso
+        """
+
+        field_iso = (
+            self.field_iso
+            if not isinstance(field_iso, str)
+            else field_iso
+        )
+        field_region = (
+            self.key
+            if not isinstance(field_region, str)
+            else field_region
+        )
+
+        no_action = (field_iso not in df.columns) & (field_region not in df.columns)
+        no_action |= (field_iso in df.columns) & (field_region in df.columns)
+        if no_action:
+            return df
+        
+        # get fields and apply switch
+        field = field_region if (field_region in df.columns) else field_iso
+        field_new = field_iso if (field_region in df.columns) else field_region
+        return_type = "iso" if (field_region in df.columns) else "region"
+
+        df_out = df.copy()
+        vec = list(
+            df_out[field]
+            .apply(
+                self.return_region_or_iso, 
+                return_type = return_type, 
+                **kwargs
+            )
+        )
+        df_out[field_new] = vec
+
+        return df_out
+    
 
 
     def aggregate_df_by_region_group(self,
@@ -522,6 +604,223 @@ class Regions:
 
 
 
+    def clean_region(self,
+        region: str,
+        force_to_string: bool = False,
+    ) -> str:
+        """
+        Clean the region name. Set `force_to_string` to True to force inputs
+            to take type str
+        """
+
+        if not (isinstance(region, str) | force_to_string):
+            return region
+
+        dict_repl = dict((x, "_") for x in ["-", " "])
+
+        out = str(region).strip().lower()
+        out = sf.str_replace(out, dict_repl)
+
+        return out
+
+    
+
+    def convert_region_codes(self,
+        df: pd.DataFrame,
+        field_codes: str,
+        input_code_type: str,
+        output_code_type: str,
+        merge_type: str = "inner",
+        overwrite: bool = False,
+        replace: bool = True,
+    ) -> Union[pd.DataFrame, None]:
+        """Convert region code types. Valid input and output code types include:
+        
+        Function Arguments
+        ------------------
+        df : pd.DataFrame
+            DataFrame containing the field to convert
+        field_codes : str
+            Field name containg codes to convert
+        input_code_type : str
+            Input code type to convert from. Valid input codes include:
+            
+            * "fao_region_code":
+                FAO region code (integer)
+            * "iso":
+                ISO 3 alphanumeric code
+            * "iso_numeric":
+                ISO numeric (integer) code
+            * "region": 
+                Region name
+
+        output_code_type : str
+            Output code type to convert to. Valid output codes include:
+
+            * "fao_region_code":
+                FAO region code (integer)
+            * "iso":
+                ISO 3 alphanumeric code
+            * "iso_numeric":
+                ISO numeric (integer) code
+            * "region": 
+                Region name
+            * "un_region":
+                UN Region name (non-injective, image only)
+            * "un_sub_region":
+                UN Region name (non-injective, image only)
+            * "world_bank_global_region": 
+                World Bank region code
+                
+            
+        Keyword Arguments
+        -----------------
+        merge_type : str
+            "inner" or "outer". If outer, can   NAs
+        overwrite : bool
+            Overwrite existing output field if present?
+        replace : bool
+            Replace the field containing the region codes? If False, keeps both 
+            the old (input) and new (output) fields
+        """
+
+        ##  CHECKS AND INIT
+
+        # check that field_codes is in the dataframe
+        if field_codes not in df.columns:
+            return df
+
+        # map the input/output type to the field in the attribute table
+        dict_type_to_attribute_field = {
+            "fao_region_code": "fao_area_code",
+            _RETURN_TYPE_ISO: self.field_iso,
+            _RETURN_TYPE_ISO_NUMERIC: self.field_iso_numeric,
+            _RETURN_TYPE_REGION: self.key,
+        }
+
+        dict_update = [self.get_region_group_field(x) for x in self.region_groupings]
+        dict_type_to_attribute_field.update(dict((x, x) for x in dict_update))
+
+        # next, get the fields from the attribute table
+        field_input = dict_type_to_attribute_field.get(input_code_type)
+        field_output = dict_type_to_attribute_field.get(output_code_type)
+
+        # check type specifications - start with inputs
+        if field_input is None:
+            valid_inputs_print = sf.format_print_list(list(dict_type_to_attribute_field.keys()))
+            msg = f"Invalid input type '{input_code_type}' in convert_region_codes(). Valid inputs are {valid_inputs_print}."
+            raise TypeError(msg)
+
+        # check outputs
+        if field_output is None:
+            valid_outputs_print = sf.format_print_list(list(dict_type_to_attribute_field.keys()))
+            msg = f"Invalid output type '{output_code_type}' in convert_region_codes(). Valid outputs are {valid_outputs_print}."
+            raise TypeError(msg)
+
+        # then check output overwriting and drop the existing field if necessary
+        if (field_output in df.columns):
+            if not overwrite:
+                return df
+            
+            df.drop(
+                [field_output], 
+                axis = 1,
+                inplace = True,
+            )
+            
+
+        ##  BUILD OUTPUT TABLE
+
+        df_merge = (
+            self.attributes
+            .table[[field_input, field_output]]
+            .copy()
+            .rename(
+                columns = {field_input: field_codes}
+            )
+        )
+        
+        df = sf.merge_replace(
+            df,
+            df_merge,
+            merge_type = merge_type,
+            replace = replace,
+        )
+        
+        
+        return df
+    
+
+
+    def extract_from_df(self,
+        df: pd.DataFrame,
+        regions: Union[int, str, List[int], List[str], None],
+        field_regions: str,
+    ) -> Union[str, None]:
+        """Extract 
+        
+
+        Function Arguments
+        ------------------
+        df : pd.DataFrame
+            DataFrame containing rows to filter on
+        region : Union[int, str, List[int], List[str], None]
+            Regions (name, ISO, or ISO numeric) to extract from a data frame. If
+            None, tries to extract all rows associated with a valid region.
+        field_regions : str
+            Field storing regions index. If None, tries in order of hieracrhy:
+            (1) self.key:               sees if the regions key is present first
+            (2) self.field_iso          second, checks for field_iso
+            (3) self.field_iso_numeric: finally, looks for field iso_numeric
+
+            If the input field is misspecified or if no field is present,
+            returns df.
+
+        
+        Keyword Arguments
+        -----------------
+        missing_flag : float
+            Flag indicating a missing value
+        regions_valid : Union[List[str], None]
+            Optional list of regions to restrict search to. If None, searches 
+            through all regions specified in attr_region
+        type_input : str
+            Input region type. Either "region" or "iso"
+        type_return : 
+            Return type. Either "region" or "iso"
+        """
+
+        ##  INITIALIZATION AND CHECKS
+
+        if not isinstance(df, pd.DataFrame):
+            return df
+        
+        field_regions = self.get_hierarchical_regions_field(
+            df,
+            field_regions = field_regions, 
+        )
+
+        if field_regions is None:
+            return df
+        
+        regions = self.get_valid_regions(regions, )
+        
+
+        ##  NEXT, LOOK FOR VALID REGIONS
+
+        inds = self.return_region_or_iso(
+            df[field_regions].to_numpy(),
+            return_none_on_missing = True,
+        )
+        df_out = df[[x in regions for x in inds]]
+
+        return df_out
+
+
+
+            
+
+
     def fill_missing_regions(self,
         df: pd.DataFrame,
         fields_data: List[str],
@@ -530,22 +829,24 @@ class Regions:
         field_region: Union[str, None] = None,
         regions_fill: Union[List[str], None] = None,
     ) -> Union[pd.DataFrame, None]:
-        """
-        Fill in data for regions that are missing using a 
+        """Fill in data for regions that are missing using a 
         
         Function Arguments
         ------------------
-        - df: data frame with regions to fill
-        - fields_data: data fields to fill
-        - dict_method: fill method information. Keys are a method while values
-            are dictionaries that map parameters to values. Options are:
+        df : pd.DataFrame
+            DataFrame with regions to fill
+        fields_data : List[str]
+            Data fields to fill
+        dict_method : dict
+            Fill method information. Keys are a method while values are 
+            dictionaries that map parameters to values. Options are:
             * "grouping_average": Use a regional grouping average. Requires the
                 following parameters:
                 * "regional_grouping": grouping method to use
             * "analog_population_center": Use an analog from the nearest 2020 
                 population center.
-
-        - region_spec: regional specification; must be one of
+        region_spec : str
+            Regional specification; must be one of
             * "iso": use ISO codes, available in regions.all_iso
             * "iso_numeric": use ISO numeric codes, available in 
                 regions.all_isos_numeric
@@ -554,18 +855,20 @@ class Regions:
             
         Keyword Arguments
         -----------------
-        - field_region: optional specification of region field to use. If None, 
-            uses the field associated with region_spec.
-        - regions_fill: optional specification of regions to fill. If None,
-            defaults to all regions availabile in regions.all_regions.
+        field_region : Union[str, None]
+            Optional specification of region field to use. If None, uses the 
+            field associated with region_spec.
+        regions_fill : Union[List[str], None]
+            Optional specification of regions to fill. If None, defaults to all 
+            regions availabile in regions.all_regions.
         """
 
         ##  INITIAlIZATION AND CHECKS
         
         # get region specification--default to region
         region_spec = (
-            "region"
-            if region_spec not in ["iso", "iso_numeric", "region"]
+            _RETURN_TYPE_REGION
+            if region_spec not in self.valid_return_types
             else region_spec
         )
 
@@ -586,23 +889,23 @@ class Regions:
 
         if method not in valid_methods:
             msg = sf.format_print_list(valid_methods)
-            msg = f"""
-            Invalid method '{method}' specified in fill_missing_regions(): valid 
+            msg = f"""Invalid method '{method}' specified in fill_missing_regions(): valid 
             methods are {msg}. Returning original data frame.
             """
             return df
 
         
         # SET REGION INFO; option to set region field as something else
+
         field_region = None if not isinstance(field_region, str) else field_region
-        match region_spec:
-            case "iso":
+
+        if region_spec == _RETURN_TYPE_ISO:
                 field_region = self.field_iso if field_region is None else field_region
                 regions_space = self.all_isos
-            case "iso_numeric":
+        elif region_spec == _RETURN_TYPE_ISO_NUMERIC:
                 field_region = self.field_iso_numeric if field_region is None else field_region
                 regions_space = self.all_isos_numeric
-            case "region":
+        elif region_spec == _RETURN_TYPE_REGION:
                 field_region = self.key if field_region is None else field_region
                 regions_space = self.all_regions
 
@@ -680,29 +983,37 @@ class Regions:
         return_region_type: str,
         aggregation_method: str = "mean",
     ) -> Union[pd.DataFrame, None]:
-        """
-        Fill in data for regions that are missing using a grouping average. 
+        """Fill in data for regions that are missing using a grouping average. 
             NOTE: includes little generic checking. Support function for 
             fill_missing_regions()
 
         
         Function Arguments
         ------------------
-        - df: data frame with regions to fill
-        - region_grouping: grouping to use for filling in reginal meanf
-        - fields_data: data fields to fill
-        - field_region: optional specification of region field to use. If None, 
-            uses the field associated with region_spec.
-        - regions_fill: optional specification of regions to fill. If None,
-            defaults to all regions availabile in regions.all_regions.
-        - return_region_type: return "region", "iso", or "iso_numeric". Should
-            align with field types in field_region
+        df : pd.DataFrame
+            DataFrame with regions to fill
+        region_grouping : str
+            Grouping to use for filling in reginal mean
+        field_region : str
+            Optional specification of region field to use. If None, uses the 
+            field associated with region_spec.
+        fields_data : List[str]
+            Data fields to fill
+        fields_index : Union[List[str], None]
+            Optional fields to specify as index. If None, defaults to those in
+            ModelAttributes
+        regions_fill : List[str]
+            Optional specification of regions to fill. If None, defaults to all 
+            regions availabile in regions.all_regions.
+        return_region_type : str
+            Return "region", "iso", or "iso_numeric". Should align with field 
+            types in field_region
 
         Keyword Arguments
         -----------------
-        - aggregation_method: aggregation function used to combine across 
-            regions. Passed to pd.groupby.aggregate. "mean", "sum", etc are 
-            acceptable. 
+        aggregation_method : 
+            Aggregation function used to combine across regions. Passed to 
+            pd.groupby.aggregate. "mean", "sum", etc are acceptable. 
         """
 
         ##  INITIALIZATION AND CHECKS
@@ -728,7 +1039,7 @@ class Regions:
 
         # get regions as key values
         regions_fill_all = [
-            self.return_region_or_iso(x, return_type = "region")
+            self.return_region_or_iso(x, return_type = _RETURN_TYPE_REGION, )
             for x in regions_fill
         ]
         field_rg = self.get_region_group_field(region_grouping)
@@ -752,7 +1063,7 @@ class Regions:
 
         field_tmp = "REGION_TMP_ADD"
         df[field_tmp] = [
-            self.return_region_or_iso(x, return_type = "region")
+            self.return_region_or_iso(x, return_type = _RETURN_TYPE_REGION, )
             for x in list(df[field_region])
         ]
 
@@ -826,50 +1137,50 @@ class Regions:
 
         return df_out
 
-        
-
-
-
-
-
 
     
     def get_closest_region(self,
-        region: str,
+        region: Union[int, str],
         missing_flag: float = -999,
         regions_valid: Union[List[str], None] = None,
-        type_input: str = "region",
-        type_return: str = "region",
+        type_input: str = _RETURN_TYPE_REGION,
+        type_return: str = _RETURN_TYPE_REGION,
     ) -> Union[str, None]:
-        """
-        Based on latitude/longitude of population centers, find the closest 
+        """Based on latitude/longitude of population centers, find the closest 
             neighboring region.
         
 
         Function Arguments
         ------------------
-        - region: region to search for closest neighbor
-        - attr_region: attribute table for regions
+        region : Union[int, str]
+            Region (name, ISO, or ISO numeric) to search for closest neighbor
+        attr_region : attribute table for regions
         
         Keyword Arguments
         -----------------
-        - field_iso: iso field in attr_regin
-        - field_lat: field storing latitude
-        - field_lon: field storing longitude
-        - missing_flag: flag indicating a missing value
-        - regions_valid: optional list of regions to restrict search to. If None,
-            searches through all regions specified in attr_region
-        - type_input: input region type. Either "region" or "iso"
-        - type_return: return type. Either "region" or "iso"
+        missing_flag : float
+            Flag indicating a missing value
+        regions_valid : Union[List[str], None]
+            Optional list of regions to restrict search to. If None, searches 
+            through all regions specified in attr_region
+        type_input : str
+            Input region type. Either "region" or "iso"
+        type_return : 
+            Return type. Either "region" or "iso"
         """
-        
+
         ##  INITIALIZATION
         attr_region = self.attributes
-        type_return = "region" if (type_return not in ["region", "iso"]) else type_return
-        type_input = "region" if (type_input not in ["region", "iso"]) else type_input
+        type_return = _RETURN_TYPE_REGION if (type_return not in self.valid_return_types) else type_return
+        type_input = _RETURN_TYPE_REGION if (type_input not in self.valid_return_types) else type_input
         
         # check region/lat/lon
-        region = self.dict_iso_to_region.get(region) if (type_input == "iso") else region
+        #region = self.dict_iso_to_region.get(region) if (type_input == "iso") else region
+        region = self.return_region_or_iso(
+            region, 
+            return_none_on_missing = True,
+            return_type = _RETURN_TYPE_REGION, 
+        )
         region = region if (region in attr_region.key_values) else None
         coords = self.get_coordinates(region)
         
@@ -880,16 +1191,17 @@ class Regions:
         lat, lon = coords
         
         
-        ##  FILTER TABLE AND APPLY DISTANCES
+        ##  FILTER TABLE TO VALID REGIONS AND BUILD DISTANCE FUNCTION
         
         if (regions_valid is None):
             regions_valid = attr_region.key_values 
         else:
-            regions_valid = (
-                [x for x in attr_region.key_values if x in (regions_valid)]
-                if type_input == "region"
-                else [x for x in attr_region.key_values if self.dict_region_to_iso.get(x) in (regions_valid)]
-            )
+            regions_valid = [
+                self.return_region_or_iso(x, return_type = _RETURN_TYPE_REGION, )
+                for x in regions_valid
+            ]
+            regions_valid = [x for x in attr_region.key_values if x in regions_valid]
+            
             
         df_regions = (
             attr_region.table[
@@ -914,6 +1226,8 @@ class Regions:
             return out
         
 
+        ##  FINALLY, APPLY DISTANCES AND FILTER
+
         vec_dists = np.array(
             df_regions[[self.field_lat, self.field_lon]]
             .apply(f, raw = True, axis = 1)
@@ -931,7 +1245,11 @@ class Regions:
                 if len(w) > 0
                 else None
             )
-            out = self.dict_region_to_iso.get(out) if (type_return == "iso") else out
+
+            out = self.return_region_or_iso(
+                out,
+                return_type = type_return,
+            )
 
 
         return out
@@ -939,17 +1257,18 @@ class Regions:
 
 
     def get_coordinates(self,
-        region: Union[str, None],
+        region: Union[int, str, None],
     ) -> Union[Tuple[float, float], None]:
-        """
-        Return the latitude, longitude coordinates of the population centroid of
-            region `region`. `region` can be entered as a region (one of the 
+        """Return the latitude, longitude coordinates of the population centroid 
+            of region `region`. `region` can be entered as a region (one of the 
             self.attributes.key_values) or the ISO3 code. If neither is found, 
             returns None
 
         Function Arguments
         ------------------
-        - region_str: region string; either region or ISO can be entered
+        region_str : Union[int, str, None]
+            Region specification; either region name, ISO Alpha 3 code, or ISO 
+            Numeric code can be entered
         """
         
         dict_region_to_lat = self.attributes.field_maps.get(
@@ -960,12 +1279,11 @@ class Regions:
         )
 
         # check region
-        region = (
-            self.dict_iso_to_region.get(region)
-            if region not in self.all_regions
-            else region
+        region = self.return_region_or_iso(
+            region, 
+            return_type = _RETURN_TYPE_REGION, 
         )
-
+        
         if region is None:
             return None
 
@@ -976,13 +1294,58 @@ class Regions:
     
 
 
+    def get_hierarchical_regions_field(self,
+        df: pd.DataFrame,
+        field_regions: Union[str, None] = None,
+    ) -> Union[str, None]:
+        """See if field_regions is present, or retrieves a hierarchical field. 
+            If field_regions is None, searches for one of the following (in 
+            order) and returns the first found. 
+
+            (1) self.key:               sees if the regions key is present first
+            (2) self.field_iso          second, checks for field_iso
+            (3) self.field_iso_numeric: finally, looks for field iso_numeric
+
+        Returns None if no valid field is found. 
+
+
+        Function Arguments
+        ------------------
+        df : pd.DataFrame
+            DataFrame containing rows to filter on
+        field_regions : str
+            Field storing regions index. If None, retuns one of the following if
+            present, with priority of return as noted above.
+        """
+
+        # if string, return based on presence in df
+        if isinstance(field_regions, str):
+            out = field_regions if field_regions in df.columns else None
+            return out
+
+        # initialize as None and return the field if it is found
+        out = None
+        fields_ordered = [
+            self.key,
+            self.field_iso,
+            self.field_iso_numeric
+        ]
+
+        for fld in fields_ordered:
+            if fld in df.columns: 
+                out = fld
+                break
+        
+        return out
+    
+
+
     def get_region_group(self,
         region: Union[int, str], 
         region_grouping: str,
         stop_on_error: bool = False,
     ) -> Union[str, None]:
-        """
-        Get a regional grouping for a region by type
+        """Get a regional grouping for a region by type
 
         Function Arguments
         ------------------
@@ -1009,8 +1372,7 @@ class Regions:
         if region_grouping not in self.region_groupings:
             if stop_on_error:
                 valid_regions = sf.format_print_list(self.region_groupings)
-                msg = f"""
-                Invalid region grouping '{region_grouping}' specified in 
+                msg = f"""Invalid region grouping '{region_grouping}' specified in 
                 aggregate_df_by_region_group(): valid regions are {self.region_groupings}
                 """
                 raise InvalidRegionGroup(msg)
@@ -1019,7 +1381,7 @@ class Regions:
         # get it as a key, then use attribute function
         region = self.return_region_or_iso(
             region,
-            return_type = "region",
+            return_type = _RETURN_TYPE_REGION,
         )
 
         out = self.attributes.get_attribute(
@@ -1034,12 +1396,13 @@ class Regions:
     def get_region_group_field(self,
         region_grouping: str,
     ) -> Union[str, None]:
-        """
-        Get a regional grouping field in the regions attribute table
+        """Get a regional grouping field in the regions attribute table. Returns
+            None if no match is found.
 
         Function Arguments
         ------------------
-        - region_grouping: element of self.region_groupings
+        region_grouping : str
+            Element of self.region_groupings
 
         Keyword Arguments
         -----------------
@@ -1048,21 +1411,31 @@ class Regions:
         if region_grouping not in self.region_groupings:
             return None
 
-        out = f"{region_grouping}_region"
+        field = None
+        
+        # search over fields
+        for fld in self.attributes.table.columns:
+            match = self.regex_region_groups.match(fld)
+            if match is None:
+                continue
 
-        return out
+            if match.groups()[0] == region_grouping:
+                field = fld
+                break
+
+        return field
     
 
 
     def get_region_name(self,
         region: Union[str, int], 
     ) -> pd.DataFrame:
-        """
-        Get a region name (not-cleaned)
+        """Get a region name (not-cleaned)
 
         Function Arguments
         ------------------
-        - region: region, ISO Alpha 3, or ISO numeric code
+        region : Union[str, int]
+            Region, ISO Alpha 3, or ISO numeric code
 
         Keyword Arguments
         -----------------
@@ -1089,18 +1462,21 @@ class Regions:
         regions: Union[List[str], None] = None,
         regions_wb: Union[List[str], None] = None,    
     ) -> Union[pd.DataFrame, None]:
-        """
-        Initialize a data frame of regions. Returns None if no valid regions
+        """Initialize a data frame of regions. Returns None if no valid regions
             are specified. 
         
         Keyword Arguments
         -----------------
-        - include_iso: include iso code?
-        - include_region_wb_key: if `regions_wb == True`, then set to True to
-            keep the region_wb key as a column
-        - regions: list of regions to use to build the data frame
-        - regions_wb: optional list of world bank regions to use to filter
-        - use_iso: 
+        include_iso : bool
+            Include iso code?
+        include_region_wb_key : bool
+            If `regions_wb == True`, then set to True to keep the region_wb key 
+            as a column
+        regions : Union[List[str], None]
+            List of regions to use to build the data frame
+        regions_wb : Union[List[str], None]
+            Optional list of world bank regions to use to filter
+        
         """
         
         # check regions and WB regions
@@ -1142,24 +1518,38 @@ class Regions:
     def get_valid_regions(self,
         regions: Union[List[str], str, None],
     ) -> Union[List[str], None]:
-        """
-        Enter a list (or list-like object) iteratable of regions, a single
+        """Enter a list (or list-like object) iteratable of regions, a single
             region, or None (to return all valid regions), and return a list of
             valid regions.
 
         Function Arguments
         ------------------
-        - regions: list-like object of regions, a string specifying a region, or
-            None (to return all valid regions)
+        regions :  Union[List[str], str, None]
+            List-like object of regions, a string specifying a region, or None 
+            (to return all valid regions)
         """
         regions = [regions] if isinstance(regions, str) else regions
         regions = self.all_regions if (regions is None) else regions
+
         regions = (
-            [x for x in self.all_regions if x in regions]
+            [
+                self.return_region_or_iso(
+                    x,
+                    return_none_on_missing = True,
+                    return_type = _RETURN_TYPE_REGION, 
+                ) 
+                for x in regions
+            ]
             if sf.islistlike(regions)
             else None
         )
-        regions = None if (len(regions) == 0) else regions
+
+        # sort
+        regions = (
+            None 
+            if (len(regions) == 0) 
+            else [x for x in self.all_regions if x in regions]
+        )
 
         return regions
 
@@ -1169,17 +1559,11 @@ class Regions:
         region: str,
         input_region: str = "region",
     ) -> Union[str, None]:
-        """
-        Retrieve the UN global region associated with region (roughly a 
+        """Retrieve the UN global region associated with region (roughly a 
             continent). Often used for assigning regional averages. Use 
             input_region = "iso" to convert from an iso code.
         """
         out = self.get_region_group(region, "un")
-        #region = self.return_region_or_iso(
-        #    region, 
-        #    return_type = input_region,
-        #)
-        #out = self.dict_region_to_un_region.get(region)
 
         return out
 
@@ -1189,31 +1573,24 @@ class Regions:
         region: str,
         input_region: str = "region",
     ) -> Union[str, None]:
-        """
-        Retrieve the World Bank global region associated with region. Often used 
-            for assigning regional averages. Use input_region = "iso" to convert 
-            from an iso code.
+        """Retrieve the World Bank global region associated with region. Often 
+            used for assigning regional averages. Use input_region = "iso" to 
+            convert from an iso code.
         """
         out = self.get_region_group(region, "world_bank_global")
-        #region = self.return_region_or_iso(
-        #    region, 
-        #    return_type = input_region,
-        #)
-        #out = self.dict_region_to_wb_region.get(region)
 
         return out
 
 
 
     def return_region_or_iso(self,
-        region: Union[int, str, List[str]],
+        region: Union[int, str, List[int], List[str]],
         clean_inputs: bool = False,
         return_none_on_missing: bool = False,
-        return_type: str = "region",
+        return_type: str = _RETURN_TYPE_REGION,
         try_iso_numeric_as_string: bool = True,
     ) -> Union[str, None]:
-        """
-        Return region for region entered as region or ISO. 
+        """Return region for region entered as region or ISO. 
         
         * Returns None if `region` is specified improperly, or, if 
             `return_none_on_missing = True`, the region is properly specified
@@ -1221,24 +1598,29 @@ class Regions:
 
         Function Arguments
         ------------------
-        - region: region, iso 3-digit alpha code, or iso numeric code
+        region : Union[int, str, List[str]]
+            Region, iso 3-digit alpha code, or iso numeric code in individual or
+            list-like form
 
         Keyword Arguments
         -----------------
-        - clean_inputs: try to clean the input region first
-        - return_none_on_missing: set to True to return None if input region 
-            `region` is not found
-        - return_type: "region" or "iso". Will return: 
+        clean_inputs : bool
+            Try to clean the input region first
+        return_none_on_missing : bool 
+            Set to True to return None if input region `region` is not found
+        return_type : str
+            "region" or "iso" or "iso_numeric". Will return: 
             * Region if set to "region" or 
             * ISO Alpha 3 if set to "iso"
             * ISO Numeric (integer) if set to "iso_numeric"
-        - try_iso_numeric_as_string: if a region is not found in any of the 
-            three inputs (region, iso, iso_numeris), will check to see if it is 
-            an iso_numeric code entered as a string.
+        try_iso_numeric_as_string : 
+            If a region is not found in any of the three inputs (region, iso, 
+            iso_numeris), will check to see if it is an iso_numeric code entered 
+            as a string.
         """
         return_type = (
-            "region" 
-            if (return_type not in ["region", "iso", "iso_numeric"]) 
+            _RETURN_TYPE_REGION
+            if (return_type not in self.valid_return_types) 
             else return_type
         )
       
@@ -1258,9 +1640,9 @@ class Regions:
 
             # check region against input type
             if r in self.all_regions:
-                input_type = "region"
+                input_type = _RETURN_TYPE_REGION
             elif r in self.all_isos:
-                input_type = "iso"
+                input_type = _RETURN_TYPE_ISO
             elif try_iso_numeric_as_string & isinstance(r, str):
                 try:
                     r = int(r)
@@ -1268,7 +1650,7 @@ class Regions:
                     None
                 
             if (r in self.all_isos_numeric) & (input_type is None):
-                input_type = "iso_numeric"
+                input_type = _RETURN_TYPE_ISO_NUMERIC
             
             # if input not found, continue
             if input_type is None:
@@ -1279,261 +1661,23 @@ class Regions:
             # otherwise, retrieve in terms of key - if r is a region, then the dictionary will not contain it
             region_full = (
                 self.dict_iso_to_region.get(r)
-                if input_type == "iso"
+                if input_type == _RETURN_TYPE_ISO
                 else self.dict_iso_numeric_to_region.get(r, r)
             )
 
             # based on return type, get output
             out = region_full
-            if return_type == "iso":
+            if return_type == _RETURN_TYPE_ISO:
                 out = self.dict_region_to_iso.get(region_full)
-            elif return_type == "iso_numeric":
+            elif return_type == _RETURN_TYPE_ISO_NUMERIC:
                 out = self.dict_region_to_iso_numeric.get(region_full)
         
             region[i] = out
             
 
-        """
-        if (return_type == "region"):
-            dict_retrieve = self.dict_iso_to_region 
-
-        dict_retrieve = (
-            self.dict_iso_to_region 
-            if (return_type == "region") 
-            else self.dict_region_to_iso
-        )
-        all_vals = (
-            self.all_regions 
-            if (return_type == "region") 
-            else self.all_isos
-        )
-
-
-        region = [
-            (self.clean_region(x) if clean_inputs else x) 
-            for x in region
-        ]
-        
-        # check region
-        region = [
-            (
-                dict_retrieve.get(x)
-                if x not in all_vals
-                else x
-            )
-            for x in region
-        ]
-        """;
-
         region = region[0] if element_input else region
 
         return region
-
-
-
-    def add_region_or_iso_field(self,
-        df: pd.DataFrame,
-        field_iso: Union[str, None] = None,
-        field_region: Union[str, None] = None,
-        **kwargs,
-    ) -> Union[str, None]:
-        """
-        Return region for region entered as region or ISO.
-
-        Function Arguments
-        ------------------
-        - df: DataFrame to which to add region or iso field
-
-        Keyword Arguments
-        -----------------
-        - field_iso: field in df storing ISO code OR field to add with ISO code
-            (if not in df)
-        - field_region: field in df storing region OR field to add with region
-            (if not in df)
-        - **kwargs: passed to return_region_or_iso
-        """
-
-        field_iso = (
-            self.field_iso
-            if not isinstance(field_iso, str)
-            else field_iso
-        )
-        field_region = (
-            self.key
-            if not isinstance(field_region, str)
-            else field_region
-        )
-
-        no_action = (field_iso not in df.columns) & (field_region not in df.columns)
-        no_action |= (field_iso in df.columns) & (field_region in df.columns)
-        if no_action:
-            return df
-        
-        # get fields and apply switch
-        field = field_region if (field_region in df.columns) else field_iso
-        field_new = field_iso if (field_region in df.columns) else field_region
-        return_type = "iso" if (field_region in df.columns) else "region"
-
-        df_out = df.copy()
-        vec = list(
-            df_out[field]
-            .apply(
-                self.return_region_or_iso, 
-                return_type = return_type, 
-                **kwargs
-            )
-        )
-        df_out[field_new] = vec
-
-        return df_out
-    
-
-
-    def clean_region(self,
-        region: str,
-        force_to_string: bool = False,
-    ) -> str:
-        """
-        Clean the region name. Set `force_to_string` to True to force inputs
-            to take type str
-        """
-
-        if not (isinstance(region, str) | force_to_string):
-            return region
-
-        dict_repl = dict((x, "_") for x in ["-", " "])
-
-        out = str(region).strip().lower()
-        out = sf.str_replace(out, dict_repl)
-
-        return out
-
-    
-
-    def convert_region_codes(self,
-        df: pd.DataFrame,
-        field_codes: str,
-        input_code_type: str,
-        output_code_type: str,
-        merge_type: str = "inner",
-        overwrite: bool = False,
-        replace: bool = True,
-    ) -> Union[pd.DataFrame, None]:
-        """
-        Convert region code types. Valid input and output code types include:
-        
-        Function Arguments
-        ------------------
-        - df: data frame containing the field to convert
-        - field_codes: field name containg codes to convert
-        - input_code_type: input code type to convert from. Valid input codes
-            include:
-            
-            * "fao_region_code":
-                FAO region code (integer)
-            * "iso":
-                ISO 3 alphanumeric code
-            * "iso_numeric":
-                ISO numeric (integer) code
-            * "region": 
-                Region name
-
-        - output_code_type: output code type to convert to. Valid output codes
-            include:
-
-            * "fao_region_code":
-                FAO region code (integer)
-            * "iso":
-                ISO 3 alphanumeric code
-            * "iso_numeric":
-                ISO numeric (integer) code
-            * "region": 
-                Region name
-            * "un_region":
-                UN Region name (non-injective, image only)
-            * "un_sub_region":
-                UN Region name (non-injective, image only)
-            * "world_bank_global_region": 
-                World Bank region code
-                
-            
-        Keyword Arguments
-        -----------------
-        - merge_type: "inner" or "outer". If outer, can contain NAs
-        - overwrite: overwrite existing output field if present?
-        - replace: replace the field containing the region codes? If False, 
-            keeps both the old (input) and new (output) fields
-        """
-
-        ##  CHECKS AND INIT
-
-        # check that field_codes is in the dataframe
-        if field_codes not in df.columns:
-            return df
-
-        # map the input/output type to the field in the attribute table
-        dict_type_to_attribute_field = {
-            "fao_region_code": "fao_area_code",
-            "iso": "iso_alpha_3",
-            "iso_numeric": "iso_numeric",
-            "region": self.key,
-            "un_region": "un_region",
-            "un_sub_region": "un_sub_region",
-            "world_bank_global_region": "world_bank_global_region",
-        }
-
-        # next, get the fields from the attribute table
-        field_input = dict_type_to_attribute_field.get(input_code_type)
-        field_output = dict_type_to_attribute_field.get(output_code_type)
-
-        # then check output overwriting and drop the existing field if necessary
-        if (field_output in df.columns):
-            if not overwrite:
-                return df
-            
-            df.drop(
-                [field_output], 
-                axis = 1,
-                inplace = True,
-            )
-
-
-        # check type specifications - start with inputs
-        valid_inputs = ["fao_region_code", "iso", "iso_numeric", "region"]
-        if input_code_type not in valid_inputs:
-            valid_inputs_print = sf.format_print_list()
-            msg = f"Invalid input type '{input_code_type}' in convert_region_codes(). Valid inputs are {valid_inputs_print}."
-            raise TypeError(msg)
-
-        # check outputs
-        valid_outputs = sorted(list(dict_type_to_attribute_field.keys()))
-        if output_code_type not in valid_outputs:
-            valid_outputs_print = sf.format_print_list()
-            msg = f"Invalid output type '{output_code_type}' in convert_region_codes(). Valid inputs are {valid_outputs_print}."
-            raise TypeError(msg)
-
-        
-        ##  BUILD OUTPUT TABLE
-
-        df_merge = (
-            self.attributes
-            .table[[field_input, field_output]]
-            .copy()
-            .rename(
-                columns = {field_input: field_codes}
-            )
-        )
-        
-        df = sf.merge_replace(
-            df,
-            df_merge,
-            merge_type = merge_type,
-            replace = replace,
-        )
-        
-        
-        return df
-
 
 
 
