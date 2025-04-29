@@ -33,7 +33,9 @@ _MODULE_UUID = "054201F6-8FBE-4DFF-A726-6D36CDFEADB7"
 ####################
 
 class SISEPUEDEModels:
-    """Instantiate models for SISEPUEDE.
+    """Instantiate models for SISEPUEDE. 
+
+    NOTE: Calling this object calls the project() method to run models.
 
     Initialization Arguments
     ------------------------
@@ -98,6 +100,17 @@ class SISEPUEDEModels:
         self._initialize_uuid()
 
         return None
+    
+
+
+    def __call__(self,
+        *args,
+        **kwargs,             
+    ) -> pd.DataFrame:
+        
+        out = self.project(*args, **kwargs)
+
+        return out
 
 
 
@@ -442,8 +455,7 @@ class SISEPUEDEModels:
         time_periods_run: Union[List[int], None] = None,
         **kwargs
     ) -> pd.DataFrame:
-        """
-        Execute the SISEPUEDE DAG.
+        """Execute the SISEPUEDE DAG.
 
         Function Arguments
         ------------------
@@ -451,7 +463,8 @@ class SISEPUEDEModels:
 
         Optional Arguments
         ------------------
-        - models_run: list of sector models to run as defined in
+        models_run : pd.DataFrame
+            List of sector models to run as defined in 
             SISEPUEDEModels.model_attributes. Can include the following values:
 
             * AFOLU (or af)
@@ -464,9 +477,11 @@ class SISEPUEDEModels:
 
         Keyword Arguments
         -----------------
-        - check_results: verify output results using a verification function
-            (see SISEPUEDEModels.check_model_results())
-        - fields_check: passed to self.check_model_results() (only applicable if 
+        check_results : bool
+            Verify output results using a verification function (see 
+            SISEPUEDEModels.check_model_results())
+        fields_check : Union[List[str], str, None]
+            Passed to self.check_model_results() (only applicable if 
             check_results = True). Valid options are:
             * subset of fields to check (listlike)
             * "emissions_output" (to only check emissions output fields) 
@@ -475,16 +490,19 @@ class SISEPUEDEModels:
             * None (to check all fields not associated with fields_ind)
             * NOTE: If any elements intersect with fields_ind, fields_ind takes 
                 priority
-        - include_electricity_in_energy: include the electricity model in runs
-            of the energy model?
+        include_electricity_in_energy : bool
+            Include the electricity model in runs of the energy model?
             * If False, runs without electricity (time intensive model)
-        - regions: regions to run the model for (NEEDS ADDITIONAL WORK IN 
-            NON-ELECTRICITY SECTORS)
-        - run_integrated: run models as integrated collection?
+        regions : Union[List[str], None]
+            Regions to run the model for 
+        run_integrated : bool
+            Run models as integrated collection?
             * If False, will run each model individually, without interactions
                 (not recommended)
-        - time_periods_run: optional specification of time periods to run
-        - **kwargs: passed to SISEPUEDEModels.check_model_results()
+        time_periods_run : Union[List[int], None]
+            Optional specification of time periods to run
+        **kwargs : 
+            Passed to SISEPUEDEModels.check_model_results()
         """
 
         df_return = []
