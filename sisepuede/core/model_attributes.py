@@ -3306,6 +3306,27 @@ class ModelAttributes:
         attr_sector = dict_other.get(self.table_name_attr_sector)
         
         return attr_sector
+    
+
+
+    def get_sector_emission_total_field(self,
+        sector: str,
+    ) -> Union[List[str], None]:
+        """Get all subsector total emission fields associated with sector 
+            `sector`.
+
+        Returns None if the sector is invalid. 
+        """
+    
+        # get subsectors and return None if 
+        subsecs = self.get_sector_subsectors(sector, )
+        if subsecs is None:
+            return None
+        
+        # get fields
+        fields_subsector_total = [self.get_subsector_emission_total_field(x) for x in subsecs]
+
+        return fields_subsector_total
 
 
 
