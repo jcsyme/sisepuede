@@ -3309,7 +3309,7 @@ class ModelAttributes:
     
 
 
-    def get_sector_emission_total_field(self,
+    def get_sector_emission_total_fields(self,
         sector: str,
     ) -> Union[List[str], None]:
         """Get all subsector total emission fields associated with sector 
