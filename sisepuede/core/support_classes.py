@@ -1516,7 +1516,7 @@ class Regions:
 
     
     def get_valid_regions(self,
-        regions: Union[List[str], str, None],
+        regions: Union[int, str, List[int], List[str], None],
     ) -> Union[List[str], None]:
         """Enter a list (or list-like object) iteratable of regions, a single
             region, or None (to return all valid regions), and return a list of
@@ -1524,11 +1524,11 @@ class Regions:
 
         Function Arguments
         ------------------
-        regions :  Union[List[str], str, None]
+        regions : Union[int, str, List[int], List[str], None]
             List-like object of regions, a string specifying a region, or None 
             (to return all valid regions)
         """
-        regions = [regions] if isinstance(regions, str) else regions
+        regions = [regions] if isinstance(regions, (int, str, )) else regions
         regions = self.all_regions if (regions is None) else regions
 
         regions = (

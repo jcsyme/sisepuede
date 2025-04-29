@@ -11,6 +11,15 @@ import sisepuede.utilities._toolbox as sf
 
 
 
+##  SET THE UUID
+
+_MODULE_UUID = "9D55CF8B-CAFF-4213-9A4E-24466C9160E8"
+
+
+
+
+##  BUILD MAIN CLASS
+
 class SISEPUEDEExamples:
     """
     Load and access example data used to demonstrate SISEPUEDE.
@@ -27,6 +36,7 @@ class SISEPUEDEExamples:
 
         self._initialize_file_structure()
         self._initialize_examples()
+        self._initialize_uuid()
 
         return None
     
@@ -137,6 +147,22 @@ class SISEPUEDEExamples:
         self.all_examples = all_examples
 
         return None
+    
+
+
+    def _initialize_uuid(self,
+    ) -> None:
+        """
+        Initialize the UUID. Sets the following properties:
+
+            * self.is_sisepuede_examples
+            * self._uuid
+        """
+
+        self.is_sisepuede_examples = True
+        self._uuid = _MODULE_UUID
+
+        return None
 
 
 
@@ -158,3 +184,27 @@ class SISEPUEDEExamples:
 
 
 
+
+###################################
+###                             ###
+###    SOME SIMPLE FUNCTIONS    ###
+###                             ###
+###################################
+
+def is_sisepuede_examples(
+    obj: Any,
+) -> bool:
+    """
+    check if obj is a SISEPUEDEExamples object
+    """
+
+    out = hasattr(obj, "is_sisepuede_examples")
+    uuid = getattr(obj, "_uuid", None)
+
+    out &= (
+        uuid == _MODULE_UUID
+        if uuid is not None
+        else False
+    )
+
+    return out
