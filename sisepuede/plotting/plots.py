@@ -37,6 +37,9 @@ def plot_emissions_stack(
 
     return None
 
+
+
+
 def plot_variable_stack(
     df: pd.DataFrame,
     modvar: 'ModelVariable',
