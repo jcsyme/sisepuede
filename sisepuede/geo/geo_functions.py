@@ -42,47 +42,6 @@ def check_xarray_grid_equivalence(
 
 
 
-def cell_area_from_grid(
-    lat_0: float,
-    lat_1: float,
-    lon_0: float,
-    lon_1: float,
-    angle_type: str = "degree",
-    radius: float =  6371.0072, # km
-) -> float:
-    """
-    Calculate the area of a grid cell based on lat/lon bounding points.
-
-    https://onlinelibrary.wiley.com/doi/epdf/10.1111/j.1467-9671.2010.01200.x
-    
-    Function Arguments
-    ------------------
-    - lat_0: lower latitude
-    - lat_1: higher latitude
-    - lon_0: lower longitude
-    - lon_1: higher longitude
-    
-    Keyword Arguments
-    -----------------
-    - angle_type: "degree" or "radian"
-    - radius: authlalic radius (in units of interest) of earth. 
-        * source: https://en.wikipedia.org/wiki/Earth_radius
-    """
-    
-    # scale 
-    scalar = np.pi/180.0 if (angle_type == "degree") else 1.0
-    lat_0 *= scalar
-    lat_1 *= scalar
-    lon_0 *= scalar
-    lon_1 *= scalar
-
-    # implement formula for generic grid area (derived from surface integral)
-    area = (radius**2)*(lon_1 - lon_0)*(np.sin(lat_1) - np.sin(lat_0))
-    
-    return area
-
-
-
 def get_low_res_indices_for_higher_res(
     grid_low: 'geo_classes.Grid',
     grid_high: 'geo_classes.Grid',
@@ -172,47 +131,7 @@ def get_overlay_bounds(
 
     
 
-def get_rioxarray_row_areas(
-    rx_array: 'xarray.DataArray',
-    decimals: int = 8,
-) -> np.ndarray:
-    """
-    Using the rx_array, generate areas of each grid cell by row. Note, in a
-        regular grid, the areas are the same for each row (latitude band)
-        
-    Function Arguments
-    ------------------
-    - rx_array: input RioXArray containing gridded information (from NetCDF or 
-        GeoTIF)
-    
-    Keyword Arguments
-    -----------------
-    - decimals: number of digits to use to determine degree width
-    """
-    # get widths - y
-    y = rx_array.y.to_numpy()
-    delta_y = np.unique(np.round(y[1:] - y[0:-1], decimals = decimals))
-    bounds_y = np.append(y - delta_y/2, y[-1] + delta_y/2)
 
-    # x
-    x = rx_array.x.to_numpy()
-    delta_x = np.unique(np.round(x[1:] - x[0:-1], decimals = decimals))
-    bounds_x = np.append(x - delta_x/2, x[-1] + delta_x/2)
-
-    # areas on every row are the same; only need to iterate over rows (latitude) since grid is uniform
-    area_by_row = np.array(
-        [
-            cell_area_from_grid(
-                bounds_y[i],
-                bounds_y[i - 1],
-                bounds_x[0],
-                bounds_x[1]
-            )
-            for i in range(1, len(bounds_y))
-        ]
-    )
-        
-    return area_by_row
 
 
 

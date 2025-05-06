@@ -3,6 +3,7 @@
 20,``shrublands``,none,none,0,0,Shrubs. Woody perennial plants with persistent and woody stems and without any defined main stem being less than 5 m tall. The shrub foliage can be either evergreen or deciduous.
 30,``grasslands``,none,none,1,0,Herbaceous vegetation. Plants without persistent stem or shoots above ground and lacking definite firm structure. Tree and shrub cover is less than 10 %.
 40,``croplands``,none,none,0,0,"Cultivated and managed vegetation / agriculture. Lands covered with temporary crops followed by harvest and a bare soil period (e.g., single and multiple cropping systems). Note that perennial woody crops will be classified as the appropriate forest or shrub land cover type."
+50,``settlements``,none,none,0,0,Urban/built up
 60,``other``,none,none,0,0,"Bare / sparse vegetation. Lands with exposed soil, sand, or rocks and never has more than 10 % vegetated cover during any time of the year."
 70,``other``,none,none,0,0,Snow and ice. Lands under snow or ice cover throughout the year.
 80,``flooded``,none,none,0,0,"Permanent water bodies. Lakes, reservoirs, and rivers. Can be either fresh or salt-water bodies."
