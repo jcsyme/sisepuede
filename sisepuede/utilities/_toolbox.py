@@ -66,6 +66,7 @@ def add_data_frame_fields_from_dict(
     pass_none_to_shift_index: bool = False,
     prepend_q: bool = True,
     sort_input_fields: bool = False,
+    **kwargs,
 ) -> pd.DataFrame:
     """Inplace operator for adding fields to a dataframe.
         * New fields are entered as a key in `dict_field_vals`, and new values

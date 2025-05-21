@@ -227,7 +227,7 @@ def transformation_agrc_increase_crop_productivity(
     - regions_apply: optional set of regions to use to define strategy. If None,
         applies to all regions.
     - strategy_id: optional specification of strategy id to add to output
-        dataframe (only added if integer)HEREHERE
+        dataframe (only added if integer)
     """
 
     # get attribute table, CircularEconomy model for variables, and check categories
@@ -637,7 +637,7 @@ def transformation_frst_increase_reforestation(
     ##  SETUP DICTIONARY--shift 
     cat_fsts = model_afolu.cat_lndu_fsts
     cat_crop = model_afolu.cat_lndu_crop
-    cat_grsl = model_afolu.cat_lndu_grass
+    cat_grsl = model_afolu.cat_lndu_grss
 
     cats_ir = (#[cat_crop, cat_grsl]
         [x for x in attr_lndu.key_values if x in cats_inflow_restriction and x != cat_fsts]
@@ -732,7 +732,7 @@ def transformation_support_lndu_check_ltct_magnitude_dictionary(
     
     Checks to verify that dict_magnitudes is properly specified. 
 
-    NOTE: pasture_key and model_afolu.cat_lndu_grass cannot both be specified
+    NOTE: pasture_key and model_afolu.cat_lndu_grss cannot both be specified
 
 
     Function Arguments
@@ -797,7 +797,7 @@ def transformation_support_lndu_check_ltct_magnitude_dictionary(
     ##  CHECK SPECIFICATION DICTIONARY
 
     # pasture and grassland cannot be both specified
-    if set([pasture_key, model_afolu.cat_lndu_grass]).issubset(set(dict_magnitudes.keys())):
+    if set([pasture_key, model_afolu.cat_lndu_grss]).issubset(set(dict_magnitudes.keys())):
         return None
 
 
@@ -976,7 +976,7 @@ def transformation_support_lndu_check_pasture_magnitude(
 
 
 
-def transformation_support_lndu_get_adjusted_fractions_from_transition_w_natural_grassland(
+def _deprecated_transformation_support_lndu_get_adjusted_fractions_from_transition_w_natural_grassland(
     arr_land_use_prevalence_out_no_intervention: np.ndarray,
     arr_land_use_prevalence_out_with_intervention: np.ndarray,
     vec_lndu_pasture_frac_no_intervention: np.ndarray,
@@ -1445,7 +1445,7 @@ def transformation_support_lndu_transition_to_category_targets_single_region(
 
     # some pasture/grass info
     grass_is_pasture_q = pasture_key in dict_magnitude.keys()
-    dict_ptg = {pasture_key: model_afolu.cat_lndu_grass}
+    dict_ptg = {pasture_key: model_afolu.cat_lndu_grss}
     
     # get indices for categories
     cats_to_modify = sorted([dict_ptg.get(x, x) for x in dict_magnitude.keys()])
@@ -1453,7 +1453,7 @@ def transformation_support_lndu_transition_to_category_targets_single_region(
         (
             attr_lndu.get_key_value_index(x)
             if x != pasture_key
-            else attr_lndu.get_key_value_index(model_afolu.cat_lndu_grass)
+            else attr_lndu.get_key_value_index(model_afolu.cat_lndu_grss)
         ) 
         for x in cats_to_modify
     ]
@@ -1546,7 +1546,7 @@ def transformation_support_lndu_transition_to_category_targets_single_region(
                 val_unadj_reference_cur = arr_land_use[tp_baseline_ind, ind_reference]
                 val_unadj_reference_cur *= (
                     vec_lndu_pasture_frac[tp_baseline_ind]
-                    if (cat_ref == model_afolu.cat_lndu_grass) & (csr == pasture_key)
+                    if (cat_ref == model_afolu.cat_lndu_grss) & (csr == pasture_key)
                     else 1.0
                 )
 
@@ -1789,6 +1789,124 @@ def transformation_support_lndu_transition_to_category_targets_single_region(
 
 def transformation_lndu_increase_silvopasture(
     df_input: pd.DataFrame,
+    magnitude: float,
+    vec_ramp: np.ndarray,
+    model_attributes: ma.ModelAttributes,
+    model_afolu: Union[mafl.AFOLU, None] = None,
+    **kwargs
+) -> pd.DataFrame:
+    """
+    Increase the use of silvopasture by increaasing the average sequestration 
+        factor associated with pastures. Applies silvopasture to fraction 
+        "magnitude" of pastures using the secondary forest sequestration factor
+        for the region.
+    
+    Since the magnitude is a fraction of area, the average sequestration factor
+        is estimated as m*f, where m is the magnitude (prevalence) and f is the
+        secondary forest sequestration factor.
+
+
+    Function Arguments
+    ------------------
+    df_input : pd.DataFrame
+        Input DataFrame containing baseline trajectories
+    magnitude : float 
+        Number specifying fraction of pasture to shift to silvopasture
+    vec_ramp : np.ndarray
+        Ramp vec used for implementation
+    model_attributes: ModelAttributes 
+        ModelAttributes object used to call strategies/variables
+
+    Keyword Arguments
+    -----------------
+    field_region : str
+        Field in df_input that specifies the region
+    model_afolu : AFOLU
+        Optional AFOLU object to pass for variable access
+    regions_apply : Union[List[int], List[str], None]
+        Optional set of regions to use to define strategy. If None, applies to 
+        all regions.
+    strategy_id : Union[int, None]
+        Optional specification of strategy id to add to output DataFrame (only 
+        added if integer)
+    **kwargs : 
+    """
+
+    ##  INITIALIZATION
+
+    # check AFOLU
+    model_afolu = (
+        mafl.AFOLU(model_attributes) 
+        if not mafl.is_sisepuede_model_afolu(model_afolu)
+        else model_afolu
+    )
+
+    # get the sequestration factor variables
+    modvar_frst_sf = model_attributes.get_variable(model_afolu.modvar_frst_sq_co2, )
+    modvar_lndu_sf = model_attributes.get_variable(model_afolu.modvar_lndu_sf_co2, )
+
+    # field to extract factors from and to mix factors into
+    field_frst_sf = modvar_frst_sf.build_fields(
+        category_restrictions = model_afolu.cat_frst_scnd,
+    )
+    field_lndu_sf = modvar_lndu_sf.build_fields(
+        category_restrictions = model_afolu.cat_lndu_pstr,
+    )
+
+    # get units conversion factors
+
+
+    # verify that source field is present
+    if field_frst_sf not in df_input.columns:
+        # log? error?
+        raise RuntimeError(f"Unable to complete Silvopasture transformation: no secondary forest factors were found in the input DataFrame.")
+        return df_input
+    
+    # check magnitude
+    return_orig = not sf.isnumber(magnitude)
+    return_orig |= ((magnitude > 1) or (magnitude < 0)) if not return_orig else return_orig
+    if return_orig:
+        # LOGGING
+        return df_input
+    
+
+    ##  ITERATE BY REGION
+
+    # group by region
+    field_region = kwargs.get("field_region")
+    field_region = (
+        model_attributes.dim_region
+        if not isinstance(field_region, str)
+        else field_region
+    )
+
+    # build new df
+    dfg = df_input.groupby([field_region])
+    df_out = []
+
+    for (i, df) in dfg:
+
+        # do mixing here
+        vec_frst_sf = df[field_frst_sf].to_numpy()
+        vec_lndu_sf = df[field_lndu_sf].to_numpy()
+
+        vec_new = vec_frst_sf*magnitude + vec_lndu_sf*(1 - magnitude)
+        vec_new = vec_ramp*vec_new + (1 - vec_ramp)*vec_lndu_sf
+
+        # apply to current group and append
+        df[field_lndu_sf] = vec_new
+        df_out.append(df)
+    
+    
+    df_out = sf._concat_df(df_out, )
+
+    return df_out
+
+
+
+
+def _deprecated_transformation_lndu_increase_silvopasture(
+    df_input: pd.DataFrame,
     magnitude: Union[Dict[str, float], float],
     vec_ramp: np.ndarray,
     model_attributes: ma.ModelAttributes,
@@ -1842,7 +1960,7 @@ def transformation_lndu_increase_silvopasture(
     
     ##  SETUP DICTIONARY--shift 
     cat_fsts = model_afolu.cat_lndu_fsts
-    cat_grsl = model_afolu.cat_lndu_grass
+    cat_grsl = model_afolu.cat_lndu_grss
     key_pastures = "pasture_tba"
     dict_magnitude = {
         cat_fsts: {
@@ -1920,7 +2038,7 @@ def transformation_lndu_increase_silvopasture(
         (
             vec_lndu_pasture_frac_new, 
             vec_lndu_carrying_capacity_new
-        ) = transformation_support_lndu_get_adjusted_fractions_from_transition_w_natural_grassland(
+        ) = _deprecated_transformation_support_lndu_get_adjusted_fractions_from_transition_w_natural_grassland(
             arr_land_use_prevalence_out_no_intervention,
             arr_land_use_prevalence_out_with_intervention,
             vec_lndu_pasture_frac,
