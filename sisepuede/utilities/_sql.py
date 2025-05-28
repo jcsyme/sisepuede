@@ -111,6 +111,31 @@ def fetch_query_as_df(
 
 
 
+def fetch_query_result(
+    engine: sqlalchemy.engine.Engine,
+    query: str,
+) -> Any:
+    """Execute a query and retieve the output. Returns None if the
+        engine is invalid.
+    """
+    return_none = not isinstance(engine, sqlalchemy.engine.Engine)
+    return_none |= not isinstance(query, str, )
+    if return_none:
+        return None
+
+
+    # initialize result and send query
+    result = None
+
+    if query is not None:
+        with engine.connect() as con:
+            result = con.execute(sqlalchemy.text(query))
+            con.commit() # what a fuckin pita to figure this out
+
+    return result
+
+
+
 def format_listlike_elements_for_filter_query(
     elements: Union[List, Tuple, 'numpy.ndarray', None],
     fields: Union[List, Tuple, 'numpy.ndarray', None],

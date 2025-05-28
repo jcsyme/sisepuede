@@ -1098,8 +1098,7 @@ class IterativeDatabaseTable:
 
 
 class IterativeDatabase:
-	"""
-	Manage tables from iterative models in a cohesive and flexible database
+	"""Manage tables from iterative models in a cohesive and flexible database
 		structure, including output to SQLite, CSVs, or remote SQL databases.
 		The output database includes a number of tables and allows for the
 		specification of optional post-processing functions and additional
@@ -1108,8 +1107,24 @@ class IterativeDatabase:
 
 	Initialization Arguments
 	------------------------
-	- dict_all_tables: dictionary mapping a list of tables to initialize and
-		store OR list of table names (converted to dictionary of keys to None).
+	engine : Union[sqlalchemy.engine.Engine, str, None]
+	    String specifying output method, or, optionally, sqlalchemy engine 
+		connected to a database/schema used to output data. Options for export 
+		are:
+		* string:
+			* "csv": exports CSVs to subdirectory (associated with analysis run
+				id) located in output directory
+			* "sqlite": exports all tables to a SQL lite database located in the
+				output directory
+		* sqlalchemy.engine.Engine: sqlalchemy engine that specifies a database
+			and schema to write output tables to. This engine can be used to
+			write to a remote database service.
+		* None:
+			If `None`, defaults to SQLite in SISEPUEDE output subdirectory
+	dict_all_tables : Union[Dict[str, Dict[str, Any]], List[str], None]
+	    Dictionary mapping a list of tables to initialize and store OR list of 
+		table names (converted to dictionary of keys to None).
+		
 		The dictionary maps keys (table names) to dictionaries that define
 		properties of the table to pass to the IterativeDatabase. If there are
 		no properties to pass, the value of the entry should be associated with
@@ -1130,22 +1145,8 @@ class IterativeDatabase:
 			the IterativeDatabaseTable default associated with that property.
 		* Once tables are initialized, the can be modified using the
 			IterativeDatabaseTable `read_table` and `_write_to_table` methods.
-
-	- engine: string specifying output method, or, optionally, sqlalchemy
-		engine connected to a database/schema used to output data. Options for
-		export are:
-		* string:
-			* "csv": exports CSVs to subdirectory (associated with analysis run
-				id) located in output directory
-			* "sqlite": exports all tables to a SQL lite database located in the
-				output directory
-		* sqlalchemy.engine.Engine: sqlalchemy engine that specifies a database
-			and schema to write output tables to. This engine can be used to
-			write to a remote database service.
-		* None:
-			If `None`, defaults to SQLite in SISEPUEDE output subdirectory
-	- fp_base_output: output file path to write output to *excluding the file
-		extension*.
+	fp_base_output : Union[str, None]
+	    Output file path to write output to *excluding the file extension*.
 		* If engine is an instance of sqlalchemy.engine.Engine, then
 			fp_base_output is unused
 		* If engine == "csv", then the tables are saved under the directory
@@ -1167,16 +1168,18 @@ class IterativeDatabase:
 
 	Optional Arguments
 	------------------
-	- analysis_id: optional specification of a SISEPUEDE analysis run id. Can be
-		enetered in any of the following forms:
+	analysis_id : Union[AnalysisID, str, None]
+	    Optional specification of a SISEPUEDE analysis run id. Can be entered in 
+		any of the following forms:
 		* AnalysisID: pass an AnalysisID object to use
 		* str: pass a string of an AnalysisID; this will initialize a
 			new AnalysisID object within the database structure, but
 			allows for connections with databases associated with the specified
 			AnalysisID
 		* None: initialize a new AnalysisID for the database
-	- * `fields_index_default`: optional fields used to index the table. This
-		can be used to prevent writing information to the table twice.
+	fields_index_default : Union[List[str], None]
+	    Optional fields used to index tables by default. This can be used to 
+		prevent writing information to the table twice.
 		* If using an SQL engine, specifying index fields provides the option to
 			drop rows containing the index.
 		* If using CSVs, will disallow writing to the file if an index is
@@ -1192,20 +1195,22 @@ class IterativeDatabase:
 		* If no value for "fields_index" is passed for a table in
 			`dict_all_tables` initializes without a index fields (i.e., as
 			None)
-	- logger: optional log object to pass
+	logger : Union[logging.Logger, None]
+	    Optional log object to pass
 
 
 
 	Keyword Arguments
 	-----------------
-	- create_dir_output: Create output directory implied by fp_base_output if it
-		does not exist
+	create_dir_output : bool
+	    Create output directory implied by fp_base_output if it does not exist?
 
 	The following arguments are passed to IterativeDatabaseTable
 
-	- index_conflict_resolution: string or None specifying approach to deal
-		with attempts to write new rows to a table that already contains
-		index values. Can take the following options:
+	index_conflict_resolution : Union[str, None]
+	    String or None specifying approach to deal with attempts to write new 
+		rows to a table that already contains index values. Can take the 
+		following options:
 		* None: do nothing, write as is (not recommended)
 		* skip: write nothing to the table
 		* stop: stop the process if an index conflict is identified.
@@ -1216,11 +1221,12 @@ class IterativeDatabase:
 		* write_skip: write all rows associated with new index values and
 			skip any rows associated with index value that are already
 			contained in the data frame.
-	- keep_stash: if a write attempt fails, the "stash" allows failed rows to be
-		stored in a dictionary (IterativeDatabaseTable.stash). Applies to all
-		tables unless specified otherwise in `dict_all_tables`
-	- replace_on_init: replace a table existing at the connection on
-		initialization?
+	keep_stash : bool
+	    If a write attempt fails, the "stash" allows failed rows to be stored in 
+		a dictionary (IterativeDatabaseTable.stash). Applies to all tables 
+		unless specified otherwise in `dict_all_tables`
+	replace_on_init : False
+	    Replace a table existing at the connection on initialization?
 		* Note: should be used with caution. If True, will eliminate any table
 			at the specified directory
 
@@ -1237,7 +1243,7 @@ class IterativeDatabase:
 		# IterativeDatabaseTable Keywords
 		keep_stash: bool = False,
 		index_conflict_resolution: Union[str, None] = "write_skip",
-		replace_on_init = False,
+		replace_on_init: bool = False,
 	) -> None:
 		# initialize some simple properties
 		self.keep_stash = keep_stash
