@@ -2820,23 +2820,24 @@ def project_from_array(
     max_deviation_from_mean: Union[float, None] = 0.2,
     max_lookback: Union[int, None] = None,
 ) -> Union[np.ndarray, None]:
-    """
-    Use a regression to project next value + apply bounds to maximum 
+    """Use a regression to project next value + apply bounds to maximum 
         deviation from the observed mean. Useful for projecting a sequential
         observation in a time series. Returns None is arr_in is not a NumPy 
         array.
         
     Function Arguments
     ------------------
-    - arr_in: 2-d array with rows representing observations (or time) and
-        columns representing different variables. 
+    arr_in : np.ndarray
+        2-d array with rows representing observations (or time) and columns 
+        representing different variables. 
     
     Keyword Arguments
     -----------------
-    - max_deviation_from_mean: maximium proportional deviation from mean; used
-        to prevent large swings in the regression. Set to None to remove the
-        bounds.
-    - max_lookback: optional maximum number of rows to use for identifying 
+    max_deviation_from_mean : Union[float, None]
+        Maximium proportional deviation from mean; used to prevent large swings 
+        in the regression. Set to None to remove the bounds.
+    max_lookback : Union[int, None]
+        Optional maximum number of rows to use for identifying 
     """
     
     # some checks
@@ -2887,36 +2888,42 @@ def project_from_array(
 def project_growth_scalar_from_elasticity(
     vec_rates: np.ndarray,
     vec_elasticity: np.ndarray,
-    rates_are_factors = False,
-    elasticity_type = "standard"
-):
-    """
-    Project a vector of growth scalars from a vector of growth rates and
+    rates_are_factors: bool = False,
+    elasticity_type: str = "standard",
+) -> np.ndarray:
+    """Project a vector of growth scalars from a vector of growth rates and
         elasticities
 
     Function Arguments
     ------------------
-    - vec_rates: a vector of growth rates, where the ith entry is the growth
-        rate of the driver from i to i + 1. If rates_are_factors = False
-        (default), rates are proportions (e.g., 0.02). If
-        rates_are_factors = True, then rates are scalars (e.g., 1.02)
-    - vec_elasticity: a vector of elasticities.
+    vec_rates : np.ndarray
+        A vector of growth rates, where the ith entry is the growth rate of the 
+        driver from i to i + 1. 
+        * If rates_are_factors = False (default), rates are proportions (e.g., 
+            0.02). 
+        * If rates_are_factors = True, then rates are scalars (e.g., 1.02)
+    vec_elasticity : np.ndarray
+        A vector of elasticities.
 
     Keyword Arguments
     -----------------
-    - rates_are_factors: Default = False. If True, rates are treated as
-        growth factors (e.g., a 2% growth rate is entered as 1.02). If
-        False, rates are growth rates (e.g., 2% growth rate is 0.02).
-    - elasticity_type: Default = "standard"; acceptable options are
-        "standard" or "log"
-        * If standard, the growth in the demand is 1 + r*e, where r = is
-            the growth rate of the driver and e is the elasiticity.
-        * If log, the growth in the demand is (1 + r)^e
+    rates_are_factors : bool
+        * True:     rates are treated as growth factors (e.g., a 2% growth rate 
+                    is entered as 1.02)
+        * False:    rates are growth rates (e.g., 2% growth rate is 0.02)
+    elasticity_type : str
+        Default = "standard"; acceptable options are:
+        * "standard":   the growth in the demand is 1 + r*e, where r = is
+                        the growth rate of the driver and e is the elasiticity.
+        * "log":        the growth in the demand is (1 + r)^e
     """
-    # CHEKCS
+    ##  INITIALIZATION AND CHECKS
+
+    # verify shaapes
     if vec_rates.shape[0] + 1 != vec_elasticity.shape[0]:
         raise ValueError(f"Invalid vector lengths of vec_rates ('{len(vec_rates)}') and vec_elasticity ('{len(vec_elasticity)}'). Length of vec_elasticity should be equal to the length vec_rates + 1.")
     
+    # verify type
     valid_types = ["standard", "log"]
     if elasticity_type not in valid_types:
         v_types = format_print_list(valid_types)
@@ -2931,18 +2938,35 @@ def project_growth_scalar_from_elasticity(
     # check if transpose needs to be used
     transpose_q = (len(vec_rates.shape) != len(vec_elasticity.shape))
 
-    # get scalar
+
+    ##  NOW, GET THE SCALARS
+
     if elasticity_type == "standard":
 
-        rates_adj = (vec_rates.transpose()*vec_elasticity[0:-1].transpose()).transpose() if transpose_q else vec_rates*vec_elasticity[0:-1]
+        rates_adj = (
+            (vec_rates.transpose()*vec_elasticity[0:-1].transpose()).transpose() 
+            if transpose_q else 
+            vec_rates*vec_elasticity[0:-1]
+        )
         vec_growth_scalar = np.cumprod(1 + rates_adj, axis = 0)
-        ones = np.ones(1) if (len(vec_growth_scalar.shape) == 1) else np.ones((1, vec_growth_scalar.shape[1]))
+
+        ones = (
+            np.ones(1) 
+            if (len(vec_growth_scalar.shape) == 1) 
+            else np.ones((1, vec_growth_scalar.shape[1]))
+        )
         vec_growth_scalar = np.concatenate([ones, vec_growth_scalar])
+
 
     elif elasticity_type == "log":
 
-        ones = np.ones(1) if (len(vec_rates.shape) == 1) else np.ones((1, vec_rates.shape[1]))
+        ones = (
+            np.ones(1) 
+            if (len(vec_rates.shape) == 1) 
+            else np.ones((1, vec_rates.shape[1]))
+        )
         vec_growth_scalar = np.cumprod(np.concatenate([ones, vec_rates], axis = 0)**vec_elasticity)
+
 
     return vec_growth_scalar
 
@@ -2952,8 +2976,7 @@ def prepend_first_element(
     array: np.ndarray, 
     n_rows: int
 ) -> np.ndarray:
-    """
-    Repeat the first row of array `n_rows` times and prepend
+    """Repeat the first row of array `n_rows` times and prepend
     """
     out = np.concatenate([
         np.repeat(array[0:1], n_rows, axis = 0), array
@@ -2973,8 +2996,7 @@ def ramp_value1(
     r_0: int = 0,
     r_1: Union[int, None] = None,
 ) -> float:
-    """
-    Calculate the value of a ramp function at time x given:
+    """Calculate the value of a ramp function at time x given:
         - n periods
         - r_0 final 0 period
         - parameters a, b, c, and d
@@ -3603,17 +3625,18 @@ def reverse_dict(
     allow_multi_keys: bool = False,
     force_list_values: bool = False,
 ) -> dict:
-    """
-    Reverse a dictionary, mapping v -> k for a dictionary of key value pairs 
+    """Reverse a dictionary, mapping v -> k for a dictionary of key value pairs 
         {k: v}
 
     Function Arguments
     ------------------
-    - dict_in: dictionary to reverse
+    dict_in : dict
+        Dictionary to reverse
 
     Keyword Arguments
     -----------------
-    - allow_multi_keys: if True, will map a non-injective dictionary 
+    allow_multi_keys : bool
+        If True, will map a non-injective dictionary 
 
         {
             k1: v0,
@@ -3630,9 +3653,10 @@ def reverse_dict(
         }
 
         * Note: all keys in the reverse dict will be lists. 
-    - force_list_values: forces dictionary values to be a list. Useful if using
-        with allow_multi_keys = True to ensure that dictionary values are always
-        a list.
+    force_list_values : bool
+        Forces dictionary values to be a list. Useful if using with 
+        allow_multi_keys = True to ensure that dictionary values are always a 
+        list.
     """
     # check keys
     s_vals = set(dict_in.values())
@@ -3662,8 +3686,7 @@ def scalar_bounds(
     scalar: Union[float, int],
     bounds: tuple
 ) -> Union[float, int]:
-    """
-    set a scalar to stay within bounds
+    """Set a scalar to stay within bounds
     """
     bounds = np.array(bounds).astype(float)
     val_out = min([max([scalar, min(bounds)]), max(bounds)])
@@ -3676,8 +3699,8 @@ def seteq(
     set_0: Union[np.ndarray, set, list],
     set_1: Union[np.ndarray, set, list],
 ) -> bool:
-    """
-    Check if unique elements in set_0 are equivalent to unique elements in set_1
+    """Check if unique elements in set_0 are equivalent to unique elements in 
+        set_1
 
     E.g., 
 
@@ -3703,20 +3726,21 @@ def set_properties_from_dict(
     override_existing: bool = False,
     stop_on_error: bool = False,
 ) -> Union[str, None]:
-    """
-    Using dict_info, try to set properties on obj (USE WITH CAUTION)
+    """Using dict_info, try to set properties on obj (USE WITH CAUTION)
 
     Function Arguments
     ------------------
-    - obj: object to which properties should be added
-    - dict_info: if successful, object obj will take on property key with value
-        value
+    obj : Any
+        object to which properties should be added
+    dict_info : Dict[str, Any]
+        If successful, object obj will take on property key with value
 
     Keyword Arguments
     -----------------
-    - override_existing: if True, will override existing properties in an 
-        object
-    - stop_on_error: stop on an error?
+    override_existing : bool
+        If True, will override existing properties in an object
+    stop_on_error : bool
+        Stop on an error?
     """
 
     errors = []
@@ -3749,18 +3773,20 @@ def setup_logger(
     format_str: Union[str, None] = None,
     namespace: Union[str, None] = None,
 ) -> None:
-    """
-    Setup a logger object 
+    """Setup a logger object 
 
     Function Arguments
     ------------------
 
     Keyword Arguments
     -----------------
-    - fn_out: optional path for logging
-    - format_str: optional string for formatting entries
+    fn_out : Union[str, None]
+        Optional path for logging
+    format_str : Union[str, None]
+        Optional string for formatting entries
         * defaults to "%(asctime)s - %(levelname)s - %(message)s"
-    - namespace: optional namespace for the logger
+    namespace : Union[str, None]
+        Optional namespace for the logger
     """
 
     format_str = (
@@ -3807,23 +3833,27 @@ def shift_and_mix(
     abs_bound_1: Union[int, float, None] = None,
     fill_1_on_missing: bool = False,
 ) -> Union[np.ndarray, None]: 
-    """
-    Shift `field_1` to meet `field_0` when it becomes na; then, mix the 
+    """Shift `field_1` to meet `field_0` when it becomes na; then, mix the 
         revised vector back to its original state in decay time.
     
     Function Arguments
     ------------------
-    - df: data frame containing vectors to blend
-    - field_0: field with ending point that will be matched
-    - field_1: field that will match, then blend
-    - decay_time: number of periods to blend on
+    df : DataFrame
+        DataFrame containing vectors to blend
+    field_0 : str
+        Field with ending point that will be matched
+    field_1 : str
+        Field that will match, then blend
+    decay_time : int
+        Number of periods to blend on
     
     Keyword Arguments
     -----------------
-    - abs_bound_1: optional maximum (absolute) bound to apply to field_1 
-        projections. Applied only to growth rates in field_1
-    - fill_1_on_missing: if field_1 is all NA, fill with the last value from 
-        field_0?
+    abs_bound_1 : Union[int, float, None]
+        Optional maximum (absolute) bound to apply to field_1 projections. 
+        Applied only to growth rates in field_1
+    fill_1_on_missing: bool
+        If field_1 is all NA, fill with the last value from field_0?
     """
     
     n = len(df)
@@ -3890,27 +3920,29 @@ def shift_and_mix(
 
 def simple_df_agg(
     df_in: pd.DataFrame,
-    fields_group: list,
+    fields_group: List[str],
     dict_agg: Dict[str, str],
     group_fields_ordered_for_sort_q: bool = False,
 ) -> pd.DataFrame:
-    """
-    Take an input dataframe, set grouping fields, and assume all other fields 
+    """Take an input dataframe, set grouping fields, and assume all other fields 
         are data (see `fields_agg` keyword argument for specifying other 
         fields). Then, apply the same 'agg_func' to data fields.
 
     Function Arguments
     ------------------
-    - df_in: input data frame to aggregate over
-    - fields_group: fields to group the data frame by
-    - dict_agg: dictionary mapping field to aggregation function; data fields to
+    df_in : DataFrame
+        Input data frame to aggregate over
+    fields_group : List[str]
+        Fields to group the data frame by
+    dict_agg : Dict[str, str]
+        Dictionary mapping field to aggregation function; data fields to
         aggregate are keys
 
     Keyword Arguments
     -----------------
-    - group_fields_ordered_for_sort_q: bool. Default = False. If True, the 
-        grouping fields are ordered and used to sort the output dataframe after 
-        aggregation.
+    group_fields_ordered_for_sort_q : bool
+        If True, the grouping fields are ordered and used to sort the output 
+        DataFrame after aggregation
     """
     
     # check input fields and keys
@@ -3953,13 +3985,11 @@ def sort_integer_strings(
 
 
 
-##  
 def str_replace(
     str_in: str,
     dict_replace: dict
 ) -> str:
-    """
-    Multiple string replacements using a dictionary. Operates in order
+    """Multiple string replacements using a dictionary. Operates in order
         NOTE: Should be modified to use OrderedDict
     """
 
@@ -3973,9 +4003,8 @@ def str_split(
     x: str, 
     delim: str = ",",
     return_type: type = str,
-):
-    """
-    Split string x using delimiter delim. Tries to return return_type. Useful
+) -> List[Any]:
+    """Split string x using delimiter delim. Tries to return return_type. Useful
         for applying to DataFrames.
     """
     out = x.split(delim)
