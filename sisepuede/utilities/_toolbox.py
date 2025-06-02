@@ -718,17 +718,22 @@ def clean_field_names(
 
 def clean_row_stochastic_matrix(
     mat: np.ndarray,
-    fill_diag: bool = True,
+    negative_to_zero: bool = True,
 ) -> Union[np.ndarray, None]:
-    """
-    Ensure that rows sum to 1 and fill ones on diagonal if sum is 1
+    """Ensure that rows sum to 1 and fill ones on diagonal if sum is 1. If 
+        negative_to_zero, will force negative numbers to zero.
     """
     
     if not isinstance(mat, np.ndarray):
         return None
     
-    sums_row = mat.sum(axis = 1)
+    # get some characteristics
     dims = mat.shape
+    sums_row = mat.sum(axis = 1)
+
+    # min bound at 0?
+    if negative_to_zero:
+        mat[mat < 0] = 0.0
     
     for i in range(dims[0]):
         if sums_row[i] == 0.0:
