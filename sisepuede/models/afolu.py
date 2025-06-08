@@ -1288,29 +1288,28 @@ class AFOLU:
         arrs_lndu_land_conv: np.ndarray,
         arrs_lndu_soc_conversion_factors: np.ndarray,
         time_dependence_stock_change: int,
-        shape_param: Union[float, int] = None,
+        shape_param: Union[float, int, None] = None,
     ) -> np.ndarray:
         """Calculate the SOC stock change with time dependence (includes some 
             qualitative non-linearities)
 
         Function Arguments
         ------------------
-        arrs_lndu_land_conv : 
+        arrs_lndu_land_conv : np.ndarray
             Arrays with land use conversion totals
-        arrs_lndu_soc_conversion_factors : 
+        arrs_lndu_soc_conversion_factors : np.ndarray
             Arrays with SOC conversion factors between types
-        time_dependence_stock_change : 
+        time_dependence_stock_change : int
             Time-dependent stock change factor to use
 
         Keyword Arguments
         -----------------
-        shape_param : 
+        shape_param :  Union[float, int, None]
             Parameter that expands the sigmoid. If None, defaults to 
             time_dependence_stock_change/10.
 
         Notes
         -----
-
         See Volume 4, Chapter 2 of the IPCC 2006 Guidance for National 
             Greenhouse Gas Inventories, page 2.38 for the following description 
             of changes to soil carbon:
@@ -1340,7 +1339,9 @@ class AFOLU:
         D = int(np.round(time_dependence_stock_change))
         shape_param = D/10 if (shape_param is None) else shape_param
 
-        # get functions that characterize SOC stock change from conversion - sequestration (sigmoid) and emissions (complementary sigmoid with double phase)
+        # get functions that characterize SOC stock change from conversion 
+        #    - sequestration (sigmoid) 
+        #    - emissions (complementary sigmoid with double phase)
         def emission_curve(x: float) -> float:
             d = D/2
             x_pr = x/(2*shape_param) + d*(shape_param - 1)/shape_param
@@ -2933,12 +2934,11 @@ class AFOLU:
         arr_soil_ef1_organic: np.ndarray,
         arr_soil_soc_stock: np.ndarray,
         vec_soil_area_crop_pasture: np.ndarray,
-        dict_soil_fracs_to_use_agrc: dict,
-        dict_soil_fracs_to_use_frst: dict,
-        dict_soil_fracs_to_use_lndu: dict
+        dict_soil_fracs_to_use_agrc: Dict[str, np.ndarray],
+        dict_soil_fracs_to_use_frst: Dict[str, np.ndarray],
+        dict_soil_fracs_to_use_lndu: Dict[str, np.ndarray]
     ) -> tuple:
-        """
-        Retrieve matrices of delta SOC (- means loss of SOC, + indicates 
+        """Retrieve matrices of delta SOC (- means loss of SOC, + indicates 
             sequestration) for conversion from class i to class j in each time 
             period, as well as a land-area weighted average EF1 for each time 
             period. Note that all areas should be in the same units.
@@ -2947,32 +2947,40 @@ class AFOLU:
 
         Function Arguments
         ------------------
-        - arr_agrc_crop_area: array giving crop areas
-        - arr_lndu_area: array of land use areas (ordered by 
-            attr_lndu.key_values)
-        - arr_lndu_factor_soil_carbon: array of F_LU SOC factors by land use 
-            type
-        - arr_lndu_factor_soil_management: array of F_MG SOC adjustment factors 
-            by land use type
-        - arr_lndu_frac_mineral_soils: array giving the fraction of soils that 
-            are mineral by each land use category
-        - arr_soil_ef1_organic: N2O Organic EF1 by soil type
-        - arr_soil_soc_stock: array giving soil carbon content of soil types 
-            (30cm) for each time period (n_tp x attr_soil.n_key_values)
-        - vec_soil_area_crop_pasture: area of crop and pasture by time period
-        - dict_soil_fracs_to_use_agrc: dictionary mapping soil fraction model 
-            variable string to array (wide by crop categories)
-        - dict_soil_fracs_to_use_frst: dictionary mapping soil fraction model 
-            variable string to fraction array (wide by forest categories)
-        - dict_soil_fracs_to_use_lndu: dictionary mapping soil fraction model 
-            variable string to fraction array (wide by land use categories)
+        arr_agrc_crop_area : np.ndarray 
+            `array giving crop areas
+        arr_lndu_area : np.ndarray
+            Array of land use areas (ordered by attr_lndu.key_values)
+        arr_lndu_factor_soil_carbon : np.ndarray
+            Aarray of F_LU SOC factors by land use type
+        arr_lndu_factor_soil_management : np.ndarray
+            Array of F_MG SOC adjustment factors by land use type
+        arr_lndu_frac_mineral_soils : np.ndarray
+            Array giving the fraction of soils that are mineral by each land use 
+            category
+        arr_soil_ef1_organic : np.ndarray
+            N2O Organic EF1 by soil type
+        arr_soil_soc_stock : np.ndarray
+            Array giving soil carbon content of soil types (30cm) for each time 
+            period (n_tp x attr_soil.n_key_values)
+        vec_soil_area_crop_pasture : np.ndarray
+            Area of crop and pasture by time period
+        dict_soil_fracs_to_use_agrc : Dict[str, np.ndarray]
+            Dictionary mapping soil fraction model variable string to array 
+            (wide by crop categories)
+        dict_soil_fracs_to_use_frst : Dict[str, np.ndarray]
+            Dictionary mapping soil fraction model variable string to fraction 
+            array (wide by forest categories)
+        dict_soil_fracs_to_use_lndu : Dict[str, np.ndarray]
+            Dictionary mapping soil fraction model variable string to fraction 
+            array (wide by land use categories)
         """
 
         # get attribute tables
-        attr_agrc = self.model_attributes.get_attribute_table(self.subsec_name_agrc)
-        attr_frst = self.model_attributes.get_attribute_table(self.subsec_name_frst)
-        attr_lndu = self.model_attributes.get_attribute_table(self.subsec_name_lndu)
-        attr_soil = self.model_attributes.get_attribute_table(self.subsec_name_soil)
+        attr_agrc = self.model_attributes.get_attribute_table(self.subsec_name_agrc, )
+        attr_frst = self.model_attributes.get_attribute_table(self.subsec_name_frst, )
+        attr_lndu = self.model_attributes.get_attribute_table(self.subsec_name_lndu, )
+        attr_soil = self.model_attributes.get_attribute_table(self.subsec_name_soil, )
 
         # initialize SOC transition arrays
         n_tp = len(arr_agrc_crop_area)
@@ -2988,17 +2996,20 @@ class AFOLU:
 
         vec_agrc_area = np.sum(arr_agrc_crop_area, axis = 1)
         vec_agrc_avg_soc = 0.0
+        
         for modvar in dict_soil_fracs_to_use_agrc.keys():
+
             # soil category
             cat_soil = clean_schema(self.model_attributes.get_variable_attribute(modvar, attr_soil.key))
             ind_soil = attr_soil.get_key_value_index(cat_soil)
             #
             vec_agrc_avg_soc_cur = np.sum(arr_agrc_crop_area*dict_soil_fracs_to_use_agrc[modvar], axis = 1)
             vec_soil_ef1_soc_est += vec_agrc_avg_soc_cur*arr_soil_ef1_organic[:, ind_soil]/vec_soil_area_crop_pasture
+
             vec_agrc_avg_soc_cur = np.nan_to_num(vec_agrc_avg_soc_cur/vec_agrc_area, nan = 0.0, posinf = 0.0, )
             vec_agrc_avg_soc_cur *= arr_soil_soc_stock[:, ind_soil]*arr_lndu_factor_soil_carbon[:, self.ind_lndu_crop]*arr_lndu_factor_soil_management[:, self.ind_lndu_crop]
             vec_agrc_avg_soc += vec_agrc_avg_soc_cur*arr_lndu_frac_mineral_soils[:, self.ind_lndu_crop]
-
+            
         dict_lndu_avg_soc_vecs.update({self.ind_lndu_crop: vec_agrc_avg_soc})
 
 
@@ -3016,12 +3027,13 @@ class AFOLU:
         inds_lndu = inds_frst[:, 0]
         inds_frst = inds_frst[:, 1]
 
+
         for modvar in dict_soil_fracs_to_use_frst.keys():
             # soil category
             cat_soil = clean_schema(self.model_attributes.get_variable_attribute(modvar, attr_soil.key))
             ind_soil = attr_soil.get_key_value_index(cat_soil)
             #
-
+            """
             arr_frst_avg_soc_cur = arr_lndu_area[:, inds_lndu]*dict_soil_fracs_to_use_frst[modvar][:, inds_frst]
             arr_frst_avg_soc_cur = (
                 np.nan_to_num(
@@ -3031,16 +3043,22 @@ class AFOLU:
                 )
                 .transpose()
             )
+            """;
+            arr_frst_avg_soc_cur = (
+                dict_soil_fracs_to_use_frst[modvar][:, inds_frst]
+                .copy()
+                .transpose()
+            )
+
             arr_frst_avg_soc_cur *= arr_soil_soc_stock[:, ind_soil]*arr_lndu_factor_soil_carbon[:, inds_lndu].transpose()
             arr_frst_avg_soc += arr_frst_avg_soc_cur.transpose()*arr_lndu_frac_mineral_soils[:, inds_lndu]
-
 
         for i in enumerate(inds_lndu):
             i, ind = i
             dict_lndu_avg_soc_vecs.update({ind: arr_frst_avg_soc[:, i]})
 
 
-        ##  GET AVERAGE SOC CONTENT IN ADDITIONAL LAND USE CATEGORIES
+        ##  GET AVERAGE SOC CONTENT IN ADDITIONAL LAND USE CATEGORIES HEREHEREHERE
 
         arr_lndu_avg_soc = 0.0
         cats_lndu = list(set(sum([self.model_attributes.get_variable_categories(x) for x in dict_soil_fracs_to_use_lndu.keys()], [])))
@@ -3053,7 +3071,7 @@ class AFOLU:
             cat_soil = clean_schema(self.model_attributes.get_variable_attribute(modvar, attr_soil.key))
             ind_soil = attr_soil.get_key_value_index(cat_soil)
 
-            #
+            # 
             arr_lndu_avg_soc_cur = arr_lndu_area[:, inds_lndu]*arr_frac[:, inds_lndu]
             vec_soil_ef1_soc_est += (
                 arr_lndu_avg_soc_cur[:, w_pstr[0]]*arr_soil_ef1_organic[:, ind_soil]/vec_soil_area_crop_pasture
@@ -3062,6 +3080,7 @@ class AFOLU:
             )
 
             # get average SOC for the curent soil type
+            """
             arr_lndu_avg_soc_cur = (
                 np.nan_to_num(
                     arr_lndu_avg_soc_cur/arr_lndu_area[:, inds_lndu], 
@@ -3070,16 +3089,34 @@ class AFOLU:
                 )
                 .transpose()
             )
+            """
+            arr_lndu_avg_soc_cur = (
+                arr_frac[:, inds_lndu]
+                .copy()
+                .transpose()
+            )
             arr_lndu_avg_soc_cur *= arr_soil_soc_stock[:, ind_soil]*arr_lndu_factor_soil_carbon[:, inds_lndu].transpose()
             arr_lndu_avg_soc_cur *= arr_lndu_factor_soil_management[:, inds_lndu].transpose()
 
             # add to weighted average
             arr_lndu_avg_soc += arr_lndu_avg_soc_cur.transpose()*arr_lndu_frac_mineral_soils[:, inds_lndu]
 
-
         for i, ind in enumerate(inds_lndu):
             dict_lndu_avg_soc_vecs.update({ind: arr_lndu_avg_soc[:, i]})
 
+        
+        ##  APPLY AN AVERAGE TO MISSING LAND USE TYPES
+
+        # calculate an average to apply to other land use classes
+        vec_lngu_avg_soc = (arr_lndu_avg_soc * arr_lndu_area[:, inds_lndu]).sum(axis = 1, )
+        vec_lngu_avg_soc /= arr_lndu_area[:, inds_lndu].sum(axis = 1, )
+        vec_lngu_avg_soc = np.nan_to_num(vec_lngu_avg_soc, nan = 0.0, posinf = 0.0, )
+
+        # add a missing
+        inds_missing = [x for x in range(attr_lndu.n_key_values) if x not in dict_lndu_avg_soc_vecs.keys()]
+        for ind in inds_missing:
+            dict_lndu_avg_soc_vecs.update({ind: vec_lngu_avg_soc, })
+        
 
         ##  UPDATE SOURCE/TARGET ARRAYS USING AVERAGE SOC
 
@@ -3907,9 +3944,18 @@ class AFOLU:
             adjustments.
 
         NOTE: constraints are used to bound areas. However, they are not
-            immediately binding. Instead, they follow behavior that better 
-            reflects what would be expected from land use/cover transitions:
-            * 
+            binding in the same way.
+
+            * Minimum area constraints *do not* allow any land use transitions
+                out of a state if, without accounting for inflows, the area
+                of that state would fall below the minimum. This better reflects 
+                the behavior of protected areas, where a fixed minimum area 
+                does not change (if we assume the land cover mix within the
+                protected area does not change)
+            * Maximum area constraints are calculated after accounting for both
+                inflows and outflows. 
+
+
 
         Function Arguments
         ------------------
@@ -4202,11 +4248,6 @@ class AFOLU:
             )
 
             x_next  = np.matmul(x, arr_transition_adj)
-
-
-            # get differences in area and send unmet to imp/exp
-            area_delta_crop = x_next[self.ind_lndu_crop] - area_target_crop
-            area_delta_pstr = x_next[self.ind_lndu_pstr] - area_target_pstr
 
 
             ###   AFTER RUNNING OPT, WE HAVE TO ADJUSTE AREAS AND FINAL BALANCES, YIELDS, ETC.
@@ -4684,25 +4725,32 @@ class AFOLU:
         x_proj_unadj: Union[np.ndarray, None] = None,
         **kwargs,
     ) -> Dict:
-        """
-        Format adjustment problem inputs
+        """Format adjustment problem inputs
 
+        
         Function Arguments
         ------------------
-        - Q: unadjusted transition matrix
-        - x_0: initial prevalence
-        - dict_area_targets_exog: dictionary mapping indices to fixed values 
-            from reallocation
-        - vec_infima_in: vector specifying class infima; use flag_ignore to set 
-            no infimum for a class
-        - vec_suprema_in: vector specifying class suprema; use flag_ignore to 
-            set no supremum for a class
+        Q : np.ndarray
+            Unadjusted transition matrix
+        x_0 : np.ndarray
+            Initial prevalence
+        dict_area_targets_exog : dict
+            Dictionary mapping indices to fixed values from reallocation
+        vec_infima_in : np.ndarray
+            Vector specifying class infima; use flag_ignore to set no infimum 
+            for a class
+        vec_suprema_in : np.ndarray
+            Vector specifying class suprema; use flag_ignore to set no supremum 
+            for a class
                 
         Keyword Arguments
         -----------------
-        - area: optional specification of area for normalization
-        - x_proj_unadj: unadjusted projected land use derived from exogenously 
-            specified (unadjusted) transition matrix
+        area : Union[np.ndarray, None]
+            Optional specification of area for normalization
+        x_proj_unadj : Union[np.ndarray, None]
+            Unadjusted projected land use derived from exogenously specified 
+            (unadjusted) transition matrix
+
         """
 
         # retrieve inputs that are normalized
@@ -4744,31 +4792,37 @@ class AFOLU:
         Q: np.ndarray,
         x_0: np.ndarray,
         dict_area_targets_exog: dict, 
-        vec_infimum_in: np.ndarray,  # arr_lndu_constraints_inf[i]
-        vec_supremum_in: np.ndarray,  # arr_lndu_constraints_sup[i]
-        area: Union[np.ndarray, None] = None,  # vec_area[i]
+        vec_infimum_in: np.ndarray,
+        vec_supremum_in: np.ndarray, 
+        area: Union[np.ndarray, None] = None, 
         x_proj_unadj: Union[np.ndarray, None] = None,
     ) -> Tuple:
-        """
-        Format inputs to the QAdjuster for land use. Renormalizes vectors and 
+        """Format inputs to the QAdjuster for land use. Renormalizes vectors and 
             builds costs for prevalence in objective function.
 
         Function Arguments
         ------------------
-        - Q: unadjusted transition matrix
-        - x_0: initial prevalence
-        - dict_area_targets_exog: dictionary mapping indices to fixed values 
-            from reallocation
-        - vec_infima_in: vector specifying class infima; use flag_ignore to set 
-            no infimum for a class
-        - vec_suprema_in: vector specifying class suprema; use flag_ignore to 
-            set no supremum for a class
+        Q : np.ndarray
+            Unadjusted transition matrix
+        x_0 : np.ndarray
+            Initial prevalence
+        dict_area_targets_exog : dict
+            Dictionary mapping indices to fixed values from reallocation
+        vec_infima_in : np.ndarray
+            Vector specifying class infima; use flag_ignore to set no infimum 
+            for a class
+        vec_suprema_in : np.ndarray
+            Vector specifying class suprema; use flag_ignore to set no supremum 
+            for a class
                 
         Keyword Arguments
         -----------------
-        - area: optional specification of area for normalization
-        - x_proj_unadj: unadjusted projected land use derived from exogenously 
-            specified (unadjusted) transition matrix
+        area : Union[np.ndarray, None]
+            Optional specification of area for normalization
+        x_proj_unadj : Union[np.ndarray, None]
+            Unadjusted projected land use derived from exogenously specified 
+            (unadjusted) transition matrix
+
         """
         # initialize the land area
         area = x_0.sum() if not sf.isnumber(area) else area
@@ -5488,7 +5542,7 @@ class AFOLU:
             force_sum_equality = True,
             msg_append = "Land use dry/wet fractions by category do not sum to 1. See definition of dict_arrs_lndu_frac_drywet.",
         )
-        self.dict_arrs_lndu_frac_drywet = dict_arrs_lndu_frac_drywet
+
         # land use fractions in temperate/tropical climate
         dict_arrs_lndu_frac_temptrop = self.model_attributes.get_multivariables_with_bounded_sum_by_category(
             df_afolu_trajectories,
@@ -6245,7 +6299,7 @@ class AFOLU:
             var_bounds = (0, 1),
         )
     
-        arr_lndu_frac_organic_soils = 1 - arr_lndu_frac_mineral_soils
+        arr_lndu_frac_organic_soils = sf.vec_bounds(1 - arr_lndu_frac_mineral_soils, (0.0, 1.0))
         vec_soil_area_crop_pasture = (
             arr_land_use[:, [self.ind_lndu_crop, self.ind_lndu_pstr]]
             .sum(axis = 1)
@@ -6608,11 +6662,10 @@ class AFOLU:
             dict_arrs_lndu_frac_drywet
         )
 
-        self.arrs_lndu_soc_conversion_factors = arrs_lndu_soc_conversion_factors
         vec_soil_delta_soc_mineral = self.calculate_soc_stock_change_with_time_dependence(
             arrs_lndu_land_conv,
             arrs_lndu_soc_conversion_factors,
-            20,# get from config HEREHERE
+            20, # get from config HEREHERE
         )
         
         # initialize organic SOC, then loop over tropical/temperate cropland to get soil carbon for organic drained soils

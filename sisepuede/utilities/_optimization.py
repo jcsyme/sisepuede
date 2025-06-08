@@ -13,8 +13,7 @@ import sisepuede.utilities._toolbox as sf
 #
 
 class QAdjuster:
-    """
-    Adjust a transition matrix Q to match requirements from land use 
+    """Adjust a transition matrix Q to match requirements from land use 
         reallocation factor.
     """
     
@@ -50,10 +49,9 @@ class QAdjuster:
         thresh_to_zero: float = 0.00000001,
         **kwargs,
     ) -> np.ndarray:
-        """
-        Reshape the output from QAdjuster.solve to match the original transition
-            matrix shape. Additionally, chop near-zero elements to zero and ensure
-            proper normalization. 
+        """Reshape the output from QAdjuster.solve to match the original 
+            transition matrix shape. Additionally, chop near-zero elements to 
+            zero and ensure proper normalization. 
         """
         Q_solve_out = Q_solve.copy()
         Q_solve_out[np.abs(Q_solve_out) <= thresh_to_zero] = 0.0
@@ -68,8 +66,7 @@ class QAdjuster:
         p_0: np.ndarray, # prevalence vector at time 0
         p_1: np.ndarray, # prevalence vector at time 1
     ) -> float:
-        """
-        Minimize the distance between the new matrix and the original 
+        """Minimize the distance between the new matrix and the original 
             transition matrix for the Minimize Calibration Error (MCE) approach
 
         Function Arguments
@@ -96,14 +93,16 @@ class QAdjuster:
         p_0: np.ndarray,
         p_1: np.ndarray,
     ) -> np.ndarray:
-        """
-        Generate the gradient vector for f_obj_mce()
+        """Generate the gradient vector for f_obj_mce()
 
         Function Arguments
         ------------------
-        - x: variable vector
-        - p_0: initial prevalence
-        - p_1: next-step prevalence
+        x : np.ndarray
+            Variable vector
+        p_0 : np.ndarray
+            Initial prevalence
+        p_1 : np.ndarray
+            Next-step prevalence
         """
 
         n = p_0.shape[0]
@@ -134,8 +133,7 @@ class QAdjuster:
         x: np.ndarray,
         x_try: np.ndarray,
     ) -> np.ndarray:
-        """
-        Set the Hessian for the objective function
+        """Set the Hessian for the objective function
         """
         out = np.diag(2*np.ones(len(x)))
 
@@ -148,9 +146,8 @@ class QAdjuster:
         j:int, 
         n:int,
     ) -> int:
-        """
-        For matrix indices i, j in an n x n matrix, get the indices of elements
-            in the flat vector of length n^2.
+        """For matrix indices i, j in an n x n matrix, get the indices of 
+            elements in the flat vector of length n^2.
         """
         out = i*n + j
         
@@ -162,9 +159,8 @@ class QAdjuster:
         k:int,
         n:int,
     ) -> int:
-        """
-        For indices of elements in a flat vector of length n^2, get the matrix indices
-            of original elements.
+        """For indices of elements in a flat vector of length n^2, get the 
+            matrix indices of original elements.
         """
         #n_root = Int64(n^0.5)
         col = k%n
@@ -188,8 +184,7 @@ class QAdjuster:
         preserve_zeros: bool = True,
         supremum: float = 0.99999,
     ) -> Tuple[np.ndarray, np.ndarray, np.ndarray]:
-        """
-        Generate a matrix of coefficients used to ensure that values do not
+        """Generate a matrix of coefficients used to ensure that values do not
             exceed some error. Returns
 
             (
@@ -285,8 +280,7 @@ class QAdjuster:
         vector_bounds: np.ndarray,
         flag_ignore: float,
     ) -> Union[Tuple[np.ndarray, np.ndarray], None]:
-        """
-        Generate maximum area constraint coefficients (B_1) for land use 
+        """Generate maximum area constraint coefficients (B_1) for land use 
             adjustment optimization
 
         Returns a tuple with A and b for inequality (Ax <= b)
@@ -340,8 +334,7 @@ class QAdjuster:
         vector_bounds: np.ndarray,
         flag_ignore: float,
     ) -> Union[Dict[str, Union[np.ndarray, None]], None]:
-        """
-        Generate minimum area constraint coefficients (B_0) for land use 
+        """Generate minimum area constraint coefficients (B_0) for land use 
             adjustment optimization
 
         Returns a tuple with A and b for inequality (Ax <= b
@@ -398,18 +391,19 @@ class QAdjuster:
     def get_constraint_coeffs_preserve_zeros(self,
         matrix_0: np.ndarray,
     ) -> np.ndarray:
-        """
-        Generate a matrix of coefficients used to ensure that values in matrix_0 
-            that are 0 also zero in the solution. Returns a tuple in the form of
+        """Generate a matrix of coefficients used to ensure that values in
+            matrix_0 that are 0 also zero in the solution. Returns a tuple in 
+            the form of
 
-        (
-            A,
-            b,
-        )
+            (
+                A,  # matrix with dims (n, n^2)
+                b,  # vector with dim (n, )
+            )
 
         Function Arguments
         ------------------
-        - matrix_0: initial transition matrix (n x n)
+        matrix_0 : np.ndarray
+            Initial transition matrix (n x n)
         """
 
         n = matrix_0.shape[0]
@@ -433,8 +427,7 @@ class QAdjuster:
     def get_constraint_coeffs_row_stochastic(self,
         matrix_0: np.ndarray,
     ) -> np.ndarray:
-        """
-        Generate a matrix of coefficients used to ensure that the resulting
+        """Generate a matrix of coefficients used to ensure that the resulting
             matrix is row-stochastic
 
         Returns a tuple of the form
@@ -446,7 +439,8 @@ class QAdjuster:
 
         Function Arguments
         ------------------
-        - matrix_0: initial transition matrix (n x n)
+        matrix_0 : np.ndarray
+            Initial transition matrix (n x n)
         """
 
         n = matrix_0.shape[0]
@@ -481,29 +475,33 @@ class QAdjuster:
         cost_factor_prev_default: Union[float, int, None] = None,
         **kwargs,
     ) -> np.ndarray:
-        """
-        Get the costs specified for each qij and the prevalence vector 
+        """Get the costs specified for each qij and the prevalence vector 
 
         Function Arguments
         ------------------
-        - matrix_0: unadjusted transition matrix
+        matrix_0 : np.ndarray
+            Unadjusted transition matrix
 
         Keyword Arguments
         -----------------
-        - costs_qij: specification of transition costs directly, either as a 
+        costs_qij : Union[dict, np.ndarray, None]
+            Specification of transition costs directly, either as a 
             dictionary or as a numpy array (n x n). Dictionary is used to 
             overwrite defaults with (row, column) index tuples as keys mapping 
             to costs as values
-        - costs_x: specification of prevalence costs directly, either as a 
+        costs_x : Union[dict, np.ndarray, None]
+            Specification of prevalence costs directly, either as a 
             dictionary or as a numpy array (n x 1). Dictionary is used to
             overwrite defaults with the index as a key mapping to the costs as 
             a value
-        - cost_basic: basic cost to use for individual land use transitions. If
-            specified as a dictionary, must 
-        - cost_factor_qii: scalar applied to cost_basic to create costs on
-            diagonals as default
-        - cost_factor_prev_default: default factor to use for prevalence costs.
-            If None, is calculated as 10 times the sum of all transition costs.
+        cost_basic_default : Union[float, int]
+            Basic cost to use for individual land use transitions. If specified 
+            as a dictionary, must 
+        cost_factor_qii_default : Union[float, int, dict]
+            Scalar applied to cost_basic to create costs on diagonals as default
+        cost_factor_prev_default : Union[float, int, None]
+            Default factor to use for prevalence costs. If None, is calculated 
+            as 10 times the sum of all transition costs.         
         """
         ##  GET COSTS FOR TRANSITION ERRORS
 
@@ -585,8 +583,7 @@ class QAdjuster:
         return_component_matrices: bool = False,
         **kwargs,
     ) -> Tuple:
-        """
-        Generate objective value components for QP in land use optimization
+        """Generate objective value components for QP in land use optimization
 
         Returns a tuple of the form
 
@@ -598,27 +595,27 @@ class QAdjuster:
 
         Function Arguments
         ------------------
-        - matrix_0: initial transition matrix (n x n)
-        - x_0: prevalence vector
-        - x_target: target prevalence vector. Classes without a target can be
-            ignored using flag_ignore
-        - vec_infima: vector specifying class infima; use flag_ignore to set no 
-            infimum for a class
-        - vec_suprema: vector specifying class suprema; use flag_ignore to set 
-            no supremum for a class
-        - flag_ignore: flag in vector_bounds used 
+        matrix_0 : np.ndarray
+            Initial transition matrix (n x n)
+        x_0 : np.ndarray
+            Prevalence vector
+        x_target : np.ndarray
+            Target prevalence vector. Classes without a target can be ignored 
+            using flag_ignore
 
         Keyword Arguments
         -----------------
-        - return_component_matrices: if True, returns a tuple in the form:
+        return_component_matrices : bool
+            If True, returns a tuple in the form:
             (
-                M_prevalence,  # prevalence distance quadratic component
-                c_prevalence,  # prevalence distance linear component
+                M_prevalence,   # prevalence distance quadratic component
+                c_prevalence,   # prevalence distance linear component
                 M_transitions,  # transition matrix distance quadratic component
                 c_transitions,  # transition matrix distance linear component
             )
 
-        - **kwargs: passed to get_costs, 
+        - **kwargs : 
+            Passed to get_costs
         """
 
         ##  GET OBJECTIVE VALUES
@@ -671,6 +668,20 @@ class QAdjuster:
                 h,
             )
 
+        Function Arguments
+        ------------------
+        matrix_0 : np.ndarray
+            Initial transition matrix (n x n)
+        x_0 : np.ndarray
+            Prevalence vector
+        vec_infima : np.ndarray
+            Vector specifying class infima; use flag_ignore to set no infimum 
+            for a class
+        vec_suprema : np.ndarray
+            Vector specifying class suprema; use flag_ignore to set no supremum 
+            for a class
+        flag_ignore : float
+            Float specifying
 
         Function Arguments
         ------------------
@@ -754,8 +765,7 @@ class QAdjuster:
         x_1: np.ndarray,
         weights: Union[np.ndarray, None] = None,
     ) -> Tuple[np.ndarray]:
-        """
-        Get the objective function component matrix and vectors necessary for
+        """Get the objective function component matrix and vectors necessary for
             euclidean distance between a transition matrix estimate and a 
             target. Includes ability to weight individual classes.
 

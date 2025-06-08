@@ -1073,10 +1073,20 @@ class Transformers:
         all_transformers.append(self.agrc_reduce_supply_chain_losses)
 
 
+
         ##  FRST TRANSFORMERS
+
 
         
         ##  LNDU TRANSFORMERS
+
+        self.lndu_bound_classes = Transformer(
+            f"{_MODULE_CODE_SIGNATURE}:LNDU:BOUND_CLASSES", 
+            self._trfunc_lndu_bound_class,
+            attr_transformer_code
+        )
+        all_transformers.append(self.lndu_expand_silvopasture)
+
 
         self.lndu_expand_silvopasture = Transformer(
             f"{_MODULE_CODE_SIGNATURE}:LNDU:INC_SILVOPASTURE", 
@@ -1118,6 +1128,7 @@ class Transformers:
         all_transformers.append(self.lndu_stop_deforestation)
 
 
+
         ##  LSMM TRANSFORMATIONS
 
         self.lsmm_improve_manure_management_cattle_pigs = Transformer(
@@ -1151,6 +1162,7 @@ class Transformers:
         )
         all_transformers.append(self.lsmm_increase_biogas_capture)
 
+
         
         ##  LVST TRANSFORMERS
       
@@ -1178,6 +1190,7 @@ class Transformers:
         all_transformers.append(self.lvst_reduce_enteric_fermentation)
         
 
+
         ##  SOIL TRANSFORMERS
         
         self.soil_reduce_excess_fertilizer = Transformer(
@@ -1194,6 +1207,7 @@ class Transformers:
             attr_transformer_code
         )
         all_transformers.append(self.soil_reduce_excess_liming)
+
 
 
         #######################################
@@ -3181,6 +3195,103 @@ class Transformers:
     ###########################################
     #    FRST (LNDU) TRANSFORMER FUNCTIONS    #
     ###########################################
+
+    def _trfunc_lndu_bound_class(self,
+        df_input: Union[pd.DataFrame, None] = None,
+        dict_directional_categories_to_magnitude: Union[Dict[Tuple[str], Union[float, int]], None] = None,
+        strat: Union[int, None] = None,
+        vec_implementation_ramp: Union[np.ndarray, Dict[str, int], None] = None,
+    ) -> pd.DataFrame:
+        """Implement the "Bound Land Use Class" transformation. This transformation can be used to represent the addition of protected areas through the use of a minimum bound OR the prevention of additional growth through the maxium bound. 
+            
+        Parameters
+        ----------
+        df_input : pd.DataFrame
+            Optional data frame containing trajectories to modify
+        dict_directional_categories_to_magnitude : Union[Dict[Tuple[str],  Union[float, int]], None]
+            Dictionary mapping classes and direction, as an ordered tuple, to the magnitude, in variable units (e.g., ha), of the land use class bound.
+            As an example, the dictionary should take the following form:
+                {
+                    ("pastures", "max"): 500000,
+                    ("forests_primary", "min"): 1400000,
+                }
+
+            * NOTE:
+                * direction:    "max" - an upper bound for the area of the land use class
+                                "min" - a lower bound for the area of the land use class
+            * If None, no default is applied
+
+        strat : int
+            Optional strategy value to specify for the transformation
+        vec_implementation_ramp : Union[np.ndarray, Dict[str, int], None]
+            Optional vector or dictionary specifying the implementation scalar ramp for the transformation. If None, defaults to a uniform ramp that starts at the time specified in the configuration.
+        """
+        # check input dataframe
+        df_input = (
+            self.baseline_inputs
+            if not isinstance(df_input, pd.DataFrame) 
+            else df_input
+        )
+
+        if not isinstance(dict_directional_categories_to_magnitude, dict):
+            return df_input
+        
+
+        attr_lndu = self.model_attributes.get_attribute_table(
+            self.model_attributes.subsec_name_lndu,
+        )
+
+        # check implementation ramp
+        vec_implementation_ramp = self.check_implementation_ramp(
+            vec_implementation_ramp,
+            df_input,
+        )
+
+
+        # COMBINES SEVERAL COMPONENTS - NO TILL + REDUCTIONS IN RESIDUE REMOVAL AND BURNING
+
+        dict_max = {}
+        dict_min = {}
+
+        modvar_max = self.model_attributes.get_variable(self.model_afolu.modvar_lndu_constraint_area_max, )
+        modvar_min = self.model_attributes.get_variable(self.model_afolu.modvar_lndu_constraint_area_min, )
+
+        
+        df_out = df_input.copy()
+
+        for k, v in dict_directional_categories_to_magnitude.items():
+
+            # verify validity
+            skip = not isinstance(k, tuple)
+            skip |= (len(k) != 2) if not skip else skip
+            skip |= (k[0] not in attr_lndu.key_values) if not skip else skip
+            skip |= (k[1] not in ["min", "max"]) if not skip else skip
+            skip |= (not sf.isnumber(v)) if not skip else skip
+            skip |= ((v < 0) & (v != self.model_afolu.flag_ignore_constraint)) if not skip else skip
+
+            if skip: continue
+
+            # get the variable and apply
+            modvar = modvar_max if (k[1] == "max") else modvar_min
+
+            df_out = tbg.transformation_general(
+                df_out,
+                self.model_attributes,
+                {
+                    modvar.name: {
+                        "categories": [k[0]],
+                        "magnitude": v,
+                        "magnitude_type": "final_value",
+                        "vec_ramp": vec_implementation_ramp
+                    },
+                },
+                field_region = self.key_region,
+                strategy_id = strat,
+            )
+
+        return df_out
+    
+
 
     def _trfunc_lndu_increase_reforestation(self,
         df_input: Union[pd.DataFrame, None] = None,

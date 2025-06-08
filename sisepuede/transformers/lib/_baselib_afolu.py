@@ -1795,8 +1795,7 @@ def transformation_lndu_increase_silvopasture(
     model_afolu: Union[mafl.AFOLU, None] = None,
     **kwargs
 ) -> pd.DataFrame:
-    """
-    Increase the use of silvopasture by increaasing the average sequestration 
+    """Increase the use of silvopasture by increaasing the average sequestration 
         factor associated with pastures. Applies silvopasture to fraction 
         "magnitude" of pastures using the secondary forest sequestration factor
         for the region.
@@ -1884,13 +1883,27 @@ def transformation_lndu_increase_silvopasture(
     dfg = df_input.groupby([field_region])
     df_out = []
 
+    # convert units
+    scalar = model_attributes.get_variable_unit_conversion_factor(
+        model_afolu.modvar_frst_sq_co2,  # e.g, ha
+        model_afolu.modvar_lndu_sf_co2,  # e.g., km2
+        "mass"
+    ) 
+
+    scalar /= model_attributes.get_variable_unit_conversion_factor(
+        model_afolu.modvar_frst_sq_co2,  # e.g, ha
+        model_afolu.modvar_lndu_sf_co2,  # e.g., km2
+        "area"
+    ) 
+
+
     for (i, df) in dfg:
 
         # do mixing here
         vec_frst_sf = df[field_frst_sf].to_numpy()
         vec_lndu_sf = df[field_lndu_sf].to_numpy()
 
-        vec_new = vec_frst_sf*magnitude + vec_lndu_sf*(1 - magnitude)
+        vec_new = scalar*vec_frst_sf*magnitude + vec_lndu_sf*(1 - magnitude)
         vec_new = vec_ramp*vec_new + (1 - vec_ramp)*vec_lndu_sf
 
         # apply to current group and append

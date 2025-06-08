@@ -22,21 +22,47 @@ dict_format
 
 
 def plot_emissions_stack(
+    df: pd.DataFrame,
     model_attributes: 'ModelAttributes',
+    dict_format: Union[dict, None] = None,
+    **kwargs,
 ) -> 'plt.Plot':
-    """
+    """Plot subsector emission total fields using 
+
+    Function Arguments
+    ------------------
+    df : DataFrame
+        DataFrame containing SISEPUEDE output emissions to plot
+    model_attributes : ModelAttributes
+        ModelAttributes object used to identify fields and default colors
+
+    Keyword Arguments
+    -----------------
+    dict_format : Union[Dict, None]
+        Optional dictionary to pass to spu.plot_stack (see spu.plot_stack for 
+        more information on formatting). Can be used to overwrite default colors
+        for sectors
+    **kwargs
+        Passed to spu.plot_stack
     """
 
-    fields = matt.get_all_subsector_emission_total_fields()#[x for x in df_out.columns if (x.startswith("emission_co2e_subsector_total"))]
-    dict_format = dict(
+    fields = model_attributes.get_all_subsector_emission_total_fields()#[x for x in df_out.columns if (x.startswith("emission_co2e_subsector_total"))]
+    dict_formatting = dict(
         (k, {"color": v}) for (k, v) in
-        matt.get_subsector_color_map().items()
+        model_attributes.get_subsector_color_map().items()
     )
 
-    dict_format
+    if isinstance(dict_format, dict):
+        dict_formatting.update(dict_format, )
 
-    return None
+    out = spu.plot_stack(
+        df,
+        fields,
+        dict_formatting = dict_formatting,
+        **kwargs,
+    )
 
+    return out
 
 
 

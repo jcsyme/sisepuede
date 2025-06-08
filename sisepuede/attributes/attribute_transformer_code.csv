@@ -9,14 +9,14 @@
  | **Croplands**: Increases :math:`F_{MG}` for ``croplands`` to 1.067 (see V4, Chapter 5, Table 5.5 [2019R] for croplands management factors :math:`F_{MG}` under different management regimes--mean of *No-Till*)",,
 6,AGRC: Improve crop productivity,AF,TFR:AGRC:INC_PRODUCTIVITY,Increase crop yield factors by 20%,,
 7,AGRC: Increase residue removal,AF,TFR:AGRC:INC_RESIDUE_REMOVAL,"Unlike conservation agriculture, remove residues from croplands. However, does not coincide with no till agriciulture.",,
-8,LNDU: Stop deforestation,AF,TFR:LNDU:DEC_DEFORESTATION,Halt deforestation of primary and secondary forests,,
-9,LNDU: Decrease deforestation and increase silvopasture at the same time,AF,TFR:LNDU:DEC_DEFORESTATION_AND_INC_SILVOPASTURE,,,
+8,LNDU: Bound Classes,,TFR:LNDU:BOUND_CLASSES,Land use classes are estimated using a transition matrix and ajdusted using a quadratic program. This transformation sets a constraint on the amount of land that ,,
+9,LNDU: Stop deforestation,AF,TFR:LNDU:DEC_DEFORESTATION,Halt deforestation of primary and secondary forests,,
 10,LNDU: Expand sustainable grazing practices,AF,TFR:LNDU:DEC_SOC_LOSS_PASTURES," | Decrease soil organic carbon loss in grasslands through sustainable grazing practices
  | 
  | **Grasslands**: Increase :math:`F_{MG}` for ``grasslands`` to 1.157 (see V4, Chapter 6, Table 6.2 [2019R] for grasslands management factors :math:`F_{MG}` under different management regimes--mean of *Improved Grassland*)",,
 11,LNDU: Rehabilitate degraded land,AF,TFR:LNDU:INC_LAND_REHABILITIATION,,,
-12,LNDU: Increase Reforestation,AF,TFR:LNDU:INC_REFORESTATION,Increases probability of input land use classes being converted to ,,
-13,LNDU: Expand silvopasture,AF,TFR:LNDU:INC_SILVOPASTURE,"Increase the use of silvopasture; modeled by shifting 30% of pasture (in final time period) to secondary forests over time; livestock carrying capacities increase to meet the change, while pasture fractions of grassland decrease.",,
+12,LNDU: Increase Reforestation,AF,TFR:LNDU:INC_REFORESTATION,"Increases probability of input land use classes being converted to secondary forests. This transformation can be defined for specific land use classes--e.g., converting only shrublands and croplands to ",,
+13,LNDU: Expand silvopasture,AF,TFR:LNDU:INC_SILVOPASTURE,"Increase the use of silvopasture by increaasing the average sequestration factor associated with pastures. This transformer models silvopasture as a fraction of pastures with planted forests. Since the magnitude is a fraction of area, the average sequestration factor is estimated as m*f, where m is the magnitude (prevalence) and f is the secondary forest sequestration factor.",,
 14,LNDU: Partial land use reallocation,,TFR:LNDU:PLUR,Set land use reallocation factor to 0.5,,
 15,LSMM: Increase biogas capture at anaerobic decomposition facilities,AF,TFR:LSMM:INC_CAPTURE_BIOGAS,Increase the fraction of biogas that is captured at manure treated at anaerobic livestock manure treatment facilities,,
 16,LSMM: Improve manure management for cattle and pigs,AF,TFR:LSMM:INC_MANAGEMENT_CATTLE_PIGS," | 95% of manure from cattle (dairy and non-dairy) and pigs is treated. Under default conditions, the manure treated is sent to the following pathways:

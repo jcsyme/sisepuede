@@ -1988,16 +1988,15 @@ class EnergyProduction:
     def get_biogas_components(self,
         df_elec_trajectories: pd.DataFrame
     ) -> tuple:
-
-        """
-        Retrieve total energy available from biogas collection and the minimum 
-            use
+        """Retrieve total energy available from biogas collection and the 
+            minimum use
 
         Function Arguments
         ------------------
-        - df_elec_trajectories: data frame of input variables, which must 
-            include livestock manure management and wastewater treatment sector 
-            outputs used to calcualte emission factors
+        df_elec_trajectories : pd.DataFrame 
+            DataFrame of input variables, which must include livestock manure 
+            management and wastewater treatment sector outputs used to calcualte 
+            emission factors
         """
         # initialize of some variables
         vec_enfu_total_energy_biogas = 0.0
@@ -8218,7 +8217,7 @@ class EnergyProduction:
 
         # get biogas supply available
         vec_enfu_total_energy_supply_biogas, vec_enfu_min_energy_to_elec_biogas = self.get_biogas_components(
-            df_elec_trajectories
+            df_elec_trajectories,
         )
         vec_enfu_min_energy_to_elec_biogas *= arr_entc_efficiencies[:, ind_entc_pp_biogas]
         # get waste supply available
