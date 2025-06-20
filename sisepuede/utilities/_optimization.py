@@ -1,10 +1,12 @@
 #import cyipopt
 import numpy as np
 import qpsolvers
-#import scipy.optimize as sco
+import scipy.optimize as sco
+import warnings
 from typing import *
 
 import sisepuede.utilities._toolbox as sf
+
 
 
 
@@ -15,10 +17,36 @@ import sisepuede.utilities._toolbox as sf
 class QAdjuster:
     """Adjust a transition matrix Q to match requirements from land use 
         reallocation factor.
+
+    Uses a Minimum Cost approach to minimize the distance between:
+
+        - prevalence targets (highest cost, applies only to targets that aren't
+            ignored)
+        - transitions on diagonal (mid-cost)
+        - transitions off diagonal (lowest-cost)
+
+        
+    Optional Arguments
+    ------------------
+    flag_ignore : float
+        Flag to signify target classes that can be ignored in optimization
+    min_solveable_diagonal : float
+        Optional specification of minimum allowable diagonal in solved
+        transition matrices.
+        NOTE: This is called "solveable" because existing, unadjustd on-diagonal 
+            transitions that are lower than min_solveable_diagonal are 
+            preserved.
     """
     
     def __init__(self,
+        flag_ignore: float = -999.,
+        min_solveable_diagonal: float = 0.98,
     ) -> None:
+        
+        self._initialize_properties(
+            flag_ignore = flag_ignore,
+            min_solveable_diagonal = min_solveable_diagonal,
+        )
 
         return None
 
@@ -37,6 +65,37 @@ class QAdjuster:
         return out
 
 
+
+    def _initialize_properties(self,
+        flag_ignore: float = -999.,
+        min_solveable_diagonal: float = 0.98,
+    ) -> None:
+        """Initialize key properties, including:
+
+            * self.flag_ignore
+            * self.min_solveable_diagonal
+        """
+
+        # checks
+        flag_ignore = (
+            -999. 
+            if not sf.isnumber(flag_ignore) 
+            else float(flag_ignore)
+        )
+        min_solveable_diagonal = (
+            0.98 
+            if not sf.isnumber(min_solveable_diagonal) 
+            else max(min(min_solveable_diagonal, 1.0), 0.0)
+        )
+
+
+        ##  SET PROPERTIES
+
+        self.flag_ignore = flag_ignore
+        self.min_solveable_diagonal = min_solveable_diagonal
+
+        return None
+    
 
 
     #######################
@@ -65,24 +124,38 @@ class QAdjuster:
         x: np.ndarray,
         p_0: np.ndarray, # prevalence vector at time 0
         p_1: np.ndarray, # prevalence vector at time 1
+        flag_ignore: Union[float, None] = None,
     ) -> float:
         """Minimize the distance between the new matrix and the original 
             transition matrix for the Minimize Calibration Error (MCE) approach
 
         Function Arguments
         ------------------
-        - x: vector to solve for
-        - p_0: initial prevalence
-        - p_1: next-step prevalence
+        x : np.ndarray
+            Variable vector
+        p_0 : np.ndarray
+            Initial prevalence
+        p_1 : np.ndarray
+            Next-step prevalence
+
+        Keyword Arguments
+        -----------------
+        flag_ignore : Union[float, None]
+            Optional flag to use to ignore classes in the target
         """
-        #obj = ((x - vec_prev)**2).sum()
-        #grad = 2*(x - vec_prev)
+
+        # build objective function
         n = len(p_0)
         obj = np.dot(p_0, x.reshape((n, n)))
-        obj = ((obj - p_1)**2).sum()
+        obj = ((obj - p_1)**2)
 
-        # get gradient
-        grad = self.grad_mce(x, p_0, p_1, )
+        # some weights--no change in objective for ignored targets
+        vec = np.ones(obj.shape)
+        if sf.isnumber(flag_ignore):
+            vec[p_1 == flag_ignore] = 0
+
+        obj = np.dot(obj, vec)
+
 
         return obj
 
@@ -92,6 +165,7 @@ class QAdjuster:
         x: np.ndarray,
         p_0: np.ndarray,
         p_1: np.ndarray,
+        flag_ignore: Union[float, None] = None,
     ) -> np.ndarray:
         """Generate the gradient vector for f_obj_mce()
 
@@ -103,6 +177,11 @@ class QAdjuster:
             Initial prevalence
         p_1 : np.ndarray
             Next-step prevalence
+        
+        Keyword Arguments
+        -----------------
+        flag_ignore : Union[float, None]
+            Optional flag to use to ignore classes in the target
         """
 
         n = p_0.shape[0]
@@ -112,7 +191,7 @@ class QAdjuster:
         vec_grad = np.zeros(n**2).astype(float)
 
         area = p_0.sum()
-
+        ignore = sf.isnumber(flag_ignore)
         
         # iterate 
         for k in range(n**2):
@@ -121,6 +200,9 @@ class QAdjuster:
             i = int((k - j)/n)
 
             val = 2*p_0[i]*(p_0.dot(Q_cur[:, j]) - p_1[j])
+            if ignore:
+                val *= int(p_1[j] != flag_ignore)
+
             val /= area**2
 
             vec_grad[k] = val
@@ -385,6 +467,59 @@ class QAdjuster:
         )
 
         return out
+    
+
+
+    def get_constraint_coeffs_min_diag(self,
+        matrix_0: np.ndarray,
+        lb_diag_artificial: float,
+    ) -> np.ndarray:
+        """Generate coefficients to promote a minimum value on the diagonal. 
+            Prevents the solver from artificially reallocating entire land use
+            classes.
+
+            NOTE: Any existing constraints on the diagonal below 
+            lb_diag_artificial are considered lower bounds for that class.
+
+        Returns a tuple of the form
+        
+        (
+            A,  # matrix with dims (n, n^2)
+            b,  # vector with dim (n, )
+        )
+
+        Function Arguments
+        ------------------
+        matrix_0 : np.ndarray
+            Initial transition matrix (n x n)
+        lb_diag_artificial : float
+            Lower bound on values on the diagoal; it is called "artificial"
+            because it only applies to those whose unadjusted transitions are
+            greater than this. 
+
+            For each diagonal element x_{ii}, the lower bound is set as
+
+            min(x_{ii}, lb_diag_artifical, ) 
+        """
+
+        n = matrix_0.shape[0]
+
+        # initialize output matrices
+        A = np.zeros((n, n**2))
+        b = np.zeros(n)
+
+        # update constraints
+        for i in range(n):
+            A[i, i*(n + 1)] = -1
+            b[i] = -min(matrix_0[i, i], lb_diag_artificial, )
+
+
+        out = (
+            A, 
+            b,
+        )
+
+        return out
 
 
 
@@ -620,12 +755,13 @@ class QAdjuster:
 
         ##  GET OBJECTIVE VALUES
 
+        # get costs to impose
         costs_transition, costs_prevalence = self.get_costs(
             matrix_0, 
             **kwargs,
         )
 
-        # 
+        # M and c in the objective function, used to calculate euclidean distance
         M_prev, c_prev = self.get_qp_component_vectors_euclidean_prevalence(
             x_0, 
             x_target, 
@@ -657,8 +793,7 @@ class QAdjuster:
         flag_ignore: float,
         **kwargs,
     ) -> Tuple:
-        """
-        Generate constraints for land use optimization QP. Returns a tuple in 
+        """Generate constraints for land use optimization QP. Returns a tuple in 
             the following form:
 
             (
@@ -683,19 +818,10 @@ class QAdjuster:
         flag_ignore : float
             Float specifying
 
-        Function Arguments
-        ------------------
-        - matrix_0: initial transition matrix (n x n)
-        - x_0: prevalence vector
-        - vec_infima: vector specifying class infima; use flag_ignore to set no 
-            infimum for a class
-        - vec_suprema: vector specifying class suprema; use flag_ignore to set 
-            no supremum for a class
-        - flag_ignore: flag in vector_bounds used 
-
         Keyword Arguments
         -----------------
-        - **kwargs: passed
+        **kwargs : 
+            Ignored
         """
 
         ##  GET CONSTRAINTS
@@ -854,30 +980,54 @@ class QAdjuster:
         flag_ignore: float,
         *,
         #perturbation_diag: float = 0.000001,
+        return_unadj_on_infeas: bool = True,
         solver: str = "quadprog",
+        stop_on_error: bool = False,
+        verbose: bool = False,
         **kwargs,
     ) -> np.ndarray:
-        """
-        Solve the Minimize Calibration Error (MCE) problem (QP). Support 
-            function for correct_transitions()
+        """Solve the Minimize Calibration Error (MCE) problem; attempts in two
+            stages:
+
+            (1) direct solution of the quadratic program;
+            (2) numerical attempt using scipy.optimize.minimize
+
+            Support function for correct_transitions()
+
+        NOTE: If return_unadj_on_infeas is False, then returns None.
 
         Function Arguments
         ------------------
-        - Q: unadjusted transition matrix
-        - x_0: initial prevalence
-        - x_target: next-step prevalence vector (can ignore classes)
-        - vec_infima: vector specifying class infima; use flag_ignore to set no 
-            infimum for a class
-        - vec_suprema: vector specifying class suprema; use flag_ignore to set 
-            no supremum for a class
-        - flag_ignore: flag in vector_bounds used 
+        Q : np.ndarray
+            Unadjusted transition matrix (2-d, n x n)
+        x_0 : np.ndarray
+            Initial prevalence (1-d, n x 1)
+        x_target : np.ndarray
+            Next-step prevalence vector (can ignore classes; 1-d, n x 1)
+        vec_infima : np.ndarray
+            vector specifying class infima; use flag_ignore to set no infimum 
+            for a class (1-d, n x 1)
+        vec_suprema : np.ndarray
+            Vector specifying class suprema; use flag_ignore to set no supremum 
+            for a class (1-d, n x 1)
+        flag_ignore : float
+            Flag in vector_bounds used 
 
         Keyword Arguments
         -----------------
-        - perturbation_diag: perturbation to apply to the diagonal (positive) to
-            ensure P is positive definite, a requirement for some solvers.
-        - solver: valid solver passed to qpsolvers.solve_qp()
-        - **kwargs: passed to get_constraint_coeffs_error()
+        perturbation_diag : float
+            Perturbation to apply to the diagonal (positive) to ensure P is 
+            positive definite, a requirement for some solvers.
+        return_unadj_on_infeas : bool
+            If both 
+        solver : str
+            Valid solver passed to qpsolvers.solve_qp()
+        stop_on_error : bool
+            Stop if errors occur in solutions?
+        verbose : bool
+            Print all solver output?
+        **kwargs :
+            Passed to get_constraint_coeffs_error() and sco.minimize()
         """
 
         # try to retrieve objective components
@@ -908,9 +1058,24 @@ class QAdjuster:
         except Exception as e:
             msg = f"Error retrieving constraints in QAdjuster: {e}"
             raise RuntimeError(msg)
-        
+
+
+        global dict_out
+        dict_out = {
+            "M": M,
+            "c": c,
+            "A": A,
+            "b": b,
+            "G": G,
+            "h": h,
+            "solver": solver,
+            "Q": Q,
+            "x_0": x_0,
+            "x_target": x_target,
+        }
 
         try:
+
             sol = qpsolvers.solve_qp(
                 M, 
                 c, 
@@ -921,12 +1086,17 @@ class QAdjuster:
                 lb = np.zeros(M.shape[0]),
                 ub = np.ones(M.shape[0]),
                 solver = solver,
+                verbose = verbose,
             )
 
+            # print("QP SUCCEEDED!")
+
         except Exception as e:
-            msg = f"Error trying to solve QAdjuser as Quadratic Program: {e}. Trying IPOPT... (UNDER CONSTRUCTION)"
-            #log
-            raise RuntimeError(msg)
+            msg = f"Error trying to solve 'Minimize Calibration Error' problem in QCorrector using qpsolvers.solve_qp: {e}."
+            if stop_on_error:
+                raise RuntimeError(msg)
+            
+            warnings.warn(f"{msg} Trying scipy.optimize.minimize...")
         
 
         if sol is not None:
@@ -936,44 +1106,196 @@ class QAdjuster:
                 **kwargs, # optional passing of thresh_to_zero
             )
 
+            return sol
 
-        """
-        ##  TRY IPOPT
+
+
+        ##  TRY SCO.MINIMIZE
 
         try:
-            const = sf.call_with_varkwargs(
-                self.get_constraints_mce,
-                Q,
-                u,
-                v,
-                dict_kwargs = kwargs,
+
+            _, kwargs_pass = sf.get_args(
+                sco.minimize, 
                 include_defaults = True,
-            
+            )
+            kwargs_pass = dict((k, v) for k, v in kwargs.items() if k in kwargs_pass.keys())
+
+            sol = self.solve_sco_min(
+                Q,
+                x_0,
+                x_target,
+                A,
+                b,
+                G,
+                h,
+                flag_ignore = flag_ignore,
+                min_diag = kwargs.get("min_diag"),
+                verbose = verbose,
+                **kwargs_pass,
             )
 
-            sol = cyipopt.scipy_interface.minimize_ipopt(
-                self.f_obj_mce,
-                Q.flatten(),
-                args = (u, v),
-                constraints = const,
-            )
-
-            sol = None if not sol.success else sol.x
-            
+            # print("SCO SUCCEEDED!")
 
         except Exception as e:
-            msg = "Error trying to solve 'Minimize Calibration Error' problem in QCorrector using IPOPT: {e}"
+            if stop_on_error:
+                msg = f"Error trying to solve 'Minimize Calibration Error' problem in QCorrector using scipy.optimize.minimize: {e}"
+                raise RuntimeError(msg)
+
+            # print(f"EVERYTHING FAILED {e}! RETURNING ORIGINAL")
             sol = None
-            raise RuntimeError(msg)
-            
-        """
-
-
-        return sol
-
         
 
-    
+        # reshape output and check sums
+        if sol is not None:
+            sol = self.clean_and_reshape_solver_output(
+                Q,
+                sol,
+                **kwargs,
+            )
+
+            return sol
+        
+
+        ##  RETURN OUTPUT
+
+        out = Q if ((sol is None) & return_unadj_on_infeas) else sol
+
+        return out
+
+
+
+    def solve_sco_min(self,
+        Q: np.ndarray,
+        x_0: np.ndarray, 
+        x_target: np.ndarray, 
+        A: np.ndarray,
+        b: np.ndarray,
+        G: np.ndarray,
+        h: np.ndarray,
+        false_area: float = 10000.,
+        flag_ignore: Union[float, None] = None,
+        min_diag: Union[float, None] = None,
+        verbose: bool = False,
+        **kwargs,
+    ) -> np.ndarray:
+        """Call scipy.optimize.minimize to attempt to solve the problem. 
+
+        Function Arguments
+        ------------------
+        Q : np.ndarray
+            Unadjusted transition matrix (2-d, n x n)
+        x_0 : np.ndarray
+            Initial prevalence (1-d, n x 1)
+        x_target : np.ndarray
+            Next-step prevalence vector (can ignore classes; 1-d, n x 1)
+        A : np.ndarray
+            EQUALITY constraint matrix (Ax == b)
+        b : np.ndarray
+            EQUALITY constraints (Ax == b)
+        G : np.ndarray
+            INEQUALITY constraint matrix (Gx <= h)
+        h : np.ndarray
+            INEQUALITY constraints (Gx <= h)
+        flag_ignore : float
+            Flag in vector_bounds used 
+
+        Keyword Arguments
+        -----------------
+        false_area : float
+            Dummy area to use to inflate target vectors for numerical precision
+        flag_ignore : Union[float, None]
+            Flag in vector_bounds used 
+        min_diag : Union[float, None]
+            Minimum diagonal attributable to solver change; if an existing 
+            (unadjusted) diagonlal transition is below this level, then that is 
+            used as the minimum. If None, defaults to 
+            self.min_solveable_diagonal
+        verbose : bool
+            Print all output? (CURRENTLY NOT PASSED)
+        **kwargs : 
+            Passed to sco.minimimze()
+        """
+
+        ##  INITIALIZATION
+
+        min_diag = (
+            self.min_solveable_diagonal 
+            if not sf.isnumber(min_diag) 
+            else min(max(min_diag, 0.0), 1.0)
+        )
+
+        # prepare prevalence vectors
+        x_0_cur = false_area*x_0
+        x_target_cur = x_target.copy()
+        x_target_cur[x_target_cur != flag_ignore] *= false_area
+
+        # define functions to pass
+        def _obj_func_cur(
+            x: np.ndarray,
+        ) -> float:
+            """Passable function to sco.minimize for current iteration.
+            """
+            
+            out = self.f_obj_mce(
+                x,
+                x_0_cur,
+                x_target_cur,
+                flag_ignore = flag_ignore,
+            )
+            
+            return out
+        
+
+
+        def _obj_grad_cur(
+            x: np.ndarray
+        ) -> float:
+            """Passable function to sco.minimize for current iteration. 
+            """
+            out = self.grad_mce(
+                x,
+                x_0_cur,
+                x_target_cur,
+                flag_ignore = flag_ignore,
+            )
+            
+            return out
+        
+
+
+        ##  GET SOME CONSTRAINTS
+        
+        # add the min diag
+        G_md, h_md = self.get_constraint_coeffs_min_diag(Q, min_diag, )
+        G_new = np.concatenate([G, G_md])
+        h_new = np.concatenate([h, h_md])
+
+        n = x_0.shape[0]**2
+        constraints = [
+            sco.LinearConstraint(G_new, ub = h_new, ),
+            sco.LinearConstraint(A, lb = b, ub = b, ),
+            sco.LinearConstraint(np.identity(n), lb = np.zeros(n), ub = np.ones(n), )
+        ]
+
+
+        ##  FINALLY, CALL MINIMIZE
+        
+        sol = sco.minimize(
+            _obj_func_cur,
+            Q.flatten(),
+            constraints = constraints,
+            jac = _obj_grad_cur,
+            **kwargs,
+        )
+
+        out = sol.x if sol.success else None
+
+        return out
+
+
+
+
+
 
     
 

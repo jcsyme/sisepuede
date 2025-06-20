@@ -821,7 +821,8 @@ class AFOLU:
         self.modvar_lsmm_dung_incinerated = "Dung Incinerated"
         self.modvar_lsmm_ef_direct_n2o = ":math:\\text{N}_2\\text{O} Manure Management Emission Factor"
         self.modvar_lsmm_emissions_ch4 = ":math:\\text{CH}_4 Emissions from Manure Management"
-        self.modvar_lsmm_emissions_n2o = ":math:\\text{N}_2\\text{O} Emissions from Manure Management"
+        self.modvar_lsmm_emissions_direct_n2o = ":math:\\text{N}_2\\text{O} Direct Emissions from Manure Management"
+        self.modvar_lsmm_emissions_indirect_n2o = ":math:\\text{N}_2\\text{O} Indirect Emissions from Manure Management"
         self.modvar_lsmm_frac_loss_leaching = "Fraction of Nitrogen Lost to Leaching"
         self.modvar_lsmm_frac_loss_volatilisation = "Fraction of Nitrogen Lost to Volatilisation"
         self.modvar_lsmm_frac_n_available_used = "Fraction of Nitrogen Used in Fertilizer"
@@ -4234,7 +4235,11 @@ class AFOLU:
                 self.ind_lndu_crop: area_target_crop,
                 self.ind_lndu_pstr: area_target_pstr,
             }
-
+            
+            self.i = i
+            self.dict_area_targets_exog = dict_area_targets_exog
+            self.arr_lndu_constraints_inf = arr_lndu_constraints_inf
+            self.arr_lndu_constraints_sup = arr_lndu_constraints_sup
 
             arr_transition_adj = self.qadj_adjust_transitions(
                 arrs_transitions[i_tr],
@@ -4246,6 +4251,8 @@ class AFOLU:
                 x_proj_unadj = x_proj_unadj,
                 solver = "quadprog",
             )
+
+            self.arr_transition_adj = arr_transition_adj
 
             x_next  = np.matmul(x, arr_transition_adj)
 
@@ -5964,7 +5971,8 @@ class AFOLU:
         # initialize output arrays
         arr_lsmm_biogas_recovered = np.zeros(arr_lsmm_ef_direct_n2o.shape)
         arr_lsmm_emission_ch4 = np.zeros(arr_lsmm_ef_direct_n2o.shape)
-        arr_lsmm_emission_n2o = np.zeros(arr_lsmm_ef_direct_n2o.shape)
+        arr_lsmm_emission_n2o_direct = np.zeros(arr_lsmm_ef_direct_n2o.shape)
+        arr_lsmm_emission_n2o_indirect = np.zeros(arr_lsmm_ef_direct_n2o.shape)
         arr_lsmm_nitrogen_available = np.zeros(arr_lsmm_ef_direct_n2o.shape)
         # initialize some aggregations
         vec_lsmm_nitrogen_to_other = 0.0
@@ -6034,11 +6042,11 @@ class AFOLU:
             vec_lsmm_n_lost = vec_lsmm_nitrogen_treated_cur*(1 + vec_lsmm_n_from_codigestates)*self.factor_n2on_to_n2o
 
             # 10.25 FOR DIRECT EMISSIONS
-            arr_lsmm_emission_n2o[:, index_cat_lsmm] = vec_lsmm_n_lost*arr_lsmm_ef_direct_n2o[:, index_cat_lsmm]
+            arr_lsmm_emission_n2o_direct[:, index_cat_lsmm] = vec_lsmm_n_lost*arr_lsmm_ef_direct_n2o[:, index_cat_lsmm]
             # 10.28 FOR LOSSES DUE TO VOLATILISATION
-            arr_lsmm_emission_n2o[:, index_cat_lsmm] += vec_lsmm_n_lost*vec_soil_ef_ef4*vec_lsmm_frac_lost_volatilisation
+            arr_lsmm_emission_n2o_indirect[:, index_cat_lsmm] = vec_lsmm_n_lost*vec_soil_ef_ef4*vec_lsmm_frac_lost_volatilisation
             # 10.29 FOR LOSSES DUE TO LEACHING
-            arr_lsmm_emission_n2o[:, index_cat_lsmm] += vec_lsmm_n_lost*vec_soil_ef_ef5*vec_lsmm_frac_lost_leaching
+            arr_lsmm_emission_n2o_indirect[:, index_cat_lsmm] += vec_lsmm_n_lost*vec_soil_ef_ef5*vec_lsmm_frac_lost_leaching
             # BASED ON EQ. 10.34A in IPCC GNGHGI 2019R FOR NITROGEN AVAILABILITY - note: co-digestates are entered as an inflation factor
             vec_lsmm_nitrogen_available = (vec_lsmm_nitrogen_treated_cur*(1 + vec_lsmm_n_from_codigestates))*(1 - vec_lsmm_frac_loss_ms) + vec_lsmm_n_from_bedding
 
@@ -6122,9 +6130,11 @@ class AFOLU:
             self.modvar_lsmm_n_to_fertilizer_agg_urine,
             "mass"
         )
-        # n2o emissions
-        arr_lsmm_emission_n2o *= self.model_attributes.get_scalar(self.modvar_lsmm_emissions_n2o, "gas")
-        arr_lsmm_emission_n2o *= self.model_attributes.get_scalar(self.modvar_lvst_animal_weight, "mass")
+        # n2o emissions - direct and indirect
+        scalar_lsmm_n2o_di = self.model_attributes.get_scalar(self.modvar_lsmm_emissions_direct_n2o, "gas")
+        scalar_lsmm_n2o_di *= self.model_attributes.get_scalar(self.modvar_lvst_animal_weight, "mass")
+        arr_lsmm_emission_n2o_direct *= scalar_lsmm_n2o_di
+        arr_lsmm_emission_n2o_indirect *= scalar_lsmm_n2o_di
 
         df_out += [
             self.model_attributes.array_to_df(
@@ -6132,8 +6142,12 @@ class AFOLU:
                 self.modvar_lsmm_emissions_ch4
             ),
             self.model_attributes.array_to_df(
-                arr_lsmm_emission_n2o, 
-                self.modvar_lsmm_emissions_n2o
+                arr_lsmm_emission_n2o_direct, 
+                self.modvar_lsmm_emissions_direct_n2o,
+            ),
+            self.model_attributes.array_to_df(
+                arr_lsmm_emission_n2o_indirect, 
+                self.modvar_lsmm_emissions_indirect_n2o,
             ),
             self.model_attributes.array_to_df(
                 vec_lsmm_nitrogen_to_pasture, 

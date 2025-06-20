@@ -1085,7 +1085,7 @@ class Transformers:
             self._trfunc_lndu_bound_class,
             attr_transformer_code
         )
-        all_transformers.append(self.lndu_expand_silvopasture)
+        all_transformers.append(self.lndu_bound_classes)
 
 
         self.lndu_expand_silvopasture = Transformer(
