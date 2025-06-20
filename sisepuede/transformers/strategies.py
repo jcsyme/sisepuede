@@ -1945,8 +1945,7 @@ class Strategies:
     def check_exogenous_strategies(self,
         df_exogenous_strategies: pd.DataFrame,
     ) -> Union[Dict[str, pd.DataFrame], None]:
-        """
-        Check df_exogenous_strategies for build_strategies_to_templates(). If 
+        """Check df_exogenous_strategies for build_strategies_to_templates(). If 
             df_exogenous_strategies is valid, will return a dictionary mapping
             a region (key) to a dataframe containing exogenous strategies.
 
@@ -1999,17 +1998,18 @@ class Strategies:
         strategy: Union[int, str, None],
         return_code: bool = False,
     ) -> None:
-        """
-        Get `strategy` based on strategy code, id, or name
+        """Get `strategy` based on strategy code, id, or name
             
         Function Arguments
         ------------------
-        - strategy: strategy_id, strategy name, or strategy code to use to 
-            retrieve Strategy object
+        strategy : Union[int, str, None]
+            strategy_id, strategy name, or strategy code to use to retrieve 
+            Strategy object
             
         Keyword Arguments
         ------------------
-        - return_code: set to True to return the transformer code only
+        return_code : bool
+            Set to True to return the transformer code only
         """
 
         # skip these types

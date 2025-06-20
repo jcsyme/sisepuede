@@ -3388,9 +3388,8 @@ class ModelAttributes:
         subsector: str,
         return_type: str
     ) -> Union[float, int, str, None]:
-        """
-        Retrieve different attributes associated with a subsector. Valid values 
-            of return_type are:
+        """Retrieve different attributes associated with a subsector. Valid 
+            values of return_type are:
 
             * abv_subsector
             * key_variable_definitions
@@ -3495,8 +3494,7 @@ class ModelAttributes:
 
     def get_subsector_attribute_table(self, #FIXED
     ) -> Union[AttributeTable, None]:
-        """
-        Retrieve the subsector attribute table.
+        """Retrieve the subsector attribute table.
         """
         # retrieve some dictionaries
         dict_other = self.dict_attributes.get(self.attribute_group_key_other)
@@ -3509,43 +3507,28 @@ class ModelAttributes:
     
 
 
-    def get_subsector_emission_total_field(self, #FIXED
-        subsector: str,
-        emission_total_schema_prepend: str = "emission_co2e_subsector_total",
-    ) -> str:
-        """
-        Specify the aggregate emission field added to each subsector output 
-            data frame
-        """
-        # add subsector abbreviation
-        fld_nam = self.get_subsector_attribute(subsector, "abv_subsector")
-        fld_nam = f"{emission_total_schema_prepend}_{fld_nam}"
-        
-        return fld_nam
-    
-
-
     def get_subsector_color_map(self,
         field_color: str = "color_default",
         field_subsector: str = "subsector",
         key_type: str =  "emission_field",
         reverse: bool = False,
     ) -> Dict[str, str]:
-        """
-        Build a map of subsector names, abbreviations, or fields to colors
+        """Build a map of subsector names, abbreviations, or fields to colors
         
         
         Keyword Arguments
         -----------------
-        - field_color: field in subsector attribute table containing the default 
-            color
-        - field_subsector: field in subsector attribute table containing the 
-            subsector name
-        - key_type: one of the following
+        field_color: str
+            Field in subsector attribute table containing the default color
+        field_subsector : str
+            Field in subsector attribute table containing the subsector name
+        key_type : str
+            One of the following
             * "abbreviation": subsector abbreviations are keys
             * "emission_field": subsector emission field are keys
             * "subsector": subsector names are keys
-        - reverse: reverse the dictionary?
+        reverse : bool
+            Reverse the dictionary?
         """
         attr_subsector = self.get_subsector_attribute_table()
         
@@ -3577,6 +3560,22 @@ class ModelAttributes:
         
         
         return dict_subsec_field_to_color
+    
+
+
+    def get_subsector_emission_total_field(self, #FIXED
+        subsector: str,
+        emission_total_schema_prepend: str = "emission_co2e_subsector_total",
+    ) -> str:
+        """
+        Specify the aggregate emission field added to each subsector output 
+            data frame
+        """
+        # add subsector abbreviation
+        fld_nam = self.get_subsector_attribute(subsector, "abv_subsector")
+        fld_nam = f"{emission_total_schema_prepend}_{fld_nam}"
+        
+        return fld_nam
 
 
 

@@ -146,18 +146,20 @@ class EnergyProduction:
         type_log: str = "log",
         **kwargs
     ) -> None:
-        """
-        Clean implementation of sf._optional_log in-line using default logger. 
-            See ?sf._optional_log for more information
+        """Clean implementation of sf._optional_log in-line using default 
+            logger. See ?sf._optional_log for more information
 
         Function Arguments
         ------------------
-        - msg: message to log
+        msg : str
+            Message to log
 
         Keyword Arguments
         -----------------
-        - type_log: type of log to use
-        - **kwargs: passed as logging.Logger.METHOD(msg, **kwargs)
+        type_log : str
+            Type of log to use
+        **kwargs : 
+            Passed as logging.Logger.METHOD(msg, **kwargs)
         """
         sf._optional_log(self.logger, msg, type_log = type_log, **kwargs)
 
@@ -169,18 +171,23 @@ class EnergyProduction:
         var_type: str = "input",
         msg_prepend: Union[str, None] = None
     ) -> None:
+        """Verify data frame fields.
+        """
         if subsector == "All":
             check_fields = self.required_variables
             msg_prepend = "Electricity"
         else:
             self.model_attributes.check_subsector(subsector)
+
             if var_type == "input":
                 check_fields, ignore_fields = self.model_attributes.get_input_output_fields([self.subsec_name_econ, self.subsec_name_gnrl, subsector])
             elif var_type == "output":
                 ignore_fields, check_fields = self.model_attributes.get_input_output_fields([subsector])
             else:
                 raise ValueError(f"Invalid var_type '{var_type}' in check_df_fields: valid types are 'input', 'output'")
+            
             msg_prepend = msg_prepend if (msg_prepend is not None) else subsector
+
         sf.check_fields(df_elec_trajectories, check_fields, f"{msg_prepend} projection cannot proceed: fields ")
 
         return None
@@ -189,8 +196,7 @@ class EnergyProduction:
     
     def get_enfu_dict_subsectors_to_energy_variables(self,
     ) -> Dict:
-        """
-        Return a dictionary with emission-producing energy subsectorz as keys 
+        """Return a dictionary with emission-producing energy subsectorz as keys 
             based on the Energy Fuels attribute table:
 
             {
@@ -220,8 +226,7 @@ class EnergyProduction:
     
     def get_entc_dict_subsectors_to_emission_variables(self,
     ) -> Dict:
-        """
-        Return a dictionary with emission-producing energy subsectorz as keys 
+        """Return a dictionary with emission-producing energy subsectorz as keys 
             based on the Energy Technology attribute table:
 
             {
@@ -328,8 +333,7 @@ class EnergyProduction:
 
     def _initialize_integrated_variables(self
     ) -> None:
-        """
-        Sets the following integration variable properties:
+        """Sets the following integration variable properties:
 
             * self.list_vars_required_for_integration
 
@@ -373,8 +377,7 @@ class EnergyProduction:
 
     def _initialize_julia_environment(self,
     ) -> None:
-        """
-        Initialize the julia environment
+        """Initialize the julia environment
         """
 
         # ensure that the environment that includes juliapkg.json is set, then import
@@ -431,8 +434,7 @@ class EnergyProduction:
         module_sisepuede_support_functions_jl: str = "SISEPUEDEPJSF",
         solver: Union[str, None] = None,
     ) -> None:
-        """
-        Import packages and choose the solver from what is available (see 
+        """Import packages and choose the solver from what is available (see 
             SISEPUEDEPJSF for solver hierarchy). Sets the following properties:
 
             * self.dict_solver_to_julia_package
@@ -444,16 +446,21 @@ class EnergyProduction:
 
         Function Arguments
         ------------------
-        - dir_jl: SISEPUEDE directory containing Julia environment (with 
-            NemoMod) and associated modules
+        dir_jl : str
+            SISEPUEDE directory containing Julia environment (with NemoMod) and 
+            associated modules
             * Must contain f"{module_sisepuede_support_functions_jl}.jl"
 
         Optional Arguments
         ------------------
-        - solver: optional solver to specify. If None, defaults to configuration
-        - module_sisepuede_support_functions_jl: name of the Julia module in dir_jl
-            containing support functions to use in communication with Julia
+        initialize_julia : bool
+            Initialize Julia?
+        module_sisepuede_support_functions_jl : str
+            Name of the Julia module in dir_jl containing support functions to 
+            use in communication with Julia
             * NOTE: Should not include the jl extension
+        solver : Union[str, None]
+            Optional solver to specify. If None, defaults to configuration
         """
 
         if not initialize_julia:
@@ -557,8 +564,7 @@ class EnergyProduction:
     def _initialize_models(self,
         model_attributes: Union[ModelAttributes, None] = None
     ) -> None:
-        """
-        Initialize SISEPUEDE model classes for fetching variables and 
+        """Initialize SISEPUEDE model classes for fetching variables and 
             accessing methods. Initializes the following properties:
 
             * self.model_afolu
@@ -568,8 +574,9 @@ class EnergyProduction:
 
         Keyword Arguments
         -----------------
-        - model_attributes: ModelAttributes object used to instantiate
-            models. If None, defaults to self.model_attributes.
+        model_attributes : ModelAttributes 
+            ModelAttributes object used to instantiate models. If None, defaults 
+            to self.model_attributes.
         """
 
         model_attributes = self.model_attributes if (model_attributes is None) else model_attributes
@@ -585,8 +592,7 @@ class EnergyProduction:
 
     def _initialize_nemomod_fields(self
     ) -> None:
-        """
-        Set common fields used in NemoMod. Sets the following properties:
+        """Set common fields used in NemoMod. Sets the following properties:
 
             * self.dict_fields_nemomod_to_type
             * self.field_nemomod_####
@@ -658,8 +664,7 @@ class EnergyProduction:
 
     def _initialize_nemomod_output_tables(self,
     ) -> None:
-        """
-        SET NemoMod tables that need to be extract to generate results in
+        """SET NemoMod tables that need to be extract to generate results in
             SISEPUEDE. Sets the following properties:
 
             * self.required_nemomod_output_tables
@@ -691,8 +696,7 @@ class EnergyProduction:
         dict_tables_required_to_required_fields: Union[Dict[str, List[str]], None] = None,
         filter_regions_to_config: bool = False
     ) -> None:
-        """
-        Initialize the dictionary of reference files for NemoMod required to 
+        """Initialize the dictionary of reference files for NemoMod required to 
             populate the database. Sets the following properties:
 
             * self.dict_nemomod_reference_tables
@@ -2478,8 +2482,7 @@ class EnergyProduction:
         attribute_fuel: Union[AttributeTable, None] = None,
         return_type: str = "dict"
     ) -> Union[Dict, List]:
-        """
-        Get a dictionary mapping an upstream fuel to the downstream fuel
+        """Get a dictionary mapping an upstream fuel to the downstream fuel
             that it replaces in ENTC fuel demands. E.g., coal_deposits 
             replace coal as a fuel (since coal_deposits are used to represent
             the feedback between coal use in coal mining)
@@ -2490,46 +2493,71 @@ class EnergyProduction:
 
         Keyword Arguments
         -----------------
-        - allow_oar_definition: allow the map to define a map if the upstream
-            fuel is also defined in an OutputActivityRatio variable.
-        - attribute_fuel: attribute table used for fuels. If None,
-                defaults to self.model_attributes
-        - return_type: return one of several options
+        allow_oar_definition : bool
+            Allow the map to define a map if the upstream fuel is also defined
+            in an OutputActivityRatio variable.
+        attribute_fuel : Union[AttributeTable, None]
+            Optional pass of attribute table used for fuels
+        return_type : str
+            Return one of several options
             * "dict": dictionary mapping fuel to upstream fuel
             * "dict_reverse": dictionary mapping upstream fuel to downstream
             * "upstream_fuels": list of upstream fuels
         """
+        # initialize the ENFU attribute table
         attribute_fuel = (
             self.model_attributes.get_attribute_table(self.model_attributes.subsec_name_enfu) 
             if (attribute_fuel is None) 
             else attribute_fuel
         )
 
-        dict_upstream_fuel = attribute_fuel.field_maps.get(f"{attribute_fuel.key}_to_{self.model_attributes.field_enfu_upstream_to_fuel_category}")
+        # initialize some dictionaries
+        dict_upstream_fuel = attribute_fuel.field_maps.get(
+            f"{attribute_fuel.key}_to_{self.model_attributes.field_enfu_upstream_to_fuel_category}"
+        )
         dict_fuel_cats = self.dict_entc_fuel_categories_to_fuel_variables
-        
         dict_return = {}
         
         for cat_enfu in dict_upstream_fuel.keys():
             try_upstream_cat_enfu = clean_schema(dict_upstream_fuel.get(cat_enfu))
 
             if try_upstream_cat_enfu in attribute_fuel.key_values:
+
                 # filter on input activity ratio (iar)
-                # additionally, look for fuels that have no output activity ratio defined (they should be sourced from dummy techs)
+                # additionally, look for fuels that have no output activity ratio 
+                # defined (they should be sourced from dummy techs)
                 dict_iar_oar_var = dict_fuel_cats.get(cat_enfu)
                 modvar_iar = dict_iar_oar_var.get(self.key_iar)
                 modvar_oar = dict_iar_oar_var.get(self.key_oar)
                 
+
                 if (modvar_oar is None) or allow_oar_definition:
-                    # if there is a tech defined with cat_enfu as the input fuel and try_upstream_cat_enfu as the output, assume conditions are met
+
+                    # if there is a tech defined with cat_enfu as the input fuel 
+                    # and try_upstream_cat_enfu as the output, assume conditions are met
                     dict_iar_oar_var = dict_fuel_cats.get(try_upstream_cat_enfu)
                     modvar_oar_try = dict_iar_oar_var.get(self.key_oar)
                     cats_shared = set(self.model_attributes.get_variable_categories(modvar_iar)) & set(self.model_attributes.get_variable_categories(modvar_oar_try))
 
-                    dict_return.update({try_upstream_cat_enfu: cat_enfu}) if (len(cats_shared) > 0) else None
+                    (
+                        dict_return.update({try_upstream_cat_enfu: cat_enfu}) 
+                        if (len(cats_shared) > 0) 
+                        else None
+                    )
+
         
-        dict_return = sf.reverse_dict(dict_return) if (return_type in ["dict_reverse", "upstream_fuels"]) else dict_return
-        dict_return = list(dict_return.keys()) if (return_type in ["upstream_fuels"]) else dict_return
+        # format output dictionaries
+        dict_return = (
+            sf.reverse_dict(dict_return) 
+            if (return_type in ["dict_reverse", "upstream_fuels"]) 
+            else dict_return
+        )
+
+        dict_return = (
+            list(dict_return.keys()) 
+            if (return_type in ["upstream_fuels"]) 
+            else dict_return
+        )
         
         return dict_return
         
@@ -2537,11 +2565,9 @@ class EnergyProduction:
 
     def get_entc_cat_by_type(self,
         type_tech: Union[str, list],
-        attribute_technology:  Union[AttributeTable, None] = None
     ) -> Union[List[str], None]:
-        """
-        Retrieve an ordered (according to attribute_technology.key_values) list of 
-            technologies by type. Types are:
+        """Retrieve an ordered (according to attribute_technology.key_values) 
+            list of technologies by type. Types are:
         
             * `fp` or `fuel_processing`: non-electricity fuel processing 
                 technologies
@@ -2552,11 +2578,11 @@ class EnergyProduction:
             
         Function Arguments
         ------------------
-        - type_tech: type of tech to generate list for (or list of tech types)
+        type_tech : Union[str, list]
+            Type of tech to generate list for (or list of tech types)
         
         Keyword Arguments
         -----------------
-        - attribute_technology:  AttributeTable storing technology keys
         """
         
         type_tech = [type_tech] if isinstance(type_tech, str) else type_tech
@@ -3386,8 +3412,7 @@ class EnergyProduction:
     def get_entc_partition_field(self,
         fld: str
     ) -> str:
-        """
-        Map a partition field or field abbreviation to a field
+        """Map a partition field or field abbreviation to a field
         """
         dict_abv = {
             "fp": "fuel_processing", 
@@ -3396,15 +3421,15 @@ class EnergyProduction:
             "st": "storage"
         }
         
-        return fld if (fld in dict_abv.values()) else dict_abv.get(fld)
+        out = fld if (fld in dict_abv.values()) else dict_abv.get(fld)
+        return out
     
 
 
     def get_gnrl_ccf_hydropower_factor_df(self,
         df_elec_trajectories: pd.DataFrame,
     ) -> Tuple[pd.DataFrame, str]:
-        """
-        Retrieve a data frame with time period, hydropower tech, and the climate
+        """Retrieve a data frame with time period, hydropower tech, and the climate
             change factor for hydropower production. Returns a tuple with two
             elements of the following form
 
@@ -3884,25 +3909,26 @@ class EnergyProduction:
 
     def get_waste_energy_components(self,
         df_elec_trajectories: pd.DataFrame,
-        attribute_technology: AttributeTable = None,
+        attribute_technology: Union[AttributeTable, None] = None,
         return_emission_factors: bool = True,
     ) -> tuple:
-
-        """
-        Retrieve total energy to be obtained from waste incineration (minimum 
+        """Retrieve total energy to be obtained from waste incineration (minimum 
             capacity) and implied annual emission factors derived from 
             incineration inputs in the waste sector (NemoMod emission/energy)
 
         Function Arguments
         ------------------
-        - df_elec_trajectories: data frame of input variables, which must 
-            include waste sector outputs used to calcualte emission factors
+        df_elec_trajectories : pd.DataFrame 
+            DataFrame of input variables, which must include waste sector 
+            outputs used to calcualte emission factors
         
         Keyword Arguments
         -----------------
-        - attribute_technology: technology attribute table, used to map fuel to 
-            tech. If None, use ModelAttributes default.
-        - return_emission_factors: bool--calculate emission factors?
+        attribute_technology : Union[AttributeTable, None]
+            Technology attribute table, used to map fuel to tech. If None, use 
+            ModelAttributes default.
+        return_emission_factors : bool
+            Calculate emission factors?
         """
         # some attribute initializations
         attribute_technology = (
@@ -3964,7 +3990,8 @@ class EnergyProduction:
             vec_enfu_minimum_fuel_energy_to_electricity_waste = vec_enfu_total_energy_waste*vec_enfu_minimum_fuel_frac_to_elec
 
 
-        # get emission factors?
+        ##  GET EMISSION FACTORS?
+
         if (vec_enfu_total_energy_waste is not None) and return_emission_factors:
 
             # loop over waste emissions, divide by total energy

@@ -4292,8 +4292,7 @@ def tryparse_str_to_num(
     val: Union[str, float, int, None],
     return_integer_if_round: bool = True
 ) -> Union[str, float, int, None]:
-    """
-    Try to convert val to float or integer
+    """Try to convert val to float or integer
     
     NOTE: isnumeric() is insufficient, as it is unable to accurately
         identify scientific numbers. Additionally, it does not allow
@@ -4301,12 +4300,13 @@ def tryparse_str_to_num(
         
     Function Arguments
     ------------------
-    - val: value to attempt to convert
+    val : Union[str, float, int, None]
+        Value to attempt to convert
     
     Keyword Arguments
     ------------------
-    - return_integer_if_round: if value is numeric, convert to integer
-        if is integer equivalent?
+    return_integer_if_round : bool
+        If value is numeric, convert to integer if is integer equivalent?
     """
     
     if val is None:
@@ -4335,19 +4335,21 @@ def unwrap_df_from_delimiter(
     delim: str = "|",
     try_as_type: Union[str, None] = None,
 ) -> pd.DataFrame:
-    """
-    Split delited fields into individual rows that correspond
-        with a key.
+    """Split delited fields into individual rows that correspond with a key.
 
     Function Arguments
     ------------------
-    - df: data frame to unwrap
-    - field_unwrap: field to unwrap (split into rows)
+    df : pd.DataFrame
+        DataFrame to unwrap
+    field_unwrap : str
+        Field to unwrap (split into rows)
     
     Keyword Arguments
     -----------------
-    - delim: delimiter used to unwrap field
-    - try_as_type: try to turn the unwrapped field into this type
+    delim : str
+        Delimiter used to unwrap field
+    try_as_type : Union[str, None]
+        Try to turn the unwrapped field into this type
     """
     if field_unwrap not in df.columns:
          return df
@@ -4399,21 +4401,23 @@ def vec_bounds(
     bounds: Union[Tuple[float, float], None],
     cycle_vector_bounds_q: bool = False,
 ) -> Union[list, np.ndarray]:
-    """
-    Bound a vector vec within a range set within 'bounds'.
+    """Bound a vector vec within a range set within 'bounds'.
 
     Function Arguments
     ------------------
-    - vec: list or np.ndarray of values to bound
-    - bounds: tuple (single bound) or list vec specifying element-wise bounds. 
+    vec : Union[list, np.ndarray]
+        List or np.ndarray of values to bound
+    bounds : Union[Tuple[float, float], None]
+        Tuple (single bound) or list vec specifying element-wise bounds. 
         NOTE: only works if
 
         vec.shape = (len(vec), ) == (len(bounds), )
 
     Keyword Arguments
     -----------------
-    - cycle_vector_bounds_q: cycle bounds if there is a mismatch and the bounds 
-        are entered as a vector
+    cycle_vector_bounds_q : bool
+        Cycle bounds if there is a mismatch and the bounds are entered as a 
+        vector
     """
     # check bounds
     return_none = bounds is None
@@ -4487,18 +4491,19 @@ def vec_bounds(
 
 
 def vector_limiter(
-    vecs:list, 
+    vecs: list, 
     var_bounds: tuple
 ) -> list:
-    """
-    Bound a collection vectors by sum. Must specify at least a lower bound. 
+    """Bound a collection vectors by sum. Must specify at least a lower bound. 
         Renormalizes vector components that exceed a threshold. Reflects the
         concept of a limiter.
 
     Function Arguments
     ------------------
-    - vecs: list of numpy arrays with the same shape
-    - var_bounds: tuple of
+    vecs : list 
+        List of numpy arrays with the same shape
+    var_bounds : tuple
+        tuple of bounds
     """
 
     types_valid = [tuple, list, np.ndarray]
@@ -4548,8 +4553,7 @@ def vector_limiter(
 def vector_norm(
     vec: np.ndarray,
 ) -> Union[float, None]:
-    """
-    Calculate the L2 norm of vec. If not list-like or containing numerical
+    """Calculate the L2 norm of vec. If not list-like or containing numerical
         elements, returns None
     """
     if not islistlike(vec):
@@ -4572,8 +4576,7 @@ def wrap_quote(
     val: Any,
     char_quote: str = "\"",
 ) -> str:
-    """
-    Wrap val in a quote
+    """Wrap val in a quote
     """
     return f"{char_quote}{val}{char_quote}"
 
@@ -4584,17 +4587,19 @@ def _write_yaml(
     fp: Union[str, pathlib.Path],
     default_flow_style: bool = False,
 ) -> None:
-    """
-    Write a YAML dictionary to a file
+    """Write a YAML dictionary to a file
 
     Function Arguments
     ------------------
-    - dict_write: dictionary to write
-    - fp: path to the yaml file
+    dict_write : dict
+        Dictionary to write
+    fp : Union[str, pathlib.Path]
+        Path to the yaml file
 
     Keyword Arguments
     -----------------
-    - default_flow_style: passed to yaml.dump
+    default_flow_style : bool
+        Passed to yaml.dump
     """
 
     with open(str(fp), "w+") as dumper:
@@ -4616,19 +4621,25 @@ def zeros_to_small(
     min_scale: float = 10**(-6),
     on_all_zeros_epsilon: Union[float, None] = None
 ) -> np.ndarray:
-    """
-    Replace zeros in `vec_in` with a very small value
+    """Replace zeros in `vec_in` with a very small value
     
+    Function Arguments
+    ------------------
+    vec_in : np.ndarray
+        Vector to replace zeros in 
+
     Keyword Arguments
     -----------------
-    - axis: optional axis to use for determining minimum. If None, uses global
+    axis : Union[int, None]
+        Ooptional axis to use for determining minimum. If None, uses global
         minimum.
-        * axis = 0 will replace with the minimum in the column
-        * axis = 1 will replace with the minimum in the row
-    - min_scale: scalar applied to minimum non-zero value to generate 
-        replacements
-    - on_all_zeros_epsilon: epsilon (very small float) to use in place of a 
-        vector that is all zeros. If None, returns vec. 
+            * axis = 0 will replace with the minimum in the column
+            * axis = 1 will replace with the minimum in the row
+    min_scale : float
+        Scalar applied to minimum non-zero value to generate replacements
+    on_all_zeros_epsilon : Union[float, None]
+        Epsilon (very small float) to use in place of a vector that is all 
+        zeros. If None, returns vec. 
     """
     
     vec = vec_in.copy().astype(float)
@@ -4670,19 +4681,20 @@ def zeros_to_small_vector(
     min_scale: float = 10**(-6),
     on_all_zeros_epsilon: Union[float, None] = None
 ) -> np.ndarray:
-    """
-    Replace zeros in `vec_in` with a very small value
+    """Replace zeros in `vec_in` with a very small value
     
+    Function Arguments
+    ------------------
+    vec_in : np.ndarray
+        Vector to replace zeros in 
+
     Keyword Arguments
     -----------------
-    - axis: optional axis to use for determining minimum. If None, uses global
-        minimum.
-        * axis = 0 will replace with the minimum in the column
-        * axis = 1 will replace with the minimum in the row
-    - min_scale: scalar applied to minimum non-zero value to generate 
-        replacements
-    - on_all_zeros_epsilon: epsilon (very small float) to use in place of a 
-        vector that is all zeros. If None, returns vec. 
+    min_scale : float
+        Scalar applied to minimum non-zero value to generate replacements
+    on_all_zeros_epsilon : Union[float, None]
+        Epsilon (very small float) to use in place of a vector that is all 
+        zeros. If None, returns vec. 
     """
 
     vec = vec_in.copy()

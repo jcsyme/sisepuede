@@ -1970,6 +1970,347 @@ def transformation_lndu_increase_silvopasture(
 
 
 
+
+def _deprecated_transformation_lndu_increase_silvopasture(
+    df_input: pd.DataFrame,
+    magnitude: Union[Dict[str, float], float],
+    vec_ramp: np.ndarray,
+    model_attributes: ma.ModelAttributes,
+    model_afolu: Union[mafl.AFOLU, None] = None,
+    **kwargs
+) -> pd.DataFrame:
+    """
+    Increase the use of silvopasture by shifting pastures to secondary forest. 
+        NOTE: This trnsformation relies on modifying transition matrices, which
+        can compound some minor numerical errors in the crude implementation 
+        taken here. Final area prevalences may not reflect precise shifts.
+
+
+    Function Arguments
+    ------------------
+    - df_input: input data frame containing baseline trajectories
+    - magnitude: float specifying fraction of pasture to shift to silvopasture
+    - model_attributes: ModelAttributes object used to call strategies/
+        variables
+    - vec_ramp: ramp vec used for implementation
+
+    Keyword Arguments
+    -----------------
+    - field_region: field in df_input that specifies the region
+    - model_afolu: optional AFOLU object to pass for variable access
+    - regions_apply: optional set of regions to use to define strategy. If None,
+        applies to all regions.
+    - strategy_id: optional specification of strategy id to add to output
+        dataframe (only added if integer)
+    - **kwargs: passed to 
+        transformation_support_lndu_transition_to_category_targets_single_region()
+    """
+    
+    # build
+    model_afolu = (
+        mafl.AFOLU(model_attributes) 
+        if model_afolu is None
+        else model_afolu
+    )
+    
+    magnitude = (
+        float(sf.vec_bounds(magnitude, (0.0, 1.0)))
+        if sf.isnumber(magnitude)
+        else None
+    )
+
+    if magnitude is None:
+        # LOGGING
+        return df_input
+    
+    
+    ##  SETUP DICTIONARY--shift 
+    cat_fsts = model_afolu.cat_lndu_fsts
+    cat_grsl = model_afolu.cat_lndu_grss
+    key_pastures = "pasture_tba"
+    dict_magnitude = {
+        cat_fsts: {
+            "categories_scalar_reference": [key_pastures],
+            "categories_inflow_restrict": [cat_grsl],
+            "magnitude": magnitude,
+            "magnitude_type": "add_from_reference_scalar"
+        }
+    }
+    
+    cats_stable = [
+        model_afolu.cat_lndu_othr,
+        model_afolu.cat_lndu_stlm,
+        model_afolu.cat_lndu_wetl,
+    ]
+    
+    # get region
+    field_region_def = "nation"
+    region_default = "DEFAULT"
+    field_region = kwargs.get("field_region", field_region_def)
+    field_region = field_region_def if (field_region is None) else field_region
+    #(
+    #    field_region_def
+    #    if "field_region" not in kwargs.keys()
+    #    else kwargs.get("field_region")
+    #)
+    
+    # organize and group
+    df_group = df_input.copy()
+    use_fake_region = (field_region not in df_group.columns)
+    if use_fake_region:
+        df_group[field_region] = region_default
+    df_group = df_group.groupby([field_region])
+    
+    df_out = None
+    i = 0
+    
+    global arr_land_use_prevalence_out_no_intervention
+    global arr_land_use_prevalence_out_with_intervention
+    global vec_lndu_pasture_frac
+
+    for region, df in df_group:
+        
+        region = region[0] if isinstance(region, tuple) else region
+        
+        # PER-REGION MODS HERE 
+        (
+            df_trans, 
+            vec_lndu_prevalence_0, 
+            vec_lndu_prevalence_1,
+            vec_lndu_pasture_frac,
+            arr_land_use_prevalence_out_no_intervention, 
+            arr_land_use_prevalence_out_with_intervention,
+        ) = transformation_support_lndu_transition_to_category_targets_single_region(
+            df,
+            dict_magnitude,
+            vec_ramp,
+            model_attributes,
+            cats_stable = cats_stable,
+            max_change_allocated_to_pasture_frac_adjustment = 0.0,
+            model_afolu = model_afolu,
+            pasture_key = key_pastures,
+            **kwargs
+        )
+
+
+        # get pasture fractions and carrying capacities
+        vec_lvst_carrying_capcity_scalar = model_attributes.extract_model_variable(#
+            df,
+            model_afolu.modvar_lvst_carrying_capacity_scalar,
+            return_type = "array_base",
+        )
+
+
+        (
+            vec_lndu_pasture_frac_new, 
+            vec_lndu_carrying_capacity_new
+        ) = _deprecated_transformation_support_lndu_get_adjusted_fractions_from_transition_w_natural_grassland(
+            arr_land_use_prevalence_out_no_intervention,
+            arr_land_use_prevalence_out_with_intervention,
+            vec_lndu_pasture_frac,
+            vec_lvst_carrying_capcity_scalar,
+            model_afolu,
+        )
+
+        
+        """
+        # get changes to pasture fraction and associated ratio of increase for lvst carrying capacity
+        frac_past_new, scalar_carrying_capacity_inv = transformation_support_lndu_get_adjusted_pasture_fraction(
+            vec_lndu_prevalence_0,
+            vec_lndu_prevalence_1,
+            vec_lndu_pasture_frac[-1], 
+            cat_fsts,
+            model_afolu
+        )
+
+        """;
+        
+        # apply general transformation to set pasture fraction and use to scale lvst
+        df_trans = tbg.transformation_general(
+            df_trans,
+            model_attributes,
+            {
+                model_afolu.modvar_lvst_carrying_capacity_scalar: {
+                    "bounds": (0.0, np.inf),
+                    "magnitude": vec_lndu_carrying_capacity_new,#1/scalar_carrying_capacity_inv,
+                    "magnitude_type": "vector_specification",#"baseline_scalar",
+                    "vec_ramp": vec_ramp
+                },
+
+                model_afolu.modvar_lndu_frac_grassland_that_is_pasture: {
+                    "bounds": (0.0, 1.0),
+                    "magnitude": vec_lndu_pasture_frac_new,
+                    "magnitude_type": "vector_specification",
+                    "vec_ramp": vec_ramp
+                }
+            },
+            **kwargs
+        )
+        
+        if df_out is None:
+            df_out = [df_trans for k in range(len(df_group))]
+        else:
+            df_out[i] = df_trans
+            
+        i += 1
+        
+
+    df_out = pd.concat(df_out, axis = 0).reset_index(drop = True)
+    (
+        df_out.drop([field_region], axis = 1, inplace = True)
+        if use_fake_region
+        else None
+    )
+    
+    return df_out
+
+
+
+
+def _deprecated_transformation_support_lndu_get_adjusted_fractions_from_transition_w_natural_grassland(
+    arr_land_use_prevalence_out_no_intervention: np.ndarray,
+    arr_land_use_prevalence_out_with_intervention: np.ndarray,
+    vec_lndu_pasture_frac_no_intervention: np.ndarray,
+    vec_lvst_scalar_carrying_capacity_no_intervention: np.ndarray,
+    model_afolu: mafl.AFOLU,
+    min_frac_grassland_pasture: float = 0.05,
+) -> Tuple[np.ndarray, np.ndarray]:
+    """
+    Get adjusted fractions for pasture + adjusted carrying capacities (used
+        primarily in Silvopasture modeling) if preserving fixed natural 
+        grassland fraction assumptions. 
+
+    Returns a two-ple of the following form:
+
+        (vec_lndu_pasture_frac_new, vec_lndu_carrying_capacity_new)
+
+
+    Function Arguments
+    ------------------
+    - arr_land_use_prevalence_out_no_intervention: array giving land use prevalence
+        (wide by class, long by time period) WITHOUT the transformation of land use
+        classes
+    - arr_land_use_prevalence_out_with_intervention: array giving land use prevalence
+        (wide by class, long by time period) WITH the transformation of land use
+        classes
+    - vec_lndu_pasture_frac_no_intervention: vector of pasture fractions of grassland
+        without intervention (dim = (n_tp, ))
+    - vec_lvst_scalar_carrying_capacity_no_intervention: vector of carrying capacity 
+        scalars w/o intervention (dim = (n_tp, ))
+    - model_afolu: AFOLU model class to pass
+    
+    Keyword Arguments
+    -----------------
+    - min_frac_grassland_pasture: minimum fraction of grassland that must be preserved
+        as pasture
+    """
+    
+    # get some baseline values
+    vec_lndu_prevalence_grass_base = arr_land_use_prevalence_out_no_intervention[:, model_afolu.ind_lndu_grass]
+    vec_lndu_prevalence_pasture_base = vec_lndu_prevalence_grass_base*vec_lndu_pasture_frac_no_intervention
+    vec_lndu_prevalence_natural_grassland_base = vec_lndu_prevalence_grass_base - vec_lndu_prevalence_pasture_base
+    
+    # calculate carrying target for new pasture
+    vec_lndu_carrying_target_base = vec_lndu_prevalence_pasture_base*vec_lvst_scalar_carrying_capacity_no_intervention
+    
+    # now, get the area associated with pasture now and generate the scalar
+    vec_lndu_prevalence_grass_intervention = arr_land_use_prevalence_out_with_intervention[:, model_afolu.ind_lndu_grass]
+    vec_lndu_prevalence_pasture_intervention = sf.vec_bounds(vec_lndu_prevalence_grass_intervention - vec_lndu_prevalence_natural_grassland_base, (min_frac_grassland_pasture, 1.0))
+    vec_lndu_carrying_capacity_new = vec_lndu_carrying_target_base/vec_lndu_prevalence_pasture_intervention
+    
+    
+    # get new pasture fraction
+    vec_lndu_pasture_frac_new = np.nan_to_num(
+        vec_lndu_prevalence_pasture_intervention/vec_lndu_prevalence_grass_intervention,
+        nan = 0.0, 
+        posinf = 0.0,
+    )
+    
+    out = (vec_lndu_pasture_frac_new, vec_lndu_carrying_capacity_new)
+
+    return out
+
+
+
+def transformation_support_lndu_get_adjusted_pasture_fraction(
+    prevalence_vector_0: float,
+    prevalence_vector_1: float,
+    frac_pasture_0: float,
+    cat_target: str,
+    model_afolu: mafl.AFOLU,
+    cat_pasture: str = "grasslands",
+    frac_target_containing_shift: float = 1,
+    scalar_base_grassland: Union[float, None] = None, 
+) -> Union[float, None]:
+    """
+    Using previous grassland area, previous pasture fraction, current grassland 
+        area, and land use category to which pasture was shifted, calculate 
+        calculate the change in pasture fraction.
+
+    Returns tuple of the form 
+
+        (frac_pasture_1, ratio_pasture_frac_cur_to_orig)
+        
+
+    Function Arguments
+    ------------------
+    - prevalence_vector_0: original (unadjusted) vector of land use prevalence
+    - prevalence_vector_1: current (adjusted) vector of land use prevalence
+    - frac_pasture_0: original (unadjusted) grassland pasture fraction
+    - cat_target: target category to which pasture was shifted
+    - model_afolu: AFOLU class used to access model attributes, properties, and
+        methods
+    
+    Keyword Arguments
+    -----------------
+    - cat_pasture: category which pastures are contained in
+    - frac_target_containing_shift: fraction of increase in transfer target land
+        use containing pasture
+    - scalar_base_grassland: optional scalar to use to represent changes to base
+        grassland area. If None, remains unchanged
+    """
+    
+    # some initialization and checkes
+    model_attributes = model_afolu.model_attributes
+    attr_lndu = model_attributes.get_attribute_table(model_attributes.subsec_name_lndu)
+    frac_pasture_0 = float(sf.vec_bounds(frac_pasture_0, (0.0, 1.0)))
+    scalar_base_grassland = (
+        float(sf.vec_bounds(scalar_base_grassland, (0.0, np.inf)))
+        if sf.isnumber(scalar_base_grassland)
+        else 1.0
+    )
+
+    ind_grass = attr_lndu.get_key_value_index(cat_pasture)
+    ind_target = attr_lndu.get_key_value_index(cat_target)
+    if ind_target is None:
+        return None
+
+    # calculate revisions to pasture fractions
+    vec_lndu_transferred = prevalence_vector_1 - prevalence_vector_0
+    area_past_transferred = min(
+        -vec_lndu_transferred[ind_grass],
+        vec_lndu_transferred[ind_target]*frac_target_containing_shift
+    )
+
+    prevalence_grass_cur = prevalence_vector_1[ind_grass]
+    prevalence_grass_orig = prevalence_vector_0[ind_grass]
+
+    # get base grassland area (non-pasture) and provide for optional scalar
+    prevalence_pasture_orig = prevalence_grass_orig*frac_pasture_0
+    prevalence_grass_no_pasture_orig = prevalence_grass_orig - prevalence_pasture_orig
+    prevalence_grass_no_pasture_orig *= scalar_base_grassland
+
+    # assume no change in baseline grass area unless absolutely necessary
+    prevalence_pasture_cur = prevalence_grass_cur - prevalence_grass_no_pasture_orig
+    frac_pasture_current = prevalence_pasture_cur/prevalence_grass_cur
+    ratio_pasture_frac_cur_to_orig = prevalence_pasture_cur/prevalence_pasture_orig
+
+    out = frac_pasture_current, ratio_pasture_frac_cur_to_orig
+   
+    return out
+
+
+
 ##############
 #    LSMM    #
 ##############
