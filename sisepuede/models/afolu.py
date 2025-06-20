@@ -57,7 +57,11 @@ class AFOLU:
     ------------------
     logger : Union[logging.Logger, None]
         optional logger object to use for event logging
-
+    min_diag_qadj : float
+        Optional specification of minimum diagonal constraint to adhere to when
+        adjusting transition matrices. If None, defaults to config (IN 
+        PROCESSS). Note that this threshold will not modify unadjusted diagonal
+        transitions that begin below this constraint.
     npp_curve : Union[str, npp.NPPCurve, None] 
         Optional specification of an NPP curve to use for dynamic forest 
         sequestration. In dynamic forest sequestration, forest sequestration 
@@ -86,6 +90,7 @@ class AFOLU:
     def __init__(self,
         attributes: ModelAttributes,
         logger: Union[logging.Logger, None] = None,
+        min_diag_qadj: float = 0.98,
         npp_curve: Union[str, npp.NPPCurve, None] = None,
         npp_include_primary_forest: bool = False,
         npp_integration_windows: Union[list, tuple, np.ndarray] = _NPP_INTEGRATION_WINDOWS,
@@ -97,6 +102,7 @@ class AFOLU:
 
         self._initialize_subsector_names()
         self._initialize_input_output_components()
+        self._initialize_other_properties()
 
 
         ##  SET MODEL FIELDS
@@ -108,7 +114,9 @@ class AFOLU:
         self._initialize_subsector_vars_lvst()
         self._initialize_subsector_vars_soil()
 
-        self._initialize_models()
+        self._initialize_models(
+            min_diag_qadj = min_diag_qadj,
+        )
         self._initialize_npp_properties(
             npp_curve = npp_curve,
             npp_include_primary_forest = npp_include_primary_forest,
@@ -116,7 +124,7 @@ class AFOLU:
         )
 
         self._initialize_integrated_variables()
-        self._initialize_other_properties()
+        
 
         self._initialize_uuid()
 
@@ -399,6 +407,7 @@ class AFOLU:
 
 
     def _initialize_models(self,
+        min_diag_qadj: float = 0.98,
         model_attributes: Union[ModelAttributes, None] = None,
     ) -> None:
         """
@@ -461,7 +470,10 @@ class AFOLU:
         ##  SET CLASSES USED TO SOLVE SOME INTERNAL PROBLEMS
 
         # used to adjust transition matrices using Quadratic Programming
-        q_adjuster = suo.QAdjuster()
+        q_adjuster = suo.QAdjuster(
+            flag_ignore = float(self.flag_ignore_constraint),
+            min_solveable_diagonal = min_diag_qadj,
+        )
 
 
         ##  SET PROPERTIES
@@ -4236,11 +4248,6 @@ class AFOLU:
                 self.ind_lndu_pstr: area_target_pstr,
             }
             
-            self.i = i
-            self.dict_area_targets_exog = dict_area_targets_exog
-            self.arr_lndu_constraints_inf = arr_lndu_constraints_inf
-            self.arr_lndu_constraints_sup = arr_lndu_constraints_sup
-
             arr_transition_adj = self.qadj_adjust_transitions(
                 arrs_transitions[i_tr],
                 x,
@@ -4251,8 +4258,6 @@ class AFOLU:
                 x_proj_unadj = x_proj_unadj,
                 solver = "quadprog",
             )
-
-            self.arr_transition_adj = arr_transition_adj
 
             x_next  = np.matmul(x, arr_transition_adj)
 

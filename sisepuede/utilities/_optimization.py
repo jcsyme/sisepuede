@@ -1059,7 +1059,7 @@ class QAdjuster:
             msg = f"Error retrieving constraints in QAdjuster: {e}"
             raise RuntimeError(msg)
 
-
+        """
         global dict_out
         dict_out = {
             "M": M,
@@ -1073,6 +1073,7 @@ class QAdjuster:
             "x_0": x_0,
             "x_target": x_target,
         }
+        """;
 
         try:
 
