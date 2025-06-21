@@ -90,7 +90,7 @@ class EnergyProduction:
         initialize_julia: bool = True,
         logger: Union[logging.Logger, None] = None,
         solver_time_limit: Union[int, None] = None,
-    ):
+    ) -> None:
         ##  INITIALIZE KEY PROPERTIES (ORDERED)
 
         # initalize the logger and model attributes
@@ -2935,8 +2935,7 @@ class EnergyProduction:
         regions: Union[List[str], None] = None,
         tuple_enfu_production_and_demands: Union[Tuple[pd.DataFrame], None] = None,
     ) -> Tuple[pd.DataFrame, Dict[str, str]]:
-        """
-        Minimum share of production is used to specify import fractions; this 
+        """Minimum share of production is used to specify import fractions; this 
             function adjusts exogenous MinShareProduction fractions to account 
             for imports, returning a data frame that is ready to integrate into 
             the NemoMod input table.
@@ -3098,6 +3097,7 @@ class EnergyProduction:
             arr_entc_msp_fracs_specified, 
             1/vec_entc_div
         )
+        arr_entc_msp_fracs_specified3 = arr_entc_msp_fracs_specified.copy()
         
         # multiply by 1 - import fraction
         arr_entc_msp[:, inds_entc] = sf.do_array_mult(
@@ -5955,11 +5955,10 @@ class EnergyProduction:
         regions: Union[List[str], None] = None,
         tuple_enfu_production_and_demands: Union[Tuple[pd.DataFrame], None] = None,
     ) -> pd.DataFrame:
-        """
-        Format the MinShareProduction input table for NemoMod based on SISEPUEDE 
-            configuration parameters, input variables, integrated model outputs, 
-            and reference tables. Used to implement electrification in 
-            fuel-production inputs.
+        """Format the MinShareProduction input table for NemoMod based on 
+            SISEPUEDE configuration parameters, input variables, integrated 
+            model outputs, and reference tables. Used to implement 
+            electrification in fuel-production inputs.
 
         Function Arguments
         ------------------
@@ -6925,10 +6924,9 @@ class EnergyProduction:
 
     def estimate_production_share_from_activity_limits(self,
         df_elec_trajectories: pd.DataFrame,
-        tuple_enfu_production_and_demands: Union[Tuple[pd.DataFrame], None] = None
+        tuple_enfu_production_and_demands: Union[Tuple[pd.DataFrame], None] = None,
     ) -> np.ndarray:
-        """
-        Estimate production share of techs specified with a 
+        """Estimate production share of techs specified with a 
             TotalTechnologyAnnualActivityLowerLimit. Use this function to avoid 
             conflicting constraints between 
             MinShareProduction/ReMinProductionTarget and 
@@ -6975,6 +6973,11 @@ class EnergyProduction:
             retrieve_nemomod_tables_fuel_production_demand_and_trade()
             method.
         """
+        
+        # pull the attribute table
+        attribute_entc = self.model_attributes.get_attribute_table(
+            self.model_attributes.subsec_name_entc,
+        )
 
         ##  GET PRODUCTION DEMAND FROM INTEGRATED MODEL
 
@@ -6989,7 +6992,8 @@ class EnergyProduction:
         )
         arr_enfu_demands, arr_enfu_demands_distribution, arr_enfu_export, arr_enfu_imports, arr_enfu_production = tuple_enfu_production_and_demands
         
-        # updated 20230211 - NemoMod now solves for imports due to endogeneity of certain fuels. Demand is passed as production + imports, and import fractions are specified in MinShareProduction
+        # updated 20230211 - NemoMod now solves for imports due to endogeneity of certain fuels.
+        # Demand is passed as production + imports, and import fractions are specified in MinShareProduction
         arr_enfu_production += arr_enfu_imports 
 
         # get transmission loss and calculate final demand
@@ -7017,14 +7021,17 @@ class EnergyProduction:
         df_tech_lower_limit = self.get_total_technology_activity_lower_limit_no_msp_adjustment(df_elec_trajectories).get(table_name)
         vector_reference_time_period = list(df_elec_trajectories[self.model_attributes.dim_time_period])
 
+        # 
         vec_entc_prod_lower_limit = np.array(
             self.retrieve_and_pivot_nemomod_table(
                 df_tech_lower_limit,
-                self.modvar_entc_ef_scalar_co2, # arbitrary variable works
+                self.modvar_entc_ef_scalar_co2,      # any variable covering all the powerplants will do
                 table_name,
-                vector_reference_time_period
+                vector_reference_time_period,
+                missing_value = 0.0,                 # however, need to ensure missing values are 0
             ).sum(axis = 1)
         )
+
 
         # get technology lower limit total as a fraction of estimated demand for electricity
         vec_fraction_tech = np.nan_to_num(
@@ -9510,37 +9517,41 @@ class EnergyProduction:
 
     def retrieve_and_pivot_nemomod_table(self,
         engine: Union[pd.DataFrame, sqlalchemy.engine.Engine],
-        modvar: str,
+        modvar: Union[str, 'ModelVariable'],
         table_name: str,
         vector_reference_time_period: Union[list, np.ndarray],
         dict_agg_info: Union[Dict, None] = None,
         dict_filter_override: Union[Dict, None] = None,
         dict_repl_values: Union[Dict[str, str], None] = None,
         field_pivot: Union[str, None] = None,
+        missing_value: Union[float, None] = None,
         query_append: Union[str, None] = None,
         techs_to_pivot: Union[List[str], None] = ["all_techs_pp"],
-        transform_time_period: bool = True
+        transform_time_period: bool = True,
     ) -> pd.DataFrame:
-        """
-        Retrieves NemoMod output table and reformats for SISEPUEDE (wide format 
-            data) when pivoting on technology
+        """Retrieves NemoMod output table and reformats for SISEPUEDE (wide 
+            format data) when pivoting on technology
 
         Function Arguments
         ------------------
-        - engine: SQLalchemy Engine used to retrieve this table OR data frame
+        engine : Union[pd.DataFrame, sqlalchemy.engine.Engine]
+            SQLalchemy Engine used to retrieve this table OR data frame
             passed in place of raw output
-        - modvar: output model variable
-        - table_name: name in the database of the table to retrieve
-        - vector_reference_time_period: reference time periods to use in merge--
-            e.g., 
+        modvar :  Union[str, ModelVariable]
+            Output model variable
+        table_name : str
+            Name in the database of the table to retrieve
+        vector_reference_time_period : Union[list, np.ndarray]
+            reference time periods to use in merge--e.g., 
             df_elec_trajectories[EnergyProduction.model_attributes.dim_time_period]
 
         Keyword Arguments
         -----------------
-         - dict_agg_info: dictionary specificying optional fields to group on + 
-            fields to aggregate. If specified, aggregation is applied to the 
-            dataframe that comes from the NemoMod database. Dictionary should
-            have the form:
+        dict_agg_info : Union[Dict, None]
+            Dictionary specificying optional fields to group on + fields to 
+            aggregate. If specified, aggregation is applied to the DataFrame 
+            that comes from the NemoMod database. Dictionary should have the 
+            form:
 
             {
                 "fields_group": [fld_1,..., fld_2],
@@ -9552,22 +9563,29 @@ class EnergyProduction:
 
             where `func` is an acceptable aggregation function passed to 
             pd.GroupedDataFrame.agg()
-        - dict_filter_override: filtering dictionary to apply independently of 
+        dict_filter_override : Union[Dict, None]
+            Filtering dictionary to apply independently of 
             techs_to_pivot. Filters on top of techs_to_pivot if provided.
-        - dict_repl_values: dictionary of dictionaries mapping a field to apply
-            the replacement to (key) to a dictionary of replacement pairs 
-            (value). Performed immediately *after* filtering.  
-        - field_pivot: field to pivot on. Default is 
+        dict_repl_values : Union[Dict[str, str], None]
+            Dictionary of dictionaries mapping a field to apply the replacement 
+            to (key) to a dictionary of replacement pairs (value). Performed 
+            immediately *after* filtering.  
+        field_pivot : Union[str, None]
+            Field to pivot on. Default is 
             ElecticEnergy.field_nemomod_technology, but 
             ElecticEnergy.field_nemomod_storage can be used to transform storage 
             outputs to technology.
-        - query_append: appendage to query (e.g., "where X = 0")
-        - techs_to_pivot: list of keys in ElecticEnergy.get_tech_info_dict() to 
-            include in the pivot. Can include "all_techs_pp", 
-            "all_techs_st", "all_techs_dummy" (only if output sector is fuel). 
-            If None, keeps all values.
-        - transform_time_period: Does the time period need to be transformed 
-            back to SISEPUEDE terms?
+        missing_value : Union[float, None]
+            Optional value associated with fields for categories not defined in 
+            the original table. If None, defaults to modvar.default_value
+        query_append : Union[str, None]
+            Appendage to query (e.g., "where X = 0")
+        techs_to_pivot : Union[List[str], None]
+            List of keys in ElecticEnergy.get_tech_info_dict() to include in the 
+            pivot. Can include "all_techs_pp", "all_techs_st", "all_techs_dummy" 
+            (only if output sector is fuel). If None, keeps all values.
+        transform_time_period : bool
+            Does the time period need to be transformed back to SISEPUEDE terms?
         """
 
         # initialize some pieces
@@ -9665,6 +9683,7 @@ class EnergyProduction:
         df_out = self.model_attributes.instantiate_blank_modvar_df_by_categories(
             modvar, 
             len(vector_reference_time_period),
+            blank_val = missing_value,
         )
         df_out[self.model_attributes.dim_time_period] = vector_reference_time_period
 
