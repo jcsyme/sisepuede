@@ -848,7 +848,7 @@ class AFOLU:
         self.modvar_lsmm_n_to_other_use = "Total Nitrogen Available for Construction/Feed/Other"
         self.modvar_lsmm_ratio_n2_to_n2o = "Ratio of :math:\\text{N}_2 to :math:\\text{N}_2\\text{O}"
         self.modvar_lsmm_recovered_biogas = "LSMM Biogas Recovered from Anaerobic Digesters"
-        self.modvar_lsmm_rf_biogas = "Biogas Recovery Factor at LSMM Anaerobic Digesters"
+        self.modvar_lsmm_rf_biogas = "Biogas Recovery Factor at LSMM Anaerobic Facilities"
 
         # some categories
         self.cat_lsmm_incineration = self.model_attributes.filter_keys_by_attribute(
@@ -5979,11 +5979,13 @@ class AFOLU:
         arr_lsmm_emission_n2o_direct = np.zeros(arr_lsmm_ef_direct_n2o.shape)
         arr_lsmm_emission_n2o_indirect = np.zeros(arr_lsmm_ef_direct_n2o.shape)
         arr_lsmm_nitrogen_available = np.zeros(arr_lsmm_ef_direct_n2o.shape)
+
         # initialize some aggregations
         vec_lsmm_nitrogen_to_other = 0.0
         vec_lsmm_nitrogen_to_fertilizer_dung = 0.0
         vec_lsmm_nitrogen_to_fertilizer_urine = 0.0
         vec_lsmm_nitrogen_to_pasture = 0.0
+
         # categories that allow for manure retrieval and use in fertilizer
         cats_lsmm_manure_retrieval = self.model_attributes.get_variable_categories(self.modvar_lsmm_frac_n_available_used)
 
@@ -5993,7 +5995,7 @@ class AFOLU:
             arr_lsmm_fracs_by_lvst = dict_arrs_lsmm_frac_manure[var_lvst_mm_frac]
             arr_lsmm_total_nitrogen_cur = arr_lvst_nitrogen*arr_lsmm_fracs_by_lvst
 
-            # retrive the livestock management category
+            # retrieve the livestock management category
             cat_lsmm = clean_schema(
                 self.model_attributes.get_variable_attribute(
                     var_lvst_mm_frac, 
@@ -6027,6 +6029,7 @@ class AFOLU:
             vec_lsmm_nitrogen_treated_cur = np.sum(arr_lsmm_total_nitrogen_cur, axis = 1)
             vec_lsmm_n_from_bedding = arr_lsmm_n_from_bedding[:, index_cat_lsmm]
             vec_lsmm_n_from_codigestates = arr_lsmm_n_from_codigestates[:, index_cat_lsmm]
+
             # get nitrogen from bedding per animal
             vec_lsmm_n_from_bedding *= np.sum(arr_lvst_pop*arr_lsmm_fracs_by_lvst, axis = 1)
 
@@ -6034,6 +6037,7 @@ class AFOLU:
             vec_lsmm_frac_lost_direct = sf.vec_bounds((1 + vec_lsmm_ratio_n2_to_n2o)*arr_lsmm_ef_direct_n2o[:, index_cat_lsmm], (0, 1))
             vec_lsmm_frac_lost_leaching = arr_lsmm_frac_lost_leaching[:, index_cat_lsmm]
             vec_lsmm_frac_lost_volatilisation = arr_lsmm_frac_lost_volatilisation[:, index_cat_lsmm]
+
             # apply the limiter, which prevents their total from exceeding 1
             vec_lsmm_frac_lost_direct, vec_lsmm_frac_lost_leaching, vec_lsmm_frac_lost_volatilisation = sf.vector_limiter(
                 [

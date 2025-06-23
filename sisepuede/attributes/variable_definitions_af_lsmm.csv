@@ -2,7 +2,7 @@ Variable Type,Variable,Information,Variable Schema,Categories,Reference,Default 
 Input,:math:`\text{N}_2\text{O}` Manure Management Emission Factor," | Dimensionless emission factor for direct :math:`\text{N}_2\text{O}` emissions from each manure management system.
  | 
  | Corresponds with :math:`EF_{3_{(S)}}` in Equation 10.34A in V4,C10 IPCC GNGHGI 2019R.",``ef_lsmm_direct_management_$CAT-MANURE-MANAGEMENT$_$EMISSION-GAS$_per_n`` (``$EMISSION-GAS$ = n2o``),all,,0,1,1,,0,,," | Derived from values in Table 10.21 (V4,C10 IPCC GNGHGI 2019R). "
-Input,Biogas Recovery Factor at LSMM Anaerobic Digesters,,``gasrf_lsmm_biogas_$CAT-MANURE-MANAGEMENT$``,``anaerobic_digester``,,0,1,1,,0,,,
+Input,Biogas Recovery Factor at LSMM Anaerobic Facilities,,``gasrf_lsmm_biogas_$CAT-MANURE-MANAGEMENT$``,``anaerobic_digester``|``anaerobic_lagoon``,,0,1,1,,0,,,
 Input,Fraction of Nitrogen Lost to Leaching,,``frac_lsmm_n_loss_leaching_$CAT-MANURE-MANAGEMENT$``,all,,0,1,1,,0,,," | Derived from values in Table 10.22 (V4C10 IPCC GNGHGI 2019R). 
  | 
  | **NOTE**: SISEPUEDE treats these loss factors as a mean across animal types, then allows for exploration around ranges."

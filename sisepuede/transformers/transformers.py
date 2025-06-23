@@ -3970,7 +3970,7 @@ class Transformers:
             {
                 self.model_afolu.modvar_lsmm_rf_biogas: {
                     "bounds": (0.0, 1),
-                    "magnitude": magnitude, # CHANGEDFORINDIA 0.9
+                    "magnitude": magnitude,
                     "magnitude_type": "final_value_floor",
                     "vec_ramp": vec_implementation_ramp
                 }
