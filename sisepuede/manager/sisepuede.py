@@ -247,6 +247,7 @@ class SISEPUEDE:
         replace_output_dbs_on_init: bool = False,
         strategies: Union[trf.Strategies, None] = None,
         try_exogenous_xl_types_in_variable_specification: bool = False,
+        **kwargs,
     ) -> None:
 
         # initialize the file structure and generic properties - check strategies

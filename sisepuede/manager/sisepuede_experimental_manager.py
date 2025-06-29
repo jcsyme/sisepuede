@@ -16,11 +16,10 @@ import sisepuede.utilities._toolbox as sf
 
 
 class SISEPUEDEExperimentalManager:
-	"""
-	Launch and manage experiments based on LHS sampling over trajectories. The
-		SISEPUEDEExperimentalManager class reads in input templates to generate
-		input databases, controls deployment, generation of multiple runs,
-		writing output to applicable databases, and post-processing of
+	"""Launch and manage experiments based on LHS sampling over trajectories. 
+	    The SISEPUEDEExperimentalManager class reads in input templates to 
+		generate input databases, controls deployment, generation of multiple 
+		runs, writing output to applicable databases, and post-processing of
 		applicable metrics. Users should use SISEPUEDEExperimentalManager to
 		set the number of trials and the start year of uncertainty.
 
