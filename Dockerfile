@@ -14,8 +14,8 @@ FROM continuumio/miniconda3 AS build
 ENV PYTHONDONTWRITEBYTECODE=true
 
 # get and create environment from yaml, then drop unnecessary files 
-COPY ./environment_py.yaml environment_py.yaml
-RUN conda env create -f environment_py.yaml \
+COPY ./environment_docker.yaml environment_docker.yaml
+RUN conda env create -f environment_docker.yaml \
     #&& find /opt/conda/ -follow -type f -name '*.pyc' -delete \
     #&& find /opt/conda/ -follow -type f -name '*.js.map' -delete \
     && conda clean -afy
@@ -36,50 +36,35 @@ RUN /venv/bin/conda-unpack
 
 ##  (2) COPY TO JULIA BUILD
 
-FROM julia:1.8.5-bullseye as final
+FROM julia:1.11.5-bullseye AS final
 COPY --from=build /venv /venv
 WORKDIR /sisepuede
-
-# COPY JULIA DIRECTORY OVER FIRST
-# - stable code
-# - doesn't have to be rebuilt often
-# - necessary for setting up julia environment
-COPY ./julia ./julia
 
 # UPDATE AND GET KEY TOOLS
 RUN apt-get update \
     && apt-get install -y curl git g++ gcc vim build-essential wget \
     && rm -rf /var/lib/apt/lists/*
 
-# SETUP JULIA
-RUN julia -e 'using Pkg; \
-    cd("julia"); \
-    Pkg.activate(".");\
-    Pkg.rm("NemoMod"); \
-    Pkg.rm("Gurobi"); \
-    Pkg.rm("GAMS"); \
-    Pkg.add(url = "https://github.com/sei-international/NemoMod.jl", rev = "0db2ed2"); \
-    Pkg.instantiate()'
-
-# ADD JULIA TO PYTHON (MAY SHIFT TO INSTALL PYCALL ABOVE)
-# add XlsxWriter here too b/c the environment file is unable to do it for some reason
+# ADD JULIA TO PYTHON
+# import after installation to ensure julia is installed
 SHELL ["/bin/bash", "-c"]
 RUN source /venv/bin/activate \
-    && pip install XlsxWriter==3.2.0 \
-    && pip install julia \
-    && python -c "import julia; julia.install()"
+    && pip install juliacall==0.9.25 \
+    && pip install juliapkg==0.1.17 \
+    && pip install git+https://github.com/jcsyme/sisepuede/
 
-# COPY REST OF SISEPUEDE OVER
-RUN mkdir ./python
-COPY ./docs ./docs
-COPY ./python/*.py ./python/
-COPY ./ref ./ref
-COPY ./sisepuede.config ./sisepuede.config
-RUN mkdir ./out \
-    && chmod 777 ./out
+RUN source /venv/bin/activate \
+    && python -c "import sisepuede.manager.sisepuede_file_structure as sfs; \
+    import sisepuede.manager.sisepuede_models as sm; \
+    file_struct = sfs.SISEPUEDEFileStructure(); \
+    models_all = sm.SISEPUEDEModels(file_struct.model_attributes, allow_electricity_run = True, fp_julia = file_struct.dir_jl, fp_nemomod_reference_files = file_struct.dir_ref_nemo, fp_nemomod_temp_sqlite_db = file_struct.fp_sqlite_tmp_nemomod_intermediate, );";
 
 
 # SETUP CONDA IN BASH AND SET ENTRYPOINT
 # - feed a script from host using -c
 SHELL ["conda", "run", "-n", "sisepuede", "/bin/bash", "-c"]
 ENTRYPOINT ["/bin/bash"]
+
+
+
+
