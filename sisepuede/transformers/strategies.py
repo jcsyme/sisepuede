@@ -805,7 +805,9 @@ class Strategies:
             desc = row.get(self.field_description)
             name = row.get(self.field_strategy_name)
             tspec = row.get(self.field_transformation_specification)
-
+            
+            strat = None
+            
             try:
                 strat = Strategy(
                     id_num,
