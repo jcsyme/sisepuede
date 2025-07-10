@@ -5,22 +5,90 @@
 #  
 #
 import argparse
-import numpy as np
 import os, os.path
-import pandas as pd
+import pathlib
 from typing import *
 import warnings
 
 from sisepuede.core.model_attributes import ModelAttributes
 import sisepuede.core.support_classes as sc
+import sisepuede.manager.sisepuede_examples as sxl
 import sisepuede.manager.sisepuede_file_structure as sfs
 import sisepuede.manager.sisepuede as ssp
+import sisepuede.transformers as trf
 import sisepuede.utilities._toolbox as sf
+
+
+
+
+############################
+#    SOME ERROR CLASSES    #
+############################
+
+class InvalidStrategyDirectory(Exception):
+    pass
+
 
 
 ###################################
 #    SOME SUPPORTING FUNCTIONS    #
 ###################################
+
+def get_dimensional_dict(
+    args: Dict,
+    model_attributes: ModelAttributes,
+    cl_key_design: str = "keys_design",
+    cl_key_future: str = "keys_future",
+    cl_key_primary: str = "keys_primary",
+    cl_key_strategy: str = "keys_strategy",
+) -> Union[Dict, None]:
+    """
+    From args, get dimensional keys. Use model_attributes to assign.
+    """
+    
+    if not isinstance(args, dict):
+        return None
+    
+
+    # initialize dictionary mapping command-line key to sisepuede key
+    dict_key_map = {
+        cl_key_design: model_attributes.dim_design_id,
+        cl_key_future: model_attributes.dim_future_id,
+        cl_key_primary: model_attributes.dim_primary_id,
+        cl_key_strategy: model_attributes.dim_strategy_id
+    }
+
+    # initialize dictionary
+    dict_out = {}
+
+    if args.get(cl_key_primary) is not None:
+        key = dict_key_map.get(cl_key_primary)
+        vals = sf.get_dimensional_values(args.get(cl_key_primary), key)
+        (
+            dict_out.update({key: vals})
+            if vals is not None
+            else None
+        )
+
+    else:
+        for k in [cl_key_design, cl_key_future, cl_key_strategy]:
+            key = dict_key_map.get(k)
+            vals = sf.get_dimensional_values(args.get(k), key)
+            (
+                dict_out.update({key: vals})
+                if vals is not None
+                else None
+            )
+
+    dict_out =(
+        None
+        if len(dict_out) == 0
+        else dict_out
+    )
+
+    return dict_out
+
+
 
 def get_models(
     models: str,
@@ -83,77 +151,93 @@ def get_regions(
 
 
 
-def get_dimensional_dict(
-    args: Dict,
-    model_attributes: ModelAttributes,
-    cl_key_design: str = "keys_design",
-    cl_key_future: str = "keys_future",
-    cl_key_primary: str = "keys_primary",
-    cl_key_strategy: str = "keys_strategy",
-) -> Union[Dict, None]:
+def get_strategies(
+    path_strategies: Union[str, None] = None,
+    stop_on_error: bool = False, 
+) -> Union[str, None]:
+    """Attempt to read transformations directory
+
+    Function Arguments
+    ------------------
+
+    Keyword Arguments
+    -----------------
+    path_strategies : Union[str, None]
+        Location to check for strategies. If does not exist or invalidly 
+        specified, defaults to None.
+    stop_on_error : bool
+        If True, will stop procession of the program. Otherwise, defaults to
+        None
     """
-    From args, get dimensional keys. Use model_attributes to assign.
-    """
-    
-    if not isinstance(args, dict):
+
+    ##  CHECK VALIDITY OF INPUTS
+
+    # behavior if specified as default
+    if path_strategies is None:
         return None
     
+    # check validity of input
+    try:
+        path_strategies = pathlib.Path(path_strategies)
+    except Exception as e:
+        msg = f"Unable to create path from '{path_strategies}': {e}"
+        if stop_on_error:
+            raise InvalidStrategyDirectory(msg)
+    
+        warnings.warn(msg)
 
-    # initialize dictionary mapping command-line key to sisepuede key
-    dict_key_map = {
-        cl_key_design: model_attributes.dim_design_id,
-        cl_key_future: model_attributes.dim_future_id,
-        cl_key_primary: model_attributes.dim_primary_id,
-        cl_key_strategy: model_attributes.dim_strategy_id
-    }
+        return None
+    
+    # verify the directory exists
+    if not path_strategies.is_dir():
+        msg = f"Unable to instantiate strategies at '{path_strategies}' not found."
+        if stop_on_error:
+            raise InvalidStrategyDirectory(msg)
+        
+        warnings.warn(msg)
 
-    # initialize dictionary
-    dict_out = {}
+        return None
 
-    if args.get(cl_key_primary) is not None:
-        key = dict_key_map.get(cl_key_primary)
-        vals = sf.get_dimensional_values(args.get(cl_key_primary), key)
-        (
-            dict_out.update({key: vals})
-            if vals is not None
-            else None
-        )
+    
+    ##  SETUP A STRATEGIES OBJECT USING VALID DUMMY DATA--WE ONLY NEED THE POINTER + ATTRIBUTE TABLE
 
-    else:
-        for k in [cl_key_design, cl_key_future, cl_key_strategy]:
-            key = dict_key_map.get(k)
-            vals = sf.get_dimensional_values(args.get(k), key)
-            (
-                dict_out.update({key: vals})
-                if vals is not None
-                else None
-            )
+    # next, use a dummy data frame to instantiate values; want to get the strategy attribute + templates from
+    examples = sxl.SISEPUEDEExamples()
+    df_examples = examples("input_data_frame")
 
-    dict_out =(
-        None
-        if len(dict_out) == 0
-        else dict_out
+    # set up transformers/transformations
+    transformers = trf.Transformers({}, df_input = df_examples,)
+    transformations = trf.Transformations(
+        path_strategies,
+        transformers = transformers,
     )
 
-    return dict_out
+    # get strategies and attribute (includes verification steps etc.)
+    # ONLY USED FOR ATTRIBUTE TABLE AND --EXISTING-- TEMPLATE BUILDS
+    strategies = trf.Strategies(
+        transformations,
+        export_path = "transformations",
+    )
+
+    return strategies
 
 
 
 def parse_arguments(
 ) -> dict:
-
-    desc = f"""
-    Command line utility to run SImulating SEctoral Pathways and Uncertainty 
-        Exploration for DEcarbonization (SISEPUEDE). 
+    
+    f"""Command line utility to run SImulating SEctoral Pathways and Uncertainty 
+        Exploration for DEcarbonization (SISEPUEDE)
 
     Required arguments:
     -------------------
-    --regions   Comma-delimitted list of regions to run. Regions can be entered 
-                    as region names or ISO codes. E.g., BRA,CHL,MEX is 
-                    acceptable, as is brazil,chile,mexico. 
+    --regions           Comma-delimitted list of regions to run. Regions can be 
+                            entered as region names or ISO codes. E.g., 
+                            BRA,CHL,MEX is acceptable, as is 
+                            brazil,chile,mexico. 
                     
-                    * To run all available regions (may take a significant 
-                        amount of time), use ALLREGIONS.
+                            * To run all available regions (may take a 
+                                significant amount of time), use ALLREGIONS.
     
 
     At Least ONE of the following arguments is required
@@ -168,38 +252,56 @@ def parse_arguments(
         * Non-numeric values are skipped
         * If specifying in a CSV, will try to read from the appropriate key
 
-    --keys_design   Comma-delimited list of design ids to run  OR  a valid file 
-                        path to a text file containing id numbers to run. Must
-                        contain key SISEPUEDE.key_design, and ids must be 
-                        defined in the attribute_design_id.csv ModelAttributes
-                        source file.
-    --keys_future   Comma-delimited list of future ids to run  OR  a valid file 
-                        path to a text file containing id numbers to run. Must
-                        contain key SISEPUEDE.key_future, and ids x must be 
-                        0 <= x <= n_trials (0 is a null trial)
-    --keys_primary  Comma-delimited list of primary ids to run  OR  a valid file 
-                        path to a text file containing id numbers to run. 
-    --keys_strategy Comma-delimited list of strategy ids to run  OR  a valid file 
-                        path to a text file containing id numbers to run. Must
-                        contain key SISEPUEDE.key_strategy, and ids x must be 
-                        defined in the attribute_strategy_id.csv ModelAttributes 
-                        source file.
+    --keys_design       Comma-delimited list of design ids to run  OR  a valid 
+                            file path to a text file containing id numbers to 
+                            run. Must contain key SISEPUEDE.key_design, and ids 
+                            must be defined in the attribute_design_id.csv 
+                            ModelAttributes source file.
+
+    --keys_future       Comma-delimited list of future ids to run  OR  a valid 
+                            file path to a text file containing id numbers to 
+                            run. Must contain key SISEPUEDE.key_future, and ids 
+                            x must be 0 <= x <= n_trials (0 is a null trial)
+
+    --keys_primary      Comma-delimited list of primary ids to run  OR  a valid 
+                            file path to a text file containing id numbers to 
+                            run. 
+
+    --keys_strategy     Comma-delimited list of strategy ids to run  OR  a valid 
+                            file path to a text file containing id numbers to 
+                            run. Must contain key SISEPUEDE.key_strategy, and 
+                            ids x must be defined in the 
+                            attribute_strategy_id.csv ModelAttributes source 
+                            file  --OR--  the strategy attribute file defined in
+                            the transformations-dir that is specified (if
+                            specified)
 
     Optional arguments:
     -------------------
-    --id            Optional AnalysisID name to pass. If not specified, sets at 
-                        runtime.
-    --max-solve-attempts   Maximum number of attempts to solve a problem. Only
-                        retries if emissions values indicate potential numerical
-                        issues with the solution.
-    --n_trials      Number of Latin Hypercube trials to run (number of 
-                        futures, which represent exogenous uncertainties and/or
-                        lever effect uncertainties)
+    --id                    Optional AnalysisID name to pass. If not specified, 
+                                sets at runtime.
+    --max-solve-attempts    Maximum number of attempts to solve a problem. Only
+                                retries if emissions values indicate potential 
+                                numerical issues with the solution.
+    --n-trials              Number of Latin Hypercube trials to run (number of 
+                                futures, which represent exogenous uncertainties 
+                                and/or lever effect uncertainties)
 
-    --random_seed   Optional random seed to specify. If not specifed, 
-                        defaults to configuration specifation. Enter a negative
-                        number to generate on the fly.
+    --random-seed           Optional random seed to specify. If not specifed, 
+                                defaults to configuration specifation. Enter a 
+                                negative number to generate on the fly.
 
+    --save-inputs           Include this flag to save inputs as well as outputs.
+                                If not specified, inputs are not saved.
+
+    --strategies-dir         Optional directory storing tranformations and 
+                                strategies specification to upload. If None, 
+                                defaults to definitions in SISEPUEDE package.
+
+    --try-exogenous-xl-types    Include this flag to attempt to read in 
+                                exogenous specification of Xs and LS. Reads from 
+                                SISEPUEDE.file_struct.fp_variable_specification_xl_types. 
+                                If None, infers XL types based on inputs. 
     """
     parser = argparse.ArgumentParser(
         description = ""
@@ -302,8 +404,7 @@ def parse_arguments(
 
 
     # optional AnalysisID string to pass
-    msg_hlp_id = f"""
-    Optinal id to pass on instantiation.
+    msg_hlp_id = f"""Optional id to pass on instantiation.
     """
     parser.add_argument(
         "--id",
@@ -314,8 +415,7 @@ def parse_arguments(
 
 
     # optional flag for number of trials
-    msg_hlp_n_trials = f"""
-    Specify the number of Latin Hypercube trials to run (number of futures, 
+    msg_hlp_n_trials = f"""Specify the number of Latin Hypercube trials to run (number of futures, 
         which represent exogenous uncertainties and/or lever effect
         uncertainties). If unspecified, defaults to configuration value.
     """
@@ -378,8 +478,7 @@ def parse_arguments(
 
 
     # optional save inputs
-    msg_hlp_save_inputs = f"""
-    Include the --save-inputs flag to save off inputs to the 
+    msg_hlp_save_inputs = f"""Include the --save-inputs flag to save off inputs to the 
         SISEPUEDEOutputDatabase. In general, model inputs are not saved off to 
         reduce space requirements and can generally be accessed using
         SISEPUEDE.experimental_manager.dict_future_trajectories.get(region).generate_future_from_lhs_vector()
@@ -389,6 +488,20 @@ def parse_arguments(
         action = "store_true",
         help = msg_hlp_save_inputs,
     )
+
+
+    # optional random seed 
+    msg_hlp_strategies_dir = f"""
+    Optional directory of transformations that have been defined, including 
+        strategies, to upload. If not specified, defaults to SISEPUEDE defaults.
+    """
+    parser.add_argument(
+        "--strategies-dir",
+        type = str,
+        help = msg_hlp_strategies_dir,
+        default = None,
+    )
+
 
     # optional attempt to read exogenous XL types
     msg_hlp_try_exogenous_xl_types = f"""
@@ -467,15 +580,17 @@ def parse_arguments(
 def main(
     args: dict,
 ) -> None:
-    """
-    SImulation of SEctoral Pathways and Uncertaintay Exploration for DEcarbonization
-    (SISEPUEDE)
+    """SImulation of SEctoral Pathways and Uncertaintay Exploration for 
+        DEcarbonization (SISEPUEDE)
     
-    Copyright (C) 2023 James Syme
+    Copyright (C) 2023-2025 James Syme
     
     This program comes with ABSOLUTELY NO WARRANTY. This is free software, and 
     you are welcome to redistribute it under certain conditions. See LICENSE.md 
     for the conditions. 
+
+    MIT LICENSE:
+
     """
 
     warnings.filterwarnings("ignore")
@@ -497,14 +612,20 @@ def main(
         delim = ",",
     )
 
+    # call a strategies object?
+    path_strategies = args.get("strategies_dir")
+    strategies = get_strategies(
+        path_strategies = path_strategies,
+        stop_on_error = True,
+    )
+
     # scenario information
     dict_scenarios = get_dimensional_dict(
         args, 
         file_struct.model_attributes
     )
     if dict_scenarios is None:
-        msg = f"""
-        No valid dimensional subsets or scenarios were specified. Ensure that 
+        msg = f"""No valid dimensional subsets or scenarios were specified. Ensure that 
             either primary_id OR any combination of design_id, future_id, and/or
             straetgy_id are specified.
         """
@@ -516,6 +637,7 @@ def main(
     db_type = "sqlite" if (db_type not in ["sqlite", "csv"]) else db_type
     id_str = args.get("id")
 
+    # a number of additional key checks
     include_fuel_prod = (not args.get("exclude_fuel_production"))
     max_solve_attempts = args.get("max_solve_attempts")
     n_trials = args.get("n_trials")
@@ -542,6 +664,7 @@ def main(
         n_trials = n_trials,
         random_seed = random_seed,
         regions = regions_run,
+        strategies = strategies,
         try_exogenous_xl_types_in_variable_specification = try_xl_types,
     )
 
