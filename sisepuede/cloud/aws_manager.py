@@ -10,17 +10,98 @@ import os, os.path
 import pandas as pd
 import random
 import re
-import setup_analysis as sa
 import shutil
 import sisepuede.manager.sisepuede as ssp
 import sisepuede.manager.sisepuede_file_structure as sfs
 import sisepuede.utilities._sql as squ
 import sisepuede.core.support_classes as sc
-import sisepuede.utilities._toolbox as sf
+import sisepuede.utilities._toolbox as sfq
 import sys
 import time
 from typing import *
 import warnings
+
+
+
+
+######################
+#    SOME GLOBALS    #
+######################
+
+# level 0 config
+_CONFIG_KEY_L0_AWS_ATHENA = "aws_athena"
+_CONFIG_KEY_L0_AWS_CONFIG = "aws_config"
+_CONFIG_KEY_L0_AWS_EC2 = "aws_ec2"
+_CONFIG_KEY_L0_AWS_GENERAL = "aws_general"
+_CONFIG_KEY_L0_AWS_S3 = "aws_s3"
+_CONFIG_KEY_L0_DOCKER = "docker"
+_CONFIG_KEY_L0_EXPERIMENT = "experiment"
+_CONFIG_KEY_L0_SISEPUEDE_RUNTIME = "sisepuede_runtime"
+
+# level 1 config
+_CONFIG_KEY_L1_ACCESS_KEY_ID = "aws_access_key_id"
+_CONFIG_KEY_L1_AWS_REGION_NAME = "region_name"
+_CONFIG_KEY_L1_BUCKET = "bucket"
+_CONFIG_KEY_L1_DATABASE = "database"
+_CONFIG_KEY_L1_DATABASE_TYPE = "database_type"
+_CONFIG_KEY_L1_FILENAME_COMPOSITE_QUERY = "filename_composite_query"
+_CONFIG_KEY_L1_IAM_INSTANCE_PROFILE = "iam_instance_profile"
+_CONFIG_KEY_L1_ID = "id"
+_CONFIG_KEY_L1_IMAGE = "image"
+_CONFIG_KEY_L1_IMAGE_NAME = "image_name"
+_CONFIG_KEY_L1_IMAGE_NAME_ECR = "image_name_ecr"
+_CONFIG_KEY_L1_INSTANCE_BASE_NAME = "instance_base_name"
+_CONFIG_KEY_L1_INSTANCE_TYPE = "instance_type"
+_CONFIG_KEY_L1_KEY_DATABASE = "key_database"
+_CONFIG_KEY_L1_KEY_LOGS = "key_logs"
+_CONFIG_KEY_L1_KEY_METADATA = "key_metadata"
+_CONFIG_KEY_L1_KEY_NAME = "key_name"
+_CONFIG_KEY_L1_KEY_QUERIES = "key_queries"
+_CONFIG_KEY_L1_MAX_N_INSTANCES = "max_n_instances"
+_CONFIG_KEY_L1_MAX_SOLVE_ATTEMPTS = "max_solve_attempts"
+_CONFIG_KEY_L1_PATH_AWS = "path_aws"
+_CONFIG_KEY_L1_PROFILE_NAME = "profile_name"
+_CONFIG_KEY_L1_QUERY_TABLE_APPENDAGE = "query_table_appendage"
+_CONFIG_KEY_L1_RANDOM_SEED = "random_seed"
+_CONFIG_KEY_L1_REGIONS = "regions"
+_CONFIG_KEY_L1_SAVE_INPUTS = "save_inputs"
+_CONFIG_KEY_L1_SESSION_TOKEN = "aws_session_token"
+_CONFIG_KEY_L1_SECRET_ACCESS_KEY = "aws_secret_access_key"
+_CONFIG_KEY_L1_SECURITY_GROUP = "security_group"
+_CONFIG_KEY_L1_SUBNET = "subnet"
+_CONFIG_KEY_L1_TAG = "tag"
+_CONFIG_KEY_L1_TRY_EXOGENOUS_XL = "try_exogenous_xl_types"
+_CONFIG_KEY_L1_UNIFORM_RANDOM_SEED = "uniform_random_seed"
+_CONFIG_KEY_L1_USE_ECR = "use_ecr"
+
+# level 2 config keys
+_CONFIG_KEY_L2_ALL = "ALL"
+
+# dict_template keys 
+_DICT_TEMPLATE_KEY_MAIN = "MAIN"
+_DICT_TEMPLATE_KEY_SCREEN = "SCREEN"
+
+# some fields used for output files
+_FIELD_INSTANCE_ID = "instance_id"
+_FIELD_ID_ADDRESS = "ip_address"
+_FIELD_LAUNCH_INDEX = "launch_index"
+_FIELD_N_LAUNCH_TRIES = "n_launch_tries"
+_FIELD_RANDOM_SEED = "random_seed"
+
+# some flags in the shell script for running sisepuede
+_FLAG_SHELL_DATABASE_TYPE = "database-type"
+_FLAG_SHELL_ID = "id"
+_FLAG_SHELL_KEYS_DESIGN = "keys-design"
+_FLAG_SHELL_KEYS_FUTURE = "keys-future"
+_FLAG_SHELL_KEYS_PRIMARY = "keys-primary"
+_FLAG_SHELL_KEYS_STRATEGY = "regions"
+_FLAG_SHELL_MAX_SOLVE_ATTEMPTS = "max-solve-attempts"
+_FLAG_SHELL_RANDOM_SEED = "random-seed"
+_FLAG_SHELL_REGIONS = "regions"
+_FLAG_SHELL_SAVE_INPUTS = "save-inputs"
+_FLAG_SHELL_TRY_EXOGENOUS_XL = "try-exogenous-xl-types"
+
+
 
 
 
@@ -52,6 +133,8 @@ class ShellTemplate:
         self._initialize_replacement_matchstrings(
             char_esc = char_esc, 
         )
+
+        return None
         
     
         
@@ -259,13 +342,13 @@ class AWSManager:
     def build_s3_query_output_file_names(self,
         table_name_composite_default: str = "composite",
     ) -> Dict:
-        """
-        Return a dictionary of file names for query result files. Returns a 
+        """Return a dictionary of file names for query result files. Returns a 
             dictionary mapping types to file names
 
         Keyword Arguments
         -----------------
-        - table_name_composite_default: default table name
+        table_name_composite_default : str
+            Default table name
         """
 
         valid_types = [
@@ -279,7 +362,7 @@ class AWSManager:
         ]
 
         # get appendage to input/output tables
-        appendage_table_name = self.config.get("aws_athena.query_table_appendage")
+        appendage_table_name = self.config.get(f"{_CONFIG_KEY_L0_AWS_ATHENA}.{_CONFIG_KEY_L1_QUERY_TABLE_APPENDAGE}")
         appendage_table_name = (
             ""
             if not isinstance(appendage_table_name, str)
@@ -303,7 +386,7 @@ class AWSManager:
 
 
         # add in composite query
-        table_name_composite = self.config.get("aws_athena.filename_composite_query")
+        table_name_composite = self.config.get(f"{_CONFIG_KEY_L0_AWS_ATHENA}.{_CONFIG_KEY_L1_FILENAME_COMPOSITE_QUERY}")
         table_name_composite = (
             table_name_composite_default 
             if table_name_composite is None
@@ -405,8 +488,7 @@ class AWSManager:
         key_main: str = "MAIN",
         restrict_to_keys: Union[List[str], None] = None,
     ) -> Dict:
-        """
-        For a template, look for subtemplates delimined by
+        """For a template, look for subtemplates delimined by
 
         <{delim_start}:KEY>
         <{delim_end}:KEY>
@@ -591,38 +673,37 @@ class AWSManager:
         key_time_period = sisepuede.key_time_period
 
         # additional command line flags
-        flag_key_database_type = "database_type"
-        flag_key_id = "id"
-        flag_key_max_solve_attempts = "max_solve_attempts"
-        flag_key_random_seed = "random_seed"
-        flag_key_save_inputs = "save_inputs"
-        flag_key_try_exogenous_xl_type = "try_exogenous_xl_types"
+        flag_key_database_type = _CONFIG_KEY_L1_DATABASE_TYPE
+        flag_key_id = _CONFIG_KEY_L1_ID
+        flag_key_max_solve_attempts = _CONFIG_KEY_L1_MAX_SOLVE_ATTEMPTS
+        flag_key_random_seed = _CONFIG_KEY_L1_RANDOM_SEED
+        flag_key_save_inputs = _CONFIG_KEY_L1_SAVE_INPUTS
+        flag_key_try_exogenous_xl_type = _CONFIG_KEY_L1_TRY_EXOGENOUS_XL
 
         # map keys to flag values
         dict_dims_to_docker_flags = {
-            key_design: "keys-design",
-            key_future: "keys-future",
-            key_region: "regions",
-            key_primary: "keys-primary",
-            key_strategy: "keys-strategy",
-            flag_key_database_type: "database-type",
-            flag_key_id: "id",
-            flag_key_max_solve_attempts: "max-solve-attempts",
-            flag_key_random_seed: "random-seed",
-            flag_key_save_inputs: "save-inputs",
-            flag_key_try_exogenous_xl_type: "try-exogenous-xl-types",
+            key_design: _FLAG_SHELL_KEYS_DESIGN,
+            key_future: _FLAG_SHELL_KEYS_FUTURE,
+            key_region: _FLAG_SHELL_REGIONS,
+            key_primary: _FLAG_SHELL_KEYS_PRIMARY,
+            key_strategy: _FLAG_SHELL_KEYS_STRATEGY,
+            flag_key_database_type: _FLAG_SHELL_DATABASE_TYPE,
+            flag_key_id: _FLAG_SHELL_ID,
+            flag_key_max_solve_attempts: _FLAG_SHELL_MAX_SOLVE_ATTEMPTS,
+            flag_key_random_seed: _FLAG_SHELL_RANDOM_SEED,
+            flag_key_save_inputs: _FLAG_SHELL_SAVE_INPUTS,
+            flag_key_try_exogenous_xl_type: _FLAG_SHELL_TRY_EXOGENOUS_XL,
         }
 
         regions = sc.Regions(model_attributes)
 
         # set some fields for output fields
-        field_instance_id = "instance_id"
-        field_ip_address = "ip_address"
-        field_launch_index = "launch_index"
-        field_n_launch_tries = "n_launch_tries"
-        field_random_seed = "random_seed"
-        
-        
+        field_instance_id = _FIELD_INSTANCE_ID
+        field_ip_address = _FIELD_ID_ADDRESS
+        field_launch_index = _FIELD_LAUNCH_INDEX
+        field_n_launch_tries = _FIELD_N_LAUNCH_TRIES
+        field_random_seed = _FIELD_RANDOM_SEED
+
 
 
         ##  SOME EXPERIMENTAL PROPERTIES
@@ -687,12 +768,13 @@ class AWSManager:
         
         ##  GET AWS KEYS
         
-        aws_access_key_id = self.config.get("aws_config.aws_access_key_id")
-        aws_secret_access_key = self.config.get("aws_config.aws_secret_access_key")
-        aws_session_token = self.config.get("aws_config.aws_session_token")
-        aws_region = self.config.get("aws_config.region")
-        profile_name = self.config.get("aws_config.profile_name")
-        
+        aws_access_key_id = self.config.get(f"{_CONFIG_KEY_L0_AWS_CONFIG}.{_CONFIG_KEY_L1_ACCESS_KEY_ID}")
+        aws_secret_access_key = self.config.get(f"{_CONFIG_KEY_L0_AWS_CONFIG}.{_CONFIG_KEY_L1_SECRET_ACCESS_KEY}")
+        aws_session_token = self.config.get(f"{_CONFIG_KEY_L0_AWS_CONFIG}.{_CONFIG_KEY_L1_SESSION_TOKEN}")
+        aws_region = self.config.get(f"{_CONFIG_KEY_L0_AWS_CONFIG}.{_CONFIG_KEY_L1_AWS_REGION_NAME}")
+        profile_name = self.config.get(f"{_CONFIG_KEY_L0_AWS_CONFIG}.{_CONFIG_KEY_L1_PROFILE_NAME}")
+
+
         # set all to None to rely on config defaults
         any_none_imples_all_none = [aws_access_key_id, aws_secret_access_key, aws_session_token]
         if any([(x is None) for x in any_none_imples_all_none]):
@@ -730,7 +812,7 @@ class AWSManager:
 
         ##  OTHER PROPERTIES
 
-        command_aws = self.config.get("aws_ec2.path_aws")
+        command_aws = self.config.get(f"{_CONFIG_KEY_L0_AWS_CONFIG}.{_CONFIG_KEY_L1_PATH_AWS}")
         command_aws = (
             "aws"
             if not isinstance(command_aws, str)
@@ -755,8 +837,7 @@ class AWSManager:
     def _initialize_aws_properties(self,
         partitions_ordered: Union[List[str], None] = None,
     ) -> None:
-        """
-        Use the configuration file to set some key shared properties for AWS. 
+        """Use the configuration file to set some key shared properties for AWS. 
             Sets the following properties:
 
             * self.athena_database
@@ -778,35 +859,37 @@ class AWSManager:
 
         Keyword Arguments
         -----------------
-        - partitions_ordered: ordering for partitions in S3 file paths for 
-            Athena. If None, no partitioning is performed.
+        partitions_ordered : Union[List[str], None]
+            Ordering for partitions in S3 file paths for Athena. If None, no 
+            partitioning is performed.
         """
 
         # general AWS properties
-        self.aws_dict_tags = self.config.get("aws_general.tag")
-        self.aws_region_name = self.config.get("aws_config.region_name")
+        self.aws_dict_tags = self.config.get(f"{_CONFIG_KEY_L0_AWS_GENERAL}.{_CONFIG_KEY_L1_TAG}")
+        self.aws_region_name = self.config.get(f"{_CONFIG_KEY_L0_AWS_CONFIG}.{_CONFIG_KEY_L1_AWS_REGION_NAME}")
         self.aws_url_instance_id_metadata = "http://169.254.169.254/latest/meta-data/instance-id/"
 
         # athena properties
-        self.athena_database = self.config.get("aws_athena.database")
+        self.athena_database = self.config.get(f"{_CONFIG_KEY_L0_AWS_ATHENA}.{_CONFIG_KEY_L1_DATABASE}")
         self.athena_partitions_ordered = partitions_ordered
         self.athena_reponse_key_exec_id = "QueryExecutionId"
 
         # EC2 properties
-        self.ec2_image = self.config.get("aws_ec2.database")
-        self.ec2_instance_base_name = self.config.get("aws_ec2.instance_base_name")
-        self.ec2_instance_type = self.config.get("aws_ec2.instance_type")
-        self.ec2_max_n_instances = int(self.config.get("aws_ec2.max_n_instances"))
+        self.ec2_iam_instance_profile = self.config.get(f"{_CONFIG_KEY_L0_AWS_EC2}.{_CONFIG_KEY_L1_IAM_INSTANCE_PROFILE}")
+        self.ec2_image = self.config.get(f"{_CONFIG_KEY_L0_AWS_EC2}.{_CONFIG_KEY_L1_IMAGE}")
+        self.ec2_instance_base_name = self.config.get(f"{_CONFIG_KEY_L0_AWS_EC2}.{_CONFIG_KEY_L1_INSTANCE_BASE_NAME}")
+        self.ec2_instance_type = self.config.get(f"{_CONFIG_KEY_L0_AWS_EC2}.{_CONFIG_KEY_L1_INSTANCE_TYPE}")
+        self.ec2_max_n_instances = int(self.config.get(f"{_CONFIG_KEY_L0_AWS_EC2}.{_CONFIG_KEY_L1_MAX_N_INSTANCES}"))
 
         # S3 properties
-        self.s3_bucket = self.config.get("aws_s3.bucket")
-        self.s3_key_database = self.config.get("aws_s3.key_database")
-        self.s3_key_logs = self.config.get("aws_s3.key_logs")
-        self.s3_key_metadata = self.config.get("aws_s3.key_metadata")
+        self.s3_bucket = self.config.get(f"{_CONFIG_KEY_L0_AWS_S3}.{_CONFIG_KEY_L1_BUCKET}")
+        self.s3_key_database = self.config.get(f"{_CONFIG_KEY_L0_AWS_S3}.{_CONFIG_KEY_L1_KEY_DATABASE}")
+        self.s3_key_logs = self.config.get(f"{_CONFIG_KEY_L0_AWS_S3}.{_CONFIG_KEY_L1_KEY_LOGS}")
+        self.s3_key_metadata = self.config.get(f"{_CONFIG_KEY_L0_AWS_S3}.{_CONFIG_KEY_L1_KEY_METADATA}")
 
         return None
 
-
+        
 
     def _initialize_config(self,
         config: Union[str, sc.YAMLConfiguration],
@@ -840,8 +923,7 @@ class AWSManager:
 
     def _initialize_docker_properties(self,
     ) -> None:
-        """
-        Use the configuration file to set some key shared properties for AWS. 
+        """Use the configuration file to set some key shared properties for AWS. 
             Sets the following properties:
 
             * self.docker_image_name
@@ -850,13 +932,13 @@ class AWSManager:
         NOTE: *Excludes* paths on instances. Those are set in
             _initialize_paths()
         """
-
+        
         # check if using AWS ECR
-        use_ecr = self.config.get("docker.use_ecr")
+        use_ecr = self.config.get(f"{_CONFIG_KEY_L0_DOCKER}.{_CONFIG_KEY_L1_USE_ECR}")
         use_ecr = bool(use_ecr) if (use_ecr is not None) else False
 
-        name_docker_image_public = self.config.get("docker.image_name")
-        name_docker_image_ecr = self.config.get("docker.image_name_ecr")
+        name_docker_image_public = self.config.get(f"{_CONFIG_KEY_L0_DOCKER}.{_CONFIG_KEY_L1_IMAGE_NAME}")
+        name_docker_image_ecr = self.config.get(f"{_CONFIG_KEY_L0_DOCKER}.{_CONFIG_KEY_L1_IMAGE_NAME_ECR}")
 
         # get the image name
         name_docker_image = (
@@ -865,6 +947,8 @@ class AWSManager:
             else name_docker_image_public
         )
 
+
+        ##  SET PROPERTIES
 
         self.docker_image_name = name_docker_image
         self.use_ecr = use_ecr
@@ -899,8 +983,8 @@ class AWSManager:
         ##  INSTANCE PATHS
 
         # directories
-        dir_instance_home = self.config.get("aws_ec2.dir_home")
-        dir_instance_out = self.config.get("aws_ec2.dir_output")
+        dir_instance_home = self.config.get(f"{_CONFIG_KEY_L0_AWS_EC2}.dir_home")
+        dir_instance_out = self.config.get(f"{_CONFIG_KEY_L0_AWS_EC2}.dir_output")
         dir_instance_out_db = self.get_path_instance_output_db(dir_instance_out)
         dir_instance_out_run_package = self.get_path_instance_output_run_package(dir_instance_out)
 
@@ -923,7 +1007,7 @@ class AWSManager:
         ##  FILE PATHS
         
         fp_instance_instance_info = self.get_path_instance_metadata(dir_instance_out)
-        fp_instance_shell_script = self.config.get("aws_ec2.instance_shell_path")
+        fp_instance_shell_script = self.config.get(f"{_CONFIG_KEY_L0_AWS_EC2}.instance_shell_path")
         fp_instance_sisepuede_log = self.get_path_instance_log(dir_instance_out_run_package)
 
 
@@ -966,6 +1050,7 @@ class AWSManager:
         s3p_run_metadata = self.get_s3_path_athena_output("metadata")
 
         dict_s3p_query_fbns_by_type = self.build_s3_query_output_file_names()
+
 
         ##  SET PROPERTIES
 
@@ -1083,26 +1168,23 @@ class AWSManager:
         )
 
         # set some keys and split off
-        dict_template_key_main = "MAIN"
-        dict_template_key_screen = "SCREEN"
-
         dict_templates = self.get_user_data_subtemplate_partitions(
             template_user_data_raw.template,
             dict_repl_keys_with_text = {
-                dict_template_key_screen: template_user_data_raw.get_template_matchstring(
+                _DICT_TEMPLATE_KEY_SCREEN: template_user_data_raw.get_template_matchstring(
                     self.matchstr_screen_shell_dummy
                 )
             },
-            key_main = dict_template_key_main,
-            restrict_to_keys = [dict_template_key_screen],
+            key_main = _DICT_TEMPLATE_KEY_MAIN,
+            restrict_to_keys = [_DICT_TEMPLATE_KEY_SCREEN],
         )
 
 
         ##  SET PROPERTIES
 
         self.dict_templates = dict_templates
-        self.dict_template_key_main = dict_template_key_main
-        self.dict_template_key_screen = dict_template_key_screen
+        self.dict_template_key_main = _DICT_TEMPLATE_KEY_MAIN
+        self.dict_template_key_screen = _DICT_TEMPLATE_KEY_SCREEN
         self.template_docker_shell = template_docker_shell
         self.template_user_data_raw = template_user_data_raw
 
@@ -1169,8 +1251,6 @@ class AWSManager:
 
 
 
-
-
     #######################
     #    KEY FUNCTIONS    #
     #######################
@@ -1182,22 +1262,25 @@ class AWSManager:
         delim_newline: str = "\n",
         output_type: str = "echo",
     ) -> str:
-        """
-        Replace the template line that specified dimensional subsets 
-            to run.
+        """Replace the template line that specified dimensional subsets to run.
         
         Function Arguments
         ------------------
-        - dict_subset: dictionary mapping dimensional keys to values
-            to pass as subset to run via template.
-        - manager: AWS manager used for method access
+        dict_subset : Dict[str, List[int]]
+            Dictionary mapping dimensional keys to values to pass as subset to 
+            run via template.
+        manager : str
+            AWS manager used for method access
 
         Keyword Arguments
         -----------------
-        - delim_args: argument separator
-        - delim_elems: element delimiter for arguments passed via flags
-        - delim_newline: string delimiter used for new lines
-        - output_type: 
+        delim_args : str
+            Argument separator
+        delim_elems : str
+            Element delimiter for arguments passed via flags
+        delim_newline : str
+            String delimiter used for new lines
+        output_type : str
             * "echo": write the echo statemest for UserData
             * "flags": write python flags for Docker Shell
         """
@@ -1219,7 +1302,7 @@ class AWSManager:
             flags.append(flag)
         
         # add in database type
-        db_type = self.config.get("sisepuede_runtime.database_type")
+        db_type = self.config.get(f"{_CONFIG_KEY_L0_SISEPUEDE_RUNTIME}.{_CONFIG_KEY_L1_DATABASE_TYPE}")
         db_type = "csv" if (db_type is None) else db_type
         flag = self.dict_dims_to_docker_flags.get(self.flag_key_database_type)
         (
@@ -1238,7 +1321,7 @@ class AWSManager:
         )
 
         # add in max solve attempts
-        max_attempts = self.config.get("sisepuede_runtime.max_solve_attempts")
+        max_attempts = self.config.get(f"{_CONFIG_KEY_L0_SISEPUEDE_RUNTIME}.{_CONFIG_KEY_L1_MAX_SOLVE_ATTEMPTS}")
         flag = self.dict_dims_to_docker_flags.get(self.flag_key_max_solve_attempts)
         (
             flags.append(f"--{flag} {max(max_attempts, 1)}") 
@@ -1247,7 +1330,7 @@ class AWSManager:
         )
 
         # add in save inputs
-        save_inputs = self.config.get("sisepuede_runtime.save_inputs")
+        save_inputs = self.config.get(f"{_CONFIG_KEY_L0_SISEPUEDE_RUNTIME}.{_CONFIG_KEY_L1_SAVE_INPUTS}")
         save_inputs = True if not isinstance(save_inputs, bool) else save_inputs
         flag = self.dict_dims_to_docker_flags.get(self.flag_key_save_inputs)
         (
@@ -1257,7 +1340,7 @@ class AWSManager:
         )
 
         # add in try exogenous xl types
-        try_exog_xl = self.config.get("sisepuede_runtime.try_exogenous_xl_types")
+        try_exog_xl = self.config.get(f"{_CONFIG_KEY_L0_SISEPUEDE_RUNTIME}.{_CONFIG_KEY_L1_TRY_EXOGENOUS_XL}")
         try_exog_xl = False if not isinstance(try_exog_xl, bool) else try_exog_xl
         flag = self.dict_dims_to_docker_flags.get(self.flag_key_try_exogenous_xl_type)
         (
@@ -1276,18 +1359,19 @@ class AWSManager:
         dict_subset: Dict[str, List[int]],
         **kwargs,
     ) -> str:
-        """
-        Build the user data to uplod to instances based on the dictionary of 
+        """Build the user data to uplod to instances based on the dictionary of 
             dimensional key values to run. 
 
         Function Arguments
         ------------------
-        - dict_dimensional_subset: dictionary mapping dimensional keys to values
-            to pass as subset to run via template.
+        dict_dimensional_subset : Dict[str, List[int]]
+            Dictionary mapping dimensional keys to values to pass as subset to 
+            run via template.
 
         Keyword Arguments
         -----------------
-        - **kwargs: passed to build_docker_shell_flags()
+        **kwargs : 
+            Passed to build_docker_shell_flags()
         """
 
         dict_fill = {}
@@ -1361,17 +1445,21 @@ class AWSManager:
         instance_launch_index: Union[int, None] = None,
         restrict_partition_to_keys: Union[List[str], None] = None,
     ) -> str:
-        """
-        Build the user data to uplod to instances based on the dictionary of 
+        """Build the user data to uplod to instances based on the dictionary of 
             dimensional key values to run. 
 
         Function Arguments
         ------------------
-        - dict_dimensional_subset: dictionary mapping dimensional keys to values
-            to pass as subset to run via template
-        - instance_launch_index: optional instance launch index to pass
-        - restrict_partition_to_keys: in template, restricting partitions to 
-            only certain keys?
+        dict_dimensional_subset : Dict[str, List[int]]
+            Dictionary mapping dimensional keys to values to pass as subset to 
+            run via template
+        
+        Keyword Arguments
+        -----------------
+        instance_launch_index : Union[int, None]
+            Optional instance launch index to pass
+        restrict_partition_to_keys : Union[List[str], None]
+            In template, restricting partitions to only certain keys?
         """
         
         # dictionaries that will be used to fill templates
@@ -1535,21 +1623,22 @@ class AWSManager:
         launch_index: int, 
         delim_newline: str = "\n",
     ) -> Union[str, None]:
-        """
-        Copy outputs to S3
+        """Copy outputs to S3
 
         Function Arguments
         ------------------
-        - dict_partition: dictionary representing the partition generated by
-            the instance
-        - launch_index: the launch index for the user data
+        dict_partition : Union[Dict[str, Any], None]
+            Dictionary representing the partition generated by the instance
+        launch_index : int
+            The launch index for the user data
 
         Keyword Arguments
         -----------------
-        - delim_newline: new line delimitter
+        delim_newline : str
+            New line delimitter
         """
         
-        bucket = self.config.get("aws_s3.bucket")
+        bucket = self.config.get(f"{_CONFIG_KEY_L0_AWS_S3}.{_CONFIG_KEY_L1_BUCKET}")
         bucket = (
             bucket
             if self.validate_bucket(bucket)
@@ -1558,8 +1647,8 @@ class AWSManager:
         return_none = (bucket is None)
         
         # get keys and check
-        key_database = self.s3_key_database #config.get("aws_s3.key_database")
-        key_logs = self.s3_key_logs #config.get("aws_s3.key_logs")
+        key_database = self.s3_key_database
+        key_logs = self.s3_key_logs
         key_metadata = self.s3_key_metadata #
         return_none |= any([(x is None) for x in [key_database, key_logs, key_metadata]])
         
@@ -1739,18 +1828,19 @@ class AWSManager:
         dict_dimensional_subset: Dict[str, List[int]],
         **kwargs,
     ) -> str:
-        """
-        Build the user data to uplod to instances based on the dictionary of 
+        """Build the user data to upload to instances based on the dictionary of 
             dimensional key values to run. 
 
         Function Arguments
         ------------------
-        - dict_dimensional_subset: dictionary mapping dimensional keys to values
-            to pass as subset to run via template.
+        dict_dimensional_subset: 
+            Dictionary mapping dimensional keys to values to pass as subset to 
+            run via template.
 
         Keyword Arguments
         -----------------
-        - **kwargs: passed to build_docker_shell_flags()
+        **kwargs : 
+            Passed to build_docker_shell_flags()
         """
         # setup output path
         fp_out = self.fp_instance_shell_script
@@ -1953,7 +2043,7 @@ class AWSManager:
         )
 
         # get the screen name
-        screen_name = self.config.get("aws_ec2.screen_name")
+        screen_name = self.config.get(f"{_CONFIG_KEY_L0_AWS_EC2}.screen_name")
         screen_name = (
             default_screen_name 
             if not isinstance(screen_name, str) 
@@ -2253,7 +2343,7 @@ class AWSManager:
             None, calls from configuration.
         """
         
-        regions_config = self.config.get("experiment.regions")
+        regions_config = self.config.get(f"{_CONFIG_KEY_L0_EXPERIMENT}.{_CONFIG_KEY_L1_REGIONS}")
         
         if (regions is None) & (regions_config is None):
             return None
@@ -2283,8 +2373,7 @@ class AWSManager:
         address: str,
         sep: str = "/",
     ) -> Tuple[Union[str, None], Union[str, None]]:
-        """
-        Return a tuple giving the bucket and key from a full s3 address
+        """Return a tuple giving the bucket and key from a full s3 address
         """
         # check inputs
         return_none = not isinstance(address, str)
@@ -2313,18 +2402,21 @@ class AWSManager:
     def get_s3_path_athena_output(self,
         return_type: str,
     ) -> Union[str, None]:
-        """
-        Build the output path for the database on S3
+        """Build the output path for the database on S3
         
             NOTE: All tables are *within* the database path
         
         Function Arguments
         ------------------
-        - return_type: "database", "logs", "metadata", or "queries
+        return_type : str
+            "database"
+            "logs"
+            "metadata"
+            "queries
         """
-        
+
         # get bucket
-        bucket = self.config.get("aws_s3.bucket")
+        bucket = self.config.get(f"{_CONFIG_KEY_L0_AWS_S3}.{_CONFIG_KEY_L1_BUCKET}")
         bucket = (
             bucket
             if self.validate_bucket(bucket)
@@ -2333,10 +2425,10 @@ class AWSManager:
         return_none = (bucket is None)
         
         # get keys
-        key_database = self.config.get("aws_s3.key_database")
-        key_logs = self.config.get("aws_s3.key_logs")
-        key_metadata = self.config.get("aws_s3.key_metadata")
-        key_queries = self.config.get("aws_s3.key_queries")
+        key_database = self.config.get(f"{_CONFIG_KEY_L0_AWS_S3}.{_CONFIG_KEY_L1_KEY_DATABASE}")
+        key_logs = self.config.get(f"{_CONFIG_KEY_L0_AWS_S3}.{_CONFIG_KEY_L1_KEY_LOGS}")
+        key_metadata = self.config.get(f"{_CONFIG_KEY_L0_AWS_S3}.{_CONFIG_KEY_L1_KEY_METADATA}")
+        key_queries = self.config.get(f"{_CONFIG_KEY_L0_AWS_S3}.{_CONFIG_KEY_L1_KEY_QUERIES}")
         
         return_none |= ((key_database is None) & (return_type == "database"))
         return_none |= ((key_logs is None) & (return_type == "logs"))
@@ -2367,8 +2459,7 @@ class AWSManager:
     def get_s3_path_athena_table(self,
         table_name: str,
     ) -> str:
-        """
-        Get the path to the Athena table with table name `table_name`.
+        """Get the path to the Athena table with table name `table_name`.
 
         NOTE: Sets to lower case to allow partitioning using MSCK REPAIR TABLE
         (see https://docs.aws.amazon.com/athena/latest/ug/partitions.html)
@@ -2387,26 +2478,30 @@ class AWSManager:
         file_name: str = "data",
         index: Union[Any, None] = None,
     ) -> Union[str, None]:
-        """
-        Build the output path for the database on S3
+        """Build the output path for the database on S3
         
             NOTE: All tables are *within* the database path
         
-        Paths are stored as
+            Paths are stored as
 
-        s3://BUCKET/key_database/table_name/(partitions).../table_name_$(ind)/data.csv
+            s3://BUCKET/key_database/table_name/(partitions).../table_name_$(ind)/data.csv
 
         Function Arguments
         ------------------
-        - table_name: table name
-        - dict_partitions: dictionary of dimensions to partition on. If None, no
-            partitioning is performed
+        table_name: str
+            Table name
+        dict_partitions : 
+            Dictionary of dimensions to partition on. If None, no partitioning 
+            is performed
 
         Keyword Arguments
         -----------------
-        - ext: file extension to use
-        - file_name: file name on S3 of CSV
-        - index: optional index to add to the table (such as launch index)
+        ext : str
+            File extension to use
+        file_name : str
+            File name on S3 of CSV
+        index : Union[Any, None]
+            Optional index to add to the table (such as launch index)
         """
 
         if not isinstance(table_name, str):
@@ -2502,22 +2597,23 @@ class AWSManager:
     def get_s3_path_query_output(self,
         output_type: str,
     ) -> Union[str, None]:
-        """
-        Return the path of queries that are output. 
+        """Return the path of queries that are output. Returns None if invalid 
+            specification is entered.
 
         Function Arguments
         ------------------
-        - output_type: specification of file type within query S3 key to build.
-            Valid options are:
+        output_type : str
+            Specification of file type within query S3 key to build. Valid 
+            options are:
 
-            * "input": returns path to query-modified SISEPUEDE input table 
-            * "output": returns path to query-modified SISEPUEDE input table
-            * "create_input": path to the create input table query output
-            * "create_output": path to the create output table query output
-            * "repair_input": path to the repair input table query
-            * "repair_output": path to the repair output table query
-
-        Returns None if invalid specification is found.
+                * "input":          returns path to query-modified SISEPUEDE 
+                                    input table 
+                * "output":         returns path to query-modified SISEPUEDE 
+                                    output table
+                * "create_input":   path to the create input table query output
+                * "create_output":  path to the create output table query output
+                * "repair_input":   path to the repair input table query
+                * "repair_output":  path to the repair output table query
         """
 
         # now, build output path
@@ -2535,8 +2631,7 @@ class AWSManager:
         tables: Union[str, List[str], None] = None,
         delim: str = ",",
     ) -> Union[List[str], None]:
-        """
-        Using a lit of tables (string delimited by delim or list or names), 
+        """Using a lit of tables (string delimited by delim or list or names), 
             return the list of tables to extract from the instance.
         """
         tables = (
@@ -2574,30 +2669,39 @@ class AWSManager:
         subnet: Union[str, None] = None,
         tags: Union[Dict[str, str], None] = None,
     ) -> Union[Dict, None]:
-        """
-        Launch an instance 
+        """Launch instances to run experiment using UserData and experimental
+            design.
         
         Function Arguments
         ------------------
-        - user_data: string of user data to use on launch. If None, launches 
-            with no user data.
+        user_data :  Union[str, None]
+            String of user data to use on launch. If None, launches with no user 
+            data
 
         Keyword Arguments
         -----------------
-        - ami: optional image id. If None, calls from configuration
-        - iam_instance_profile: optional iam instance profile to use on launch.
-            If None, calls from configuration
-        - instance_type: optional instance type. If None, calls from 
+        ami : Union[str, None]
+            Optional image id. If None, calls from configuration
+        iam_instance_profile : Union[str, None]
+            Optional iam instance profile to use on launch. If None, calls from 
             configuration
-        - key_name: optional key pair name to pass. If None, calls from 
-            configuration
-        - max_count: maximum number of instances to launch
-        - min_count: minimum number of instances to launch
-        - name: optional name for the instance
-        - security_group: optional security group id. If None, calls from 
-            configuration
-        - subnet: optional subnet id. If None, calls from configuration
-        - tags: optional tags to specify (as dictionary). None, calls from 
+        instance_type : Union[str, None]
+            Optional instance type. If None, calls from configuration
+        key_name : Union[str, None]
+            Optional key pair name to pass. If None, calls from configuration
+        max_count : int
+            Maximum number of instances to launch. Bounded by maximum specified
+            in configuration.
+        min_count : int
+            Minimum number of instances to launch
+        name : Union[str, None]
+            Optional name for the instance
+        security_group : Union[str, None]
+            Optional security group id. If None, calls from configuration
+        subnet : Union[str, None]
+            Optional subnet id. If None, calls from configuration
+        tags : Union[Dict[str, str], None]
+            Optional tags to specify (as dictionary). None, calls from 
             configuration
         """
         
@@ -2614,46 +2718,46 @@ class AWSManager:
         ##  EC2 LAUNCH CONFIG
         
         ami = (
-            self.config.get("aws_ec2.image")
+            self.ec2_image #HEREHEREHERE
             if not isinstance(ami, str)
             else ami
         )
         
         iam_instance_profile = (
-            self.config.get("aws_ec2.iam_instance_profile")
+            self.ec2_iam_instance_profile
             if iam_instance_profile is None
             else iam_instance_profile
         )
         iam_instance_profile = self.format_for_ec2_iam_instance_profile(
             iam_instance_profile
         )
-
+        
         instance_type = (
-            self.config.get("aws_ec2.instance_type")
+            self.ec2_instance_type
             if not isinstance(instance_type, str)
             else instance_type
         )
-
+        
         key_name = (
-            self.config.get("aws_ec2.key_name")
+            self.config.get(f"{_CONFIG_KEY_L0_AWS_EC2}.{_CONFIG_KEY_L1_KEY_NAME}")
             if not isinstance(key_name, str)
             else key_name
         )
         
         security_group = (
-            self.config.get("aws_general.security_group")
+            self.config.get(f"{_CONFIG_KEY_L0_AWS_GENERAL}.{_CONFIG_KEY_L1_SECURITY_GROUP}")
             if not isinstance(security_group, str)
             else security_group
         )
         
         subnet = (
-            self.config.get("aws_general.subnet")
+            self.config.get(f"{_CONFIG_KEY_L0_AWS_GENERAL}.{_CONFIG_KEY_L1_SUBNET}")
             if not isinstance(subnet, str)
             else subnet
         )
         
         tags = (
-            self.config.get("aws_general.tag")
+            self.config.get(f"{_CONFIG_KEY_L0_AWS_GENERAL}.{_CONFIG_KEY_L1_TAG}")
             if not isinstance(tags, Dict)
             else tags
         )
@@ -2703,10 +2807,8 @@ class AWSManager:
     def validate_bucket(self,
         bucket_name: str
     ) -> bool:
-        """
-        Checks if bucket_name is valid and present in S3
-        """
-        
+        """Checks if bucket_name is valid and present in S3
+        """  
         out = (bucket_name in self.s3_buckets)
         return out
 
@@ -2725,18 +2827,20 @@ class AWSManager:
         n_regions: Union[int, None] = None,
         table_base: str = "output",
     ) -> Union[str, Dict[str, str]]:
-        """
-        Using a list of SISEPUEDE fields, setup the retrieval queries.
+        """Using a list of SISEPUEDE fields, setup the retrieval queries.
 
         Function Arguments
         ------------------
 
         Keyword Arguments
         -----------------
-        - delim: delimiter used in fields_retrieve if specified as string
-        - n_regions: number of regions to require for identifying primary
-            keys. If None, defaults to len(self.get_regions()) from config
-        - table_base: base table for primary key values; must be present in 
+        delim : str
+            Delimiter used in fields_retrieve if specified as string
+        n_regions : Union[int, None]
+            Number of regions to require for identifying primary keys. If None, 
+            defaults to len(self.get_regions()) from config
+        table_base : str
+            Bse table for primary key values; must be present in 
             AWSManager.dict_input_output_to_table_names().keys()
         """
 
@@ -2772,18 +2876,20 @@ class AWSManager:
         schema: str, 
         address_s3: Union[str, None] = None,
     ) -> str:
-        """
-        Build a create table query for target athena database. 
+        """Build a create table query for target athena database. 
         
         Function Arguments
         ------------------
-        - table_name: name of table to create
-        - schema: table schema used in create table argument
+        table_name : str
+            Name of table to create
+        schema : str
+            Table schema used in create table argument
         
         Keyword Arguments
         -----------------
-        - address_s3: address on S3 where the table is stored. Set to None
-            to keep with AWSManager structure
+        address_s3 : Union[str, None]
+            Address on S3 where the table is stored. Set to None to keep with 
+            AWSManager structure
         """
         
         ##  INITIALIZE BASE QUERY AND S3 ADDRESS
@@ -2873,12 +2979,12 @@ class AWSManager:
     def build_athena_query_repair_table(self,
         table_name: str,
     ) -> str:
-        """
-        Build the MSCK REPAIR TABLE query that indexes partitions
+        """Build the MSCK REPAIR TABLE query that indexes partitions
         
         Function Arguments
         ------------------
-        - table_name: base table name used to generate ttable
+        table_name : str
+            Base table name used to generate ttable
         """
         
         database_name = f"`{self.athena_database}`"
@@ -3779,7 +3885,7 @@ class AWSManager:
             else dict_experimental_components
         )
         dict_experimental_components = (
-            self.config.get("experiment")
+            self.config.get(_CONFIG_KEY_L0_EXPERIMENT)
             if not isinstance(dict_experimental_components, dict)
             else dict_experimental_components
         )
@@ -3905,13 +4011,12 @@ class AWSManager:
 
     def get_random_seeds(self,
         regions: List[str],
-        key_config_all: str = "ALL",
+        key_config_all: str = _CONFIG_KEY_L2_ALL,
         random_seed_max: int = 10**9,
     ) -> Dict[str, int]:
-        """
-        Map regions to a random seed. Seeds can be specified as a uniform
-            seed (defaults to configuration, or can specify as ALL) or as
-            a region name or ISO. If a conflict occurs, pull from ISO. 
+        """Map regions to a random seed. Seeds can be specified as a uniform
+            seed (defaults to configuration, or can specify as ALL) or as a 
+            region name or ISO. If a conflict occurs, pull from ISO. 
             
             Specify in configuration under 
             
@@ -3924,16 +4029,18 @@ class AWSManager:
             
         Function Arguments
         ------------------
-        - regions: regions to assign random seeds for
+        regions : List[str]
+            Regions to assign random seeds for
 
         Keyword Arguments
         -----------------
-        - key_config_all: key in configuration to use for assigning a seed
-            for all countries
-        - random_seed_max: max seed for generating a random seed
+        key_config_all : str
+            Key in configuration to use for assigning a seed for all countries
+        random_seed_max : int
+            Max seed for generating a random seed
         """
-        
-        uniform_seed_q = self.config.get("experiment.uniform_random_seed")
+
+        uniform_seed_q = self.config.get(f"{_CONFIG_KEY_L0_EXPERIMENT}.{_CONFIG_KEY_L1_UNIFORM_RANDOM_SEED}")
         uniform_seed_q = (
             uniform_seed_q
             if isinstance(uniform_seed_q, bool)
@@ -3941,7 +4048,8 @@ class AWSManager:
         )
         
         # set up the seed
-        seed_all = self.config.get(f"experiment.random_seed.{key_config_all}")
+        config_prependage_exp_rs = f"{_CONFIG_KEY_L0_EXPERIMENT}.{_CONFIG_KEY_L1_RANDOM_SEED}"
+        seed_all = self.config.get(f"{config_prependage_exp_rs}.{key_config_all}")
         seed_all = (
             self.model_attributes.configuration.get("random_seed")
             if not isinstance(seed_all, int)
@@ -3968,8 +4076,8 @@ class AWSManager:
                 continue
                 
             # check for a seed, def
-            config_key_name = f"experiment.random_seed.{region_name}"
-            config_key_iso = f"experiment.random_seed.{region_iso}"
+            config_key_name = f"{config_prependage_exp_rs}.{region_name}"
+            config_key_iso = f"{config_prependage_exp_rs}.{region_iso}"
             seed_name = self.config.get(config_key_name)
             seed_iso = self.config.get(config_key_iso)
             
@@ -3996,8 +4104,7 @@ class AWSManager:
         primary_keys: List[int],
         ind_launch_base: int = 0,
     ) -> Dict[int, Tuple]:
-        """
-        Get groups of regions for instances. Returns a dictionary that maps a
+        """Get groups of regions for instances. Returns a dictionary that maps a
             launch group to a tuple of the following form
 
             {
@@ -4013,13 +4120,17 @@ class AWSManager:
             
         Function Arguments
         ------------------
-        - regions: list of regions to split
-        - max_n_instances: maximum number of instances to spawn
-        - primary_keys: list of primary keys that will be run
+        regions : List[str]
+            List of regions to split
+        max_n_instances : int
+            Maximum number of instances to spawn
+        primary_keys : List[int]
+            List of primary keys that will be run
 
         Keyword Arguments
         -----------------
-        - ind_launch_base: starting index for the launch
+        ind_launch_base : int
+            Starting index for the launch
         """
         # some initialization
         n_primary_keys = len(primary_keys)
@@ -4142,23 +4253,27 @@ class AWSManager:
         try_number: int = 1,
         **kwargs
     ) -> Tuple[pd.DataFrame, Dict]:
-        """
-        Launch a design specified in dict_launcher
+        """Launch a design specified in dict_launcher
         
         Function Arguments
         ------------------
         
         Keyword Arugments
         -----------------
-        - delim: delimiter to use to print regions in output DataFrame
-        - dict_launcher: dictionary building launcher information (see 
+        delim : str
+            Delimiter to use to print regions in output DataFrame
+        dict_launcher : Union[Dict[int, Tuple[List[str], List[int]]], None]
+            Dictionary building launcher information (see 
             self.get_design_splits_by_launch_index())
-        - launch: set to False to return random seeds and launch index 
-            dictionary
-        - setup_database: set up the Athena database? 
+        launch : bool
+            Set to False to return random seeds and launch index dictionary
+        setup_database : bool
+            Set up the Athena database? 
             NOTE: The repair query has to be launched completion even if True
-        - try_number: pass the try number for this scenario
-        - **kwargs: passed to AWSManager.execute_create_table_athena_query()
+        try_number : int
+            Pass the try number for this scenario
+        **kwargs : 
+            Passed to AWSManager.execute_create_table_athena_query()
         """
         
         dict_launcher = (
@@ -4282,20 +4397,22 @@ class AWSManager:
         table_type: str,
         expiration: int = 10800,
     ) -> Union[str, None]:
-        """
-        Generate a presigned AWS S3 share command for a file based on a query
+        """Generate a presigned AWS S3 share command for a file based on a query
             execution response dictionary.
         
         Function Arguments
         ------------------
-        - dict_response: response dictionary generated by 
+        dict_response : Dict
+            Response dictionary generated by 
             self.client_athena.get_query_execution OR execution id string
-        - table_type: any valid input to self.get_s3_path_query_output (see 
+        table_type : str
+            Any valid input to self.get_s3_path_query_output (see 
             ?get_s3_path_query_output())
 
         Keyword Arguments
         -----------------
-        - expiration: expiration time of link in seconds
+        expiration : int
+            Expiration time of link in seconds
         """
         # some checks
         return_none = not isinstance(dict_response, dict)
