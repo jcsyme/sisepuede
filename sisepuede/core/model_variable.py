@@ -1542,7 +1542,7 @@ class ModelVariable:
 
             df_out = pd.concat(
                 [
-                    df_out,
+                    df_out.reset_index(drop = True, ),
                     df_concat
                 ],
                 axis = 1
