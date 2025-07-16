@@ -46,13 +46,13 @@ RUN apt-get update \
     && rm -rf /var/lib/apt/lists/*
 
 # ADD JULIA TO PYTHON
-# import after installation to ensure julia is installed
 SHELL ["/bin/bash", "-c"]
 RUN source /venv/bin/activate \
     && pip install juliacall==0.9.25 \
     && pip install juliapkg==0.1.17 \
     && pip install git+https://github.com/jcsyme/sisepuede/
 
+# import after installation to ensure julia is installed
 RUN source /venv/bin/activate \
     && python -c "import sisepuede.manager.sisepuede_file_structure as sfs; \
     import sisepuede.manager.sisepuede_models as sm; \
