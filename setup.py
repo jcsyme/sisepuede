@@ -41,6 +41,7 @@ setup(
     packages = [
         "sisepuede",
         "sisepuede.cloud",
+        "sisepuede.command_line",
         "sisepuede.core",
         "sisepuede.data_management",
         "sisepuede.geo",
@@ -63,7 +64,7 @@ setup(
     },
     #python_requires = py_version,
     url = "http://github.com/jcsyme/sisepuede",
-    version = "1.1",
+    version = "1.3.1",
     zip_safe = False
 )
 
