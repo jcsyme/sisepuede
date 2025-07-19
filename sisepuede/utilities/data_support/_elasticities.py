@@ -1,22 +1,25 @@
 import numpy as np
 import pandas as pd
-from typing import *
-
 import sisepuede.core.model_attributes as ma
 import sisepuede.core.support_classes as sc
 import sisepuede.models.socioeconomic as se
 import sisepuede.utilities._toolbox as sf
+from typing import *
 
 
+
+#########################
+#    BEGIN FUNCTIONS    #
+#########################
 
 
 def exogenous_demands_to_sispeuede_ies(
     df_inputs: pd.DataFrame,
     model_attributes: ma.ModelAttributes,
-    modvar_demand: str,
-    modvar_driver: str,
-    modvar_elasticity: str,
-    modvar_scalar_demand: str,
+    modvar_demand: Union[str, 'ModelVariable'],
+    modvar_driver: Union[str, 'ModelVariable'],
+    modvar_elasticity: Union[str, 'ModelVariable'],
+    modvar_scalar_demand: Union[str, 'ModelVariable'],
     time_period_projection_first: int,
     cat_driver: Union[str, None] = None,
     elasticity_bounds: Union[Tuple[float, float], None] = None,
@@ -25,10 +28,10 @@ def exogenous_demands_to_sispeuede_ies(
     fill_missing_se: Union[float, int, None] = None,
     max_dev_from_mean: Union[float, int, None] = None,
     model_socioeconomic: Union[se.Socioeconomic, None] = None,
+    stop_on_error: bool = False,
     sup_elast_magnitude: Union[float, int, None] = None,
 ) -> Tuple[pd.DataFrame, pd.DataFrame, pd.DataFrame]:
-    """
-    Build [I]nitial demands (or production), [E]lasticities, [S]calars from 
+    """Build [I]nitial demands (or production), [E]lasticities, [S]calars from 
         exogenous specification of input variables. Formats raw vectors for 
         SISEPUEDE. Returns a three-ple of data frames:
         
@@ -52,39 +55,54 @@ def exogenous_demands_to_sispeuede_ies(
     
     Function Arguments
     ------------------
-    - df_inputs: DataFrame containing variables modvar_demand and modvar_driver
-    - model_attributes: ModelAttributes object used for 
-        variables/time periods/etc.    
-    - modvar_demand: SISEPUEDE model variable used to store demands (that are 
-        elastic)
-    - modvar_driver: SISEPUEDE model variable to which demands (or production) 
-        are elastic (e.g., GDP)
-    - modvar_elasticity: SISEPUEDE model variable for elasticities--must be in 
-        the same subsector as modvar_demand
-    - modvar_scalar_demand: SISEPUEDE model variable for demand scalars--must be 
-        in the same subsector as modvar_demand
-    - time_period_projection_first: first time period to use as historical (data 
-        dependent)
+    df_inputs : pd.DataFrame
+        DataFrame containing variables modvar_demand and modvar_driver
+    model_attributes : ModelAttributes
+        ModelAttributes object used for variables/time periods/etc.    
+    modvar_demand : Union[str, ModelVariable]
+        SISEPUEDE model variable used to store demands (that are elastic)
+    modvar_driver : Union[str, ModelVariable]
+        SISEPUEDE model variable to which demands (or production) are elastic 
+        (e.g., GDP)
+    modvar_elasticity : Union[str, ModelVariable]
+        SISEPUEDE model variable for elasticities--must be in the same subsector 
+        as modvar_demand
+    modvar_scalar_demand : Union[str, ModelVariable]
+        SISEPUEDE model variable for demand scalars--must be in the same 
+        subsector as modvar_demand
+    time_period_projection_first : int
+        First time period to use as historical (data dependent)
     
     Keyword Arguments
     -----------------
-    - cat_driver: optional specification of a cateogory to associate with the 
-        driver variable. Only applicable if modvar_driver is associated with 
-        categories
-    - elasticity_bounds: bounds to use to prevent extreme average elasticities. 
-        If None, no bounds are applied
-    - elasticity_default: default elasticity to use if invalid elasticities are 
-        found
-    - field_iso: field in df_inputs containing ISO codes. If None, defaults to 
+    cat_driver : Union[str, None]
+        Optional specification of a cateogory to associate with the driver 
+        variable. Only applicable if modvar_driver is associated with categories
+    elasticity_bounds : Union[Tuple[float, float], None]
+        Bounds to use to prevent extreme average elasticities. If None, no 
+        bounds are applied
+    elasticity_default : float
+        Default elasticity to use if invalid elasticities are found
+    field_iso : Union[str, None]
+        Field in df_inputs containing ISO codes. If None, defaults to 
         Regions.field_iso (see support_classses.Regions)
-    - fill_missing_se: optional value to use to fill missing fields required for
+    fill_missing_se : Union[float, int, None]
+        Optional value to use to fill missing fields required for
         Socioeconomic.project() 
-        * NOTE: use with caution; if any required variables not present in 
-            df_inputs, this will fill fields used to define those missing 
-            variables with the value in fill_missing_se.
-    - max_dev_from_mean: maximum devation from the mean to allow in projections
-    - sup_elast_magnitude: Supremum for the magnitude of an elasticity; prevent 
-        wild swings or crashing to 0. If None, no supremum is applied
+        * NOTE :    Use with caution; if any required variables not present in 
+                    df_inputs, this will fill fields used to define those 
+                    missing variables with the value in fill_missing_se.
+    max_dev_from_mean :  Union[float, int, None]
+        Maximum devation from the mean to allow in projections
+    model_socioeconomic : Union[Socioeconomic, None]
+        Optional socioeconomic model to pass
+    stop_on_error : bool
+        * True:     Stops if any required columns are missing
+        * False:    Attempts to solve for all categories possible
+    sup_elast_magnitude :  Union[float, int, None]
+        Supremum for the magnitude of an elasticity; prevent wild swings or 
+        crashing to 0. If None, no supremum is applied
+
     """
     
     ##  CHECKS
@@ -92,7 +110,12 @@ def exogenous_demands_to_sispeuede_ies(
     # run some checks - check that the driver is not associated with categories
     cats_driver = model_attributes.get_variable_categories(modvar_driver)
     if cats_driver is not None:
-        cat_driver = cats_driver[0] if ((cat_driver is None) and (len(cats_driver) == 0)) else cat_driver
+        cat_driver = (
+            cats_driver[0] 
+            if ((cat_driver is None) and (len(cats_driver) == 0)) 
+            else cat_driver
+        )
+
         if cat_driver not in cats_driver:
             # WARNINGS/LOGGING
             return None
@@ -102,9 +125,15 @@ def exogenous_demands_to_sispeuede_ies(
     # check if driver requires socioeconomic run
     model_socioeconomic = (
         se.Socioeconomic(model_attributes) 
-        if model_socioeconomic is None
+        if not se.is_sisepuede_model_socioeconomic(model_socioeconomic, )
         else model_socioeconomic
     )
+
+    # get the variables
+    modvar_demand = model_attributes.get_variable(modvar_demand, )
+    modvar_driver = model_attributes.get_variable(modvar_driver, )
+    modvar_elasticity = model_attributes.get_variable(modvar_elasticity, )
+    modvar_scalar_demand = model_attributes.get_variable(modvar_scalar_demand, )
    
     # check subsector equivalience
     subsec_demand = model_attributes.get_variable_subsector(modvar_demand)
@@ -113,22 +142,24 @@ def exogenous_demands_to_sispeuede_ies(
     if len(set([subsec_demand, subsec_elasticity, subsec_scalar])) > 1:
         # WARNINGS/LOGGING
         return None
+
+    attribute = model_attributes.get_attribute_table(subsec_demand, )
     
     # verify some analytical parameters
     elasticity_bounds = None if not isinstance(elasticity_bounds, tuple) else elasticity_bounds
     elasticity_default = (
         1.0 
-        if not (isinstance(elasticity_default, float) or isinstance(elasticity_default, int)) 
+        if not sf.isnumber(elasticity_default)
         else elasticity_default
     )
     max_dev_from_mean = (
         np.inf 
-        if not (isinstance(max_dev_from_mean, float) or isinstance(max_dev_from_mean, int)) 
+        if not sf.isnumber(max_dev_from_mean)
         else np.abs(max_dev_from_mean)
     )
     sup_elast_magnitude = (
         np.inf
-        if not (isinstance(sup_elast_magnitude, float) or isinstance(sup_elast_magnitude, int)) 
+        if not sf.isnumber(sup_elast_magnitude)
         else sup_elast_magnitude
     )
     
@@ -158,35 +189,43 @@ def exogenous_demands_to_sispeuede_ies(
 
     # get some fields
     field_driver = model_attributes.build_variable_fields(
-        None, 
         modvar_driver, 
-        restrict_to_category_values = cat_driver
-    )[0]
-    fields_dem = [
-        x for x in model_attributes.build_variable_fields(modvar_demand)
-        if x in df_inputs.columns
-    ]
+        restrict_to_category_values = cat_driver,
+    )
+    field_driver = field_driver[0] if isinstance(field_driver, list) else field_driver
+
+    # get categories that are shared between demand and elast
+    cats_shared = get_shared_categories(
+        model_attributes, 
+        modvar_demand, 
+        modvar_elasticity,
+        modvar_scalar_demand,
+    )
+    cats_shared = [x for x in attribute.key_values if x in cats_shared]
+    
+    # reduce to only those that are available
+    cats_dem = []
+    for cat in cats_shared:
+        field_dem = modvar_demand.build_fields(category_restrictions = cat, )
+        field_scalar = modvar_scalar_demand.build_fields(category_restrictions = cat, )
+        
+        # verify they're all present
+        if not set([field_dem, field_scalar]).issubset(set(df_inputs.columns)):
+            if not stop_on_error: continue
+            raise RuntimeError(f"One or more fields for category '{cat}' were not found in the input DataFrame.")
+
+        # append to list of categories
+        cats_dem.append(cat)
 
     
-    # production categories, elasticity fields, demand scalar fields
-    cats_all_dem = model_attributes.get_variable_categories(modvar_demand)
-    cats_dem = [
-        x for x in cats_all_dem
-        if model_attributes.build_variable_fields(
-            modvar_demand,
-            restrict_to_category_values = x
-        ) in fields_dem
-    ]
+    # nothing happens if no categories were found
+    if len(cats_dem) == 0:
+        return None
 
-    fields_elast = model_attributes.build_variable_fields(
-        modvar_elasticity,
-        restrict_to_category_values = cats_dem,
-    )
-
-    fields_scalars = model_attributes.build_variable_fields(
-        modvar_scalar_demand,
-        restrict_to_category_values = cats_dem,
-    )
+    # otherwise, set fields
+    fields_dem = modvar_demand.build_fields(category_restrictions = cats_dem)
+    fields_elast = modvar_elasticity.build_fields(category_restrictions = cats_dem, )
+    fields_scalars = modvar_scalar_demand.build_fields(category_restrictions = cats_dem, )
 
     
     ##  PREPARE TO BUILD
@@ -289,7 +328,7 @@ def exogenous_demands_to_sispeuede_ies(
 
         # overwrite driver since the final value is missing
         df_hist = sf.match_df_to_target_df(
-            df_hist.drop([field_driver], axis = 1),
+            df_hist.drop(columns = [field_driver], ), #axis = 1),
             df[[field_year, field_iso, field_driver]],
             fields_index = [field_year, field_iso],
             overwrite_only = False
@@ -312,7 +351,13 @@ def exogenous_demands_to_sispeuede_ies(
         arr_elast = np.nan_to_num(arr_elast, nan = 1.0, posinf = 1.0, neginf = -1.0)
 
         df_elast = pd.DataFrame(arr_elast, columns = fields_elast)
-        df_hist = pd.concat([df_hist, df_elast], axis = 1)
+        df_hist = pd.concat(
+            [
+                df_hist.drop(columns = [x for x in fields_elast if x in df_hist.columns], ), 
+                df_elast
+            ], 
+            axis = 1,
+        )
         df_hist = df_hist[df_hist[field_year].isin(years_historical)].reset_index(drop = True)
 
         vec_means = np.zeros(arr_elast.shape[1])
@@ -360,11 +405,16 @@ def exogenous_demands_to_sispeuede_ies(
             )
         )
         
+        global DFH
+        global DFF
+        DFH = df_hist.copy()
+        DFF = pd.DataFrame(df_full)
+
         df_full_check = df_full.copy()
         df_full = (
             pd.concat([df_hist, pd.DataFrame(df_full)], axis = 0)
             .dropna(subset = fields_elast)
-            .drop([field_iso, field_driver] + fields_dem, axis = 1)
+            .drop(columns = [field_iso, field_driver] + fields_dem, )
         )
 
         df_full = (
@@ -448,3 +498,43 @@ def exogenous_demands_to_sispeuede_ies(
     df_prodinit = pd.concat(df_prodinit, axis = 0).reset_index(drop = True)
     
     return df_demscalar, df_elasticities, df_prodinit
+
+
+
+def get_shared_categories(
+    model_attributes: 'ModelAttributes',
+    *modvars,
+    force_dict: bool = False,
+    **kwargs,
+) -> List[str]:
+    """Get shared categories from model variables. Set force_dict to True to 
+        force a dictionary if there's only one dimension; otherwise, returns a 
+    """
+    
+    dict_keys = {}
+
+    for modvar in modvars:
+
+        # try retrieving
+        modvar = model_attributes.get_variable(modvar)
+        if modvar is None:
+            continue
+
+            
+        dict_cur = modvar.dict_category_keys
+        for k, v in dict_cur.items():
+
+            # if in the dictionary, update the set
+            if k in dict_keys.keys():
+                s = dict_keys.get(k) & set(v)
+                dict_keys.update({k: s, })
+                continue
+            
+            # otherwise, init
+            dict_keys.update({k: set(v), })
+    
+    if (len(dict_keys) == 1) and not force_dict:
+        k = list(dict_keys.keys())[0]
+        dict_keys = dict_keys.get(k)
+    
+    return dict_keys
