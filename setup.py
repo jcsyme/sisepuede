@@ -51,7 +51,8 @@ setup(
         "sisepuede.plotting",
         "sisepuede.transformers",
         "sisepuede.transformers.lib",
-        "sisepuede.utilities"
+        "sisepuede.utilities",
+        "sisepuede.utilities.data_support"
     ],
     package_data = {
         "": [
