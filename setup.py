@@ -64,7 +64,7 @@ setup(
     },
     #python_requires = py_version,
     url = "http://github.com/jcsyme/sisepuede",
-    version = "1.3.1",
+    version = "1.3.2",
     zip_safe = False
 )
 
