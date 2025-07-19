@@ -22,18 +22,43 @@ import sisepuede.utilities._toolbox as sf
 class InvalidModelVariable(Exception):
     pass
 
-
 class InvalidModelUnits(Exception):
+    pass
+
+class InvalidTimePeriods(Exception):
+    pass
+
+class MissingAttribute(Exception):
     pass
 
 
 
-##  SOME GLOBAL VARIABLES
 
+###############################
+#    SOME GLOBAL VARIABLES    #
+###############################
 
+# unique identifier
 _MODULE_UUID = "823CC6A2-0A23-4AB8-8324-0692DF4AE4A0"   
 
+# dimensions
+_DIM_CODE_TRANSFORMER = "transformer_code"
+_DIM_ID_DESIGN = "design_id"
+_DIM_ID_FUTURE = "future_id"
+_DIM_ID_PRIMARY = "primary_id"
+_DIM_ID_STRATEGY = "strategy_id"
+_DIM_ID_TIME_SERIES = "time_series_id"
+_DIM_MODE = "mode"
+_DIM_REGION = "region"
+_DIM_TIME_PERIOD = "time_period"
 
+
+# some fields
+_FIELD_DIM_YEAR = "year"
+_FIELD_PRIMARY_CATEGORY = "primary_category"
+
+# keys
+_KEY_VARIABLE_DEFINITIONS = "variable_definitions"
 
 
 
@@ -41,15 +66,14 @@ _MODULE_UUID = "823CC6A2-0A23-4AB8-8324-0692DF4AE4A0"
 
 
 class ModelAttributes:
-    """
-    A centralized object for managing inter-sectoral objects, dimensions,
+    """A centralized object for managing inter-sectoral objects, dimensions,
         attributes, variables, and units. The ModelAttributes is the core 
         management system for SISEPUEDE.
 
     Initialization Arguments
     ------------------------
-    - dir_attributes: directory containing attribute tables. These tables 
-        include:
+    dir_attributes : Union[pathlib.Path, str]
+        Directory containing attribute tables. These tables include:
 
         * category definition files
         * runtime parameter definitions and defaults
@@ -59,8 +83,8 @@ class ModelAttributes:
 
     Optional Arguments
     ------------------
-    - fp_config: path to an optional configuartion file for default output 
-        values.
+    fp_config : str
+        Path to an optional configuration file for default output units/values.
     """
     def __init__(self,
         dir_attributes: Union[pathlib.Path, str],
@@ -80,12 +104,12 @@ class ModelAttributes:
         self._initialize_basic_varchar_components()
 
         # initialize some properties and elements (ordered)
-        self._initialize_attribute_tables(dir_attributes)
+        self._initialize_attribute_tables(dir_attributes, )
         self._initialize_other_attributes()
         self._initialize_units()
         self._initialize_variables()
 
-        self._initialize_config(fp_config)
+        self._initialize_config(fp_config, )
         self._initialize_sector_sets()
         self._initialize_variables_by_subsector()
         self._initialize_all_primary_category_flags()
@@ -112,6 +136,7 @@ class ModelAttributes:
         """
 
         # run checks and raise errors if invalid data are found in the attribute tables
+        self._check_dimensional_attribute_table_time_periods()
         self._check_attribute_tables_abv_subsector()
         self._check_attribute_tables_agrc()
         self._check_attribute_tables_enfu()
@@ -127,47 +152,7 @@ class ModelAttributes:
         self._check_attribute_tables_waso()
 
         return None
-    
 
-
-    # HEREHERE: MOVE DOWN LATER
-    def iat_support_get_attribute_group(self,
-        fn_attribute: str,
-        attribute_groups_ordered: List[str],
-        dict_attribute_group_to_regex: Dict[str, re.Pattern],
-    ) -> Union[str, None]:
-        """
-        Get the attribute group associated with fn_attribute
-
-        Function Arguments
-        ------------------
-        - fn_attribute: attribute file name
-        - attribute_groups_ordered: ordered search list of attribtue 
-            groups
-        - dict_attribute_group_to_regex: dictionary mapping attribute
-            groups to regular expressions
-
-        Keyword Arguments
-        -----------------
-        """
-        # get group 
-        keep_going = True
-        i = 0
-
-        while keep_going & (i < len(attribute_groups_ordered)):
-
-            group = attribute_groups_ordered[i]
-            regex = dict_attribute_group_to_regex.get(group)
-
-            if regex.match(fn_attribute) is not None:
-                keep_going = False
-            
-            i += 1
-
-        out = group if not keep_going else None
-
-        return out
-    
 
 
     def _iat_support_clean_subsector_table(self,
@@ -178,8 +163,7 @@ class ModelAttributes:
         key_cat: str = "cat",
         key_other: str = "other",
     ) -> None:
-        """
-        Update the subsector attribute table to include clean categories
+        """Update the subsector attribute table to include clean categories
 
         Function Arguments
         ------------------
@@ -233,11 +217,10 @@ class ModelAttributes:
     
 
 
-    def iat_support_get_all_keys(self,
+    def _iat_support_get_all_keys(self,
         dict_attributes: Dict[str, Dict[str, AttributeTable]],
     ) -> None:
-        """
-        Get all values associated with each key
+        """Get all values associated with each key
 
         Function Arguments
         ------------------
@@ -259,6 +242,44 @@ class ModelAttributes:
     
 
 
+    def _iat_support_get_attribute_group(self,
+        fn_attribute: str,
+        attribute_groups_ordered: List[str],
+        dict_attribute_group_to_regex: Dict[str, re.Pattern],
+    ) -> Union[str, None]:
+        """Get the attribute group associated with fn_attribute
+
+        Function Arguments
+        ------------------
+        - fn_attribute: attribute file name
+        - attribute_groups_ordered: ordered search list of attribtue 
+            groups
+        - dict_attribute_group_to_regex: dictionary mapping attribute
+            groups to regular expressions
+
+        Keyword Arguments
+        -----------------
+        """
+        # get group 
+        keep_going = True
+        i = 0
+
+        while keep_going & (i < len(attribute_groups_ordered)):
+
+            group = attribute_groups_ordered[i]
+            regex = dict_attribute_group_to_regex.get(group)
+
+            if regex.match(fn_attribute) is not None:
+                keep_going = False
+            
+            i += 1
+
+        out = group if not keep_going else None
+
+        return out
+    
+
+
     def _iat_support_update_grouped_attributes(self,
         fp_attribute: str,
         attribute_groups_ordered: List[str],
@@ -269,8 +290,7 @@ class ModelAttributes:
         key_other: str,
         key_unit: str,
     ) -> None:
-        """
-        Format the attribute tables for assignment in dictionaries
+        """Format the attribute tables for assignment in dictionaries
 
         Function Arguments
         ------------------
@@ -295,7 +315,7 @@ class ModelAttributes:
 
         fn = os.path.basename(fp_attribute)
 
-        group = self.iat_support_get_attribute_group(
+        group = self._iat_support_get_attribute_group(
             fn,
             attribute_groups_ordered,
             dict_attribute_group_to_regex,
@@ -345,9 +365,7 @@ class ModelAttributes:
 
 
         else:
-            msg = f"""
-            Invalid attribute '{att}': No attribute group or expression 
-            was found to support its addition.
+            msg = f"""Invalid attribute at '{fp_attribute}': No attribute group or expression was found to support its addition.
             """
             raise ValueError(msg)
         
@@ -358,9 +376,8 @@ class ModelAttributes:
 
     def _initialize_all_primary_category_flags(self, #FIXED
     ) -> None:
-        """
-        Sets all primary category flags, e.g., $CAT-CCSQ$ or $CAT-AGRICULTURE$.
-            Sets the following properties:
+        """Sets all primary category flags, e.g., $CAT-CCSQ$ or 
+            $CAT-AGRICULTURE$. Sets the following properties:
 
             * all_primary_category_flags
         """
@@ -373,7 +390,7 @@ class ModelAttributes:
         modvar_dummy = self.get_variable(self.all_variables[0])
         container = modvar_dummy.container_expressions
 
-        all_pcflags = sorted(list(set(attr_subsec.table["primary_category"])))
+        all_pcflags = sorted(list(set(attr_subsec.table[_FIELD_PRIMARY_CATEGORY])))
         all_pcflags = [
             x.replace(container, "") for x in all_pcflags 
             if mv.clean_element(x).replace(cat_str, "") in self.all_pycategories
@@ -392,10 +409,9 @@ class ModelAttributes:
         stop_on_error: bool = True,
         table_name_attr_sector: str = "abbreviation_sector",
         table_name_attr_subsector: str = "abbreviation_subsector",
-        variable_definition_key: str = "variable_definitions",
+        variable_definition_key: str = _KEY_VARIABLE_DEFINITIONS,
     ) -> None:
-        """
-        Load all attribute tables and set the following parameters:
+        """Load all attribute tables and set the following parameters:
 
             * self.all_attributes
             * self.all_dims
@@ -419,22 +435,28 @@ class ModelAttributes:
 
         Function Arguments
         ------------------
-        - dir_att: directory containing attribute tables
+        dir_att : str
+            Directory containing attribute tables
 
         Keyword Arguments
         -----------------
-        - attribute_group_protected_other: protected group used to identify 
-            attribute tables that don't fit elsewhere.
-        - attribute_groups: optional list of attribute table types to specify;
-            types will be identified as "attribute_YYY_MATCH" for YYY in 
-            attribute_groups; all others that do not match will be defined as 
-            other. If None, defaults to ["cat", "dim", "unit"]
+        attribute_group_protected_other : str
+            Protected group used to identify AttributeTables that don't fit 
+            elsewhere.
+        attribute_groups : Union[List[str], None]
+            Optional list of attribute table types to specify; types will be 
+            identified as "attribute_YYY_MATCH" for YYY in attribute_groups; all 
+            others that do not match will be defined as other. If None, defaults 
+            to ["cat", "dim", "unit"]
             NOTE: cannot contain `attribute_group_protected_other`
-        - stop_on_error: stop if there's an error?
-        - table_name_attr_sector: table name used to assign sector table
-        - table_name_attr_subsector: table name used to assign subsector table
-        - variable_definition_key: prependage used to identify variable
-            definition tables
+        stop_on_error : bool
+            Stop if there's an error?
+        table_name_attr_sector : str
+            Table name used to assign sector table
+        table_name_attr_subsector : str
+            Table name used to assign subsector table
+        variable_definition_key : str
+            Prependage used to identify variable definition tables
         """
 
         self.attribute_directory = sf.check_path(dir_att, False)
@@ -527,7 +549,7 @@ class ModelAttributes:
             
 
         # add some subsector/python specific information into the subsector table
-        field_category = "primary_category"
+        field_category = _FIELD_PRIMARY_CATEGORY
         field_category_py = field_category + "_py"
 
         # check sector and subsector specifications
@@ -550,7 +572,7 @@ class ModelAttributes:
         )
 
         # get sets of all available values
-        dict_all_attribute_values = self.iat_support_get_all_keys(dict_attributes)
+        dict_all_attribute_values = self._iat_support_get_all_keys(dict_attributes)
         all_dims = dict_all_attribute_values.get(key_dim)
         all_pycategories = dict_all_attribute_values.get(key_cat)
         all_units = dict_all_attribute_values.get(key_unit)
@@ -596,16 +618,17 @@ class ModelAttributes:
             * self.sort_ordered_dimensions_of_analysis
 
         """
+ 
         # initialize dimensions of analysis - later, check for presence
-        self.dim_design_id = "design_id"
-        self.dim_future_id = "future_id"
-        self.dim_mode = "mode"
-        self.dim_region = "region"
-        self.dim_strategy_id = "strategy_id"
-        self.dim_time_period = "time_period"
-        self.dim_time_series_id = "time_series_id"
-        self.dim_transformer_code = "transformer_code"
-        self.dim_primary_id = "primary_id"
+        self.dim_design_id = _DIM_ID_DESIGN
+        self.dim_future_id = _DIM_ID_FUTURE
+        self.dim_mode = _DIM_MODE
+        self.dim_region = _DIM_REGION
+        self.dim_strategy_id = _DIM_ID_STRATEGY
+        self.dim_time_period = _DIM_TIME_PERIOD
+        self.dim_time_series_id = _DIM_ID_TIME_SERIES
+        self.dim_transformer_code = _DIM_CODE_TRANSFORMER
+        self.dim_primary_id = _DIM_ID_PRIMARY
 
         # setup dtypes
         self.dict_dtypes_doas = {
@@ -631,7 +654,7 @@ class ModelAttributes:
         ]
 
         # some common shared fields
-        self.field_dim_year = "year"
+        self.field_dim_year = _FIELD_DIM_YEAR
 
         return None
         
@@ -988,7 +1011,7 @@ class ModelAttributes:
 
             tab = self.get_attribute_table(
                 subsec, 
-                table_type = "variable_definitions",
+                table_type = _KEY_VARIABLE_DEFINITIONS,
             )
 
             if tab is None:
@@ -1453,6 +1476,59 @@ class ModelAttributes:
 
 
 
+    def _check_dimensional_attribute_table_time_periods(self, #FIXED
+        attribute_time_period: Union[AttributeTable, None] = None,
+    ) -> None:
+        """Check the specification of the time_period attribute table. Verifies
+            the following conditions:
+
+            * presence of self.dim_time_period
+                * uniqueness of values
+                * start at 0
+                * increment by 1
+
+        Returns None if successful.
+        """
+
+        # verify
+        attribute_time_period = (
+            self.get_dimensional_attribute_table(
+                self.dim_time_period, 
+                stop_on_error = True,
+            )
+            if not is_attribute_table(attribute_time_period)
+            else attribute_time_period
+        )
+
+        ##  DO CHECKS
+
+        # verify key
+        if self.dim_time_period not in attribute_time_period.table.columns:
+            raise MissingAttribute(f"Required key {self.dim_time_period} not found in the time_period AttributeTable.")
+        
+        # get vector of time periods
+        vec_periods = (
+            attribute_time_period.table[self.dim_time_period]
+            .to_numpy()
+            .astype(int)
+        )
+
+        # check that 0 is present
+        if 0 not in vec_periods:
+            raise ValueError(f"Base time period 0 not found in the AttributeTable.")
+        
+        # now, we can just check that it matches the arange
+        verify = (vec_periods == np.arange(len(vec_periods)).astype(int)).all()
+        if not verify:
+            msg = f"""AttributeTable for time_periods misspecified: must start at 0 and 
+            increase by 1. No negative numbers may be included.
+            """
+            raise InvalidTimePeriods(msg)
+
+        return None
+
+
+
     def _check_numeric_fields(self, #FIXED
         attr: AttributeTable,
         subsec: str,
@@ -1524,8 +1600,8 @@ class ModelAttributes:
         allow_multiple_cats_q: bool = False,
         flag_none: str = "none",
         injection_q: bool = True,
-        type_primary: str = "primary_category",
-        type_target: str = "primary_category",
+        type_primary: str = _FIELD_PRIMARY_CATEGORY,
+        type_target: str = _FIELD_PRIMARY_CATEGORY,
     ) -> None:
         """Check the validity of categories specified as an attribute 
             (subsector_target) of a primary subsector category 
@@ -1665,14 +1741,14 @@ class ModelAttributes:
                     ], 
                     []
                 ) 
-                if (type_target == "primary_category") 
+                if (type_target == _FIELD_PRIMARY_CATEGORY) 
                 else [x for x in primary_cats_defined if (x != flag_none)]
             )
 
         else:
             primary_cats_defined = (
                 [mv.clean_element(x) for x in primary_cats_defined if (x != flag_none)] 
-                if (type_target == "primary_category") 
+                if (type_target == _FIELD_PRIMARY_CATEGORY) 
                 else [x for x in primary_cats_defined if (x != flag_none)]
             )
 
@@ -1753,7 +1829,7 @@ class ModelAttributes:
             self.subsec_name_agrc,
             self.subsec_name_soil,
             injection_q = True,
-            type_primary = "variable_definitions",
+            type_primary = _KEY_VARIABLE_DEFINITIONS,
         )
 
         return None
@@ -1952,7 +2028,7 @@ class ModelAttributes:
         """
         # some shared values
         subsec = self.subsec_name_inen
-        attr = self.get_attribute_table(subsec, "variable_definitions")
+        attr = self.get_attribute_table(subsec, _KEY_VARIABLE_DEFINITIONS)
 
         # check required fields - binary
         fields_req_bin = ["fuel_fraction_variable_by_fuel"]
@@ -1963,7 +2039,7 @@ class ModelAttributes:
             self.subsec_name_inen, 
             self.subsec_name_enfu, 
             injection_q = False,
-            type_primary = "variable_definitions", 
+            type_primary = _KEY_VARIABLE_DEFINITIONS, 
         )
 
         return None
@@ -1979,7 +2055,7 @@ class ModelAttributes:
         """
         # some shared values
         subsec = self.subsec_name_ippu
-        attr = self.get_attribute_table(subsec, "variable_definitions")
+        attr = self.get_attribute_table(subsec, _KEY_VARIABLE_DEFINITIONS)
 
         # check required fields - binary
         fields_req_bin = [
@@ -2097,14 +2173,14 @@ class ModelAttributes:
             self.subsec_name_frst,
             self.subsec_name_soil,
             injection_q = True,
-            type_primary = "variable_definitions",
+            type_primary = _KEY_VARIABLE_DEFINITIONS,
         )
 
         self._check_subsector_attribute_table_crosswalk(
             self.subsec_name_lndu,
             self.subsec_name_soil,
             injection_q = True,
-            type_primary = "variable_definitions",
+            type_primary = _KEY_VARIABLE_DEFINITIONS,
         )
 
         # check that forest/land use crosswalk is set properly
@@ -2197,7 +2273,7 @@ class ModelAttributes:
             {subsec: f"{field_targ}_variable"},
             subsec,
             injection_q = False,
-            type_target = "variable_definitions",
+            type_target = _KEY_VARIABLE_DEFINITIONS,
         )
 
         return None
@@ -2217,7 +2293,7 @@ class ModelAttributes:
             self.subsec_name_trns, 
             self.subsec_name_trde, 
             injection_q = True,
-            type_primary = "variable_definitions", 
+            type_primary = _KEY_VARIABLE_DEFINITIONS, 
         )
         self._check_subsector_attribute_table_crosswalk(
             self.subsec_name_trns, 
@@ -2248,7 +2324,7 @@ class ModelAttributes:
         self._check_subsector_attribute_table_crosswalk(
             self.subsec_name_wali, 
             self.subsec_name_trww, 
-            type_primary = "variable_definitions",
+            type_primary = _KEY_VARIABLE_DEFINITIONS,
         )
 
         return None
@@ -2284,44 +2360,52 @@ class ModelAttributes:
 
     def add_index_fields(self,
         df_input: pd.DataFrame,
-        design_id: Union[None, int] = None,
-        future_id: Union[None, int] = None,
-        primary_id: Union[None, int] = None,
-        region: Union[None, int] = None,
-        strategy_id: Union[None, int] = None,
-        time_period: Union[None, int] = None,
-        time_series_id: Union[None, int] = None,
+        design_id: Union[int, None] = None,
+        future_id: Union[int, None] = None,
+        primary_id: Union[int, None] = None,
+        region: Union[str, None] = None,
+        strategy_id: Union[int, None] = None,
+        time_period: Union[int, None] = None,
+        time_series_id: Union[int, None] = None,
         overwrite_fields: bool = False
     ) -> pd.DataFrame:
-        """
-        Add scenario and dimensional index fields to a data frame using 
+        """Add scenario and dimensional index fields to a data frame using 
             consistent field hierachy
 
         Function Arguments
         ------------------
-        - df_input: Input DataFrame to add indexes to
+        df_input : 
+            Input DataFrame to add indexes to
 
         Keyword Arguments
         -----------------
-        - design_id: value for index ModelAttributes.dim_design_id; if None, the 
-            index is not added
-        - future_id: value for index ModelAttributes.dim_future_id; if None, the 
-            index is not added
-        - primary_id: value for index ModelAttributes.dim_primary_id; if None, 
-            the index is not added
-        - region: value for index ModelAttributes.dim_region; if None, the index 
+        design_id : Union[int, None]
+            Value for index ModelAttributes.dim_design_id; if None, the index is 
+            not added
+        future_id : Union[int, None]
+            Value for index ModelAttributes.dim_future_id; if None, the index is 
+            not added
+        primary_id : Union[int, None]
+            Value for index ModelAttributes.dim_primary_id; if None, the index 
             is not added
-        - strategy_id: value for index ModelAttributes.dim_strategy_id; if None, 
-            the index is not added
-        - time_period: value for index ModelAttributes.dim_time_period; if None, 
-            the index is not added
-        - time_series_id: value for index ModelAttributes.dim_time_series_id; if 
-            None, the index is not added
-        - overwrite_fields:
+        region : Union[str, None]
+            Value for index ModelAttributes.dim_region; if None, the index is 
+            not added
+        strategy_id : Union[int, None]
+            Value for index ModelAttributes.dim_strategy_id; if None, the index 
+            is not added
+        time_period : Union[int, None]
+            Value for index ModelAttributes.dim_time_period; if None, the index 
+            is not added
+        time_series_id : Union[int, None]
+            Value for index ModelAttributes.dim_time_series_id; if None, the 
+            index is not added
+        overwrite_fields: bool
             * If True, if the index field already iexists in `df_input`, it will 
                 be overwritten with the value passed to add_index_fields
             * Otherwise, the existing field will be left.
-            * NOTE: if a value is passed with overwrite_q = False, then the data 
+            * NOTE : 
+            if a value is passed with overwrite_q = False, then the data 
                 frame will still order fields hierarchically
         """
 
@@ -2356,8 +2440,7 @@ class ModelAttributes:
         dict_integrated_vars: dict,
         subsec: str = "all",
     ) -> dict:
-        """
-        Check data frames specified for integrated variables
+        """Check data frames specified for integrated variables
         """
         # initialize list of subsectors to provide checks for
         subsecs = list(dict_integrated_vars.keys()) if (subsec == "all") else [subsec]
@@ -2402,8 +2485,7 @@ class ModelAttributes:
         region: str,
         allow_unclean: bool = False,
     ) -> None:
-        """
-        Ensure a region is properly specified
+        """Ensure a region is properly specified
         """
         region = self.clean_region(region) if allow_unclean else region
         attr_region = self.get_other_attribute_table(self.dim_region)
@@ -2411,7 +2493,7 @@ class ModelAttributes:
         # check sectors
         if region not in attr_region.key_values:
             valid_regions = sf.format_print_list(attr_region.key_values)
-            raise ValueError(f"Invalid region specification '{region}': valid sectors are {valid_region}")
+            raise ValueError(f"Invalid region specification '{region}': valid sectors are {valid_regions}")
 
         return None
 
@@ -2421,8 +2503,7 @@ class ModelAttributes:
         sector: str,
         throw_error: bool = True,
     ) -> Union[str, None]:
-        """
-        Ensure a sector is properly specified
+        """Ensure a sector is properly specified
         """
         # check sectors
         
@@ -2443,8 +2524,7 @@ class ModelAttributes:
         subsector: str,
         throw_error_q = True,
     ) -> Union[str, None]:
-        """
-        Ensure a subsector is properly specified
+        """Ensure a subsector is properly specified
         """
 
         out = (None if throw_error_q else subsector)
@@ -2467,9 +2547,9 @@ class ModelAttributes:
         func_arg: str = "", 
         func_name: str = ""
     ) -> None:
-        """
-        Commonly used--restrict variable values. Throws an error if the argument
-            is not in valid values. Reports out valid values in error message.
+        """Commonly used--restrict variable values. Throws an error if the 
+            argument is not in valid values. Reports out valid values in error 
+            message.
         """
         if arg not in valid_values:
             vrts = sf.format_print_list(valid_values)
@@ -2482,8 +2562,7 @@ class ModelAttributes:
     def clean_region(self,
         region: str
     ) -> str:
-        """
-        inline function to clean regions (commonly called)
+        """Inline function to clean regions (commonly called)
         """
         out = region.strip().lower().replace(" ", "_")
 
@@ -2493,7 +2572,7 @@ class ModelAttributes:
 
     def extract_model_variable(self,
         df_in: pd.DataFrame,
-        modvar: str,
+        modvar: Union[str,mv.ModelVariable],
         all_cats_missing_val: float = 0.0,
         expand_to_all_cats: bool = False,
         extraction_logic: str = "all",
@@ -2503,51 +2582,58 @@ class ModelAttributes:
         return_num_type: type = np.float64,
         return_type: str = "data_frame",
         throw_error_on_missing_fields: bool = True,
-        var_bounds = None,
+        var_bounds: Union[Tuple, None] = None,
     ) -> Union[pd.DataFrame, None]:
-        """
-        Extract an array or data frame of input variables. If 
+        """Extract an array or data frame of input variables. If 
             return_type == "array_units_corrected", then ModelAttributes will 
             re-scale emissions factors to reflect the desired output emissions 
             mass (as defined in the configuration).
 
         Function Arguments
         ------------------
-        - df_in: data frame containing input variables
-        - modvar_name: name of variable to retrieve OR model variable object
+        df_in : pd.DataFrame
+            data frame containing input variables
+        modvar_name : Union[str, ModelVariable]
+            name of variable to retrieve OR model variable object
             (if latter, acts as a wrapper)
         
         Keyword Arguments
         -----------------
-        - all_cats_missing_val: default is 0. If expand_to_all_cats == True, 
-            categories not associated with modvar with be filled with this 
-            value.
-        - expand_to_all_cats: default is False. If True, return the variable in 
-            the shape of all categories.
-        - extraction_logic: set logic used on extraction
-            * "all": throws an error if any field in self.fields is missing
-            * "any": extracts any field in self.fields available in `obj`
-                and fills any missing values with fill_value (or default value)
-        - force_boundary_restriction: default is True. Set to True to enforce 
-            the boundaries on the variable. If False, a variable that is out of 
-            bounds will raise an error.
-        - include_time_period: include the time period? Only applies if 
-            return_type == "data_frame"
-        - override_vector_for_single_mv_q: default is False. Set to True to 
-            return an array if the dimension of the variable is 1; otherwise, a 
-            vector will be returned (if not a dataframe).
-        - return_num_type: return type for numeric values
-        - return_type: valid values are: 
-            * "data_frame"
-            * "array_base" (np.ndarray not corrected for configuration 
-                emissions)
-            * "array_units_corrected" (emissions corrected to reflect 
-                configuration output emission units)
-        - throw_error_on_missing_fields: set to True to throw an error if the
-            fields associated with modvar are not found in df_in.
-            * If False, returns None if fields implied by modvar are not found 
-                in df_in
-        - var_bounds: Default is None (no bounds). Otherwise, gives boundaries 
+        all_cats_missing_val : float
+            If expand_to_all_cats == True OR extraction_logic = "any_fill", 
+            categories not associated with modvar with be filled with this value
+        expand_to_all_cats : bool
+            If True, return the variable in the shape of all categories.
+        extraction_logic : str
+            Set logic used on extraction:
+                * "all":    Throws an error if any field in self.fields is 
+                            missing
+                * "any":    Extracts any field in self.fields available in `obj`
+                            and fills any missing values with fill_value (or 
+                            default value)
+        force_boundary_restriction : bool
+            Set to True to enforce the boundaries on the variable. If False, a 
+            variable that is out of bounds will raise an error.
+        include_time_period : bool
+            Include the time period? Only applies if return_type == "data_frame"
+        override_vector_for_single_mv_q : bool
+            Set to True to return an array if the dimension of the variable is 
+            1; otherwise, a vector will be returned (if not a dataframe).
+        return_num_type : type
+            Return type for numeric values
+        return_type : str
+            * "data_frame":             Return a DataFrame with the values
+            * "array_base":             np.ndarray not corrected for 
+                                        configuration *emissions*
+            * "array_units_corrected":  Emissions corrected to reflect 
+                                        configuration output *emission* units
+        throw_error_on_missing_fields : bool
+            * True:     Throw an error if the fields associated with modvar are 
+                        not found in df_in.
+            * False:    Returns None if fields implied by modvar are not found 
+                        in df_in
+        var_bounds : Union[Tuple, None]
+            Default is None (no bounds). Otherwise, gives boundaries 
             to enforce variables that are retrieved. For example, some variables 
             may be restricted to the range (0, 1). Use a list-like structure to 
             pass a minimum and maximum bound (np.inf can be used to as no 
@@ -2600,8 +2686,7 @@ class ModelAttributes:
             )
 
         except Exception as e:
-            msg = f"""
-            Unable to extract variable {modvar.name} in extract_model_variable: {e}
+            msg = f"""Unable to extract variable {modvar.name} in extract_model_variable: {e}
             """
             raise ValueError(msg)
         
@@ -2683,27 +2768,29 @@ class ModelAttributes:
     def filter_keys_by_attribute(self, #FIXED
         subsector: Union[str, AttributeTable],
         dict_subset: dict,
-        attribute_type: str = "primary_category",
+        attribute_type: str = _FIELD_PRIMARY_CATEGORY,
         dict_as_exclusionary: bool = False,
         subsector_extract_key: Union[str, None] = None,
     ) -> Union[list, None]:
-        """
-        Return categories from an attribute table that match some 
+        """Return categories from an attribute table that match some 
             characteristics (defined in dict_subset)
 
         Function Arguments
         ------------------
-        - subsector: name of subsector, or, unsafe allowance to pass attribute
-            table
-        - dict_subset: dictionary to use for subsetting
+        subsector : Union[str, AttributeTable]
+            Name of subsector, or, unsafe allowance to pass attribute table
+        dict_subset : dict
+            Dictionary to use for subsetting
 
         Keyword Arguments
         -----------------
-        - attribute_type: "primary_category" or "variable_definitions"
-        - dict_as_exclusionary: set to True to *exclude* values passed in the 
-            dictionary
-        - subsector_extract_key: optional key to specity to retrieve. If None,
-            retrieves subsector attribute key
+        attribute_type : str
+            "primary_category" or "variable_definitions"
+        dict_as_exclusionary : bool
+            Set to True to *exclude* values passed in the dictionary
+        subsector_extract_key : Union[str, None]
+            Optional key to specity to retrieve. If None, retrieves subsector 
+            attribute key
         """
         #
         attr = (
@@ -2818,7 +2905,7 @@ class ModelAttributes:
 
     def get_attribute_table(self, #FIXED
         subsector: str,
-        table_type: str = "primary_category",
+        table_type: str = _FIELD_PRIMARY_CATEGORY,
     ) -> Union[AttributeTable, None]:
         """Simplify retrieval of attribute tables within functions. 
 
@@ -2837,8 +2924,8 @@ class ModelAttributes:
 
         # check input type
         valid_types = {
-            "primary_category": "pycategory_primary", 
-            "variable_definitions": "key_variable_definitions",
+            _FIELD_PRIMARY_CATEGORY: "pycategory_primary", 
+            _KEY_VARIABLE_DEFINITIONS: "key_variable_definitions",
         }
 
         if table_type not in valid_types.keys():
@@ -2850,11 +2937,11 @@ class ModelAttributes:
         subsec_attr = valid_types.get(table_type)
         key_dict = self.get_subsector_attribute(subsector, subsec_attr)
 
-        if table_type == "primary_category":
+        if table_type == _FIELD_PRIMARY_CATEGORY:
             dict_retrieve = self.dict_attributes.get(self.attribute_group_key_cat)
             out = dict_retrieve.get(key_dict)
 
-        elif table_type == "variable_definitions":
+        elif table_type == _KEY_VARIABLE_DEFINITIONS:
             out = self.dict_variable_definitions.get(key_dict)
 
         return out
@@ -3079,7 +3166,7 @@ class ModelAttributes:
     def get_ordered_category_attribute(self, #FIXED
         subsector: str,
         attribute: str,
-        attr_type: str = "primary_category",
+        attr_type: str = _FIELD_PRIMARY_CATEGORY,
         clean_attribute_schema_q: bool = False,
         flag_none: str = "none",
         skip_none_q: bool = False,
@@ -3174,8 +3261,8 @@ class ModelAttributes:
             from another subsector
         """
         # get var requirements for the variable subsector + the attribute for the target categories
-        attr_vr_var = self.get_attribute_table(subsector_var, "variable_definitions")
-        attr_targ = self.get_attribute_table(subsector_targ, "primary_category")
+        attr_vr_var = self.get_attribute_table(subsector_var, _KEY_VARIABLE_DEFINITIONS)
+        attr_targ = self.get_attribute_table(subsector_targ, _FIELD_PRIMARY_CATEGORY, )
         pycat_targ = attr_targ.key
 
         # use the attribute table to map the category to the original variable
@@ -3614,9 +3701,8 @@ class ModelAttributes:
 
     def get_time_periods(self, #FIXED
     ) -> tuple:
-        """
-        Get all time periods defined in SISEPUEDE. Returns a tuple of the form 
-            (time_periods, n), where:
+        """Get all time periods defined in SISEPUEDE. Returns a tuple of the 
+            form (time_periods, n), where:
 
             * time_periods is a list of all time periods
             * n is the number of defined time periods
@@ -3625,18 +3711,21 @@ class ModelAttributes:
         time_periods = attr_tp.key_values
         n_time_periods = attr_tp.n_key_values
 
-        return time_periods, n_time_periods
+        out = (time_periods, n_time_periods, )
+
+        return out
 
 
 
     def get_time_period_years(self, #FIXED
-        field_year: str = "year",
+        field_year: Union[str, None] = None,
     ) -> list:
-        """
-        Get a list of all years (as integers) associated with time periods in 
+        """Get a list of all years (as integers) associated with time periods in 
             SISEPUEDE. Returns None if no years are defined.
         """
+        
         attr_tp = self.get_dimensional_attribute_table(self.dim_time_period)
+        field_year = self.field_dim_year if field_year is None else field_year
 
         # initialize output years
         all_years = None
@@ -3652,8 +3741,7 @@ class ModelAttributes:
         unit: str,
         return_type: str = "unit",
     ) -> AttributeTable:
-        """
-        Simplify retrieval of a unit object. Set return_type to "unit" or
+        """Simplify retrieval of a unit object. Set return_type to "unit" or
             "attribute_table"
         """
 
@@ -3796,7 +3884,7 @@ class ModelAttributes:
             .get(self.attribute_group_key_other)
             .get(self.table_name_attr_subsector)
         )
-        
+
         # get dicts
         dict_subsector_abv_to_subsector = attr_subsector.field_maps.get(
             f"{attr_subsector.key}_to_subsector"
@@ -3835,6 +3923,7 @@ class ModelAttributes:
                 dict_row = row.to_dict()
                 dict_row.update(dict_sector_info)
                 
+                ROWCUR = dict_row
                 modvar = mv.ModelVariable(
                     dict_row,
                     attr_cats,
@@ -3858,7 +3947,7 @@ class ModelAttributes:
         dict_out = {}
 
         # check attribute table
-        attr_table = self.get_attribute_table(subsector, "variable_definitions")
+        attr_table = self.get_attribute_table(subsector, _KEY_VARIABLE_DEFINITIONS, )
         if attr_table is None:
             return None
 
@@ -5058,38 +5147,43 @@ class ModelAttributes:
 
 
 
-    def exchange_year_time_period(self, #REVIEW: CALLS SHOULD BE SWAPPED TO USE sc.TimePeriods
+    def exchange_year_time_period(self,  # REVIEW: CALLS SHOULD BE SWAPPED TO USE sc.TimePeriods
         df_in: pd.DataFrame,
         field_year_new: str,
         series_time_domain: pd.core.series.Series,
         attribute_time_period: Union[AttributeTable, None] = None,
-        field_year_in_attribute: str = "year",
         direction: str = "time_period_to_year",
+        field_year_in_attribute: Union[str, None] = None,
     ) -> pd.DataFrame:
-        """
-        Add year field to a data frame if missing
+        """Add year field to a data frame if missing
 
         Function Arguments
         ------------------
-        - df_in: input dataframe to add column to
-        - field_year_new: field name to store year
-        - series_time_domain: pandas series of time periods
+        df_in : pd.DataFrame
+            Input dataframe to add column to
+        field_year_new : str
+            Field name to store year
+        series_time_domain : pd.core.series.Series
+            Pandas series of time periods
 
         Keyword Arguments
         -----------------
-        - attribute_time_period: AttributeTable mapping 
-            ModelAttributes.dim_time_period to year field
-        - field_year_in_attribute: field in attribute_time_period containing the 
-            year
-        - direction: which direction to map; acceptable values include:
-            * time_period_to_year: convert a time period in the series to year 
-                under field field_year_new (default)
-            * time_period_as_year: enter the time period in the year field 
-                field_year_new (used for NemoMod)
-            * year_to_time_period: convert a year back to time period if there 
-                is an injection
+        attribute_time_period : Union[AttributeTable, None]
+            AttributeTable mapping ModelAttributes.dim_time_period to year field
+        direction : str
+            Which direction to map; acceptable values include:
+            * "time_period_to_year":    convert a time period in the series to 
+                                        year under field field_year_new 
+                                        (default)
+            * "time_period_as_year":    enter the time period in the year field 
+                                        field_year_new (used for NemoMod)
+            * "year_to_time_period":    convert a year back to time period if 
+                                        there is an injection
+        field_year_in_attribute: Union[str, None]
+            Field in attribute_time_period containing the year. Defaults to
+            self.field_dim_year
         """
-
+        
         # check direction specification
         sf.check_set_values(
             [direction], 
@@ -5100,6 +5194,13 @@ class ModelAttributes:
         # get time period attribute and initialize the output data frame
         attribute_time_period = self.get_dimensional_attribute_table(self.dim_time_period)
         df_out = df_in.copy()
+
+        # get the year field
+        field_year_in_attribute = (
+            self.field_dim_year 
+            if not isinstance(field_year_in_attribute, str)
+            else field_year_in_attribute
+        )
 
         if (direction in ["time_period_as_year"]):
             df_out[field_year_new] = np.array(series_time_domain.copy())
@@ -5116,8 +5217,7 @@ class ModelAttributes:
                 df_out[field_year_new] = series_time_domain.replace(dict_repl)
 
         else:
-            msg = f"""
-            Invalid direction '{direction}' in exchange_year_time_period: 
+            msg = f"""Invalid direction '{direction}' in exchange_year_time_period: 
             specify 'time_period_to_year' or 'year_to_time_period'.
             """
             raise ValueError(msg)
@@ -5210,7 +5310,7 @@ class ModelAttributes:
         dict_assignment: Dict[str, str],
         clean_attr_key: bool = False,
         clean_field_vals: bool = True,
-        table_type: str = "variable_definitions",
+        table_type: str = _KEY_VARIABLE_DEFINITIONS,
     ) -> tuple:
         """Assign key_values that are associated with a secondary category. Use 
             matchstrings defined in dict_assignment to create an output 
@@ -6422,7 +6522,7 @@ class ModelAttributes:
         subsector = self.get_variable_subsector(variable)
         attr_subsector = self.get_attribute_table(
             subsector, 
-            table_type = "variable_definitions",
+            table_type = _KEY_VARIABLE_DEFINITIONS,
         )
 
         # get the attribute
@@ -6828,8 +6928,7 @@ class ModelAttributes:
         vec_ordered_cats_target: np.ndarray,
         subsector: str,
     ) -> np.ndarray:
-        """
-        Swap category columns in an array
+        """Swap category columns in an array
 
         Function Arguments
         ------------------
@@ -6907,6 +7006,48 @@ class ModelAttributes:
         )
 
         return array_new
+    
+
+
+    def update_dimensional_attribute_table(self,
+        attribute_table: AttributeTable,
+    ) -> None:
+        """Update a dimensional attribute table. 
+        """
+        
+        ##  CHECK TYPES
+
+        if not is_attribute_table(attribute_table,):
+            return None
+        
+        # only update, don't add new tables
+        attr_cur = self.get_dimensional_attribute_table(attribute_table.key)
+        if attr_cur is None:
+            return None
+        
+        # don't allow certain ones
+        if attribute_table.key in [self.dim_future_id]:
+            warnings.warn(f"Unable to update dimensional attribute table '{attribute_table.key}': prohibited.")
+            return None
+        
+        
+        ##  VERIFY TABLES
+
+        # time period?
+        if attr_cur.key == self.dim_time_period:
+            self._check_dimensional_attribute_table_time_periods(
+                attribute_time_period = attribute_table,
+            )
+        
+        # update
+        self.dict_attributes[self.attribute_group_key_dim].update(
+            {attribute_table.key: attribute_table, }
+        )
+
+        return None
+
+
+
 
 
 

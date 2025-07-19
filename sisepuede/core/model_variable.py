@@ -288,7 +288,8 @@ class ModelVariable:
                 continue
             
             dict_category_key_space.update({root_elem: attr.key_values})
-            
+        global DCKS
+        DCKS = dict_category_key_space
 
         # get categories 
         dict_category_keys = self.get_categories_by_element(
@@ -828,7 +829,7 @@ class ModelVariable:
         category_definition_out = {}
 
         # check the specification of the element definition and turn into a dictionary for iteration
-        if isinstance(category_definition, at.AttributeTable):
+        if at.is_attribute_table(category_definition):
             category_definition_out = {category_definition.key: category_definition}
 
         elif sf.islistlike(category_definition):
@@ -1341,6 +1342,12 @@ class ModelVariable:
                 dim,
                 self.dict_category_keys.get(dim)
             )
+            global DIM
+            global DCK
+            global RESTRICT
+            DIM = dim
+            DCK = self.dict_category_keys
+            RESTRICT = restrictions
 
             fields_new = []
             for field_elem in fields:

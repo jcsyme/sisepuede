@@ -539,24 +539,39 @@ def check_path(
 
 def check_row_sums(
     array: np.ndarray,
-    sum_restriction: float = 1,
-    thresh_correction: float = 0.001,
+    axis: int = 1,
     msg_pass: str = "",
+    sum_restriction: Union[float, np.ndarray] = 1,
+    thresh_correction: Union[float, None] = 0.001,
 ) -> np.ndarray:
+    """Check row sums to ensure they add to sum_restriction
+
+    Function Arguments
+    ------------------
+    array : np.ndarray
+        Array to check sums against
+
+    Keyword Arguments
+    -----------------
+    axis : int
+        Axis of array to sum over
+    msg_pass : str
+        Optional message to pass to error
+    sum_restriction : Union[float, np.ndarray]
+        Float or NumPy array with same shape as axis, used to restrict sums
+    thresh_correction : Union[float, None]
+        Threshold for correction. If None, will correct any value
     """
-    Check row sums to ensure they add to 1
-    """
-    sums = array.sum(axis = 1)
+    sums = array.sum(axis = axis, )
     max_diff = np.max(np.abs(sums - sum_restriction))
 
-    if max_diff > thresh_correction:
-        msg = f"""
-        Invalid row sums in array{msg_pass}. The maximum deviance is {max_diff}, 
-        which is greater than the threshold for correction 
-        (thresh_correction = {thresh_correction}).
-        """
+    if isnumber(thresh_correction):
+        if max_diff > thresh_correction:
+            msg = f"""Invalid row sums in array{msg_pass}. The maximum deviance is {max_diff}, 
+            which is greater than the threshold for correction (thresh_correction = {thresh_correction}).
+            """
 
-        raise ValueError(msg)
+            raise ValueError(msg)
 
     arr_out = (array.transpose()/sums).transpose()
 
@@ -957,15 +972,20 @@ def dict_to_excel(
     replace_file: bool = False, 
     **kwargs
 ) -> None:
-    """
-    Write a dictionary `dict_out` of dataframes to Excel file at path fp_out.
+    """Write a dictionary `dict_out` of dataframes to Excel file at path fp_out.
         Keys in dict_out are sheet names.
-
+    
+    Function Arguments
+    ------------------
+    fp_out : Union[str, pathlib.Path]
+        Path to write to
+    
     Keyword Arguments
     -----------------
-    - encoding: if None, defaults to UTF-8
-    - replace_file: if True, removes file if exists
-    - **kwargs: passed to df.to_excel (ignores encoding)
+    replace_file : bool
+        If True, removes file if exists
+    **kwargs : 
+        Passed to df.to_excel (ignores encoding)
     """
 
     (
@@ -991,7 +1011,6 @@ def dict_to_excel(
                 index = False, 
                 **dict_kwargs,
             )
-    
 
     return None
 
@@ -1039,15 +1058,20 @@ def do_array_mult(
     """
     if isinstance(arr_variable, float) or isinstance(arr_variable, int) or isinstance(arr_stable, float) or isinstance(arr_stable, int):
         return arr_variable*arr_stable
+    
     elif (arr_variable.shape == arr_stable.shape):
         return arr_variable*arr_stable
+    
     elif (len(arr_stable.shape) == 2):
         if (arr_variable.shape == (arr_stable.shape[1], )):
             return arr_variable*arr_stable
+        
         elif arr_variable.shape == (arr_stable.shape[0], ):
             return (arr_stable.transpose()*arr_variable).transpose()
+        
     elif allow_outer:
         return np.outer(arr_stable, arr_variable)
+    
     else:
         raise ValueError(f"Error in do_array_mult: Incompatable shape {arr_variable.shape} in arr_variable. The stable array has shape {arr_stable.shape}.")
 

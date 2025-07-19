@@ -2779,19 +2779,19 @@ class EnergyProduction:
         # get some information
         attribute_fuel = (
             self.get_attribute_enfu()
-            if not isinstance(attribute_fuel, AttributeTable) 
+            if not is_attribute_table(attribute_fuel, ) 
             else attribute_fuel
         )
 
         attribute_technology = (
             self.get_attribute_entc()
-            if not isinstance(attribute_technology, AttributeTable) 
+            if not is_attribute_table(attribute_technology, ) 
             else attribute_technology
         )
 
         attribute_time_period = (
             self.get_attribute_time_period()
-            if not isinstance(attribute_time_period, AttributeTable) 
+            if not is_attribute_table(attribute_time_period, ) 
             else attribute_time_period
         )
 
@@ -5075,7 +5075,7 @@ class EnergyProduction:
         # initialize some attribute components
         attr_enfu = (
             self.model_attributes.get_attribute_table(self.model_attributes.subsec_name_enfu) 
-            if not isinstance(attribute_fuel, AttributeTable) 
+            if not is_attribute_table(attribute_fuel, ) 
             else attribute_fuel
         )
         pycat_enfu = self.model_attributes.get_subsector_attribute(
@@ -5428,12 +5428,12 @@ class EnergyProduction:
 
         attr_enfu = (
             self.model_attributes.get_attribute_table(self.model_attributes.subsec_name_enfu) 
-            if not isinstance(attribute_fuel, AttributeTable) 
+            if not is_attribute_table(attribute_fuel, ) 
             else attribute_fuel
         )
         attr_entc = (
             self.model_attributes.get_attribute_table(self.model_attributes.subsec_name_entc) 
-            if not isinstance(attribute_technology, AttributeTable) 
+            if not is_attribute_table(attribute_technology, ) 
             else attribute_technology
         )
         pycat_enfu = self.model_attributes.get_subsector_attribute(

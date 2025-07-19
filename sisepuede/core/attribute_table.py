@@ -1,45 +1,57 @@
 import numpy as np
 import os, os.path
 import pandas as pd
+import pathlib
 import sisepuede.utilities._toolbox as sf
 import warnings
 from typing import *
 
 
+##  GLOBAL VARIABLES
+
+_MODULE_UUID = "9DA52BFC-A67C-4EA7-AFBE-3906DC8F8510"
+
+
+
 
 
 class AttributeTable:
-    """
-    AttributeTable class checks existence, keys, key values, and generates field 
-        maps. Useful for quickly accessing table keys and information associated 
-        with keys.
+    """AttributeTable class checks existence, keys, key values, and generates 
+        field maps. Useful for quickly accessing table keys and information 
+        associated with keys.
 
     Function Arguments
     ------------------
-    - fp_table: string giving file path to CSV OR DataFrame to use as attribute
-        table
-    - key: key in fp_table to use
+    fp_table : Union[str, pathlib.Path, pd.DataFrame]
+        String or pathlib.Path giving file path to CSV OR DataFrame to use as 
+        AttributeTable
+    key : str
+        Key in fp_table to use
 
     Keyword Arguments
     -----------------
-    - fields_to_dict: optional fields to include in fields maps. If None, will
-        include map of key to all fields + inverse for bijective maps
-    - clean_table_fields: clean field names from input CSV or DataFrame to 
-        ensure lower case/no spaces?
+    fields_to_dict : Union[list, None]
+        Optional fields to include in fields maps. If None, will include map of 
+        key to all fields + inverse for bijective maps
+    clean_table_fields : bool
+        Clean field names from input CSV or DataFrame to ensure lower case/no 
+        spaces?
     """
     def __init__(self,
         fp_table: Union[str, pd.DataFrame],
         key: str,
         fields_to_dict: Union[list, None] = None,
         clean_table_fields: bool = True,
-    ):
+    ) -> None:
 
         self._initialize_table(
             fp_table,
             key,
-            fields_to_dict = fields_to_dict,
             clean_table_fields = clean_table_fields,
+            fields_to_dict = fields_to_dict,
         )
+
+        self._initialize_uuid()
 
         return None
     
@@ -103,10 +115,10 @@ class AttributeTable:
 
 
     def _initialize_table(self,
-        fp_table: Union[str, pd.DataFrame],
+        fp_table: Union[str, pathlib.Path, pd.DataFrame],
         key: str,
-        fields_to_dict: Union[list, None] = None,
         clean_table_fields: bool = True,
+        fields_to_dict: Union[list, None] = None,
     ) -> None:
         """
         Initialize the input table and file path. Sets the following properties:
@@ -119,21 +131,12 @@ class AttributeTable:
             * self.n_key_values
             * self.table
         """
-        # verify table exists and check keys
-        if isinstance(fp_table, str):
-            table = pd.read_csv(
-                sf.check_path(fp_table, False), 
-                skipinitialspace = True
-            )
 
-        elif isinstance(fp_table, pd.DataFrame):
-            table = fp_table.copy()
-            fp_table = None
-        
-        else:
-            tp = str(type(fp_table))
-            msg = f"Error initializing AttributeTable: invalid type '{tp}' of fp_table specified."
-            raise RuntimeError(msg)
+        table = get_attribute_table_df(
+            fp_table, 
+            allow_attribute_arg = False, 
+            stop_on_error = True,
+        )
 
 
         ##  CHECK FIELDS
@@ -193,6 +196,18 @@ class AttributeTable:
         self.key_values = key_values
         self.n_key_values = len(key_values)
         self.table = table
+
+        return None
+    
+
+
+    def _initialize_uuid(self,
+    ) -> None:
+        """Initialize the UUID
+        """
+
+        self.is_attribute_table = True
+        self._uuid = _MODULE_UUID
 
         return None
 
@@ -298,7 +313,7 @@ def concatenate_attribute_tables(
     header = None
 
     for att in args:
-        if not isinstance(att, AttributeTable):
+        if not is_attribute_table(att, ):
             continue 
         
         tab_cur = att.table.copy().rename(columns = {att.key: key_shared})
@@ -339,3 +354,85 @@ def concatenate_attribute_tables(
     )
 
     return att_out
+
+
+
+
+
+###################################
+#    SIMPLE CHECKING FUNCTIONS    #
+###################################
+
+def get_attribute_table_df(
+    fp_table: Union[str, pathlib.Path, pd.DataFrame],
+    allow_attribute_arg: bool = True,
+    stop_on_error: bool = True,
+) -> Union[pd.DataFrame, AttributeTable, None]:
+    """Retrieve an AttributeTable from a path (str or pathlib.Path), DataFrame.
+    
+    Function Arguments
+    ------------------
+    fp_table : Union[str, pathlib.Path, pd.DataFrame]
+        String or pathlib.Path giving file path to CSV OR DataFrame to use as 
+        AttributeTable
+
+    Keyword Arguments
+    -----------------
+    allow_attribute_arg : bool
+        Set to True to allow fp_table to be an AttributeTable. If False, will
+        throw an error if stop_on_error, otherwise return None
+    stop_on_error : bool
+        Stop on errors (True), or return None (False)
+    """
+    
+    # check if the object is an AttributeTable (doesn't use type checking)
+    if is_attribute_table(fp_table):
+        if allow_attribute_arg:
+           return fp_table
+
+        if stop_on_error:
+            raise RuntimeError(f"Cannot pass an AttributeTable as argument.")
+        
+        return None
+
+    # verify table exists and check keys
+    if isinstance(fp_table, (str, pathlib.Path, )):
+        table = pd.read_csv(
+            sf.check_path(fp_table, False), 
+            skipinitialspace = True,
+        )
+    
+    elif isinstance(fp_table, pd.DataFrame):
+        table = fp_table.copy()
+        fp_table = None
+    
+    else:
+        if stop_on_error:
+            tp = str(type(fp_table))
+            msg = f"""Error initializing AttributeTable: invalid type '{tp}' of 
+            fp_table specified. Must be str, pathlib.Path, or DataFrame."""
+            raise RuntimeError(msg)
+
+        return None
+    
+    return table
+
+
+
+def is_attribute_table(
+    obj: Any,
+) -> bool:
+    """
+    check if obj is a SISEPUEDE object
+    """
+
+    out = hasattr(obj, "is_attribute_table")
+    uuid = getattr(obj, "_uuid", None)
+
+    out &= (
+        uuid == _MODULE_UUID
+        if uuid is not None
+        else False
+    )
+
+    return out

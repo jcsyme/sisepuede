@@ -79,7 +79,7 @@ class Units:
             except Exception as e:
                 raise RuntimeError(f"Error reading units attributes: {e}")
 
-        if not isinstance(attributes, AttributeTable):
+        if not is_attribute_table(attributes):
             tp = str(type(attributes))
             raise RuntimeError(f"Invalid type '{tp}' for attributes found in Units initialization.")
         

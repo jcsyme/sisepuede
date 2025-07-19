@@ -21,8 +21,7 @@ _WIDTHS_DEFAULT = (20, 180)  #, 1000)
 ################################
 
 class NPPCurve:
-    """
-    Store information about the NPP Curve
+    """Store information about the NPP Curve
     """
     def __init__(self,
         func: callable,
@@ -62,8 +61,7 @@ class NPPCurve:
         vec_params: Union[list, np.ndarray, None] = None,
         stop_on_error: bool = False,
     ) -> Union[np.ndarray, None]:
-        """
-        Get parameters--if an invalid vector is 
+        """Get parameters--if an invalid vector is 
         """
 
 
@@ -92,8 +90,7 @@ def _bounds_gamma(
     *args,
     **kwargs,
 ) -> float:
-    """
-    Get bounds for minimization of gamma
+    """Get bounds for minimization of gamma
     """
     # final parameter k2 is negative
     out = [(0, None), (None, 1), (None, 0)]
@@ -108,8 +105,7 @@ def _curve_gamma(
     k1: float,
     k2: float,
 ) -> float:
-    """
-    Project sequestration in new forests as a function of time using NPP in
+    """Project sequestration in new forests as a function of time using NPP in
         gamma curve. The curve takes the following form:
 
         k0*(t**k1)*(e**(k2*t))
@@ -128,8 +124,7 @@ def _jacobian_gamma(
     k1: float,
     k2: float,
 ) -> float:
-    """
-    Project sequestration in new forests as a function of time using NPP in
+    """Project sequestration in new forests as a function of time using NPP in
         gamma curve. The curve takes the following form:
 
         k0*(t**k1)*(e**(k2*t))
@@ -162,8 +157,7 @@ def _bounds_sem(
     force_convergence: bool = True,
     **kwargs,
 ) -> float:
-    """
-    Set bounds for minimization of gamma
+    """Set bounds for minimization of gamma
     """ 
 
     out = [(0, None) for x in range(4)]
@@ -181,8 +175,7 @@ def _curve_sem(
     c: float,
     d: float,
 ) -> float:
-    """
-    Use the SEM curve (Chen et al.) for NPP 
+    """Use the SEM curve (Chen et al.) for NPP 
     """
 
     out = b*((t/c)**d) - 1
@@ -201,8 +194,7 @@ def _deriv_sem(
     c: float,
     d: float,
 ) -> float:
-    """
-    First-order derivative of the SEM curve (Chen et al.) for NPP (wrt t)
+    """First-order derivative of the SEM curve (Chen et al.) for NPP (wrt t)
     """
 
     # intermediate variables
@@ -220,9 +212,8 @@ def _deriv_sem(
 
 
 class NPPCurves:
-    """
-    Generate curves for net primary production (NPP), which estimates
-        net "carbon gain by plants". As noted by Chapin and Eviner,
+    """Generate curves for net primary production (NPP), which estimates net 
+        "carbon gain by plants". As noted by Chapin and Eviner,
 
 
         NPP is the net carbon gain by plants. It is the balance between the 
