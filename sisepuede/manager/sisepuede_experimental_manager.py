@@ -224,7 +224,7 @@ class SISEPUEDEExperimentalManager:
 		"""
 
 		# verify input type
-		if not isinstance(attribute_design, AttributeTable):
+		if not is_attribute_table(attribute_design, ):
 			tp = str(type(attribute_design))
 			self._log(f"Invalid type '{tp}' in specification of attribute_design: attribute_design should be an AttributeTable.", type_log = "error")
 

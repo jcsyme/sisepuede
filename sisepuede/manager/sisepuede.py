@@ -148,6 +148,12 @@ class SISEPUEDE:
             (a) exogenous uncertainties vary at ranges specified in input
                 templates; and
             (b) lever effects are fixed.
+    attribute_time_period : Union[str, pathlib.Path, pd.DataFrame, AttributeTable, None]
+        Optional path to a csv, DataFrame, or AttributeTable object used to 
+        specify the time_period.
+        * Note: If None, will attempt to find a table within the ModelAttributes
+            object with key "dim_time_period". If none is found, will throw an
+            error.
     db_type : Union[str, None]
         Optional specification of an IterativeDataBase type. 
         * "csv": write to a CSV database (each table is a CSV)
@@ -235,6 +241,7 @@ class SISEPUEDE:
     def __init__(self,
         data_mode: str,
         attribute_design: Union[AttributeTable, None] = None,
+        attribute_time_period: Union[str, pathlib.Path, pd.DataFrame, AttributeTable, None] = None,
         db_type: Union[str, None] = None,
         dir_ingestion: Union[str, None] = None,
         id_str: Union[str, None] = None,
@@ -259,7 +266,8 @@ class SISEPUEDE:
             strategies = strategies,
         )
         self._initialize_support_classes()
-        self._initialize_attribute_design(attribute_design)
+        self._initialize_attribute_design(attribute_design, )
+        self._initialize_attribute_time_period(attribute_time_period, )
         self._initialize_keys()
 
         # initialize the output database
@@ -312,7 +320,6 @@ class SISEPUEDE:
 
     def _initialize_attribute_design(self,
         attribute_design: Union[AttributeTable, None] = None,
-        key_model_attributes_design: str = "design_id",
     ) -> None:
         """Initialize and check the attribute design table. Sets the following
             properties:
@@ -322,22 +329,65 @@ class SISEPUEDE:
 
         Keyword Arguments
         -----------------
-        - attribute_design: AttributeTable used to specify designs.
+        attribute_design: AttributeTable used to specify designs.
             * If None, tries to access "dim_design_id" from
                 ModelAttributes.dict_attributes
-        - key_model_attributes_design: key in model_attributes.dict_attributes
-            used to try and get design attribute.
-            * If None, defaults to "dim_design_id"
         """
+
+        key_model_attributes_design = self.model_attributes.dim_design_id
 
         # initialize the attribute design table -- checks on the table are run when experimental manager is initialized
         self.attribute_design = (
             self.model_attributes.get_dimensional_attribute_table(key_model_attributes_design)
-            if not isinstance(attribute_design, AttributeTable) 
+            if not is_attribute_table(attribute_design) 
             else attribute_design
         )
 
         return None
+
+
+    
+    def _initialize_attribute_time_period(self,
+        attribute_time_period: Union[str, pathlib.Path, pd.DataFrame, AttributeTable, None] = None,
+    ) -> None:
+        """Initialize and check the attribute design table. Sets the following
+            properties:
+
+            * self.attribute_time_period
+ 
+        Keyword Arguments
+        -----------------
+        attribute_time_period : Union[str, pathlib.Path, pd.DataFrame, AttributeTable, None]
+            AttributeTable storing information on time periods and years
+        """
+
+        ##  GET THE ATTRIBUTE TABLE 
+
+        # if passed as an AttributeTable, returns that obj; otherwise, tries to get the underlying DataFrame
+        attribute_time_period = get_attribute_table_df(
+            attribute_time_period, 
+            allow_attribute_arg = True,
+            stop_on_error = False, 
+        )
+
+        # if DataFrame, tries to convert
+        if isinstance(attribute_time_period, pd.DataFrame):
+            attribute_time_period = AttributeTable(
+                attribute_time_period,
+                self.model_attributes.dim_time_period, 
+            )
+
+        # skip if not specifying an attribute 
+        if not is_attribute_table(attribute_time_period):
+            msg = "Attempt to retrieve time_period attribute failed. Check the specification."
+            raise RuntimeError(msg, )
+        
+
+        # finally, try to update
+        self.model_attributes.update_dimensional_attribute_table(attribute_time_period, )
+    
+        return None
+
 
 
 

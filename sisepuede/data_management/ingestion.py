@@ -5,7 +5,7 @@ import pandas as pd
 import re
 from typing import *
 
-from sisepuede.core.attribute_table import AttributeTable
+from sisepuede.core.attribute_table import AttributeTable, is_attribute_table
 import sisepuede.core.model_attributes as ma
 import sisepuede.utilities._toolbox as sf
 
@@ -498,7 +498,7 @@ class InputTemplate:
 		# default to model attributes designation
 		self.baseline_strategy = self.model_attributes.get_baseline_scenario_id(self.model_attributes.dim_strategy_id)
 
-		if isinstance(attribute_strategy, AttributeTable):
+		if is_attribute_table(attribute_strategy, ):
 			out = attribute_strategy
 			field_check = f"{self.field_prepend_req_attr_baseline_scenario}{out.key}"
 
