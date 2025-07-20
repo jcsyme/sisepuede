@@ -3,13 +3,14 @@ import logging
 import os, os.path
 import pickle
 import re
+import sisepuede.core.model_attributes as ma
+import sisepuede.utilities._toolbox as sf
 from typing import *
 
 
 from sisepuede.core.analysis_id import AnalysisID
 from sisepuede.models.energy_production import EnergyProduction
-import sisepuede.core.model_attributes as ma
-import sisepuede.utilities._toolbox as sf
+
 
 
 
@@ -37,6 +38,9 @@ class SISEPUEDEFileStructure:
 
     Optional Arguments
     ------------------
+    attribute_time_period : Union[str, pathlib.Path, pd.DataFrame, AttributeTable, None]
+        Optional time period attribute table to pass to model attributes for
+        overwriting default. 
     dir_ingestion : Union[str, None]
         Directory containing templates for ingestion. The ingestion directory 
         should include subdirectories for each template class that may be run, 
@@ -69,6 +73,7 @@ class SISEPUEDEFileStructure:
         If template directory is not found, stop? 
     """
     def __init__(self,
+        attribute_time_period: Union[str, 'pathlib.Path', 'pd.DataFrame', 'AttributeTable', None] = None,
         dir_ingestion: Union[str, None] = None,
         fn_config: str = _FILE_NAME_CONFIG,
         id_str: Union[str, None] = None,
@@ -99,6 +104,7 @@ class SISEPUEDEFileStructure:
             initialize_directories = initialize_directories,
         )
         self._initialize_model_attributes(
+            attribute_time_period = attribute_time_period,
             initialize_directories = initialize_directories,
         )
         self._check_nemomod_reference_file_paths()
@@ -592,6 +598,7 @@ class SISEPUEDEFileStructure:
 
 
     def _initialize_model_attributes(self,
+        attribute_time_period: Union[str, 'pathlib.Path', 'pd.DataFrame', 'AttributeTable', None] = None,
         initialize_directories: bool = True,
     ) -> None:
         """
@@ -622,6 +629,19 @@ class SISEPUEDEFileStructure:
                 else None
             )
             self.model_attributes = model_attributes
+        
+        
+        ##  FINALLY, ATTEMPT TO UPDATE THE TIME PERIOD ATTRIBUTE
+
+        attr_cur = self.model_attributes.get_dimensional_attribute_table(
+            self.model_attributes.dim_time_period,
+        )
+
+        # finally, try to update
+        self.model_attributes.update_dimensional_attribute_table(
+            attribute_time_period, 
+            key = attr_cur.key,
+        )
 
         return None
 

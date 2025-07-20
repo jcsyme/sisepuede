@@ -4,6 +4,7 @@ import logging
 import numpy as np
 import os, os.path
 import pandas as pd
+import pathlib
 import re
 import shutil
 import time
@@ -134,33 +135,32 @@ def get_dict_config_default(
 ################################
 
 class Transformer:
-    """
-    Create a Transformation class to support construction in sectoral 
+    """Create a Transformation class to support construction in sectoral 
         transformations. 
 
     Initialization Arguments
     ------------------------
-    - code: transformer code used to map the transformer to the attribute table. 
+    code : str
+        Transformer code used to map the transformer to the attribute table. 
         Must be defined in attr_transfomers.table[attr_transfomers.key]
-    - func: the function associated with the transformation OR an ordered list 
-        of functions representing compositional order, e.g., 
+    func : Callable
+        The function associated with the transformation OR an ordered list of \
+        functions representing compositional order, e.g., 
 
         [f1, f2, f3, ... , fn] -> fn(f{n-1}(...(f2(f1(x))))))
 
-    - attr_transformers: AttributeTable usd to define transformers from 
-        ModelAttributes
+    attr_transformers : AttributeTable 
+        AttributeTable used to define transformers from ModelAttributes
 
     Keyword Arguments
     -----------------
-    - code_baseline: transformer code that stores the baseline code, which is 
-        applied to raw data.
-    - field_transformer_id: field in attr_transfomer.table containing the
-        transformer index
-    - field_transformer_name: field in attr_transfomer.table containing the
-        transformer name
-    - include_code_in_docstr: include the Transformer code in the docstring 
-        if overwriting?
-    - overwrite_docstr: overwrite the docstring if there's only one function?
+    code_baseline : str
+        Transformer code that stores the baseline code, which is applied to raw 
+        data.
+    include_code_in_docstr: bool
+        Include the Transformer code in the docstring if overwriting?
+    overwrite_docstr : bool
+        overwrite the docstring if there's only one function?
     """
     
     def __init__(self,
@@ -438,58 +438,39 @@ class Transformer:
 ####################################
 
 class Transformers:
-    """
-    Build collection of Transformers that are used to define transformations.
+    """Build collection of Transformers that are used to define transformations.
 
     Includes some information on
 
     Initialization Arguments
     ------------------------
-    - dict_config: configuration dictionary used to pass parameters to 
-        transformations. See ?TransformerEnergy._initialize_parameters() for
-        more information on requirements.
-    - dir_jl: location of Julia directory containing Julia environment and 
-        support modules
-    - fp_nemomod_reference_files: directory housing reference files called by
-        NemoMod when running electricity model. Required to access data in 
-        EnergyProduction. Needs the following CSVs:
-
-        * Required keys or CSVs (without extension):
-            (1) CapacityFactor
-            (2) SpecifiedDemandProfile
+    dict_config : Dict
+        Configuration dictionary used to pass parameters to transformations. See 
+        ?TransformerEnergy._initialize_parameters() for more information on 
+        requirements.
 
     Optional Arguments
     ------------------
-    - fp_nemomod_temp_sqlite_db: optional file path to use for SQLite database
-        used in Julia NemoMod Electricity model
-        * If None, defaults to a temporary path sql database
-    - logger: optional logger object
-    - model_afolu: optional AFOLU object to pass for property and method access.
-        * NOTE: if passing, ensure that the ModelAttributes objects used to 
-            instantiate the model + what is passed to the model_attributes
-            argument are the same.
-    - model_circecon: optional CircularEconomy object to pass for property and
-        method access.
-        * NOTE: if passing, ensure that the ModelAttributes objects used to 
-            instantiate the model + what is passed to the model_attributes
-            argument are the same.
-    - model_enerprod: optional EnergyProduction object to pass for property and 
-        method access.
-        * NOTE: if passing, ensure that the ModelAttributes objects used to 
-            instantiate the model + what is passed to the model_attributes
-            argument are the same.
-    - model_ippu: optional IPPU object to pass for property and method access.
-        * NOTE: if passing, ensure that the ModelAttributes objects used to 
-            instantiate the model + what is passed to the model_attributes
-            argument are the same.
-    - regex_code_structure: regular expression defining the code structure of
-        transformer codes
-    - regex_template_prepend: passed to SISEPUEDEFileStructure()
-    - **kwargs 
+    attr_time_period : Union[str, pathlib.Path, pd.DataFrame, AttributeTable, None]
+        Optional time period attribute table to pass to model attributes for
+        overwriting default. 
+    df_input : Union[pd.DataFrame, None]
+        Optional input DataFrame to use for applying transformations; if True,
+        pre-builds transofmations using this DataFrame, and, when 
+        transformations are called without arguments, applies transformations to
+        this DataFrame by default.
+    logger : Union[logging.Logger, None]
+        Optional logger object
+    regex_code_structure : re.Pattern
+        Regular expression defining the code structure of transformer codes
+    regex_template_prepend : str
+        Passed to SISEPUEDEFileStructure()
+    **kwargs 
     """
     
     def __init__(self,
         dict_config: Dict,
+        attr_time_period: Union[str, pathlib.Path, pd.DataFrame, AttributeTable, None],
         code_baseline: str = f"{_MODULE_CODE_SIGNATURE}:BASE",
         df_input: Union[pd.DataFrame, None] = None,
         field_region: Union[str, None] = None,
@@ -502,6 +483,7 @@ class Transformers:
         self.logger = logger
 
         self._initialize_file_structure(
+            attr_time_period = attr_time_period,
             regex_template_prepend = regex_template_prepend, 
         )
         self._initialize_models(**kwargs)
@@ -750,6 +732,7 @@ class Transformers:
 
 
     def _initialize_file_structure(self,
+        attr_time_period: Union[str, pathlib.Path, pd.DataFrame, AttributeTable, None],
         dir_ingestion: Union[str, None] = None,
         id_str: Union[str, None] = None,
         regex_template_prepend: str = "sisepuede_run"
@@ -763,9 +746,13 @@ class Transformers:
 
         Optional Arguments
         ------------------
-        - dir_ingestion: directory containing templates for ingestion. The
-            ingestion directory should include subdirectories for each template
-            class that may be run, including:
+        attr_time_period : Union[str, pathlib.Path, pd.DataFrame, AttributeTable, None]
+            Optional time period attribute table to pass to model attributes for
+            overwriting default. 
+        dir_ingestion : Union[str, None]
+            Directory containing templates for ingestion. The ingestion 
+            directory should include subdirectories for each template class that 
+            may be run, including:
                 * calibrated: input variables that are calibrated for each
                     region and sector
                 * demo: demo parameters that are independent of region (default
@@ -775,9 +762,10 @@ class Transformers:
             The calibrated and uncalibrated subdirectories require separate
                 subdrectories for each region, each of which contains an input
                 template for each
-        - id_str: Optional id_str used to create AnalysisID (see ?AnalysisID
-            for more information on properties). Can be used to set outputs for
-            a previous ID/restore a session.
+        id_str: Union[str, None]
+            Optional id_str used to create AnalysisID (see ?AnalysisID for more 
+            information on properties). Can be used to set outputs for a 
+            previous ID/restore a session.
             * If None, creates a unique ID for the session (used in output file
                 names)
         """
@@ -787,6 +775,7 @@ class Transformers:
 
         try:
             self.file_struct = sfs.SISEPUEDEFileStructure(
+                attribute_time_period = attr_time_period,
                 initialize_directories = False,
                 logger = self.logger,
                 regex_template_prepend = regex_template_prepend

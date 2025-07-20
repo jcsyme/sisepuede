@@ -585,10 +585,12 @@ def transformation_general(
                             (magnitude, np.inf)
                         )
 
-
+                global _ARR_FINAL
                 # check if bounds need to be applied
                 arr_final = sf.vec_bounds(arr_final, bounds) if (bounds is not None) else arr_final
-                
+
+                _ARR_FINAL = sf.vec_bounds(vec_ramp, (0, 1)).copy()
+
                 if mix_to_transform:
                     vec_ramp = sf.vec_bounds(vec_ramp, (0, 1))
                     arr_transform = sf.do_array_mult(arr_base, 1 - vec_ramp)

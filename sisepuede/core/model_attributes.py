@@ -7010,16 +7010,60 @@ class ModelAttributes:
 
 
     def update_dimensional_attribute_table(self,
-        attribute_table: AttributeTable,
+        attribute_table: Union[str, pathlib.Path, pd.DataFrame, AttributeTable, None],
+        key: Union[str, None] = None,
+        stop_on_error: bool = True, 
     ) -> None:
         """Update a dimensional attribute table. 
+
+        Function Arguments
+        ------------------
+        attribute_time_period : Union[str, pathlib.Path, pd.DataFrame, AttributeTable, None]
+            AttributeTable storing information on time periods and years
+
+        Keyword Arguments
+        -----------------
+        key : Union[str, None]
+            * Required if passing a path-like object or a DataFrame
+            * If passing an AttributeTable, key will default to 
+              AttrbuteTable.key, but this kwarg can be used to overwrite that.
+        stop_on_error : bool
+            Stop on errors? If False, returns Non
         """
         
-        ##  CHECK TYPES
+        # raise an error
+        if isinstance(attribute_table, (str, pathlib.Path, pd.DataFrame)) and not isinstance(key, str):
+            if stop_on_error:
+                msg = "You must provide a key in update_dimensional_attribute_table when passing a str, pathlib.Path, or DataFrame."
+                raise RuntimeError(msg)
 
-        if not is_attribute_table(attribute_table,):
             return None
-        
+
+
+        ##  GET THE ATTRIBUTE TABLE AND VERIFY TYPE
+
+        # if passed as an AttributeTable, returns that obj; otherwise, tries to get the underlying DataFrame
+        attribute_table = get_attribute_table_df(
+            attribute_table, 
+            allow_attribute_arg = True,
+            stop_on_error = False, 
+        )
+
+        # if DataFrame, tries to convert
+        if isinstance(attribute_table, pd.DataFrame):
+            attribute_table = AttributeTable(attribute_table, key, )
+
+        # skip if not specifying an attribute 
+        if not is_attribute_table(attribute_table):
+            if stop_on_error:
+                msg = "Attempt to retrieve time_period attribute failed. Check the specification."
+                raise RuntimeError(msg, )
+
+            return None
+
+
+        ##  UPDATE DICTIONARY
+
         # only update, don't add new tables
         attr_cur = self.get_dimensional_attribute_table(attribute_table.key)
         if attr_cur is None:

@@ -501,7 +501,7 @@ def code_to_file_name(
 
 
 def instantiate_default_strategy_directory(
-    transformers: trs.Transformers,
+    transformers: 'Transformers',
     path_transformations: Union[str, pathlib.Path],
     export_transformations: bool = True,
     fn_citations: str = trn._DICT_FILE_NAME_DEFAULTS.get("citations"),
@@ -511,25 +511,34 @@ def instantiate_default_strategy_directory(
     return_dict: bool = False,
     **kwargs,
 ) -> Union[dict, None]:
-    """
-    Instantiate default transformations configuration files and strategy
+    """Instantiate default transformations configuration files and strategy
         definition file into a Strategy Directory. 
         
     Function Arguments
     ------------------
-    - path_transformations: output directory where default transformations are 
-        to be spawned
+    transformers : Transformers
+        Transformers objects used to export
+    path_transformations : Union[str, pathlib.Path]
+        Output directory where default transformations are to be spawned
         
     Keyword Arguments
     -----------------
-    - export_transformations: build the output directory and export?
-    - fn_citations: file name of Bibtex file in dir_init containing optional 
-        citations to provide
-    - fn_config_general: file name of the general configuration file in dir_init
-    - mk_path: make the path of the direcetory if it doesn't exist? Only applies 
+    export_transformations : bool
+        Build the output directory and export?
+    fn_citations : str
+        File name of Bibtex file in dir_init containing optional citations to 
+        provide
+    fn_config_general : str
+        File name of the general configuration file in dir_init
+    fn_strategy_definitions : str
+        File name of the strategy definitions file to include
+    mk_path : bool
+        Make the path of the direcetory if it doesn't exist? Only applies 
         if `export_transformations == True`
-    - return_dict: if True, will return the dictionary of outputs
-    - **kwargs: passed to build_default_strategies()  
+    return_dict: bool
+        If True, will return the dictionary of outputs
+    **kwargs : 
+        Passed to build_default_strategies()  
     """
     
     ##  VERIFY INPUTS

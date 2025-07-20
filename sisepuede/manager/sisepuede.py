@@ -363,28 +363,15 @@ class SISEPUEDE:
 
         ##  GET THE ATTRIBUTE TABLE 
 
-        # if passed as an AttributeTable, returns that obj; otherwise, tries to get the underlying DataFrame
-        attribute_time_period = get_attribute_table_df(
-            attribute_time_period, 
-            allow_attribute_arg = True,
-            stop_on_error = False, 
+        attr_cur = self.model_attributes.get_dimensional_attribute_table(
+            self.model_attributes.dim_time_period,
         )
 
-        # if DataFrame, tries to convert
-        if isinstance(attribute_time_period, pd.DataFrame):
-            attribute_time_period = AttributeTable(
-                attribute_time_period,
-                self.model_attributes.dim_time_period, 
-            )
-
-        # skip if not specifying an attribute 
-        if not is_attribute_table(attribute_time_period):
-            msg = "Attempt to retrieve time_period attribute failed. Check the specification."
-            raise RuntimeError(msg, )
-        
-
         # finally, try to update
-        self.model_attributes.update_dimensional_attribute_table(attribute_time_period, )
+        self.model_attributes.update_dimensional_attribute_table(
+            attribute_time_period, 
+            key = attr_cur.key,
+        )
     
         return None
 

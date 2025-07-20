@@ -596,7 +596,9 @@ def main(
     warnings.filterwarnings("ignore")
 
     # get file structure to activate model attributes before instantiating SISEPUEDE
-    file_struct = sfs.SISEPUEDEFileStructure()
+    file_struct = sfs.SISEPUEDEFileStructure(
+        attribute_time_period = None, ## SET TO READ FROM ARGS
+    )
     regions_obj = sc.Regions(file_struct.model_attributes)
 
 

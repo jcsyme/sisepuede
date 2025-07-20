@@ -356,7 +356,9 @@ class Transformation:
 #######################################
 
 class Transformations:
-    """Build a collection of parameters used to construct transformations. The ``Transformations`` class searches a specified directory to ingest three required file types and a fourth optional type:
+    """Build a collection of parameters used to construct transformations. The 
+        ``Transformations`` class searches a specified directory to ingest three 
+        required file types and a fourth optional type:
 
         (1) General configuration file (by default `config_general.yaml`). This
             file is used to specify some general parameters used across 
@@ -503,9 +505,7 @@ class Transformations:
 
     def _initialize_citations(self,
     ) -> None:
-        """
-        Initialize citations. Sets the following properties:
-
+        """Initialize citations. Sets the following properties:
         """
 
         # get the file path
@@ -525,8 +525,7 @@ class Transformations:
         fn_config_general: str,
         regex_transformation_config: re.Pattern,
     ) -> None:
-        """
-        Initialize the general configuration file and the dictionary of file
+        """Initialize the general configuration file and the dictionary of file
             paths. Sets the following properties:
 
             * self.config
@@ -563,8 +562,7 @@ class Transformations:
     def _initialize_keys(self,
         **kwargs,
     ) -> None:
-        """
-        Set the optional and required keys used to specify a transformation.
+        """Set the optional and required keys used to specify a transformation.
             Can use keyword arguments to set keys.
         """
 
@@ -590,18 +588,20 @@ class Transformations:
         stop_on_error: bool = True,
         **kwargs,
     ) -> None:
-        """
-        Initialize the transformer used to build transformations. 
+        """Initialize the transformer used to build transformations. 
 
         Keyword Arguments
         ------------------
-        - baseline_id: id used for baseline, or transformation that is applied 
-            to raw data. All other transformations in the attribute table are 
-            increased from this id.
-        - default_nm_prepend: string prepended to the id to generate names for
-            transformations that have invalid names specified
-        - stop_on_error: stop if a transformation fails? If False, logs and 
-            skips the failed transformation
+        baseline_id : int
+            id used for baseline, or transformation that is applied to raw data. 
+            All other transformations in the attribute table are increased from 
+            this id.
+        default_nm_prepend : str
+            String prepended to the id to generate names for transformations 
+            that have invalid names specified
+        stop_on_error : bool
+            Stop if a transformation fails? If False, logs and skips the failed 
+            transformation
         """
 
         ## INIT
@@ -689,9 +689,7 @@ class Transformations:
         transformers: Union[trs.Transformers, None] = None,
         **kwargs,
     ) -> None:
-        """
-        Initialize the transformer used to build transformations.
-        
+        """Initialize the transformer used to build transformations.     
         """
 
         # check inputs
@@ -727,8 +725,7 @@ class Transformations:
 
     def _initialize_uuid(self,
     ) -> None:
-        """
-        Initialize the following properties:
+        """Initialize the following properties:
         
             * self.is_transformations
             * self._uuid
@@ -749,8 +746,7 @@ class Transformations:
         baseline_in_dict: bool = True,
         default_nm_prepend: str = "Transformation",
     ) -> Union[AttributeTable, dict]:
-        """
-        Build the transformation attribute table. Returns the attribute table
+        """Build the transformation attribute table. Returns the attribute table
             plus a dictionary of field names.
         """
 

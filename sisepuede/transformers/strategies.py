@@ -832,6 +832,7 @@ class Strategies:
         all_strategies = sorted(list(dict_strategies.keys()))
         all_strategies_non_baseline = [x for x in all_strategies if x != baseline_id]
 
+
         ##  SET PROPERTIES
 
         self.all_strategies = all_strategies
