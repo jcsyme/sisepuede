@@ -25,8 +25,9 @@ import sisepuede.utilities._toolbox as sf
 
 
 # SET SOME OTHER DEFAULTS
+_DEFAULT_PREFIX_SUMMARY_RUNS = "sisepuede_summary_results_run"
 _DEFAULT_REGEX_TEMPLATE_PREPEND = "sisepuede_run"
-
+_DEFAULT_TABLE_NAME_WIDE = "WIDE_INPUTS_OUTPUTS"
 
 # KEYS IN THE CONFIG
 _KEY_CONFIG_N_LHS = "num_lhc_samples"
@@ -1217,51 +1218,38 @@ class SISEPUEDE:
         regions: Union[List[str], None] = None,
         **kwargs
     ) -> pd.DataFrame:
-        """
-        Underlying function to facilitate shortcuts self.read_input() and
+        """Underlying function to facilitate shortcuts self.read_input() and
             self.read_output()
 
         Function Arguments
         ------------------
-        - primary_keys: list of primary keys to run OR dictionary of index keys
-            (e.g., strategy_id, design_id) with scenarios associated as values
-            (uses AND operation to filter scenarios). If None, returns all
-            possible primary keys.
-        - table_name: table name to read.
-
-        Optional Arguments
-        ------------------
-        - dict_subset: dictionary with keys that are columns in the table and
-            values, given as a list, to subset the table. dict_subset is written
-            as:
-
-            dict_subset = {
-                field_a = [val_a1, val_a2, ..., val_am],
-                field_b = [val_b1, val_b2, ..., val_bn],
-                .
-                .
-                .
-            }
-
-            NOTE: dict_subset should NOT contain self.key_primary (it will be
-            removed if passed in dict_subset) since these are passed in the
-            `primary_keys` argument
-        - fields_select: fields to read in. Reducing the number of fields to 
-            read can speed up the ingestion process and reduce the data frame's 
-            memory footprint.
-        - regions: optional list-like specification of regions to retrieve
+        primary_keys : Union[List[int], Dict[str, int], None]
+            Specification of primary keys, which is a ist of primary keys to run 
+            OR dictionary of index keys (e.g., strategy_id, design_id etc) with 
+            scenarios associated as values (uses AND operation to filter 
+            scenarios). If None, returns all possible primary keys (only use if
+            number of runs is known to be small enough)
+        table_name : str
+            Table name to read.
 
         Keyword Arguments
         -----------------
-        - drop_duplicates: drop duplicates in a CSV when reading? (only applies
-            if the database is initialized using CSVs)
+        drop_duplicates : bool 
+            Drop duplicates in a CSV when reading? (only applies if the database 
+            is initialized using CSVs)
             * Default is False to improve speeds
             * Set to True to ensure that only unique rows are read in
-        - query_logic: default is "and". Subsets table to as
+        query_logic : str
+            Default is "and". Subsets table using:
 
-            where field_a in (val_a1, val_a2, ..., val_am) ~ field_b in (val_b1, val_b2, ..., val_bn)...
+            (
+                WHERE field_a IN (val_a1, val_a2, ..., val_am) 
+                ~ field_b IN (val_b1, val_b2, ..., val_bn)...
+            )
 
-            where `~ in ["and", "or"]`
+            and the relation `~` is in `["and", "or"]`
+        regions : Union[List[str], None]
+            Optional list-like specification of regions to retrieve
         """
 
         # get primary keys and initialize subset
@@ -1322,16 +1310,18 @@ class SISEPUEDE:
 
         Function Arguments
         ------------------
-        - primary_keys: list of primary keys to run OR dictionary of index keys
-            (e.g., strategy_id, design_id) with scenarios associated as values
-            (uses AND operation to filter scenarios). If None, returns all
-            possible primary keys.
+        primary_keys : Union[List[int], Dict[str, int], None]
+            Specification of primary keys, which is a ist of primary keys to run 
+            OR dictionary of index keys (e.g., strategy_id, design_id etc) with 
+            scenarios associated as values (uses AND operation to filter 
+            scenarios). If None, returns all possible primary keys (only use if
+            number of runs is known to be small enough)
 
-        Optional Arguments
-        ------------------
-        - dict_subset: dictionary with keys that are columns in the table and
-            values, given as a list, to subset the table. dict_subset is written
-            as:
+        Keyword Arguments
+        -----------------
+        dict_subset : Union[Dict[str, List], None]
+            Dictionary with keys that are columns in the table and values, given 
+            as a list, to subset the table. dict_subset is written as:
 
             dict_subset = {
                 field_a = [val_a1, val_a2, ..., val_am],
@@ -1344,22 +1334,26 @@ class SISEPUEDE:
             NOTE: dict_subset should NOT contain self.key_primary (it will be
             removed if passed in dict_subset) since these are passed in the
             `primary_keys` argument
-        - fields_select: fields to read in. Reducing the number of fields to 
-            read can speed up the ingestion process and reduce the data frame's 
-            memory footprint.
-        - regions: optional list-like specification of regions to retrieve
-
-        Keyword Arguments
-        -----------------
-        - drop_duplicates: drop duplicates in a CSV when reading? (only applies
-            if the database is initialized using CSVs)
+        drop_duplicates : bool 
+            Drop duplicates in a CSV when reading? (only applies if the database 
+            is initialized using CSVs)
             * Default is False to improve speeds
             * Set to True to ensure that only unique rows are read in
-        - query_logic: default is "and". Subsets table to as
+        fields_select : Union[List[str], None]
+            Fields to read in. Reducing the number of fields to read can speed 
+            up the ingestion process and reduce the data frame's memory 
+            footprint.
+        query_logic : str
+            Default is "and". Subsets table using:
 
-            where field_a in (val_a1, val_a2, ..., val_am) ~ field_b in (val_b1, val_b2, ..., val_bn)...
+            (
+                WHERE field_a IN (val_a1, val_a2, ..., val_am) 
+                ~ field_b IN (val_b1, val_b2, ..., val_bn)...
+            )
 
-            where `~ in ["and", "or"]`
+            and the relation `~` is in `["and", "or"]`
+        regions : Union[List[str], None]
+            Optional list-like specification of regions to retrieve
         """
         df_out = self._read_table(
             primary_keys,
@@ -1377,21 +1371,22 @@ class SISEPUEDE:
         regions: Union[List[str], None] = None,
         **kwargs
     ) -> pd.DataFrame:
-        """
-        Read output data generated after running .project_scenarios.
+        """Read output data generated after running .project_scenarios.
 
         Function Arguments
         ------------------
-        - primary_keys: list of primary keys to run OR dictionary of index keys
-            (e.g., strategy_id, design_id) with scenarios associated as values
-            (uses AND operation to filter scenarios). If None, returns all
-            possible primary keys.
+        primary_keys : Union[List[int], Dict[str, int], None]
+            Specification of primary keys, which is a ist of primary keys to run 
+            OR dictionary of index keys (e.g., strategy_id, design_id etc) with 
+            scenarios associated as values (uses AND operation to filter 
+            scenarios). If None, returns all possible primary keys (only use if
+            number of runs is known to be small enough)
 
-        Optional Arguments
-        ------------------
-        - dict_subset: dictionary with keys that are columns in the table and
-            values, given as a list, to subset the table. dict_subset is written
-            as:
+        Keyword Arguments
+        -----------------
+        dict_subset : Union[Dict[str, List], None]
+            Dictionary with keys that are columns in the table and values, given 
+            as a list, to subset the table. dict_subset is written as:
 
             dict_subset = {
                 field_a = [val_a1, val_a2, ..., val_am],
@@ -1404,22 +1399,26 @@ class SISEPUEDE:
             NOTE: dict_subset should NOT contain self.key_primary (it will be
             removed if passed in dict_subset) since these are passed in the
             `primary_keys` argument
-        - fields_select: fields to read in. Reducing the number of fields to 
-            read can speed up the ingestion process and reduce the data frame's 
-            memory footprint.
-        - regions: optional list-like specification of regions to retrieve
-
-        Keyword Arguments
-        -----------------
-        - drop_duplicates: drop duplicates in a CSV when reading? (only applies
-            if the database is initialized using CSVs)
+        drop_duplicates : bool 
+            Drop duplicates in a CSV when reading? (only applies if the database 
+            is initialized using CSVs)
             * Default is False to improve speeds
             * Set to True to ensure that only unique rows are read in
-        - query_logic: default is "and". Subsets table to as
+        fields_select : Union[List[str], None]
+            Fields to read in. Reducing the number of fields to read can speed 
+            up the ingestion process and reduce the data frame's memory 
+            footprint.
+        query_logic : str
+            Default is "and". Subsets table using:
 
-            where field_a in (val_a1, val_a2, ..., val_am) ~ field_b in (val_b1, val_b2, ..., val_bn)...
+            (
+                WHERE field_a IN (val_a1, val_a2, ..., val_am) 
+                ~ field_b IN (val_b1, val_b2, ..., val_bn)...
+            )
 
-            where `~ in ["and", "or"]`
+            and the relation `~` is in `["and", "or"]`
+        regions : Union[List[str], None]
+            Optional list-like specification of regions to retrieve
         """
         df_out = self._read_table(
             primary_keys,
@@ -1552,22 +1551,24 @@ class SISEPUEDE:
         regions: Union[List[str], str, None] = None,
         **kwargs
     ) -> Union[Dict[str, pd.DataFrame], None]:
-        """
-        Generate an input database for SISEPUEDE based on the primary key.
+        """Generate an input database for SISEPUEDE based on the primary key.
 
         Function Arguments
         ------------------
-        - primary_key: primary key to generate input database for
+        primary_key : Union[int, None] 
+            Primary key to generate input database for
             * returns None if primary key entered is invalid
 
         Keyword Arguments
         -----------------
-        - regions: list of regions or string of a region to include.
+        regions : Union[List[str], str, None]
+            List of regions or string of a region to include.
             * If a list of regions or single region is entered, returns a
                 dictionary of input databases of the form
                 {region: df_input_region, ...}
             * Invalid regions return None
-        - **kwargs: passed to self.models.project(..., **kwargs)
+        **kwargs : 
+            Passed to self.models.project(..., **kwargs)
         """
 
         # check primary keys to run
@@ -1681,6 +1682,110 @@ class SISEPUEDE:
             dict_return.update({region_out: df_input})
 
         return dict_return
+    
+
+
+    def generate_summary_files(self,
+        primary_keys: Union[List[int], Dict[str, int], None],
+        build_inputs_on_none: bool = True, 
+        export: bool = False, 
+        **kwargs,
+    ) -> Union[Dict[str, pd.DataFrame], None]:
+        """Generate a summary file that merges inputs and outputs from 
+            SISEPUEDE. Recommended to use only for smaller runs. 
+
+        Function Arguments
+        ------------------
+        primary_keys : Union[List[int], Dict[str, int], None]
+            Specification of primary keys, which is a ist of primary keys to run 
+            OR dictionary of index keys (e.g., strategy_id, design_id etc) with 
+            scenarios associated as values (uses AND operation to filter 
+            scenarios). If None, returns all possible primary keys (only use if
+            number of runs is known to be small enough)
+
+        Keyword Arguments
+        -----------------
+        build_input_on_none : bool
+            If the input table is not found (e.g., due to not saving or SQL 
+            errors), build it on the fly? This will increase run time.
+        export : bool
+            Export output to a summary results package in the associated output 
+            directory?
+        **kwargs :
+            Passed to read_output() and read_input()
+        """
+        
+        # read input and output
+        df_out = self.read_output(primary_keys, **kwargs, )
+        df_in = self.read_input(primary_keys, **kwargs, )
+        all_primaries = sorted(list(df_out[self.key_primary].unique()))
+        
+        # build inputs if unable to simply read the data frame
+        if (df_in is None) and build_inputs_on_none:
+            
+            dict_df_in = {}
+
+            for primary in all_primaries: 
+                df_in_cur = self.generate_scenario_database_from_primary_key(primary)
+
+                for k, v in df_in_cur.items():
+                    (
+                        dict_df_in[k].append(v)
+                        if k in dict_df_in.keys()
+                        else dict_df_in.update({k: [v]})
+                    )
+                        
+            # sort by region and concatenate
+            regions_sorted = sorted(list(dict_df_in.keys()))
+            df_in = (
+                pd.concat(
+                    sum([dict_df_in.get(k) for k in regions_sorted], []), 
+                    axis = 0,
+                )
+                .reset_index(drop = True, )
+            )
+
+        
+        # build a wide dataframe and the primary ids
+        df_wide = pd.merge(df_out, df_in, how = "left", )
+        df_primary = self.odpt_primary.get_indexing_dataframe(all_primaries, )
+
+
+        # LHS INFO
+        # lhs_design = self.experimental_manager.dict_lhs_design.get("uganda")
+        # lhs_design.retrieve_lhs_tables_by_design(3, return_type = pd.DataFrame, )
+        #
+
+        # build output dictionary
+        dict_out = {
+            _DEFAULT_TABLE_NAME_WIDE: df_wide,
+            self.database.table_name_attribute_primary: df_primary,
+        }
+
+        for tab in [self.database.table_name_attribute_strategy]:
+            df = self.database.db.read_table(tab)
+            dict_out.update({tab: df, })
+
+
+        ##  EXPORT?
+        
+        if export:
+            # check output directory 
+            dir_pkg = pathlib.Path(self.file_struct.dir_out).joinpath( 
+                f"{_DEFAULT_PREFIX_SUMMARY_RUNS}_{self.id_fs_safe}"
+            )
+            dir_pkg.mkdir(exist_ok = True, ) if not dir_pkg.is_dir() else None
+
+            # export each item in the dictionary
+            for k, v in dict_out.items():
+                v.to_csv(
+                    dir_pkg.joinpath(f"{k}.csv"),
+                    encoding = "UTF-8",
+                    index = None,
+                )
+
+
+        return dict_out
 
 
 
@@ -1696,45 +1801,51 @@ class SISEPUEDE:
         skip_nas_in_input: bool = False,
         **kwargs
     ) -> List[int]:
-        """
-        Project scenarios forward for a set of primary keys. Returns the set of
-            primary keys that ran successfully.
+        """Project scenarios forward for a set of primary keys. Returns the set 
+            of primary keys that ran successfully.
 
         Function Arguments
         ------------------
-        - primary_keys: list of primary keys to run OR dictionary of index keys 
-            (e.g., strategy_id, design_id) with scenarios associated as values 
+        primary_keys : Union[List[int], Dict[str, int], None]
+            List of primary keys to run OR dictionary of index keys (e.g., 
+            strategy_id, design_id, etc.) with scenarios associated as values 
             (uses AND operation to filter scenarios). If None, returns all 
             possible primary keys.
 
         Keyword Arguments
         -----------------
-        - check_results: check output results when running? If True, verifies
-            output results do not exceed some threshold. See 
+        check_results : bool
+            Check output results when running? If True, verifies output results 
+            do not exceed some threshold. See 
             SISEPUEDEModels.check_model_results() for more information (keyword
             arguments `epsilon` and `thresholds` may be passed in **kwargs)
-        - chunk_size: size of chunk to use to write to IterativeDatabaseTable.
+        chunk_size : int
+             size of chunk to use to write to IterativeDatabaseTable.
             If 1, updates table after every iteration; otherwise, stores chunks
             in memory, aggregates, then writes to IterativeDatabaseTable.
-        - force_overwrite_existing_primary_keys: if the primary key is already 
-            found in the output database table, should it be overwritten? 
-            It is recommended that iterations on the same scenarios be 
-            undertaken using different AnalysisID structures. Otherwise, 
-            defaults to initialization resolutsion (write_skip)
-        - max_attempts: maximum number of attempts at successful model runs. 
-            On occasion, solvers can encounter numerical instability and 
-            require a re-run; setting this to greater than 1 gives the model 
-            the opportunity to re-run. However, SISEPUEDE caps this number at 5.
-        - regions: optional list of regions (contained in self.regions) to 
-            project for
-        - reinitialize_output_table_on_verification_failure: reinitialize the 
-            IterativeDatabaseTable output table columns if there is a 
-            verification failure during iteration. 
-        - save_inputs: save inputs to input table? Defaults to configuration
+        force_overwrite_existing_primary_keys : bool
+            If the primary key is already found in the output database table, 
+            should it be overwritten? It is recommended that iterations on the 
+            same scenarios be undertaken using different AnalysisID structures. 
+            Otherwise, defaults to initialization resolutsion (write_skip)
+        max_attempts : int
+            Maximum number of attempts at successful model runs. On occasion, 
+            solvers can encounter numerical instability and require a re-run; 
+            setting this to greater than 1 gives the model the opportunity to 
+            re-run. However, SISEPUEDE caps this number at 5.
+        regions : Union[List[str], str, None]
+            Optional list of regions (contained in self.regions) to project for
+        reinitialize_output_table_on_verification_failure : bool
+            Reinitialize the IterativeDatabaseTable output table columns if 
+            there is a verification failure during iteration?
+        save_inputs : bool
+            Save inputs to input table in database? Defaults to configuration
             defaults if None
-        - skip_nas_in_input: skip futures with NAs on input? If true, will 
+        skip_nas_in_input : bool
+            skip futures with NAs on input? If true, will 
             skip any inputs that contain NAs
-        - **kwargs: passed to self.models.project(..., **kwargs)
+        **kwargs : 
+            passed to self.models.project(..., **kwargs)
         """
 
         # maximum solve attempts
