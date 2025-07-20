@@ -3354,7 +3354,7 @@ def read_text(
 
 
 def read_yaml(
-    fp: str,
+    fp: Union[str, pathlib.Path],
     munchify_dict: bool = True,
 ) -> Union[Dict, munch.Munch, None]:
     """Read a yaml file 
@@ -3369,13 +3369,10 @@ def read_yaml(
     munchify_dict : bool
         Convert to Munch object (nested class dictionaries)
     """
-    return_none = not isinstance(fp, str) 
-    
-    return_none |= (
-        not os.path.exists(fp)
-        if not return_none
-        else False
-    )
+    #
+    return_none = not isinstance(fp, (str, pathlib.Path)) 
+    fp = pathlib.Path(fp) if not return_none else fp
+    return_none |= not fp.is_file() if not return_none else False
 
     if return_none:
         return None
