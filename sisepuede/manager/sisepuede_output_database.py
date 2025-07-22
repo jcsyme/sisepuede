@@ -11,13 +11,32 @@ import sisepuede.utilities._toolbox as sf
 
 
 
+###################################
+#    SET SOME GLOBAL VARIABLES    #
+###################################
+
+_TABLE_NAME_ANALYSIS_METADATA = "ANALYSIS_METADATA"
+_TABLE_NAME_ATTRIBUTE_DESIGN = "ATTRIBUTE_DESIGN"
+_TABLE_NAME_ATTRIBUTE_LHS_L = "ATTRIBUTE_LHC_SAMPLES_LEVER_EFFECTS"
+_TABLE_NAME_ATTRIBUTE_LHS_X = "ATTRIBUTE_LHC_SAMPLES_EXOGENOUS_UNCERTAINTIES"
+_TABLE_NAME_ATTRIBUTE_PRIMARY = "ATTRIBUTE_PRIMARY"
+_TABLE_NAME_ATTRIBUTE_STRATEGY = "ATTRIBUTE_STRATEGY"
+_TABLE_NAME_BASE_INPUT = "MODEL_BASE_INPUT_DATABASE"
+_TABLE_NAME_INPUT = "MODEL_INPUT"
+_TABLE_NAME_OUTPUT = "MODEL_OUTPUT"
+_TABLE_NAME_WIDE = "WIDE_INPUT_OUTPUT"
+
+
+
+
+
 
 class SISEPUEDEOutputDatabase:
-	"""
-	Manage output from SISEPUEDE in a cohesive and flexible database structure,
-		including output to SQLite, CSVs, or remote SQL databases. The output
-		database includes a number of tables and allows for the specification
-		of optional post-processing functions and additional tables.
+	"""Manage output from SISEPUEDE in a cohesive and flexible database 
+	    structure, including output to SQLite, CSVs, or remote SQL databases. 
+		The output database includes a number of tables and allows for the 
+		specification of optional post-processing functions and additional 
+		tables.
 
 	The following is a list of table name keyword arguments for all default
 		tables generated ny SISEPUEDE, along with the table's default name and

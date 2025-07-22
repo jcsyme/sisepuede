@@ -470,7 +470,7 @@ class Transformers:
     
     def __init__(self,
         dict_config: Dict,
-        attr_time_period: Union[str, pathlib.Path, pd.DataFrame, AttributeTable, None],
+        attr_time_period: Union[str, pathlib.Path, pd.DataFrame, AttributeTable, None] = None,
         code_baseline: str = f"{_MODULE_CODE_SIGNATURE}:BASE",
         df_input: Union[pd.DataFrame, None] = None,
         field_region: Union[str, None] = None,
@@ -2584,7 +2584,7 @@ class Transformers:
         categories_entc_pps_to_cap: Union[List[str], None] = None,
         categories_entc_renewable: Union[List[str], None] = None,
         dict_entc_renewable_target_msp_baseline: dict = {},
-        magnitude_lurf: Union[float, None] = 0.0,
+        magnitude_lurf: Union[float, None] = None,
         strat: Union[int, None] = None,
         vec_implementation_ramp: Union[np.ndarray, Dict[str, int], None] = None,
     ) -> pd.DataFrame:
@@ -2641,12 +2641,13 @@ class Transformers:
         categories_entc_pps_to_cap = self.config.get(
             f"{self.key_config_general}.{self.key_config_cats_entc_pps_to_cap}",
         )
-        
+
         # target magnitude of the land use reallocation factor
         if not sf.isnumber(magnitude_lurf):
             magnitude_lurf = self.config.get(
-                    f"{self.key_config_baseline}.{self.key_config_magnitude_lurf}",
-                )
+                f"{self.key_config_baseline}.{self.key_config_magnitude_lurf}",
+                return_on_none = 0.0,
+            )
             
         magnitude_lurf = self.bounded_real_magnitude(magnitude_lurf, 0.0)
 

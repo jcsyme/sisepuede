@@ -696,6 +696,7 @@ class Transformations:
         if not trs.is_transformers(transformers):
             transformers = trs.Transformers(
                 self.config.dict_yaml,
+                attr_time_period = kwargs.get("attr_time_period"),
                 df_input = kwargs.get("df_input"),
                 field_region = kwargs.get("field_region"),
                 #logger = self.logger,

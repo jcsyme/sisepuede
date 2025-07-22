@@ -260,6 +260,7 @@ class SISEPUEDE:
 
         # initialize the file structure and generic properties - check strategies
         self._initialize_file_structure(
+            attribute_time_period = attribute_time_period,
             dir_ingestion = dir_ingestion,
             id_str = id_str,
             logger = logger,
@@ -268,7 +269,7 @@ class SISEPUEDE:
         )
         self._initialize_support_classes()
         self._initialize_attribute_design(attribute_design, )
-        self._initialize_attribute_time_period(attribute_time_period, )
+        # self._initialize_attribute_time_period(attribute_time_period, )
         self._initialize_keys()
 
         # initialize the output database
@@ -347,7 +348,7 @@ class SISEPUEDE:
         return None
 
 
-    
+    ##  HEREHERE DELETE
     def _initialize_attribute_time_period(self,
         attribute_time_period: Union[str, pathlib.Path, pd.DataFrame, AttributeTable, None] = None,
     ) -> None:
@@ -635,6 +636,7 @@ class SISEPUEDE:
 
 
     def _initialize_file_structure(self,
+        attribute_time_period: Union[str, pathlib.Path, pd.DataFrame, AttributeTable, None] = None,
         dir_ingestion: Union[str, None] = None,
         id_str: Union[str, None] = None,
         logger: Union[logging.Logger, str, None] = None,
@@ -655,9 +657,12 @@ class SISEPUEDE:
 
         Optional Arguments
         ------------------
-        - dir_ingestion: directory containing templates for ingestion. The
-            ingestion directory should include subdirectories for each template
-            class that may be run, including:
+        attribute_time_period : Union[str, pathlib.Path, pd.DataFrame, AttributeTable, None]
+            AttributeTable storing information on time periods and years
+        dir_ingestion : Union[str, None]
+            Directory containing templates for ingestion. The ingestion 
+            directory should include subdirectories for each template class that 
+            may be run, including:
                 * calibrated: input variables that are calibrated for each
                     region and sector
                 * demo: demo parameters that are independent of region (default
@@ -667,15 +672,16 @@ class SISEPUEDE:
             The calibrated and uncalibrated subdirectories require separate
                 subdrectories for each region, each of which contains an input
                 template for each
-        - id_str: Optional id_str used to create AnalysisID (see ?AnalysisID
-            for more information on properties). Can be used to set outputs for
-            a previous ID/restore a session.
+        id_str : Union[str, None]
+            Optional id_str used to create AnalysisID (see ?AnalysisID for more 
+            information on properties). Can be used to set outputs for a 
+            previous ID/restore a session.
             * If None, creates a unique ID for the session (used in output file
                 names)
-        - logger: Optional logging.Logger object OR file path to use for 
+        logger : Optional logging.Logger object OR file path to use for 
             logging. If None, create a log in the SISEPUEDE output directory 
             associated with the analysis ID
-        - strategies: optional specification of Strategies object for use in
+        strategies:  optional specification of Strategies object for use in
             defining experiments
         """
 
@@ -706,12 +712,15 @@ class SISEPUEDE:
 
         try:
             self.file_struct = SISEPUEDEFileStructure(
+                attribute_time_period = attribute_time_period,
                 dir_ingestion = dir_ingestion,
                 id_str = id_str,
                 regex_template_prepend = regex_template_prepend,
             )
+            print("yay")
 
         except Exception as e:
+            print("yay")
             # occurs before logger is setup
             msg = f"Error trying to initialize SISEPUEDEFileStructure: {e}"
             raise RuntimeError(msg)

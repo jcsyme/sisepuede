@@ -26,9 +26,10 @@ class SISEPUEDEExperimentalManager:
 
 	Initialization Arguments
 	------------------------
-	- attribute_design: AttributeTable required to define experimental designs
-		to run. Lever effects are evaluated using scalars `y`, which are derived
-		from LHC samples that are subject to a linear transformation of the form
+	attribute_design : AttributeTable
+	    AttributeTable required to define experimental designs to run. Lever 
+		effects are evaluated using scalars `y`, which are derived from LHC 
+		samples that are subject to a linear transformation of the form
 
 			`y = max(min(mx + b, sup), inf)`.
 
@@ -46,29 +47,33 @@ class SISEPUEDEExperimentalManager:
 		* `vary_l`: whether or not lever effects vary in the design (binary)
 		* `vary_x`: whether or not exogenous uncertainties vary in the design
 			(binary)
-
-	- fp_templates: file path to directory containing input Excel templates
-	- model_attributes: ModelAttributes class used to build baseline databases
-	- regions: regions (degined in ModelAttributes) to run and build futures
-		for.
+	fp_templates : str
+	    File path to directory containing input Excel templates
+	model_attributes : ModelAttributes 
+	    ModelAttributesclass used to build baseline databases
+	regions : List[str]
+	    regions (defined in ModelAttributes) to run and build futures for
 
 
 	Optional Initialization Arguments
 	---------------------------------
-	- attribute_strategy: AttributeTable defining strategies. If not defined,
-		strategies are inferred from templates.
-	- demo_database_q: whether or not the input database is used as a demo
+	attribute_strategy : Union[AttributeTable, None] 
+	    AttributeTable defining strategies. If not defined, strategies are 
+		inferred from templates.
+	demo_database_q : bool
+	    Whether or not the input database is used as a demo
 		* If run as demo, then `fp_templates` does not need to include
 			subdirectories for each region specified
-	- fp_exogenous_xl_type_for_variable_specifcations: 
+	fp_exogenous_xl_type_for_variable_specifcations : Union[str, None]
 		* If string, tries to read CSV at path containing variable 
 			specifications and exogenous XL types. Useful if coordinating across 
 			a number of regions.
 			(must have fields `field_variable` and `field_xl_type`)
 		* If None, instantiates XL types by inference alone.
-	- sectors: sectors to include
+	sectors : 
+	    Sectors to include
 		* If None, then try to initialize all input sectors
-	- random_seed: optional random seed to specify
+	random_seed: optional random seed to specify
 
 	Notes
 	-----
@@ -367,8 +372,7 @@ class SISEPUEDEExperimentalManager:
 		fp_exogenous_xl_type_for_variable_specifcations: Union[str, None] = None,
 		**kwargs
 	) -> None:
-		"""
-		Initialize the FutureTrajectories object for executing experiments.
+		"""Initialize the FutureTrajectories object for executing experiments.
 			Initializes the following properties:
 
 			* self.dict_future_trajectories
@@ -507,8 +511,7 @@ class SISEPUEDEExperimentalManager:
 
 	def _initialize_lhs_design(self,
 	) -> None:
-		"""
-		Initializes LHS design and associated tables used in the Experiment.
+		"""Initializes LHS design and associated tables used in the Experiment.
 			Creates the following properties:
 
 			* self.dict_lhs_design

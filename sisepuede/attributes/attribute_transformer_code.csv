@@ -58,7 +58,7 @@
 42,FGTV: Maximize flaring,EN,TFR:FGTV:INC_FLARE,,,
 43,INEN: Maximize industrial energy efficiency,EN,TFR:INEN:INC_EFFICIENCY_ENERGY,,,
 44,INEN: Maximize industrial production efficiency,EN,TFR:INEN:INC_EFFICIENCY_PRODUCTION,,,
-45,INEN: Fuel switch high- and low-temp thermal processes. ,EN,TFR:INEN:SHIFT_FUEL_HEAT,Transformations for both (and/or) low and high-heat should be implemented using this transformer. ,,
+45,INEN: Fuel switch high- and low-temp thermal processes,EN,TFR:INEN:SHIFT_FUEL_HEAT,Transformations for both (and/or) low and high-heat should be implemented using this transformer. ,,
 46,SCOE: Reduce end-use demand for heat energy by improving building shell,EN,TFR:SCOE:DEC_DEMAND_HEAT,,,
 47,SCOE: Increase appliance efficiency,EN,TFR:SCOE:INC_EFFICIENCY_APPLIANCE,,,
 48,"SCOE: Switch to electricity for heat using heat pumps, electric stoves, etc.",EN,TFR:SCOE:SHIFT_FUEL_HEAT,,,

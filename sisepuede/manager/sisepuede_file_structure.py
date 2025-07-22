@@ -621,8 +621,9 @@ class SISEPUEDEFileStructure:
         create_from_id = self.dir_attribute_tables is not None
         create_from_id &= self.fp_config is not None
         create_from_id &= not from_existing
+
         if create_from_id:
-            model_attributes = ma.ModelAttributes(self.dir_attribute_tables, self.fp_config)
+            model_attributes = ma.ModelAttributes(self.dir_attribute_tables, self.fp_config, )
             (
                 self._write_model_attributes_to_pickle(model_attributes)
                 if initialize_directories
@@ -641,6 +642,7 @@ class SISEPUEDEFileStructure:
         self.model_attributes.update_dimensional_attribute_table(
             attribute_time_period, 
             key = attr_cur.key,
+            stop_on_error = False,
         )
 
         return None
