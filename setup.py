@@ -40,7 +40,6 @@ setup(
     name = "SISEPUEDE",
     packages = [
         "sisepuede",
-        "sisepuede.cloud",
         "sisepuede.command_line",
         "sisepuede.core",
         "sisepuede.data_management",

@@ -90,6 +90,29 @@ def get_dimensional_dict(
 
 
 
+def get_file_struct_and_regions(
+    args: dict,
+) -> Tuple[sfs.SISEPUEDEFileStructure, sc.Regions]:
+    """Retrieve the SISEPUEDEFileStructure and Regions objects
+    """
+    # get file structure to activate model attributes before instantiating SISEPUEDE
+    attribute_time_period = args.get("attribute_time_period")
+    if isinstance(attribute_time_period, str):
+        try:
+            attribute_time_period = pathlib.Path(attribute_time_period)
+        except Exception as e:
+            raise RuntimeError(f"Unable to read attribute table from path '{attribute_time_period}': {e}")
+    
+    # get the file structure and regions
+    file_struct = sfs.SISEPUEDEFileStructure(attribute_time_period = attribute_time_period, )
+    regions_obj = sc.Regions(file_struct.model_attributes, )
+
+    out = (file_struct, regions_obj, )
+
+    return out
+
+
+
 def get_models(
     models: str,
     model_attributes: ModelAttributes,
@@ -278,6 +301,8 @@ def parse_arguments(
 
     Optional arguments:
     -------------------
+    --attribute-time-period     Optional specification of a path to an attribute 
+                                table for time periods. 
     --id                    Optional AnalysisID name to pass. If not specified, 
                                 sets at runtime.
     --max-solve-attempts    Maximum number of attempts to solve a problem. Only
@@ -286,7 +311,6 @@ def parse_arguments(
     --n-trials              Number of Latin Hypercube trials to run (number of 
                                 futures, which represent exogenous uncertainties 
                                 and/or lever effect uncertainties)
-
     --random-seed           Optional random seed to specify. If not specifed, 
                                 defaults to configuration specifation. Enter a 
                                 negative number to generate on the fly.
@@ -313,7 +337,7 @@ def parse_arguments(
     # regions to run
     msg_hlp_regions = f"""
     Comma-delimited list of regions or ISO codes to run. Required argument. To
-        run all available regions, set to ALLREGIONS
+    run all available regions, set to ALLREGIONS
     """
     parser.add_argument(
         "--regions",
@@ -366,7 +390,7 @@ def parse_arguments(
     # strategy keys
     msg_hlp_key_strategy = f"""
     Comma-delimited list of strategy keys to read OR file path to table 
-        containing list of key values (as rows)
+    containing list of key values (as rows)
     """
     parser.add_argument(
         "--keys-strategy",
@@ -377,12 +401,27 @@ def parse_arguments(
 
 
 
-    ##  OPTIONAL ARGUMENTS/FLAGS
+    ##################################
+    #    OPTIONAL ARGUMENTS/FLAGS    #
+    ##################################
+
+    # optional attribute_time_period to pass
+    msg_attribute_time_period = f"""
+    Optional specification of a file path to a time period attribute table in a 
+    CSV file.
+    """
+    parser.add_argument(
+        "--attribute-time-period",
+        type = str,
+        help = msg_attribute_time_period,
+        default = None,
+    )
+
 
     # optional database type specification
     msg_hlp_db_type = f"""
     Optional specification of output database type (str). Default is sqlite. 
-        Acceptable options are "csv" and "sqlite"
+    Acceptable options are "csv" and "sqlite"
     """
     parser.add_argument(
         "--database-type",
@@ -404,7 +443,8 @@ def parse_arguments(
 
 
     # optional AnalysisID string to pass
-    msg_hlp_id = f"""Optional id to pass on instantiation.
+    msg_hlp_id = f"""
+    Optional id to pass on instantiation.
     """
     parser.add_argument(
         "--id",
@@ -414,23 +454,10 @@ def parse_arguments(
     )
 
 
-    # optional flag for number of trials
-    msg_hlp_n_trials = f"""Specify the number of Latin Hypercube trials to run (number of futures, 
-        which represent exogenous uncertainties and/or lever effect
-        uncertainties). If unspecified, defaults to configuration value.
-    """
-    parser.add_argument(
-        "--n-trials",
-        help = msg_hlp_n_trials,
-        type = int,
-        default = None,
-    )
-
-
     # optional flag for models to include
     msg_hlp_max_solve_attempts = f"""
     Maximum number of times to attempt solving a problem due to numerical 
-        instability or solve issues. Default is 2.
+    instability or solve issues. Default is 2.
     """
     parser.add_argument(
         "--max-solve-attempts",
@@ -443,8 +470,8 @@ def parse_arguments(
     # optional flag for models to include
     msg_hlp_models = f"""
     Optional flag used to specify models to run. Possible values include 'All' 
-        (run all models [default]) or any comma-delimited combination of the 
-        following: 
+    (run all models [default]) or any comma-delimited combination of the 
+    following: 
         
         * AFOLU, AF, or af
         * CircularEconomy, CE, or ce 
@@ -462,10 +489,24 @@ def parse_arguments(
     )
 
 
+    # optional flag for number of trials
+    msg_hlp_n_trials = f"""
+    Specify the number of Latin Hypercube trials to run (number of futures, 
+    which represent exogenous uncertainties and/or lever effect uncertainties). 
+    If unspecified, defaults to configuration value.
+    """
+    parser.add_argument(
+        "--n-trials",
+        help = msg_hlp_n_trials,
+        type = int,
+        default = None,
+    )
+
+
     # optional random seed 
     msg_hlp_random_seed = f"""
     Optional random seed to specify for runs. If not specified, defaults to 
-        configuration random seed. 
+    configuration random seed. 
         
         * NOTE: To choose one randomly, set to a negative number.
     """
@@ -478,10 +519,18 @@ def parse_arguments(
 
 
     # optional save inputs
-    msg_hlp_save_inputs = f"""Include the --save-inputs flag to save off inputs to the 
-        SISEPUEDEOutputDatabase. In general, model inputs are not saved off to 
-        reduce space requirements and can generally be accessed using
-        SISEPUEDE.experimental_manager.dict_future_trajectories.get(region).generate_future_from_lhs_vector()
+    msg_hlp_save_inputs = f"""
+    Include the --save-inputs flag to save off inputs to the 
+    SISEPUEDEOutputDatabase. In general, model inputs are not saved off to 
+    reduce space requirements and can generally be accessed using
+    
+        (
+            SISEPUEDE
+            .experimental_manager
+            .dict_future_trajectories
+            .get(region)
+            .generate_future_from_lhs_vector()
+        )
     """
     parser.add_argument(
         "--save-inputs",
@@ -493,7 +542,7 @@ def parse_arguments(
     # optional random seed 
     msg_hlp_strategies_dir = f"""
     Optional directory of transformations that have been defined, including 
-        strategies, to upload. If not specified, defaults to SISEPUEDE defaults.
+    strategies, to upload. If not specified, defaults to SISEPUEDE defaults.
     """
     parser.add_argument(
         "--strategies-dir",
@@ -506,9 +555,9 @@ def parse_arguments(
     # optional attempt to read exogenous XL types
     msg_hlp_try_exogenous_xl_types = f"""
     Include the --try-exogenous-xl-types flag to try to read exogenous XL types 
-        for variable specifications (as fed to SamplingUnit). Reads from 
-        SISEPUEDE.file_struct.fp_variable_specification_xl_types. If None, 
-        infers XL types based on inputs. 
+    for variable specifications (as fed to SamplingUnit). Reads from 
+    SISEPUEDE.file_struct.fp_variable_specification_xl_types. If None, infers XL 
+    types based on inputs. 
 
         NOTE: "X" or "L" cannot be specified for any inferred XL types. 
         * If a variable is inferred as an X, it can be exogenously specified as
@@ -596,10 +645,7 @@ def main(
     warnings.filterwarnings("ignore")
 
     # get file structure to activate model attributes before instantiating SISEPUEDE
-    file_struct = sfs.SISEPUEDEFileStructure(
-        attribute_time_period = None, ## SET TO READ FROM ARGS
-    )
-    regions_obj = sc.Regions(file_struct.model_attributes)
+    file_struct, regions_obj = get_file_struct_and_regions(args, )
 
 
     ##  1. GET INPUTS
