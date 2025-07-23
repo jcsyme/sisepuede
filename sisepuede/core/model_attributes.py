@@ -28,6 +28,9 @@ class InvalidModelUnits(Exception):
 class InvalidTimePeriods(Exception):
     pass
 
+class KeySymmetryWarning(Exception):
+    pass
+
 class MissingAttribute(Exception):
     pass
 
@@ -52,13 +55,13 @@ _DIM_MODE = "mode"
 _DIM_REGION = "region"
 _DIM_TIME_PERIOD = "time_period"
 
-
 # some fields
 _FIELD_DIM_YEAR = "year"
 _FIELD_PRIMARY_CATEGORY = "primary_category"
 
 # keys
-_KEY_VARIABLE_DEFINITIONS = "variable_definitions"
+_KEY_ATTRIBUTE = "attribute"
+_KEY_VARIABLE_DEFINITION3S = "variable_definitions"
 
 
 
@@ -83,12 +86,20 @@ class ModelAttributes:
 
     Optional Arguments
     ------------------
+    file_prefix_attribute : str
+        Optional prefix for files that specify attribute tables (sectoral). 
+        Default is "attribute"
+    file_prefix_variable_definitions : str
+        Optional prefix for files that specify variable definition tables.
+        Default is "variable_definitions"
     fp_config : str
         Path to an optional configuration file for default output units/values.
     """
     def __init__(self,
         dir_attributes: Union[pathlib.Path, str],
-        fp_config: str = None,
+        fp_config: Union[str, None] = None,
+        file_prefix_attribute: Union[str, None] = None,
+        file_prefix_variable_definitions: Union[str, None] = None,
     ) -> None:
 
         ############################################
@@ -97,7 +108,10 @@ class ModelAttributes:
 
         # initialize "basic" properties--properties that are explicitly set in each initialization function
         self._initialize_basic_dimensions_of_analysis()
-        self._initialize_basic_other_properties()
+        self._initialize_basic_other_properties(
+            file_prefix_attribute,
+            file_prefix_variable_definitions,
+        )
         self._initialize_basic_subsector_names()
         self._initialize_basic_table_names_nemomod()
         self._initialize_basic_template_substrings()
@@ -409,7 +423,6 @@ class ModelAttributes:
         stop_on_error: bool = True,
         table_name_attr_sector: str = "abbreviation_sector",
         table_name_attr_subsector: str = "abbreviation_subsector",
-        variable_definition_key: str = _KEY_VARIABLE_DEFINITIONS,
     ) -> None:
         """Load all attribute tables and set the following parameters:
 
@@ -455,8 +468,6 @@ class ModelAttributes:
             Table name used to assign sector table
         table_name_attr_subsector : str
             Table name used to assign subsector table
-        variable_definition_key : str
-            Prependage used to identify variable definition tables
         """
 
         self.attribute_directory = sf.check_path(dir_att, False)
@@ -479,14 +490,14 @@ class ModelAttributes:
 
         # build dictionary mappinug groups to regular expression
         dict_attribute_group_to_regex = dict(
-            (x, re.compile(f"attribute_{x}_(.*).csv"))
+            (x, re.compile(f"{self.key_attribute}_{x}_(.*).csv"))
             for x in attribute_groups if (x != "other")
         )
         dict_attribute_group_to_regex.update(
-            {attribute_group_protected_other: re.compile(f"attribute_(.*).csv")}
+            {attribute_group_protected_other: re.compile(f"{self.key_attribute}_(.*).csv")}
         )
 
-        regex_vardef = re.compile(f"{variable_definition_key}_(.*).csv")
+        regex_vardef = re.compile(f"{self.key_variable_definitions}_(.*).csv")
 
 
         # get available types
@@ -661,6 +672,8 @@ class ModelAttributes:
 
 
     def _initialize_basic_other_properties(self,
+        file_prefix_attribute: Union[str, None] = None,
+        file_prefix_variable_definitions: Union[str, None] = None,
     ) -> None:
         """
         Set some additional properties that are not set in other basic
@@ -673,9 +686,29 @@ class ModelAttributes:
             * self.matchstring_landuse_to_forests
         """
 
+        key_attribute = (
+            file_prefix_attribute
+            if isinstance(file_prefix_attribute, str)
+            else _KEY_ATTRIBUTE
+        )
+
+        key_variable_definitions = (
+            file_prefix_variable_definitions
+            if isinstance(file_prefix_variable_definitions, str)
+            else _KEY_VARIABLE_DEFINITION3S
+        )
+
+        if key_attribute == key_variable_definitions:
+            raise KeySymmetryWarning("Values for key_attribute and key_variable_definitions cannot be the same.")
+
+
+        ##  SET SOME FILE PROPERTIES HERE
+
         self.attribute_file_extension = ".csv"
         self.delim_multicats = "|"
         self.field_emissions_total_flag = "emissions_total_by_gas_component"
+        self.key_attribute = key_attribute
+        self.key_variable_definitions = key_variable_definitions
         self.is_model_attributes = True
         self.matchstring_landuse_to_forests = "forests_"
 
@@ -1011,7 +1044,7 @@ class ModelAttributes:
 
             tab = self.get_attribute_table(
                 subsec, 
-                table_type = _KEY_VARIABLE_DEFINITIONS,
+                table_type = self.key_variable_definitions,
             )
 
             if tab is None:
@@ -1829,7 +1862,7 @@ class ModelAttributes:
             self.subsec_name_agrc,
             self.subsec_name_soil,
             injection_q = True,
-            type_primary = _KEY_VARIABLE_DEFINITIONS,
+            type_primary = self.key_variable_definitions,
         )
 
         return None
@@ -2028,7 +2061,7 @@ class ModelAttributes:
         """
         # some shared values
         subsec = self.subsec_name_inen
-        attr = self.get_attribute_table(subsec, _KEY_VARIABLE_DEFINITIONS)
+        attr = self.get_attribute_table(subsec, self.key_variable_definitions)
 
         # check required fields - binary
         fields_req_bin = ["fuel_fraction_variable_by_fuel"]
@@ -2039,7 +2072,7 @@ class ModelAttributes:
             self.subsec_name_inen, 
             self.subsec_name_enfu, 
             injection_q = False,
-            type_primary = _KEY_VARIABLE_DEFINITIONS, 
+            type_primary = self.key_variable_definitions, 
         )
 
         return None
@@ -2055,7 +2088,7 @@ class ModelAttributes:
         """
         # some shared values
         subsec = self.subsec_name_ippu
-        attr = self.get_attribute_table(subsec, _KEY_VARIABLE_DEFINITIONS)
+        attr = self.get_attribute_table(subsec, self.key_variable_definitions)
 
         # check required fields - binary
         fields_req_bin = [
@@ -2173,14 +2206,14 @@ class ModelAttributes:
             self.subsec_name_frst,
             self.subsec_name_soil,
             injection_q = True,
-            type_primary = _KEY_VARIABLE_DEFINITIONS,
+            type_primary = self.key_variable_definitions,
         )
 
         self._check_subsector_attribute_table_crosswalk(
             self.subsec_name_lndu,
             self.subsec_name_soil,
             injection_q = True,
-            type_primary = _KEY_VARIABLE_DEFINITIONS,
+            type_primary = self.key_variable_definitions,
         )
 
         # check that forest/land use crosswalk is set properly
@@ -2273,7 +2306,7 @@ class ModelAttributes:
             {subsec: f"{field_targ}_variable"},
             subsec,
             injection_q = False,
-            type_target = _KEY_VARIABLE_DEFINITIONS,
+            type_target = self.key_variable_definitions,
         )
 
         return None
@@ -2293,7 +2326,7 @@ class ModelAttributes:
             self.subsec_name_trns, 
             self.subsec_name_trde, 
             injection_q = True,
-            type_primary = _KEY_VARIABLE_DEFINITIONS, 
+            type_primary = self.key_variable_definitions, 
         )
         self._check_subsector_attribute_table_crosswalk(
             self.subsec_name_trns, 
@@ -2324,7 +2357,7 @@ class ModelAttributes:
         self._check_subsector_attribute_table_crosswalk(
             self.subsec_name_wali, 
             self.subsec_name_trww, 
-            type_primary = _KEY_VARIABLE_DEFINITIONS,
+            type_primary = self.key_variable_definitions,
         )
 
         return None
@@ -2925,7 +2958,7 @@ class ModelAttributes:
         # check input type
         valid_types = {
             _FIELD_PRIMARY_CATEGORY: "pycategory_primary", 
-            _KEY_VARIABLE_DEFINITIONS: "key_variable_definitions",
+            self.key_variable_definitions: "key_variable_definitions",
         }
 
         if table_type not in valid_types.keys():
@@ -2941,7 +2974,7 @@ class ModelAttributes:
             dict_retrieve = self.dict_attributes.get(self.attribute_group_key_cat)
             out = dict_retrieve.get(key_dict)
 
-        elif table_type == _KEY_VARIABLE_DEFINITIONS:
+        elif table_type == self.key_variable_definitions:
             out = self.dict_variable_definitions.get(key_dict)
 
         return out
@@ -3261,7 +3294,7 @@ class ModelAttributes:
             from another subsector
         """
         # get var requirements for the variable subsector + the attribute for the target categories
-        attr_vr_var = self.get_attribute_table(subsector_var, _KEY_VARIABLE_DEFINITIONS)
+        attr_vr_var = self.get_attribute_table(subsector_var, self.key_variable_definitions)
         attr_targ = self.get_attribute_table(subsector_targ, _FIELD_PRIMARY_CATEGORY, )
         pycat_targ = attr_targ.key
 
@@ -3947,7 +3980,7 @@ class ModelAttributes:
         dict_out = {}
 
         # check attribute table
-        attr_table = self.get_attribute_table(subsector, _KEY_VARIABLE_DEFINITIONS, )
+        attr_table = self.get_attribute_table(subsector, self.key_variable_definitions, )
         if attr_table is None:
             return None
 
@@ -5310,7 +5343,7 @@ class ModelAttributes:
         dict_assignment: Dict[str, str],
         clean_attr_key: bool = False,
         clean_field_vals: bool = True,
-        table_type: str = _KEY_VARIABLE_DEFINITIONS,
+        table_type: Union[str, None] = None,
     ) -> tuple:
         """Assign key_values that are associated with a secondary category. Use 
             matchstrings defined in dict_assignment to create an output 
@@ -5347,8 +5380,15 @@ class ModelAttributes:
             attr_subsector[field_attribute]?
         table_type : str
             Represents the type of attribute table; valid values are 
-            'categories', 'varreqs_all', and 'varreqs_partial'
+            'categories', 'variable_definitions'. 
+            * NOTE: If None, defaults to self.key_variable_definitions
         """
+
+        table_type = (
+            self.key_variable_definitions
+            if not isinstance(table_type, str)
+            else table_type
+        )
 
         # check the subsector and type specifications
         try:
@@ -6522,7 +6562,7 @@ class ModelAttributes:
         subsector = self.get_variable_subsector(variable)
         attr_subsector = self.get_attribute_table(
             subsector, 
-            table_type = _KEY_VARIABLE_DEFINITIONS,
+            table_type = self.key_variable_definitions,
         )
 
         # get the attribute

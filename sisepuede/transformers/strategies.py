@@ -1308,13 +1308,13 @@ class Strategies:
             Passed to self.input_template.template_from_inputs(). Notable 
             keyword arguments include:
 
-            - df_trajgroup: optional dataframe mapping each field variable to 
+            * df_trajgroup: optional dataframe mapping each field variable to 
                 trajectory groups. (default None)
                 * Must contain field_subsector, field_variable, and 
                     field_variable_trajectory_group as fields
                 * Overrides include_simplex_group_as_trajgroup if specified and 
                     conflicts occur
-		    - include_simplex_group_as_trajgroup: default to include simplex 
+		    * include_simplex_group_as_trajgroup: default to include simplex 
                 group from attributes as trajectory group? (default True)
         """
 
