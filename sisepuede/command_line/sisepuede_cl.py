@@ -652,6 +652,7 @@ def main(
 
     # models
     models = get_models(args.get("models"), file_struct.model_attributes)
+    matt = file_struct.model_attributes
 
     # regions
     regions_run = get_regions(
@@ -668,10 +669,7 @@ def main(
     )
 
     # scenario information
-    dict_scenarios = get_dimensional_dict(
-        args, 
-        file_struct.model_attributes
-    )
+    dict_scenarios = get_dimensional_dict(args, matt, )
     if dict_scenarios is None:
         msg = f"""No valid dimensional subsets or scenarios were specified. Ensure that 
             either primary_id OR any combination of design_id, future_id, and/or
@@ -707,6 +705,7 @@ def main(
 
     sisepuede = ssp.SISEPUEDE(
         "calibrated",
+        attribute_time_period = matt.get_dimensional_attribute_table(matt.dim_time_period, ),
         db_type = db_type,
         id_str = id_str,
         n_trials = n_trials,

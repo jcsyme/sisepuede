@@ -3327,18 +3327,16 @@ def read_ascii(
 
 
 def read_text(
-    fp: str,
+    fp: Union[str, pathlib.Path],
     as_lines: bool = True,
 ) -> Union[str, None]:
     """Read text file from path fp. Set as_lines = False to read as a single 
         text stream.
     """
-    return_none = not isinstance(fp, str)
-    return_none |= (
-        not os.path.exists(fp)
-        if not return_none
-        else False
-    )
+    return_none = not isinstance(fp, (str, pathlib.Path, ))
+    fp = pathlib.Path(fp) if not return_none else fp
+    return_none |= (not fp.is_file()) if not return_none else False
+
     if return_none:
         return None
     
