@@ -858,14 +858,14 @@ class Strategies:
         # initialize some components
         input_template = ing.InputTemplate(
             None,
-            self.model_attributes
+            self.model_attributes,
         )
         attr_sector = self.model_attributes.get_sector_attribute_table()
         dict_sectoral_templates = {}
 
 
         for sector in self.model_attributes.all_sectors:
-            
+
             # get baseline "demo" template, use for ranges
             fp_read = self.base_input_database_demo.get_template_path(
                 self.regions[0], 
@@ -874,7 +874,7 @@ class Strategies:
 
             df_template = pd.read_excel(
                 fp_read, 
-                sheet_name = input_template.name_sheet_from_index(input_template.baseline_strategy)
+                sheet_name = input_template.name_sheet_from_index(input_template.baseline_strategy )
             )
 
             # extract key fields (do not need time periods)
@@ -1629,18 +1629,21 @@ class Strategies:
         dict_update: dict,
         **kwargs
     ) -> Union[Dict, None]:
-        """
-        Support function for build_strategies_to_templates(); 
+        """Support function for build_strategies_to_templates(); 
 
         Function Arguments
         ------------------
-        - df_cur: data frame that represents a transformation
-        - attr_sector: sector attribute table
-        - dict_update: dictionary to update
+        df_cur : pd.DataFrame
+            DataFrame that represents a transformation
+        attr_sector : AttributeTable
+            Sector attribute table
+        dict_update : dict
+            Dictionary to update
 
         Keyword Arguments
         -----------------
-        **kwargs: passed to self.input_template.template_from_inputs()
+        **kwargs :
+            Passed to self.input_template.template_from_inputs()
         """
 
         for sector_abv in attr_sector.key_values:
