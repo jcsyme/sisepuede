@@ -49,6 +49,9 @@ _DICT_KEYS = {
 
 
 
+
+
+
 class Transformation:
     """Parameterization class for Transformer. Used to vary implementations of Transfomers. A Transformation reads parameters from a configuration file, an exiting YAMLConfiguration object, or an existing dictionary to allow users the ability to explore different magnitudes, timing, categories, or other parameterizations of a ``Transformer``.
     
@@ -906,7 +909,7 @@ class Transformations:
         out = (attribute_return, dict_fields)
 
         return out
-
+    
 
     
     def get_files(self,
@@ -1090,7 +1093,175 @@ class Transformations:
         out = self.dict_transformations.get(code)
         
         return out
+    
 
+
+    def get_transformations_variable_fields(self,
+        error_thresh: float = 10**(-3), 
+        field_sample_group: str = "sample_group",
+        field_transformation_code: str = "transformation_code",
+        field_variable: str = "variable",
+        field_variable_field: str = "variable_field",
+        include_all_variable_fields_by_modvar: bool = False, 
+        include_sample_group: bool = True,
+        transformations_include: Union[List[Transformation], None] = None,
+    ) -> pd.DataFrame:
+        """Map transformer code to variable fields and variable that are 
+            modified by the transformer. Creates a DataFrame map with the 
+            following columns:
+
+            field_sample_group:         Optional field storing a sample group.
+                                        Sample groups are defined by all 
+                                        variable fields that share transformer 
+                                        codes. In general, a variable is only 
+                                        affected by one transformer, but there 
+                                        are some cases of overlap. 
+            field_transformation_code:  Field storing the transformation code.
+            field_variable:             Field storing the SISEPUEDE variable 
+                                        name associated with the variable field 
+                                        that responds to the transformer
+            field_variable_field:       Field storing the variable field that 
+                                        responds to the transformer specified in 
+                                        field_transformer_code.
+
+        Function Arguments
+        ------------------
+
+
+        Keyword Arguments
+        -----------------
+        error_thresh : float
+            Threshold for determining equality; values with a normalized error 
+            less than this (i.e., eps < |1 - x_0/x_i| for x_0 baseline and x_i 
+            transformed) will be considered equal
+        field_sample_group : str
+            Field storing the sample group
+        field_transformation_code : str
+            Field storing the transformer code
+        field_variable : str
+            Field name for SISEPUEDE variable
+        field_variable_field : str
+            Field name for SISEPUEDE variable field
+        include_all_variable_fields_by_modvar : bool
+            * true:     include all the variable fields associated with model 
+                        variables
+            * false:    include onlny the variable fields that vary
+        include_sample_group : bool
+            Include the sample group in the specification?
+        transformations_include : Union[List[Transformation], None]
+            Optional list of transformations to include. Useful when setting an
+            experiment that varies transformations within a strategy to preserve
+            fields in a transformation in a single sample group.
+        """
+
+        # initialize the output dataframe
+        df_out = []
+        
+        # baseline to which others are compared
+        df_base = self.get_transformation_baseline()
+        df_base = df_base()
+
+        matt = self.transformers.model_attributes
+        fields_compare = matt.all_variable_fields_input
+
+        # get codes
+        transformations_iterate = (
+            [self.get_transformer(x) for x in self.all_transformation_codes]
+            if not sf.islistlike(transformations_include)
+            else transformations_include
+        )
+
+        # iterate through codes
+        for transformation in transformations_iterate:
+            # skip baseline
+            if transformation.code == self.code_baseline: continue
+
+            # get current transformer and run
+            df_cur = transformation()
+
+            vec_dist = (
+                np.abs(
+                    1 - np.nan_to_num(
+                        df_cur[fields_compare]/df_base[fields_compare],
+                        nan = 1.0,
+                        posinf = 0.0,
+                    )
+                )
+                .max(axis = 0, )
+            )
+            
+            w = np.where(vec_dist >= error_thresh)[0]
+
+            # nothing add
+            if len(w) == 0: continue
+            
+
+            # otherwise, add to rows
+            fields_change = [fields_compare[x] for x in w]
+            modvars = [
+                matt.get_variable(
+                    matt.dict_variable_fields_to_model_variables.get(x)
+                )
+                for x in fields_change
+            ]
+            modvar_names = [x.name for x in modvars]
+
+            # if not including all fields by modvar, build the DataFrame and move on
+            if not include_all_variable_fields_by_modvar: 
+                df_out_cur = pd.DataFrame(
+                    {
+                        field_transformation_code: [transformation.code for x in range(len(fields_change))],
+                        field_variable: modvar_names,
+                        field_variable_field: fields_change
+                    }
+                )
+                df_out.append(df_out_cur, )
+
+                continue
+            
+            # otherwise, use the available names to build a dataframe
+            mvs = sorted(list(set(modvar_names)))
+            
+            for mv in mvs:
+                mv = matt.get_variable(mv)
+                df_out_cur = pd.DataFrame(
+                    {
+                        field_transformation_code: [transformation.code for x in mv.fields],
+                        field_variable: [mv.name for x in mv.fields],
+                        field_variable_field: mv.fields
+                    }
+                )
+
+                df_out.append(df_out_cur, )
+
+        # create output dataframe
+        df_out = sf._concat_df(df_out, )
+        
+        
+        ##  INCLUDE THE SAMPLE GROUP?
+
+        if not include_sample_group:
+            return df_out
+        
+        # initialize
+        sample_group = 1
+        df_out_with_group = []
+        
+        while df_out.shape[0] > 0:
+            df_in_group, df_out = trs.extract_variable_field_group(
+                df_out, 
+                field_code = field_transformation_code,
+                field_sample_group = field_sample_group,
+                sample_group = sample_group,
+            )
+
+            df_out_with_group.append(df_in_group, )
+            sample_group += 1
+
+        df_out_with_group = sf._concat_df(df_out_with_group, )
+
+        return df_out_with_group
+    
 
 
     def get_transformation_codes_by_transformer_code(self,

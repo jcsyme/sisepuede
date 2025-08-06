@@ -229,6 +229,14 @@ class SISEPUEDEFileStructure:
             self.dir_attribute_tables = None
 
 
+        # check command line utilities directory
+        self.dir_command_line = os.path.join(self.dir_proj, "command_line")
+        if not os.path.exists(self.dir_command_line):
+            count_errors += 1
+            msg_error_dirs += f"\n\tCommand line utility subdirectory '{self.dir_command_line}' not found"
+            self.dir_command_line = None
+
+
         # check Julia directory
         self.dir_jl = os.path.join(self.dir_proj, "julia")
         if not os.path.exists(self.dir_jl):
@@ -475,7 +483,7 @@ class SISEPUEDEFileStructure:
 
     def _initialize_analysis_id(self,
         id_str: Union[str, None],
-        regex_template_prepend: str = "sisepuede_run"
+        regex_template_prepend: str = "sisepuede_run",
     ) -> None:
         """Initialize the session id. Initializes the following properties:
 
@@ -525,16 +533,15 @@ class SISEPUEDEFileStructure:
     def _initialize_file_path_defaults(self,
         initialize_directories: bool = True,
     ) -> None:
-        """
-        Initialize any default file paths, including output and temporary files. Sets the
-            following properties:
+        """Initialize any default file paths, including output and temporary 
+            files. Sets the following properties:
 
-            * self.dir_base_output_raw
-            * self.fp_base_output_raw
-            * self.fp_log_default
-            * self.fp_pkl_model_attributes_archive
-            * self.fp_sqlite_tmp_nemomod_intermediate
-            * self.fp_variable_specification_xl_types
+                * self.dir_base_output_raw
+                * self.fp_base_output_raw
+                * self.fp_log_default
+                * self.fp_pkl_model_attributes_archive
+                * self.fp_sqlite_tmp_nemomod_intermediate
+                * self.fp_variable_specification_xl_types
         """
 
         # initialize file base names

@@ -25,6 +25,9 @@ class InvalidRegionGroup(Exception):
 class InvalidTimePeriod(Exception):
     pass
 
+class YAMLConfigurationKeyError(Exception):
+    pass
+
 
 
 ##########################
@@ -2156,12 +2159,12 @@ class TimePeriods:
 
 
 class YAMLConfiguration:
-    """
-    Initialize a configuration from a YAML file. 
+    """Initialize a configuration from a YAML file. 
 
     Initialization Arguments
     ------------------------
-    - fp: file path to YAML file to read in OR dictionary
+    fp : Union[dict, str, pathlib.Path]
+        File path to YAML file to read in OR dictionary
     """
     def __init__(self,
         fp: Union[dict, str, pathlib.Path],
@@ -2177,8 +2180,7 @@ class YAMLConfiguration:
     def _initialize_data(self,
         fp: Union[dict, str, pathlib.Path],
     ) -> None:
-        """
-        Read the yaml dictionary. Sets the following properties:
+        """Read the yaml dictionary. Sets the following properties:
         
             * self.dict_yaml
             * self.path
@@ -2211,8 +2213,7 @@ class YAMLConfiguration:
 
     def _initialize_uuid(self,
     ) -> None:
-        """
-        Initialize the UUID. Sets the following properties:
+        """Initialize the UUID. Sets the following properties:
             
             * self.is_yaml_configuration
             * self._uuid
@@ -2229,26 +2230,31 @@ class YAMLConfiguration:
         key: str,
         delim: str = ".",
         return_on_none: Any = None,
+        stop_on_missing: bool = False,
     ) -> Any:
-        """
-        Allow for recursive retrieval of dictionary values. Nested keys
-            are stored using delimiters.
+        """Allow for recursive retrieval of dictionary values. Nested keys are 
+            stored using delimiters.
 
         Function Arguments
         ------------------
-        - key: key that represents YAML nesting. Levels are seperated by delim, 
-            e.g., to access
+        key : 
+            key that represents YAML nesting. Levels are seperated by delim, 
+                e.g., to access
 
-            dict_yaml.get("level_1").get("level_2")
+                dict_yaml.get("level_1").get("level_2")
 
-            use 
+                use 
 
-            YAMLConfig.get("level_1.level_2")
+                YAMLConfig.get("level_1.level_2")
 
         Keyword Arguments
         -----------------
-        - delim: delimeter to use in get
-        - return_on_none: optional value to return on missing value. 
+        delim : str
+            Delimeter to use in get
+        return_on_none : Any
+            Optional value to return on missing value
+        stop_on_missing : bool
+            Option to stop if not found
         """
         
         return_none = not (isinstance(key, str) & isinstance(delim, str))
@@ -2257,6 +2263,7 @@ class YAMLConfiguration:
             return None
         
         # split keys into path and initialize value
+        key_full = key
         keys_nested = key.split(delim)
         value = self.dict_yaml
         
@@ -2267,13 +2274,21 @@ class YAMLConfiguration:
             if not isinstance(value, dict):
                 break
         
-        value = (
-            value
-            if (key == keys_nested[-1]) & (value is not None)
-            else return_on_none
-        )
+        # return value?
+        if (key == keys_nested[-1]) & (value is not None):
+            return value
+        
+        if stop_on_missing:
+            raise YAMLConfigurationKeyError(f"Configuration key '{key_full}' not found in the YAML Configuration file.")
+        
+        # previous code------
+        # value = (
+        #     value
+        #     if (key == keys_nested[-1]) & (value is not None)
+        #     else return_on_none
+        # )
 
-        return value
+        return return_on_none
         
 
 

@@ -58,6 +58,8 @@ _DIM_TIME_PERIOD = "time_period"
 # some fields
 _FIELD_DIM_YEAR = "year"
 _FIELD_PRIMARY_CATEGORY = "primary_category"
+_FIELD_VARIABLE = "variable"
+_FIELD_VARIABLE_FIELD = "variable_field"
 
 # keys
 _KEY_ATTRIBUTE = "attribute"
@@ -3086,7 +3088,7 @@ class ModelAttributes:
     
 
 
-    def get_dimensional_attribute_table(self, #FIXED
+    def get_dimensional_attribute_table(self, # FIXED
         dimension: str,
         stop_on_error: bool = False,
     ) -> Union[AttributeTable, None]:
@@ -3111,7 +3113,7 @@ class ModelAttributes:
     
 
 
-    def get_emission_subsectors(self, #FIXED
+    def get_emission_subsectors(self, # FIXED
     ) -> List[str]:
         """
         Get subsectors that generate emissions

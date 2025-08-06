@@ -214,6 +214,24 @@ class Transformer:
     #    INITIALIZATION FUNCTIONS    #
     ##################################
 
+    def _format_docstr_with_code(self,
+        func: callable,
+    ) -> str:
+        """
+        Format a docstring from func to include the transformer code
+        """
+
+        docstr = func.__doc__.replace(
+            f"Parameters",
+            #Notes\n\t-----\n\t
+            f"Transformation Code : \n\t\t{self.code}\n\n\tParameters"
+            #f"**Transformation Code**: {self.code}\n\n\tParameters"
+        )
+
+        return docstr
+    
+
+
     def _initialize_code(self,
         code: str,
         code_baseline: str,
@@ -370,22 +388,8 @@ class Transformer:
         self.function_list = function_list
         
         return None
-    
-    def _format_docstr_with_code(self,
-        func: callable,
-    ) -> str:
-        """
-        Format a docstring from func to include the transformer code
-        """
+ 
 
-        docstr = func.__doc__.replace(
-            f"Parameters",
-            #Notes\n\t-----\n\t
-            f"Transformation Code : \n\t\t{self.code}\n\n\tParameters"
-            #f"**Transformation Code**: {self.code}\n\n\tParameters"
-        )
-
-        return docstr
 
     def _initialize_fields(self,
         **kwargs,
@@ -780,6 +784,7 @@ class Transformers:
                 logger = self.logger,
                 regex_template_prepend = regex_template_prepend
             )
+
             self._log(
                 f"Successfully initialized SISEPUEDEFileStructure.", 
                 type_log = "info",
@@ -1317,6 +1322,16 @@ class Transformers:
             attr_transformer_code
         )
         all_transformers.append(self.ccsq_increase_air_capture)
+
+
+        ##  ENFU
+
+        self.enfu_adjust_exports = Transformer(
+            f"{_MODULE_CODE_SIGNATURE}:ENFU:ADJ_EXPORTS", 
+            self._trfunc_enfu_adjust_exports,
+            attr_transformer_code
+        )
+        all_transformers.append(self.enfu_adjust_exports)
 
 
         ##  ENTC
@@ -2296,6 +2311,135 @@ class Transformers:
     
 
 
+    def get_transformer_variable_fields(self,
+        error_thresh: float = 10**(-3), 
+        field_sample_group: str = "sample_group",
+        field_transformer_code: str = "transformer_code",
+        field_variable: str = "variable",
+        field_variable_field: str = "variable_field",
+        include_all_variable_fields_by_modvar: bool = False, 
+        include_sample_group: bool = True,
+    ) -> pd.DataFrame:
+        """Map transformer code to variable fields and variable that are 
+            modified by the transformer. Creates a DataFrame map with the 
+            following columns:
+
+            field_sample_group:         Optional field storing a sample group.
+                                        Sample groups are defined by all 
+                                        variable fields that share transformer 
+                                        codes. In general, a variable is only 
+                                        affected by one transformer, but there 
+                                        are some cases of overlap. 
+            field_transformer_code:     Field storing the transformer code.
+            field_variable:             Field storing the SISEPUEDE variable 
+                                        name associated with the variable field 
+                                        that responds to the transformer
+            field_variable_field:       Field storing the variable field that 
+                                        responds to the transformer specified in 
+                                        field_transformer_code.
+
+        Keyword Arguments
+        -----------------
+        error_thresh : float
+            Threshold for determining equality; values with a normalized error 
+            less than this (i.e., eps < |1 - x_0/x_i| for x_0 baseline and x_i 
+            transformed) will be considered equal
+        field_sample_group : str
+            Field storing the sample group
+        field_transformer_code : str
+            Field storing the transformer code
+        field_variable : str
+            Field name for SISEPUEDE variable
+        field_variable_field : str
+            Field name for SISEPUEDE variable field
+        include_all_variable_fields_by_modvar : bool
+            * true:     include all the variable fields associated with model 
+                        variables
+            * false:    include onlny the variable fields that vary
+        include_sample_group : bool
+            
+        """
+
+        # initialize the output dataframe
+        df_out = []
+        
+        # baseline to which others are compared
+        df_base = self.baseline()
+        matt = self.model_attributes
+        fields_compare = matt.all_variable_fields_input
+
+        # iterate through codes
+        for code in self.all_transformers:
+            # skip baseline
+            if code == self.code_baseline: continue
+
+            # get current transformer and run
+            tr_cur = self.get_transformer(code)
+            df_cur = tr_cur()
+
+
+            vec_dist = (
+                np.abs(
+                    1 - np.nan_to_num(
+                        df_cur[fields_compare]/df_base[fields_compare],
+                        nan = 1.0,
+                        posinf = 0.0,
+                    )
+                )
+                .max(axis = 0, )
+            )
+            
+            w = np.where(vec_dist >= error_thresh)[0]
+
+            # nothing add
+            if len(w) == 0: continue
+            
+
+            # otherwise, add too rows
+            fields_change = [fields_compare[x] for x in w]
+            modvars = [
+                matt.get_variable(
+                    matt.dict_variable_fields_to_model_variables.get(x)
+                )
+                for x in fields_change
+            ]
+            modvar_names = [x.name for x in modvars]
+
+            # if not including all fields by modvar, build the DataFrame and move on
+            if not include_all_variable_fields_by_modvar: 
+                df_out_cur = pd.DataFrame(
+                    {
+                        field_transformer_code: [code for x in range(len(fields_change))],
+                        field_variable: modvar_names,
+                        field_variable_field: fields_change
+                    }
+                )
+                df_out.append(df_out_cur, )
+
+                continue
+            
+            # otherwise, use the available names to build a dataframe
+            mvs = sorted(list(set(modvar_names)))
+            
+            for mv in mvs:
+                mv = matt.get_variable(mv)
+                df_out_cur = pd.DataFrame(
+                    {
+                        field_transformer_code: [code for x in mv.fields],
+                        field_variable: [mv.name for x in mv.fields],
+                        field_variable_field: mv.fields
+                    }
+                )
+
+                df_out.append(df_out_cur, )
+
+        # create output dataframe
+        df_out = sf._concat_df(df_out, )
+        
+        return df_out
+    
+
+
     def get_vectors_for_ramp_and_cap(self,
         categories_entc_max_investment_ramp: Union[List[str], None] = None,
         vec_implementation_ramp: Union[np.ndarray, Dict[str, int], None] = None,
@@ -2815,7 +2959,7 @@ class Transformers:
             Optional data frame containing trajectories to modify
         magnitude : float
             Magnitude of decrease in exports. If using the default value of `magnitude_type == "scalar"`, this magnitude will scale the final time value downward by this factor. 
-            NOTE: If magnitude_type changes, then the behavior of the trasnformation will change.
+            NOTE: If magnitude_type changes, then the behavior of the transformation will change.
         magnitude_type : str
             Type of magnitude, as specified in `transformers.lib.general.transformations_general`. See `?transformers.lib.general.transformations_general` for more information on the specification of magnitude_type for general transformer values. 
         strat : int
@@ -5053,6 +5197,74 @@ class Transformers:
 
 
     ####################################
+    #    ENFU TRANSFORMER FUNCTIONS    #
+    ####################################
+
+    def _trfunc_enfu_adjust_exports(self,
+        df_input: Union[pd.DataFrame, None] = None,
+        magnitude: float = 0.8,
+        magnitude_type: str = "scalar",
+        strat: Union[int, None] = None,
+        vec_implementation_ramp: Union[np.ndarray, Dict[str, int], None] = None,
+    ) -> pd.DataFrame:
+        """Implement the "Adjust Exports" ENFU transformer on input DataFrame df_input (decrease by 20%). Allows for increases in exports (positive magnitude) or decreases (negative magnitude).
+
+        Parameters
+        ----------
+        df_input : pd.DataFrame
+            Optional data frame containing trajectories to modify
+        magnitude : float
+            Magnitude of decrease in exports--e.g., a 20% decrease is entered as 0.8. If using the default value of `magnitude_type == "scalar"`, this magnitude will scale the final time value downward by this factor. 
+            NOTE: If magnitude_type changes, then the behavior of the transformation will change.
+        magnitude_type : str
+            Type of magnitude, as specified in `transformers.lib.general.transformations_general`. See `?transformers.lib.general.transformations_general` for more information on the specification of magnitude_type for general transformer values. 
+        strat : int
+            Optional strategy value to specify for the transformation
+        vec_implementation_ramp : Union[np.ndarray, Dict[str, int], None]
+            Optional vector or dictionary specifying the implementation scalar ramp for the transformation. If None, defaults to a uniform ramp that starts at the time specified in the configuration.
+        """
+        # check input dataframe
+        df_input = (
+            self.baseline_inputs
+            if not isinstance(df_input, pd.DataFrame) 
+            else df_input
+        )
+
+        # set bounds
+        bounds = (0.0, np.inf)
+        magnitude = self.bounded_real_magnitude(
+            magnitude, 
+            0.8,
+            bounds = bounds,
+        )
+
+        # check implementation ramp
+        vec_implementation_ramp = self.check_implementation_ramp(
+            vec_implementation_ramp,
+            df_input,
+        )
+
+
+        df_out = tbg.transformation_general(
+            df_input,
+            self.model_attributes,
+            {
+                self.model_enercons.modvar_enfu_exports_fuel: {
+                    "bounds": bounds,
+                    "magnitude": magnitude,
+                    "magnitude_type": magnitude_type,
+                    "vec_ramp": self.vec_implementation_ramp
+                },
+            },
+            field_region = self.key_region,
+            strategy_id = strat,
+        )
+        
+        return df_out
+    
+
+
+    ####################################
     #    ENTC TRANSFORMER FUNCTIONS    #
     ####################################
     
@@ -7167,6 +7379,78 @@ class Transformers:
 ########################
 #    SOME FUNCTIONS    #
 ########################
+
+def extract_variable_field_group(
+    df: pd.DataFrame,
+    field_code: str = "transformer_code",
+    field_variable: str = "variable",
+    field_variable_field: str = "variable_field",
+    field_sample_group: str = "sample_group",
+    sample_group: Union[int, None] = None,
+    seed_variable_field: Union[str, None] = None,
+) -> Union[Tuple[pd.DataFrame, pd.DataFrame], None]:
+    """Extract a group DataFrame based on transformer/transformation code and 
+        variable field. Returns a tuple of DataFrames
+
+        df_group      # DataFrame of rows within group
+        df_out_group  # DataFrame of rows outside of group
+
+    Function Arguments
+    ------------------
+    df : pd.DataFrame
+        DataFrame to extract groups from. 
+
+    Keyword Arguments
+    -----------------
+    field_code : str
+        Fiel storing the transformer or transformation code
+    """
+
+    # check the seed
+    seed_variable_field = (
+        df[field_variable_field].iloc[0]
+        if not isinstance(seed_variable_field, str)
+        else seed_variable_field
+    )
+
+    # start filtering 
+    ind_filt = df[field_variable_field].isin([seed_variable_field])
+    if ind_filt.sum() == 0:
+        return None
+
+    # fields to try
+    ordering = [field_variable_field, field_code]
+
+
+    ##  GO BACK AND FORTH BETWEEN FIELDS, EXPANDING UNTIL IT STOPS
+    
+    size = 0
+    i = 1
+    
+    while ind_filt.sum() != size:
+
+        size = ind_filt.sum()
+        
+        # get the next field 
+        k = i%2
+        field = ordering[k]
+
+        space_new = df[ind_filt][field].unique() 
+        ind_filt |= df[field].isin(space_new)
+        
+        i += 1
+
+    # get group and add if specified
+    df_in_group = df[ind_filt].reset_index(drop = True, )
+    df_out_group = df[~ind_filt].reset_index(drop = True, )
+    if sample_group is not None:
+        df_in_group[field_sample_group] = sample_group
+    
+    out = (df_in_group, df_out_group, )
+
+    return out
+
+
 
 def is_transformer(
     obj: Any,
