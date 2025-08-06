@@ -103,8 +103,11 @@ def get_file_struct_and_regions(
         except Exception as e:
             raise RuntimeError(f"Unable to read attribute table from path '{attribute_time_period}': {e}")
     
-    # get the file structure and regions
-    file_struct = sfs.SISEPUEDEFileStructure(attribute_time_period = attribute_time_period, )
+    # get the file structure and regions -- initialize directories later
+    file_struct = sfs.SISEPUEDEFileStructure(
+        attribute_time_period = attribute_time_period, 
+        initialize_directories = False,
+    )
     regions_obj = sc.Regions(file_struct.model_attributes, )
 
     out = (file_struct, regions_obj, )
