@@ -1755,20 +1755,67 @@ def get_delimited_elements_from_space(
 
 
 
+def get_df_from_path(
+    df_spec: Union[str, pathlib.Path, pd.DataFrame],
+    stop_on_error: bool = False,
+    **kwargs
+) -> Union[pd.DataFrame, None]:
+    """Read a DataFrame from a path; if specified as a DataFrame, returns that 
+        DataFrame instead. Returns None if input type is invalid or if the path
+        to the DataFrame cannot be found.
+    
+    Function Arguments
+    ------------------
+    df_spec : Union[str, pathlib.Path, pd.DataFrame]
+        Optional data frame or path to CSV to read
+
+    Keyword Arguments
+    -----------------
+    stop_on_error : bool
+        Stop if there's an error trying to read the file?
+    kwargs : 
+        Passed to pd.read_csv
+    """
+    if not isinstance(df_spec, (str, pathlib.Path, pd.DataFrame)):
+        return None
+    
+    if isinstance(df_spec, pd.DataFrame):
+        return df_spec
+    
+    # try the path
+    df_spec = pathlib.Path(df_spec)
+    if not df_spec.is_file():
+        return None
+
+    try:
+        df_spec = pd.read_csv(df_spec, **kwargs, )
+    
+    except Exception as e:
+        if stop_on_error:
+            RuntimeError(f"Unable to read file from '{df_spec}': {e}")
+        
+        return None
+
+
+    return df_spec
+
+
+
 def get_dict_from_lines(
     lines: List[str],
     splitter: Union[str, None] = None
 ) -> Union[Dict, None]:
-    """
-    Return a dictionary for use in converting an ascii input to arrays.
+    """Return a dictionary for use in converting an ascii input to arrays.
     
     Function Arguments
     ------------------
-    - lines: list of input lines directly read from file (strings)
+    lines : List[str]
+        List of input lines directly read from file (strings)
     
     Keyword Arguments
     -----------------
-    - spltter: string to split on. If None, splits on whitespace
+    spltter : Union[str, None]
+        String to split on. If None, splits on whitespace
     """
     
     dict_out = {}

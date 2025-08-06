@@ -64,12 +64,16 @@ class SISEPUEDEExperimentalManager:
 	    Whether or not the input database is used as a demo
 		* If run as demo, then `fp_templates` does not need to include
 			subdirectories for each region specified
-	fp_exogenous_xl_type_for_variable_specifcations : Union[str, None]
-		* If string, tries to read CSV at path containing variable 
-			specifications and exogenous XL types. Useful if coordinating across 
-			a number of regions.
-			(must have fields `field_variable` and `field_xl_type`)
-		* If None, instantiates XL types by inference alone.
+    exogenous_xl_type_for_variable_specifcations : Union[str, pathlib.Path, pd.DataFrame, None]
+        Behavior by type:
+        * string or pathlib.Path:   Tries to read CSV at path containing 
+                                        variable specifications and exogenous XL 
+										types. Useful if coordinating across a 
+										number of regions.
+                                    NOTE: must have fields `field_variable` and 
+									    `field_xl_type`)
+        * pd.DataFrame:             Direct input of exogenous types as DataFrame
+        * None or other:            Instantiates XL types by inference  alone.
 	sectors : 
 	    Sectors to include
 		* If None, then try to initialize all input sectors
@@ -99,7 +103,7 @@ class SISEPUEDEExperimentalManager:
 		field_variable_trajgroup_type: str = "variable_trajectory_group_trajectory_type",
 		field_variable: str = "variable",
 		field_xl_stype: str = "xl_type",
-		fp_exogenous_xl_type_for_variable_specifcations: Union[str, None] = None,
+		exogenous_xl_type_for_variable_specifcations: Union[str, pathlib.Path, pd.DataFrame, None] = None,
 		logger: Union[logging.Logger, None] = None,
 		random_seed: Union[int, None] = None,
 	):
@@ -143,7 +147,7 @@ class SISEPUEDEExperimentalManager:
 			field_variable = self.field_variable,
 			field_variable_trajgroup = self.field_variable_trajgroup,
 			field_variable_trajgroup_type = self.field_variable_trajgroup_type,
-			fp_exogenous_xl_type_for_variable_specifcations = fp_exogenous_xl_type_for_variable_specifcations,
+			exogenous_xl_type_for_variable_specifcations = exogenous_xl_type_for_variable_specifcations,
 			key_future = self.key_future,
 			key_strategy = self.key_strategy,
 			logger = self.logger,
@@ -369,7 +373,7 @@ class SISEPUEDEExperimentalManager:
 
 
 	def _initialize_future_trajectories(self,
-		fp_exogenous_xl_type_for_variable_specifcations: Union[str, None] = None,
+		exogenous_xl_type_for_variable_specifcations: Union[str, None] = None,
 		**kwargs
 	) -> None:
 		"""Initialize the FutureTrajectories object for executing experiments.
@@ -388,7 +392,7 @@ class SISEPUEDEExperimentalManager:
 
 		Keyword Arguements
 		------------------
-		- fp_exogenous_xl_type_for_variable_specifcations: 
+		- exogenous_xl_type_for_variable_specifcations: 
 			* If string, tries to read CSV at path containing variable 
 				specifications and exogenous XL types. Useful if coordinating 
 				across a number of regions.
@@ -426,7 +430,7 @@ class SISEPUEDEExperimentalManager:
 
 		# try retrieving any exogenous variable types - will be None if fails
 		dict_exogenous_xl_types = self.get_exogenous_xl_types(
-			fp_exogenous_xl_type_for_variable_specifcations,
+			exogenous_xl_type_for_variable_specifcations,
 		)
 
 
@@ -707,46 +711,44 @@ class SISEPUEDEExperimentalManager:
 
 
 	def get_exogenous_xl_types(self,
-		fp_exogenous_xl_type_for_variable_specifcations: Union[str, None],
+		exogenous_xl_type_for_variable_specifcations: Union[str, pathlib.Path, pd.DataFrame, None],
 	) -> Union[Dict[str, str], None]:
-		"""
-		Try reading in exogenous XL types from external file. If successful,
+		"""Try reading in exogenous XL types from external file. If successful,
 			returns a dictionary mapping variable specifications to XL types
 			(does not have to be exhaustive).
 
 		Function Arguements
 		-------------------
-		- fp_exogenous_xl_type_for_variable_specifcations: 
-			* If string, tries to read CSV at path containing variable 
-				specifications and exogenous XL types. Useful if coordinating 
-				across a number of regions.
-				(must have fields `field_variable` and `field_xl_type`)
-			* If None, instantiates XL types by inference alone.
+		exogenous_xl_type_for_variable_specifcations : Union[str, pathlib.Path, pd.DataFrame, None]
+            Behavior by type:
+			* string or pathlib.Path:   Tries to read CSV at path containing 
+			                                variable specifications and 
+											exogenous XL types. Useful if 
+											coordinating across a number of 
+											regions.
+										NOTE: must have fields `field_variable` 
+										    and `field_xl_type`)
+			* pd.DataFrame:             Direct input of exogenous types as
+                                            DataFrame
+			* None or other:            Instantiates XL types by inference 
+			                                alone.
 		"""
-
-		# some basic checks on inputs; if fed None, will return None
-		return_none = not isinstance(fp_exogenous_xl_type_for_variable_specifcations, str)
-		return_none |= (
-			not os.path.exists(fp_exogenous_xl_type_for_variable_specifcations)
-			if not return_none
-			else return_none
-		)
-		
-		if return_none:
-
-			return None
-		
-		# try reading the inputs
-		df_inputs = None
-
+		# try to retrieve as str, path, or DataFrame
 		try:
-			df_inputs = pd.read_csv(fp_exogenous_xl_type_for_variable_specifcations)
+			df_inputs = sf.get_df_from_path(
+				exogenous_xl_type_for_variable_specifcations,
+				stop_on_error = True,
+			)
+
 		except Exception as e:
 			self._log(
 				"Error in try_retrieving_exogenous_xl_types: {e}. Exogenous XL types for variable specifications will be inferred.",
 				type_log = "error",
 			)
 
+			return None
+		
+		if df_inputs is None:
 			return None
 		
 		# check fields
@@ -756,7 +758,6 @@ class SISEPUEDEExperimentalManager:
 				type_log = "error",
 			)
 			return None
-
 		
 		# otherwise, build dictionary and return
 		dict_out = sf.build_dict(df_inputs[[self.field_variable, self.field_xl_type]])

@@ -2,6 +2,7 @@
 import logging
 import numpy as np
 import pandas as pd
+import pathlib
 import time
 from typing import *
 
@@ -232,11 +233,20 @@ class SISEPUEDE:
         templates for use. 
         NOTE: If specified, then it overwrites `dir_ingestion` and forces 
             `data_mode` to calibrated 
-    try_exogenous_xl_types_in_variable_specification : bool
-        * If True, attempts to read exogenous XL type specifcations for variable 
-            specifications (i.e., in SamplingUnit) from 
-            self.file_structure.fp_variable_specification_xl_types. 
-        * If False, infers on a region-by-region basis
+    try_exogenous_xl_types_in_variable_specification : Union[bool, str, pathlib.Path, pd.DataFrame]
+        Behavior by type:
+        * Bool:                     Tries to read from 
+                                        self.file_structure.fp_variable_specification_xl_types
+                                        if True. If False, infers on a 
+                                        region-by-region basis.
+        * string or pathlib.Path:   Tries to read CSV at path containing 
+                                        variable specifications and exogenous XL 
+										types. Useful if coordinating across a 
+										number of regions.
+                                    NOTE: must have fields `field_variable` and 
+									    `field_xl_type`)
+        * pd.DataFrame:             Direct input of exogenous types as DataFrame
+        * None or other:            Instantiates XL types by inference alone.
     """
 
     def __init__(self,
@@ -254,7 +264,7 @@ class SISEPUEDE:
         regions: Union[List[str], None] = None,
         replace_output_dbs_on_init: bool = False,
         strategies: Union[trf.Strategies, None] = None,
-        try_exogenous_xl_types_in_variable_specification: bool = False,
+        try_exogenous_xl_types_in_variable_specification: Union[bool, str, pathlib.Path, pd.DataFrame] = False,
         **kwargs,
     ) -> None:
 
@@ -514,7 +524,7 @@ class SISEPUEDE:
         random_seed: Union[int, None] = None,
         regions: Union[List[str], None] = None,
         time_t0_uncertainty: Union[int, None] = None,
-        try_exogenous_xl_types_in_variable_specification: bool = False,
+        try_exogenous_xl_types_in_variable_specification: Union[bool, str, pathlib.Path] = False,
     ) -> None:
         """Initialize the Experimental Manager for self. The
             SISEPUEDEExperimentalManager class reads in input templates to 
@@ -586,11 +596,15 @@ class SISEPUEDE:
         
         time_period_u0 = self.get_config_parameter(key_config_time_period_u0) #HEREHERE - edit to pull from default too
         
-        fp_xl_types = (
-            self.file_struct.fp_variable_specification_xl_types
-            if try_exogenous_xl_types_in_variable_specification
-            else None
-        )
+        # initialize and adjust by type
+        xl_types_spec = None
+
+        if isinstance(try_exogenous_xl_types_in_variable_specification, bool):
+            if try_exogenous_xl_types_in_variable_specification:
+                xl_types_spec = self.file_struct.fp_variable_specification_xl_types
+
+        elif isinstance(try_exogenous_xl_types_in_variable_specification, (str, pathlib.Path, pd.DataFrame)):
+            xl_types_spec = try_exogenous_xl_types_in_variable_specification
 
 
         try:
@@ -602,7 +616,7 @@ class SISEPUEDE:
                 time_period_u0,
                 num_trials,
                 demo_database_q = self.demo_mode,
-                fp_exogenous_xl_type_for_variable_specifcations = fp_xl_types,
+                exogenous_xl_type_for_variable_specifcations = xl_types_spec,
                 logger = self.logger,
                 random_seed = random_seed,
             )
