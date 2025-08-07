@@ -1266,6 +1266,8 @@ class Strategies:
     def build_strategies_to_templates(self,
         df_base_trajectories: Union[pd.DataFrame, None] = None,
         df_exogenous_strategies: Union[pd.DataFrame, None] = None,
+        df_variable_info: Union[pd.DataFrame, None] = None,
+        dict_variable_missing_val: Union[Dict[str, Any], None] = None,
         regions: Union[List[str], None] = None,
         replace_template: bool = False,
         return_q: bool = False,
@@ -1289,6 +1291,13 @@ class Strategies:
             Optional exogenous strategies to pass. Must contain self.key_region 
             and model_attributes.dim_time_period in columns. If None, no action 
             is taken. 
+        df_variable_info : Union[pd.DataFrame, None]
+            Optional DataFrame to pass info that can be merged into the 
+            template; e.g., ranges, uniformity etc.
+        dict_variable_missing_val : Union[Dict[str, Any], None]
+            Optional dictionary that can be used to pass missing values by field
+            (in df_variable_info) to the routine. If None, missing values are 
+            left as None and coerced to whichever column type is necessary
         regions : Union[List[str], None]
             Optional list of regions to build strategies for. If None, defaults 
             to all defined.
@@ -1503,6 +1512,8 @@ class Strategies:
                     df_cur,
                     attr_sector,
                     dict_cur,
+                    df_variable_info = df_variable_info,
+                    dict_variable_missing_val = dict_variable_missing_val,
                     **kwargs
                 )
                 
@@ -1572,6 +1583,8 @@ class Strategies:
                             df_cur,
                             attr_sector,
                             dict_cur,
+                            df_variable_info = df_variable_info,
+                            dict_variable_missing_val = dict_variable_missing_val,
                             **kwargs
                         )
 
@@ -1627,6 +1640,8 @@ class Strategies:
         df_cur: pd.DataFrame,
         attr_sector: AttributeTable,
         dict_update: dict,
+        df_variable_info: Union[pd.DataFrame, None] = None,
+        dict_variable_missing_val: Union[Dict[str, Any], None] = None,
         **kwargs
     ) -> Union[Dict, None]:
         """Support function for build_strategies_to_templates(); 
@@ -1642,12 +1657,32 @@ class Strategies:
 
         Keyword Arguments
         -----------------
+        df_variable_info : Union[pd.DataFrame, None]
+            Optional DataFrame to pass info that can be merged into the
+            template; e.g., ranges, uniformity etc.
+        dict_variable_missing_val : Union[Dict[str, Any], None]
+            Optional dictionary that can be used to pass missing values by field
+            (in df_variable_info) to the routine. If None, missing values are 
+            left as None and coerced to whichever column type is necessary
         **kwargs :
             Passed to self.input_template.template_from_inputs()
         """
 
+        # variable field 
+        field_var = self.input_template.field_req_variable
+        dict_variable_missing_val = (
+            {} 
+            if not isinstance(dict_variable_missing_val, dict) 
+            else dict_variable_missing_val
+        )
+        # global dfc
+        # global dft
+        # global vv
+        # global dict_cur2
+        # global cnn
+        
         for sector_abv in attr_sector.key_values:
-
+            
             # get sector name
             sector = (
                 attr_sector
@@ -1656,7 +1691,26 @@ class Strategies:
                 .get(sector_abv)
             )
 
-            df_template = self.dict_sectoral_templates.get(sector)
+            # retrieve template and keys (variable names)
+            df_template = self.dict_sectoral_templates.get(sector).copy()
+            vec_vars = df_template[field_var].to_numpy()
+
+            # overwrite with a dictionary
+            if isinstance(df_variable_info, pd.DataFrame):
+                fields_overwrite = [x for x in df_variable_info if (x != field_var) and (x in df_template.columns)]
+
+                # use the values in df_variable_info to overwrite info in the template
+                for field in fields_overwrite:
+                    # get a missing value default if applicable
+                    missing_val = dict_variable_missing_val.get(field)
+                    dict_cur = sf.build_dict(df_variable_info[[field_var, field]])
+
+                    # map to new column
+                    col_new = [dict_cur.get(x, missing_val) for x in vec_vars]
+                    df_template[field] = col_new
+
+            # dfc = df_cur.copy()
+            # dft = df_template.copy()
 
             # build template
             dict_write_cur = self.input_template.template_from_inputs(

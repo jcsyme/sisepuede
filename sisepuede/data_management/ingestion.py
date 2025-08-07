@@ -1047,11 +1047,12 @@ class InputTemplate:
         dict_inputs_by_strat = {}
         df_input_merge = df_input_merge.groupby([field_key_strategy])
 
-        global dfi
-        global dfb
-        #dfb = df_variable_information.copy()
-        #dfi = df_input_merge
-        #dfb = df_base.copy()
+        # global dfi
+        # global dfb
+        # global dfv
+        # dfv = df_variable_information.copy()
+        # dfi = df_input_merge
+        # dfb = df_base.copy()
             
         for strat, df in df_input_merge:
 

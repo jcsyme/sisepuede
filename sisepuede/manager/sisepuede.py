@@ -731,10 +731,9 @@ class SISEPUEDE:
                 id_str = id_str,
                 regex_template_prepend = regex_template_prepend,
             )
-            print("yay")
-
+            
         except Exception as e:
-            print("yay")
+
             # occurs before logger is setup
             msg = f"Error trying to initialize SISEPUEDEFileStructure: {e}"
             raise RuntimeError(msg)
