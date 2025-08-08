@@ -2595,8 +2595,7 @@ class Transformers:
         vec_msp_resolution_cap: Union[np.ndarray, Dict[str, int], None] = None,
         **kwargs,
     ) -> pd.DataFrame:
-        """
-        Implement a transformation for the baseline to resolve constraint
+        """Implement a transformation for the baseline to resolve constraint
             conflicts between TotalTechnologyAnnualActivityUpperLimit/
             TotalTechnologyAnnualActivityLowerLimit if MinShareProduction is 
             Specified. 

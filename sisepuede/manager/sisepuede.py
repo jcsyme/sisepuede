@@ -428,48 +428,55 @@ class SISEPUEDE:
             # get some tables
             df_analysis_metadata = self.model_attributes.configuration.to_data_frame()
             df_attribute_design = self.attribute_design.table
-            df_lhs_l, df_lhs_x = self.build_lhs_tables()
             df_attribute_strategy = self.attribute_strategy.table
+            df_attribute_time_period = (
+                self.model_attributes
+                .get_dimensional_attribute_table(
+                    self.model_attributes.dim_time_period,
+                )
+                .table
+            )
             df_base_input = self.experimental_manager.base_input_database.database
+            df_lhs_l, df_lhs_x = self.build_lhs_tables()
 
 
             ##  WRITE TABLES TO OUTPUT DATABASE
 
             self.database._write_to_table(
                 self.database.table_name_analysis_metadata,
-                df_analysis_metadata
+                df_analysis_metadata,
             )
 
             self.database._write_to_table(
                 self.database.table_name_attribute_design,
-                df_attribute_design
+                df_attribute_design,
             )
 
-            (
+            if (df_lhs_l is not None) & try_write_lhs:
                 self.database._write_to_table(
                     self.database.table_name_attribute_lhs_l,
-                    df_lhs_l
+                    df_lhs_l,
                 ) 
-                if (df_lhs_l is not None) & try_write_lhs
-                else None
-            )
-            (
+
+            if (df_lhs_x is not None) & try_write_lhs:
                 self.database._write_to_table(
                     self.database.table_name_attribute_lhs_x,
-                    df_lhs_x
+                    df_lhs_x,
                 ) 
-                if (df_lhs_x is not None) & try_write_lhs
-                else None
+                
+            self.database._write_to_table(
+                self.database.table_name_attribute_strategy,
+                df_attribute_strategy,
             )
 
             self.database._write_to_table(
-                self.database.table_name_attribute_strategy,
-                df_attribute_strategy
+                self.database.table_name_attribute_time_period,
+                df_attribute_time_period,
             )
 
             self.database._write_to_table(
                 self.database.table_name_base_input,
-                df_base_input
+                df_base_input,
             )
         
         else:
@@ -990,7 +997,8 @@ class SISEPUEDE:
                     "primary": self.key_primary,
                     "region": self.key_region,
                     "strategy": self.key_strategy,
-                    "time_series": None
+                    "time_series": None,
+                    "time_period": self.key_time_period,
                 },
                 analysis_id = self.analysis_id,
                 fp_base_output = self.fp_base_output_raw,
@@ -1101,6 +1109,8 @@ class SISEPUEDE:
             return None
 
         self.database.db._destroy(table_name)
+
+        return None
 
 
 

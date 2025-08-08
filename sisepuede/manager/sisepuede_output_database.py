@@ -21,6 +21,7 @@ _TABLE_NAME_ATTRIBUTE_LHS_L = "ATTRIBUTE_LHC_SAMPLES_LEVER_EFFECTS"
 _TABLE_NAME_ATTRIBUTE_LHS_X = "ATTRIBUTE_LHC_SAMPLES_EXOGENOUS_UNCERTAINTIES"
 _TABLE_NAME_ATTRIBUTE_PRIMARY = "ATTRIBUTE_PRIMARY"
 _TABLE_NAME_ATTRIBUTE_STRATEGY = "ATTRIBUTE_STRATEGY"
+_TABLE_NAME_ATTRIBUTE_TIME_PERIOD = "ATTRIBUTE_TIME_PERIOD"
 _TABLE_NAME_BASE_INPUT = "MODEL_BASE_INPUT_DATABASE"
 _TABLE_NAME_INPUT = "MODEL_INPUT"
 _TABLE_NAME_OUTPUT = "MODEL_OUTPUT"
@@ -97,6 +98,12 @@ class SISEPUEDEOutputDatabase:
 			* Derivative tables that summarize strategies can be passed using
 				the `dict_derivative_table_functions`. Derivative tables of
 				"ATTRIBUTE_STRATEGY" are indexed by the strategy key.
+			
+		* table_name_attribute_time_period -> "ATTRIBUTE_TIME_PERIOD"
+			* The time_period attribute table stores the attribute_time_period 
+			    table associated with the run, which contains information about
+				time periods, including, e.g., associated year.
+			* Indexed by time_period key
 
 		* table_name_base_input -> "MODEL_BASE_INPUT_DATABASE"
 			* The base input database is derived from input templates and is used
@@ -331,15 +338,16 @@ class SISEPUEDEOutputDatabase:
 		create_dir_output: bool = True,
 		logger: Union[logging.Logger, None] = None,
 		dict_derivative_table_functions: Union[Dict[str, Tuple[str, Callable[[ModelAttributes, pd.DataFrame], pd.DataFrame]]], None] = None,
-		table_name_analysis_metadata: str = "ANALYSIS_METADATA",
-		table_name_attribute_design: str = "ATTRIBUTE_DESIGN",
-		table_name_attribute_lhs_l: str = "ATTRIBUTE_LHC_SAMPLES_LEVER_EFFECTS",
-		table_name_attribute_lhs_x: str = "ATTRIBUTE_LHC_SAMPLES_EXOGENOUS_UNCERTAINTIES",
-		table_name_attribute_primary: str = "ATTRIBUTE_PRIMARY",
-		table_name_attribute_strategy: str = "ATTRIBUTE_STRATEGY",
-		table_name_base_input: str = "MODEL_BASE_INPUT_DATABASE",
-		table_name_input: str = "MODEL_INPUT",
-		table_name_output: str = "MODEL_OUTPUT",
+		table_name_analysis_metadata: str = _TABLE_NAME_ANALYSIS_METADATA,
+		table_name_attribute_design: str =_TABLE_NAME_ATTRIBUTE_DESIGN,
+		table_name_attribute_lhs_l: str = _TABLE_NAME_ATTRIBUTE_LHS_L,
+		table_name_attribute_lhs_x: str = _TABLE_NAME_ATTRIBUTE_LHS_X,
+		table_name_attribute_primary: str = _TABLE_NAME_ATTRIBUTE_PRIMARY,
+		table_name_attribute_strategy: str = _TABLE_NAME_ATTRIBUTE_STRATEGY,
+		table_name_attribute_time_period: str = _TABLE_NAME_ATTRIBUTE_TIME_PERIOD,
+		table_name_base_input: str = _TABLE_NAME_BASE_INPUT,
+		table_name_input: str = _TABLE_NAME_INPUT,
+		table_name_output: str = _TABLE_NAME_OUTPUT,
 		tables_write_exclude: Union[List[str], None] = ["input"],
 		# IterativeDatabaseTable Keywords
 		keep_stash: bool = False,
@@ -360,6 +368,7 @@ class SISEPUEDEOutputDatabase:
 			table_name_attribute_lhs_x,
 			table_name_attribute_primary,
 			table_name_attribute_strategy,
+			table_name_attribute_time_period,
 			table_name_base_input,
 			table_name_input,
 			table_name_output
@@ -413,7 +422,8 @@ class SISEPUEDEOutputDatabase:
 			"primary",
 			"region",
 			"strategy",
-			"time_series"
+			"time_series",
+			"time_period"
 		]
 
 		self.dict_dimensional_keys = {}
@@ -436,7 +446,8 @@ class SISEPUEDEOutputDatabase:
 		self.key_region = self.dict_dimensional_keys.get("region")
 		self.key_strategy = self.dict_dimensional_keys.get("strategy")
 		self.key_time_series = self.dict_dimensional_keys.get("time_series")
-
+		self.key_time_period = self.dict_dimensional_keys.get("time_period")
+	
 		return None
 
 
@@ -533,6 +544,7 @@ class SISEPUEDEOutputDatabase:
 		table_name_attribute_lhs_x: str,
 		table_name_attribute_primary: str,
 		table_name_attribute_strategy: str,
+		table_name_attribute_time_period: str,
 		table_name_base_input: str,
 		table_name_input: str,
 		table_name_output: str,
@@ -556,6 +568,7 @@ class SISEPUEDEOutputDatabase:
 			* self.table_name_attribute_lhs_x
 			* self.table_name_attribute_primary
 			* self.table_name_attribute_strategy
+			* self.table_name_attribute_time_period
 			* self.table_name_base_input
 			* self.table_name_input
 			* self.table_name_output
@@ -586,6 +599,7 @@ class SISEPUEDEOutputDatabase:
 		self.table_name_attribute_lhs_x = table_name_attribute_lhs_x
 		self.table_name_attribute_primary = table_name_attribute_primary
 		self.table_name_attribute_strategy = table_name_attribute_strategy
+		self.table_name_attribute_time_period = table_name_attribute_time_period
 		self.table_name_base_input = table_name_base_input
 		self.table_name_input = table_name_input
 		self.table_name_output = table_name_output
@@ -609,6 +623,9 @@ class SISEPUEDEOutputDatabase:
 		self.tables_indexed_by_strategy = [
 			table_name_attribute_strategy
 		]
+		self.tables_indexed_by_time_period = [
+			table_name_attribute_time_period
+		]
 		self.tables_indexed_by_time_series = [
 		]
 
@@ -630,6 +647,9 @@ class SISEPUEDEOutputDatabase:
 			table_name_attribute_strategy: {
 				str_fields_index_param: self.key_strategy
 			},
+			table_name_attribute_time_period: {
+				str_fields_index_param: self.key_time_period
+            },
 			table_name_base_input: {
 				str_fields_index_param: self.key_region
 			},
