@@ -296,13 +296,12 @@ class LHSDesign:
 
     def _set_lhs_tables(self,
     ) -> None:
-        """
-        Create LHS tables for X (exogenous uncertainties) and LEs (lever effects). Can be refreshed.
+        """Create LHS tables for X (exogenous uncertainties) and LEs (lever effects). Can be refreshed.
 
         Assigns properties:
 
-        - self.arr_lhs_l
-        - self.arr_lhs_x
+            * self.arr_lhs_l
+            * self.arr_lhs_x
         """
 
         # run some checks
@@ -312,7 +311,18 @@ class LHSDesign:
         elif self.n_trials is None:
             return_none = True
 
-        self.arr_lhs_l, self.arr_lhs_x = (None, None) if return_none else self.generate_lhs()
+        # get the table of lhc samples
+        arr_lhs_l, arr_lhs_x = None, None
+        if not return_none:
+            arr_lhs_l, arr_lhs_x = self.generate_lhs()
+
+
+        ##  SET PROPERTIES
+
+        self.arr_lhs_l = arr_lhs_l
+        self.arr_lhs_x = arr_lhs_x
+
+        return None
 
 
 
@@ -436,6 +446,7 @@ class LHSDesign:
         -----
         - LHS Key values are *always* 1-indexed; i.e., they start at 1 instead of 0 (to avoid interfering with potential "baseline" trials).
         """
+
 
         # some basic fields and variables
         field_lhs_key = self.field_lhs_key if (field_lhs_key is None) else field_lhs_key

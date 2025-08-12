@@ -1175,7 +1175,7 @@ class Transformations:
         for transformation in transformations_iterate:
             # skip baseline
             if transformation.code == self.code_baseline: continue
-
+            
             # get current transformer and run
             df_cur = transformation()
 
@@ -1205,9 +1205,10 @@ class Transformations:
                 for x in fields_change
             ]
             modvar_names = [x.name for x in modvars]
-
+            
             # if not including all fields by modvar, build the DataFrame and move on
             if not include_all_variable_fields_by_modvar: 
+                
                 df_out_cur = pd.DataFrame(
                     {
                         field_transformation_code: [transformation.code for x in range(len(fields_change))],
@@ -1215,6 +1216,7 @@ class Transformations:
                         field_variable_field: fields_change
                     }
                 )
+
                 df_out.append(df_out_cur, )
 
                 continue
