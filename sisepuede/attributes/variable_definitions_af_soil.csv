@@ -11,7 +11,8 @@ Input,:math:`\text{EF}_2 - \text{N}_2\text{O}` Emissions from Drained and Manage
 Input,:math:`\text{EF}_{1FR} - \text{N}_2\text{O}` Rice Fields," | See :math:`EF_{1FR}` from Table 11.1 in V4, C11 IPCC GNGHGI 2019R
  | 
  | This emission factor is given by the IPCC as kg :math:`\text{N}_2\text{O-N}`(kg :math:`\text{NH}_3\text{-N} + \text{NO}_x\text{-N}`), and it is multipled in the by the factor 11/7 to convert :math:`\text{N}_2\text{O-N}` to  :math:`\text{N}_2\text{O}`.",``ef_soil_ef1_n_rice_fields_$EMISSION-GAS$`` (``$EMISSION-GAS$ = n2o``),none,,0,0.8,1.2,,0,,,
-Input,C Annual Cultivated Organic Soils Emission Factor,See table 5.6 for default factors,"``ef_soil_c_cultivated_organic_$CAT-SOIL-MANAGEMENT$_$UNIT-MASS$_per_$UNIT-AREA$`` (``$UNIT-MASS$ = tonne``, ``$UNIT-AREA$ = ha``)",``temperate_crop_grass``|``tropical_crop_grass``,,0,1,1,,0,,,
+Input,C Annual Croplands Drained Organic Soils Emission Factor,"See V4 C5, Table 5.6 for default factors","``ef_soil_c_croplands_drained_organic_$CAT-SOIL-MANAGEMENT$_$UNIT-MASS$_per_$UNIT-AREA$`` (``$UNIT-MASS$ = tonne``, ``$UNIT-AREA$ = ha``)",``temperate_crop_grass``|``tropical_crop_grass``,,0,0.1,1.9,,0,,,See IPCC GNGHGI V4 C5 Table 5.6 for +/- 90% uncertainty ranges
+Input,C Annual Managed Grasslands Drained Organic Soils Emission Factor,"See V4 C6, Table 6.3 for default factors","``ef_soil_c_managed_grasslands_drained_organic_$CAT-SOIL-MANAGEMENT$_$UNIT-MASS$_per_$UNIT-AREA$`` (``$UNIT-MASS$ = tonne``, ``$UNIT-AREA$ = ha``)",``temperate_crop_grass``|``tropical_crop_grass``,,0,0.1,1.9,,0,,,See IPCC GNGHGI V4 C6 Table 6.3 for +/- 90% uncertainty ranges
 Input,C Liming Emission Factor Dolomite," | Dimensionless emission factor that gives :math:`CO_2-C` mass of emission per mass of dolomite applied.
  | 
  | See Page V4, C11, page 11.29 of IPCC GNGHGI (2006) for emission factor defaults.",``ef_soil_c_liming_dolomite``,none,,0,1,1,,0,,,

@@ -140,7 +140,7 @@ def repeat_value(
                 max_deviation_from_mean = max_error,
             )
 
-            df_rep = pd.DataFrame(arr, columns = fields_data)
+            df_rep = pd.DataFrame(arr[None,...], columns = fields_data)
 
 
         # tactic for projections--repeat the data frame from the base to the 
