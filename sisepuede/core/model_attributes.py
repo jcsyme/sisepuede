@@ -1002,6 +1002,9 @@ class ModelAttributes:
             attr_required_parameters = self.attribute_configuration_parameters,
         )
 
+        # update fp_config
+        self.fp_config = fp_config
+
         return None
     
 
@@ -7129,6 +7132,9 @@ class ModelAttributes:
         self.dict_attributes[self.attribute_group_key_dim].update(
             {attribute_table.key: attribute_table, }
         )
+
+        # update the configuration
+        self._initialize_config(self.fp_config, )
 
         return None
 
