@@ -1413,12 +1413,12 @@ class Transformers:
 
         ##  SCOE
 
-        self.scoe_fuel_switch_electrify = Transformer(
+        self.scoe_fuel_switch_heat = Transformer(
             f"{_MODULE_CODE_SIGNATURE}:SCOE:SHIFT_FUEL_HEAT", 
-            self._trfunc_scoe_fuel_switch_electrify, 
+            self._trfunc_scoe_fuel_switch_heat, 
             attr_transformer_code
         )
-        all_transformers.append(self.scoe_fuel_switch_electrify)
+        all_transformers.append(self.scoe_fuel_switch_heat)
 
 
         self.scoe_increase_applicance_efficiency = Transformer(
@@ -5902,7 +5902,10 @@ class Transformers:
     #    SCOE TRANSFORMER FUNCTIONS    #
     ####################################
 
-    def _trfunc_scoe_fuel_switch_electrify(self,
+    def _trfunc_scoe_fuel_switch_heat(self,
+        cat_enfu_target: Union[str, None] = None,
+        cats_enfu_source : Union[List[str], None] = None,
+        cats_scoe_apply: Union[List[str], None] = None,
         df_input: Union[pd.DataFrame, None] = None,
         magnitude: float = 0.95,
         strat: Union[int, None] = None,
@@ -5912,6 +5915,12 @@ class Transformers:
         
         Parameters
         ----------
+        cat_enfu_target : Union[str, None]
+            Optional specification of target fuel to shift into. If None, defaults to electricity.
+        cats_enfu_source : Union[List[str], None]
+            Optional specification of source fuel categories to shift out of. If None, defaults to all fuels.
+        cats_scoe_apply : Union[List[str], None]
+            Optional list of SCOE categories to apply to
         df_input : pd.DataFrame
             Optional data frame containing trajectories to modify
         magnitude : float
@@ -5941,6 +5950,9 @@ class Transformers:
             magnitude,
             vec_implementation_ramp,
             self.model_attributes,
+            cat_enfu_target = cat_enfu_target,
+            cats_enfu_source = cats_enfu_source,
+            cats_scoe_apply = cats_scoe_apply,
             field_region = self.key_region,
             model_enercons = self.model_enercons,
             strategy_id = strat
