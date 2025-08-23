@@ -1511,6 +1511,41 @@ class EnergyConsumption:
 
 
 
+    def get_scoe_dict_fuel_categories_to_fuel_variables(self
+    ) -> dict:
+        """Return a dictionary with fuel categories as keys based on the 
+            SCOE attribute table:
+    
+            {
+                cat_fuel: {
+                    "fuel_efficiency": VARNAME_FUELEFFICIENCY, 
+                    ...
+                }
+            }
+
+            for each key, the dict includes variables associated with the fuel 
+            cat_fuel:
+
+            - "fuel_fraction"
+            - "ef_n2o"
+            - "fuel_efficiency"
+            - "fuel_fraction"
+            - "modal_energy_consumption"
+        """
+
+        dict_out = self.model_attributes.assign_keys_from_attribute_fields(
+            self.subsec_name_scoe,
+            "cat_fuel",
+            {
+                "SCOE Efficiency Factor": "fuel_efficiency",
+                "SCOE Fraction Heat Energy": "fuel_fraction",
+            },
+        )
+
+        return dict_out
+    
+
+
     def get_trns_dict_fuel_categories_to_fuel_variables(self
     ) -> dict:
         """
