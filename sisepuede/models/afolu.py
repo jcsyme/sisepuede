@@ -632,7 +632,6 @@ class AFOLU:
         self.modvar_agrc_emissions_ch4_biomass_burning = ":math:\\text{CH}_4 Emissions from Biomass Burning"
         self.modvar_agrc_emissions_ch4_rice = ":math:\\text{CH}_4 Emissions from Rice"
         self.modvar_agrc_emissions_co2_biomass = ":math:\\text{CO}_2 Emissions from Biomass Carbon Stock Changes"
-        self.modvar_agrc_emissions_co2_soil_carbon_organic = ":math:\\text{CO}_2 Emissions from Soil Carbon in Organic Soils"
         self.modvar_agrc_emissions_n2o_biomass_burning = ":math:\\text{N}_2\\text{O} Emissions from Biomass Burning"
         self.modvar_agrc_emissions_n2o_crop_residues = ":math:\\text{N}_2\\text{O} Emissions from Crop Residues"
         self.modvar_agrc_equivalent_exports = "Agriculture Equivalent Exports"
@@ -775,6 +774,7 @@ class AFOLU:
         self.modvar_lndu_emissions_conv_away = ":math:\\text{CO}_2 Emissions from Conversion Away from Land Use Type"
         self.modvar_lndu_emissions_ch4_from_wetlands = ":math:\\text{CH}_4 Emissions from Wetlands"
         self.modvar_lndu_emissions_co2_sequestration = ":math:\\text{CO}_2 Emissions from Land Use Biomass Sequestration" #NEW
+        self.modvar_lndu_emissions_co2_drained_organic_soils = ":math:\\text{CO}_2 Emissions from Drained Organic Soils"
         self.modvar_lndu_factor_soil_carbon = "Soil Carbon Land Use Factor"
         self.modvar_lndu_factor_soil_management_infinum = "Unimproved Soil Carbon Land Management Factor"
         self.modvar_lndu_factor_soil_management_supremum = "Maximum Soil Carbon Land Management Factor"
@@ -983,6 +983,13 @@ class AFOLU:
         self.modvar_soil_qtyinit_liming_limestone = "Initial Liming Limestone Applied to Soils"
         self.modvar_soil_ratio_c_to_n_soil_organic_matter = "C to N Ratio of Soil Organic Matter"
         self.modvar_soil_ureause_total = "Total Urea Use"
+
+
+        (
+            self.dict_lndu_categories_to_soil_variables, 
+            self.dict_lndu_categories_to_unassigned_soil_variables,
+        ) = self.get_soil_dict_lndu_categories_to_soil_c_dos_variables()
+
 
         return None
 
@@ -1663,6 +1670,92 @@ class AFOLU:
 
         return df_out
     
+
+
+    def get_lndu_area_drained_organic_soils(self,
+        df_afolu_trajectories: pd.DataFrame,
+        arr_land_use: np.ndarray,
+        arrs_lndu_land_conv: np.ndarray,
+    ) -> pd.DataFrame:
+        """Get the area of drained organic soils in terms fo arr_land_use
+            areas.
+        
+        Function Arguments
+        ------------------
+        df_afolu_trajectories : pd.DataFrame
+            DataFrame containing input trajectories
+        arr_land_use : np.ndarray
+            Array of land use areas by land use classification in terms of
+            region area variable
+        arrs_lndu_land_conv : np.ndarray
+            Array of land use conversion areas by land use classification 
+            in terms of region area variable
+            
+        Keyword Arguments
+        -----------------
+        
+        """
+        ##  INITIALIZE SOME MODEL ATTRIBUTES ELEMENTS
+
+        # land use attribute table and land use pyategory element
+        attr_lndu = self.model_attributes.get_attribute_table(
+            self.model_attributes.subsec_name_lndu, 
+        )
+        pycat_lndu = self.model_attributes.get_subsector_attribute(
+            self.model_attributes.subsec_name_lndu,
+            "pycategory_primary_element",
+        )
+
+        # model variable for fraction drained organic soil
+        modvar_dos = self.model_attributes.get_variable(
+            self.modvar_lndu_initial_frac_area_dos,
+        )
+
+        
+        # get fraction variables here
+        arr_lndu_frac_drained_organic = self.model_attributes.extract_model_variable(
+            df_afolu_trajectories,
+            modvar_dos,
+            all_cats_missing_val = 0.0,
+            expand_to_all_cats = True,
+            return_type = "array_base",
+        )
+        arr_lndu_area_drained_organic = arr_lndu_frac_drained_organic*arr_land_use
+        
+
+        ##  ITERATE OVER TIME PERIODS TO ESTIMATE AREA WITH DOS
+        #
+        # - assume transitions out of classes are uniform across 
+        #   land use
+        # - use transition matrices to estimate DOS
+        #
+        
+        # get categories and indices 
+        cats_lndu_dos = modvar_dos.dict_category_keys.get(pycat_lndu)
+        inds_lndu_dos = [attr_lndu.get_key_value_index(x) for x in cats_lndu_dos]
+        inds_lndu_not_dos = [attr_lndu.get_key_value_index(x) for x in attr_lndu.key_values if x not in cats_lndu_dos]
+
+        # initialize the fraction of each class that is DOS, then iterate over time periods
+        vec_frac_dos = arr_lndu_frac_drained_organic[0].copy()
+
+        for t in range(arr_lndu_area_drained_organic.shape[0] - 1):
+
+            # use vec_fraction * arr_conv to calculate new area of DOS; then, filter to only include valid categories
+            vec_frac_dos[self.ind_lndu_wetl] = 1.0
+            vec_area_dos = vec_frac_dos.dot(arrs_lndu_land_conv[t])
+            vec_area_dos[inds_lndu_not_dos] = 0
+
+            #  update
+            arr_lndu_area_drained_organic[t + 1] = vec_area_dos
+            vec_frac_dos = np.nan_to_num(
+                vec_area_dos/arr_land_use[t + 1],
+                nan = 0.0,
+                posinf = 0.0,
+            )
+
+        
+        return arr_lndu_area_drained_organic
+
 
 
     def get_lndu_areas_to_from_remaining(self,
@@ -3439,66 +3532,76 @@ class AFOLU:
 
     def get_soil_arrs_ef_c_drained_organic_soils(self,
         df_afolu_trajectories: pd.DataFrame
-    ) -> Tuple[np.ndarray, np.ndarray]:
+    ) -> Dict[str, np.ndarray]:
         """Get arrays for C drained organic soils emission factors. Converts to
 
             (a) output mass units
             (b) area of self.model_socioeconomic.modvar_gnrl_area,
 
-        Returns a tuple of the form: 
-            (
-                arr_soil_ef_c_dos_croplands,    # for croplands
-                arr_soil_ef_c_dos_pastures,     # for managed grasslands
-            )
+        Returns a dictionary mapping each land use class associated with DOS to
+            the associated C factor variable in Soil Management, e.g., 
+
+            {
+                "croplands": arr_soil_ef_c_dos_croplands,    # for croplands
+                "pastures": arr_soil_ef_c_dos_pastures,      # for managed grasslands
+            }
         """
-        
-        ##  CROPLANDS
 
-        arr_soil_ef_c_dos_croplands = self.model_attributes.extract_model_variable(#
-            df_afolu_trajectories, 
-            self.modvar_soil_ef_c_organic_soils_croplands, 
-            expand_to_all_cats = True,
-            override_vector_for_single_mv_q = True, 
-            return_type = "array_base",
+        dict_out = {}
+
+        for k, v in self.dict_lndu_categories_to_soil_variables.items():
+            
+            modvar_cur = v.get("c_factor_drained_organic_soils")
+
+            arr_soil_ef_c_dos = self.model_attributes.extract_model_variable(#
+                df_afolu_trajectories, 
+                modvar_cur, 
+                expand_to_all_cats = True,
+                override_vector_for_single_mv_q = True, 
+                return_type = "array_base",
+            )
+
+            arr_soil_ef_c_dos *= self.model_attributes.get_scalar(modvar_cur, "mass", )
+            arr_soil_ef_c_dos /= self.model_attributes.get_variable_unit_conversion_factor(
+                modvar_cur,
+                self.model_socioeconomic.modvar_gnrl_area,
+                "area",
+            )
+
+            dict_out.update({k: arr_soil_ef_c_dos, })
+
+        return dict_out
+    
+
+
+
+    def get_soil_dict_lndu_categories_to_soil_c_dos_variables(self,
+    ) -> Dict:
+        """Return a dictionary with land use categories as keys based on the 
+            Soil Management attribute table
+
+            {
+                cat_lndu: {
+                    "c_factor_drained_organic_soils": VARNAME_C_DOS, 
+                    ...
+                }
+            }
+
+            for each key, the dict includes variables associated with the land
+            use category cat_lndu:
+
+            - "c_factor_drained_organic_soils"
+        """
+
+        dict_out = self.model_attributes.assign_keys_from_attribute_fields(
+            self.model_attributes.subsec_name_soil,
+            "cat_landuse",
+            {
+                "C Annual": "c_factor_drained_organic_soils"
+            },
         )
 
-        arr_soil_ef_c_dos_croplands *= self.model_attributes.get_scalar(
-            self.modvar_soil_ef_c_organic_soils_croplands,
-            "mass",
-        )
-        arr_soil_ef_c_dos_croplands /= self.model_attributes.get_variable_unit_conversion_factor(
-            self.modvar_soil_ef_c_organic_soils_croplands,
-            self.model_socioeconomic.modvar_gnrl_area,
-            "area",
-        )
-
-
-        ##  MANAGED GRASSLANDS/PASTURES
-
-        arr_soil_ef_c_dos_pastures = self.model_attributes.extract_model_variable(#
-            df_afolu_trajectories, 
-            self.modvar_soil_ef_c_organic_soils_managed_grasslands,
-            expand_to_all_cats = True,
-            override_vector_for_single_mv_q = True, 
-            return_type = "array_base",
-        )
-
-        arr_soil_ef_c_dos_pastures *= self.model_attributes.get_scalar(
-            self.modvar_soil_ef_c_organic_soils_managed_grasslands,
-            "mass",
-        )
-        arr_soil_ef_c_dos_pastures /= self.model_attributes.get_variable_unit_conversion_factor(
-            self.modvar_soil_ef_c_organic_soils_managed_grasslands,
-            self.model_socioeconomic.modvar_gnrl_area,
-            "area",
-        )
-
-        out = (
-            arr_soil_ef_c_dos_croplands,
-            arr_soil_ef_c_dos_pastures,
-        )
-
-        return out
+        return dict_out
     
 
 
@@ -5311,24 +5414,9 @@ class AFOLU:
             n_tp = n_projection_time_periods,
         )
         self.arrs_lndu_land_conv = arrs_lndu_land_conv
-        self.arr_land_use = arr_land_use # HEREHEREHERE
+        self.arr_land_use = arr_land_use
         
-        def get_lndu_area_drained_organic_soils(self,
-            arr_land_use: np.ndarray,
-        ) -> np.ndarray:
-            """Retrieve the area of each land use class associated with drained
-                organic soils. Starts with an inital fraction applied to the 
-                initial state, then assumed that transtisions out of wetlands 
-                (multiplied by fraction organic soils) are drained organic.
-
-            Function Arguments
-            ------------------
-            arr_land_use : np.ndarray
-                Array storing land use prevalence
-
-            Keyword Arguments
-            -----------------
-            """
+        
 
 
 
@@ -6369,13 +6457,6 @@ class AFOLU:
             return_type = "array_base",
         )
 
-        # HEREHEREHERE
-        # finally, get the emission factors for C in drained organic soils as part of soil carbon
-        arr_soil_ef_c_organic_cultivated_soils, _ = self.get_soil_arrs_ef_c_drained_organic_soils(
-            df_afolu_trajectories,
-        )
-
-
 
 
         ##############################################################
@@ -6396,12 +6477,13 @@ class AFOLU:
             return_type = "array_base", 
             var_bounds = (0, 1),
         )
-    
+
+        # HEREHEREHERE
         arr_lndu_frac_organic_soils = sf.vec_bounds(1 - arr_lndu_frac_mineral_soils, (0.0, 1.0))
         vec_soil_area_crop_pasture = (
             arr_land_use[:, [self.ind_lndu_crop, self.ind_lndu_pstr]]
             .sum(axis = 1)
-         )
+        )
         
 
         ##  F_ON AND F_SN - SYNTHETIC FERTILIZERS AND ORGANIC AMENDMENTS
@@ -6691,7 +6773,7 @@ class AFOLU:
         ]
 
 
-        ##  F_SOM AND AGRICULTURAL SOIL CARBON
+        ##  F_SOM AND F_SO (DRAINED ORGANIC SOILS)
 
         # get soil management factors
         arr_lndu_factor_soil_management, arr_lndu_area_improved = self.get_lndu_soil_soc_factors(
@@ -6765,19 +6847,6 @@ class AFOLU:
             arrs_lndu_soc_conversion_factors,
             20, # get from config HEREHERE
         )
-        
-        # initialize organic SOC, then loop over tropical/temperate cropland to get soil carbon for organic drained soils
-        vec_agrc_emission_co2_drained_organic_soils = 0.0
-
-        for modvar in self.modvar_list_agrc_frac_temptrop:
-            # get appropriate soil category
-            cat_soil = clean_schema(self.model_attributes.get_variable_attribute(modvar, pycat_soil))
-            ind_soil = attr_soil.get_key_value_index(cat_soil)
-
-            # get SOC totals and integrate land-use specific mineral fractions
-            arr_soil_soc_crop_temptrop_cur = (arr_agrc_crop_area*dict_arrs_agrc_frac_temptrop[modvar]).transpose()
-            arr_soil_soc_crop_temptrop_cur *= arr_lndu_frac_organic_soils[:, self.ind_lndu_crop]
-            vec_agrc_emission_co2_drained_organic_soils += np.sum(arr_soil_soc_crop_temptrop_cur*arr_soil_ef_c_organic_cultivated_soils[:, ind_soil], axis = 0)
 
 
         """
@@ -6793,26 +6862,41 @@ class AFOLU:
         vec_soil_emission_co2_soil_carbon_mineral = -self.factor_c_to_co2*vec_soil_delta_soc_mineral
         vec_soil_emission_co2_soil_carbon_mineral *= self.model_attributes.get_scalar(self.modvar_lsmm_n_to_fertilizer_agg_dung, "mass")
         vec_soil_emission_co2_soil_carbon_mineral *= self.model_attributes.get_gwp("co2")
-        
-        # get soil carbon from organic drained soils
-        vec_agrc_emission_co2_drained_organic_soils *= self.factor_c_to_co2*self.model_attributes.get_gwp("co2")
 
 
         ##  FINAL EF1 COMPONENTS
 
         # different tablulations (totals will run across EF1, EF2, EF3, EF4, and EF5)
-        vec_soil_n2on_direct_input = vec_soil_n2odirectn_fon + vec_soil_n2odirectn_fon_rice + vec_soil_n2odirectn_fsn + vec_soil_n2odirectn_fsn_rice + vec_soil_n2odirectn_fcr + vec_soil_n2odirectn_fcr_rice + vec_soil_n2odirectn_fsom
+        vec_soil_n2on_direct_input = (
+            vec_soil_n2odirectn_fon 
+            + vec_soil_n2odirectn_fon_rice 
+            + vec_soil_n2odirectn_fsn 
+            + vec_soil_n2odirectn_fsn_rice 
+            + vec_soil_n2odirectn_fcr 
+            + vec_soil_n2odirectn_fcr_rice 
+            + vec_soil_n2odirectn_fsom
+        )
         vec_soil_emission_n2o_crop_residue = vec_soil_n2odirectn_fcr + vec_soil_n2odirectn_fcr_rice
-        vec_soil_emission_n2o_fertilizer = vec_soil_n2odirectn_fon + vec_soil_n2odirectn_fon_rice + vec_soil_n2odirectn_fsn + vec_soil_n2odirectn_fsn_rice
+        vec_soil_emission_n2o_fertilizer = (
+            vec_soil_n2odirectn_fon 
+            + vec_soil_n2odirectn_fon_rice 
+            + vec_soil_n2odirectn_fsn 
+            + vec_soil_n2odirectn_fsn_rice
+        )
         vec_soil_emission_n2o_mineral_soils = vec_soil_n2odirectn_fsom
 
 
 
-        #####################################################################
-        #    N2O DIRECT - ORGANIC SOIL EMISSIONS (PT. 2 OF EQUATION 11.1)   #
-        #####################################################################
 
-        # get the emission factor variable
+        
+
+        ########################################################################
+        #    DRAINED ORGANIC SOILS                                             #
+        #    - CO2 EMISSIONS IN CROPLANDS AND MANAGED GRASSLANDS               #
+        #    - N2O DIRECT - ORGANIC SOIL EMISSIONS (PT. 2 OF EQUATION 11.1)    #
+        ########################################################################
+
+        # N2O emission factor variable (EF2)
         arr_soil_ef2 = self.model_attributes.extract_model_variable(#
             df_afolu_trajectories, 
             self.modvar_soil_ef2_n_organic_soils, 
@@ -6832,8 +6916,92 @@ class AFOLU:
             "area"
         )
 
-        vec_soil_n2on_direct_organic = 0.0
+        # soil C factors for drained organic soils
+        # dict_soil_ef_c_dos, arr_lndu_frac_organic_soils
+        # HEREHEREHERE arr_soil_ef_c_organic_cultivated_soils
+        # get the emission factors for C in drained organic soils as part of soil carbon
+        # NOTE: The factors are in terms of output unit emission mass (config) per self.model_socioeconomic.modvar_gnrl_area
+        dict_soil_ef_c_dos = self.get_soil_arrs_ef_c_drained_organic_soils(df_afolu_trajectories, )
+
+        # get areas of drained organic soils by time period
+        arr_lndu_area_dos = self.get_lndu_area_drained_organic_soils(
+            df_afolu_trajectories,
+            arr_land_use, 
+            arrs_lndu_land_conv,
+        )
+
+
+        ##  ITERATE OVER TROPICAL/TEMPERATE SOIL TYPES TO GET EMISSIONS ASSOCIATED WITH DOS
         
+        # initialize the array of DOS emissions for CO2
+        arr_lndu_emission_co2_drained_organic_soils = np.zeros(
+            (
+                n_projection_time_periods, 
+                attr_lndu.n_key_values,
+            )
+        )
+
+        # initialize direct N2O emissions from drained organic soils
+        vec_soil_n2on_direct_organic = 0.0
+
+
+        ##  CROPLAND (SINCE CROPS HAVE DATA BY WET/TEMPERATE/ETC)
+
+        arr_agrc_ef_c_dos = dict_soil_ef_c_dos.get(self.cat_lndu_crop, )
+        
+        for modvar in self.modvar_list_agrc_frac_temptrop:
+            # get appropriate soil category
+            cat_soil = clean_schema(self.model_attributes.get_variable_attribute(modvar, pycat_soil))
+            ind_soil = attr_soil.get_key_value_index(cat_soil)
+            
+            #  keep the fraction of organic soils available
+            #  arr_lndu_frac_organic_soils[:, self.ind_lndu_crop]
+
+            # area of DOS by crop
+            arr_agrc_area_dos_by_crop = sf.do_array_mult(
+                arr_agrc_frac_cropland_area,
+                arr_lndu_area_dos[:, self.ind_lndu_crop]
+            )
+            vec_soil_dos_temptrop_cur = (arr_agrc_area_dos_by_crop*dict_arrs_agrc_frac_temptrop[modvar]).sum(axis = 1, )
+            
+            # N component
+            vec_soil_n2on_direct_organic += vec_soil_dos_temptrop_cur*arr_soil_ef2[:, ind_soil]
+
+            # DOS Carbon - skip if not defined for crops
+            if arr_agrc_ef_c_dos is not None: 
+                vec_component = vec_soil_dos_temptrop_cur*arr_agrc_ef_c_dos[:, ind_soil]
+                arr_lndu_emission_co2_drained_organic_soils[:, self.ind_lndu_crop] += vec_component
+
+        
+        ##  OTHER LAND USE DOS
+
+        for k, v in dict_soil_ef_c_dos.items():
+            
+            # croplands are dealt with above
+            if k == self.cat_lndu_crop: continue
+            ind_lndu_cur = attr_lndu.get_key_value_index(k)
+
+            for modvar in self.modvar_list_lndu_frac_temptrop:
+                # get appropriate soil category
+                cat_soil = clean_schema(self.model_attributes.get_variable_attribute(modvar, pycat_soil))
+                ind_soil = attr_soil.get_key_value_index(cat_soil)
+
+                #  keep the fraction of organic soils available
+                #  arr_lndu_frac_organic_soils[:, self.ind_lndu_crop]
+
+                # get DOS total area in the current climate specification
+                vec_lndu_area_dos_cur_climate = (arr_lndu_area_dos*dict_arrs_lndu_frac_temptrop[modvar]).sum(axis = 1, )
+
+                # DOS Carbon
+                arr_lndu_emission_co2_drained_organic_soils[:, ind_lndu_cur] += vec_lndu_area_dos_cur_climate*v[:, ind_soil]
+
+                # update N2O component for pastures
+                if ind_lndu_cur == self.ind_lndu_pstr:
+                    vec_soil_n2on_direct_organic += vec_lndu_area_dos_cur_climate*arr_soil_ef2[:, ind_soil]
+
+        
+        self.arr_lndu_emission_co2_drained_organic_soils = arr_lndu_emission_co2_drained_organic_soils
+        """
         # loop over dry/wet to estimate carbon stocks in crops
         for modvar in self.modvar_list_agrc_frac_temptrop:
             # soil category
@@ -6842,7 +7010,7 @@ class AFOLU:
             vec_soil_crop_temptrop_cur = np.sum(arr_agrc_crop_area*dict_arrs_agrc_frac_temptrop[modvar], axis = 1)
             vec_soil_crop_temptrop_cur *= arr_lndu_frac_organic_soils[:, self.ind_lndu_crop]*arr_soil_ef2[:, ind_soil]
             vec_soil_n2on_direct_organic += vec_soil_crop_temptrop_cur
-        
+    
         # loop over dry/wet to estimate carbon stocks in pastures (managed grasslands)
         for modvar in self.modvar_list_lndu_frac_temptrop:
             # soil category
@@ -6851,7 +7019,8 @@ class AFOLU:
             vec_soil_pstr_temptrop_cur = (arr_land_use*dict_arrs_lndu_frac_temptrop[modvar])[:, self.ind_lndu_pstr]
             vec_soil_pstr_temptrop_cur *= arr_lndu_frac_organic_soils[:, self.ind_lndu_pstr]*arr_soil_ef2[:, ind_soil]
             vec_soil_n2on_direct_organic += vec_soil_pstr_temptrop_cur
-        
+        """
+
         # loop over tropical/temperate NP/temperate NR
         for modvar in self.modvar_list_frst_frac_temptrop:
             # soil category
@@ -6869,6 +7038,12 @@ class AFOLU:
             arr_soil_frst_temptrop_cur = np.sum(arr_area_frst*dict_arrs_frst_frac_temptrop[modvar]*arr_lndu_frac_organic_soils[:, inds_lndu], axis = 1)
             arr_soil_frst_temptrop_cur *= arr_soil_ef2[:, ind_soil]
             vec_soil_n2on_direct_organic += arr_soil_frst_temptrop_cur
+
+        
+        ##  PREP OUTPUTS
+
+        # get soil carbon from organic drained soils
+        arr_lndu_emission_co2_drained_organic_soils *= self.factor_c_to_co2*self.model_attributes.get_gwp("co2")
 
         # initialize output emission vector
         vec_soil_emission_n2o_organic_soils = vec_soil_n2on_direct_organic
@@ -7057,8 +7232,9 @@ class AFOLU:
                 self.modvar_agrc_emissions_n2o_crop_residues
             ),
             self.model_attributes.array_to_df(
-                vec_agrc_emission_co2_drained_organic_soils, 
-                self.modvar_agrc_emissions_co2_soil_carbon_organic
+                arr_lndu_emission_co2_drained_organic_soils, 
+                self.modvar_lndu_emissions_co2_drained_organic_soils,
+                reduce_from_all_cats_to_specified_cats = True,
             ),
             self.model_attributes.array_to_df(
                 vec_soil_emission_co2_soil_carbon_mineral, 
