@@ -70,3 +70,4 @@ Output,Area of Land Use Converted,,``area_lndu_conversion_from_$CAT-LANDUSE-DIM1
 Output,Area of Land Use Converted Away from Type,,``area_lndu_conversion_from_$CAT-LANDUSE$``,all,,0,1,1,,0,none,,,
 Output,Area of Land Use Converted to Type,,``area_lndu_conversion_to_$CAT-LANDUSE$``,all,,0,1,1,,0,none,,,
 Output,Land Use Area,Area of each land use category,``area_lndu_$CAT-LANDUSE$``,all,,0,1,1,,0,none,,,Internally calcualted using Markov with non-stationary transition probabilities.
+Output,:math:`\text{CO}_2` Emissions from Drained Organic Soils,Emissions of :math:`\text{CO}_2` in from drained organic soils. Applies to agriculture (croplands) and managed grasslands (pastures).,``emission_co2e_$EMISSION-GAS$_lndu_drained_organic_soils_$CAT-LANDUSE$`` (``$EMISSION-GAS$ = co2``),``croplands``|``pastures``,,0,1,1,,1,none,,,
