@@ -1,5 +1,7 @@
-﻿Volume,``$UNIT-VOLUME$`` ,Name ,Volume Equivalent litre,Volume Equivalent Gallon,Volume Equivalent Barrel,Volume Equivalent m3
-Litre,``litre``,Litres,1.0,0.26417200000000,0.00628980952381,0.001
-Gallon,``gallon``,Gallon,3.78541253425798,1.0,0.02380952380952,0.00378541253426
-Barrel,``barrel``,Barrel,158.98732643883500,42.0,1.00000000000000,0.15898732643884
-:math:`\text{m}^3`,``m3``,Cubic Meters,1000.0,264.17200000000000,6.28980952380952,1.0
+﻿Volume,``$UNIT-VOLUME$`` ,Name ,Volume Equivalent litre,Volume Equivalent Gallon,Volume Equivalent ft3,Volume Equivalent Barrel,Volume Equivalent m3,Volume Equivalent kft3
+Litre,``litre``,Litres,1,0.264172,0.035314667,0.00628981,0.001,3.53147E-05
+Gallon,``gallon``,Gallon,3.785412534,1,0.133680582,0.023809524,0.003785413,0.000133681
+Cubic Foot,``ft3``,Cubic Foot,28.31684659,7.480517998,1,0.178107571,0.028316847,0.001
+Barrel,``barrel``,Barrel,158.9873264,42,5.614584446,1,0.158987326,0.005614584
+:math:`\text{m}^3`,``m3``,Cubic Meters,1000,264.172,35.31466672,6.289809524,1,0.035314667
+Thousand Cubic Feet,``kft3``,Thousand Cubic Feet,28316.84659,7480.517998,1000,178.1075714,28.31684659,1

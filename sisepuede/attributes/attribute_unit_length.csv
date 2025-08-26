@@ -1,6 +1,7 @@
-﻿Length,``$UNIT-LENGTH$`` ,Name ,Length Equivalent m,Length Equivalent km,Length Equivalent Mile,Length Equivalent Mgm,Length Equivalent Gm
-m,``m``,Meters,1,0.001,0.000621373,0.000001,0.000000001
-km,``km``,Kilometers,1000,1,0.62137,0.001,0.000001
-Mile,``mile``,Miles,1609.34,1.60934,1,0.00160934,1.60934E-06
-Mm,``mgm``,Megameters,1000000,1000,0.00062137,1,0.001
-Gm,``gm``,Gigameters,1000000000,1000000,6.2137E-07,1000,1
+﻿Length,``$UNIT-LENGTH$`` ,Name ,Length Equivalent ft,Length Equivalent m,Length Equivalent km,Length Equivalent Mile,Length Equivalent Mgm,Length Equivalent Gm
+Foot,``ft``,Foot,1,0.3048,0.0003048,0.000189394,3.048E-07,3.048E-10
+m,``m``,Meters,3.280839895,1,0.001,0.000621373,0.000001,0.000000001
+km,``km``,Kilometers,3280.839895,1000,1,0.62137,0.001,0.000001
+Mile,``mile``,Miles,5280,1609.34,1.60934,1,0.00160934,1.60934E-06
+Mm,``mgm``,Megameters,3280839.895,1000000,1000,0.00062137,1,0.001
+Gm,``gm``,Gigameters,3280839895,1000000000,1000000,6.2137E-07,1000,1
