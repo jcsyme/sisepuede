@@ -9,6 +9,10 @@ Electricity and Fuel Production is modeled using `Julia NemoMod <https://sei-int
 
 The SISEPUEDE model is highly aggregated at the country level, that can be built and improved upon by countries with deeper systemic knowledge at a later date. In general, SISEPUEDE acts as a wrapper for Julia NEMO, formatting input data and integrating uncertainty into an integrated modeling framework for NemoMod. **Energy Technology** is the subsector in which emissions accrue and contains key attributes surrounding energy generation technologies, including capacity factors, costs, lifetimes, input and output fuels, and more. **Energy Storage** includes key properties of energy storage. All storage categories are also technology categories (this is necessary to model storage).
 
+
+.. image:: img/nemomod_diagram_v2.png
+
+
 NemoMod requires several dimensions of data; these data include:
 
 * EMISSIONS
@@ -25,6 +29,7 @@ These dimensions are associated with attribute tables in SISEPUEDE scripts and t
 
 .. note::
    Most of the variables that are required by category are explained in further detail in the `NemoMod Parameter Documentation <https://sei-international.github.io/NemoMod.jl/stable/parameters/>`_. For example, if it is unclear what the *Capacity Factor* is (see Categories - TECHNOLOGY below), the NemoMod parameter documentation can provide additional information.
+
 
 
 NemoMod Tables and Default Values

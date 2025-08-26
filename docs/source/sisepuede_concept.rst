@@ -10,7 +10,7 @@ SISEPUEDE Directed Acyclic Graph (DAG)
 
 SISEPUEDE model integration is best reflect in a directed acylic graph, also known as a DAG.
 
-.. image:: img/sisepuede_dag.jpg
+.. image:: img/sisepuede_dag_color.png
 
 
 Known Issues and Future Improvements
