@@ -17,6 +17,7 @@ Kerosene,``fuel_kerosene``,"Kerosene, including jet and other (as definined in T
 Liquid Biofuels,``fuel_biofuels``," | Biodiesel, biogasoline, hydrotreated vegetable oil (HVO), and other waste oil-derived fuels. Includes sustainable aviation fuel.
  | 
  | EXCLUDES ETHANOL, which has a lower energy density.",,,,0,0,0,0,0,none,0
+Liquid Natural Gas,``fuel_natural_gas_liquid``,Liquified natural gas,,,,0,0,0,0,0,none,0
 Natural Gas,``fuel_natural_gas``,Natural gas,,,,0,0,0,0,0,none,0
 Nuclear,``fuel_nuclear``,Nuclear fuel,,,,0,0,0,0,0,none,0
 Ocean,``fuel_ocean``,Ocean tidal energy,,,,0,0,0,0,0,none,0
