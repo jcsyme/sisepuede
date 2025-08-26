@@ -6948,7 +6948,11 @@ class AFOLU:
         ##  CROPLAND (SINCE CROPS HAVE DATA BY WET/TEMPERATE/ETC)
 
         arr_agrc_ef_c_dos = dict_soil_ef_c_dos.get(self.cat_lndu_crop, )
-        
+
+        self.dict_soil_ef_c_dos = dict_soil_ef_c_dos
+        self.arr_lndu_area_dos = arr_lndu_area_dos
+        self.dict_arrs_agrc_frac_temptrop = dict_arrs_agrc_frac_temptrop
+
         for modvar in self.modvar_list_agrc_frac_temptrop:
             # get appropriate soil category
             cat_soil = clean_schema(self.model_attributes.get_variable_attribute(modvar, pycat_soil))
@@ -6963,7 +6967,7 @@ class AFOLU:
                 arr_lndu_area_dos[:, self.ind_lndu_crop]
             )
             vec_soil_dos_temptrop_cur = (arr_agrc_area_dos_by_crop*dict_arrs_agrc_frac_temptrop[modvar]).sum(axis = 1, )
-            
+            self.vec_soil_dos_temptrop_cur = vec_soil_dos_temptrop_cur
             # N component
             vec_soil_n2on_direct_organic += vec_soil_dos_temptrop_cur*arr_soil_ef2[:, ind_soil]
 
