@@ -891,7 +891,12 @@ class ModelVariable:
             Set fs_safe = True to generate file system safe version (no spaces, 
             all lower case)
         """
-        chars_repl = [":math:\\text", "{", "}_", "}"]
+        chars_repl = [
+            ":math:\\text", 
+            "{", "}_", 
+            "}",
+            "\\text"
+        ]
 
         name_clean = sf.str_replace(name, dict((x, "") for x in chars_repl))
         if fs_safe:
