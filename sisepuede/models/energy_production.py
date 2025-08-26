@@ -2343,14 +2343,23 @@ class EnergyProduction:
         """
         
         # initialize some key components
-        dict_upstream = self.get_enfu_upstream_fuel_to_replace_downstream_fuel_consumption_map(
-            attribute_fuel = attribute_fuel,
-            return_type = "dict_reverse"
-        ) if (dict_upstream is None) else None
-        dict_tech_info = self.get_tech_info_dict(
-            attribute_fuel = attribute_fuel,
-            attribute_technology = attribute_technology
-        ) if (dict_tech_info is None) else dict_tech_info
+        dict_upstream = (
+            self.get_enfu_upstream_fuel_to_replace_downstream_fuel_consumption_map(
+                attribute_fuel = attribute_fuel,
+                return_type = "dict_reverse"
+            ) 
+            if (dict_upstream is None) 
+            else None
+        )
+
+        dict_tech_info = (
+            self.get_tech_info_dict(
+                attribute_fuel = attribute_fuel,
+                attribute_technology = attribute_technology
+            ) 
+            if (dict_tech_info is None) 
+            else dict_tech_info
+        )
 
         modvar_enfu_production = (
             self.modvar_enfu_production_fuel 
