@@ -1046,6 +1046,7 @@ class EnergyProduction:
         self.modvar_entc_fuelprod_output_activity_ratio_hydrogen = "Fuel Production NemoMod OutputActivityRatio Hydrogen"
         self.modvar_entc_fuelprod_output_activity_ratio_kerosene = "Fuel Production NemoMod OutputActivityRatio Kerosene"
         self.modvar_entc_fuelprod_output_activity_ratio_natural_gas = "Fuel Production NemoMod OutputActivityRatio Natural Gas"
+        self.modvar_entc_fuelprod_output_activity_ratio_natural_gas_liquid = "Fuel Production NemoMod OutputActivityRatio Natural Gas Liquid"
         self.modvar_entc_fuelprod_output_activity_ratio_oil = "Fuel Production NemoMod OutputActivityRatio Oil"
         self.modvar_entc_max_elec_prod_increase_for_msp = "Maximum Production Increase Fraction to Satisfy MinShareProduction Electricity"
         self.modvar_entc_nemomod_capital_cost = "NemoMod CapitalCost"
@@ -2312,7 +2313,7 @@ class EnergyProduction:
         attribute_technology: Union[AttributeTable, None] = None,
         dict_tech_info: Union[Dict, None] = None,
         dict_upstream: Union[Dict, None] = None,
-        modvar_enfu_production: Union[str, None] = None
+        modvar_enfu_production: Union[str, None] = None,
     ) -> pd.DataFrame:
         """
         Using the vproductionbytechnologyannual table, account for 
@@ -2374,22 +2375,29 @@ class EnergyProduction:
         )
         cats_entc_dummy_drop = [self.get_dummy_fuel_name(return_type = "tech")]
         df_fuel_production = df_production_by_technology[
-            ~df_production_by_technology[self.field_nemomod_technology].isin(cats_entc_dummy_imports + cats_entc_dummy_drop)
+            ~df_production_by_technology[self.field_nemomod_technology]
+            .isin(cats_entc_dummy_imports + cats_entc_dummy_drop)
         ]
 
         # replace downstream fuels
         flag_drop = "DROPME"
-        for cat_enfu_upstream in dict_upstream.keys():
-            cat_enfu_downstream = dict_upstream.get(cat_enfu_upstream)
-            df_fuel_production[self.field_nemomod_fuel].replace(
-                {
-                    cat_enfu_downstream: flag_drop, 
-                    cat_enfu_upstream: cat_enfu_downstream
-                }, 
-                inplace = True
+        for cat_enfu_upstream, cat_enfu_downstream in dict_upstream.items():
+            df_fuel_production[self.field_nemomod_fuel] = (
+                df_fuel_production[self.field_nemomod_fuel]
+                .replace(
+                    {
+                        cat_enfu_downstream: flag_drop, 
+                        cat_enfu_upstream: cat_enfu_downstream
+                    }, 
+                )
             )
 
-        df_fuel_production = df_fuel_production[df_fuel_production[self.field_nemomod_fuel] != flag_drop].reset_index(drop = True)
+        df_fuel_production = (
+            df_fuel_production[
+                df_fuel_production[self.field_nemomod_fuel] != flag_drop
+            ]
+            .reset_index(drop = True)
+        )
 
         # convert to sisepuede format
         scalar_div = self.get_nemomod_energy_scalar(self.modvar_enfu_production_fuel)
@@ -2411,7 +2419,9 @@ class EnergyProduction:
             field_pivot = self.field_nemomod_fuel,
             techs_to_pivot = None
         )
+
         df_fuel_production_out /= scalar_div if (scalar_div is not None) else 1
+
 
         return df_fuel_production_out
 
@@ -4983,7 +4993,7 @@ class EnergyProduction:
             .drop([field_gnrl_ccf_hydropower], axis = 1)
             .sort_index()
         )
-        self.df_tmp = df_out.copy()
+
         # ensure capacity factors are properly specified
         df_out[self.field_nemomod_value] = sf.vec_bounds(
             np.array(df_out[self.field_nemomod_value]), 
@@ -8980,7 +8990,11 @@ class EnergyProduction:
         """
 
         # initialize some pieces
-        table_name = self.model_attributes.table_nemomod_annual_emissions_by_technology if (table_name is None) else table_name
+        table_name = (
+            self.model_attributes.table_nemomod_annual_emissions_by_technology 
+            if not isinstance(table_name, str) 
+            else table_name
+        )
 
         modvars_emit = [
             self.modvar_entc_nemomod_emissions_ch4_elec,
@@ -9352,13 +9366,16 @@ class EnergyProduction:
         table_name_production_by_technology = self.model_attributes.table_nemomod_production_by_technology if (table_name_production_by_technology is None) else table_name_production_by_technology
         dict_tech_info = self.get_tech_info_dict(
             attribute_fuel = attribute_fuel,
-            attribute_technology = attribute_technology
+            attribute_technology = attribute_technology,
         )
         df_out = [] # initialize output table
 
         # get fuel production and demands (pre-entc)
         tuple_enfu_production_and_demands = (
-            self.model_enercons.project_enfu_production_and_demands(df_elec_trajectories, target_energy_units = self.model_attributes.configuration.get("energy_units_nemomod")) 
+            self.model_enercons.project_enfu_production_and_demands(
+                df_elec_trajectories, 
+                target_energy_units = self.model_attributes.configuration.get("energy_units_nemomod"),
+            ) 
             if (tuple_enfu_production_and_demands is None) 
             else tuple_enfu_production_and_demands
         )
@@ -9485,12 +9502,13 @@ class EnergyProduction:
             reduce_from_all_cats_to_specified_cats = True
         )
         df_out += [df_enfu_transmission_losses]
-
+        
 
         # 8. get adjusted exports as production + imports - demands
         arr_enfu_exports_adj = arr_enfu_production + arr_enfu_imports - arr_enfu_transmission_losses - arr_enfu_demands
         arr_enfu_exports_adj = sf.vec_bounds(arr_enfu_exports_adj, (0, np.inf))
         scalar_div = self.get_nemomod_energy_scalar(self.modvar_enfu_exports_fuel_adjusted)
+
         df_enfu_exports_adj = self.model_attributes.array_to_df(
             arr_enfu_exports_adj/scalar_div,
             self.modvar_enfu_exports_fuel_adjusted,
@@ -9622,25 +9640,35 @@ class EnergyProduction:
         elif (subsec == self.subsec_name_enst) and (field_pivot != self.field_nemomod_storage):
             dict_repl = dict_tech_info.get("dict_storage_techs_to_storage")
 
-        # get data frame
+        
+        ##  GET THE DATA FRAME TO OPERATE ON
+
+        # if engine, call from db; 
+        # if DataFrame, accept as is;
+        # otherwise, error
         if isinstance(engine, sqlalchemy.engine.Engine):
-            df_table_nemomod = sqlutil.sql_table_to_df(engine, table_name, query_append = query_append)
+            df_table_nemomod = sqlutil.sql_table_to_df(
+                engine, 
+                table_name, 
+                query_append = query_append,
+            )
+
         elif isinstance(engine, pd.DataFrame):
             df_table_nemomod = engine
+
         else:
             tp = type(engine)
-            raise ValueError(f"Error in retrieve_and_pivot_nemomod_table: invalid engine type '{tp}'")
+            raise TypeError(f"Invalid engine type '{tp}' specified in retrieve_and_pivot_nemomod_table")
         
         # apply field replacements if needed
         if dict_repl_values is not None:
             for field in dict_repl_values.keys():
-
-                if field not in df_table_nemomod.keys():
+                if field not in df_table_nemomod.keys(): 
                     continue
             
                 dict_repl_cur = dict_repl_values.get(field)
                 if (dict_repl_cur is not None):
-                    df_table_nemomod[field].replace(dict_repl_cur, inplace = True)
+                    df_table_nemomod[field] = df_table_nemomod[field].replace(dict_repl_cur, )
 
         # apply an optional aggregation to the dataframe after retrieving
         if dict_agg_info is not None:
@@ -9652,6 +9680,9 @@ class EnergyProduction:
                     fields_group,
                     dict_agg
                 )
+        
+
+        ##  REDUCE TO TECHS
 
         # reduce data frame to techs (should be trivial)
         df_source = (
