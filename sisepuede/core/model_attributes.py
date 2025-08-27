@@ -5310,6 +5310,9 @@ class ModelAttributes:
             indices = [attr.get_key_value_index(x) for x in cats]
             arr_in = arr_in[:, indices]
 
+
+        ##  APPLY ANY SCALARS, INCLUDING TO DEFAULT OUTPUT CONFIG UNITS
+
         scalar_em = 1
         scalar_me = 1
 
@@ -5325,13 +5328,10 @@ class ModelAttributes:
         # raise error if there's a shape mismatch
         if len(fields) != arr_in.shape[1]:
             flds_print = sf.format_print_list(fields)
-
-            msg = f"""
-            f"Array shape mismatch for fields {flds_print}: the array only has 
-            {arr_in.shape[1]} columns."
+            msg = f"""Array shape mismatch for fields {flds_print}: the array only has {arr_in.shape[1]} columns.
             """
-
             raise ValueError(msg)
+
 
         out = pd.DataFrame(
             arr_in*scalar_em*scalar_me, 
@@ -5894,7 +5894,7 @@ class ModelAttributes:
         variable_specification: Union[mv.ModelVariable, str, List[mv.ModelVariable], List[str], None],
         category_restrictions_as_full_spec: bool = False,
         restrict_to_category_values: Union[Dict[str, List[str]], List[str], str, None] = None,
-        sort: bool = True,
+        sort: bool = False,
         variable_type: Union[str, None] = None,
         **kwargs,
     ) -> List[str]:
