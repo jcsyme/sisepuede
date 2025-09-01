@@ -34,16 +34,28 @@ import sisepuede.utilities._toolbox as sf
 
 
 
+###################################
+#    SET SOME GLOBAL VARIABLES    #
+###################################
 
-_MODULE_CODE_SIGNATURE = "TFR"
-_MODULE_UUID = "D3BC5456-5BB7-4F7A-8799-AFE0A44C3FFA" 
+# SOME DEFAULT VALUES
+_DEFAULT_VALUE_VIR_ALPHA_LOGISTIC = 0.0
+_DEFAULT_VALUE_VIR_RENEWABLE_CAP_DELTA_FRAC = 0.0075
+_DEFAULT_VALUE_VIR_RENEWABLE_CAP_MAX_FRAC = 0.125
+_DEFAULT_VALUE_VIR_WINDOW_LOGISTIC = (-8, 8)
 
 
+# SOME KEYS
 _DICT_KEYS = {
     "baseline": "baseline",
     "general": "general",
     "vec_implementation_ramp": "vec_implementation_ramp",
 }
+
+# MODULE INFO
+_MODULE_CODE_SIGNATURE = "TFR"
+_MODULE_UUID = "D3BC5456-5BB7-4F7A-8799-AFE0A44C3FFA" 
+
 
 
 
@@ -114,8 +126,10 @@ def get_dict_config_default(
             # "n_tp_ramp": None,
 
             # shape values for implementing caps on new technologies (description below)
-            "vir_renewable_cap_delta_frac": 0.0075,
-            "vir_renewable_cap_max_frac": 0.125,
+            "vec_implementation_ramp": {
+                "vir_renewable_cap_delta_frac": 0.0075,
+                "vir_renewable_cap_max_frac": 0.125,
+            }
 
             # first year to start transformations--default is to 2 years from present
             # "year_0_ramp": dt.datetime.now().year + 2
@@ -710,12 +724,13 @@ class Transformers:
 
         if isinstance(dict_config, dict):
             config.dict_yaml.update(dict_config)
-        
+
 
         ##  SET PARAMETERS
 
         self.code_baseline = code_baseline
         self.config = config
+        self.key_config_alpha_logistic = "alpha_logistic"
         self.key_config_baseline = key_baseline
         self.key_config_cats_entc_max_investment_ramp = "categories_entc_max_investment_ramp"
         self.key_config_cats_entc_pps_to_cap = "categories_entc_pps_to_cap"
@@ -730,6 +745,7 @@ class Transformers:
         self.key_config_vec_implementation_ramp = "vec_implementation_ramp"
         self.key_config_vir_renewable_cap_delta_frac = "vir_renewable_cap_delta_frac"
         self.key_config_vir_renewable_cap_max_frac = "vir_renewable_cap_max_frac"
+        self.key_config_window_logistic = "window_logistic"
 
         return None
     
@@ -891,19 +907,35 @@ class Transformers:
             and define these parameters, see ?self._initialize_config
     
         """
+        # key header for vec_implementation_ramp
+        key_vir = f"{self.key_config_general}.{self.key_config_vec_implementation_ramp}"
 
         # get parameters from configuration dictionary if specified
         (
+            alpha_logistic,
             n_tp_ramp, 
             tp_0_ramp,  
             vir_renewable_cap_delta_frac,
             vir_renewable_cap_max_frac,
+            window_logistic,
         ) = self.get_ramp_characteristics(
+            alpha_logistic = self.config.get(
+                f"{key_vir}.{self.key_config_alpha_logistic}",
+            ),
             n_tp_ramp = self.config.get(
-                f"{self.key_config_general}.{self.key_config_n_tp_ramp}"
+                f"{key_vir}.{self.key_config_n_tp_ramp}",
             ),
             tp_0_ramp = self.config.get(
-                f"{self.key_config_general}.{self.key_config_tp_0_ramp}"
+                f"{key_vir}.{self.key_config_tp_0_ramp}",
+            ),
+            vir_renewable_cap_delta_frac = self.config.get(
+                f"{key_vir}.{self.key_config_vir_renewable_cap_delta_frac}",
+            ),
+            vir_renewable_cap_max_frac = self.config.get(
+                f"{key_vir}.{self.key_config_vir_renewable_cap_max_frac}",
+            ),
+            window_logistic = self.config.get(
+                f"{key_vir}.{self.key_config_window_logistic}",
             ),
         )
 
@@ -915,12 +947,14 @@ class Transformers:
 
         ##  SET PROPERTIES
 
+        self.alpha_logistic = alpha_logistic
         self.baseline_with_lurf = baseline_with_lurf
         self.n_tp_ramp = n_tp_ramp
         self.tp_0_ramp = tp_0_ramp
         self.vir_renewable_cap_delta_frac = vir_renewable_cap_delta_frac
         self.vir_renewable_cap_max_frac = vir_renewable_cap_max_frac
-
+        self.window_logistic = window_logistic
+        
         return None
     
 
@@ -1689,11 +1723,11 @@ class Transformers:
 
 
     def build_implementation_ramp_vector(self,
-        alpha_logistic: Union[float, None] = 0.0,
+        alpha_logistic: Union[float, None] = None,
         d: Union[float, int, None] = 0,
         n_tp_ramp: Union[int, None] = None,
         tp_0_ramp: Union[int, None] = None,
-        window_logistic: Union[tuple, None] = (-8, 8),
+        window_logistic: Union[tuple, None] = None,
         **kwargs,
     ) -> np.ndarray:
         """
@@ -1717,16 +1751,26 @@ class Transformers:
         n_tp = len(self.time_periods.all_time_periods)
 
         # verify the values
-        n_tp_ramp, tp_0_ramp, _, _ = self.get_ramp_characteristics(
+        (
+            alpha_logistic, 
+            n_tp_ramp, 
+            tp_0_ramp, 
+            _, 
+            _,
+            window_logistic,
+        ) = self.get_ramp_characteristics(
+            alpha_logistic = alpha_logistic,
             n_tp_ramp = n_tp_ramp,
             tp_0_ramp = tp_0_ramp,
+            window_logistic = window_logistic,
+            **kwargs,
         )
         
 
         # verify types
-        alpha_logistic = 0.0 if not sf.isnumber(alpha_logistic) else alpha_logistic
+        #alpha_logistic = 0.0 if not sf.isnumber(alpha_logistic) else alpha_logistic
         d = 0 if not sf.isnumber(d) else d
-        window_logistic = (-8, 8) if not isinstance(window_logistic, tuple) else window_logistic
+        #window_logistic = (-8, 8) if not isinstance(window_logistic, tuple) else window_logistic
  
 
         vec_out = sf.ramp_vector(
@@ -2128,18 +2172,23 @@ class Transformers:
 
 
     def get_ramp_characteristics(self,
+        alpha_logistic: Union[float, None] = None,
         n_tp_ramp: Union[int, None] = None,
         tp_0_ramp: Union[int, None] = None,
+        vir_renewable_cap_delta_frac: Union[float, None] = None,
+        vir_renewable_cap_max_frac: Union[float, None] = None,
+        window_logistic: Union[float, None] = None,
     ) -> List[str]:
-        """
-        Get parameters for the implementation of transformations. Returns a 
+        """Get parameters for the implementation of transformations. Returns a 
             tuple with the following elements:
 
             (
+                alpha_logistic,
                 n_tp_ramp,
                 tp_0_ramp, 
                 vir_renewable_cap_delta_frac,
                 vir_renewable_cap_max_frac,
+                window_logistic,
             )
         
         If dict_config is None, uses self.config.
@@ -2152,11 +2201,14 @@ class Transformers:
 
         Keyword Arguments
         -----------------
-        - n_tp_ramp: number of time periods to increase to full implementation. 
-            If None, defaults to final time period
-        - tp_0_ramp: first time period of ramp (last == 0)
+        n_tp_ramp : Union[int, None]
+            Number of time periods to increase to full implementation. If None, 
+            defaults to final time period
+        tp_0_ramp : Union[int, None]
+            First time period of ramp (last == 0)
         """
 
+        ##  FORMAT n_tp AND tp_0_ramp
 
         n_tp = len(self.time_periods.all_time_periods)
         
@@ -2182,27 +2234,69 @@ class Transformers:
         )
 
 
+        ##  CHECK alpha_logistic AND window_logistic
+
+        alpha_logistic = (
+            _DEFAULT_VALUE_VIR_ALPHA_LOGISTIC 
+            if not sf.isnumber(alpha_logistic)
+            else min(max(alpha_logistic, 0.0), 1.0)
+        )
+        
+        # verify logistic window
+        check_wl = isinstance(window_logistic, (tuple, list, np.ndarray))
+        check_wl &= (len(window_logistic) == 2) if check_wl else False
+        check_wl &= (
+            sf.isnumber(window_logistic[0]) and sf.isnumber(window_logistic[1])
+            if check_wl
+            else False
+        )
+        check_wl &= (
+            (window_logistic[0] < window_logistic[1])
+            if check_wl
+            else False
+        )
+
+        window_logistic = (
+            _DEFAULT_VALUE_VIR_WINDOW_LOGISTIC
+            if not check_wl
+            else window_logistic
+        )
+
+
+
         ##  GET PARAMETERS USED TO MODIFY MSPs IN CONJUNCTION WITH vec_implementation_ramp
 
+        #
+        # HEREHERE: check that these could be better specified
         # get VIR (get_vir_max_capacity) delta_frac
-        # default_vir_renewable_cap_delta_frac = 0.01
-        vir_renewable_cap_delta_frac = self.config.get(
-            f"{self.key_config_general}.{self.key_config_vir_renewable_cap_delta_frac}",
+        #   - default_vir_renewable_cap_delta_frac = 0.01
+
+        vir_renewable_cap_delta_frac = (
+            _DEFAULT_VALUE_VIR_RENEWABLE_CAP_DELTA_FRAC
+            if not sf.isnumber(vir_renewable_cap_delta_frac)
+            else vir_renewable_cap_delta_frac
         )
         vir_renewable_cap_delta_frac = float(sf.vec_bounds(vir_renewable_cap_delta_frac, (0.0, 1.0)))
 
         # get VIR (get_vir_max_capacity) max_frac
-        # default_vir_renewable_cap_max_frac = 0.05
-        vir_renewable_cap_max_frac = self.config.get(
-            f"{self.key_config_general}.{self.key_config_vir_renewable_cap_max_frac}",
+        #   - default_vir_renewable_cap_max_frac = 0.05
+        vir_renewable_cap_max_frac = (
+            _DEFAULT_VALUE_VIR_RENEWABLE_CAP_MAX_FRAC
+            if not sf.isnumber(vir_renewable_cap_max_frac)
+            else vir_renewable_cap_max_frac
         )
         vir_renewable_cap_max_frac = float(sf.vec_bounds(vir_renewable_cap_max_frac, (0.0, 1.0)))
        
+
+        ##  SET OUTPUT
+
         tup_out = (
+            alpha_logistic,
             n_tp_ramp,
             tp_0_ramp,
             vir_renewable_cap_delta_frac,
             vir_renewable_cap_max_frac, 
+            window_logistic,
         )
 
         return tup_out

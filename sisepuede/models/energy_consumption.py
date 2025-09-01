@@ -952,33 +952,49 @@ class EnergyConsumption:
 
     def get_enfu_fuel_costs_per_energy(self,
         df_neenergy_trajectories: pd.DataFrame,
-        modvar_for_units_energy: Union[str, None] = None,
+        hierarchy: Union[List[str], np.ndarray, tuple] = ["gravimetric", "volumetric", "thermal"],
+        modvar_for_units_energy: Union[str, 'ModelVariable', None] = None,
         units_energy: Union[str, None] = None,
         units_monetary: Union[str, None] = None,
     ) -> Union[pd.DataFrame, None]:
-        """
-        Retrieve the cost (in units_monetary) of fuels in terms per energy unit 
-            units_energy for fuels. 
+        """Retrieve the cost (in units_monetary) of fuels in terms per energy 
+            unit units_energy for fuels. 
 
-        * NOTE: Assumes that each fuel has *one* type of price specified: either
-            gravimetric, thermal, or volumetric. USE WITH CAUTION.
+        * NOTE: Uses a hierarchy for prices. The default hierarchy is;
+            (1) Gravimetric
+            (2) Volumetric
+            (3) Thermal
+
+        If one fuel has more than one price, the first on the hierarchy will be 
+            used.
+
 
         Function Arguments
         ------------------
-        - df_neenergy_trajectories: data frame containing input variables as 
-            columns
+        df_neenergy_trajectories : pd.DataFrame
+            DataFrame containing input variables as columns
 
         Keyword Arguments
         -----------------
-        - modvar_for_units_energy: optional model variable for units_energy to
-            match.
+        hierarchy : Union[List[str], np.ndarray, tuple]
+            Hiearchy for searching for prices. Must contain each of the three 
+            of the following elements in any order:
+                * "gravimetric"
+                * "thermal"
+                * "volumetric"
+        modvar_for_units_energy : Union[str, 'ModelVariable', None]
+            Optional model variable for units_energy to match.
             * NOTE: Overridden by specification of units_energy. Only valid if
-                units_energy is None.
-        - units_energy: valid energy unit. If None (or if invalid), default to 
-            configuration units.
-        - units_monetary: valid monetary unit. If None (or if invalid), default 
-            to configuration units.
+                units_energy is None
+        units_energy : Union[str, None]
+            Valid energy unit. If None (or if invalid), default to configuration 
+            units
+        units_monetary : Union[str, None]
+            Valid monetary unit. If None (or if invalid), default to 
+            configuration unit
         """
+
+        ##  INITIALIZATION 
 
         if units_energy is None:
             units_energy = (
@@ -989,26 +1005,55 @@ class EnergyConsumption:
                 if isinstance(modvar_for_units_energy, str)
                 else None
             )
-            
-        arr_price = self.get_enfu_fuel_costs_per_energy_general(
-            df_neenergy_trajectories,
-            type_conversion = "gravimetric",
-            units_energy = units_energy,
-            units_monetary = units_monetary
+        
+        # check the hierarchy
+        hierarchy_default = ["gravimetric", "volumetric", "thermal"]
+        use_default = not set(hierarchy).issubset(set(hierarchy_default))
+        use_default |= (len(hierarchy) != 3) if not use_default else True
+
+        hierarchy = hierarchy_default if use_default else hierarchy
+
+
+        ##  BUILD ARRAY OF PRICE AND FORM ITERATION DICTIONARY
+
+        attr_enfu = self.model_attributes.get_attribute_table(
+            self.model_attributes.subsec_name_enfu,
+        )
+        arr_price = np.zeros(
+            (
+                df_neenergy_trajectories.shape[0], 
+                attr_enfu.n_key_values,
+            )
         )
 
-        arr_price += self.get_enfu_fuel_costs_per_energy_general(
-            df_neenergy_trajectories,
-            type_conversion = "volumetric",
-            units_energy = units_energy,
-            units_monetary = units_monetary
-        )
 
-        arr_price += self.get_enfu_fuel_costs_per_energy_thermal(
-            df_neenergy_trajectories,
-            units_energy = units_energy,
-            units_monetary = units_monetary
-        )
+        # build the dictionary
+        dict_prices = {
+            "gravimetric": self.get_enfu_fuel_costs_per_energy_general(
+                df_neenergy_trajectories,
+                type_conversion = "gravimetric",
+                units_energy = units_energy,
+                units_monetary = units_monetary
+            ),
+
+            "volumetric": self.get_enfu_fuel_costs_per_energy_general(
+                df_neenergy_trajectories,
+                type_conversion = "volumetric",
+                units_energy = units_energy,
+                units_monetary = units_monetary
+            ),
+
+            "thermal": self.get_enfu_fuel_costs_per_energy_thermal(
+                df_neenergy_trajectories,
+                units_energy = units_energy,
+                units_monetary = units_monetary
+            )
+        }
+
+        # iterate to sum
+        for elem in hierarchy:
+            mask_keep = (arr_price == 0).astype(float)
+            arr_price += mask_keep*dict_prices.get(elem)
 
         return arr_price
 
@@ -1050,8 +1095,17 @@ class EnergyConsumption:
         if (type_conversion not in ["gravimetric", "volumetric"]):
             return None
 
-        modvar_density = self.modvar_enfu_energy_density_gravimetric if (type_conversion == "gravimetric") else self.modvar_enfu_energy_density_volumetric
-        modvar_price = self.modvar_enfu_price_gravimetric if (type_conversion == "gravimetric") else self.modvar_enfu_price_volumetric
+        modvar_density = (
+            self.modvar_enfu_energy_density_gravimetric 
+            if (type_conversion == "gravimetric") 
+            else self.modvar_enfu_energy_density_volumetric
+        )
+        modvar_price = (
+            self.modvar_enfu_price_gravimetric 
+            if (type_conversion == "gravimetric") 
+            else self.modvar_enfu_price_volumetric
+        )
+
 
         ##  PREPARE SCALARS
         
@@ -1100,9 +1154,10 @@ class EnergyConsumption:
         arr_price = self.model_attributes.extract_model_variable(#
             df_neenergy_trajectories,
             modvar_price,
+            all_cats_missing_val = 0.0,    # ensure missing values are 0
             expand_to_all_cats = True,
             return_type = "array_base",
-            var_bounds = (0, np.inf),
+            var_bounds = (0, np.inf),      # only positive prices
         ) * scalar_monetary
         
         # get density in terms of price specified mass
@@ -1191,9 +1246,10 @@ class EnergyConsumption:
         arr_price_per_energy = self.model_attributes.extract_model_variable(#
             df_neenergy_trajectories,
             modvar_price,
-            expand_to_all_cats = True,
+            all_cats_missing_val = 0.0,    # ensure missing values are 0
+            expand_to_all_cats = True,     
             return_type = "array_base",
-            var_bounds = (0, np.inf),
+            var_bounds = (0, np.inf),      # only positive prices
         ) * scalar_monetary
         
         arr_price_per_energy = np.nan_to_num(

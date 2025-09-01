@@ -363,7 +363,7 @@ def exogenous_demands_to_sispeuede_ies(
         vec_means = np.zeros(arr_elast.shape[1])
         vec_medians = np.zeros(arr_elast.shape[1])
         vec_targs = np.zeros(arr_elast.shape[1])
-        
+       
         # set targets for final time period based on mean/median
         for j in range(len(vec_means)):
 
@@ -373,18 +373,18 @@ def exogenous_demands_to_sispeuede_ies(
             vec_cur = vec_cur[np.where(np.abs(vec_cur) <= sup_elast_magnitude)]
             mu = np.mean(vec_cur) if (len(vec_cur) > 0) else 1.0
             med = np.median(vec_cur) if (len(vec_cur) > 0) else 1.0
-
+ 
             # bound negative mean and median elasticities at low number
             vec_means[j] = float(sf.vec_bounds(mu, elasticity_bounds)) if not np.isnan(mu) else 1.0
             vec_medians[j] = float(sf.vec_bounds(med, elasticity_bounds)) if not np.isnan(med) else 1.0
 
             m0 = min(vec_cur) if (len(vec_cur) > 0) else 1.0
             m1 = max(vec_cur) if (len(vec_cur) > 0) else 1.0
-
+        
             if m0 > 0:
-                vec_targs[j] = 1.0 if (mu > 1) else mu
+                vec_targs[j] = elasticity_bounds[1] if (mu > 1) else mu
             elif m1 < 0:
-                vec_targs[j] = -1.0 if (mu < -1) else mu
+                vec_targs[j] = elasticity_bounds[0] if (mu < -1) else mu
             else:
                 vec_targs[j] = elasticity_default
 
