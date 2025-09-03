@@ -1788,14 +1788,14 @@ class Transformers:
     def build_msp_cap_vector(self,
         vec_ramp: np.ndarray,
     ) -> np.ndarray:
-        """
-        Build the cap vector for MSP adjustments. Derived from 
+        """Build the cap vector for MSP adjustments. Derived from 
             vec_implementation_ramp
 
         Function Arguments
 		------------------
-        - vec_ramp: implementation ramp vector to use. Will set cap at first 
-            non-zero period
+        vec_ramp : np.ndarray
+            Implementation ramp vector to use. Will set cap at first non-zero 
+            period
 
         Keyword Arguments
 		-----------------
@@ -2598,28 +2598,32 @@ class Transformers:
         dict_values_to_inds: Union[Dict, None] = None,
         max_frac: Union[float, None] = None,
     ) -> np.ndarray:
-        """
-        Buil a new value for the max_capacity based on vec_implementation_ramp.
-            Starts with max_frac of a technicology's maximum residual capacity
-            in the first period when vec_implementation_ramp != 0, then declines
-            by delta_frac the specified number of time periods. Ramp down a cap 
+        """Build a new value for the max_capacity based on 
+            vec_implementation_ramp.
+        
+        Starts with max_frac of a technicology's maximum residual capacity in 
+            the first period when vec_implementation_ramp != 0, then declines by
+            delta_frac the specified number of time periods. Ramp down a cap 
             based on the renewable energy target.
 
         Function Arguments
         ------------------
-        - vec_implementation_ramp: vector of lever implementation ramp to use as
+        vec_implementation_ramp: vector of lever implementation ramp to use as
             reference
 
         Keyword Arguments
         -----------------
-        - delta_frac: delta to apply at each time period after the first time
-            non-0 vec_implementation_ramp time_period. Defaults to 
+        delta_frac : Union[float, None]
+            Delta to apply at each time period after the first time non-0 
+            vec_implementation_ramp time_period. Defaults to 
             self.vir_renewable_cap_delta_frac if unspecified
-        - dict_values_to_inds: optional dictionary mapping a value to row 
-            indicies to pass the value to. Can be used, for example, to provide 
-            a cap on new investments in early time periods. 
-         - max_frac: fraction of maximum residual capacity to use as cap in 
-            first time period where vec_implementation_ramp > 0. Defaults to
+        dict_values_to_inds : Union[Dict, None]
+            Optional dictionary mapping a value to row indicies to pass the 
+            value to. Can be used, for example, to provide a cap on new 
+            investments in early time periods. 
+        max_frac : Union[float, None]
+            Fraction of maximum residual capacity to use as cap in first time 
+            period where vec_implementation_ramp > 0. Defaults to
             self.vir_renewable_cap_max_frac if unspecified
         """
 
@@ -5457,7 +5461,9 @@ class Transformers:
 
 
     def _trfunc_entc_least_cost(self,
+        acceleration_factor : Union[float, int] = 2.0,
         df_input: Union[pd.DataFrame, None] = None,
+        drop_frac_elec_increase_for_msp: bool = True,
         strat: Union[int, None] = None,
         vec_implementation_ramp: Union[np.ndarray, None] = None,
     ) -> pd.DataFrame:
@@ -5465,8 +5471,13 @@ class Transformers:
         
         Parameters
         ----------
+        acceleration_factor : Union[float, int]
+            Factor to accelerate implementation ramp, allowing for more time with least cost. Multiplied by implementation ramp, which is then capped.
         df_input : pd.DataFrame
             Optional data frame containing trajectories to modify
+        drop_frac_elec_increase_for_msp : bool
+            * True:     Get rid of the cap in increased production to satisfy the min_share_of_production?
+            * False:    Keep the cap in place. Used in situations where there's a baseline cap that shouldn't be removed.
         strat : int
             Optional strategy value to specify for the transformation
         vec_implementation_ramp : Union[np.ndarray, Dict[str, int], None]
@@ -5490,8 +5501,10 @@ class Transformers:
             df_input,
             vec_implementation_ramp,
             self.model_attributes,
+            self.model_enerprod,
+            acceleration_factor = acceleration_factor,
+            drop_frac_elec_increase_for_msp = drop_frac_elec_increase_for_msp,
             field_region = self.key_region,
-            model_enerprod = self.model_enerprod,
             strategy_id = strat,
         )
 

@@ -560,7 +560,9 @@ def transformation_entc_least_cost_solution(
     vec_ramp: np.ndarray,
     model_attributes: ma.ModelAttributes,
     model_enerprod: ml.EnergyProduction,
-    drop_flag: Union[int, float, None] = None,
+    acceleration_factor: Union[float, int] = 2.0,
+    drop_flag: Union[float, int, None] = None,
+    drop_frac_elec_increase_for_msp: bool = True,
     field_region: str = "region",
     **kwargs
 ) -> pd.DataFrame:
@@ -570,29 +572,47 @@ def transformation_entc_least_cost_solution(
 
     Function Arguments
     ------------------
-    - df_input: input data frame containing baseline trajectories
-    - model_attributes: ModelAttributes object used to call strategies/variables
-    - model_enerprod: EnergyProduction model used to define variables
-    - vec_ramp: implementation ramp vector
+    df_input : pd.DataFrame
+        Input data frame containing baseline trajectories
+    model_attributes : ModelAttributes 
+        ModelAttributesobject used to call strategies/variables
+    model_enerprod : EnergyProduction
+        EnergyProduction model used to define variables
+    vec_ramp : 
+        Implementation ramp vector
 
     Keyword Arguments
     -----------------
-    - drop_flag: value in 
+    acceleration_factor : Union[float, int]
+        Factor to accelerate implementation ramp. Multiplied by implementation 
+        ramp, which is then capped.s
+    drop_flag: Union[int, float, None]
+        value in 
         model_enerprod.modvar_entc_max_elec_prod_increase_for_msp used to 
         signal the presence of no constraint. Defaults to 
         model_enerprod.drop_flag_tech_capacities if None
-    - field_region: field in df_input that specifies the region
-    - magnitude: final magnitude of generation capacity.
-    - regions_apply: optional set of regions to use to define strategy. If None,
-        applies to all regions.
-    - strategy_id: optional specification of strategy id to add to output
-        dataframe (only added if integer)
+    drop_frac_elec_increase_for_msp : bool
+        * True:     Get rid of the cap in increased production to satisfy the
+                    min_share_of_production?
+        * False:    Keep the cap in place. Used in situations where there's a
+                    baseline cap that shouldn't be removed.
+    field_region : 
+        Field in df_input that specifies the region
+    magnitude : 
+        Final magnitude of generation capacity.
+    regions_apply : Union[List[str], List[int], None]
+        Optional set of regions to use to define strategy. If None, applies to 
+        all regions.
+    strategy_id : Union[int, None]
+        Optional specification of strategy id to add to output DataFrame (only 
+        added if integer)
     """
 
     # initialize some key elements
     attr_entc = model_attributes.get_attribute_table(model_attributes.subsec_name_entc)
     attr_enfu = model_attributes.get_attribute_table(model_attributes.subsec_name_enfu)
     drop_flag = model_enerprod.drop_flag_tech_capacities if not sf.isnumber(drop_flag) else drop_flag
+    
     dict_tech_info = model_enerprod.get_tech_info_dict()
     fields_to_drop_flag = model_attributes.build_variable_fields(
         model_enerprod.modvar_entc_max_elec_prod_increase_for_msp
@@ -602,12 +622,13 @@ def transformation_entc_least_cost_solution(
     # this one will eliminate MSP and REMT immediately
     # 
     #vec_implementation_ramp_short = sf.vec_bounds(vec_ramp/min(vec_ramp[vec_ramp != 0]), (0, 1))
-    vec_implementation_ramp_short = sf.vec_bounds(vec_ramp*2, (0, 1))
+    vec_implementation_ramp_short = sf.vec_bounds(vec_ramp*acceleration_factor, (0, 1))
     
     
-    # check for variables and initialize fields_check as drops
+    # check for variables and initialize fields_check as drops if needed
     df_transformed = df_input.copy()
-    df_transformed[fields_to_drop_flag] = drop_flag
+    if drop_frac_elec_increase_for_msp:
+        df_transformed[fields_to_drop_flag] = drop_flag
 
     # 
     df_transformed = transformation_general(
