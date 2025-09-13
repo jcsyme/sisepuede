@@ -2,7 +2,7 @@
 
 julia_version = "1.11.5"
 manifest_format = "2.0"
-project_hash = "ad697910d435b0f75ec97fa457aee88123b53541"
+project_hash = "8052f003f35a21d4e0b50a437bd217844d3a18e0"
 
 [[deps.ASL_jll]]
 deps = ["Artifacts", "JLLWrappers", "Libdl", "Pkg"]
@@ -491,11 +491,11 @@ version = "1.1.3"
 
 [[deps.NemoMod]]
 deps = ["Cbc", "ConfParser", "DataFrames", "Dates", "JuMP", "MathOptInterface", "SQLite", "Test"]
-git-tree-sha1 = "ffc4eb8907c2267930901108a57d64cc239f89e6"
-repo-rev = "61e63e0"
+git-tree-sha1 = "179456b145f5cdfc39cfcab89c100b47cf24264e"
+repo-rev = "a5ac7a7"
 repo-url = "https://github.com/sei-international/NemoMod.jl.git"
 uuid = "a3c327a0-d2f0-11e8-37fd-d12fd35c3c72"
-version = "2.0.0"
+version = "2.2.0"
 
 [[deps.NetworkOptions]]
 uuid = "ca575930-c2e3-43a9-ace4-1e988b2c1908"
