@@ -9,12 +9,11 @@ import pandas as pd
 import re
 
 
-from sisepuede.core.model_attributes import *
 import sisepuede.utilities._toolbox as sf
+from typing import *
 
 
-
-##  SOME ERRORS
+##  SOME ERROR CLASSES
 
 class InvalidRegion(Exception):
     pass
@@ -33,6 +32,12 @@ class YAMLConfigurationKeyError(Exception):
 ##########################
 #    GLOBAL VARIABLES    #
 ##########################
+
+# fields
+_FIELD_DAY = "day"
+_FIELD_MONTH = "month"
+_FIELD_YEAR = "year"
+
 
 # module UUID
 _MODULE_UUID = "6B7410BF-A491-42F9-B904-5AB526C74180"
@@ -77,8 +82,7 @@ class Regions:
     """
 
     def __init__(self,
-        model_attributes: ModelAttributes,
-        initialize_model_attributes: bool = False,
+        model_attributes: 'ModelAttributes',
         regex_region_groups: Union[re.Pattern, None] = re.compile("(.*)_region$"),
     ):
 
@@ -165,8 +169,7 @@ class Regions:
         
 
     def _initialize_region_properties(self,
-        model_attributes: ModelAttributes,
-        field_year: str = "year",
+        model_attributes: 'ModelAttributes',
         regex_region_groups: Union[re.Pattern, None] = re.compile("(.*)_region$"),
     ) -> None:
         """
@@ -1835,7 +1838,7 @@ class TimePeriods:
         modeling at that scale).
     """
     def __init__(self,
-        model_attributes: ModelAttributes
+        model_attributes: 'ModelAttributes'
     ):
 
         self._initialize_time_properties(model_attributes, )
@@ -1846,8 +1849,8 @@ class TimePeriods:
 
 
     def _initialize_time_properties(self,
-        model_attributes: ModelAttributes,
-        field_year: str = "year",
+        model_attributes: 'ModelAttributes',
+        field_year: str = _FIELD_YEAR,
     ) -> None:
         """
         Set the following properties:

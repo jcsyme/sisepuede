@@ -755,7 +755,6 @@ class ModelAttributes:
             * self.table_nemomod_re_tag_technology
             * self.table_nemomod_region
             * self.table_nemomod_reserve_margin
-            * self.table_nemomod_reserve_margin_tag_fuel
             * self.table_nemomod_reserve_margin_tag_technology
             * self.table_nemomod_residual_capacity
             * self.table_nemomod_residual_storage_capacity
@@ -824,7 +823,6 @@ class ModelAttributes:
         self.table_nemomod_re_min_production_target = "REMinProductionTarget"
         self.table_nemomod_re_tag_technology = "RETagTechnology"
         self.table_nemomod_reserve_margin = "ReserveMargin"
-        self.table_nemomod_reserve_margin_tag_fuel = "ReserveMarginTagFuel"
         self.table_nemomod_reserve_margin_tag_technology = "ReserveMarginTagTechnology"
         self.table_nemomod_specified_demand_profile = "SpecifiedDemandProfile"
         self.table_nemomod_specified_annual_demand = "SpecifiedAnnualDemand"
