@@ -1,15 +1,35 @@
+import datetime as dt
 import os, os.path
 import pandas as pd
-from typing import *
-
-from sisepuede.core.attribute_table import *
 import sisepuede.utilities._toolbox as sf
 
+from sisepuede.core.attribute_table import *
+from sisepuede.core.support_classes import (
+    _FIELD_YEAR,
+    _FIELD_MONTH, 
+    _FIELD_DAY,
+    YAMLConfiguration
+)
+from typing import *
 
-"""
-Setup a configuration for SISEPUEDE
-"""
+
+
+##########################
+#    SET SOME GLOBALS    #
+##########################
+
+# keys in the configuration file
+_KEY_CONFIG_TIME_PERIOD_U0 = "time_period_u0"
+
+
+
+
+
+
+
 class Configuration:
+    """Configuration class for SISEPUEDE. Checks inputs etc.
+    """
 
     def __init__(self,
         fp_config: str,
@@ -109,6 +129,7 @@ class Configuration:
 
         # loop over all values to check
         for val in val_list:
+
             if param in self.params_bool:
                 val = bool(str(val) == "True")
             elif param in self.params_int:
@@ -181,7 +202,7 @@ class Configuration:
         dict_conf = {}
         if self.fp_config is not None:
             if os.path.exists(self.fp_config):
-                dict_conf = self.parse_config(self.fp_config, delim = delim)
+                dict_conf = self.parse_config_yaml(self.fp_config, delim = delim)
 
         # update with defaults if a value is missing in the specified configuration
         if attr_parameters_required is not None:
@@ -235,7 +256,9 @@ class Configuration:
             "unit_area_to_area",
         )
 
+
         valid_bool = [True, False]
+
 
         valid_energy = self.get_valid_values_from_attribute_column(
             attr_energy, 
@@ -244,17 +267,22 @@ class Configuration:
             "unit_energy_to_energy",
         )
 
+
         valid_gwp = self.get_valid_values_from_attribute_column(
             attr_gas, 
             "global_warming_potential_", 
             int,
         )
 
+
         valid_historical_hwp_method = ["back_project", "historical"]
+
 
         valid_historical_solid_waste_method = ["back_project", "historical"]
 
+
         valid_lurmod = ["decrease_only", "increase_only", "decrease_and_increase"]
+
 
         valid_length = self.get_valid_values_from_attribute_column(
             attr_length, 
@@ -263,12 +291,14 @@ class Configuration:
             "unit_length_to_length",
         )
 
+
         valid_mass = self.get_valid_values_from_attribute_column(
             attr_mass, 
             "mass_equivalent_", 
             str, 
             "unit_mass_to_mass",
         )
+
 
         valid_monetary = self.get_valid_values_from_attribute_column(
             attr_monetary, 
@@ -277,20 +307,27 @@ class Configuration:
             "unit_monetary_to_monetary",
         )
 
+
         valid_output_method = ["csv", "sqlite"]
+
+
         valid_power = self.get_valid_values_from_attribute_column(
             attr_power, 
             "power_equivalent_", 
             str, 
             "unit_power_to_power",
         )
-       
+    
+
         valid_region = attr_region.key_values
+
 
         valid_solvers = ["cbc", "clp", "cplex", "gams_cplex", "glpk", "gurobi", "highs"]
 
+
         valid_time_period = attr_time_period.key_values
 
+        
         valid_volume = self.get_valid_values_from_attribute_column(
             attr_volume, 
             "volume_equivalent_", 
@@ -316,9 +353,17 @@ class Configuration:
             "power_units": valid_power,
             "region": valid_region,
             "save_inputs": valid_bool,
-            "time_period_u0": valid_time_period,
             "volume_units": valid_volume
         }
+        
+        # update the time period
+        self._update_time_period_u0(
+            attr_time_period,
+            dict_conf,
+        )
+        
+
+        ###   CHECK SOME PARAMETER RESTRICTIONS
 
         # allow some parameter switch values to valid values
         dict_params_switch = {"region": ["all"], "nemomod_time_periods": ["all"]}
@@ -331,8 +376,6 @@ class Configuration:
             for k, v in dict_conf.items()
         )
 
-        ###   CHECK SOME PARAMETER RESITRICTIONS
-
         # positive integer restriction
         dict_conf.update({
             "historical_back_proj_n_periods": max(dict_conf.get("historical_back_proj_n_periods"), 1),
@@ -342,7 +385,9 @@ class Configuration:
             "random_seed": max(dict_conf.get("random_seed"), 1)
         })
 
-        # set some attributes
+
+        ##  SET PROPERTIES
+
         self.valid_area = valid_area
         self.valid_energy = valid_energy
         self.valid_gwp = valid_gwp
@@ -432,14 +477,46 @@ class Configuration:
 
 
 
-    def parse_config(self,
+    def parse_config_yaml(self,
         fp_config: str,
         delim: str = ","
     ) -> dict:
+        """Get a dictionary of configuration values found in the configuration 
+            file (of form key: value) found at file path `fp_config`.
+
+            Keyword Arguments
+            -----------------
+            delim: delimiter used to split input lists specified in the configuration file
         """
-            parse_config returns a dictionary of configuration values found in the
-                configuration file (of form key: value) found at file path
-                `fp_config`.
+
+        #read in aws initialization
+        if not os.path.exists(fp_config):
+            raise ValueError(f"Invalid configuation file {fp_config} specified: file not found.")
+        
+        yaml_config = YAMLConfiguration(fp_config, )
+        dict_out = {}
+
+        # strip any inline comments
+        for k, v in yaml_config.dict_yaml.items():
+            out = v
+            if isinstance(v, str):
+                # try to drop any in-line comments
+                v_new = sf.str_replace(v.split("#")[0], {"\n": "", "\t": ""})
+                v_new = self.infer_types(str(v_new).strip(), delim = delim)
+                out = v_new
+            
+            dict_out.update({k: out, })
+            
+        return dict_out
+    
+
+
+    def parse_config_deprecated(self,
+        fp_config: str,
+        delim: str = ","
+    ) -> dict:
+        """Get a dictionary of configuration values found in the configuration 
+            file (of form key: value) found at file path `fp_config`.
 
             Keyword Arguments
             -----------------
@@ -448,8 +525,8 @@ class Configuration:
 
         #read in aws initialization
         if os.path.exists(fp_config):
-        	with open(fp_config) as fl:
-        		lines_config = fl.readlines()
+            with open(fp_config) as fl:
+                lines_config = fl.readlines()
         else:
             raise ValueError(f"Invalid configuation file {fp_config} specified: file not found.")
 
@@ -489,3 +566,44 @@ class Configuration:
             dict_df.update({key: [val]})
 
         return pd.DataFrame(dict_df)
+    
+
+
+    def _update_time_period_u0(self,
+        attr_time_period: AttributeTable,
+        dict_config: Dict[str, Any],
+        key_time_period: str = _KEY_CONFIG_TIME_PERIOD_U0,
+    ) -> None:
+        """Update the base time period for uncertainty in dict_config. If an 
+            invalid time period (or None) is found, sets to the next year (if
+            _FIELD_YEAR is present in the attribute table). If _FIELD_YEAR is 
+            not found, defaults to the first time period.
+        """
+        tp_try = dict_config.get(key_time_period, )
+        if tp_try in attr_time_period.key_values:
+            return None
+        
+        # if year isn't available, return the first time period
+        if _FIELD_YEAR not in attr_time_period.table.columns:
+            dict_config.update({
+                key_time_period: min(attr_time_period.key_values),
+            })
+            return None
+        
+
+        ##  OTHERWISE, GET TIME PERIOD ASSOCIATED WITH CLOSEST VALID YEAR
+
+        all_years = attr_time_period.table[_FIELD_YEAR].to_numpy()
+        year = dt.datetime.now().year + 1
+        y_dists = np.abs(all_years - year)
+
+        pos = np.argmin(y_dists)
+        
+        # get the timep period
+        dict_map = attr_time_period.field_maps.get(f"{_FIELD_YEAR}_to_{attr_time_period.key}")
+        tp = dict_map.get(all_years[pos], )
+        dict_config.update({key_time_period: tp, })
+
+        return None
+
+        
