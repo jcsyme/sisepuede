@@ -585,7 +585,7 @@ def transformation_entc_least_cost_solution(
     -----------------
     acceleration_factor : Union[float, int]
         Factor to accelerate implementation ramp. Multiplied by implementation 
-        ramp, which is then capped.s
+        ramp, which is then capped.
     drop_flag: Union[int, float, None]
         value in 
         model_enerprod.modvar_entc_max_elec_prod_increase_for_msp used to 
@@ -1269,7 +1269,7 @@ def transformation_entc_renewable_target(
         #################################################
 
         if (dict_cats_entc_max_investment is not None):
-            
+
             arr_entc_max_investment = model_attributes.extract_model_variable(#
                 df_transformed,
                 model_enerprod.modvar_entc_nemomod_total_annual_max_capacity_investment,

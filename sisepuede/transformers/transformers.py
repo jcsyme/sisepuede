@@ -929,15 +929,20 @@ class Transformers:
                 f"{key_vir}.{self.key_config_tp_0_ramp}",
             ),
             vir_renewable_cap_delta_frac = self.config.get(
-                f"{key_vir}.{self.key_config_vir_renewable_cap_delta_frac}",
+                f"{self.key_config_general}.{self.key_config_vir_renewable_cap_delta_frac}",
             ),
             vir_renewable_cap_max_frac = self.config.get(
-                f"{key_vir}.{self.key_config_vir_renewable_cap_max_frac}",
+                f"{self.key_config_general}.{self.key_config_vir_renewable_cap_max_frac}",
             ),
             window_logistic = self.config.get(
                 f"{key_vir}.{self.key_config_window_logistic}",
             ),
         )
+
+        v_tmp = self.config.get(
+                f"{self.key_config_general}.{self.key_config_vir_renewable_cap_max_frac}",
+            )
+        print(f"v_tmp = {v_tmp}")
 
         # check if baseline includes partial land use reallocation factor
         baseline_with_lurf = self.config.get(
@@ -2285,8 +2290,8 @@ class Transformers:
             if not sf.isnumber(vir_renewable_cap_max_frac)
             else vir_renewable_cap_max_frac
         )
-        vir_renewable_cap_max_frac = float(sf.vec_bounds(vir_renewable_cap_max_frac, (0.0, 1.0)))
-       
+        vir_renewable_cap_max_frac = float(sf.vec_bounds(vir_renewable_cap_max_frac, (0.0, np.inf)))
+
 
         ##  SET OUTPUT
 
@@ -2635,7 +2640,7 @@ class Transformers:
         max_frac = (
             self.vir_renewable_cap_max_frac
             if not sf.isnumber(max_frac)
-            else float(sf.vec_bounds(max_frac, (0.0, 1.0)))
+            else float(sf.vec_bounds(max_frac, (0.0, np.inf)))
         )
 
         vec_implementation_ramp_max_capacity = np.ones(len(vec_implementation_ramp))
@@ -2910,6 +2915,7 @@ class Transformers:
             vec_implementation_ramp = vec_implementation_ramp,
         )
 
+        self.categories_entc_max_investment_ramp = categories_entc_max_investment_ramp
 
         ##  AFOLU BASE
 
