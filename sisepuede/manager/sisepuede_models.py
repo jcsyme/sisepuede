@@ -10,7 +10,7 @@ from typing import *
 from sisepuede.core.model_attributes import ModelAttributes
 from sisepuede.models.afolu import AFOLU
 from sisepuede.models.circular_economy import CircularEconomy
-from sisepuede.models.energy_production import EnergyProduction
+import sisepuede.models.energy_production as mep
 from sisepuede.models.energy_consumption import EnergyConsumption
 from sisepuede.models.ippu import IPPU
 from sisepuede.models.socioeconomic import Socioeconomic
@@ -156,7 +156,7 @@ class SISEPUEDEModels:
 
         self.model_enerprod = None
         if self.allow_electricity_run:
-            self.model_enerprod = EnergyProduction(
+            self.model_enerprod = mep.EnergyProduction(
                 self.model_attributes,
                 self.fp_julia,
                 self.fp_nemomod_reference_files,
@@ -447,12 +447,15 @@ class SISEPUEDEModels:
     def project(self,
         df_input_data: pd.DataFrame,
         check_results: bool = True,
+        dict_optimizer_attributes: Union[Dict[str, Any], None] = None,
         fields_check: Union[List[str], str, None] = "emissions_output_subsector_aggregate",
         include_electricity_in_energy: bool = True,
         models_run: Union[List[str], None] = None,
         regions: Union[List[str], str, None] = None,
         run_integrated: bool = True,
+        time_periods_base: Union[List[int], None] = None,
         time_periods_run: Union[List[int], None] = None,
+        verbose: bool = False,
         **kwargs
     ) -> pd.DataFrame:
         """Execute the SISEPUEDE DAG.
@@ -480,6 +483,9 @@ class SISEPUEDEModels:
         check_results : bool
             Verify output results using a verification function (see 
             SISEPUEDEModels.check_model_results())
+        dict_optimizer_attributes : Union[Dict[str, Any], None]
+            Optional dictionary mapping an optimizer attribute to a value; 
+            passed to model_enerprod.project()
         fields_check : Union[List[str], str, None]
             Passed to self.check_model_results() (only applicable if 
             check_results = True). Valid options are:
@@ -499,8 +505,20 @@ class SISEPUEDEModels:
             Run models as integrated collection?
             * If False, will run each model individually, without interactions
                 (not recommended)
+        time_periods_base : Union[List[int], None]
+            Specification of time periods to use as a base; in the "limited
+            foresight" versus "perfect foresight" options for running NemoMod,
+            these time periods will be optimized first; the results will then be
+            used as starting conditions for the remainder of the run, creating
+            a baseline. If running into the future, these should include 
+            historical (observed) time periods. Optional specifications include:
+            * None:             Defaults to *only* the first time period
+            * [t1, t2, ...]:    Time periods to try
+            * [] (empty list):  Run entire series with perfect foresight
         time_periods_run : Union[List[int], None]
             Optional specification of time periods to run
+        verbose : bool
+            Print all outputs from NEMO?
         **kwargs : 
             Passed to SISEPUEDEModels.check_model_results()
         """
@@ -646,9 +664,13 @@ class SISEPUEDEModels:
             try:
                 df_elec = self.model_enerprod.project(
                     df_input_data, 
-                    engine,
-                    regions = regions
+                    dict_optimizer_attributes = dict_optimizer_attributes,
+                    engine = engine,
+                    regions = regions,
+                    time_periods_base = time_periods_base,
+                    verbose = verbose,
                 )
+
                 df_return.append(df_elec)
                 df_return = (
                     [sf.merge_output_df_list(df_return, self.model_attributes, merge_type = "concatenate")] 

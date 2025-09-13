@@ -24,7 +24,7 @@ _MODULE_UUID = "3BBF1FAF-D051-4F90-AD2F-08ECD92B853B"
 
 # SET ANY OTHER IMPORTANT GLOBALS
 
-_FILE_NAME_CONFIG = "sisepuede.config"
+_FILE_NAME_CONFIG = "sisepuede_config.yaml"
 _REGEX_TEMPLATE_PREPEND = "sisepuede_run"
 
 
@@ -169,7 +169,9 @@ class SISEPUEDEFileStructure:
 
         self.fn_config = _FILE_NAME_CONFIG
         if isinstance(fn_config, str):
-            self.fn_config = fn_config if fn_config.endswith(".config") else self.fn_config
+            self.fn_config = fn_config if fn_config.endswith(".yaml") else self.fn_config
+        
+        return None
 
 
 

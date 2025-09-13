@@ -2059,6 +2059,10 @@ class SISEPUEDE:
                             # initialize as None, then iterate (until max attempts) to control for numerical instabilities
                             df_output = None
                             i = 0
+                            time_periods_base = [
+                                x for x in df_input_cur[self.key_time_period].to_numpy()
+                                if x <= self.time_period_u0
+                            ]
 
                             while (df_output is None) & (i < max_attempts):
                                 
@@ -2066,6 +2070,7 @@ class SISEPUEDE:
                                     df_input_cur, 
                                     check_results = check_results,
                                     regions = region,
+                                    time_periods_base = time_periods_base,
                                     **kwargs
                                 )
 
