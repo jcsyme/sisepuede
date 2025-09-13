@@ -942,6 +942,7 @@ class EnergyProduction:
         self.modvar_enfu_imports_fuel = "Fuel Imports"
         self.modvar_enfu_minimum_frac_fuel_used_for_electricity = "Minimum Fraction of Fuel Used for Electricity Generation"
         self.modvar_enfu_nemomod_renewable_production_target = "NemoMod REMinProductionTarget"
+        self.modvar_enfu_nemomod_reserve_margin = "NemoMod ReserveMargin"
         self.modvar_enfu_price_gravimetric = "Gravimetric Fuel Price"
         self.modvar_enfu_price_thermal = "Thermal Fuel Price"
         self.modvar_enfu_price_volumetric = "Volumetric Fuel Price"
@@ -1084,7 +1085,6 @@ class EnergyProduction:
         self.modvar_entc_nemomod_min_share_production = "NemoMod MinShareProduction"
         self.modvar_entc_nemomod_production_by_technology = "NemoMod Production by Technology"
         self.modvar_entc_nemomod_renewable_tag_technology = "NemoMod RETagTechnology"
-        self.modvar_entc_nemomod_reserve_margin = "NemoMod ReserveMargin"
         self.modvar_entc_nemomod_reserve_margin_tag_technology = "NemoMod ReserveMarginTagTechnology"
         self.modvar_entc_nemomod_residual_capacity = "NemoMod ResidualCapacity"
         self.modvar_entc_nemomod_total_annual_max_capacity = "NemoMod TotalAnnualMaxCapacity"
@@ -3184,9 +3184,8 @@ class EnergyProduction:
         modvar_msp: Union[str, None] = None,
         tuple_enfu_production_and_demands: Union[Tuple[pd.DataFrame], None] = None,
     ) -> Tuple[np.ndarray, Union[np.ndarray, None]]:
-        """
-        Adjust the MinShareProduction input table to allow for the prevention of 
-            increases in production to satisfy exogenously specified 
+        """Adjust the MinShareProduction input table to allow for the prevention 
+            of increases in production to satisfy exogenously specified 
             MinShareProduction. Returns a tuple of three NumPy arrays:
 
             (
@@ -3196,12 +3195,17 @@ class EnergyProduction:
             )
 
 
-            where `arr_entc_activity_limits` is None if there are no MSPs 
-            entered; `arr_entc_activity_limits` gives an array of activity 
-            limits that can be passed to TotalTechnologyAnnualActivityLowerLimit
-            and TotalTechnologyAnnualActivityUpperLimit; and 
-            `vec_frac_msp_accounted_for_by_growth_limit` gives the fraction of MSP 
-            accountred for by the new growth limit.
+            where: 
+            
+            * `arr_entc_activity_limits`                
+                is None if there are no MSPs entered; 
+            * `arr_entc_activity_limits`
+                 is an array of activity limits that can be passed to 
+                 TotalTechnologyAnnualActivityLowerLimit and 
+                 TotalTechnologyAnnualActivityUpperLimit; and
+            * `vec_frac_msp_accounted_for_by_growth_limit` 
+                Gives the fraction of MSP accountred for by the new growth 
+                limit.
             
         Example use case: if a baseline relies on the specification of 
             MinShareProduction, yet some technology will not be built after some
@@ -3325,7 +3329,7 @@ class EnergyProduction:
             else tuple_enfu_production_and_demands
         )
         
-        # get `vec_position_base_prod_est`, the vector storing the time period position of the last time period with free prodution estimate
+        # get `vec_position_base_prod_est`, the vector storing the time period position of the last time period with free production estimate
         dict_entc_cat_to_position_base_prod_est = {}
         inds_modify = np.unique(w_not_drop[1])
         for j in inds_modify:
@@ -3599,20 +3603,22 @@ class EnergyProduction:
 
 
     def get_nemomod_optimizer(self,
+        dict_optimizer_attributes: Union[Dict[str, Any], None] = None,
         solver: Union[str, None] = None,
-    ) -> "Pycall.jlwrap":
-        """
-        Retrieve the optimizer for NemoMod. Use to set any parameters related to 
-            the solver (e.g., NumericFocus in Gurobi)
+    ) -> 'Pycall.jlwrap':
+        """Retrieve the optimizer for NemoMod. Use to set any parameters related 
+            to the solver (e.g., NumericFocus in Gurobi)
 
         Returns an optimizer object. 
 
         NOTE: Update to read from a config
 
         Keword Arguments
-        ------------------
-        - solver: string denoting solver to use. If None, defaults to 
-            self.solver
+        -----------------
+        dict_optimizer_attributes : Union[Dict[str, Any], None]
+            Optional dictionary mapping an optimizer attribute to a value
+        solver : Union[str, None]
+            String denoting solver to use. If None, defaults to self.solver
         """
         
         # set optimizer
@@ -3639,7 +3645,11 @@ class EnergyProduction:
         if (solver == "highs"):
             # see https://www.gurobi.com/documentation/9.5/refman/numericfocus.html#parameter:NumericFocus
             self.julia_main.JuMP.set_optimizer_attribute(optimizer, "solver", "simplex")
-            
+        
+        if isinstance(dict_optimizer_attributes, dict):
+            for k, v in dict_optimizer_attributes.items():
+                self.julia_main.JuMP.set_optimizer_attribute(optimizer, k, v, )
+
         return optimizer
 
 
@@ -4122,7 +4132,8 @@ class EnergyProduction:
         # set some defaults
 
         subsector = (
-            modvar if (modvar in self.model_attributes.all_subsectors)
+            modvar 
+            if (modvar in self.model_attributes.all_subsectors)
             else self.model_attributes.get_variable_subsector(modvar, throw_error_q = False)
         )
         if subsector is None:
@@ -5261,7 +5272,7 @@ class EnergyProduction:
             df_tmp = dict_return.get(table_name)
 
             # set high price relative to other prices & determine where to keep specified costs (vec_high_cost_bool = 0 if it is contained in cats_no_cost)
-            price_high = max(np.round(max(df_tmp[self.field_nemomod_value])*2)*1000 + 10, minimum_dummy_price)
+            price_high = max(np.round(max(df_tmp[self.field_nemomod_value])*2)*10 + 10, minimum_dummy_price)
             vec_high_cost_bool = np.array([(x not in cats_no_cost) for x in list(df_tmp[self.field_nemomod_technology])]).astype(int)
             vals_new = np.array(df_tmp[self.field_nemomod_value].replace({flag_dummy_price: price_high})) * vec_high_cost_bool
             
@@ -5293,6 +5304,7 @@ class EnergyProduction:
         """
 
         dict_return = {}
+
         # get some scalars (monetary and power)
         scalar_cost_capital_storage = self.model_attributes.get_scalar(self.modvar_enst_nemomod_capital_cost_storage, "monetary")
         scalar_cost_capital_storage /= self.get_nemomod_energy_scalar(self.modvar_enst_nemomod_capital_cost_storage)
@@ -6736,77 +6748,39 @@ class EnergyProduction:
         df_elec_trajectories: pd.DataFrame,
         regions: Union[List[str], None] = None,
     ) -> pd.DataFrame:
-        """
-        Format the ReserveMargin input table for NemoMod based on SISEPUEDE 
+        """Format the ReserveMargin input table for NemoMod based on SISEPUEDE 
             configuration parameters, input variables, integrated model outputs, 
             and reference tables.
 
         Function Arguments
         ------------------
-        - df_elec_trajectories: data frame of model variable input trajectories
+        df_elec_trajectories : pd.DataFrame
+            Data frame of model variable input trajectories
 
         Keyword Arguments
         -----------------
-        - regions: regions to specify. If None, defaults to configuration 
-            regions
+        regions : Union[List[str], None]
+            Regions to specify. If None, defaults to configuration regions
         """
 
         dict_return = {}
+
         # ReserveMargin
         dict_return.update(
             self.format_model_variable_as_nemomod_table(
                 df_elec_trajectories,
-                self.modvar_entc_nemomod_reserve_margin,
+                self.modvar_enfu_nemomod_reserve_margin,
                 self.model_attributes.table_nemomod_reserve_margin,
                 [
                     self.field_nemomod_id,
                     self.field_nemomod_year,
                     self.field_nemomod_region
                 ],
-                self.field_nemomod_technology,
+                self.field_nemomod_fuel,
                 regions = regions,
                 var_bounds = (0, np.inf)
             )
         )
-        dict_return[self.model_attributes.table_nemomod_reserve_margin].drop([self.field_nemomod_technology], axis = 1, inplace = True)
-
-        return dict_return
-
-
-
-    def format_nemomod_table_reserve_margin_tag_fuel(self,
-        regions: Union[List[str], None] = None,
-    ) -> pd.DataFrame:
-        """
-        Format the ReserveMargin input table for NemoMod based on SISEPUEDE 
-            configuration parameters, input variables, integrated model outputs, 
-            and reference tables.
-
-        Keyword Arguments
-        -----------------
-        - regions: regions to specify. If None, defaults to configuration 
-            regions
-        """
-        # build data frame
-        df_out = pd.DataFrame({
-            self.field_nemomod_fuel: [self.cat_enfu_elec],
-            self.field_nemomod_value: [1]
-        })
-
-        # add dimensions
-        df_out = self.add_multifields_from_key_values(
-            df_out,
-            [
-                self.field_nemomod_id,
-                self.field_nemomod_region,
-                self.field_nemomod_fuel,
-                self.field_nemomod_year,
-                self.field_nemomod_value
-            ],
-            regions = regions
-        )
-
-        dict_return = {self.model_attributes.table_nemomod_reserve_margin_tag_fuel: df_out}
 
         return dict_return
 
@@ -6832,7 +6806,8 @@ class EnergyProduction:
         """
 
         dict_return = {}
-        # ReserveMarginTagTechnology
+
+        # ReserveMarginTagTechnology for generation
         dict_return.update(
             self.format_model_variable_as_nemomod_table(
                 df_elec_trajectories,
@@ -6844,6 +6819,9 @@ class EnergyProduction:
                     self.field_nemomod_region
                 ],
                 self.field_nemomod_technology,
+                dict_fields_to_pass = {
+                    self.field_nemomod_fuel: self.cat_enfu_elec,
+                },
                 regions = regions,
                 var_bounds = (0, np.inf)
             )
@@ -8334,9 +8312,8 @@ class EnergyProduction:
         regions: Union[List[str], None] = None, 
         return_type: str = "NemoMod"
     ) -> pd.DataFrame:
-        """
-        Construct the TotalTechnologyAnnualActivityUpperLimit input tables for 
-            NemoMod based on SISEPUEDE configuration parameters, input 
+        """Construct the TotalTechnologyAnnualActivityUpperLimit input tables 
+            for NemoMod based on SISEPUEDE configuration parameters, input 
             variables, integrated model outputs, and reference tables WITHOUT
             adjusting for the implementation of the Max Production Inrease from
             MinShareProduction. 
@@ -8394,7 +8371,11 @@ class EnergyProduction:
             units_energy_config = self.model_attributes.configuration.get("energy_units")
             units_power_config = self.model_attributes.configuration.get("power_units")
             units_energy_power_equivalent = self.model_attributes.get_energy_power_swap(units_power_config)
-            scalar_energy_to_power_cur = self.model_attributes.get_energy_equivalent(units_energy_config, units_energy_power_equivalent)
+
+            scalar_energy_to_power_cur = self.model_attributes.get_energy_equivalent(
+                units_energy_config, 
+                units_energy_power_equivalent,
+            )
 
 
         ##  GET SUPPLY TO USE (MIN) AND TECH EFFICIENCIES
@@ -9900,12 +9881,6 @@ class EnergyProduction:
                 regions = regions
             )
         )
-        # ReserveMarginTagFuel
-        dict_out.update(
-            self.format_nemomod_table_reserve_margin_tag_fuel(
-                regions = regions
-            )
-        )
         # TechnologyFromStorage and TechnologyToStorage
         dict_out.update(
             self.format_nemomod_table_technology_from_and_to_storage(
@@ -9971,13 +9946,14 @@ class EnergyProduction:
                 )
             )
             # MinStorageCharge
-            dict_out.update(
-                self.format_nemomod_table_min_storage_charge(
-                    df_elec_trajectories, 
-                    attribute_storage = attribute_storage,
-                    regions = regions
+            if False:
+                dict_out.update(
+                    self.format_nemomod_table_min_storage_charge(
+                        df_elec_trajectories, 
+                        attribute_storage = attribute_storage,
+                        regions = regions
+                    )
                 )
-            )
             # OutputActivityRatio
             dict_out.update(
                 self.format_nemomod_table_output_activity_ratio(
@@ -10223,45 +10199,67 @@ class EnergyProduction:
 
     def project(self,
         df_elec_trajectories: pd.DataFrame,
+        dict_optimizer_attributes: Union[Dict[str, Any], None] = None,
+        dict_ref_tables: Dict[str, pd.DataFrame] = None,
         engine: sqlalchemy.engine.Engine = None,
         fp_database: str = None,
-        dict_ref_tables: dict = None,
         missing_vals_on_error: Union[int, float] = 0.0,
         regions: Union[List[str], None] = None,
         return_blank_df_on_error: bool = False,
         solver: str = None,
-        vector_calc_time_periods: list = None
+        time_periods_base: Union[List[int], None] = None,
+        vector_calc_time_periods: Union[List[int], None] = None,
+        verbose: bool = False,
     ) -> pd.DataFrame:
-
-        """
-        Project electricity emissions and costs using NemoMod. Primary method of 
-            EnergyProduction.
+        """Project electricity emissions and costs using NemoMod. Primary method 
+            of EnergyProduction.
 
         Function Arguments
         ------------------
-        - df_elec_trajectories: data frame of input trajectories
+        df_elec_trajectories : pd.DataFrame
+		    DataFrame of input trajectories
 
         Keyword Arguments
         ------------------
-        - engine: SQLalchemy database engine used to connect to the database. If 
-            None, creates an engine using fp_database.
-        - fp_database: file path to sqlite database to use for NemoMod. If None, 
-            creates an SQLAlchemy engine (it is recommended that, if running in 
-            batch, a single engine is created and called multiple times)
-        - dict_ref_tables: dictionary of reference tables required to prepare 
-            data for NemoMod. If None, use 
-            EnergyProduction.dict_nemomod_reference_tables (initialization data)
-        - missing_vals_on_error: if a data frame is returned on an error, fill 
-            with this value
-        - regions: list of regions or str defining region to run. If None, 
-            defaults to configuration specification
-        - return_blank_df_on_error: on a NemoMod error (such as an 
-            infeasibility), return a data frame filled with 
-            missing_vals_on_error?
-        - solver: string specifying the solver to use to run NemoMod. If None, 
-            default to SISEPUEDE configuration value.
-        - vector_calc_time_periods: list of time periods in NemoMod to run. If 
-            None, use configuration defaults.
+        dict_optimizer_attributes : Union[Dict[str, Any], None]
+            Optional dictionary mapping an optimizer attribute to a value
+        dict_ref_tables : Dict[str, pd.DataFrame]
+		    Dictionary of reference tables required to prepare data for NemoMod. 
+            If None, use EnergyProduction.dict_nemomod_reference_tables 
+            (initialization data)
+        engine : sqlalchemy.engine.Engine
+		    SQLalchemy database engine used to connect to the database. If None, 
+            creates an engine using fp_database.
+        fp_database : str
+		    File path to sqlite database to use for NemoMod. If None, creates an 
+            SQLAlchemy engine (it is recommended that, if running in batch, a 
+            single engine is created and called multiple times)
+        missing_vals_on_error : Union[int, float]
+		    If a data frame is returned on an error, fill with this value
+        regions : Union[List[str], None]
+		    List of regions or str defining region to run. If None, defaults to 
+            configuration specification
+        return_blank_df_on_error : bool
+		    On a NemoMod error (such as an infeasibility), return a data frame 
+            filled with missing_vals_on_error?
+        time_periods_base : Union[List[int], None]
+            Specification of time periods to use as a base; in the "limited
+            foresight" versus "perfect foresight" options for running NemoMod,
+            these time periods will be optimized first; the results will then be
+            used as starting conditions for the remainder of the run, creating
+            a baseline. If running into the future, these should include 
+            historical (observed) time periods. Optional specifications include:
+            * None:             Defaults to *only* the first time period
+            * [t1, t2, ...]:    Time periods to try
+            * [] (empty list):  Run entire series with perfect foresight
+        solver : str
+		    String specifying the solver to use to run NemoMod. If None, default 
+            to SISEPUEDE configuration value.
+        vector_calc_time_periods : Union[List[int], None]
+		    List of time periods in NemoMod to run. If None, use configuration 
+            defaults.
+        verbose : bool
+            Print all outputs from NEMO?
 
         Note
         ----
@@ -10272,7 +10270,7 @@ class EnergyProduction:
         ##  CHECKS AND INITIALIZATION
 
         # make sure socioeconomic variables are added and
-        df_elec_trajectories, df_se_internal_shared_variables = self.model_socioeconomic.project(df_elec_trajectories)
+        df_elec_trajectories, _ = self.model_socioeconomic.project(df_elec_trajectories)
         
         # check that all required fields are contained—assume that it is ordered by time period
         self.check_df_fields(df_elec_trajectories)
@@ -10354,36 +10352,71 @@ class EnergyProduction:
 
 
         ##  2. SET UP AND CALL NEMOMOD
-
+        
+        # all available time periods
+        all_time_periods = list(df_elec_trajectories[self.model_attributes.dim_time_period])
+        
         # get calculation time periods
         attr_time_period = self.get_attribute_time_period()
         vector_calc_time_periods = (
-            self.model_attributes.configuration.get("nemomod_time_periods") 
-            if (vector_calc_time_periods is None) 
+            attr_time_period.key_values
+            if not sf.islistlike(vector_calc_time_periods) 
             else [x for x in attr_time_period.key_values if x in vector_calc_time_periods]
         )
-        vector_calc_time_periods = self.transform_field_year_nemomod(vector_calc_time_periods)
-        vector_calc_time_periods = self.julia_main.Vector[self.julia_main.Int64](vector_calc_time_periods)
+        vector_calc_time_periods = [
+            x for x in vector_calc_time_periods 
+            if (x in all_time_periods)
+            and (x in self.model_attributes.configuration.get("nemomod_time_periods"))
+        ]
+
+        # next, split out base and projected
+        vec_tp_base = (
+            [x for x in time_periods_base if x in vector_calc_time_periods]
+            if sf.islistlike(time_periods_base)
+            else [min(all_time_periods)]
+        )   
+        vec_tp_proj = [x for x in vector_calc_time_periods if x not in vec_tp_base]
+
+        # adjust to NEMO values
+        vec_tp_base = self.transform_field_year_nemomod(vec_tp_base, )
+        vec_tp_proj = self.transform_field_year_nemomod(vec_tp_proj, )
+        
+        # flatten?
+        use_flat = (len(vec_tp_base) == len(vector_calc_time_periods))
+        use_flat |= (len(vec_tp_proj) == len(vector_calc_time_periods))
+
+        vec_calcyears = (
+            self.julia_main.Vector[self.julia_main.Int64](vec_tp_base + vec_tp_proj)
+            if use_flat
+            else self.julia_main.Vector[self.julia_main.Vector[self.julia_main.Int64]]([vec_tp_base, vec_tp_proj])
+        )
+
 
         """
         self.julia_main.vector_calc_time_periods = vector_calc_time_periods
         self.julia_main.eval("vector_calc_time_periods = Int64.(collect(vector_calc_time_periods))")
         """
 
+
+        ##  3. SET UP AND CALL NEMOMOD
+
         # get the optimizer (must reset each time) and vars to save
-        optimizer = self.get_nemomod_optimizer(solver)
+        optimizer = self.get_nemomod_optimizer(
+            dict_optimizer_attributes = dict_optimizer_attributes,
+            solver = solver,
+        )
         vars_to_save = ", ".join(self.required_nemomod_output_tables)
 
         try:
             # call nemo mod
             result = self.julia_main.NemoMod.calculatescenario(
                 fp_database,
+                calcyears = vec_calcyears,
                 jumpmodel = optimizer,
-                numprocs = self.julia_main.Threads.nthreads(),
-                calcyears = vector_calc_time_periods,#vector_calc_time_periods
+                # numprocs = self.julia_main.Threads.nthreads(),
+                quiet = not verbose,
                 reportzeros = False,
                 varstosave = vars_to_save,
-                quiet = True
             )
 
         except Exception as e:
@@ -10395,7 +10428,7 @@ class EnergyProduction:
             result = None
 
 
-        ##  3. RETRIEVE OUTPUT TABLES
+        ##  4. RETRIEVE OUTPUT TABLES
 
         # initialize as unsuccessful, then check if it worked--if so, retrieve output tables
         successful_run_q = False
@@ -10442,7 +10475,7 @@ class EnergyProduction:
         self._log(msg, type_log = "info", )
 
 
-        ##  ADD IN UNUSED FUEL
+        ##  5. ADD IN UNUSED FUEL
 
         # try retrieving output from NemoMod
         try:
