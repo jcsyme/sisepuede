@@ -939,11 +939,6 @@ class Transformers:
             ),
         )
 
-        v_tmp = self.config.get(
-                f"{self.key_config_general}.{self.key_config_vir_renewable_cap_max_frac}",
-            )
-        print(f"v_tmp = {v_tmp}")
-
         # check if baseline includes partial land use reallocation factor
         baseline_with_lurf = self.config.get(
             f"{self.key_config_baseline}.{self.key_config_magnitude_lurf}"
