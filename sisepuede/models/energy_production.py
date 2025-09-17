@@ -1835,8 +1835,14 @@ class EnergyProduction:
 		    Optional String specifying the solver to use to run NemoMod. If 
             None, default to SISEPUEDE configuration value.
         """
-        solver = self.solver if not isinstance(solver, str) else solver
+        ##  SOME INITIALIZATION
 
+        solver = self.solver if not isinstance(solver, str) else solver
+        dict_optimizer_attributes = (
+            {} 
+            if not isinstance(dict_optimizer_attributes, dict)
+            else dict_optimizer_attributes
+        )
         dict_out = {}
 
         # setup solver-specific adjustments
