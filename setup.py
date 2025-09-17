@@ -59,12 +59,12 @@ setup(
             "docs/**",
             "julia/**",
             "ref/**",
-            "sisepuede.config"
+            "sisepuede_config.yaml"
         ]
     },
     #python_requires = py_version,
     url = "http://github.com/jcsyme/sisepuede",
-    version = "1.3.2",
+    version = "1.4.0",
     zip_safe = False
 )
 
