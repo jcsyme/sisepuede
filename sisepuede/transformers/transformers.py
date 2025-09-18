@@ -313,7 +313,19 @@ class Transformer:
             else None
         )
         description = description.get(code) if description is not None else None
-        description = None if sf.isnumber(description, skip_nan = False) else description
+        description = None if sf.isnumber(description, skip_nan = False) else str(description)
+
+
+        # initialize and check units descrption
+        description_units = (
+            attr_transfomer
+            .field_maps
+            .get(f"{attr_transfomer.key}_to_{self.field_description_units}")
+            if attr_transfomer is not None
+            else None
+        )
+        description_units = description_units.get(code) if description_units is not None else None
+        description_units = None if sf.isnumber(description_units, skip_nan = False) else str(description_units)
 
 
         ##  SET PROPERTIES
@@ -323,6 +335,7 @@ class Transformer:
         self.code = str(code)
         self.code_baseline = code_baseline
         self.description = description
+        self.description_units = description_units
         self.id = int(id_num)
         self.name = str(name)
         
@@ -417,6 +430,7 @@ class Transformer:
 
         field_citations = kwargs.get("field_citations", "citations")
         field_description = kwargs.get("field_description", "description")
+        field_description_units = kwargs.get("field_description_units", "units_description")
         field_transformer_id = kwargs.get("field_transformer_id", "transformer_id")
         field_transformer_name = kwargs.get("field_transformer_name", "transformer")
         
@@ -425,6 +439,7 @@ class Transformer:
 
         self.field_citations = field_citations
         self.field_description = field_description
+        self.field_description_units = field_description_units
         self.field_transformer_id = field_transformer_id
         self.field_transformer_name = field_transformer_name
 
@@ -3105,6 +3120,7 @@ class Transformers:
         dict_categories_to_magnitude: Union[Dict[str, float], None] = None,
         magnitude_burned: float = 0.0,
         magnitude_removed: float = 0.5,
+        return_dict_magnitude: bool = False,
         strat: Union[int, None] = None,
         vec_implementation_ramp: Union[np.ndarray, Dict[str, int], None] = None,
     ) -> pd.DataFrame:
@@ -3133,6 +3149,8 @@ class Transformers:
             Target fraction of residues that are burned
         magnitude_removed : float
             Maximum fraction of residues that are removed
+        return_pathways : bool
+            Return the magnitude dictionary only? NOTE: DO NOT SPECIFY IN CONFIGURATION YAMLS
         strat : int
             Optional strategy value to specify for the transformation
         vec_implementation_ramp : Union[np.ndarray, Dict[str, int], None]
@@ -3158,6 +3176,10 @@ class Transformers:
             if not isinstance(dict_categories_to_magnitude, dict)
             else dict_categories_to_magnitude
         )
+
+        if return_dict_magnitude:
+            return dict_categories_to_magnitude
+
 
         # check implementation ramp
         vec_implementation_ramp = self.check_implementation_ramp(
@@ -3880,6 +3902,7 @@ class Transformers:
     def _trfunc_lsmm_improve_manure_management_cattle_pigs(self,
         df_input: Union[pd.DataFrame, None] = None,
         dict_lsmm_pathways: Union[dict, None] = None,
+        return_pathways: bool = False,
         strat: Union[int, None] = None,
         vec_cats_lvst: Union[List[str], None] = None,
         vec_implementation_ramp: Union[np.ndarray, Dict[str, int], None] = None,
@@ -3899,6 +3922,8 @@ class Transformers:
                 "daily_spread": 0.2375, # 0.25*0.95,
             }
 
+        return_pathways : bool
+            Return the pathways dictionary only? NOTE: DO NOT SPECIFY IN CONFIGURATION YAMLS
         strat : int
             Optional strategy value to specify for the transformation
         vec_cats_lvst : Union[List[str], None]
@@ -3942,6 +3967,10 @@ class Transformers:
                 self.model_attributes.subsec_name_lsmm,
             )
         )
+
+        if return_pathways:
+            return dict_lsmm_pathways
+        
         
         # get categories to apply management paradigm to
         vec_lvst_cats = (
@@ -3976,6 +4005,7 @@ class Transformers:
     def _trfunc_lsmm_improve_manure_management_other(self,
         df_input: Union[pd.DataFrame, None] = None,
         dict_lsmm_pathways: Union[dict, None] = None,
+        return_pathways: bool = False,
         strat: Union[int, None] = None,
         vec_cats_lvst: Union[List[str], None] = None,
         vec_implementation_ramp: Union[np.ndarray, Dict[str, int], None] = None,
@@ -3996,6 +4026,8 @@ class Transformers:
                 "daily_spread": 0.11875, # 0.125*0.95,
             }
 
+        return_pathways : bool
+            Return the pathways dictionary only? NOTE: DO NOT SPECIFY IN CONFIGURATION YAMLS
         strat : int
             Optional strategy value to specify for the transformation
         vec_cats_lvst : Union[List[str], None]
@@ -4040,6 +4072,10 @@ class Transformers:
                 self.model_attributes.subsec_name_lsmm,
             )
         )
+
+        if return_pathways:
+            return dict_lsmm_pathways
+        
         
         # get categories to apply management paradigm to
         vec_lvst_cats = (
@@ -4077,6 +4113,7 @@ class Transformers:
     def _trfunc_lsmm_improve_manure_management_poultry(self,
         df_input: Union[pd.DataFrame, None] = None,
         dict_lsmm_pathways: Union[dict, None] = None,
+        return_pathways: bool = False,
         strat: Union[int, None] = None,
         vec_cats_lvst: Union[List[str], None] = None,
         vec_implementation_ramp: Union[np.ndarray, Dict[str, int], None] = None,
@@ -4094,6 +4131,8 @@ class Transformers:
                 "poultry_manure": 0.475, # 0.5*0.95,
             }
 
+        return_pathways : bool
+            Return the pathways dictionary only? NOTE: DO NOT SPECIFY IN CONFIGURATION YAMLS
         strat : int
             Optional strategy value to specify for the transformation
         vec_cats_lvst : Union[List[str], None]
@@ -4132,6 +4171,10 @@ class Transformers:
             )
         )
         
+        if return_pathways:
+            return dict_lsmm_pathways
+        
+
         # get categories to apply management paradigm to
         vec_lvst_cats = (
             [
@@ -4328,6 +4371,7 @@ class Transformers:
     def _trfunc_lvst_reduce_enteric_fermentation(self,
         df_input: Union[pd.DataFrame, None] = None,
         dict_lvst_reductions: Union[dict, None] = None,
+        return_reductions_dict: bool = False,
         strat: Union[int, None] = None,
         vec_implementation_ramp: Union[np.ndarray, Dict[str, int], None] = None,
     ) -> pd.DataFrame:
@@ -4348,6 +4392,8 @@ class Transformers:
                 "sheep": 0.56
             }
 
+        return_reductions_dict : bool
+            Return the dict_lvst_reductions dictionary only? NOTE: DO NOT SPECIFY IN CONFIGURATION YAMLS
         strat : int
             Optional strategy value to specify for the transformation
         vec_implementation_ramp : Union[np.ndarray, Dict[str, int], None]
@@ -4378,6 +4424,10 @@ class Transformers:
             else dict_lvst_reductions
 
         )
+
+        if return_reductions_dict:
+            return dict_lvst_reductions
+        
 
         
         df_out = tba.transformation_lvst_reduce_enteric_fermentation(
@@ -4618,8 +4668,8 @@ class Transformers:
 
         return df_out
 
-
-
+    
+    
     ####################################
     #    WALI TRANSFORMER FUNCTIONS    #
     ####################################
@@ -4627,6 +4677,7 @@ class Transformers:
     def _trfunc_wali_improve_sanitation_industrial(self,
         df_input: Union[pd.DataFrame, None] = None,
         dict_magnitude: Union[Dict[str, float], None] = None,
+        return_pathways: bool = False,
         strat: Union[int, None] = None,
         vec_implementation_ramp: Union[np.ndarray, None] = None,
     ) -> pd.DataFrame:
@@ -4653,6 +4704,8 @@ class Transformers:
                 "treated_secondary_anaerobic": 0.1,
             }
 
+        return_pathways : bool
+            Return the pathways dictionary only? NOTE: DO NOT SPECIFY IN CONFIGURATION YAMLS
         strat : int
             Optional strategy value to specify for the transformation
         vec_implementation_ramp : Union[np.ndarray, Dict[str, int], None]
@@ -4686,6 +4739,10 @@ class Transformers:
             self.model_attributes.subsec_name_trww,
         )
 
+        if return_pathways:
+            return dict_magnitude
+        
+
         # get categories and dictionary to specify parameters (move to config eventually)
         df_out = tbc.transformation_wali_improve_sanitation(
             df_input,
@@ -4706,6 +4763,7 @@ class Transformers:
     def _trfunc_wali_improve_sanitation_rural(self,
         df_input: Union[pd.DataFrame, None] = None,
         dict_magnitude: Union[Dict[str, float], None] = None,
+        return_pathways: bool = False,
         strat: Union[int, None] = None,
         vec_implementation_ramp: Union[np.ndarray, None] = None,
     ) -> pd.DataFrame:
@@ -4730,6 +4788,8 @@ class Transformers:
                 "treated_septic": 1.0,
             }
 
+        return_pathways : bool
+            Return the pathways dictionary only? NOTE: DO NOT SPECIFY IN CONFIGURATION YAMLS
         strat : int
             Optional strategy value to specify for the transformation
         vec_implementation_ramp : Union[np.ndarray, Dict[str, int], None]
@@ -4762,6 +4822,9 @@ class Transformers:
             self.model_attributes.subsec_name_trww,
         )
 
+        if return_pathways:
+            return dict_magnitude
+
 
         # get categories and dictionary to specify parameters (move to config eventually)
         df_out = tbc.transformation_wali_improve_sanitation(
@@ -4783,6 +4846,7 @@ class Transformers:
     def _trfunc_wali_improve_sanitation_urban(self,
         df_input: Union[pd.DataFrame, None] = None,
         dict_magnitude: Union[Dict[str, float], None] = None,
+        return_pathways: bool = False,
         strat: Union[int, None] = None,
         vec_implementation_ramp: Union[np.ndarray, None] = None,
     ) -> pd.DataFrame:
@@ -4810,6 +4874,8 @@ class Transformers:
                 "treated_secondary_anaerobic": 0.2,
             }
 
+        return_pathways : bool
+            Return the pathways dictionary only? NOTE: DO NOT SPECIFY IN CONFIGURATION YAMLS
         strat : int
             Optional strategy value to specify for the transformation
         vec_implementation_ramp : Union[np.ndarray, Dict[str, int], None]
@@ -4843,6 +4909,10 @@ class Transformers:
             dict_magnitude,
             self.model_attributes.subsec_name_trww,
         )
+
+        if return_pathways:
+            return dict_magnitude
+        
 
         # get categories and dictionary to specify parameters (move to config eventually)
         df_out = tbc.transformation_wali_improve_sanitation(
@@ -7405,6 +7475,7 @@ class Transformers:
         df_input: Union[pd.DataFrame, None] = None,
         dict_magnitude_eff: Union[dict, float, None] = 0.9,
         dict_magnitude_prev: Union[dict, None] = None,
+        return_prevalence_dict: bool = False,
         strat: Union[int, None] = None,
         vec_implementation_ramp: Union[np.ndarray, Dict[str, int], None] = None,
     ) -> pd.DataFrame:
@@ -7426,6 +7497,9 @@ class Transformers:
                     "metals": 0.8,
                     "plastic": 0.8,
                 }
+
+        return_prevalence_dict : bool
+            Return the prevalence dictionary only? NOTE: DO NOT SPECIFY IN CONFIGURATION YAMLS
         strat : int
             Optional strategy value to specify for the transformation
         vec_implementation_ramp : Union[np.ndarray, Dict[str, int], None]
@@ -7476,6 +7550,9 @@ class Transformers:
             self.model_attributes.subsec_name_inen,
         )
 
+        if return_prevalence_dict:
+            return dict_magnitude_prev
+        
 
         # increase prevalence of capture
         df_out = tbs.transformation_mlti_industrial_carbon_capture(

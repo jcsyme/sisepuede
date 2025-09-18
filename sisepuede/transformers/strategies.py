@@ -17,11 +17,11 @@ import sisepuede.utilities._toolbox as sf
 
 
 
-_MODULE_UUID = "BEE85F6C-6BA3-4382-9A8C-5C2D8691DE4E" 
+######################
+#    SOME GLOBALS    #
+######################
 
-
-
-# specify some default file names
+# some dictionaries
 _DICT_FILE_NAME_DEFAULTS = {
     "strategy_definitions": "strategy_definitions.csv",
 }
@@ -34,7 +34,19 @@ _DICT_KEYS = {
     "transformation_specification": "transformation_specification"
 }
 
+# flags
 _FLAG_EXPORT_TO_TRANSFORMATIONS = "transformations"
+
+# module id
+_MODULE_UUID = "BEE85F6C-6BA3-4382-9A8C-5C2D8691DE4E" 
+
+
+##  ERROR CLASSES
+class UndefinedStrategy(Exception):
+    pass
+
+
+
 
 
 #####################################
@@ -44,17 +56,17 @@ _FLAG_EXPORT_TO_TRANSFORMATIONS = "transformations"
 #####################################
 
 class Strategy:
-    """
-    A collection of transformations. The Strategy code 
+    """Implementation of a collection of transformations.
 
                 
     Initialization Arguments
     ------------------------
-    - strategy_id: id number for the strategy
-    - transformation_codes: string denoting the trasformation code (or ids) to 
-        use to implement the strategy. Transformations are combined as a 
-        `delim`-delimited string or list of strings (which can be delimited) or 
-        integers.
+    strategy_id : int
+        ID number for the strategy
+    transformation_codes : Union[str, List[Union[str, int]]]
+        Transformations are defined in this argument using `delim`-delimited 
+        strings (codes/numeric integer strings) OR list of strings (which can 
+        themselves be delimited) or integers.
 
         E.g.,
 
@@ -65,14 +77,19 @@ class Strategy:
         * ["TX:AGRC:TEST_1"|"TX:ENTC:TEST_2", TX:LSMM:MANURE_MANAGEMENT", 51]
 
         are all valid inputs.
+    transformations : Transformations
+        Transformations object that manages all transformations identified in 
+        the codes
 
     Optional Arguments
     ------------------
-    - delim: delimiter used to split codes
-    - dict_attributes: optional dictionary of attributes to assign to the
-        Strategy. 
-    - prebuild: prebuild the data frame? If True, will call the function and 
-        store it in the `table` property
+    delim : str
+        Delimiter used to split codes
+    dict_attributes : Union[Dict[str, Any], None]
+        Optional dictionary of attributes to assign to the Strategy. 
+    prebuild : bool
+        Prebuild the data frame? If True, will call the function and store it in 
+        the `table` property
     """
 
     def __init__(self,
@@ -2057,6 +2074,7 @@ class Strategies:
     def get_strategy(self,
         strategy: Union[int, str, None],
         return_code: bool = False,
+        stop_on_error: bool = False,
     ) -> None:
         """Get `strategy` based on strategy code, id, or name
             
@@ -2070,6 +2088,8 @@ class Strategies:
         ------------------
         return_code : bool
             Set to True to return the transformer code only
+        stop_on_error : bool
+            If True, will throw error if not found or invalid
         """
 
         # skip these types
@@ -2077,6 +2097,9 @@ class Strategies:
         return_none = not is_int
         return_none &= not isinstance(strategy, str)
         if return_none:
+            if stop_on_error:
+                raise TypeError("Strategy specification must be an integer or string")
+            
             return None
 
         # Transformer objects are tied to the attribute table, so these field maps work
@@ -2098,11 +2121,18 @@ class Strategies:
         elif is_int:
             code = strategy
 
+        # throw an error?
+        if (code is None) and stop_on_error:
+            raise UndefinedStrategy(f"Strategy '{code}' not found or undefined.")
+         
         # check returns
         if return_code | (code is None): 
             return code
         
+        # return None?
         out = deepcopy(self.dict_strategies.get(code))
+        if (out is None) and stop_on_error:
+            raise UndefinedStrategy(f"Strategy '{code}' not found or undefined.")
 
         return out
     

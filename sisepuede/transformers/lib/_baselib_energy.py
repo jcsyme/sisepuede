@@ -343,7 +343,7 @@ def transformation_entc_clean_hydrogen(
             "fp_hydrogen_reformation",
             "fp_hydrogen_reformation_ccs"
         ]
-        if not sf.islistlike(cats_to_apply)
+        if not sf.islistlike(cats_response)
         else [x for x in attr_entc.key_values if x in cats_response]
     )
 
@@ -375,6 +375,7 @@ def transformation_entc_clean_hydrogen(
     # adjust other hydrogen shares
     if len(cats_response) > 0:
 
+        
         vars_appplied = model_attributes.build_variable_fields(
             modvar_msp,
             restrict_to_category_values = cats_to_apply,
@@ -385,9 +386,9 @@ def transformation_entc_clean_hydrogen(
             restrict_to_category_values = cats_response,
         )
 
-        arr_maintain = np.array(df_input[vars_appplied])
+        arr_maintain = df_transformed[vars_appplied].to_numpy()
         vec_total_maintain = arr_maintain.sum(axis = 1)
-        arr_adjust = np.array(df_input[vars_respond])
+        arr_adjust = df_transformed[vars_respond].to_numpy()
         vec_total_adjust = arr_adjust.sum(axis = 1)
 
         # if the total does not exceed 1, div by 1; if it does, divide by that total
