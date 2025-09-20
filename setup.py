@@ -47,11 +47,11 @@ setup(
         "sisepuede.manager",
         "sisepuede.models",
         "sisepuede.pipeline",
-        "sisepuede.plotting",
         "sisepuede.transformers",
         "sisepuede.transformers.lib",
         "sisepuede.utilities",
-        "sisepuede.utilities.data_support"
+        "sisepuede.utilities.data_support",
+        "sisepuede.visualization"
     ],
     package_data = {
         "": [
