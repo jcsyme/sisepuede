@@ -359,7 +359,7 @@ def exogenous_demands_to_sispeuede_ies(
             axis = 1,
         )
         df_hist = df_hist[df_hist[field_year].isin(years_historical)].reset_index(drop = True)
-
+ 
         vec_means = np.zeros(arr_elast.shape[1])
         vec_medians = np.zeros(arr_elast.shape[1])
         vec_targs = np.zeros(arr_elast.shape[1])
