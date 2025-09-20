@@ -11,7 +11,7 @@ from sisepuede.core.model_attributes import ModelAttributes
 from sisepuede.models.afolu import AFOLU
 from sisepuede.models.circular_economy import CircularEconomy
 import sisepuede.models.energy_production as mep
-from sisepuede.models.energy_consumption import EnergyConsumption
+import sisepuede.models.energy_consumption as mec
 from sisepuede.models.ippu import IPPU
 from sisepuede.models.socioeconomic import Socioeconomic
 import sisepuede.core.support_classes as sc
@@ -164,7 +164,7 @@ class SISEPUEDEModels:
                 logger = self.logger,
             )
 
-        self.model_enercons = EnergyConsumption(
+        self.model_enercons = mec.EnergyConsumption(
             self.model_attributes,
             logger = self.logger
         )

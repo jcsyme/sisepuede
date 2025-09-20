@@ -544,7 +544,15 @@ class EnergyConsumption:
             self.modvar_enfu_energy_demand_by_fuel_entc,
             self.modvar_enfu_energy_demand_by_fuel_scoe
         ]
+
         # key categories
+        self.cat_enfu_biomass = self.model_attributes.filter_keys_by_attribute(
+            self.subsec_name_enfu, 
+            {
+                self.model_attributes.field_enfu_biomass_demand_category: 1
+            }
+        )[0]
+
         self.cat_enfu_electricity = self.model_attributes.filter_keys_by_attribute(
             self.subsec_name_enfu, 
             {
@@ -611,7 +619,8 @@ class EnergyConsumption:
         # Industrial Energy model variables
         self.modvar_inen_demscalar = "Industrial Energy Demand Scalar"
         self.modvar_inen_emissions_ch4 = ":math:\\text{CH}_4 Emissions from Industrial Energy"
-        self.modvar_inen_emissions_co2 = ":math:\\text{CO}_2 Emissions from Industrial Energy"
+        self.modvar_inen_emissions_co2_biomass = ":math:\\text{CO}_2 Biomass Emissions from Industrial Energy"
+        self.modvar_inen_emissions_co2_non_biomass = ":math:\\text{CO}_2 Non-Biomass Emissions from Industrial Energy"
         self.modvar_inen_emissions_n2o = ":math:\\text{N}_2\\text{O} Emissions from Industrial Energy"
         self.modvar_inen_energy_conumption_agrc_init = "Initial Energy Consumption in Agriculture and Livestock"
         self.modvar_inen_energy_consumption_electricity = "Electrical Energy Consumption from Industrial Energy"
@@ -689,7 +698,8 @@ class EnergyConsumption:
         self.modvar_scoe_elasticity_mmmgdp_energy_demand_elec_to_gdppc = "SCOE Elasticity of Per GDP Electrical Applicance Demand to GDP Per Capita"
         self.modvar_scoe_elasticity_mmmgdp_energy_demand_heat_to_gdppc = "SCOE Elasticity of Per GDP Heat Energy Demand to GDP Per Capita"
         self.modvar_scoe_emissions_ch4 = ":math:\\text{CH}_4 Emissions from SCOE"
-        self.modvar_scoe_emissions_co2 = ":math:\\text{CO}_2 Emissions from SCOE"
+        self.modvar_scoe_emissions_co2_biomass = ":math:\\text{CO}_2 Biomass Emissions from SCOE"
+        self.modvar_scoe_emissions_co2_non_biomass = ":math:\\text{CO}_2 Non-Biomass Emissions from SCOE"
         self.modvar_scoe_emissions_n2o = ":math:\\text{N}_2\\text{O} Emissions from SCOE"
         self.modvar_scoe_energy_consumption_electricity = "Electrical Energy Consumption from SCOE"
         self.modvar_scoe_energy_consumption_electricity_agg = "Total Electrical Energy Consumption from SCOE"
@@ -2878,8 +2888,10 @@ class EnergyConsumption:
         arr_inen_demand_total = 0.0
         arr_inen_demand_total_total = 0.0
         arr_inen_emissions_ch4 = 0.0
-        arr_inen_emissions_co2 = 0.0
+        arr_inen_emissions_co2_biomass = 0.0
+        arr_inen_emissions_co2_non_biomass = 0.0
         arr_inen_emissions_n2o = 0.0
+
         # set scalar to convert to enfu units
         scalar_inen_to_enfu_var_units = self.model_attributes.get_variable_unit_conversion_factor(
             self.modvar_inen_en_prod_intensity_factor,
@@ -2899,21 +2911,36 @@ class EnergyConsumption:
 
             # get emissions from factors
             arr_inen_emissions_ch4 += arr_inen_endem_cur_fuel.transpose()*arr_inen_ef_by_fuel_ch4[:, index_cat_fuel]
-            arr_inen_emissions_co2 += arr_inen_endem_cur_fuel.transpose()*arr_inen_ef_by_fuel_co2[:, index_cat_fuel]
             arr_inen_emissions_n2o += arr_inen_endem_cur_fuel.transpose()*arr_inen_ef_by_fuel_n2o[:, index_cat_fuel]
+
+            # split out co2 by biomass/non-biomass
+            vec_co2 = arr_inen_endem_cur_fuel.transpose()*arr_inen_ef_by_fuel_co2[:, index_cat_fuel]
+            if cat_fuel == self.cat_enfu_biomass:
+                arr_inen_emissions_co2_biomass += vec_co2
+            else:
+                arr_inen_emissions_co2_non_biomass += vec_co2
+
 
             # update the demand for fuel in the output array
             arr_inen_demand_by_fuel[:, index_cat_fuel] = np.sum(arr_inen_endem_cur_fuel, axis = 1)
 
-            # add electricity demand and total energy demand
-            arr_inen_demand_electricity += arr_inen_endem_cur_fuel if (cat_fuel == self.cat_enfu_electricity) else 0.0
-            arr_inen_demand_electricity_total += arr_inen_endem_cur_fuel.sum(axis = 1) if (cat_fuel == self.cat_enfu_electricity) else 0.0
+            # add total energy demand and electricity demand
             arr_inen_demand_total += arr_inen_endem_cur_fuel
             arr_inen_demand_total_total += arr_inen_endem_cur_fuel.sum(axis = 1)
 
+            if (cat_fuel == self.cat_enfu_electricity):
+                arr_inen_demand_electricity += arr_inen_endem_cur_fuel
+                arr_inen_demand_electricity_total += arr_inen_endem_cur_fuel.sum(axis = 1)
+
+
+        self.arr_inen_demand_by_fuel = arr_inen_demand_by_fuel
+        self.arr_inen_demand_total = arr_inen_demand_total
+            
+
         # transpose outputs
         arr_inen_emissions_ch4 = arr_inen_emissions_ch4.transpose()
-        arr_inen_emissions_co2 = arr_inen_emissions_co2.transpose()
+        arr_inen_emissions_co2_biomass = arr_inen_emissions_co2_biomass.transpose()
+        arr_inen_emissions_co2_non_biomass = arr_inen_emissions_co2_non_biomass.transpose()
         arr_inen_emissions_n2o = arr_inen_emissions_n2o.transpose()
 
         # get scalar to transform units of self.modvar_inen_en_prod_intensity_factor -> configuration units
@@ -2940,9 +2967,13 @@ class EnergyConsumption:
         )
         
         # capture and apply the scalar for output units
-        array_inen_emissions_co2_captured = arr_inen_emissions_co2*array_inen_emission_frac_captured
-        arr_inen_emissions_co2 -= array_inen_emissions_co2_captured
+        array_inen_emissions_co2_biomass_captured = arr_inen_emissions_co2_biomass*array_inen_emission_frac_captured
+        array_inen_emissions_co2_non_biomass_captured = arr_inen_emissions_co2_non_biomass*array_inen_emission_frac_captured
+        arr_inen_emissions_co2_biomass -= array_inen_emissions_co2_biomass_captured
+        arr_inen_emissions_co2_non_biomass -= array_inen_emissions_co2_non_biomass_captured
+
         scalar_captured = self.model_attributes.get_scalar(self.modvar_inen_gas_captured_co2, "mass")
+        array_inen_emissions_co2_captured = array_inen_emissions_co2_biomass_captured + array_inen_emissions_co2_non_biomass_captured
         array_inen_emissions_co2_captured /= scalar_captured
 
 
@@ -2951,7 +2982,7 @@ class EnergyConsumption:
         # total fuel value per unit of energy
         arr_inen_total_fuel_value = self.get_enfu_fuel_costs_per_energy(
             df_neenergy_trajectories,
-            modvar_for_units_energy = self.modvar_enfu_energy_demand_by_fuel_inen
+            modvar_for_units_energy = self.modvar_enfu_energy_demand_by_fuel_inen,
         )
 
         
@@ -2965,10 +2996,16 @@ class EnergyConsumption:
                 self.modvar_inen_emissions_ch4, 
                 reduce_from_all_cats_to_specified_cats = True
             ),
-            # CO2 EMISSIONS
+            # CO2 EMISSIONS--BIOMASS
             self.model_attributes.array_to_df(
-                arr_inen_emissions_co2, 
-                self.modvar_inen_emissions_co2, 
+                arr_inen_emissions_co2_biomass, 
+                self.modvar_inen_emissions_co2_biomass, 
+                reduce_from_all_cats_to_specified_cats = True
+            ),
+            # CO2 EMISSIONS--NON-BIOMASS
+            self.model_attributes.array_to_df(
+                arr_inen_emissions_co2_non_biomass, 
+                self.modvar_inen_emissions_co2_non_biomass, 
                 reduce_from_all_cats_to_specified_cats = True
             ),
             # N2O EMISSIONS
@@ -3300,7 +3337,8 @@ class EnergyConsumption:
         arr_scoe_demand_non_electric = 0.0
         arr_scoe_demand_non_electric_total = 0.0
         arr_scoe_emissions_ch4 = 0.0
-        arr_scoe_emissions_co2 = 0.0
+        arr_scoe_emissions_co2_biomass = 0.0
+        arr_scoe_emissions_co2_non_biomass = 0.0
         arr_scoe_emissions_n2o = 0.0
 
         # initialize the scalar to convert energy units to ENFU output
@@ -3319,8 +3357,14 @@ class EnergyConsumption:
 
             # apply emission factors
             arr_scoe_emissions_ch4 += arr_scoe_endem_cur_fuel.transpose()*arr_scoe_ef_by_fuel_ch4[:, index_cat_fuel]
-            arr_scoe_emissions_co2 += arr_scoe_endem_cur_fuel.transpose()*arr_scoe_ef_by_fuel_co2[:, index_cat_fuel]
             arr_scoe_emissions_n2o += arr_scoe_endem_cur_fuel.transpose()*arr_scoe_ef_by_fuel_n2o[:, index_cat_fuel]
+
+            # co2--split out biomass v. non biomass
+            vec_co2 = arr_scoe_endem_cur_fuel.transpose()*arr_scoe_ef_by_fuel_co2[:, index_cat_fuel]
+            if cat_fuel == self.cat_enfu_biomass:
+                arr_scoe_emissions_co2_biomass += vec_co2
+            else:
+                arr_scoe_emissions_co2_non_biomass += vec_co2
 
             # add electricity demand and total energy demand
             if (cat_fuel == self.cat_enfu_electricity):
@@ -3331,8 +3375,10 @@ class EnergyConsumption:
 
         # transpose outputs
         arr_scoe_emissions_ch4 = arr_scoe_emissions_ch4.transpose()
-        arr_scoe_emissions_co2 = arr_scoe_emissions_co2.transpose()
+        arr_scoe_emissions_co2_biomass = arr_scoe_emissions_co2_biomass.transpose()
+        arr_scoe_emissions_co2_non_biomass = arr_scoe_emissions_co2_non_biomass.transpose()
         arr_scoe_emissions_n2o = arr_scoe_emissions_n2o.transpose()
+
         # get some totals
         arr_scoe_demand_electricity_total = np.sum(arr_scoe_demand_electricity, axis = 1)
         arr_scoe_demand_non_electric_total = np.sum(arr_scoe_demand_non_electric, axis = 1)
@@ -3356,10 +3402,15 @@ class EnergyConsumption:
                 arr_scoe_emissions_ch4, 
                 self.modvar_scoe_emissions_ch4
             ),
-            # CO2 EMISSIONS
+            # CO2 EMISSIONS--BIOMASS
             self.model_attributes.array_to_df(
-                arr_scoe_emissions_co2, 
-                self.modvar_scoe_emissions_co2
+                arr_scoe_emissions_co2_biomass, 
+                self.modvar_scoe_emissions_co2_biomass,
+            ),
+            # CO2 EMISSIONS--NON-BIOMASS
+            self.model_attributes.array_to_df(
+                arr_scoe_emissions_co2_non_biomass, 
+                self.modvar_scoe_emissions_co2_non_biomass,
             ),
             # N2O EMISSIONS
             self.model_attributes.array_to_df(

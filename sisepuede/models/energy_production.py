@@ -976,24 +976,35 @@ class EnergyProduction:
                 self.model_attributes.field_enfu_biogas_fuel_category: 1
             }
         )[0]
+
+        self.cat_enfu_bmas = self.model_attributes.filter_keys_by_attribute(
+            self.subsec_name_enfu, 
+            {
+                self.model_attributes.field_enfu_biomass_demand_category: 1
+            }
+        )[0]
+
         self.cat_enfu_elec = self.model_attributes.filter_keys_by_attribute(
             self.subsec_name_enfu, 
             {
                 self.model_attributes.field_enfu_electricity_demand_category: 1
             }
         )[0]
+
         self.cat_enfu_hgen = self.model_attributes.filter_keys_by_attribute(
             self.subsec_name_enfu, 
             {
                 self.model_attributes.field_enfu_hydrogen_fuel_category: 1
             }
         )[0]
+
         self.cat_enfu_hpwr = self.model_attributes.filter_keys_by_attribute(
             self.subsec_name_enfu, 
             {
                 self.model_attributes.field_enfu_hydropower_fuel_category : 1
             }
         )[0]
+
         self.cat_enfu_wste = self.model_attributes.filter_keys_by_attribute(
             self.subsec_name_enfu, 
             {
@@ -1068,7 +1079,8 @@ class EnergyProduction:
         self.modvar_entc_nemomod_emissions_co2_elec = "NemoMod :math:\\text{CO}_2 Emissions from Electricity Generation"
         self.modvar_entc_nemomod_emissions_n2o_elec = "NemoMod :math:\\text{N}_2\\text{O} Emissions from Electricity Generation"
         self.modvar_entc_nemomod_emissions_ch4_fpr = "NemoMod :math:\\text{CH}_4 Emissions from Fuel Processing and Refinement"
-        self.modvar_entc_nemomod_emissions_co2_fpr = "NemoMod :math:\\text{CO}_2 Emissions from Fuel Processing and Refinement"
+        self.modvar_entc_nemomod_emissions_co2_fpr_biomass = "NemoMod :math:\\text{CO}_2 Biomass Emissions from Fuel Processing and Refinement"
+        self.modvar_entc_nemomod_emissions_co2_fpr_non_biomass = "NemoMod :math:\\text{CO}_2 Non-Biomass Emissions from Fuel Processing and Refinement"
         self.modvar_entc_nemomod_emissions_n2o_fpr = "NemoMod :math:\\text{N}_2\\text{O} Emissions from Fuel Processing and Refinement"
         self.modvar_entc_nemomod_emissions_ch4_mne = "NemoMod :math:\\text{CH}_4 Emissions from Fuel Mining and Extraction"
         self.modvar_entc_nemomod_emissions_co2_mne = "NemoMod :math:\\text{CO}_2 Emissions from Fuel Mining and Extraction"
@@ -2122,6 +2134,44 @@ class EnergyProduction:
         out = (vec_enfu_total_energy_biogas, vec_enfu_minimum_fuel_energy_to_electricity_biogas)
 
         return out
+    
+
+
+    def get_biomass_pp_techs(self, 
+        return_as_sql_string: bool = False,
+    ) -> List[str]:
+        """Retrieve biomass techs. Set return_as_sql_string = True to return
+            the list as an sql set
+        """
+
+        # get some categories
+        pycat_enfu = self.model_attributes.get_subsector_attribute(
+            self.subsec_name_enfu, 
+            "pycategory_primary_element",
+        )
+
+        # get dictionary mapping power plants to tech type
+        dict_cat_pp_to_cat_enfu = self.model_attributes.get_ordered_category_attribute(
+            self.model_attributes.subsec_name_entc,
+            f"electricity_generation_{pycat_enfu}",
+            clean_attribute_schema_q = True,
+            return_type = dict,
+            skip_none_q = True,
+        )
+
+        # reverse the dictionary
+        dict_fuel_to_pp_techs = sf.reverse_dict(
+            dict_cat_pp_to_cat_enfu,
+            allow_multi_keys = True,
+        )
+        
+        # get the final return categories
+        pp_techs_biomass = dict_fuel_to_pp_techs.get(self.cat_enfu_bmas, [])
+        if return_as_sql_string:
+            pp_techs_biomass = ",".join([f"'{x}'" for x in pp_techs_biomass])
+            pp_techs_biomass = f"({pp_techs_biomass})"
+
+        return pp_techs_biomass
     
 
 
@@ -9132,12 +9182,18 @@ class EnergyProduction:
             else table_name
         )
 
+
+        ##  NON-BIOMASS VARIABLS
+
+        # focus on non-biomass CO2 emissions first, which include:
+        #   - CH4
+        #   - CO2 for all non-biomass fuels
         modvars_emit = [
             self.modvar_entc_nemomod_emissions_ch4_elec,
             self.modvar_entc_nemomod_emissions_co2_elec,
             self.modvar_entc_nemomod_emissions_n2o_elec,
             self.modvar_entc_nemomod_emissions_ch4_fpr,
-            self.modvar_entc_nemomod_emissions_co2_fpr,
+            self.modvar_entc_nemomod_emissions_co2_fpr_non_biomass,
             self.modvar_entc_nemomod_emissions_n2o_fpr,
             self.modvar_entc_nemomod_emissions_ch4_mne,
             self.modvar_entc_nemomod_emissions_co2_mne,
@@ -9145,13 +9201,26 @@ class EnergyProduction:
         ]
 
         df_out = []
+
+
         for modvar in modvars_emit:
 
             # get the gas, global warming potential (to scale output by), and the query
             gas = self.model_attributes.get_variable_characteristic(modvar, self.model_attributes.varchar_str_emission_gas)
             gwp = self.model_attributes.get_gwp(gas)
-            query_append = f"where {self.field_nemomod_emission} = '{gas}'"
 
+            # filter the table
+            query_append = f"where {self.field_nemomod_emission} = '{gas}'"
+            """
+            # IF NEEDED, FILTER ON BMASS PP TECHS
+            if gas == "co2":
+                query_filt = self.get_biomass_pp_techs(
+                    return_as_sql_string = True,
+                )
+                query_append = f"{query_append} and {self.field_nemomod_technology} not in {query_filt}"
+            """;
+
+                
             # retrieve and scale
             df_tmp = self.retrieve_and_pivot_nemomod_table(
                 engine,
@@ -9169,6 +9238,20 @@ class EnergyProduction:
         df_out = pd.concat(df_out, axis = 1).reset_index(drop = True)
 
         return df_out
+
+
+
+    # PLACEHOLDER TO SUPPORT RETRIEVAL ABOVE
+    def split_ebt_co2_into_biomass_and_nonbiomass(self,
+    ) -> None:
+        """NEMO reports emission outcomes in aggregate, and output emissions
+            do not split by input fuel. This routine uses the 
+            vusebytechnologyannual table to 
+
+            - Estimate the input fraction coming from biomass
+
+        """
+        None
 
 
 
