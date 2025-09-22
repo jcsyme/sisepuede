@@ -9237,6 +9237,13 @@ class EnergyProduction:
 
         df_out = pd.concat(df_out, axis = 1).reset_index(drop = True)
 
+        # TEMPORARY 
+        modvar_tmp = self.model_attributes.get_variable(
+            self.modvar_entc_nemomod_emissions_co2_fpr_biomass,
+        )
+        print(f"set {modvar_tmp.fields} = 0 in energy production. FIX WITH NEW fp_hydrogen_gasification_biomass TECH.")
+        df_out[self.modvar_tmp.fields] = 0
+        
         return df_out
 
 
