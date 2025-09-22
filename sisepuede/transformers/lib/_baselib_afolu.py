@@ -427,7 +427,7 @@ def transformation_frst_reduce_deforestation(
     **kwargs
 ) -> pd.DataFrame:
     """Reduce deforestion by stopping transitions out of forest land use 
-        categories.
+        categories. Stops multiple transitions as once.
 
     Function Arguments
     ------------------
@@ -520,7 +520,7 @@ def transformation_frst_reduce_deforestation(
 
 
     # get region
-    field_region_def = "nation"
+    field_region_def = "region"
     region_default = "DEFAULT"
     field_region = kwargs.get("field_region", field_region_def)
     field_region = field_region_def if (field_region is None) else field_region
@@ -1632,6 +1632,139 @@ def transformation_lndu_increase_silvopasture(
 
     return df_out
 
+
+
+def transformation_lndu_preserve_lndu_class(
+    df_input: pd.DataFrame,
+    cat_lndu: str,
+    magnitude: Union[Dict[str, float], float],
+    vec_ramp: np.ndarray,
+    model_attributes: ma.ModelAttributes,
+    model_afolu: Union[mafl.AFOLU, None] = None,
+    **kwargs
+) -> pd.DataFrame:
+    """Preserve a land use class by preventing transitions out of that class. 
+        Unlike stopping deforestation, only stops one transition at a time.
+
+    Function Arguments
+    ------------------
+    df_input : pd.DataFrame
+        Input DataFrame containing baseline trajectories
+    cat_lndu : str
+        Land use category to preserve by stopping transitions out
+    magnitude : Union[Dict[str, float], float]
+        float or dictionary specifying target fraction of land use class that 
+        remains that class (each time period)
+    model_attributes : ModelAttributes 
+        ModelAttributes object used to call strategies/variables
+    vec_ramp : np.ndarray
+        Ramp vec used for implementation
+
+    Keyword Arguments
+    -----------------
+    field_region : str
+        Field in df_input that specifies the region
+    model_afolu : Union[AFOLU, None]
+        Optional AFOLU object to pass for variable access
+    regions_apply : Union[List[str], None]
+        Optional set of regions to use to define strategy. If None,
+        applies to all regions.
+    strategy_id : Union[int, None]
+        Optional specification of strategy id to add to output dataframe (only 
+        added if integer)
+    **kwargs
+        Passed to 
+        transformation_support_lndu_transition_to_category_targets_single_region()
+    """
+    
+    # initialization
+    model_afolu = (
+        mafl.AFOLU(model_attributes) 
+        if model_afolu is None
+        else model_afolu
+    )
+
+    attr_lndu = model_attributes.get_attribute_table(
+        model_attributes.subsec_name_lndu
+    )
+    
+    magnitude = (
+        float(sf.vec_bounds(magnitude, (0.0, 1.0)))
+        if sf.isnumber(magnitude)
+        else None
+    )
+
+    if magnitude is None:
+        # LOGGING
+        return df_input
+    
+    
+    ##  SETUP DICTIONARY--shift 
+
+    if cat_lndu not in attr_lndu.key_values:
+        raise RuntimeError(f"Invalid land use category '{attr_lndu.key_values}': category not found.")
+    
+    # instantiate as preservation of forests
+    dict_magnitude = dict(
+        (
+            (x, x), 
+            {
+                "magnitude": magnitude,
+                "magnitude_type": "final_value_floor"
+            }
+        )
+        for x in [cat_lndu]
+    )
+
+
+    # get region
+    field_region_def = "region"
+    region_default = "DEFAULT"
+    field_region = kwargs.get("field_region", field_region_def)
+    field_region = field_region_def if (field_region is None) else field_region
+
+
+    # organize and group
+    df_group = df_input.copy()
+    use_fake_region = (field_region not in df_group.columns)
+    if use_fake_region:
+        df_group[field_region] = region_default
+    df_group = df_group.groupby([field_region])
+    
+    df_out = None
+    i = 0
+    
+    for region, df in df_group:
+        
+        region = region[0] if isinstance(region, tuple) else region
+
+        # PER-REGION MODS HERE 
+        df_trans = transformation_support_lndu_specify_transitions(
+            df,
+            dict_magnitude,
+            vec_ramp,
+            model_attributes,
+            model_afolu = model_afolu,
+            **kwargs,
+        )
+
+        if df_out is None:
+            df_out = [df_trans for k in range(len(df_group))]
+        else:
+            
+            df_out[i] = df_trans
+            
+        i += 1
+        
+
+    df_out = pd.concat(df_out, axis = 0).reset_index(drop = True)
+    (
+        df_out.drop([field_region], axis = 1, inplace = True)
+        if use_fake_region
+        else None
+    )
+    
+    return df_out
 
 
 

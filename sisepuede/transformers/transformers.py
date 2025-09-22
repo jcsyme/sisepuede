@@ -1171,6 +1171,15 @@ class Transformers:
         all_transformers.append(self.lndu_stop_deforestation)
 
 
+        self.lndu_stop_land_class_loss = Transformer(
+            f"{_MODULE_CODE_SIGNATURE}:LNDU:DEC_CLASS_LOSS", 
+            self._trfunc_lndu_stop_land_use_class_loss,
+            attr_transformer_code
+        )
+        all_transformers.append(self.lndu_stop_land_class_loss)
+
+
+
 
         ##  LSMM TRANSFORMATIONS
 
@@ -3451,8 +3460,9 @@ class Transformers:
     ###########################################
 
     def _trfunc_lndu_bound_class(self,
+        delim_key: str = "|",
         df_input: Union[pd.DataFrame, None] = None,
-        dict_directional_categories_to_magnitude: Union[Dict[Tuple[str], Union[float, int]], None] = None,
+        dict_directional_categories_to_magnitude: Union[Dict[Union[str, Tuple[str]], Union[float, int]], None] = None,
         strat: Union[int, None] = None,
         vec_implementation_ramp: Union[np.ndarray, Dict[str, int], None] = None,
     ) -> pd.DataFrame:
@@ -3460,15 +3470,24 @@ class Transformers:
             
         Parameters
         ----------
+        delim_key : str
+            Delimiter to use in dict_directional_categories_to_magnitude keys to specify tuple elements
         df_input : pd.DataFrame
             Optional data frame containing trajectories to modify
         dict_directional_categories_to_magnitude : Union[Dict[Tuple[str],  Union[float, int]], None]
-            Dictionary mapping classes and direction, as an ordered tuple, to the magnitude, in variable units (e.g., ha), of the land use class bound.
+            Dictionary mapping classes and direction, as an ordered tuple OR order `delim_key`-delimited string, to the magnitude, in variable units (e.g., ha), of the land use class bound. 
             As an example, the dictionary should take the following form:
                 {
                     ("pastures", "max"): 500000,
                     ("forests_primary", "min"): 1400000,
                 }
+            OR
+                {
+                    "pastures"|"max": 500000,
+                    "forests_primary|min": 1400000,
+                }
+
+            (where delim_key == "|")
 
             * NOTE:
                 * direction:    "max" - an upper bound for the area of the land use class
@@ -3516,6 +3535,9 @@ class Transformers:
         for k, v in dict_directional_categories_to_magnitude.items():
 
             # verify validity
+            if isinstance(k, str):
+                k = tuple(k.split(delim_key, ))
+
             skip = not isinstance(k, tuple)
             skip |= (len(k) != 2) if not skip else skip
             skip |= (k[0] not in attr_lndu.key_values) if not skip else skip
@@ -3667,6 +3689,72 @@ class Transformers:
     ####################################
     #    LNDU TRANSFORMER FUNCTIONS    #
     ####################################
+
+    def _trfunc_lndu_stop_land_use_class_loss(self,
+        cat_lndu: Union[str, None] = None,
+        df_input: Union[pd.DataFrame, None] = None,
+        magnitude: float = 0.99999,
+        strat: Union[int, None] = None,
+        vec_implementation_ramp: Union[np.ndarray, Dict[str, int], None] = None,
+    ) -> pd.DataFrame:
+        """Implement the "Stop loss of land use class" transformation; reduces transitions out of a land use class. Default class is wetlands.
+        
+        Parameters
+        ----------
+        cat_lndu : Union[str, None]
+            Land use category to preserve. Default is 'wetlands'.
+        df_input : pd.DataFrame
+            Optional data frame containing trajectories to modify
+        magnitude : float
+            Magnitude of final primary forest transition probability into itself; higher magnitudes indicate less deforestation.
+        strat : int
+            Optional strategy value to specify for the transformation
+        vec_implementation_ramp : Union[np.ndarray, Dict[str, int], None]
+            Optional vector or dictionary specifying the implementation scalar ramp for the transformation. If None, defaults to a uniform ramp that starts at the time specified in the configuration.
+        """
+
+        attr_lndu = self.model_attributes.get_attribute_table(
+            self.model_attributes.subsec_name_lndu,
+        )
+
+        # check input dataframe
+        df_input = (
+            self.baseline_inputs
+            if not isinstance(df_input, pd.DataFrame) 
+            else df_input
+        )
+
+        # set the magnitude in case of none
+        magnitude = self.bounded_real_magnitude(magnitude, 0.99999)
+
+        # check implementation ramp
+        vec_implementation_ramp = self.check_implementation_ramp(
+            vec_implementation_ramp,
+            df_input,
+        )
+
+        # check land use class
+        cat_lndu = (
+            self.model_afolu.cat_lndu_wetl
+            if cat_lndu not in attr_lndu.key_values
+            else cat_lndu
+        )
+
+
+        df_out = tba.transformation_lndu_preserve_lndu_class(
+            df_input,
+            cat_lndu,
+            magnitude,
+            vec_implementation_ramp,
+            self.model_attributes,
+            field_region = self.key_region,
+            model_afolu = self.model_afolu,
+            strategy_id = strat,
+        )
+        
+        return df_out
+    
+
 
     def _trfunc_lndu_expand_silvopasture(self,
         df_input: Union[pd.DataFrame, None] = None,
