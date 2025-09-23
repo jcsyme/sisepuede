@@ -9242,7 +9242,7 @@ class EnergyProduction:
             self.modvar_entc_nemomod_emissions_co2_fpr_biomass,
         )
         print(f"set {modvar_tmp.fields} = 0 in energy production. FIX WITH NEW fp_hydrogen_gasification_biomass TECH.")
-        df_out[self.modvar_tmp.fields] = 0
+        df_out[modvar_tmp.fields] = 0
         
         return df_out
 

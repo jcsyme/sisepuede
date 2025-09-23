@@ -3400,7 +3400,7 @@ class EnergyConsumption:
             # CH4 EMISSIONS
             self.model_attributes.array_to_df(
                 arr_scoe_emissions_ch4, 
-                self.modvar_scoe_emissions_ch4
+                self.modvar_scoe_emissions_ch4,
             ),
             # CO2 EMISSIONS--BIOMASS
             self.model_attributes.array_to_df(
