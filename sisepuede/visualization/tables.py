@@ -850,6 +850,28 @@ class TransformationSummarizer:
 
     
 
+    def summarize_special_case_lndu_bounds(self,
+        base_transformer: 'Transformer',
+        dict_params: Dict[str, Any],
+        kwargs: Dict[str, Any],                                     
+    ) -> float:
+        """Summarize transformations based on the bound classes transformation
+        """
+        dict_dcm = dict_params.get("dict_directional_categories_to_magnitude")
+        if dict_dcm is None:
+            return 0
+        
+        dict_dcm = base_transformer(
+            dict_directional_categories_to_magnitude = dict_dcm, 
+            return_dict_dcm_only = True, 
+        )
+
+        magnitude = sum([v for k, v in dict_dcm.items() if k[1] == "min"])
+    
+        return magnitude
+    
+
+
     def summarize_special_case_lsmm_pathways(self,
         base_transformer: 'Transformer',
         dict_params: Dict[str, Any],
@@ -1062,6 +1084,12 @@ class TransformationSummarizer:
             return magnitude
     
         
+        # LNDU - Bound classes
+        if base_transformer.code == f"{prefix_transformer_code}:LNDU:BOUND_CLASSES":
+            magnitude = self.summarize_special_case_lndu_bounds(*args_summary, )
+            return magnitude 
+            
+            
         # LSMM - Manure management pathways
         if base_transformer.code in [
             f"{prefix_transformer_code}:LSMM:INC_MANAGEMENT_CATTLE_PIGS",

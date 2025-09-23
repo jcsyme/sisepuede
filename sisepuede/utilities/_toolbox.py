@@ -2891,6 +2891,120 @@ def print_setdiff(
 
 
 
+def priority_filter(
+    df: pd.DataFrame,
+    dict_groups_priorty: Dict[Union[Tuple[str], str], Union[Tuple[Any], Any]],
+    group_by: Union[List[str], None] = None,
+    skip_on_missing_priority: bool = True,
+) -> pd.DataFrame:
+    """For each group defined in group_by (If none, operates on the 
+        DataFrame as a whole), grab a subset that matches elements
+        defined in groups_priority in ordered priority. For example, 
+
+
+                |   x   |   y   |   f   |   g   |
+                ---------------------------------
+                |   0   |  "k"  |   a   |   b   |
+                |   1   |  "k"  |   a   |   b   |
+                |   2   |  "l"  |   a   |   b   |
+                |   2   |  "l"  |   a   |   c   |
+
+
+        to subset one row by x, y, but priotize combinations of (a, c) 
+        over (a, b) for fields f and g, enter
+
+        
+        groups_priority = {
+            ("f", "g"): [(a, c), (a, b)]
+        },
+        
+        group_by = ["x", "y"],
+        
+    
+
+    Function Arguments
+    ------------------
+    df : pd.DataFrame
+        DataFrame to filter on 
+    dict_groups_priorty : Dict[Union[Tuple[str], str], Union[Tuple[Any], Any]]
+        Dictionary mapping groups to prioritize; e.g., if filter
+        
+    Keyword Arguments
+    -----------------
+    group_by : Union[List[str], None]
+        Optional grouping of DataFrames
+    skip_on_missing_priority : bool
+        * False:    If none of the priority classes defined in groups_priority
+                    are found, this will return all rows associated with the
+                    group in the final DataFrame.
+        * True:     If none of the priority classes defined in groups_priority
+                    are found, this will ignore that group and exclude it from 
+                    the DataFrame.
+    """
+    ##  INITIALIZATION
+
+    # setup the dictionary
+    ret_df = not isinstance(dict_groups_priorty, dict)
+    ret_df |= (len(dict_groups_priorty) != 1 )if not ret_df else ret_df
+    if ret_df:
+        return df
+    
+    # build a list of dictionaries to pass to subset df
+    list_gp = []
+
+    # convert keys/values to tuples--should only be one key here
+    for k, v in dict_groups_priorty.items():
+        v_out = [((x, ) if not isinstance(x, tuple) else x) for x in v]
+        k_out = (k, ) if not isinstance(k, tuple) else k
+
+        for p, el_v in enumerate(v_out):
+
+            dict_gp = {}
+            for i, el_k in enumerate(k_out):
+                dict_gp.update({el_k: el_v[i]})
+
+            list_gp.append(dict_gp)
+        
+
+
+    ##  SET UP THE ITERATION
+
+    # make a single case iterable using the same format as a grouped datafarme
+    df_iter = (
+        df.groupby([x for x in group_by if x in df.columns])
+        if islistlike(group_by)
+        else [(None, df)]
+    )
+
+    df_out = []
+
+    # iterate over groups
+    for _, df_cur in df_iter:
+        for _, dict_filt in enumerate(list_gp):
+
+            df_filt = subset_df(
+                df_cur, 
+                dict_filt,
+            )
+
+            if len(df_filt) == 0:
+                continue
+            else:
+                break
+            
+        if (len(df_filt) == 0):  
+            if skip_on_missing_priority: continue
+            df_filt = df
+
+        df_out.append(df_filt, )
+
+
+    df_out = _concat_df(df_out, )
+
+    return df_out
+
+
+
 def project_from_array(
     arr_in: np.ndarray,
     max_deviation_from_mean: Union[float, None] = 0.2,
