@@ -3463,6 +3463,7 @@ class Transformers:
         delim_key: str = "|",
         df_input: Union[pd.DataFrame, None] = None,
         dict_directional_categories_to_magnitude: Union[Dict[Union[str, Tuple[str]], Union[float, int]], None] = None,
+        return_dict_dcm_only: bool = False,
         strat: Union[int, None] = None,
         vec_implementation_ramp: Union[np.ndarray, Dict[str, int], None] = None,
     ) -> pd.DataFrame:
@@ -3493,12 +3494,14 @@ class Transformers:
                 * direction:    "max" - an upper bound for the area of the land use class
                                 "min" - a lower bound for the area of the land use class
             * If None, no default is applied
-
+        return_dict_dcm_only : bool
+            Set to try to only return the dict_directional_categories_to_magnitude
         strat : int
             Optional strategy value to specify for the transformation
         vec_implementation_ramp : Union[np.ndarray, Dict[str, int], None]
             Optional vector or dictionary specifying the implementation scalar ramp for the transformation. If None, defaults to a uniform ramp that starts at the time specified in the configuration.
         """
+        
         # check input dataframe
         df_input = (
             self.baseline_inputs
@@ -3507,7 +3510,8 @@ class Transformers:
         )
 
         if not isinstance(dict_directional_categories_to_magnitude, dict):
-            return df_input
+            out = {} if return_dict_dcm_only else df_input
+            return out
         
 
         attr_lndu = self.model_attributes.get_attribute_table(
@@ -3529,7 +3533,7 @@ class Transformers:
         modvar_max = self.model_attributes.get_variable(self.model_afolu.modvar_lndu_constraint_area_max, )
         modvar_min = self.model_attributes.get_variable(self.model_afolu.modvar_lndu_constraint_area_min, )
 
-        
+        dict_dcm = {}
         df_out = df_input.copy()
 
         for k, v in dict_directional_categories_to_magnitude.items():
@@ -3565,7 +3569,11 @@ class Transformers:
                 strategy_id = strat,
             )
 
-        return df_out
+            dict_dcm.update({k: v})
+        
+        out = dict_dcm if return_dict_dcm_only else df_out
+
+        return out
     
 
 
@@ -3712,7 +3720,6 @@ class Transformers:
         vec_implementation_ramp : Union[np.ndarray, Dict[str, int], None]
             Optional vector or dictionary specifying the implementation scalar ramp for the transformation. If None, defaults to a uniform ramp that starts at the time specified in the configuration.
         """
-
         attr_lndu = self.model_attributes.get_attribute_table(
             self.model_attributes.subsec_name_lndu,
         )
