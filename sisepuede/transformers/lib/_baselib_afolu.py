@@ -661,7 +661,7 @@ def transformation_frst_increase_reforestation(
     ]
     
     # get region
-    field_region_def = "nation"
+    field_region_def = "region"
     region_default = "DEFAULT"
     field_region = kwargs.get("field_region", field_region_def)
     field_region = field_region_def if (field_region is None) else field_region
@@ -708,6 +708,125 @@ def transformation_frst_increase_reforestation(
         if use_fake_region
         else None
     )
+
+    return df_out
+
+
+
+def transformation_frst_increase_sequestration(
+    df_input: pd.DataFrame,
+    magnitude: Union[Dict[str, float], float],
+    vec_ramp: np.ndarray,
+    model_attributes: ma.ModelAttributes,
+    cats_frst: Union[List[str], None] = None,
+    model_afolu: Union[mafl.AFOLU, None] = None,
+    return_cats_forest: bool = False,
+    **kwargs
+) -> pd.DataFrame:
+    """Increase sequestration in forests. Default category is only secondary
+        forest.
+
+    Function Arguments
+    ------------------
+    df_input : pd.DataFrame
+        Input data frame containing baseline trajectories
+    magnitude : float
+        float specifying fractional increase in sequestration factors.
+    model_attributes : ModelAttributes 
+        ModelAttributes object used to call strategies/variables
+    vec_ramp : np.ndarray
+        Ramp vec used for implementation
+
+    Keyword Arguments
+    -----------------
+    cats_frst : Union[List[str], None]
+        Ooptional specification of forest categories to apply to. If None, 
+        defaults to scondary forest.
+    field_region : Union[str, None]
+        Field in df_input that specifies the region
+    model_afolu : AFOLU
+        Optional AFOLU object to pass for variable access
+    regions_apply : Union[List[str], None]
+        Optional set of regions to use to define strategy. If None, applies to 
+        all regions.
+    return_cats_forest : bool
+        Return just the forest categories
+    strategy_id : Union[int, None]
+        Optional specification of strategy id to add to output DataFrame (only 
+        added if integer)
+    **kwargs : 
+        Passed to 
+        transformation_support_lndu_transition_to_category_targets_single_region()
+    """
+    
+    ##  INITIALIZATION
+
+    model_afolu = (
+        mafl.AFOLU(model_attributes) 
+        if model_afolu is None
+        else model_afolu
+    )
+    attr_frst = model_attributes.get_attribute_table(
+        model_attributes.subsec_name_frst
+    )
+    
+    bounds = (-1.0, np.inf)
+    magnitude = (
+        float(sf.vec_bounds(1 + magnitude, bounds, ))
+        if sf.isnumber(magnitude)
+        else None
+    )
+
+    if magnitude is None:
+        # LOGGING
+        return df_input
+    
+
+    field_region = kwargs.get("field_region", "region")
+
+
+    
+    ##  SETUP DICTIONARY--GET FOREST CATEGORIES 
+
+    cats_frst = [cats_frst] if isinstance(cats_frst, str) else cats_frst
+    cats_frst = (
+        [model_afolu.cat_frst_scnd]
+        if not sf.islistlike(cats_frst)
+        else cats_frst
+    )
+
+    cats_frst = [x for x in attr_frst.key_values if x in cats_frst]
+    if return_cats_forest:
+        return cats_frst
+    
+    # iterate over regions
+    df_group = df_input.groupby([field_region])
+    df_out = []
+
+    for region, df in df_group:
+        
+        region = region[0] if isinstance(region, tuple) else region
+
+        # call general transformation
+        df_cur = tbg.transformation_general(
+            df,
+            model_attributes,
+            {
+                model_afolu.modvar_frst_sq_co2: {
+                    "bounds": bounds,
+                    "categories": cats_frst,
+                    "magnitude": magnitude,
+                    "magnitude_type": "baseline_scalar",
+                    "vec_ramp": vec_ramp
+                }
+            },
+            **kwargs
+        )
+
+        df_out.append(df_cur)    
+        
+
+    df_out = sf._concat_df(df_out, )
 
     return df_out
 
@@ -1751,7 +1870,7 @@ def transformation_lndu_preserve_lndu_class(
         if df_out is None:
             df_out = [df_trans for k in range(len(df_group))]
         else:
-            
+
             df_out[i] = df_trans
             
         i += 1

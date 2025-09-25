@@ -1,7 +1,7 @@
 import numpy as np
 import pandas as pd
 import sisepuede.core.support_classes as sc
-import sisepuede.transformers as trf
+import sisepuede.transformers.transformers as trs
 import sisepuede.utilities._toolbox as sf
 
 from sisepuede.transformers.strategies import is_strategies
@@ -800,7 +800,7 @@ class TransformationSummarizer:
     ) -> None:
         """Initialize the transformers object
         """
-        if not trf.is_transformers(transformers):
+        if not trs.is_transformers(transformers):
             tp = type(transformers)
             raise TypeError(f"Invalid type '{tp}': must be a Transformers object.")
 
@@ -952,6 +952,33 @@ class TransformationSummarizer:
 
 
     
+    def summarize_special_case_scoe_increase_efficiency_heat(self,
+        base_transformer: 'Transformer',
+        dict_params: Dict[str, Any],
+        kwargs: Dict[str, Any],                                     
+    ) -> float:
+        """Summarize transformations based on the regional mode shift (TRNS)
+            transformer
+        """
+        key = "dict_magnitude"
+        dict_cats = dict_params.get(
+            key,
+            kwargs.get(key),
+        )
+
+        if not isinstance(dict_cats, dict):
+            dict_cats = base_transformer(return_dict_cats_to_magnitude = True, )
+        global _DC
+        _DC = dict_cats.copy()
+        # this is not a great summary, but it's a start
+        magnitude = np.mean(
+            list(dict_cats.values())
+        )
+
+        return magnitude
+    
+
+
     def summarize_special_case_trns_mode_shift_regional(self,
         base_transformer: 'Transformer',
         dict_params: Dict[str, Any],
@@ -1028,7 +1055,7 @@ class TransformationSummarizer:
     
         ##  INITIALIZATION
     
-        prefix_transformer_code = trf.transformers._MODULE_CODE_SIGNATURE
+        prefix_transformer_code = trs._MODULE_CODE_SIGNATURE
         
         # get the transformer and look for magnitude etc.
         base_transformer = self.transformers.get_transformer(
@@ -1089,7 +1116,7 @@ class TransformationSummarizer:
             magnitude = self.summarize_special_case_lndu_bounds(*args_summary, )
             return magnitude 
             
-            
+
         # LSMM - Manure management pathways
         if base_transformer.code in [
             f"{prefix_transformer_code}:LSMM:INC_MANAGEMENT_CATTLE_PIGS",
@@ -1121,7 +1148,14 @@ class TransformationSummarizer:
             magnitude = self.summarize_special_case_pflo_ccs(*args_summary, )
             return magnitude
     
-    
+
+        # SCOE - Increase heat efficiency (by fuel)
+        if base_transformer.code == f"{prefix_transformer_code}:SCOE:INC_EFFICIENCY_HEAT":
+            print(transformation.code)
+            magnitude = self.summarize_special_case_scoe_increase_efficiency_heat(*args_summary, )
+            return magnitude
+        
+
         # TRNS - Regional mode shift
         if base_transformer.code == f"{prefix_transformer_code}:TRNS:SHIFT_MODE_REGIONAL":
             magnitude = self.summarize_special_case_trns_mode_shift_regional(*args_summary, )

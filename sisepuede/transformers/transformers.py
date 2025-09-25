@@ -1119,8 +1119,15 @@ class Transformers:
 
         ##  FRST TRANSFORMERS
 
+        self.frst_increase_sequestration = Transformer(
+            f"{_MODULE_CODE_SIGNATURE}:FRST:INCREASE_SEQUESTRATION", 
+            self._trfunc_frst_increase_sequestration,
+            attr_transformer_code
+        )
+        all_transformers.append(self.frst_increase_sequestration, )
 
         
+
         ##  LNDU TRANSFORMERS
 
         self.lndu_bound_classes = Transformer(
@@ -1471,6 +1478,14 @@ class Transformers:
 
         ##  SCOE
 
+        self.scoe_decrease_heat_energy_demand = Transformer(
+            f"{_MODULE_CODE_SIGNATURE}:SCOE:DEC_DEMAND_HEAT", 
+            self._trfunc_scoe_decrease_heat_energy_demand, 
+            attr_transformer_code
+        )
+        all_transformers.append(self.scoe_decrease_heat_energy_demand)
+                                
+
         self.scoe_fuel_switch_heat = Transformer(
             f"{_MODULE_CODE_SIGNATURE}:SCOE:SHIFT_FUEL_HEAT", 
             self._trfunc_scoe_fuel_switch_heat, 
@@ -1479,20 +1494,22 @@ class Transformers:
         all_transformers.append(self.scoe_fuel_switch_heat)
 
 
-        self.scoe_increase_applicance_efficiency = Transformer(
+        self.scoe_increase_efficiency_appliances = Transformer(
             f"{_MODULE_CODE_SIGNATURE}:SCOE:INC_EFFICIENCY_APPLIANCE", 
             self._trfunc_scoe_increase_applicance_efficiency, 
             attr_transformer_code
         )
-        all_transformers.append(self.scoe_increase_applicance_efficiency)
+        all_transformers.append(self.scoe_increase_efficiency_appliances)
 
 
-        self.scoe_reduce_heat_energy_demand = Transformer(
-            f"{_MODULE_CODE_SIGNATURE}:SCOE:DEC_DEMAND_HEAT", 
-            self._trfunc_scoe_reduce_heat_energy_demand, 
+        self.scoe_increase_efficiency_heat = Transformer(
+            f"{_MODULE_CODE_SIGNATURE}:SCOE:INC_EFFICIENCY_HEAT", 
+            self._trfunc_scoe_increase_heat_efficiency,
             attr_transformer_code
         )
-        all_transformers.append(self.scoe_reduce_heat_energy_demand)
+        all_transformers.append(self.scoe_increase_efficiency_heat)
+
+
 
 
         ###################
@@ -3458,6 +3475,64 @@ class Transformers:
     ###########################################
     #    FRST (LNDU) TRANSFORMER FUNCTIONS    #
     ###########################################
+
+    def _trfunc_frst_increase_sequestration(self,
+        cats_frst: Union[List[str], None] = None,
+        df_input: Union[pd.DataFrame, None] = None,
+        magnitude: float = 0.05,
+        return_cats_forest: bool = False,
+        strat: Union[int, None] = None,
+        vec_implementation_ramp: Union[np.ndarray, Dict[str, int], None] = None,
+    ) -> pd.DataFrame:
+        """Implement the "Adjust Exports" ENFU transformer on input DataFrame df_input (decrease by 20%). Allows for increases in exports (positive magnitude) or decreases (negative magnitude).
+
+        Parameters
+        ----------
+        cats_frst : Union[List[str], None]
+            Categories to apply to. Default (None) is to apply only to secondary forests. 
+        df_input : pd.DataFrame
+            Optional data frame containing trajectories to modify
+        magnitude : float
+            Magnitude of decrease in exports--e.g., a 20% decrease is entered as 0.8. If using the default value of `magnitude_type == "scalar"`, this magnitude will scale the final time value downward by this factor. 
+            NOTE: If magnitude_type changes, then the behavior of the transformation will change.
+        magnitude_type : str
+            Type of magnitude, as specified in `transformers.lib.general.transformations_general`. See `?transformers.lib.general.transformations_general` for more information on the specification of magnitude_type for general transformer values. 
+        return_cats_forest : bool  
+            Return the categories of forest used?
+        strat : int
+            Optional strategy value to specify for the transformation
+        vec_implementation_ramp : Union[np.ndarray, Dict[str, int], None]
+            Optional vector or dictionary specifying the implementation scalar ramp for the transformation. If None, defaults to a uniform ramp that starts at the time specified in the configuration.
+        """
+        # check input dataframe
+        df_input = (
+            self.baseline_inputs
+            if not isinstance(df_input, pd.DataFrame) 
+            else df_input
+        )
+
+        # check implementation ramp
+        vec_implementation_ramp = self.check_implementation_ramp(
+            vec_implementation_ramp,
+            df_input,
+        )
+
+
+        df_out = tba.transformation_frst_increase_sequestration(
+            df_input,
+            magnitude,
+            vec_implementation_ramp,
+            self.model_attributes,
+            cats_frst = cats_frst,
+            model_afolu = self.model_afolu,
+            field_region = self.key_region,
+            return_cats_forest = return_cats_forest,
+            strategy_id = strat,
+        )
+        
+        return df_out
+    
+
 
     def _trfunc_lndu_bound_class(self,
         delim_key: str = "|",
@@ -6175,6 +6250,54 @@ class Transformers:
     #    SCOE TRANSFORMER FUNCTIONS    #
     ####################################
 
+    def _trfunc_scoe_decrease_heat_energy_demand(self,
+        df_input: Union[pd.DataFrame, None] = None,
+        magnitude: float = 0.5,
+        strat: Union[int, None] = None,
+        vec_implementation_ramp: Union[np.ndarray, None] = None,
+    ) -> pd.DataFrame:
+        """Implement the "Reduce end-use demand for heat energy by improving building shell" SCOE transformer on input DataFrame df_input
+        
+        Parameters
+        ----------
+        df_input : pd.DataFrame
+            Optional data frame containing trajectories to modify
+        magnitude : float
+            Reduction in heat energy demand, driven by retrofitting and changes in use
+        strat : int
+            Optional strategy value to specify for the transformation
+        vec_implementation_ramp : Union[np.ndarray, Dict[str, int], None]
+            Optional vector or dictionary specifying the implementation scalar ramp for the transformation. If None, defaults to a uniform ramp that starts at the time specified in the configuration.
+        """
+        # check input dataframe
+        df_input = (
+            self.baseline_inputs
+            if not isinstance(df_input, pd.DataFrame) 
+            else df_input
+        )
+
+        # check implementation ramp
+        vec_implementation_ramp = self.check_implementation_ramp(
+            vec_implementation_ramp,
+            df_input,
+        )
+
+        magnitude = self.bounded_real_magnitude(magnitude, 0.5)
+        
+        df_strat_cur = tbe.transformation_scoe_decrease_demand_for_heat_energy(
+            df_input,
+            magnitude,
+            vec_implementation_ramp,
+            self.model_attributes,
+            field_region = self.key_region,
+            model_enercons = self.model_enercons,
+            strategy_id = strat
+        )
+
+        return df_strat_cur
+    
+
+
     def _trfunc_scoe_fuel_switch_heat(self,
         cat_enfu_target: Union[str, None] = None,
         cats_enfu_source : Union[List[str], None] = None,
@@ -6235,54 +6358,6 @@ class Transformers:
 
 
 
-    def _trfunc_scoe_reduce_heat_energy_demand(self,
-        df_input: Union[pd.DataFrame, None] = None,
-        magnitude: float = 0.5,
-        strat: Union[int, None] = None,
-        vec_implementation_ramp: Union[np.ndarray, None] = None,
-    ) -> pd.DataFrame:
-        """Implement the "Reduce end-use demand for heat energy by improving building shell" SCOE transformer on input DataFrame df_input
-        
-        Parameters
-        ----------
-        df_input : pd.DataFrame
-            Optional data frame containing trajectories to modify
-        magnitude : float
-            Reduction in heat energy demand, driven by retrofitting and changes in use
-        strat : int
-            Optional strategy value to specify for the transformation
-        vec_implementation_ramp : Union[np.ndarray, Dict[str, int], None]
-            Optional vector or dictionary specifying the implementation scalar ramp for the transformation. If None, defaults to a uniform ramp that starts at the time specified in the configuration.
-        """
-        # check input dataframe
-        df_input = (
-            self.baseline_inputs
-            if not isinstance(df_input, pd.DataFrame) 
-            else df_input
-        )
-
-        # check implementation ramp
-        vec_implementation_ramp = self.check_implementation_ramp(
-            vec_implementation_ramp,
-            df_input,
-        )
-
-        magnitude = self.bounded_real_magnitude(magnitude, 0.5)
-        
-        df_strat_cur = tbe.transformation_scoe_reduce_demand_for_heat_energy(
-            df_input,
-            magnitude,
-            vec_implementation_ramp,
-            self.model_attributes,
-            field_region = self.key_region,
-            model_enercons = self.model_enercons,
-            strategy_id = strat
-        )
-
-        return df_strat_cur
-
-
-
     def _trfunc_scoe_increase_applicance_efficiency(self,
         df_input: Union[pd.DataFrame, None] = None,
         magnitude: float = 0.5,
@@ -6317,7 +6392,7 @@ class Transformers:
 
         magnitude = self.bounded_real_magnitude(magnitude, 0.5)
 
-        df_strat_cur = tbe.transformation_scoe_reduce_demand_for_appliance_energy(
+        df_strat_cur = tbe.transformation_scoe_decrease_demand_for_appliance_energy(
             df_input,
             magnitude,
             vec_implementation_ramp,
@@ -6328,7 +6403,62 @@ class Transformers:
         )
 
         return df_strat_cur
+    
 
+
+    def _trfunc_scoe_increase_heat_efficiency(self,
+        df_input: Union[pd.DataFrame, None] = None,
+        dict_cats_to_magnitude: Union[dict, float] = 0.2,
+        return_dict_cats_to_magnitude: bool = False,
+        strat: Union[int, None] = None,
+        vec_implementation_ramp: Union[np.ndarray, None] = None,
+    ) -> pd.DataFrame:
+        """Implement the "Increase efficiency of SCOE Heat technologies" SCOE transformer on input DataFrame df_input
+        
+        Parameters
+        ----------
+        df_input : pd.DataFrame
+            Optional data frame containing trajectories to modify
+        dict_cats_to_magnitude : Union[dict, float]
+            Dictionary mapping fuel categories (ENFU) to scalar increase in.
+                * float:    apply this to all fuel categories (except for eletricity)
+                * dict:     apply the specification to select categories
+        return_dict_cats_to_magnitude : bool
+            Return only the dictionary that is used?
+        strat : int
+            Optional strategy value to specify for the transformation
+        vec_implementation_ramp : Union[np.ndarray, Dict[str, int], None]
+            Optional vector or dictionary specifying the implementation scalar ramp for the transformation. If None, defaults to a uniform ramp that starts at the time specified in the configuration.
+        """
+        # check input dataframe
+        df_input = (
+            self.baseline_inputs
+            if not isinstance(df_input, pd.DataFrame) 
+            else df_input
+        )
+
+        # check implementation ramp
+        vec_implementation_ramp = self.check_implementation_ramp(
+            vec_implementation_ramp,
+            df_input,
+        )
+
+        # implement the transformation
+        df_out = tbe.transformation_scoe_increase_energy_efficiency_heat(
+            df_input,
+            dict_cats_to_magnitude,
+            vec_implementation_ramp,
+            self.model_attributes,
+            field_region = self.key_region,
+            model_enercons = self.model_enercons,
+            return_dict_cats_to_magnitude = return_dict_cats_to_magnitude,
+            strategy_id = strat,
+        )
+
+        return df_out
+    
+
+    
 
 
     ####################################

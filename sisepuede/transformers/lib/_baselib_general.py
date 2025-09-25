@@ -327,7 +327,11 @@ def transformation_general(
         # check for bounds
         bounds = dict_modvar_specs_cur.get("bounds")
         bounds = None if not (isinstance(bounds, tuple) and len(bounds) == 2) else bounds
-        verified_modvar = ((bounds is not None) & verified_modvar) if (magnitude_type == "baseline_scalar_diff_reduction") else verified_modvar
+        verified_modvar = (
+            ((bounds is not None) & verified_modvar) 
+            if (magnitude_type == "baseline_scalar_diff_reduction") 
+            else verified_modvar
+        )
         
         # check for categories
         categories = dict_modvar_specs_cur.get("categories")

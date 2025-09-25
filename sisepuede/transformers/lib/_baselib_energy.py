@@ -147,6 +147,95 @@ def transformation_ccsq_increase_direct_air_capture(
 
 
 
+def _shift_between_modvars_by_cat(
+    df_in_new: pd.DataFrame,
+    magnitude: Union[float, int],
+    cats_all: List[str],
+    modvars_target: List[Union[str, 'ModelVariable']],
+    vec_ramp: np.ndarray,
+    model_attributes: 'ModelAttributes',
+    magnitude_relative_to_baseline: bool,
+) -> pd.DataFrame:
+    """Support for fuel shifting functions. Mechanism for shifting between 
+        simplex pathways.
+
+    Function Arguments
+    ------------------
+    cats_all : List[str]
+        List of categories in energy sector within which fuels are shifted 
+        (e.g., industry or SCOE categories)
+    df_input : pd.DataFrame
+        DataFrame to be shifted
+    magnitude: Union[float, int]
+        Magnitude to shift away from
+    modvars_target : List[Union[str, ModelVariable]]
+        List of ModelVariables to use for switching; represent the fuel 
+        fractions
+    vec_ramp : np.ndarray
+        Implementation ramp vector
+    model_attributes : ModelAttributes
+        ModelAttributes object for managing variables etc.
+    magnitude_relative_to_baseline : bool
+        Is the magnitude relative to baseline?
+    """
+
+  
+
+
+    for cat in cats_all:
+
+        fields = [
+            model_attributes.build_variable_fields(
+                x,
+                restrict_to_category_values = cat
+            ) for x in modvars_target
+        ]
+
+        vec_initial_vals = np.array(df_in_new[fields].iloc[0]).astype(float)
+        val_initial_target = vec_initial_vals.sum() if magnitude_relative_to_baseline else 0.0
+        vec_initial_distribution = np.nan_to_num(vec_initial_vals/vec_initial_vals.sum(), nan = 1.0, posinf = 1.0, )
+
+        # get the current total value of fractions
+        vec_final_vals = np.array(df_in[fields].iloc[n_tp - 1]).astype(float)
+        val_final_target = sum(vec_final_vals)
+
+        target_value = float(sf.vec_bounds(magnitude + val_initial_target, (0.0, 1.0)))#*dict_modvar_specs.get(modvar_target)
+        scale_non_elec = np.nan_to_num((1 - target_value)/(1 - val_final_target), nan = 0.0, posinf = 0.0, )
+
+        target_distribution = magnitude*np.array([dict_modvar_specs.get(x) for x in modvars_target]) + val_initial_target*vec_initial_distribution
+        target_distribution /= max(magnitude + val_initial_target, 1.0) 
+        target_distribution = np.nan_to_num(target_distribution, nan = 0.0, posinf = 0.0, )
+
+        dict_target_distribution = dict((x, target_distribution[i]) for i, x in enumerate(modvars_target))
+
+        # get the sources to adjust
+        modvars_adjust = []
+        for modvar in modvars:
+            if cat in model_attributes.get_variable_categories(modvar):
+                modvars_adjust.append(modvar)
+
+        # loop over adjustment variables to build new trajectories
+        for modvar in modvars_adjust:
+            field_cur = model_attributes.build_variable_fields(
+                modvar,
+                restrict_to_category_values = cat,
+            )
+
+            vec_old = np.array(df_in_new[field_cur])
+            val_final = vec_old[n_tp - 1]
+            val_new = (
+                np.nan_to_num(val_final, nan = 0.0, posinf = 0.0, )*scale_non_elec 
+                if (modvar not in modvars_target) 
+                else dict_target_distribution.get(modvar)
+            )
+            vec_new = vec_ramp*val_new + (1 - vec_ramp)*vec_old
+
+            df_in_new[field_cur] = vec_new
+
+
+    return df_in_new
+
+
 
 
 
@@ -393,6 +482,7 @@ def transformation_entc_clean_hydrogen(
 
         # if the total does not exceed 1, div by 1; if it does, divide by that total
         vec_exceed_one = sf.vec_bounds(vec_total_maintain + vec_total_adjust - 1, (0.0, np.inf), )
+
         vec_scalar_adj = np.nan_to_num((vec_total_adjust - vec_exceed_one)/vec_total_adjust, nan = 0.0, posinf = 0.0, )
 
         arr_adjust = sf.do_array_mult(arr_adjust, vec_scalar_adj)
@@ -2058,6 +2148,111 @@ def transformation_inen_shift_modvars(
 #    SCOE TRANSFORMATIONS    #
 ##############################
 
+def transformation_scoe_decrease_demand_for_appliance_energy(
+    df_input: pd.DataFrame,
+    magnitude: float,
+    vec_ramp: np.ndarray,
+    model_attributes: ma.ModelAttributes,
+    model_enercons: Union[me.EnergyConsumption, None] = None,
+    **kwargs
+) -> pd.DataFrame:
+    """
+    Implement the "Increase appliance efficiency" transformation in SCOE
+
+    Function Arguments
+    ------------------
+    - df_input: input data frame containing baseline trajectories
+    - magnitude: magnitude of reduction in electric energy demand relative to 
+        final time period (interpreted as an proportional scalar--e.g., a 30% 
+        retuction in  electric energy demand in the final time period is entered 
+        as 0.3).
+    - model_attributes: ModelAttributes object used to call strategies/variables
+    - vec_ramp: ramp vec used for implementation
+
+    Keyword Arguments
+    -----------------
+    - field_region: field in df_input that specifies the region
+    - model_enercons: optional EnergyConsumption object to pass for variable 
+        access
+    - regions_apply: optional set of regions to use to define strategy. If None,
+        applies to all regions.
+    - strategy_id: optional specification of strategy id to add to output
+        dataframe (only added if integer)
+    """
+
+    # call general transformation
+    df_out = transformation_general(
+        df_input,
+        model_attributes,
+        {
+            model_enercons.modvar_scoe_demscalar_elec_energy_demand : {
+                "bounds": (0, np.inf),
+                "magnitude": float(sf.vec_bounds(1 - magnitude, (0, np.inf))),
+                "magnitude_type": "baseline_scalar",
+                "time_period_baseline": get_time_period(model_attributes, "max"),
+                "vec_ramp": vec_ramp
+            }
+
+        },
+        **kwargs
+    )
+
+    return df_out
+
+
+
+def transformation_scoe_decrease_demand_for_heat_energy(
+    df_input: pd.DataFrame,
+    magnitude: float,
+    vec_ramp: np.ndarray,
+    model_attributes: ma.ModelAttributes,
+    model_enercons: Union[me.EnergyConsumption, None] = None,
+    **kwargs
+) -> pd.DataFrame:
+    """
+    Implement the "Reduce demand for heat energy" transformation in SCOE
+
+    Function Arguments
+    ------------------
+    - df_input: input data frame containing baseline trajectories
+    - magnitude: magnitude of reduction in heat energy demand relative final
+        time period (interpreted as an proportional scalar--e.g.,
+        an 30% in heat energy demand in the final time period is entered as
+        0.3).
+    - model_attributes: ModelAttributes object used to call strategies/variables
+    - vec_ramp: ramp vec used for implementation
+
+    Keyword Arguments
+    -----------------
+    - field_region: field in df_input that specifies the region
+    - model_enercons: optional EnergyConsumption object to pass for variable 
+        access
+    - regions_apply: optional set of regions to use to define strategy. If None,
+        applies to all regions.
+    - strategy_id: optional specification of strategy id to add to output
+        dataframe (only added if integer)
+    """
+
+    # call general transformation
+    df_out = transformation_general(
+        df_input,
+        model_attributes,
+        {
+            model_enercons.modvar_scoe_demscalar_heat_energy_demand : {
+                "bounds": (0, np.inf),
+                "magnitude": float(sf.vec_bounds(1 - magnitude, (0, np.inf))),
+                "magnitude_type": "baseline_scalar",
+                "time_period_baseline": get_time_period(model_attributes, "max"),
+                "vec_ramp": vec_ramp
+            }
+        },
+        **kwargs
+    )
+
+    return df_out
+
+
+
 def transformation_scoe_electrify_category_to_target(
     df_input: pd.DataFrame,
     magnitude: float,
@@ -2270,6 +2465,123 @@ def transformation_scoe_electrify_category_to_target(
 
 
 
+def transformation_scoe_increase_energy_efficiency_heat(
+    df_input: pd.DataFrame,
+    dict_cats_to_magnitude: Union[Dict, float],
+    vec_ramp: np.ndarray,
+    model_attributes: ma.ModelAttributes,
+    model_enercons: Union[me.EnergyConsumption, None] = None,
+    return_dict_cats_to_magnitude: bool = False,
+    **kwargs
+) -> pd.DataFrame:
+    """Implement the "Increase efficiency of SCOE Heat technologies" SCOE 
+        transformer on input DataFrame df_input
+        
+    Function Arguments
+    ----------
+    df_input : pd.DataFrame
+        Optional data frame containing trajectories to modify
+    dict_cats_to_magnitude : Union[dict, float]
+        Dictionary mapping fuel categories (ENFU) to scalar increase in.
+            * float:    apply this to all fuel categories (except for 
+                        eletricity)
+            * dict:     apply the specification to select categories
+    vec_ramp : Union[np.ndarray, Dict[str, int], None]
+        Vector specifying the implementation scalar ramp for the transformation. 
+    return_dict_cats_to_magnitude : bool
+        Return only the dictionary that is used?
+
+    Keyword Arguments
+    -----------------
+    model_enercons : Union[EnergyConsumption, None]
+        Optional EnergyConsumption object to pass for variable access. If
+        passed, its associated model_attributes overrides the one defined in
+        function arguments.
+    return_dict_cats_to_magnitude : bool
+        Return dict_cats_to_magnitude only? 
+    """
+    
+    if not ma.is_model_attributes(model_attributes, ):
+        raise TypeError(f"Invalid input to model_attributes. Must be of type ModelAttributes")
+    
+    model_enercons = (
+        me.EnergyConsumption(model_attributes, )
+        if not me.is_sisepuede_model_nfp_energy(model_enercons)\
+        else model_enercons
+    )
+
+    model_attributes = model_enercons.model_attributes
+    
+
+    ##  BUILD THE MAGNITUDE DICTIONARY
+
+    dict_enfu_to_vars = (
+        model_enercons
+        .get_scoe_dict_fuel_categories_to_fuel_variables()
+    )
+
+    dict_enfu_to_vars = dict(
+        (k, v.get("fuel_efficiency"))
+        for k, v in dict_enfu_to_vars[0].items()
+        if v.get("fuel_efficiency") is not None
+    )
+    
+    keys_enfu_all_def = sorted([x for x in dict_enfu_to_vars.keys()])
+    keys_enfu_all = [x for x in keys_enfu_all_def if x != model_enercons.cat_enfu_electricity]
+
+
+    # by default, apply to all except for electricity
+    if sf.isnumber(dict_cats_to_magnitude):
+        dict_cats_to_magnitude = dict(
+            (k, dict_cats_to_magnitude) for k in keys_enfu_all_def 
+        )
+    
+    if not isinstance(dict_cats_to_magnitude, dict):
+        return df_input
+    
+    dict_cats_to_magnitude = dict(
+        (k, max(v, -1.0, ))
+        for k, v in dict_cats_to_magnitude.items()
+        if k in keys_enfu_all
+    )
+
+    if return_dict_cats_to_magnitude:
+        return dict_cats_to_magnitude
+    
+
+    ##  FINALLY, APPLY TO EACH CATEGORY
+
+    df_out = df_input.copy()
+
+    # call general transformation
+    for cat, magnitude in dict_cats_to_magnitude.items():
+
+        modvar = dict_enfu_to_vars.get(cat, )
+        bounds = (
+            (0.0, 1.0) 
+            if cat != model_enercons.cat_enfu_electricity 
+            else (0, np.inf)
+        )
+
+        df_out = transformation_general(
+            df_out,
+            model_attributes,
+            {
+                modvar: {
+                    "bounds": bounds,
+                    "magnitude": 1 + magnitude,
+                    "magnitude_type": "baseline_scalar",
+                    "time_period_baseline": get_time_period(model_attributes, "max"),
+                    "vec_ramp": vec_ramp
+                }
+            },
+            **kwargs
+        )
+
+    return df_out
+
+
+
 def transformation_scoe_shift_modvars(
     df_input: pd.DataFrame,
     magnitude: float,
@@ -2458,264 +2770,15 @@ def transformation_scoe_shift_modvars(
     return df_out
 
 
-def _shift_between_modvars_by_cat(
-    df_in_new: pd.DataFrame,
-    magnitude: Union[float, int],
-    cats_all: List[str],
-    modvars_target: List[Union[str, 'ModelVariable']],
-    vec_ramp: np.ndarray,
-    model_attributes: 'ModelAttributes',
-    magnitude_relative_to_baseline: bool,
-) -> pd.DataFrame:
-    """Support for fuel shifting functions. Mechanism for shifting between 
-        simplex pathways.
-
-    Function Arguments
-    ------------------
-    cats_all : List[str]
-        List of categories in energy sector within which fuels are shifted 
-        (e.g., industry or SCOE categories)
-    df_input : pd.DataFrame
-        DataFrame to be shifted
-    magnitude: Union[float, int]
-        Magnitude to shift away from
-    modvars_target : List[Union[str, ModelVariable]]
-        List of ModelVariables to use for switching; represent the fuel 
-        fractions
-    vec_ramp : np.ndarray
-        Implementation ramp vector
-    model_attributes : ModelAttributes
-        ModelAttributes object for managing variables etc.
-    magnitude_relative_to_baseline : bool
-        Is the magnitude relative to baseline?
-    """
-
-  
-
-
-    for cat in cats_all:
-
-        fields = [
-            model_attributes.build_variable_fields(
-                x,
-                restrict_to_category_values = cat
-            ) for x in modvars_target
-        ]
-
-        vec_initial_vals = np.array(df_in_new[fields].iloc[0]).astype(float)
-        val_initial_target = vec_initial_vals.sum() if magnitude_relative_to_baseline else 0.0
-        vec_initial_distribution = np.nan_to_num(vec_initial_vals/vec_initial_vals.sum(), nan = 1.0, posinf = 1.0, )
-
-        # get the current total value of fractions
-        vec_final_vals = np.array(df_in[fields].iloc[n_tp - 1]).astype(float)
-        val_final_target = sum(vec_final_vals)
-
-        target_value = float(sf.vec_bounds(magnitude + val_initial_target, (0.0, 1.0)))#*dict_modvar_specs.get(modvar_target)
-        scale_non_elec = np.nan_to_num((1 - target_value)/(1 - val_final_target), nan = 0.0, posinf = 0.0, )
-
-        target_distribution = magnitude*np.array([dict_modvar_specs.get(x) for x in modvars_target]) + val_initial_target*vec_initial_distribution
-        target_distribution /= max(magnitude + val_initial_target, 1.0) 
-        target_distribution = np.nan_to_num(target_distribution, nan = 0.0, posinf = 0.0, )
-
-        dict_target_distribution = dict((x, target_distribution[i]) for i, x in enumerate(modvars_target))
-
-        # get the sources to adjust
-        modvars_adjust = []
-        for modvar in modvars:
-            if cat in model_attributes.get_variable_categories(modvar):
-                modvars_adjust.append(modvar)
-
-        # loop over adjustment variables to build new trajectories
-        for modvar in modvars_adjust:
-            field_cur = model_attributes.build_variable_fields(
-                modvar,
-                restrict_to_category_values = cat,
-            )
-
-            vec_old = np.array(df_in_new[field_cur])
-            val_final = vec_old[n_tp - 1]
-            val_new = (
-                np.nan_to_num(val_final, nan = 0.0, posinf = 0.0, )*scale_non_elec 
-                if (modvar not in modvars_target) 
-                else dict_target_distribution.get(modvar)
-            )
-            vec_new = vec_ramp*val_new + (1 - vec_ramp)*vec_old
-
-            df_in_new[field_cur] = vec_new
-
-
-    return df_in_new
-
-
-def transformation_scoe_increase_energy_efficiency_heat(
-    df_input: pd.DataFrame,
-    magnitude: float,
-    vec_ramp: np.ndarray,
-    model_attributes: ma.ModelAttributes,
-    model_enercons: Union[me.EnergyConsumption, None] = None,
-    **kwargs
-) -> pd.DataFrame:
-    """
-    Implement the "Increase efficiency of fuel for heat" transformation in SCOE
-
-    Function Arguments
-    ------------------
-    - df_input: input data frame containing baseline trajectories
-    - magnitude: magnitude of increase in efficiency relative to the final time
-        period (interpreted as an additive change to the baseline value--e.g.,
-        an increase of 0.25 in the efficiency factor relative to the final time
-        period is entered as 0.25).
-    - model_attributes: ModelAttributes object used to call strategies/variables
-    - vec_ramp: ramp vec used for implementation
-
-    Keyword Arguments
-    -----------------
-    - field_region: field in df_input that specifies the region
-    - model_enercons: optional EnergyConsumption object to pass for variable 
-        access
-    - regions_apply: optional set of regions to use to define strategy. If None,
-        applies to all regions.
-    - strategy_id: optional specification of strategy id to add to output
-        dataframe (only added if integer)
-    """
-
-    dict_base = {
-        "bounds": (0, 1),
-        "magnitude": magnitude,
-        "magnitude_type": "baseline_additive",
-        "time_period_baseline": get_time_period(model_attributes, "max"),
-        "vec_ramp": vec_ramp
-    }
-
-    modvars = [
-        model_enercons.modvar_scoe_efficiency_fact_heat_en_coal,
-        model_enercons.modvar_scoe_efficiency_fact_heat_en_diesel,
-        #model_enercons.modvar_scoe_efficiency_fact_heat_en_electricity,
-        model_enercons.modvar_scoe_efficiency_fact_heat_en_gasoline,
-        model_enercons.modvar_scoe_efficiency_fact_heat_en_hydrogen,
-        model_enercons.modvar_scoe_efficiency_fact_heat_en_kerosene,
-        model_enercons.modvar_scoe_efficiency_fact_heat_en_natural_gas,
-        model_enercons.modvar_scoe_efficiency_fact_heat_en_hgl,
-        model_enercons.modvar_scoe_efficiency_fact_heat_en_solid_biomass
-    ]
-
-    dict_run = dict((modvar, dict_base) for modvar in modvars)
-
-
-    # call general transformation
-    df_out = transformation_general(
-        df_input,
-        model_attributes,
-        dict_run,
-        **kwargs
-    )
-
-    return df_out
 
 
 
-def transformation_scoe_reduce_demand_for_appliance_energy(
-    df_input: pd.DataFrame,
-    magnitude: float,
-    vec_ramp: np.ndarray,
-    model_attributes: ma.ModelAttributes,
-    model_enercons: Union[me.EnergyConsumption, None] = None,
-    **kwargs
-) -> pd.DataFrame:
-    """
-    Implement the "Increase appliance efficiency" transformation in SCOE
-
-    Function Arguments
-    ------------------
-    - df_input: input data frame containing baseline trajectories
-    - magnitude: magnitude of reduction in electric energy demand relative to 
-        final time period (interpreted as an proportional scalar--e.g., a 30% 
-        retuction in  electric energy demand in the final time period is entered 
-        as 0.3).
-    - model_attributes: ModelAttributes object used to call strategies/variables
-    - vec_ramp: ramp vec used for implementation
-
-    Keyword Arguments
-    -----------------
-    - field_region: field in df_input that specifies the region
-    - model_enercons: optional EnergyConsumption object to pass for variable 
-        access
-    - regions_apply: optional set of regions to use to define strategy. If None,
-        applies to all regions.
-    - strategy_id: optional specification of strategy id to add to output
-        dataframe (only added if integer)
-    """
-
-    # call general transformation
-    df_out = transformation_general(
-        df_input,
-        model_attributes,
-        {
-            model_enercons.modvar_scoe_demscalar_elec_energy_demand : {
-                "bounds": (0, np.inf),
-                "magnitude": float(sf.vec_bounds(1 - magnitude, (0, np.inf))),
-                "magnitude_type": "baseline_scalar",
-                "time_period_baseline": get_time_period(model_attributes, "max"),
-                "vec_ramp": vec_ramp
-            }
-
-        },
-        **kwargs
-    )
-
-    return df_out
 
 
 
-def transformation_scoe_reduce_demand_for_heat_energy(
-    df_input: pd.DataFrame,
-    magnitude: float,
-    vec_ramp: np.ndarray,
-    model_attributes: ma.ModelAttributes,
-    model_enercons: Union[me.EnergyConsumption, None] = None,
-    **kwargs
-) -> pd.DataFrame:
-    """
-    Implement the "Reduce demand for heat energy" transformation in SCOE
 
-    Function Arguments
-    ------------------
-    - df_input: input data frame containing baseline trajectories
-    - magnitude: magnitude of reduction in heat energy demand relative final
-        time period (interpreted as an proportional scalar--e.g.,
-        an 30% in heat energy demand in the final time period is entered as
-        0.3).
-    - model_attributes: ModelAttributes object used to call strategies/variables
-    - vec_ramp: ramp vec used for implementation
 
-    Keyword Arguments
-    -----------------
-    - field_region: field in df_input that specifies the region
-    - model_enercons: optional EnergyConsumption object to pass for variable 
-        access
-    - regions_apply: optional set of regions to use to define strategy. If None,
-        applies to all regions.
-    - strategy_id: optional specification of strategy id to add to output
-        dataframe (only added if integer)
-    """
 
-    # call general transformation
-    df_out = transformation_general(
-        df_input,
-        model_attributes,
-        {
-            model_enercons.modvar_scoe_demscalar_heat_energy_demand : {
-                "bounds": (0, np.inf),
-                "magnitude": float(sf.vec_bounds(1 - magnitude, (0, np.inf))),
-                "magnitude_type": "baseline_scalar",
-                "time_period_baseline": get_time_period(model_attributes, "max"),
-                "vec_ramp": vec_ramp
-            }
-        },
-        **kwargs
-    )
-
-    return df_out
 
 
 
