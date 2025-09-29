@@ -46,11 +46,11 @@ _SOLVER_OPTION_HIGHS_USER_BOUND_SCALE = "user_bound_scale"
 ###########################
 
 class EnergyProduction:
-    """
-    Use EnergyProduction to calculate emissions from electricity generation and 
-        fuel production--including coal mining, hydrogen production, natural gas
-        processing, and petroleum refinement--using NemoMod. Integrates with the 
-        SISEPUEDE integrated modeling framework.
+    """Use EnergyProduction to calculate emissions from electricity generation 
+        and fuel production--including coal mining, ammonia and hydrogen 
+        production, natural gas and liquid natural gas processing, and petroleum 
+        refinement--using NEMO. Integrates with the SISEPUEDE integrated 
+        modeling framework.
 
     For more information on the EnergyProduction class, see the SISEPUEDE 
         readthedocs at
@@ -81,9 +81,9 @@ class EnergyProduction:
 
     Requirements
     ------------
-    - Julia 1.10+ (autoinstalled by juliapkg if not included, managed by 
+    - Julia 1.11+ (autoinstalled by juliapkg if not included, managed by 
         juliacall)
-    - NemoMod (2.0+, managed by juliapkg)
+    - NemoMod (2.2+, managed by juliapkg)
     - At least one of the following solver packages (^ denotes open source):
         * Cbc^ (included in default)
         * Clp^ (included in default)
