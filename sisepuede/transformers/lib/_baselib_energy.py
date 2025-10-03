@@ -1806,7 +1806,7 @@ def transformation_fgtv_reduce_leaks(
     magnitude: float,
     vec_ramp: np.ndarray,
     model_attributes: ma.ModelAttributes,
-    model_enercons: Union[me.EnergyConsumption, None] = None,
+    model_enerprod: Union[ml.EnergyProduction, None] = None,
     **kwargs
 ) -> pd.DataFrame:
     """
@@ -1835,7 +1835,7 @@ def transformation_fgtv_reduce_leaks(
         df_input,
         model_attributes,
         {
-            model_enercons.modvar_fgtv_frac_reduction_fugitive_leaks: {
+            model_enerprod.model_enercons.modvar_fgtv_frac_reduction_fugitive_leaks: {
                 "bounds": (0, 1),
                 "magnitude": magnitude,
                 "magnitude_type": "baseline_scalar_diff_reduction",
@@ -1844,6 +1844,23 @@ def transformation_fgtv_reduce_leaks(
         },
         **kwargs
     )
+
+    # reduce CH4 in natural gas liquefaction as well
+    df_out = transformation_general(
+        df_out,
+        model_attributes,
+        {
+            model_enerprod.modvar_entc_fuelprod_emissions_activity_ratio_ch4: {
+                "bounds": (0, 1),
+                "categories": ["fp_natural_gas_liquefaction"],
+                "magnitude": 1 - magnitude,
+                "magnitude_type": "baseline_scalar",
+                "vec_ramp": vec_ramp
+            }
+        },
+        **kwargs
+    )
+
     return df_out
 
 
@@ -1912,6 +1929,7 @@ def transformation_inen_maximize_production_efficiency(
     magnitude: float,
     vec_ramp: np.ndarray,
     model_attributes: ma.ModelAttributes,
+    categories: Union[List[str], None] = None,
     model_enercons: Union[me.EnergyConsumption, None] = None,
     **kwargs
 ) -> pd.DataFrame:
@@ -1929,6 +1947,8 @@ def transformation_inen_maximize_production_efficiency(
 
     Keyword Arguments
     -----------------
+    categories : Union[List[str], None]
+        Optional restriction of categories to apply to
     - field_region: field in df_input that specifies the region
     - model_enercons: optional EnergyConsumption object to pass for variable 
         access
@@ -1938,7 +1958,18 @@ def transformation_inen_maximize_production_efficiency(
         dataframe (only added if integer)
     """
 
+    # get categories to apply to
+    categories_all = model_attributes.get_variable_categories(
+        model_enercons.modvar_inen_demscalar,
+    )
 
+    categories = (
+        categories_all
+        if not sf.islistlike(categories)
+        else [x for x in categories_all if x in categories]
+    )
+
+    
     # call general transformation
     df_out = transformation_general(
         df_input,
@@ -1946,6 +1977,7 @@ def transformation_inen_maximize_production_efficiency(
         {
             model_enercons.modvar_inen_demscalar: {
                 "bounds": (0, 1),
+                "categories": categories,
                 "magnitude": 1 - magnitude,
                 "magnitude_type": "final_value",
                 "vec_ramp": vec_ramp

@@ -6013,7 +6013,7 @@ class Transformers:
             vec_implementation_ramp,
             self.model_attributes,
             field_region = self.key_region,
-            model_enercons = self.model_enercons,
+            model_enerprod = self.model_enerprod,
             strategy_id = strat
         )
 
@@ -6199,6 +6199,7 @@ class Transformers:
 
 
     def _trfunc_inen_maximize_efficiency_production(self,
+        categories: Union[List[str], None] = None,
         df_input: Union[pd.DataFrame, None] = None,
         magnitude: float = 0.4,
         strat: Union[int, None] = None,
@@ -6208,6 +6209,8 @@ class Transformers:
         
         Parameters
         ----------
+        categories : Union[List[str], None]
+            Optional categories to apply to
         df_input : pd.DataFrame
             Optional data frame containing trajectories to modify
         magnitude : float
@@ -6237,6 +6240,7 @@ class Transformers:
             magnitude, 
             vec_implementation_ramp,
             self.model_attributes,
+            categories = categories,
             field_region = self.key_region,
             model_enercons = self.model_enercons,
             strategy_id = strat
