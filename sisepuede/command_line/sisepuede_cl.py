@@ -34,6 +34,26 @@ class InvalidStrategyDirectory(Exception):
 #    SOME SUPPORTING FUNCTIONS    #
 ###################################
 
+def get_dict_optimizer_attributes(
+    args: dict,
+) -> Union[dict, None]:
+    """
+    """
+
+    dict_out = {}
+
+    # add the user bound scale
+    user_bound_scale = args.get("doa_user_bound_scale")
+    if isinstance(user_bound_scale, int):
+        dict_out.update({"user_bound_scale": user_bound_scale})
+
+
+    dict_out = None if (len(dict_out) == 0) else dict_out
+
+    return dict_out
+
+
+
 def get_dimensional_dict(
     args: Dict,
     model_attributes: ModelAttributes,
@@ -434,6 +454,19 @@ def parse_arguments(
     )
 
 
+    # optional attempt to read exogenous XL types
+    msg_hlp_doa_user_bound_scale = f"""
+    Include the --doa-user-bound-scale flag to set the dict_optimizer_attributes
+        value for the HiGHS sovler. By default, does not scale.
+    """
+    parser.add_argument(
+        "--doa-user-bound-scale",
+        type = int,
+        help = msg_hlp_doa_user_bound_scale,
+        default = None,
+    )
+
+
     # optional flag to *exclude* electricity model 
     msg_hlp_exclude_fuel_prod = f"""
     Exclude the fuel production (NemoMod) model from runs. 
@@ -628,7 +661,6 @@ def parse_arguments(
 
 
 
-
 def main(
     args: dict,
 ) -> None:
@@ -694,6 +726,9 @@ def main(
     save_inputs = args.get("save_inputs")
     try_xl_types = args.get("try_exogenous_xl_types")
 
+    # retrieve
+    dict_optimizer_attributes = get_dict_optimizer_attributes(args, )
+
     # checks
     return_none = (regions_run is None)
     return_none |= ((len(dict_scenarios) == 0) if not return_none else False)
@@ -710,6 +745,7 @@ def main(
         "calibrated",
         attribute_time_period = matt.get_dimensional_attribute_table(matt.dim_time_period, ),
         db_type = db_type,
+        dict_optimizer_attributes = dict_optimizer_attributes,
         id_str = id_str,
         n_trials = n_trials,
         random_seed = random_seed,
