@@ -50,8 +50,8 @@ SHELL ["/bin/bash", "-c"]
 RUN source /venv/bin/activate \
     && pip install juliacall==0.9.25 \
     && pip install juliapkg==0.1.17 \
-    && pip install git+https://github.com/jcsyme/sisepuede.git@a9d08d69fc35bbf3ca2a09f340b14fabbc4d8943
-
+    && pip install git+https://github.com/jcsyme/sisepuede.git@aaef14fef93f0fb9b3735fb6d31639493d399d41
+    
 # import after installation to ensure julia is installed
 RUN source /venv/bin/activate \
     && python -c "import sisepuede.manager.sisepuede_file_structure as sfs; \
