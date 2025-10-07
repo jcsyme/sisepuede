@@ -508,7 +508,10 @@ class TransformersEnergy:
         """
 
         baseline_inputs = (
-            self.transformation_en_baseline(df_inputs, strat = self.baseline_strategy) 
+            self.transformation_en_baseline(
+                df_inputs, 
+                strat = self.baseline_strategy,
+            ) 
             if isinstance(df_inputs, pd.DataFrame) 
             else None
         )
@@ -1905,6 +1908,7 @@ class TransformersEnergy:
 
     def transformation_en_baseline(self,
         df_input: pd.DataFrame,
+        cats_to_cap: Union[List[str], None] = None,
         strat: Union[int, None] = None,
         vec_implementation_ramp: Union[np.ndarray, None] = None,
         **kwargs,
