@@ -147,7 +147,7 @@ class LeversImplementationTable:
             _FIELD_LEVER_IMPLEMENATION_TABLE_TRANSFORMER_NAME,
             _FIELD_LEVER_IMPLEMENATION_TABLE_TRANSFORMER_DESCRIPTION,
             _FIELD_LEVER_IMPLEMENATION_TABLE_TRANSFORMER_UNIT,
-            _FIELD_LEVER_IMPLEMENATION_TABLE_START_PERIOD,
+            # _FIELD_LEVER_IMPLEMENATION_TABLE_START_PERIOD,
             _FIELD_LEVER_IMPLEMENATION_TABLE_MAXIMUM_MAGNITUDE,
             _PLACEHOLDER_FIELDS_LEVER_IMPLEMENTATION_TABLE_STRATEGIES,
             self.field_year
@@ -463,6 +463,8 @@ class LeversImplementationTable:
 
         # get the ramp
         vir_try = transformation.dict_parameters.get(self.key_vir, )
+        vir_try = self.transformers.check_implementation_ramp(vir_try, )
+
         vec_implementation_ramp = (
             vir_try.copy()
             if isinstance(vir_try, np.ndarray)
@@ -493,12 +495,14 @@ class LeversImplementationTable:
             vec_implementation_ramp,
         )
 
+        """
         self._update_dict_from_element(
             dict_table_base,
             _FIELD_LEVER_IMPLEMENATION_TABLE_START_PERIOD,
             period_0,
             vec_time,
         )
+        """;
         
         return None
 
@@ -568,8 +572,6 @@ class LeversImplementationTable:
             ]
             fields_to_placeholder.extend(fields_strat, )
 
-            # set extraction fields for merge
-            fields_ext = list(df_cur.columns)
             """
             [
                 _FIELD_LEVER_IMPLEMENATION_TABLE_TRANSFORMER_CODE,
@@ -578,10 +580,20 @@ class LeversImplementationTable:
             fields_ext.extend(fields_strat, )
             """
 
-            # finally, update df out
+            # if initializing, set as is
             if df_out is None:
                 df_out = df_cur
                 continue
+            
+
+            ##  OTHERWISE, WE ONLY NEED TO MERGE ON SELECT FIELDS
+
+            # set extraction fields for merge
+            fields_ext = [
+                self.field_year,
+                _FIELD_LEVER_IMPLEMENATION_TABLE_TRANSFORMER_CODE,
+                fields_strat[0]
+            ]
 
             df_out = (
                 pd.merge(
@@ -1151,7 +1163,6 @@ class TransformationSummarizer:
 
         # SCOE - Increase heat efficiency (by fuel)
         if base_transformer.code == f"{prefix_transformer_code}:SCOE:INC_EFFICIENCY_HEAT":
-            print(transformation.code)
             magnitude = self.summarize_special_case_scoe_increase_efficiency_heat(*args_summary, )
             return magnitude
         

@@ -1710,22 +1710,7 @@ class Strategies:
 
             # retrieve template and keys (variable names)
             df_template = self.dict_sectoral_templates.get(sector).copy()
-            vec_vars = df_template[field_var].to_numpy()
-
-            # overwrite with a dictionary
-            if isinstance(df_variable_info, pd.DataFrame):
-                fields_overwrite = [x for x in df_variable_info if (x != field_var) and (x in df_template.columns)]
-
-                # use the values in df_variable_info to overwrite info in the template
-                for field in fields_overwrite:
-                    # get a missing value default if applicable
-                    missing_val = dict_variable_missing_val.get(field)
-                    dict_cur = sf.build_dict(df_variable_info[[field_var, field]])
-
-                    # map to new column
-                    col_new = [dict_cur.get(x, missing_val) for x in vec_vars]
-                    df_template[field] = col_new
-
+            # vec_vars = df_template[field_var].to_numpy()
             # dfc = df_cur.copy()
             # dft = df_template.copy()
 
@@ -1736,6 +1721,30 @@ class Strategies:
                 sector_abv,
                 **kwargs
             )
+
+
+            ##  iterate over each sheet
+            for k, v in dict_write_cur.items():
+                
+                # overwrite with a dictionary
+                if not isinstance(df_variable_info, pd.DataFrame): continue
+
+                vec_vars = v[field_var].to_numpy()
+                fields_overwrite = [x for x in df_variable_info if (x != field_var)]# and (x in df_template.columns)]
+
+                # use the values in df_variable_info to overwrite info in the template
+                for field in fields_overwrite:
+                    
+                    # get a missing value default if applicable
+                    missing_val = dict_variable_missing_val.get(field)
+                    dict_cur = sf.build_dict(df_variable_info[[field_var, field]])
+
+                    # map to new column
+                    col_new = [dict_cur.get(x, missing_val) for x in vec_vars]
+                    v[field] = col_new
+                
+                # update the dictionary
+                dict_write_cur.update({k: v, })
 
             dict_update[sector_abv].update(dict_write_cur)
 
