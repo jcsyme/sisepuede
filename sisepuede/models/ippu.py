@@ -932,9 +932,8 @@ class IPPU:
         modvar_scalar_prod: str = None,
         modvar_waste_total_recycled: str = None
     ) -> tuple:
-        """
-        Retrieve production and perform the adjustment to virgin production due 
-            to recycling changes from the CircularEconomy model.
+        """Retrieve production and perform the adjustment to virgin production 
+            due to recycling changes from the CircularEconomy model.
 
         Function Arguments
         ------------------

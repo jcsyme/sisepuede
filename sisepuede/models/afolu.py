@@ -684,8 +684,7 @@ class AFOLU:
 
     def _initialize_subsector_vars_frst(self,
     ) -> None:
-        """
-        Initialize model variables, categories, and indices associated with
+        """Initialize model variables, categories, and indices associated with
             FRST (Forest). Sets the following properties:
 
             * self.cat_frst_****
@@ -699,6 +698,7 @@ class AFOLU:
         self.modvar_frst_average_fraction_burned_annually = "Average Fraction of Forest Burned Annually"
         self.modvar_frst_biomass_consumed_fire_temperate = "Fire Biomass Consumption for Temperate Forests"
         self.modvar_frst_biomass_consumed_fire_tropical = "Fire Biomass Consumption for Tropical Forests"
+        self.modvar_frst_c_stock = "Above Ground C Stock in Forests"
         self.modvar_frst_ef_c_per_hwp = "C Carbon Harvested Wood Products Emission Factor"
         self.modvar_frst_ef_co2_fires = ":math:\\text{CO}_2 Forest Fire Emission Factor"
         self.modvar_frst_ef_ch4 = ":math:\\text{CH}_4 Forest Methane Emissions"
@@ -706,6 +706,7 @@ class AFOLU:
         self.modvar_frst_emissions_co2_hwp = ":math:\\text{CO}_2 Emissions from Harvested Wood Products"
         self.modvar_frst_emissions_ch4 = ":math:\\text{CH}_4 Emissions from Forests"
         self.modvar_frst_emissions_co2_sequestration = ":math:\\text{CO}_2 Emissions from Forest Biomass Sequestration"
+        self.modvar_frst_frac_c_converted_available = "Fraction of Forest Converted C Available for Use"
         self.modvar_frst_frac_temperate_nutrient_poor = "Forest Fraction Temperate Nutrient Poor"
         self.modvar_frst_frac_temperate_nutrient_rich = "Forest Fraction Temperate Nutrient Rich"
         self.modvar_frst_frac_tropical = "Forest Fraction Tropical"
@@ -713,7 +714,6 @@ class AFOLU:
         self.modvar_frst_hwp_half_life_wood = "HWP Half Life Wood"
         self.modvar_frst_sq_co2 = "Forest Sequestration Emission Factor"
         self.modvar_frst_sq_co2_young_secondary = "Young Secondary Forest Sequestration Emission Factor"
-        self.modvar_frst_init_per_hh_wood_demand = "Initial Per Household Wood Demand"
         
         #additional lists
         self.modvar_list_frst_frac_temptrop = [
@@ -767,9 +767,11 @@ class AFOLU:
         self.modvar_lndu_area_converted = "Area of Land Use Converted"
         self.modvar_lndu_area_converted_from_type = "Area of Land Use Converted Away from Type"
         self.modvar_lndu_area_converted_to_type = "Area of Land Use Converted to Type"
-        self.modvar_lndu_constraint_area_max = "Maximum Area"  # NEW
-        self.modvar_lndu_constraint_area_min = "Minimum Area"  # NEW
-        self.modvar_lndu_ef_co2_conv = ":math:\\text{CO}_2 Land Use Conversion Emission Factor"
+        self.modvar_lndu_constraint_area_max = "Maximum Area"
+        self.modvar_lndu_constraint_area_min = "Minimum Area"
+        self.modvar_lndu_c_stock_bgb_ratio = "Below Ground Biomass Carbon Stock Ratio"
+        self.modvar_lndu_c_stock_factor_abg = "Initial Above Ground Biomass Carbon Stock Factor"
+        # self.modvar_lndu_ef_co2_conv = ":math:\\text{CO}_2 Land Use Conversion Emission Factor"
         self.modvar_lndu_emissions_conv = ":math:\\text{CO}_2 Emissions from Land Use Conversion"
         self.modvar_lndu_emissions_conv_away = ":math:\\text{CO}_2 Emissions from Conversion Away from Land Use Type"
         self.modvar_lndu_emissions_ch4_from_wetlands = ":math:\\text{CH}_4 Emissions from Wetlands"
@@ -1266,13 +1268,110 @@ class AFOLU:
         )
 
         return tup_out
+    
+
+
+    def build_c_conversion_matrices(self,
+        df_afolu_trajectories: pd.DataFrame,
+        attr_lndu: Union['AttributeTable', None] = None,
+    ) -> Tuple[np.ndarray, np.ndarray]:
+        """Build conversion matrices for carbon stock loss from land use 
+            conversion between types. Does not account for sequestration from 
+            conversion *to* a type; only loss from conversion away. 
+            Sequestration from conversion to a type is estimated over time using
+            NPP.
+
+        Returns a tuple of the form:
+
+            (
+                arrs_c_agb,     # conversion arrays for above-ground biomass
+                arrs_c_bgb,     # conversion arrays for below-ground biomass
+                arr_bmass_ag,   # array of initial above-ground biomass
+            )
+
+        Estimates for conversion between land use types i and j are 
+
+            max(c_i - c_j, 0)
+
+            where c_i is the average carbon stock in type i.
+
+        Function Arguments
+        ------------------
+        df_afolu_trajectories : DataFrame
+            Input DataFrame containing columnar variables with initial carbon
+            stocks. Note that these carbon stocks are dynamic, and only the 
+            first time step is not adjusted over time.
+        """
+        
+        ##  INITIALIZATION
+
+        if not is_attribute_table(attr_lndu):
+            attr_lndu = self.model_attributes.get_attribute_table(self.subsec_name_lndu)
+        
+        # get variables
+        modvar_bmass_ag = self.model_attributes.get_variable(
+            self.modvar_lndu_c_stock_factor_abg,
+        )
+        modvar_bmass_ratio_bg = self.model_attributes.get_variable(
+            self.modvar_lndu_c_stock_bgb_ratio,
+        )
+        
+        # get each variable
+        arr_bmass_ag = (
+            self
+            .model_attributes
+            .extract_model_variable(
+                df_afolu_trajectories,
+                modvar_bmass_ag,
+                all_cats_missing_val = 0.0,
+                expand_to_all_cats = True,
+                return_type = "array_base",
+            )
+        )
+
+        # get the below-ground to above-ground biomass ratio
+        arr_bmass_bgr = (
+            self
+            .model_attributes
+            .extract_model_variable(
+                df_afolu_trajectories,
+                modvar_bmass_ratio_bg,
+                all_cats_missing_val = 0.0,
+                expand_to_all_cats = True,
+                return_type = "array_base",
+            )
+        )
+
+        arr_bmass_bg = arr_bmass_bgr*arr_bmass_ag
+
+
+        ##  INITIALIZE ARRAYS OUT
+        
+        n_tp = df_afolu_trajectories.shape[0]
+        shp = (n_tp, attr_lndu.n_key_values, attr_lndu.n_key_values)
+        arrs_out_ag = np.zeros(shp)
+        arrs_out_bg = np.zeros(shp)
+
+        # iterate over each year (now a row)
+        for k in range(n_tp):
+            arrs_out_ag[k] = sf.bounded_outer_diff(arr_bmass_ag[k, :], vec_2 = arr_bmass_ag[k, :], )
+            arrs_out_bg[k] = sf.bounded_outer_diff(arr_bmass_bg[k, :], vec_2 = arr_bmass_bg[k, :], )
+
+        # setup output tuple and return
+        out = (
+            arrs_out_ag, 
+            arrs_out_bg, 
+            arr_bmass_ag,    
+        )
+
+        return out
 
 
 
     def calculate_ipcc_soc_deltas(self,
         vec_soc: np.ndarray,
         approach: int = 1
-    ):
+    ) -> np.ndarray:
         """Calculate the annual change in soil carbon using Approach 1 (even 
             though we have a transition matrix). 
 
@@ -2804,41 +2903,56 @@ class AFOLU:
     def get_markov_matrices(self,
         df_ordered_trajectories: pd.DataFrame,
         correct_emission_units: bool = True,
-        get_emission_factors: bool = True,
         n_tp: Union[int, None] = None,
-        target_units_area_modvar: Union[str, None] = None,
+        return_c_stock_conversion_factors: bool = True,
+        target_units_area_modvar: Union[str, 'ModelVariable', None] = None,
         thresh_correct: float = 0.0001,
     ) -> Union[np.ndarray, Tuple[np.ndarray, np.ndarray]]:
-        """
-        Get the transition and emission factors matrices from the data frame 
+        """Get the transition and emission factors matrices from the data frame 
             df_ordered_trajectories. Assumes that the input data frame is 
             ordered by time_period
 
         Function Arguments
         ------------------
-        - df_ordered_trajectories: input data frame containing columnar 
-            variables for conversion transition probabilities and emission 
-            factors.
+        df_ordered_trajectories : DataFrame
+            Input DataFrame containing columnar variables for conversion 
+            transition probabilities and emission factors.
 
         Keyword Arguments
         -----------------
-        - correct_emission_units: correct emissions to configuration units?
-        - get_emission_factors: return emission factors as well?
-            * If False, returns ONLY the array of transition probabilities
-        - target_units_area_modvar: modvar that will drive emissions, used to 
+        correct_emission_units : bool
+            Correct emissions to configuration units?
+        return_c_stock_conversion_factors : bool
+            Return C stock converion factors as well?
+            * False:    Returns ONLY the array of transition probabilities (not
+                        as a tuple, but as an individual array)
+            * True:     Returns a tuple of the form:
+
+                        (
+                            arrs_pr,        # array of transition probabilities
+                            arrs_c_agb,     # array of C stock change from 
+                                            # i -> j for above-ground biomass
+                            arrs_c_bgb,     # array of C stock change from 
+                                            # i -> j for below-ground biomass
+                            arr_c_lndu_agb, # array of c above ground biomass
+                        )
+
+        target_units_area_modvar : Union[str, 'ModelVariable', None]
+            modvar that will drive emissions, used to 
             identify target area units to which conversion emission factors are 
             applied. 
             * If None, no adjustment is made
-        - n_tp: the number of time periods. Default value is None, which implies 
-            all time periods
-        - thresh_correct is used to decide whether or not to correct the 
-            transition matrix (assumed to be row stochastic) to sum to 1; if the 
-            absolute value of the sum is outside this range, an error will be 
-            thrown
+        n_tp : Union[int, None]
+            The number of time periods. Default value is None, which implies all 
+            time periods
+        thresh_correct : float 
+            Used to decide whether or not to correct the transition matrix 
+            (assumed to be row stochastic) to sum to 1; if the absolute value of 
+            the sum is outside this range, an error will be thrown
 
         Notes
         -----
-        - fields_pij and fields_efc will be properly ordered by categories for 
+        fields_pij and fields_efc will be properly ordered by categories for 
             this transformation
         """
         
@@ -2846,53 +2960,76 @@ class AFOLU:
         n_cats = attr_lndu.n_key_values
         n_tp = n_tp if sf.isnumber(n_tp, integer = True) else self.n_time_periods
 
-        fields_pij = self.model_attributes.dict_model_variables_to_variable_fields.get(self.modvar_lndu_prob_transition)
-        fields_efc = self.model_attributes.dict_model_variables_to_variable_fields.get(self.modvar_lndu_ef_co2_conv)
-        if (fields_pij is None) | ((fields_efc is None) & get_emission_factors):
+        # get fields that are needed
+        dict_mv_to_fields = self.model_attributes.dict_model_variables_to_variable_fields
+        fields_agb = dict_mv_to_fields.get(self.modvar_lndu_c_stock_factor_abg, )
+        fields_bgb = dict_mv_to_fields.get(self.modvar_lndu_c_stock_bgb_ratio, )
+        fields_pij = dict_mv_to_fields.get(self.modvar_lndu_prob_transition, )
+        
+        # return None?
+        return_none = fields_pij is None
+        return_none |= (((fields_agb is None) | (fields_bgb is None)) & return_c_stock_conversion_factors)
+        if return_none:
             return None
 
+        # verify fields are present
         fields_check = (
-            fields_pij + fields_efc
-            if get_emission_factors
+            fields_pij + fields_agb + fields_bgb
+            if return_c_stock_conversion_factors
             else fields_pij
         )
         sf.check_fields(df_ordered_trajectories, fields_check)
 
-        # fetch arrays of transition probabilities and co2 emission factors
+
+        ##  GET TRANSITION PROBABILITIES
+
+        # if not return C factors, return on the transition probabilities
         arr_pr = np.array(df_ordered_trajectories[fields_pij])
         arr_pr = arr_pr.reshape((n_tp, n_cats, n_cats))
-
-        # RETURN if not retrieving emission factors
-        if not get_emission_factors:
+        if not return_c_stock_conversion_factors:
             return arr_pr
 
 
-        arr_ef = np.array(df_ordered_trajectories[fields_efc])
-        arr_ef = arr_ef.reshape((n_tp, n_cats, n_cats))
+        ##  GET C CONVERSION FACTORS
 
-        # convert units for conversion emission factors
-        arr_ef *= (
-            self.model_attributes.get_scalar(
-                self.modvar_lndu_ef_co2_conv,
+        arrs_c_agb, arrs_c_bgb, arr_c_lndu_agb = self.build_c_conversion_matrices(
+            df_ordered_trajectories,
+            attr_lndu = attr_lndu,
+        )
+
+        # convert units to output units
+        if correct_emission_units:
+            scalar = self.model_attributes.get_scalar(
+                self.modvar_lndu_c_stock_factor_abg,
                 "mass"
             )
-            if correct_emission_units
-            else 1.0
-        )
+
+            arrs_c_agb *= scalar
+            arrs_c_bgb *= scalar
+            arr_c_lndu_agb *= scalar
 
         # ensure area is accounted for
-        arr_ef *= (
-            self.model_attributes.get_variable_unit_conversion_factor(
+        if self.model_attributes.get_variable(target_units_area_modvar) is not None:
+            scalar = self.model_attributes.get_variable_unit_conversion_factor(
                 target_units_area_modvar,
-                self.modvar_lndu_ef_co2_conv,
+                self.modvar_lndu_c_stock_factor_abg,
                 "area"
             )
-            if self.model_attributes.get_variable(target_units_area_modvar) is not None
-            else 1.0
+
+            arrs_c_agb *= scalar
+            arrs_c_bgb *= scalar
+            arr_c_lndu_agb *= scalar
+    
+        # build output tuple
+        out = (
+            arr_pr,
+            arrs_c_agb,
+            arrs_c_bgb,
+            arr_c_lndu_agb,
         )
 
-        return arr_pr, arr_ef
-
+        return out
+    
 
 
     def get_matrix_column_scalar(self,
@@ -4054,29 +4191,36 @@ class AFOLU:
 
 
     def project_per_capita_demand(self,
-        dem_0: np.ndarray, # initial demand (e.g., total yield/livestock produced per acre) ()
-        pop: np.ndarray, # population (vec_pop)
-        gdp_per_capita_rates: np.ndarray, # driver of demand growth: gdp/capita (vec_rates_gdp_per_capita)
-        elast: np.ndarray, # elasticity of demand per capita to growth in gdp/capita (e.g., arr_lvst_elas_demand)
-        dem_pc_scalar_exog = None, # exogenous demand per capita scalar representing other changes in the exogenous per-capita demand (can be used to represent population changes)
+        dem_0: np.ndarray, 
+        pop: np.ndarray,
+        gdp_per_capita_rates: np.ndarray, 
+        elast: np.ndarray,
+        dem_pc_scalar_exog: Union[float, None] = None, 
         return_type: type = float # return type of array
     ) -> np.ndarray:
-
         """
         Project per capita demand for agriculture and/or livestock
 
         Function Arguments
         ------------------
-        - dem_0: initial demand (e.g., total yield/livestock produced per acre)
-        - pop: population (vec_pop)
-        - gdp_per_capita_rates driver of demand growth: gdp/capita 
-            (vec_rates_gdp_per_capita)
-        - elast elasticity of demand per capita to growth in gdp/capita (e.g., 
+        dem_0 : np.ndarray
+            Initial demand (e.g., total yield/livestock produced per acre)
+        pop : np.ndarray
+            Population (vec_pop)
+        gdp_per_capita_rates driver of demand growth : np.ndarray
+            GDP/capita (vec_rates_gdp_per_capita)
+        elast :  np.ndarray
+            Elasticity of demand per capita to growth in gdp/capita (e.g., 
             arr_lvst_elas_demand)
-        - dem_pc_scalar_exog: exogenous demand per capita scalar representing 
-            other changes in the exogenous per-capita demand (can be used to 
-            represent population changes)
-        - return_type: return type of array
+        
+        Keyword Arguments
+        -----------------
+        dem_pc_scalar_exog : Union[float, None]
+            Exogenous demand per capita scalar representing other changes in the 
+            exogenous per-capita demand (can be used to represent population 
+            changes)
+        return_type : type
+            Return type of array
         """
         
         # get the demand scalar to apply to per-capita demands
@@ -4089,9 +4233,11 @@ class AFOLU:
 
         if dem_pc_scalar_exog.shape == pop.shape:
             arr_dem_base = np.outer(pop*dem_pc_scalar_exog, dem_0/pop[0])
+
         elif dem_pc_scalar_exog.shape == dem_scale_proj_pc.shape:
             arr_pc = (dem_0/pop[0])*dem_pc_scalar_exog
             arr_dem_base = (pop*arr_pc.transpose()).transpose()
+            
         else:
             raise ValueError(f"Invalid shape of dem_pc_scalar_exog: valid shapes are '{pop.shape}' and '{dem_scale_proj_pc.shape}'.")
 
@@ -4105,7 +4251,9 @@ class AFOLU:
     def project_integrated_land_use(self,
         vec_initial_area: np.ndarray,
         arrs_transitions: np.ndarray,
-        arrs_efs: np.ndarray,
+        arrs_c_agb: np.ndarray,
+        arrs_c_bgb: np.ndarray,
+        arr_c_init_agb: np.ndarray,
         arr_agrc_production_nonfeed_unadj: np.ndarray,
         arr_agrc_yield_factors: np.ndarray,
         arr_lndu_constraints_inf: np.ndarray,
@@ -4138,51 +4286,63 @@ class AFOLU:
                 inflows and outflows. 
 
 
-
         Function Arguments
         ------------------
-        - vec_initial_area: initial state vector of area
-        - arrs_transitions: array of transition matrices, ordered by time period
-        - arrs_efs: array of emission factor matrices, ordered by time period
-        - arr_agrc_production_nonfeed_unadj: array of agricultural non-feed 
-            demand yield (human consumption)
-        - arr_agrc_yield_factors: array of agricultural yield factors
-        - arr_lndu_constraints_inf: minimum bounds on areas of each land use
-            class (columns) for each time period (rows). To set no constraint,
-            use AFOLU.flag_ignore_constraint (-999)
-        - arr_lndu_constraints_sup: maximum bounds on areas of each land use
-            class (columns) for each time period (rows). To set no constraint,
-            use AFOLU.flag_ignore_constraint (-999)
-        - arr_lndu_frac_increasing_net_exports_met: fraction--by land use type--
-            of increases to net exports that are met. Adjusts production demands 
-            downward if less than 1.
-        - arr_lndu_frac_increasing_net_exports_met: fraction--by land use type--
-            of increases to net imports that are met. Adjusts production demands 
-            upward if less than 1.
-        - arr_lndu_yield_by_lvst: array of lvst yield by land use category (used 
-            to project future livestock supply). Array gives the total yield of 
-            crop type i allocated to livestock type j at time 0 
+        vec_initial_area : np.ndarray
+            Initial state vector of area
+        arrs_transitions : np.ndarray
+            Array of transition matrices, ordered by time period
+        arrs_c_agb : np.ndarray
+            Array of above-ground biomass c stock conversion factors, in terms 
+            of output units of mass per area (units of vec_initial_area)
+        arrs_c_bgb : np.ndarray
+            Array of below-ground biomass c stock conversion factors, in terms 
+            of output units of mass per area (units of vec_initial_area)
+        arr_c_init_agb : np.ndarray
+            Initial 
+        arr_agrc_production_nonfeed_unadj : np.ndarray
+            Array of agricultural non-feed demand yield (human consumption)
+        arr_agrc_yield_factors : np.ndarray
+            Array of agricultural yield factors
+        arr_lndu_constraints_inf : np.ndarray
+            Minimum bounds on areas of each land use class (columns) for each 
+            time period (rows). To set no constraint, use 
+            AFOLU.flag_ignore_constraint (-999)
+        arr_lndu_constraints_sup : np.ndarray
+            Maximum bounds on areas of each land use class (columns) for each 
+            time period (rows). To set no constraint, use 
+            AFOLU.flag_ignore_constraint (-999)
+        arr_lndu_frac_increasing_net_exports_met : np.ndarray
+            Fraction--by land use type--of increases to net exports that are 
+            met. Adjusts production demands downward if less than 1.
+        arr_lndu_frac_increasing_net_exports_met : np.ndarray
+            Fraction--by land use type--of increases to net imports that are 
+            met. Adjusts production demands upward if less than 1.
+        arr_lndu_yield_by_lvst : np.ndarray
+            Array of lvst yield by land use category (used to project future 
+            livestock supply). Array gives the total yield of crop type i 
+            allocated to livestock type j at time 0 
             (attr_agriculture.n_key_values x attr_livestock.n_key_values)
-        - factor_lndu_init_avg_consumption_pstr: per unit area of pasture 
-            initial consumption by livestock (estimated). Estimated as proxy for
-            production of dry matter.
-            * UNITS: 
-                pasture yield factor/gnrl area
-        - arr_lvst_annual_dry_matter_consumption_per_capita: annual dry matter 
-            consumption per head of livestock
-            * UNITS: 
-                pasture yield factor/head
-        - arr_lvst_dem: array of livestock production requiremenets (unadjusted)
-        - vec_agrc_frac_cropland_area: vector of fractions of agricultural area 
-            fractions by classes
-        - vec_lndu_yrf: vector of land use reallocation factor
-        - vec_lvst_scale_cc: vector of livestock carrying capacity scalar to 
-            apply
+        factor_lndu_init_avg_consumption_pstr : float
+            Per unit area of pasture initial consumption by livestock 
+            (estimated). Estimated as proxy for production of dry matter.
+                * UNITS : pasture yield factor/gnrl area
+        arr_lvst_annual_dry_matter_consumption_per_capita : np.ndarray
+            Annual dry matter consumption per head of livestock
+                * UNITS : pasture yield factor/head
+        arr_lvst_dem : np.ndarray
+            Array of livestock production requiremenets (unadjusted)
+        vec_agrc_frac_cropland_area : np.ndarray
+            Vector of fractions of agricultural area fractions by classes
+        vec_lndu_yrf : np.ndarray
+            Vector of land use reallocation factor 
+        vec_lvst_scale_cc : np.ndarray
+            Vector of livestock carrying capacity scalar to apply
 
         Keyword Arguments
         ------------------
-        - n_tp: number of time periods to run. If None, runs 
-            AFOLU.n_time_periods
+        n_tp : int
+            Number of time periods to run. If None, runs AFOLU.n_time_periods
 
             
         Returns
@@ -4209,7 +4369,8 @@ class AFOLU:
         # check shapes
         n_tp = n_tp if (n_tp != None) else self.n_time_periods
         self.check_markov_shapes(arrs_transitions, "arrs_transitions")
-        self.check_markov_shapes(arrs_efs, "arrs_efs")
+        self.check_markov_shapes(arrs_c_agb, "arrs_efs")
+        self.check_markov_shapes(arrs_c_bgb, "arrs_efs")
 
         # get attributes
         attr_agrc = self.model_attributes.get_attribute_table(self.subsec_name_agrc)
@@ -4217,6 +4378,10 @@ class AFOLU:
         attr_lvst = self.model_attributes.get_attribute_table(self.subsec_name_lvst)
 
         # set some commonly called attributes and indices in arrays
+        inds_frst = [
+            attr_lndu.get_key_value_index(x) 
+            for x in self.dict_cats_lndu_to_cats_frst.keys()
+        ]
         m = attr_lndu.n_key_values
 
 
@@ -4227,6 +4392,17 @@ class AFOLU:
         arr_agrc_net_import_increase = np.zeros((n_tp, attr_agrc.n_key_values))
         arr_agrc_change_to_net_imports_lost = np.zeros((n_tp, attr_agrc.n_key_values))
         
+        # initialize carbon stock stored in above-ground biomass in forests
+        arr_c_stock_frsts = vec_initial_area[inds_frst]*arr_c_init_agb[0, inds_frst]
+        arr_c_stock_frsts = np.repeat(
+            [arr_c_stock_frsts],
+            n_tp,
+            axis = 0,
+        )
+
+        #HEREHEREHEREHERE
+
+        # get yield
         arr_agrc_yield = np.array([
             (vec_initial_area[self.ind_lndu_crop]*vec_agrc_frac_cropland_area*arr_agrc_yield_factors[0]) 
             for k in range(n_tp)
@@ -4236,6 +4412,7 @@ class AFOLU:
         arr_emissions_conv_matrices = np.zeros(arrs_transitions.shape)
         arr_land_use = np.array([vec_initial_area for k in range(n_tp)])
         
+        # livestock demands
         arr_lvst_dem_adj = arr_lvst_dem.copy().astype(int)
         arr_lvst_pop_adj = arr_lvst_dem.copy().astype(int)
 
@@ -4246,6 +4423,8 @@ class AFOLU:
 
         arrs_yields_per_livestock = np.array([arr_lndu_yield_by_lvst for k in range(n_tp)])
 
+
+        ##  HEREHEREHERE
 
         ##  INITIALIZE VARIABLES
 
@@ -4639,8 +4818,7 @@ class AFOLU:
         projection_time_periods: np.ndarray,
         dict_check_integrated_variables: dict
     ) -> List[pd.DataFrame]:
-        """
-        Project sequestration from harvested wood products. Returns
+        """Project sequestration from harvested wood products. Returns
 
         Function Arguments
         ------------------
@@ -4666,25 +4844,16 @@ class AFOLU:
         check_scoe = dict_check_integrated_variables.get(self.subsec_name_scoe)
         historical_method = self.model_attributes.configuration.get("historical_harvested_wood_products_method")
 
-        # get initial domestic demand for wood products
-        vec_frst_harvested_wood_domestic = self.model_attributes.extract_model_variable(#
-            df_afolu_trajectories, 
-            self.modvar_frst_init_per_hh_wood_demand, 
-            return_type = "array_base",
-        )
-        vec_frst_harvested_wood_domestic *= self.model_attributes.get_variable_unit_conversion_factor(
-            self.modvar_frst_init_per_hh_wood_demand,
-            self.model_ippu.modvar_ippu_demand_for_harvested_wood,
-            "mass"
-        )
 
-        # TEMPORARY: THIS MAY NOT NEED TO BE INCLUDED HERE SINCE IT REPRESENTS BIOMASS DEMANDS, WHICH ARE ACCOUNTED FOR IN ENERGY
-        vec_frst_harvested_wood_domestic *= 0.0
-
-
-        ##  CHECK DEMAND COMPONENTS FROM IPPU AND SCOE
+        ##  CHECK DEMAND COMPONENTS FROM IPPU AND ENERGY (SCOE/INEN/ENTC EST.)
 
         # IPPU components
+
+        arr_frst_harvested_wood_industrial = 0.0
+        vec_frst_harvested_wood_industrial_paper = 0.0
+        vec_frst_harvested_wood_industrial_wood = 0.0
+    
+        
         if check_ippu is not None:
 
             # get projections of industrial wood and paper product demand
@@ -4693,7 +4862,7 @@ class AFOLU:
             ind_wood = attr_ippu.get_key_value_index(self.cat_ippu_wood)
 
             # production data
-            arr_production, dfs_ippu_harvested_wood = self.model_ippu.get_production_with_recycling_adjustment(
+            _, dfs_ippu_harvested_wood = self.model_ippu.get_production_with_recycling_adjustment(
                 df_afolu_trajectories, 
                 vec_rates_gdp
             )
@@ -4726,14 +4895,7 @@ class AFOLU:
                 i += 1
 
             # remove some unneeded vars
-            array_ippu_production = 0
-            dfs_ippu_harvested_wood = 0
-
-        else:
-            arr_frst_harvested_wood_industrial = 0.0
-            vec_frst_harvested_wood_industrial_paper = 0.0
-            vec_frst_harvested_wood_industrial_wood = 0.0
-
+            dfs_ippu_harvested_wood = None
 
 
         ##  SCALE HH DEMAND FROM SCOE BASED ON BIOMASS? **REVISIT THIS
@@ -4833,8 +4995,7 @@ class AFOLU:
         else:
             # set up n_years_lookback to be based on historical
             n_years_lookback = 0
-            msg = f"""
-            Error in project_harvested_wood_products(): 
+            msg = f"""Error in project_harvested_wood_products(): 
             historical_harvested_wood_products_method 'historical' not supported 
             at the moment.
             """
@@ -4874,6 +5035,7 @@ class AFOLU:
             
         vec_frst_c_from_hwp_paper_delta = vec_frst_c_from_hwp_paper[1:] - vec_frst_c_from_hwp_paper[0:-1]
         vec_frst_c_from_hwp_wood_delta = vec_frst_c_from_hwp_wood[1:] - vec_frst_c_from_hwp_wood[0:-1]
+
 
 
         # get emissions from co2
@@ -5292,7 +5454,9 @@ class AFOLU:
             "area"
         )
 
-        # get the initial distribution of land
+
+        ##  INITIAL LAND DISTRIBUTION
+
         vec_modvar_lndu_initial_frac = self.model_attributes.extract_model_variable(#
             df_afolu_trajectories, 
             self.modvar_lndu_initial_frac, 
@@ -5302,21 +5466,36 @@ class AFOLU:
         area_init = vec_area[0]
         vec_modvar_lndu_initial_area = vec_modvar_lndu_initial_frac*area_init
 
-        arrs_lndu_q_unadj, arrs_lndu_ef_conv = self.get_markov_matrices(
+
+        ##  TRANSITION MATRICES AND CARBON FACTORS
+
+        tup = self.get_markov_matrices(
             df_afolu_trajectories, 
             correct_emission_units = True,
             n_tp = n_projection_time_periods,
+            return_c_stock_conversion_factors = True,
             target_units_area_modvar = self.model_socioeconomic.modvar_gnrl_area,
         )
 
-        # factor for reallocating land in adjustment
+        (
+            arrs_lndu_q_unadj,
+            arrs_lndu_c_agb, 
+            arrs_lndu_c_bgb,
+            arr_lndu_c_init_agb,
+        ) = tup
+
+        
+        ##  REALLOCATION FACTOR
+
         vec_lndu_reallocation_factor = self.model_attributes.extract_model_variable(#
             df_afolu_trajectories,
             self.modvar_lndu_reallocation_factor,
             return_type = "array_base",
         )
 
-        # get constraints to pass
+
+        ##  AREA CONSTRAINTS BY CLASS
+
         (
             arr_lndu_constraints_inf,
             arr_lndu_constraints_sup,
@@ -5325,7 +5504,9 @@ class AFOLU:
             vec_modvar_lndu_initial_area,
         )
 
-        # get fractions of increasing net exports/exports met
+
+        ##  FRACTIONS OF INCREASING NET IMPORTS/EXPORTS MET
+
         arr_lndu_frac_increasing_net_exports_met = self.model_attributes.extract_model_variable(#
             df_afolu_trajectories,
             self.modvar_lndu_frac_increasing_net_exports_met,
@@ -5369,7 +5550,7 @@ class AFOLU:
             df_afolu_trajectories,
             vec_modvar_lndu_initial_area,
             vec_pop,
-            vec_rates_gdp_per_capita
+            vec_rates_gdp_per_capita,
         )
         
 
@@ -5396,7 +5577,9 @@ class AFOLU:
         ) = self.project_integrated_land_use(
             vec_modvar_lndu_initial_area,
             arrs_lndu_q_unadj,
-            arrs_lndu_ef_conv,
+            arrs_lndu_c_agb,
+            arrs_lndu_c_bgb,
+            arr_lndu_c_init_agb,
             arr_agrc_production_nonfeed_unadj,
             arr_agrc_yf,
             arr_lndu_constraints_inf,

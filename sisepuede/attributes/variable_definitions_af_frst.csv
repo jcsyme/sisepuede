@@ -20,14 +20,15 @@ Input,Forest Sequestration Emission Factor," | Annual average :math:`\text{CO}_2
  | * 3.05 ± 0.5 tonne C/ha/year (seconary)
  | * 11-20 times less for primary
 ","``ef_frst_sequestration_$CAT-FOREST$_$UNIT-MASS$_$EMISSION-GAS$_$UNIT-AREA$`` (``$EMISSION-GAS$ = co2``, ``$UNIT-AREA$ = ha``, ``$UNIT-MASS$ = kt``)",all,,0,1,1,,0,none,none,,,
+Input,Fraction of Forest Converted C Available for Use,Fraction of carbon stock in forests that is available for use in energy production (biomass) and harvested wood production (HWP). ,``frac_frst_c_stock_converted_available_for_use_$CAT-FOREST$``,all,,0.5,1,1,,0,none,none,,,
+Input,HWP Half Life Paper,Half life of carbon sequestered in paper products (HWP),``hl_frst_half_life_hwp_paper_products``,none,,0,1,1,,0,none,none,,,
+Input,HWP Half Life Wood,Half life of carbon sequestered in wood products (HWP),``hl_frst_half_life_hwp_wood_products``,none,,0,1,1,,0,none,none,,,
 Input,Young Secondary Forest Sequestration Emission Factor," |Annual average :math:`\text{CO}_2` emitted per ha from sequestration in YOUNG (age < 20 yrs) secondary forestrs (entered as a number > 0, this is a positive number)
  | 
  |  NOTE: Young secondary forests (incl. plantations) sequester high amounts of carbon for a short period of time. This is only used if dynamic forest sequestration is turned on; otherwise, this variable is ignored.
 ","``ef_frst_sequestration_young_$CAT-FOREST$_$UNIT-MASS$_$EMISSION-GAS$_$UNIT-AREA$`` (``$EMISSION-GAS$ = co2``, ``$UNIT-AREA$ = ha``, ``$UNIT-MASS$ = kt``)",``secondary``,,0,1,1,,0,none,none,,,
-Input,HWP Half Life Paper,,``hl_frst_half_life_hwp_paper_products``,none,,0,1,1,,0,none,none,,,
-Input,HWP Half Life Wood,,``hl_frst_half_life_hwp_wood_products``,none,,0,1,1,,0,none,none,,,
-Input,Initial Per Household Wood Demand,Demand per household for wood use in the home at time :math:`t = 0`,``deminit_frst_wood_home_use_$UNIT-MASS$_per_hh`` (``$UNIT-MASS$ = kg``),none,,0,1,1,,0,none,none,,,
 Output,:math:`\text{CH}_4` Emissions from Forests,Total methane emissions from forests,``emission_co2e_$EMISSION-GAS$_frst_methane_$CAT-FOREST$`` (``$EMISSION-GAS$ = ch4``),all,,0,1,1,,1,none,none,,,
-Output,:math:`\text{CO}_2` Emissions from Forest Fires,,``emission_co2e_$EMISSION-GAS$_frst_forest_fires`` (``$EMISSION-GAS$ = co2``),none,,0,1,1,,1,none,none,,,
 Output,:math:`\text{CO}_2` Emissions from Forest Biomass Sequestration,Sequestration in forests modeled as negative emissions,``emission_co2e_$EMISSION-GAS$_frst_sequestration_$CAT-FOREST$`` (``$EMISSION-GAS$ = co2``),all,,0,1,1,,1,none,none,,,
+Output,:math:`\text{CO}_2` Emissions from Forest Fires,,``emission_co2e_$EMISSION-GAS$_frst_forest_fires`` (``$EMISSION-GAS$ = co2``),none,,0,1,1,,1,none,none,,,
 Output,:math:`\text{CO}_2` Emissions from Harvested Wood Products,,``emission_co2e_$EMISSION-GAS$_frst_harvested_wood_products`` (``$EMISSION-GAS$ = co2``),none,,0,1,1,,1,none,none,,,
+Output,Above Ground C Stock in Forests,Total estimated c stock in forests,``c_stock_frst_total_$UNIT-MASS$`` (``$UNIT-MASS$ = mt``),none,,0,1,1,,0,none,none,,,
