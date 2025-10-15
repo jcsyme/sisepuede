@@ -2049,18 +2049,16 @@ class Transformers:
         cats_renewable: Union[List[str], None], 
         dict_entc_renewable_target_msp: dict,
     ) -> List[str]:
-        """
-        Set any targets for renewable energy categories. Relies on 
+        """Set any targets for renewable energy categories. Relies on 
             cats_renewable to verify keys in renewable_target_entc
         
         Keyword Arguments
         -----------------
-        - dict_config: dictionary mapping input configuration arguments to key 
-            values. Must include the following keys:
-
-            * dict_entc_renewable_target_msp: dictionary of renewable energy
-                categories mapped to MSP targets under the renewable target
-                transformation
+        cats_renewable : Union[List[str], None]
+            Categories considered renewable
+        dict_entc_renewable_target_msp : Dict[str, Union[float, int]]
+            Dictionary of renewable energy categories mapped to MSP targets 
+            under the renewable target transformation
         """
         dict_entc_renewable_target_msp = (
             {}
@@ -2953,6 +2951,7 @@ class Transformers:
 
         self.categories_entc_max_investment_ramp = categories_entc_max_investment_ramp
 
+
         ##  AFOLU BASE
 
         # set land use reallocation factor
@@ -2989,6 +2988,7 @@ class Transformers:
         # NEW ADDITION (2023-09-27): ALLOW FOR BASELINE INCREASE IN RENEWABLE ADOPTION
 
         target_renewables_value_min = sum(dict_entc_renewable_target_msp_baseline.values())
+
 
         # apply transformation
         df_out = tbe.transformation_entc_renewable_target(

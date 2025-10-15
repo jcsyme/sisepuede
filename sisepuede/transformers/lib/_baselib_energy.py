@@ -29,19 +29,18 @@ def get_renewable_categories_from_inputs_final_tp(
     df_input: pd.DataFrame,
     model_enerprod: ml.EnergyProduction,
 ) -> Union[Dict[str, float], None]:
-    """
-    Get renewable categories from the input DataFrame. Returns a
-        dictionary mapping each renewble category to its fraction of 
-        production considered renewable in the final time period. If an
-        error occurs, returns None.
+    """Get renewable categories from the input DataFrame. Returns a dictionary 
+        mapping each renewble category to its fraction of production considered 
+        renewable in the final time period. If an error occurs, returns None.
         
     
     Function Arguments
     ------------------
-    - df_input: input data frame containing 
+    df_input : pd.DataFrame
+        Input data frame containing 
         model_enerprod.modvar_entc_nemomod_renewable_tag_technology
-    - model_enerprod: ElectricEnercy model used to obtain variables
-        and call model attributes
+    model_enerprod : ElectricEnergy
+        ElectricEnergy model used to obtain variables and call model attributes
     
     
     Keyword Arguments
@@ -97,8 +96,7 @@ def transformation_ccsq_increase_direct_air_capture(
     model_enercons: Union[me.EnergyConsumption, None] = None,
     **kwargs
 ) -> pd.DataFrame:
-    """
-    Implement the "Increase direct air capture" transformation
+    """Implement the "Increase direct air capture" transformation
 
     Function Arguments
     ------------------
@@ -251,8 +249,7 @@ def transformation_entc_change_msp_max(
     vec_ramp: Union[np.ndarray, None] = None,
     **kwargs
 ) -> pd.DataFrame:
-    """
-    Implement a transformation for the baseline to resolve constraint
+    """Implement a transformation for the baseline to resolve constraint
         conflicts between TotalTechnologyAnnualActivityUpperLimit/
         TotalTechnologyAnnualActivityLowerLimit if MinShareProduction is 
         Specified. 
@@ -297,26 +294,29 @@ def transformation_entc_change_msp_max(
 
     Function Arguments
     ------------------
-    - df_input: input data frame containing baseline trajectories
-    - dict_cat_to_vector: dictionary mapping a technology category to two an 
-        input vector. The vector uses a drop flag to (generally -999) to 
-        identify time periods that are not subject to an MSP Max Prod; other 
-        values greater than 0 are used to identify the maximum deviation 
-        from the *last time period with a non-drop flag*, entered as a 
-        proportion.
-    - model_enerprod: Electricity and Fuel Production model used to call 
-        variables
+    df_input : pd.DataFrame
+        Input DataFrame containing baseline trajectories
+    dict_cat_to_vector : Dict[str, float]
+        Dictionary mapping a technology category to two an input vector. The 
+        vector uses a drop flag to (generally -999) to identify time periods 
+        that are not subject to an MSP Max Prod; other values greater than 0 are 
+        used to identify the maximum deviation from the *last time period with a 
+        non-drop flag*, entered as a proportion.
+    model_enerprod : EnergyProduction
+        EnergyProduction model used to call variables
 
     Keyword Arguments
     -----------------
-    - drop_flag: value in 
-        model_enerprod.modvar_entc_max_elec_prod_increase_for_msp used to 
-        signal the presence of no constraint. Defaults to 
+    drop_flag : Union[int, float, None]
+        Value in model_enerprod.modvar_entc_max_elec_prod_increase_for_msp used 
+        to signal the presence of no constraint. Defaults to 
         model_enerprod.drop_flag_tech_capacities if None
-    - vec_ramp: ramp vec used for implementation
+    vec_ramp : Union[np.ndarray, None]
+        Ramp vector used for implementation
         * NOTE: if dict_cat_to_vector, will defaulto cap hydro based on the 
             implementation schedule. If both 
-    - **kwargs: passed to ade.transformations_general()
+    **kwargs : 
+        Passed to ade.transformations_general()
     """
     if (not isinstance(dict_cat_to_vector, dict)) & (not sf.islistlike(vec_ramp)):
         return df_input

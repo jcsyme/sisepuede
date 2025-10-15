@@ -333,8 +333,7 @@ def bounded_outer_diff(
     bounds: tuple = (0, np.inf),
     vec_2: Union[np.ndarray, None] = None,
 ) -> np.ndarray:
-    """
-    Map vector to its outer product s.t. A_{ij} = vec_i - vec_j. Optional
+    """Map vector to its outer product s.t. A_{ij} = vec_i - vec_j. Optional
         inclusion of bounds and secondary vector (vec_2) to include in outer
         subtraction product. 
     """

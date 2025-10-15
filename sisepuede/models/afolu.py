@@ -10,6 +10,7 @@ from typing import *
 
 from sisepuede.core.attribute_table import AttributeTable
 from sisepuede.core.model_attributes import *
+from sisepuede.core.model_variable import is_model_variable
 from sisepuede.models.energy_consumption import EnergyConsumption
 from sisepuede.models.ippu import IPPU
 from sisepuede.models.socioeconomic import Socioeconomic
@@ -348,7 +349,25 @@ class AFOLU:
             * self.dict_integration_variables_by_subsector
             * self.integration_variables
         """
+
+        # initialize some variables not initialized elsewhere
+        modvar_entc_efficiency_factor_technology = "Technology Efficiency of Fuel Use"
+        modvar_entc_nemomod_min_share_production = "NemoMod MinShareProduction"
+        modvar_entc_nemomod_residual_capacity = "NemoMod ResidualCapacity"
+
         dict_vars_required_for_integration = {
+            # enfu variables that are required
+            self.subsec_name_enfu: [
+                self.model_enercons.modvar_enfu_energy_density_gravimetric
+            ],
+
+            # entc variables required for estimating biomass demand from ENTC
+            self.subsec_name_entc: [
+                modvar_entc_efficiency_factor_technology,
+                modvar_entc_nemomod_min_share_production,
+                modvar_entc_nemomod_residual_capacity
+            ],
+
             # ippu variables required for estimating HWP
             self.subsec_name_ippu: [
                 self.model_ippu.modvar_ippu_average_lifespan_housing,
@@ -363,6 +382,7 @@ class AFOLU:
                 self.model_ippu.modvar_ippu_ratio_of_production_to_harvested_wood,
                 self.model_ippu.modvar_waso_waste_total_recycled
             ],
+
             # SCOE variables required for projecting changes to wood energy demand
             self.subsec_name_scoe: [
                 self.model_enercons.modvar_scoe_consumpinit_energy_per_hh_elec,
@@ -399,6 +419,12 @@ class AFOLU:
         for k in dict_vars_required_for_integration.keys():
             list_vars_required_for_integration += dict_vars_required_for_integration[k]
 
+        
+        ##  SET PROPERTIES
+
+        self.modvar_entc_efficiency_factor_technology = modvar_entc_efficiency_factor_technology
+        self.modvar_entc_nemomod_min_share_production = modvar_entc_nemomod_min_share_production
+        self.modvar_entc_nemomod_residual_capacity = modvar_entc_nemomod_residual_capacity
         self.dict_integration_variables_by_subsector = dict_vars_required_for_integration
         self.integration_variables = list_vars_required_for_integration
 
@@ -699,7 +725,6 @@ class AFOLU:
         self.modvar_frst_biomass_consumed_fire_temperate = "Fire Biomass Consumption for Temperate Forests"
         self.modvar_frst_biomass_consumed_fire_tropical = "Fire Biomass Consumption for Tropical Forests"
         self.modvar_frst_c_stock = "Above Ground C Stock in Forests"
-        self.modvar_frst_ef_c_per_hwp = "C Carbon Harvested Wood Products Emission Factor"
         self.modvar_frst_ef_co2_fires = ":math:\\text{CO}_2 Forest Fire Emission Factor"
         self.modvar_frst_ef_ch4 = ":math:\\text{CH}_4 Forest Methane Emissions"
         self.modvar_frst_emissions_co2_fires = ":math:\\text{CO}_2 Emissions from Forest Fires"
@@ -707,6 +732,8 @@ class AFOLU:
         self.modvar_frst_emissions_ch4 = ":math:\\text{CH}_4 Emissions from Forests"
         self.modvar_frst_emissions_co2_sequestration = ":math:\\text{CO}_2 Emissions from Forest Biomass Sequestration"
         self.modvar_frst_frac_c_converted_available = "Fraction of Forest Converted C Available for Use"
+        self.modvar_frst_frac_c_per_dm = "Carbon Fraction Dry Matter"
+        self.modvar_frst_frac_c_per_hwp = "Carbon Fraction Harvested Wood Products"
         self.modvar_frst_frac_temperate_nutrient_poor = "Forest Fraction Temperate Nutrient Poor"
         self.modvar_frst_frac_temperate_nutrient_rich = "Forest Fraction Temperate Nutrient Rich"
         self.modvar_frst_frac_tropical = "Forest Fraction Tropical"
@@ -1574,14 +1601,715 @@ class AFOLU:
 
 
 
+    def convert_fuelwood_to_c_equivalent(self,
+        df_afolu_trajectories: pd.DataFrame,
+        vec_energy_demand_fuelwood: Union[float, np.ndarray],
+        modvar_frac_c: Union['ModelVariable', None] = None,
+        units_energy: Union['ModelVariable', str, None] = None,
+        units_mass: Union['ModelVariable', str, None] = None,
+    ) -> Union[float, np.ndarray]:
+        """Convert energy demand for wood into aboveground carbon removal 
+            equivalent. 
+
+        Function Arguments
+        ------------------
+        df_afolu_trajectories : pd.DataFrame
+            DataFrame containing trajectories used to get key variables
+        vec_energy_demand_fuelwood : Union[float, np.ndarray]
+            Vector or float denoting energy demand for biomass (fuelwood). 
+
+        Keyword Arguments
+        -----------------
+        modvar_frac_c : Union['ModelVariable', None]
+            Optional model variable to use to specify fraction of C that makes
+            up mass. If None, defaults to `self.modvar_frst_frac_c_per_dm`
+        units_energy : Union['ModelVariable', str, None]
+            Optional specification of energy units for input vector. If None, 
+            defaults to configuration values. 
+        units_mass : Union['ModelVariable', str, None]
+            Optional specification of mass units for C equivalent. If None, 
+            defaults to configuration values. 
+        """
+        
+        ##  INITIALIZATION 
+
+        attr_enfu = self.model_attributes.get_attribute_table(
+            self.model_attributes.subsec_name_enfu,
+        )
+        cat_biomass = self.model_enercons.cat_enfu_biomass
+        ind_biomass = attr_enfu.get_key_value_index(cat_biomass, )
+
+        # get model variables--start with gravimetric energy demand
+        modvar_ged = self.model_attributes.get_variable(
+            self.model_enercons.modvar_enfu_energy_density_gravimetric,
+        )
+
+        # get C per dry matter to use
+        modvar_c_per_dm = self.model_attributes.get_variable(modvar_frac_c, )
+        if modvar_c_per_dm is None:
+            modvar_c_per_dm = self.model_attributes.get_variable(
+                self.modvar_frst_frac_c_per_dm, 
+            )
+
+        
+        ##  EXTRACT VARIABLES
+
+        # extract gravimetric energy demand
+        arr_enfu_ged = self.model_attributes.extract_model_variable(
+            df_afolu_trajectories,
+            modvar_ged,
+            expand_to_all_cats = True,
+            return_type = "array_base",
+        )
+
+        # c fraction
+        vec_frst_c_frac = self.model_attributes.extract_model_variable(
+            df_afolu_trajectories,
+            modvar_c_per_dm,
+            override_vector_for_single_mv_q = False,
+            return_type = "array_base",
+            var_bounds = (0, 1),
+        )
+
+        
+        ##  CONVERT
+        
+        um_energy = self.model_attributes.get_unit("energy")
+        um_mass = self.model_attributes.get_unit("mass")
+        units_energy = self.get_units_from_specification(units_energy, "energy", )
+        units_mass = self.get_units_from_specification(units_mass, "mass", )
+
+        # convert to energy units and mass units
+        arr_enfu_ged *= um_energy.convert(
+            modvar_ged.attribute("unit_energy"),
+            units_energy,
+        )
+
+        arr_enfu_ged /= um_mass.convert(
+            modvar_ged.attribute("unit_mass"), # tonne 
+            units_mass, # kg
+        )
+
+        # get biomass as 
+        vec_ged_biomass = arr_enfu_ged[:, ind_biomass]
+        vec_mass_biomass = vec_ged_biomass/vec_energy_demand_fuelwood
+        vec_mass_c = vec_mass_biomass*vec_frst_c_frac
+
+        return vec_mass_c
+
+
+
+    def estimate_biomass_demand_entc(self,
+        df_energy_trajectories: pd.DataFrame,
+        vec_fuel_demand_electricity: np.ndarray,
+        kludge_inflation_factor: float = 0.05,
+    ) -> np.ndarray:
+        """Estimate the demand for biomass coming from ENTC. Returns vector of
+            estimated biomass demand in configuration units.
+
+        Function Arguments
+        ------------------
+        df_energy_trajectories : pd.DataFrame
+            DataFrame containing trajectories used to estimate demand for 
+            biomass in ENTC
+        vec_fuel_demand_electricity : np.ndarray
+            Vector (with same length as df_energy_trajectories.shape[0])
+            containing total electricity demand from consumption sectors in
+            configuration units
+        attr_enfu : AttributeTable
+            AttributeTable for Energy Fuels
+        ind_biomass: int
+            Index in Energy Fuels categories storing fuel_biomass
+        ind_electricity : int
+            Index in Energy Fuels categories storing fuel_electricity
+
+        Keyword Arguments
+        -----------------
+        kludge_inflation_factor : float
+            Inflate the estimate by 1 + kludge_inflation_factor; accounts for
+            endogenous electricity demand.
+
+            NOTE: This could be too low in regions with high amounts of fuel
+            production; however, those regions rarely use large amounts of 
+            biomass for fuel (especially in electricity production), and this is 
+            expected to be a rare problem.
+        """
+
+        ##  INITIALIZATION OF MODEL ATTRIBUTES INFO
+
+        # attribute table
+        attr_entc = self.model_attributes.get_attribute_table(
+            self.model_attributes.subsec_name_entc,
+        )
+
+        # get the powerplant category associated with biomass
+        cat_entc_biomass = self.model_attributes.filter_keys_by_attribute(
+            self.model_attributes.subsec_name_entc,
+            {
+                "electricity_generation_cat_fuel": unclean_category(self.model_enercons.cat_enfu_biomass)
+            }
+        )[0]
+
+        ind_entc_biomass = attr_entc.get_key_value_index(cat_entc_biomass, )
+
+
+        # get model variables
+        modvar_entc_efficiency = self.model_attributes.get_variable(
+            self.modvar_entc_efficiency_factor_technology,
+        )
+        modvar_entc_msp = self.model_attributes.get_variable(
+            self.modvar_entc_nemomod_min_share_production,
+        )
+        modvar_entc_rc = self.model_attributes.get_variable(
+            self.modvar_entc_nemomod_residual_capacity,
+        )
+
+        # get some units managers
+        um_energy = self.model_attributes.get_unit("energy")
+        um_power = self.model_attributes.get_unit("power")
+        
+
+        ##########################
+        #    START ESTIMATION    #
+        ##########################
+
+        """ESTIMATION APPROACH:
+
+            1.  Get residual capacity and estimate how much would be produced at 
+                max (e_cap)
+            2.  Using electricity required from consumption subsectors, 
+                calculate residual MSP (e_res = 1 - total_msp_accounted)
+            3.  Estimate e_msp as E_total*MSP_biomass (total electricity)
+            4.  Set the estimate elementwise as:
+                    min(max(e_cap, e_msp), e_msp + e_res)
+        """
+
+        ##  GET EFFICIENCY OF BIOMASS PLANT
+
+        arr_efficiency_factors = self.model_attributes.extract_model_variable(
+            df_energy_trajectories,
+            modvar_entc_efficiency,
+            all_cats_missing_val = 0.0,
+            expand_to_all_cats = True,
+            return_type = "array_base",
+            var_bounds = (0, np.inf), 
+        )
+
+        vec_efficiciency_biomass = arr_efficiency_factors[:, ind_entc_biomass]
+        
+
+        ##  GET RESIDUAL CAPACITY OF BIOMASS
+        #   - use this if MSP is 0 and the residual MSP (1 - total accounted)
+        arr_residual_capacity = self.model_attributes.extract_model_variable(
+            df_energy_trajectories,
+            modvar_entc_rc,
+            all_cats_missing_val = 0.0,
+            expand_to_all_cats = True,
+            return_type = "array_base",
+        )
+
+        # convert to GW to ensure can be converted to GWY
+        units_power_intermediate = "gw"
+        units_energy = self.model_attributes.get_energy_power_swap(
+            units_power_intermediate, 
+        )
+
+        # get the scalars we'll use to convert
+        scalar_energy = self.model_attributes.get_energy_equivalent(
+            units_energy,
+        )
+        scalar_power = um_power.convert(
+            modvar_entc_rc.attribute("unit_power"),
+            units_power_intermediate,
+        ) 
+
+        # convert to the intermediate power units,
+        #  which are then translated to annual equivalents, 
+        #  and finally config units
+        arr_residual_capacity *= scalar_power
+        arr_residual_capacity *= scalar_energy
+
+        # get the estimated capacity number
+        vec_biomass_cap = arr_residual_capacity[:, ind_entc_biomass]
+
+        
+        ##  ESTIMATE MSP
+
+        arr_msp = self.model_attributes.extract_model_variable(
+            df_energy_trajectories,
+            modvar_entc_msp,
+            all_cats_missing_val = 0.0,
+            expand_to_all_cats = True,
+            return_type = "array_base",
+            var_bounds = (0, 1),
+        )
+
+        vec_sums = arr_msp.sum(axis = 1, )
+        if (vec_sums.max() > 1) or (vec_sums.min() < 0):
+            raise RuntimeError(f"Invalid {modvar_entc_msp.name} values found: sum must not exceed 1 or be below 0.")
+        
+        # get biomass residual potential and specified share of production
+        vec_biomass_residual_potential = (1 - vec_sums)*vec_fuel_demand_electricity
+        vec_biomass_msp = arr_msp[:, ind_entc_biomass]*vec_fuel_demand_electricity
+        
+        # build the estimate
+        vec_estimate = np.max(
+            np.array(
+                [
+                    vec_biomass_cap,
+                    vec_biomass_msp
+                ]
+            ),
+            axis = 0,
+        )
+
+        vec_estimate = np.min(
+            np.array(
+                [
+                    vec_estimate,
+                    vec_biomass_msp + vec_biomass_residual_potential
+                ]
+            ),
+            axis = 0,
+        )
+        
+        # inflate by inverse efficiency factor to get input fuel demand
+        vec_estimate = np.nan_to_num(
+            vec_estimate/vec_efficiciency_biomass,
+            nan = 0.0,
+            posinf = 0.0,
+        )
+
+        # inflate with kludge?
+        if sf.isnumber(kludge_inflation_factor):
+            vec_estimate *= kludge_inflation_factor
+
+        return vec_estimate
+    
+
+
+    def estimate_c_demand_fuelwood_noag(self,
+        df_afolu_trajectories: pd.DataFrame,
+        df_ippu_production: pd.DataFrame,
+        convert_to_c: bool = True,
+        **kwargs,
+    ) -> np.ndarray:
+        """Estimate the specified demand fir mass of c removals in term of a 
+            target model variable. Later gets adjusted if stock is not 
+            available.
+        
+        Combines biomass energy demands from SCOE, INEN, and ENTC (as estimated) 
+            and combines those
+
+        NOTE:
+            - emissions from AG/LVST industrial use are estimated using GDP. 
+
+        Function Arguments
+        ------------------
+        df_afolu_trajectories : pd.DataFrame
+            DataFrame containing trajectories used to estimate removals
+        df_ippu_production : np.ndarray
+            DataFrame containing IPPU production estimates (from internal model
+            run; will adjust later)
+        attr_enfu : AttributeTable
+            AttributeTable for Energy Fuels
+        ind_biomass: int
+            Index in Energy Fuels categories storing fuel_biomass
+        ind_electricity : int
+            Index in Energy Fuels categories storing fuel_electricity
+
+        Keyword Arguments
+        -----------------
+        convert_to_c : bool
+            Set to True to convert output to C. If True, can pass units via 
+            kwargs to convert_fuelwood_to_c_equivalent()
+        kwargs :
+            Passed to convert_fuelwood_to_c_equivalent()
+        """
+        ##  INITIALIZATION
+
+        # get some model attribute related information
+        attr_enfu = self.model_attributes.get_attribute_table(self.subsec_name_enfu)
+        modvar_ag = self.model_attributes.get_variable(self.modvar_agrc_yield, )
+        modvar_lvst = self.model_attributes.get_variable(self.modvar_lvst_total_animal_mass, )
+
+        # get some indices
+        ind_enfu_biomass = attr_enfu.get_key_value_index(self.cat_enfu_biomass)
+        ind_enfu_electricity = attr_enfu.get_key_value_index(self.model_enercons.cat_enfu_electricity)
+
+
+        ##  BUILD INPUT FOR EnergyConsumption
+
+        # generate yield/lvst pop + production
+        df_for_enercons = sf._concat_df(
+            [
+                df_afolu_trajectories.copy(),
+                df_ippu_production,
+            ], 
+            axis = 1,
+        )
+
+        # set ag/lvst to 0 for now; will add later in project_integrated_land_use()
+        df_for_enercons = modvar_ag.spawn_default_dataframe(
+            df_base = df_for_enercons,
+            fill_value = 0.0,
+        )
+
+        df_for_enercons = modvar_lvst.spawn_default_dataframe(
+            df_base = df_for_enercons,
+            fill_value = 0.0,
+        )     
+
+        # try to run the model 
+        try:
+            df_energy_cons_out = self.model_enercons(df_for_enercons, )
+
+        except Exception as e:
+            raise RuntimeError(f"Running of EnergyConsumption model for biomass estimates failed with error: {e}")
+
+        
+        ##  GET ENERGY DEMANDS--WILL REQUIRE ESTIMATING ELECTRICITY DEMANDS FROM BIOMASS
+
+        modvars = [
+            self.model_enercons.modvar_enfu_energy_demand_by_fuel_ccsq,
+            self.model_enercons.modvar_enfu_energy_demand_by_fuel_inen,
+            self.model_enercons.modvar_enfu_energy_demand_by_fuel_scoe,
+            self.model_enercons.modvar_enfu_energy_demand_by_fuel_trns,
+        ] 
+
+        # initialize fuel demands
+        vec_fuel_demand_biomass = 0
+        vec_fuel_demand_electricity = 0
+
+        for modvar in modvars:
+            # get energy demand for fuels
+            arr_fuel_demand = self.model_attributes.extract_model_variable(#
+                df_energy_cons_out,
+                modvar,
+                all_cats_missing_val = 0.0,
+                extraction_logic = "all",
+                expand_to_all_cats = True,
+                return_type = "array_base",
+            )
+
+            # convert to config units for now
+            arr_fuel_demand *= self.model_attributes.get_scalar(
+                modvar, 
+                return_type = "energy",
+            )
+
+            vec_fuel_demand_biomass += arr_fuel_demand[:, ind_enfu_biomass]
+            vec_fuel_demand_electricity += arr_fuel_demand[:, ind_enfu_electricity]
+
+    
+        # estimate any specified ENTC demand
+        vec_fuel_demand_biomass_entc = self.estimate_biomass_demand_entc(
+            df_for_enercons,
+            vec_fuel_demand_electricity,
+            **kwargs,
+        )
+
+        # get biomass demand and return if not converting to C
+        vec_fuel_demand_biomass_out = vec_fuel_demand_biomass + vec_fuel_demand_biomass_entc
+        if not convert_to_c:
+            return vec_fuel_demand_biomass_out
+        
+        
+        # convert to C and return
+        vec_c_demand = self.convert_fuelwood_to_c_equivalent(
+            df_afolu_trajectories,
+            vec_fuel_demand_biomass_out,
+            modvar_frac_c = self.modvar_frst_frac_c_per_dm,
+            **kwargs,
+        )
+
+        return vec_c_demand
+    
+
+
+    def estimate_c_demand_from_hwp_and_removals(self, #HEREHEREHEREHERE
+        df_afolu_trajectories: pd.DataFrame,
+        vec_rates_gdp: np.ndarray,
+        dict_check_integrated_variables: dict,
+        units_mass_out: Union['ModelVariable', str, None] = None,
+        **kwargs,
+    ) -> Tuple[np.ndarray, np.ndarray]:
+        """Estimate the demand for C from Harvested Wood Production (HWP) and 
+            fuel wood removal. Estimates total C requirement in terms of 
+            configuration Emissions Mass units (or other unit specified using
+            `units_mass_out` kwarg).
+
+        Returns a Tuple of the form
+        
+            (
+                vec_frst_c_fuel,
+                vec_frst_c_paper,
+                vec_frst_c_wood,
+            )
+
+        Function Arguments
+        ------------------
+        df_afolu_trajectories : pd.DataFrame
+            DataFrame containing trajectories used to estimate wood removals
+        vec_rates_gdp : np.ndarray
+            Vector giving rates of GDP growth in same order as 
+            df_afolu_trajectories [length = n_rows(df_afolu_trajectories) - 1]
+        dict_check_integrated_variables : Dict[str, List[str]]
+
+
+        Keyword Arguments
+        -----------------
+        units_mass_out : Union['ModelVariable', str, None]
+            Units of mass for vec_frst_c_paper and vec_frst_c_wood. If None, it
+            is assumed that the units are configuration units.
+        **kwargs :
+            Passed to estimate_c_demand_fuelwood_noag()
+        """
+        ## 
+
+        # initialize some small checks and shorthands 
+        check_ippu = dict_check_integrated_variables.get(self.subsec_name_ippu)
+        check_scoe = dict_check_integrated_variables.get(self.subsec_name_scoe)
+        modvar_demand_hwp = self.model_attributes.get_variable(
+            self.model_ippu.modvar_ippu_demand_for_harvested_wood,
+        )
+
+
+        ##  ESTIMATE C DEMAND FROM HWP
+
+        # IPPU components--initialize hwp vectors
+        arr_frst_harvested_wood_industrial = 0.0
+        vec_frst_harvested_wood_industrial_paper = 0.0
+        vec_frst_harvested_wood_industrial_wood = 0.0
+    
+
+        # get projections of industrial wood and paper product demand
+        attr_ippu = self.model_attributes.get_attribute_table(self.subsec_name_ippu)
+        ind_paper = attr_ippu.get_key_value_index(self.cat_ippu_paper)
+        ind_wood = attr_ippu.get_key_value_index(self.cat_ippu_wood)
+
+        # production data
+        _, dfs_ippu_harvested_wood = self.model_ippu.get_production_with_recycling_adjustment(
+            df_afolu_trajectories, 
+            vec_rates_gdp
+        )
+
+        # get industrial production demand for HWP
+        arr_frst_harvested_wood_industrial = self.model_attributes.extract_model_variable(#
+            dfs_ippu_harvested_wood[1], 
+            modvar_demand_hwp, 
+            expand_to_all_cats = True,
+            return_type = "array_base", 
+        )
+
+        vec_frst_harvested_wood_industrial_paper = arr_frst_harvested_wood_industrial[:, ind_paper]
+        vec_frst_harvested_wood_industrial_wood = arr_frst_harvested_wood_industrial[:, ind_wood]
+
+        # get C fraction of HWP
+        vec_frst_ef_c = self.model_attributes.extract_model_variable(#
+            df_afolu_trajectories,
+            self.modvar_frst_frac_c_per_hwp,
+            return_type = "array_base",
+            var_bounds = (0, np.inf),
+        )
+        vec_frst_c_paper = vec_frst_harvested_wood_industrial_paper*vec_frst_ef_c
+        vec_frst_c_wood = vec_frst_harvested_wood_industrial_wood*vec_frst_ef_c
+
+
+        ##  DO UNIT CONVERSION
+
+        # get target unit, and convert from IPPU production mass to unit mass
+        um_mass = self.model_attributes.get_unit("mass")
+        units_mass_out = self.get_units_from_specification(units_mass_out, "mass", )
+        scalar = um_mass.convert(
+            modvar_demand_hwp.attribute("unit_mass"),
+            units_mass_out,
+        )
+
+        # update vecs out
+        vec_frst_c_paper *= scalar
+        vec_frst_c_wood *= scalar
+
+
+        ##  GET REMOVALS OF FUELWOOD
+
+        vec_frst_c_fuel = self.estimate_c_demand_fuelwood_noag(
+            df_afolu_trajectories,
+            dfs_ippu_harvested_wood[2],
+            units_mass = units_mass_out,
+            **kwargs,
+        )
+        
+
+        out = (
+            vec_frst_c_fuel,
+            vec_frst_c_paper,
+            vec_frst_c_wood,
+        )
+
+        return out
+
+
+    
+    def get_emissions_co2_from_hwp(self,
+        df_afolu_trajectories: pd.DataFrame,
+        vec_frst_c_paper: np.ndarray,
+        vec_frst_c_wood: np.ndarray,
+        units_mass: Union['ModelVariable', str, None] = None,
+    ) -> List[pd.DataFrame]:
+        """Estimate the CO2 emissions from Harvested Wood Products.
+
+        Function Arguments
+        ------------------
+        df_afolu_trajectories : 
+            DataFrame containing trajectories used to estimate wood removals
+        vec_frst_c_paper : np.ndarray
+            Vector of mass of forest C needed for paper
+        vec_frst_c_wood : np.ndarray
+            Vector of mass of forest C needed for wood products
+
+        Keyword Arguments
+        -----------------
+        units_mass : Union['ModelVariable', str, None]
+            Units of mass for vec_frst_c_paper and vec_frst_c_wood. If None, it
+            is assumed that the units are configuration units.
+        """
+
+        ##  INITIALIZATION
+
+        # back projection
+        historical_method = self.model_attributes.configuration.get("historical_harvested_wood_products_method")
+
+        # units conversion
+        um_mass = self.model_attributes.get_unit("mass")
+        units_mass_input = self.get_units_from_specification(units_mass, "mass", )
+        units_mass_config = self.get_units_from_specification(None, "mass", )
+
+        scalar_mass = um_mass.convert(units_mass_input, units_mass_config, )
+
+        
+        ##  PREPARE FOR FOD
+
+        # get half-life factors for FOD model - start with paper
+        vec_frst_k_hwp_paper = self.model_attributes.extract_model_variable(#
+            df_afolu_trajectories,
+            self.modvar_frst_hwp_half_life_paper,
+            return_type = "array_base",
+        )
+        vec_frst_k_hwp_paper = np.log(2)/vec_frst_k_hwp_paper
+
+        # add wood
+        vec_frst_k_hwp_wood = self.model_attributes.extract_model_variable(#
+            df_afolu_trajectories,
+            self.modvar_frst_hwp_half_life_wood,
+            return_type = "array_base",
+        )
+        vec_frst_k_hwp_wood = np.log(2)/vec_frst_k_hwp_wood
+
+        # totals
+        vec_frst_ef_c = self.model_attributes.extract_model_variable(#
+            df_afolu_trajectories,
+            self.modvar_frst_frac_c_per_hwp,
+            return_type = "array_base",
+            var_bounds = (0, np.inf),
+        )
+
+
+        # set a lookback based on some number of years (max half-life to estimate some amount of carbon stock)
+        if historical_method == "back_project":
+
+            n_years_lookback = int(self.model_attributes.configuration.get("historical_back_proj_n_periods"))
+
+            if n_years_lookback > 0:
+                
+                (
+                    vec_frst_c_paper,
+                    vec_frst_c_wood,
+                    vec_frst_k_hwp_paper,
+                    vec_frst_k_hwp_wood,
+                ) = self.back_project_hwp_c_k(
+                    n_years_lookback,
+                    vec_frst_c_paper,
+                    vec_frst_c_wood,
+                    vec_frst_k_hwp_paper,
+                    vec_frst_k_hwp_wood,
+                )
+
+
+        else:
+            # set up n_years_lookback to be based on historical
+            n_years_lookback = 0
+            msg = f"""Error in estimate_c_demand_from_hwp(): 
+            historical_harvested_wood_products_method 'historical' not supported 
+            at the moment.
+            """
+            raise ValueError(msg)
+
+
+        ## RUN ASSUMPTIONS USING STEADY-STATE ASSUMPTIONS (see Equation 12.4)
+
+        # initialize using Equation 12.4 for paper and wood
+        vec_frst_c_from_hwp_paper = np.zeros(len(vec_frst_k_hwp_paper))
+        vec_frst_c_from_hwp_paper[0] = np.mean(
+            vec_frst_c_paper[0:min(5, len(vec_frst_c_paper))]
+        )/vec_frst_k_hwp_paper[0]
+
+        vec_frst_c_from_hwp_wood = np.zeros(len(vec_frst_k_hwp_wood))
+        vec_frst_c_from_hwp_wood[0] = np.mean(
+            vec_frst_c_wood[0:min(5, len(vec_frst_c_wood))]
+        )/vec_frst_k_hwp_wood[0]
+
+
+        # First Order Decay (FOD) implementation
+        for i in range(len(vec_frst_c_from_hwp_paper) - 1):
+            # paper
+            current_stock_paper = vec_frst_c_from_hwp_paper[0] if (i == 0) else vec_frst_c_from_hwp_paper[i]
+            exp_k_paper = np.exp(-vec_frst_k_hwp_paper[i])
+            vec_frst_c_from_hwp_paper[i + 1] = current_stock_paper*exp_k_paper + ((1 - exp_k_paper)/vec_frst_k_hwp_paper[i])*vec_frst_c_paper[i]
+
+            # wood
+            current_stock_wood = vec_frst_c_from_hwp_wood[0] if (i == 0) else vec_frst_c_from_hwp_wood[i]
+            exp_k_wood = np.exp(-vec_frst_k_hwp_wood[i])
+            vec_frst_c_from_hwp_wood[i + 1] = current_stock_wood*exp_k_wood + ((1 - exp_k_wood)/vec_frst_k_hwp_wood[i])*vec_frst_c_wood[i]
+
+        # reduce from look back
+        if n_years_lookback > 0:
+            vec_frst_c_from_hwp_paper = vec_frst_c_from_hwp_paper[(n_years_lookback - 1):]
+            vec_frst_c_from_hwp_wood = vec_frst_c_from_hwp_wood[(n_years_lookback - 1):]
+            
+        vec_frst_c_from_hwp_paper_delta = vec_frst_c_from_hwp_paper[1:] - vec_frst_c_from_hwp_paper[0:-1]
+        vec_frst_c_from_hwp_wood_delta = vec_frst_c_from_hwp_wood[1:] - vec_frst_c_from_hwp_wood[0:-1]
+
+
+        # get emissions from co2
+        vec_frst_emissions_co2_hwp = vec_frst_c_from_hwp_paper_delta + vec_frst_c_from_hwp_wood_delta
+        vec_frst_emissions_co2_hwp *= -1*self.factor_c_to_co2
+        vec_frst_emissions_co2_hwp *= scalar_mass
+
+        #*= self.model_attributes.get_scalar(
+        #    self.model_ippu.modvar_ippu_demand_for_harvested_wood, 
+        #    "mass",
+        #)
+
+
+        list_dfs_out = [
+            self.model_attributes.array_to_df(
+                vec_frst_emissions_co2_hwp, 
+                self.modvar_frst_emissions_co2_hwp,
+            )
+        ]
+
+        return list_dfs_out
+    
+
+
     def format_lndu_conversion_emissions_and_scale_secondary_forest(self,
         arrs_lndu_emissions_conv_matrices: np.ndarray,
         scalar_secondary_forest_conversions: Union[np.ndarray, float] = 1.0,
     ) -> pd.DataFrame:
-        """
-        Scale conversion emissions *out* of secondary forest based on biomass
+        """Scale conversion emissions *out* of secondary forest based on biomass
             accumulation from NPP (calculate assuming that original secondary
-            is coverted first)
+            is coverted first) 
         """
         arrs_out = arrs_lndu_emissions_conv_matrices.copy()
         n, _ = arrs_out[0].shape
@@ -1604,7 +2332,6 @@ class AFOLU:
 
         return df_lndu_emissions_conv_matrices
         
-    
 
 
     def format_transition_matrix_as_input_dataframe(self,
@@ -3808,6 +4535,49 @@ class AFOLU:
         mat_out = mat_out.reshape((n, n))
         
         return mat_out
+    
+
+
+    def get_units_from_specification(self,
+        units_specifier: Union['ModelVariable', str, None],
+        units_type: str,
+    ) -> Union[str, None]:
+        """Based on a units specifier, get the units. Returns None if invalid
+            units_type is set.
+
+        Function Arguments
+        ------------------
+        units_specifier : Union['ModelVariable', str, None]
+            Optional specification of units; if a variable, attempts to match
+            units from the variable. If a string, attempts to set that as the 
+            units, but must be of valid units_type. If None, defaults to 
+            configuration values. 
+        units_type : str
+            "energy", "mass"
+        """
+
+        # only types supported in this shortcut
+        dict_type_to_config = {
+            "energy": "energy_units",
+            "mass": "emissions_mass",
+        }
+
+        key_config = dict_type_to_config.get(units_type, )
+        if key_config is None:
+            return None
+
+        # start with energy
+        um = self.model_attributes.get_unit(units_type)
+        if is_model_variable(units_specifier):
+            units_specifier = units_specifier.attribute(f"unit_{units_type}")
+
+        if isinstance(units_specifier, str):
+            units_specifier = um.get_unit_key(units_specifier)
+
+        if units_specifier is None:
+            units_specifier = self.model_attributes.configuration.get(key_config, )
+        
+        return units_specifier
 
 
 
@@ -4249,6 +5019,7 @@ class AFOLU:
 
 
     def project_integrated_land_use(self,
+        df_afolu_trajectories: pd.DataFrame,
         vec_initial_area: np.ndarray,
         arrs_transitions: np.ndarray,
         arrs_c_agb: np.ndarray,
@@ -4288,6 +5059,8 @@ class AFOLU:
 
         Function Arguments
         ------------------
+        df_afolu_trajectories : pd.DataFrame
+            Needed for accessing variables to estimate HWP/Biomass demands
         vec_initial_area : np.ndarray
             Initial state vector of area
         arrs_transitions : np.ndarray
@@ -4423,6 +5196,23 @@ class AFOLU:
 
         arrs_yields_per_livestock = np.array([arr_lndu_yield_by_lvst for k in range(n_tp)])
 
+        
+        # initialize biomass removals demand
+        ##  HARVESTED WOOD PRODUCTS
+
+
+        # add to output
+        df_out = self.estimate_c_demand_from_hwp(
+            df_afolu_trajectories,
+            vec_hh,
+            vec_gdp,
+            vec_rates_gdp,
+            vec_rates_gdp_per_capita,
+            dict_dims,
+            n_projection_time_periods,
+            projection_time_periods,
+            self.dict_integration_variables_by_subsector,
+        )
 
         ##  HEREHEREHERE
 
@@ -4804,257 +5594,6 @@ class AFOLU:
         self._log(f"Land use projection complete in {t_elapse} seconds.", type_log = "info")
 
         return arr_emissions_conv, arr_land_use, arrs_land_conv
-
-
-
-    def project_harvested_wood_products(self,
-        df_afolu_trajectories: pd.DataFrame,
-        vec_hh: np.ndarray,
-        vec_gdp: np.ndarray,
-        vec_rates_gdp: np.ndarray,
-        vec_rates_gdp_per_capita: np.ndarray,
-        dict_dims: dict,
-        n_projection_time_periods: int,
-        projection_time_periods: np.ndarray,
-        dict_check_integrated_variables: dict
-    ) -> List[pd.DataFrame]:
-        """Project sequestration from harvested wood products. Returns
-
-        Function Arguments
-        ------------------
-        - df_afolu_trajectories: DataFrame containing 
-        - vec_hh: np vector giving the number of households in same order as 
-            df_afolu_trajectories
-        - vec_gdp: np vector giving the GDP in same order as 
-            df_afolu_trajectories
-        - vec_rates_gdp: np vector giving rates of GDP growth in same order as 
-            df_afolu_trajectories [length = n_rows(df_afolu_trajectories) - 1]
-        - vec_rates_gdp_per_capita: np vector giving rates of GDP/Capita growth 
-            in same order as df_afolu_trajectories 
-            [length = n_rows(df_afolu_trajectories) - 1]
-        - dict_dims: 
-        - n_projection_time_periods:
-        - projection_time_periods:
-        - dict_check_integrated_variables:
-        """
-        ## 
-
-        # initialize some small checks and shorthands 
-        check_ippu = dict_check_integrated_variables.get(self.subsec_name_ippu)
-        check_scoe = dict_check_integrated_variables.get(self.subsec_name_scoe)
-        historical_method = self.model_attributes.configuration.get("historical_harvested_wood_products_method")
-
-
-        ##  CHECK DEMAND COMPONENTS FROM IPPU AND ENERGY (SCOE/INEN/ENTC EST.)
-
-        # IPPU components
-
-        arr_frst_harvested_wood_industrial = 0.0
-        vec_frst_harvested_wood_industrial_paper = 0.0
-        vec_frst_harvested_wood_industrial_wood = 0.0
-    
-        
-        if check_ippu is not None:
-
-            # get projections of industrial wood and paper product demand
-            attr_ippu = self.model_attributes.get_attribute_table(self.subsec_name_ippu)
-            ind_paper = attr_ippu.get_key_value_index(self.cat_ippu_paper)
-            ind_wood = attr_ippu.get_key_value_index(self.cat_ippu_wood)
-
-            # production data
-            _, dfs_ippu_harvested_wood = self.model_ippu.get_production_with_recycling_adjustment(
-                df_afolu_trajectories, 
-                vec_rates_gdp
-            )
-            list_ippu_vars = self.model_attributes.build_variable_fields(
-                self.model_ippu.modvar_ippu_demand_for_harvested_wood,
-            )
-
-            arr_frst_harvested_wood_industrial = 0.0
-            vec_frst_harvested_wood_industrial_paper = 0.0
-            vec_frst_harvested_wood_industrial_wood = 0.0
-
-            # find the data frame with output
-            keep_going = True
-            i = 0
-            while (i < len(dfs_ippu_harvested_wood)) and keep_going:
-                df = dfs_ippu_harvested_wood[i]
-                
-                if set(list_ippu_vars).issubset(df.columns):
-                    arr_frst_harvested_wood_industrial = self.model_attributes.extract_model_variable(#
-                        df, 
-                        self.model_ippu.modvar_ippu_demand_for_harvested_wood, 
-                        expand_to_all_cats = True,
-                        return_type = "array_base", 
-                    )
-
-                    vec_frst_harvested_wood_industrial_paper = arr_frst_harvested_wood_industrial[:, ind_paper]
-                    vec_frst_harvested_wood_industrial_wood = arr_frst_harvested_wood_industrial[:, ind_wood]
-                    keep_going = False
-
-                i += 1
-
-            # remove some unneeded vars
-            dfs_ippu_harvested_wood = None
-
-
-        ##  SCALE HH DEMAND FROM SCOE BASED ON BIOMASS? **REVISIT THIS
-
-        if check_scoe is not None:
-
-            # get changes in biomass energy demand for stationary emissions (largely driven by wood)
-            df_scoe = self.model_enercons.project_scoe(
-                df_afolu_trajectories,
-                vec_hh,
-                vec_gdp,
-                vec_rates_gdp_per_capita,
-                dict_dims,
-                n_projection_time_periods,
-                projection_time_periods
-            )
-
-            # get the enfu attrbute table and use it to retrieve the biomass fuel demand
-            attr_enfu = self.model_attributes.get_attribute_table(self.subsec_name_enfu)
-            ind_biomass = attr_enfu.get_key_value_index(self.cat_enfu_biomass)
-            vec_scoe_biomass_fuel_demand = self.model_attributes.extract_model_variable(#
-                df_scoe,
-                self.model_enercons.modvar_enfu_energy_demand_by_fuel_scoe,
-                return_type = "array_base",
-            )
-
-            vec_scoe_biomass_fuel_demand = vec_scoe_biomass_fuel_demand[:, ind_biomass]
-
-            # calculate the change and growth rate
-            vec_scoe_biomass_fuel_demand_change = np.nan_to_num(
-                vec_scoe_biomass_fuel_demand[1:]/vec_scoe_biomass_fuel_demand[0:-1], 
-                nan = 1.0, 
-                posinf = 1.0,
-            )
-            vec_scoe_biomass_fuel_demand_growth_rate = np.cumprod(
-                np.insert(vec_scoe_biomass_fuel_demand_change, 0, 1.0)
-            )
-            df_scoe = 0
-            
-            vec_frst_harvested_wood_domestic *= vec_hh[0]
-            vec_frst_harvested_wood_domestic = vec_frst_harvested_wood_domestic[0]*vec_scoe_biomass_fuel_demand_growth_rate
-        
-        else:
-            # assume growth proportional to HHs
-            vec_frst_harvested_wood_domestic *= vec_hh
-
-
-        ##  PREPARE FOR FOD
-
-        # get half-life factors for FOD model - start with paper
-        vec_frst_k_hwp_paper = self.model_attributes.extract_model_variable(#
-            df_afolu_trajectories,
-            self.modvar_frst_hwp_half_life_paper,
-            return_type = "array_base",
-        )
-        vec_frst_k_hwp_paper = np.log(2)/vec_frst_k_hwp_paper
-
-        # add wood
-        vec_frst_k_hwp_wood = self.model_attributes.extract_model_variable(#
-            df_afolu_trajectories,
-            self.modvar_frst_hwp_half_life_wood,
-            return_type = "array_base",
-        )
-        vec_frst_k_hwp_wood = np.log(2)/vec_frst_k_hwp_wood
-
-        # totals
-        vec_frst_ef_c = self.model_attributes.extract_model_variable(#
-            df_afolu_trajectories,
-            self.modvar_frst_ef_c_per_hwp,
-            return_type = "array_base",
-            var_bounds = (0, np.inf),
-        )
-        vec_frst_c_paper = vec_frst_harvested_wood_industrial_paper*vec_frst_ef_c
-        vec_frst_c_wood = (vec_frst_harvested_wood_industrial_wood + vec_frst_harvested_wood_domestic)*vec_frst_ef_c
-
-        # set a lookback based on some number of years (max half-life to estimate some amount of carbon stock)
-        if historical_method == "back_project":
-
-            n_years_lookback = int(self.model_attributes.configuration.get("historical_back_proj_n_periods"))
-
-            if n_years_lookback > 0:
-                
-                (
-                    vec_frst_c_paper,
-                    vec_frst_c_wood,
-                    vec_frst_k_hwp_paper,
-                    vec_frst_k_hwp_wood,
-                ) = self.back_project_hwp_c_k(
-                    n_years_lookback,
-                    vec_frst_c_paper,
-                    vec_frst_c_wood,
-                    vec_frst_k_hwp_paper,
-                    vec_frst_k_hwp_wood,
-                )
-
-
-        else:
-            # set up n_years_lookback to be based on historical
-            n_years_lookback = 0
-            msg = f"""Error in project_harvested_wood_products(): 
-            historical_harvested_wood_products_method 'historical' not supported 
-            at the moment.
-            """
-            raise ValueError(msg)
-
-
-        ## RUN ASSUMPTIONS USING STEADY-STATE ASSUMPTIONS (see Equation 12.4)
-
-        # initialize using Equation 12.4 for paper and wood
-        vec_frst_c_from_hwp_paper = np.zeros(len(vec_frst_k_hwp_paper))
-        vec_frst_c_from_hwp_paper[0] = np.mean(
-            vec_frst_c_paper[0:min(5, len(vec_frst_c_paper))]
-        )/vec_frst_k_hwp_paper[0]
-
-        vec_frst_c_from_hwp_wood = np.zeros(len(vec_frst_k_hwp_wood))
-        vec_frst_c_from_hwp_wood[0] = np.mean(
-            vec_frst_c_wood[0:min(5, len(vec_frst_c_wood))]
-        )/vec_frst_k_hwp_wood[0]
-
-
-        # First Order Decay (FOD) implementation
-        for i in range(len(vec_frst_c_from_hwp_paper) - 1):
-            # paper
-            current_stock_paper = vec_frst_c_from_hwp_paper[0] if (i == 0) else vec_frst_c_from_hwp_paper[i]
-            exp_k_paper = np.exp(-vec_frst_k_hwp_paper[i])
-            vec_frst_c_from_hwp_paper[i + 1] = current_stock_paper*exp_k_paper + ((1 - exp_k_paper)/vec_frst_k_hwp_paper[i])*vec_frst_c_paper[i]
-
-            # wood
-            current_stock_wood = vec_frst_c_from_hwp_wood[0] if (i == 0) else vec_frst_c_from_hwp_wood[i]
-            exp_k_wood = np.exp(-vec_frst_k_hwp_wood[i])
-            vec_frst_c_from_hwp_wood[i + 1] = current_stock_wood*exp_k_wood + ((1 - exp_k_wood)/vec_frst_k_hwp_wood[i])*vec_frst_c_wood[i]
-
-        # reduce from look back
-        if n_years_lookback > 0:
-            vec_frst_c_from_hwp_paper = vec_frst_c_from_hwp_paper[(n_years_lookback - 1):]
-            vec_frst_c_from_hwp_wood = vec_frst_c_from_hwp_wood[(n_years_lookback - 1):]
-            
-        vec_frst_c_from_hwp_paper_delta = vec_frst_c_from_hwp_paper[1:] - vec_frst_c_from_hwp_paper[0:-1]
-        vec_frst_c_from_hwp_wood_delta = vec_frst_c_from_hwp_wood[1:] - vec_frst_c_from_hwp_wood[0:-1]
-
-
-
-        # get emissions from co2
-        vec_frst_emissions_co2_hwp = vec_frst_c_from_hwp_paper_delta + vec_frst_c_from_hwp_wood_delta
-        vec_frst_emissions_co2_hwp *= self.factor_c_to_co2
-        vec_frst_emissions_co2_hwp *= -1*self.model_attributes.get_scalar(
-            self.model_ippu.modvar_ippu_demand_for_harvested_wood, 
-            "mass",
-        )
-
-
-        list_dfs_out = [
-            self.model_attributes.array_to_df(
-                vec_frst_emissions_co2_hwp, 
-                self.modvar_frst_emissions_co2_hwp,
-            )
-        ]
-
-        return list_dfs_out
 
 
 
@@ -6048,22 +6587,6 @@ class AFOLU:
             )
         ]
 
-
-        ##  HARVESTED WOOD PRODUCTS
-
-
-        # add to output
-        df_out += self.project_harvested_wood_products(
-            df_afolu_trajectories,
-            vec_hh,
-            vec_gdp,
-            vec_rates_gdp,
-            vec_rates_gdp_per_capita,
-            dict_dims,
-            n_projection_time_periods,
-            projection_time_periods,
-            self.dict_integration_variables_by_subsector,
-        )
 
 
 

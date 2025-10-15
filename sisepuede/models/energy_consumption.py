@@ -869,10 +869,9 @@ class EnergyConsumption:
     ######################################
 
     def get_agrc_lvst_prod_and_intensity(self,
-        df_neenergy_trajectories: pd.DataFrame
+        df_neenergy_trajectories: pd.DataFrame,
     ) -> Tuple:
-        """
-        Retrieve agriculture and livstock production (total mass) and initial 
+        """Retrieve agriculture and livstock production (total mass) and initial 
             energy consumption, then calculate energy intensity (in terms of 
             self.modvar_inen_en_prod_intensity_factor) and return production (in 
             terms of self.model_ippu.modvar_ippu_qty_total_production).
@@ -887,7 +886,8 @@ class EnergyConsumption:
 
         Function Arguments
         ------------------
-        - df_neenergy_trajectories: model input dataframe
+        df_neenergy_trajectories : pd.DataFrame
+            Model input DataFrame
         """
 
         attr_inen = self.model_attributes.get_attribute_table(self.subsec_name_inen)
@@ -933,6 +933,7 @@ class EnergyConsumption:
                 "mass"
             )
             vec_inen_prod_agrc_lvst += arr_inen_agrc_prod
+
         if (modvar_inen_lvst_prod is not None):
             # if livestock production is defined, convert to industrial production units and add
             arr_inen_lvst_prod *= self.model_attributes.get_variable_unit_conversion_factor(
@@ -941,6 +942,7 @@ class EnergyConsumption:
                 "mass"
             )
             vec_inen_prod_agrc_lvst += arr_inen_lvst_prod
+
         # collapse to vector
         vec_inen_prod_agrc_lvst = np.sum(vec_inen_prod_agrc_lvst, axis = 1)
 
@@ -954,7 +956,11 @@ class EnergyConsumption:
         )
 
         # return index + vectors
-        tup_out = index_inen_agrc, vec_inen_energy_intensity_agrc_lvst, vec_inen_prod_agrc_lvst
+        tup_out = (
+            index_inen_agrc, 
+            vec_inen_energy_intensity_agrc_lvst, 
+            vec_inen_prod_agrc_lvst, 
+        )
 
         return tup_out
 
@@ -2689,12 +2695,10 @@ class EnergyConsumption:
         n_projection_time_periods: int = None,
         projection_time_periods: list = None,
     ) -> pd.DataFrame:
-
-        """
-        SISEPUEDE model for Industrial Energy (INEN), which calculates emissions
-            from fuel combustion and energy use arising from industrial 
-            production and activities. Excludes energy industries, which are
-            handled in Energy Technologies (ENTC).
+        """SISEPUEDE model for Industrial Energy (INEN), which calculates 
+            emissions from fuel combustion and energy use arising from 
+            industrial production and activities. Excludes energy industries, 
+            which are handled in Energy Technologies (ENTC).
 
         Function Arguments
         ------------------
@@ -2722,7 +2726,17 @@ class EnergyConsumption:
 
         # allows production to be run outside of the project method
         if type(None) in set([type(x) for x in [dict_dims, n_projection_time_periods, projection_time_periods]]):
-            dict_dims, df_neenergy_trajectories, n_projection_time_periods, projection_time_periods = self.model_attributes.check_projection_input_df(df_neenergy_trajectories, True, True, True)
+            (
+                dict_dims, 
+                df_neenergy_trajectories, 
+                n_projection_time_periods, 
+                projection_time_periods,
+            ) = self.model_attributes.check_projection_input_df(
+                df_neenergy_trajectories, 
+                True, 
+                True, 
+                True,    
+            )
 
 
         ##  CATEGORY AND ATTRIBUTE INITIALIZATION
@@ -2775,7 +2789,12 @@ class EnergyConsumption:
         )
 
         # get agricultural and livestock production + intensities (in terms of self.model_ippu.modvar_ippu_qty_total_production (mass) and self.modvar_inen_en_prod_intensity_factor (energy), respectively)
-        index_inen_agrc, vec_inen_energy_intensity_agrc_lvst, vec_inen_prod_agrc_lvst = self.get_agrc_lvst_prod_and_intensity(df_neenergy_trajectories)
+        (
+            index_inen_agrc, 
+            vec_inen_energy_intensity_agrc_lvst, 
+            vec_inen_prod_agrc_lvst,
+        ) = self.get_agrc_lvst_prod_and_intensity(df_neenergy_trajectories, )
+
         arr_inen_prod[:, index_inen_agrc] += vec_inen_prod_agrc_lvst
 
         # build dictionary for projection 
@@ -2783,6 +2802,7 @@ class EnergyConsumption:
         for k in dict_inen_fuel_frac_to_eff_cat.keys():
             val = dict_inen_fuel_frac_to_eff_cat[k]["fuel_fraction"]
             dict_inen_fuel_frac_to_eff_cat.update({k: val})
+            
         dict_inen_fuel_frac_to_eff_cat = sf.reverse_dict(dict_inen_fuel_frac_to_eff_cat)
 
         # energy consumption at time 0 due to production in terms of units modvar_ippu_qty_total_production

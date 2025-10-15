@@ -1210,18 +1210,21 @@ class IPPU:
                 modvar_change_net_imports, 
                 reduce_from_all_cats_to_specified_cats = True
             ),
+
             # TOTAL MASS OF HARVESTED WOOD PRODUCTS
             self.model_attributes.array_to_df(
                 arr_ippu_harvested_wood, 
                 modvar_demand_for_harvested_wood, 
                 reduce_from_all_cats_to_specified_cats = True
             ),
+
             # TOTAL PRODUCTION
             self.model_attributes.array_to_df(
                 array_ippu_production, 
                 modvar_qty_total_production, 
                 reduce_from_all_cats_to_specified_cats = True
             ),
+            
             # RECYCLED MATERIALS USED IN PRODUCTION
             self.model_attributes.array_to_df(
                 array_ippu_production, 

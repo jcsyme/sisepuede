@@ -5932,6 +5932,7 @@ class EnergyProduction:
         """
 
         ##  CATEGORY AND ATTRIBUTE INITIALIZATION
+        
         attribute_fuel = (
             self.model_attributes.get_attribute_table(self.subsec_name_enfu) 
             if (attribute_fuel is None) 
