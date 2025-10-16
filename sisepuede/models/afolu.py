@@ -488,6 +488,8 @@ class CarbonLedger:
                     break
                 
 
+        # 3. Calculate the counterfactual ""
+
 
         # calculate actual sequestration here--want to do it in a loop so that it can adapt to changes in area
         for j in range(i):
