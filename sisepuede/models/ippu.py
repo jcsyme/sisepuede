@@ -752,43 +752,47 @@ class IPPU:
         vec_rates_gdp: np.ndarray,
         dict_dims: dict = None,
         n_projection_time_periods: int = None,
-        projection_time_periods: list = None,
-        modvar_average_lifespan_housing: str = None,
-        modvar_elast_ind_prod_to_gdp: str = None,
-        modvar_num_hh: str = None,
-        modvar_prod_qty_init: str = None,
-        modvar_scalar_prod: str = None
+        projection_time_periods: List[int] = None,
+        modvar_average_lifespan_housing: Union['ModelVariable', str, None] = None,
+        modvar_elast_ind_prod_to_gdp: Union['ModelVariable', str, None] = None,
+        modvar_num_hh: Union['ModelVariable', str, None] = None,
+        modvar_prod_qty_init: Union['ModelVariable', str, None] = None,
+        modvar_scalar_prod: Union['ModelVariable', str, None] = None,
     ) -> np.ndarray:
-        """
-        Project industrial production. Called from other sectors to simplify 
+        """Project industrial production. Called from other sectors to simplify 
             calculation of industrial production. Includes swap of demand for 
             cement product and wood products in new housing construction.
 
         Function Arguments
         ------------------
-        - df_ippu_trajectories: pd.DataFrame of input variable trajectories.
-        - vec_rates_gdp: vector of rates of change to gdp 
+        df_ippu_trajectories : pd.DataFrame 
+            DataFrame storing input variable trajectories.
+        vec_rates_gdp : 
+            Vector of rates of change to gdp 
             (length = len(df_ippu_trajectories) - 1)
 
         Keyword Arguments
         -----------------
-        - dict_dims: dict of dimensions (returned from 
-            check_projection_input_df). Default is None.
-        - n_projection_time_periods: int giving number of time periods (returned 
-            from check_projection_input_df). Default is None.
-        - projection_time_periods: list of time periods (returned from 
-            check_projection_input_df). Default is None.
-        - modvar_average_lifespan_housing: average lifespan of housing
-        - modvar_elast_ind_prod_to_gdp: model variable giving elasticity of 
-            production to gdp
-        - modvar_num_hh: model variable giving the number of households
-        - modvar_prod_qty_init: model variable giving initial production 
-            quantity
-        - modvar_scalar_prod: model variable with the production scalar
+        dict_dims : Dict[str, Any]
+            Dict of dimensions (returned from check_projection_input_df). 
+        n_projection_time_periods : int 
+            Number of time periods (returned from check_projection_input_df). 
+        projection_time_periods : List[int]
+            List of time periods (returned from check_projection_input_df).
+        modvar_average_lifespan_housing : Union['ModelVariable', str, None]
+            ModelVariable storing average lifespan of housing
+        modvar_elast_ind_prod_to_gdp : Union['ModelVariable', str, None]
+            ModelVariable giving elasticity of production to gdp
+        modvar_num_hh : Union['ModelVariable', str, None]
+            ModelVariable giving the number of households
+        modvar_prod_qty_init : Union['ModelVariable', str, None]
+            Model variable giving initial production quantity
+        modvar_scalar_prod : Union['ModelVariable', str, None]
+            ModelVariable for the production scalar
 
         Notes
         -----
-        - If any of dict_dims, n_projection_time_periods, or 
+        If any of dict_dims, n_projection_time_periods, or 
             projection_time_periods are unspecified (expected if ran outside of 
             IPPU.project()), self.model_attributes.check_projection_input_df 
             will be run

@@ -32,6 +32,484 @@ _NPP_INTEGRATION_WINDOWS = [20, 480, 1000]
 ###                    ###
 ##########################
 
+
+
+class CarbonLedger:
+    """Track carbon flows using this class. Support class for AFOLU model.
+
+    NOTES:
+
+        * Assumes that protected areas do not experience removals
+        * Scales
+
+    Initialization Arguments
+    ------------------------
+    df_afolu_trajectories : int
+        Number of time periods to initialize for
+    model_attributes : ModelAttributes
+        ModelAttributes for some initialization
+    cat_frst_secondary : str
+        Category in FRST to use for secondary forest
+    cats_lndu_frst : List[str]
+        List of forest land use categories
+    cats_lndu_track : Union[List[str], None]
+        Land use categories to track
+    dict_lndu_to_frst: Dict[str, str]
+        Dictionary mapping land use categories to associated forest categories
+    modvar_frst_frac_c_converted_available: Union['ModelVariable', str]
+        ModelVariable that stores the fraction of C converted that is available
+        for use
+    modvar_frst_frac_max_degradation : Union[ModelVariable, str]
+        ModelVariable giving maximum degredation fraction (by land use category)
+    vec_c_removals_demanded: Union[np.ndarray, None],
+        Vector (n_time_periods) of exogenous demands for removals (from fuelwood
+        and harvested wood products). If None, sets to 0.
+    vec_init_by_cat_area : np.ndarray
+        Vector (length n_cats) of initial areas, ordered by cats_lndu_track
+    vec_init_by_cat_c_stock_per_area : np.ndarray
+        Vector (length n_cats) of initial C stock per unit area, ordered by 
+        cats_lndu_track
+    vec_init_by_cat_seq_per_area : np.ndarray
+        Vector (length n_cats) of initial C sequestration per unit area, 
+        ordered by cats_lndu_track
+    vec_sequestration_per_tp_new : np.ndarray
+        Vector storing sequestration rates (mass C/area/time_period) for new
+        growth. Can be derived from NPP curve.
+
+    Keyword Arguments
+    -----------------
+    n_tps_no_withdrawals_new_growth : int
+        Number of time periods without removals while new growth occurs. 
+    **kwargs: 
+        Passed to initialize arrays. Can be used to set initial values for
+        arrays. Use
+
+            {"initval_ARRAYVARNAME": x}
+
+        to set the initial value of ARRAYVARNAME in x
+
+    """
+
+
+    def __init__(self,
+        df_afolu_trajectories: pd.DataFrame,
+        model_attributes: ModelAttributes,
+        cat_frst_secondary: str,
+        cats_lndu_frst: List[str],
+        cats_lndu_track: Union[List[str], None],
+        dict_lndu_to_frst: Dict[str, str],
+        modvar_frst_frac_c_converted_available: Union['ModelVariable', str],
+        modvar_frst_frac_max_degradation: Union['ModelVariable', str],
+        vec_c_removals_demanded: Union[np.ndarray, None],
+        vec_init_by_cat_area: np.ndarray,
+        vec_init_by_cat_c_stock_per_area: np.ndarray,
+        vec_init_by_cat_seq_per_area: np.ndarray,
+        vec_sequestration_per_tp_new: np.ndarray,
+        n_tps_no_withdrawals_new_growth: int = 20,
+        **kwargs,
+    ) -> None:
+        
+
+        self._initialize_attributes(
+            model_attributes,
+            cat_frst_secondary,
+            cats_lndu_frst,
+            cats_lndu_track,
+            dict_lndu_to_frst,
+        )
+
+        self._initialize_arrays(
+            df_afolu_trajectories,
+            modvar_frst_frac_c_converted_available,
+            modvar_frst_frac_max_degradation,
+            vec_c_removals_demanded,
+            vec_init_by_cat_area,
+            vec_init_by_cat_c_stock_per_area,
+            vec_init_by_cat_seq_per_area,
+        )
+
+        self._initialize_new_forest_properties(
+            vec_sequestration_per_tp_new,
+            n_tps_no_withdrawals_new_growth,
+        )
+
+        self._initialize_nf_availability_mask()
+
+        return None
+    
+
+
+    def _initialize_attributes(self,
+        model_attributes: ModelAttributes,
+        cat_frst_secondary: str,
+        cats_lndu_frst: List[str],
+        cats_lndu_track: Union[List[str], None],    
+        dict_lndu_to_frst: Dict[str, str],
+    ) -> None:
+        """Initialize key attributes used to manage land use classes
+        """
+
+        attr_lndu = model_attributes.get_attribute_table(
+            model_attributes.subsec_name_lndu,
+        )
+        # some dictionaries
+        dict_frst_to_lndu = sf.reverse_dict(dict_lndu_to_frst,)
+
+
+        # set categories
+        cats_lndu_frst = [x for x in attr_lndu.key_values if (x in cats_lndu_frst)]
+        
+        cats_lndu_track = (
+            [x for x in attr_lndu.key_values if (x in cats_lndu_track) and (x in cats_lndu_frst)]
+            if sf.islistlike(cats_lndu_track)
+            else cats_lndu_frst
+        )
+        cats_frst_track = [dict_lndu_to_frst.get(x) for x in self.cats_lndu_track]
+
+        # check for secondary forest
+        if cat_frst_secondary not in cats_frst_track:
+            raise RuntimeError(f"Error: secondary forest category '{cat_frst_secondary}' must be associated with a land use class to track.")
+        
+        ind_frst_secondary = cats_frst_track.index(cat_frst_secondary)
+        cat_lndu_fsts = dict_frst_to_lndu.get(cat_frst_secondary)
+
+
+        # pycategory for landuse
+        pycat_lndu = model_attributes.get_subsector_attribute(
+            model_attributes.subsec_name_lndu,
+            "pycategory_primary_element"
+        )
+
+        
+
+        ##  SET PROPERTIES
+
+        self.attr_lndu = attr_lndu
+        self.cat_frst_secondary = cat_frst_secondary
+        self.cat_lndu_fsts = cat_lndu_fsts
+        self.cats_frst_track = cats_frst_track
+        self.cats_lndu_frst = cats_lndu_frst
+        self.cats_lndu_track = cats_lndu_track
+        self.dict_frst_to_lndu = dict_frst_to_lndu
+        self.dict_lndu_to_frst = dict_lndu_to_frst
+        self.ind_frst_secondary = ind_frst_secondary
+        self.model_attributes = model_attributes
+        self.pycat_lndu = pycat_lndu
+
+        return None
+    
+
+
+    def _initialize_arrays(self,
+        df_afolu_trajectories: pd.DataFrame,
+        modvar_frst_frac_c_converted_available: Union['ModelVariable', str],
+        modvar_frst_frac_max_degradation: Union['ModelVariable', str],
+        vec_c_removals_demanded: Union[np.ndarray, None],
+        vec_init_by_cat_area: np.ndarray,
+        vec_init_by_cat_c_stock_per_area: np.ndarray,
+        vec_init_by_cat_seq_per_area: np.ndarray,
+        **kwargs,
+    ) -> None:
+        """Initialize the arrays needed for tracking Carbon stock. Stores the
+            following arrays:
+
+            * self.arr_area_conversion_away    
+                Area of tracked land use being converted away (deforestation)
+            * self.arr_area_protected
+                Area of tracked land that is protected; removals are not allowed
+            * self.arr_area_original_remaining
+                Area of tracked land use remaining from initial time period
+            * self.arr_areas_new_forest
+                Areas of new forests that are planted. Each column gives the 
+            * self.arr_c_available_total_at_beginning_of_period
+                Array of total carbon available at the beginning of the time
+                period by tracked land use. Allocation of 
+                vec_c_available_total_at_beginning_of_period to tracked classes.
+            * self.arr_c_seq_per_time_period
+                Sequestration per time period
+            * self.arr_c_seq_per_time_period_new_forests
+                Sequestration per time period in new forests
+            * self.arr_c_stock_avg_per_area
+                Avergage C stock per area
+            * self.arr_c_stock_in_new_forest
+                Array of C stock stored in new forest growth. 
+            * self.arr_c_stock_removed
+                C Stock actually removed, by land use class
+            * self.arr_mask_new_forest_available
+                A binary mask signaling wether or not new forest stock is 
+                available for removals
+            * self.arr_min_frac_c_required
+                Minimum fraction of C required (modeling parameter--makes 
+                fraction greater than this available for removal)
+            * self.arr_ratio_c_avail_to_c_avail_without_degradation
+                Ratio of total C available in forests to C available without
+                degradataion; used to reduce carbon stock factors on land and
+            * self.vec_c_available_from_new_forests
+                Vector of C available for harvest from new forests (restricted 
+                by self.n_tps_no_withdrawals_new_growth)
+            * self.vec_c_available_total_at_beginning_of_period
+                Vector of total carbon available at the beginning of the time
+                period
+            * self.vec_c_removals_demanded
+                Demand for C removals (defined at initialization)
+            * self.vec_c_removals_satisfiable
+                Demand for C removals that can be met
+            * self.vec_frac_conversion_c_available_for_use
+                fraction of C from land use converted to other types that is
+                available for use to satisfy removals
+        
+        """
+
+        n_cats = len(self.cats_lndu_track)
+        n_tp = df_afolu_trajectories.shape[0]
+        shape_by_cat = (n_tp, n_cats)
+        shape_by_cat_with_new = (n_tp, n_cats + 1)
+        
+        # initialize arrays that are dynamically updated
+        arr_area_conversion_away = np.zeros(shape_by_cat)
+        arr_area_protected = np.zeros(shape_by_cat)
+        arr_area_original_remaining = np.zeros(shape_by_cat)
+        arr_areas_new_forest = np.zeros((n_tp, n_tp))
+        arr_c_available_total_at_beginning_of_period = np.zeros(shape_by_cat)
+        arr_c_seq_per_time_period = np.zeros(shape_by_cat)
+        arr_c_seq_per_time_period_new_forests = np.zeros((n_tp, n_tp))
+        arr_c_stock_avg_per_area = np.zeros(shape_by_cat)
+        arr_c_stock_in_new_forest = np.zeros((n_tp, n_tp))
+        arr_c_stock_removed = np.zeros(shape_by_cat_with_new)
+        arr_c_stock_without_degradation = np.zeros(shape_by_cat_with_new)
+        arr_mask_new_forest_available = np.zeros((n_tp, n_tp)).astype(int)
+        arr_ratio_c_avail_to_c_avail_without_degradation = np.ones(shape_by_cat)
+        vec_c_available_from_conversion = np.zeros(n_cats)
+        vec_c_available_from_new_forests = np.zeros(n_cats)
+        vec_c_available_total_at_beginning_of_period = np.zeros(n_cats)
+        vec_c_removals_satisfiable = np.zeros(n_cats)
+        
+
+        ##  INITIALIZE ARRAYS THAT ARE PULLED FROM INPUT DATA (EXOGENOUS)
+
+        # maximum degradation fraction for forests
+        arr_min_frac_c_required = self.model_attributes.extract_model_variable(
+            df_afolu_trajectories,
+            modvar_frst_frac_max_degradation,
+            return_type = "data_frame",
+            var_bounds = (0, 1),
+        )
+
+        fields_keep = modvar_frst_frac_max_degradation.build_fields(
+            category_restrictions = self.cats_frst_track,
+        )
+        arr_min_frac_c_required = 1 - arr_min_frac_c_required[fields_keep].to_numpy()
+        
+
+        # Fraction of C available from conversion
+        vec_frac_conversion_c_available_for_use = self.model_attributes.extract_model_variable(
+            df_afolu_trajectories,
+            modvar_frst_frac_c_converted_available,
+            override_vector_for_single_mv_q = False,
+            return_type = "array_base",
+            var_bounds = (0, 1),
+        )
+        
+        # exogenous C removals
+        vec_c_removals_demanded = (
+            np.zeros(n_cats)
+            if not isinstance(vec_c_removals_demanded, np.ndarray)
+            else vec_c_removals_demanded
+        )
+
+
+        ##  SET SOME STARTING CONDITIONS
+
+        arr_area_original_remaining[0, :] = vec_init_by_cat_area
+        arr_c_stock_avg_per_area[0, :] = vec_init_by_cat_c_stock_per_area
+        arr_c_seq_per_time_period[0, :] = vec_init_by_cat_seq_per_area
+        
+
+        ##  SET PROPERTIES
+
+        self.arr_area_conversion_away = arr_area_conversion_away
+        self.arr_area_protected = arr_area_protected
+        self.arr_area_original_remaining = arr_area_original_remaining
+        self.arr_areas_new_forest = arr_areas_new_forest
+        self.arr_c_available_total_at_beginning_of_period = arr_c_available_total_at_beginning_of_period
+        self.arr_c_seq_per_time_period = arr_c_seq_per_time_period
+        self.arr_c_seq_per_time_period_new_forests = arr_c_seq_per_time_period_new_forests
+        self.arr_c_stock_avg_per_area = arr_c_stock_avg_per_area
+        self.arr_c_stock_in_new_forest = arr_c_stock_in_new_forest
+        self.arr_c_stock_removed = arr_c_stock_removed
+        self.arr_c_stock_without_degradation = arr_c_stock_without_degradation
+        self.arr_mask_new_forest_available = arr_mask_new_forest_available
+        self.arr_min_frac_c_required = arr_min_frac_c_required
+        self.arr_ratio_c_avail_to_c_avail_without_degradation = arr_ratio_c_avail_to_c_avail_without_degradation
+        self.n_tp = n_tp
+        self.vec_c_available_from_conversion = vec_c_available_from_conversion
+        self.vec_c_available_from_new_forests = vec_c_available_from_new_forests
+        self.vec_c_available_total_at_beginning_of_period = vec_c_available_total_at_beginning_of_period
+        self.vec_c_removals_demanded = vec_c_removals_demanded
+        self.vec_c_removals_satisfiable = vec_c_removals_satisfiable
+        self.vec_frac_conversion_c_available_for_use = vec_frac_conversion_c_available_for_use
+        
+
+        return None
+
+
+
+    def _initialize_nf_availability_mask(self,
+    ) -> None:
+        """Initialize the availability mask, which denotes a one if new forest
+            has existed long enough to allow for removals (reasonably)
+        """
+
+        arr = self.arr_mask_new_forest_available
+        n0 = self.n_tps_no_withdrawals_new_growth + 1
+
+        for i in range(n0, arr.shape[0]):
+            j_max = i - self.n_tps_no_withdrawals_new_growth
+            arr[i, 0:j_max] = 1
+
+        self.arr_mask_new_forest_available = arr
+
+        return None
+    
+
+
+    def _initialize_new_forest_properties(self,
+        vec_sequestration_per_tp_new: np.ndarray,
+        n_tps_no_withdrawals_new_growth: int = 20,
+    ) -> None:
+        """Initialize key attributes used to manage land use classes
+        """ 
+
+        ##  CHECK vec_sequestration_per_tp_new
+
+        if not sf.islistlike(vec_sequestration_per_tp_new):
+            raise TypeError(f"vec_sequestration_per_tp_new must be a list or numpy array")
+        
+        # convert to array
+        vec_sequestration_per_tp_new = np.array(vec_sequestration_per_tp_new)
+        if vec_sequestration_per_tp_new.shape[0] != self.n_tp:
+            raise RuntimeError(f"Invalid shape {vec_sequestration_per_tp_new.shape[0]} for vec_sequestration_per_tp_new: must be of length {self.n_tp}")
+
+        vec_sequestration_per_tp_new_cumulative = np.cumsum(vec_sequestration_per_tp_new)
+
+
+        ##  CHECK NUMBER OF TIME PERIODS WITH NO WITHDRAWALS FOR NEWLY PLANTED FORESTS
+
+        n_tps_no_withdrawals_new_growth = (
+            20 
+            if not sf.isnumer(n_tps_no_withdrawals_new_growth, integer = True)
+            else max(n_tps_no_withdrawals_new_growth, 1)
+        )
+
+
+        ##  SET PROPERTIES
+
+        self.n_tps_no_withdrawals_new_growth = n_tps_no_withdrawals_new_growth
+        self.vec_sequestration_per_tp_new = vec_sequestration_per_tp_new
+        self.vec_sequestration_per_tp_new_cumulative = vec_sequestration_per_tp_new_cumulative
+
+        return None
+    
+
+
+    
+    
+
+
+
+
+    def _update(self,
+        i: int,
+        area_new_forest: float,
+        vec_converted_away: np.ndarray,
+        vec_protected: np.ndarray,
+    ) -> None:
+        """Update the ledger with land use lose
+
+        Function Arguments
+        ------------------
+        i : int
+            Time period to update (row index)
+        area_new_forest : float
+            Area of new forest entering (through planting/aforestation or 
+            natural conversion)
+        vec_converted_away : np.ndarray 
+            Vector of total land use area converted away from tracked land use 
+            types
+        vec_protected : np.ndarray
+            Vector of protected arrays
+        """
+
+        # update exogenous parameters
+        self.arr_area_conversion_away[i, :] = vec_converted_away
+        self.arr_area_protected[i, :] = vec_protected
+
+        if i < self.n_tp - 1:
+            self.arr_areas_new_forest[(i + 1):, i] = area_new_forest
+
+
+        #
+        # make any area adjustments here for new forest
+        # if deforestation continues, it can encroach on new forest
+        #
+
+        area_to_shift_from_new = 0
+
+        # 1. update area remaining from original and 
+        if i < self.n_tp - 1:
+            self.arr_area_original_remaining[i + 1, :] = self.arr_area_original_remaining[i, :] - vec_converted_away
+            area_to_shift_from_new = max(
+                -1*self.arr_area_original_remaining[i + 1, self.ind_frst_secondary],
+                0
+            )
+
+            # set to 0 to ensure that the shift from new doesn't accumulate
+            self.arr_area_original_remaining[i + 1, :] = max(self.arr_area_original_remaining[i + 1, :], 0)
+
+
+        # 2. eliminate any new forest if implied by deforestation of secondary forest
+        #      - iterate over columns in "new" to remove forest if necessary
+        if area_to_shift_from_new > 0:
+            j = 0
+            area_shifted = 0
+            while (area_shifted < area_to_shift_from_new):
+                area_avail_cur = self.arr_areas_new_forest[i + 1, j]
+                area_shift_cur = min(
+                    area_to_shift_from_new - area_shifted,
+                    area_avail_cur
+                )
+
+                self.arr_areas_new_forest[(i + 1):, j] = area_avail_cur - area_shift_cur
+                area_shifted += area_shift_cur
+                
+                # move to next column and implement a safety check here
+                j += 1
+                if j > self.arr_areas_new_forest.shape[1] - 1:
+                    break
+                
+
+
+        # calculate actual sequestration here--want to do it in a loop so that it can adapt to changes in area
+        for j in range(i):
+            self.arr_c_seq_per_time_period_new_forests[i, j] = (
+                self.arr_areas_new_forest[i, j]
+                *self.vec_sequestration_per_tp_new[i - 1]
+            )
+
+            if i >= self.n_tp - 1: continue
+
+            self.arr_c_stock_in_new_forest[(i + 1), j] = self.arr_c_seq_per_time_period_new_forests[0:(i + 1), j].sum()
+
+            # self.arr_c_seq_per_time_period_new_forests[(i + 1):, i] = area_new_forest*self.vec_sequestration_per_tp_new[0:(self.n_tp - i - 1)]
+            # self.arr_c_stock_in_new_forest[(i + 1):, i] = area_new_forest*self.vec_sequestration_per_tp_new_cumulative
+        
+        
+        return None
+        
+
+
+    
+
 class AFOLU:
     """Use AFOLU to calculate emissions from Agriculture, Forestry, and Land Use 
         in SISEPUEDE. Includes emissions from the following subsectors:
@@ -612,6 +1090,13 @@ class AFOLU:
         """
         Initialize all subsector names (self.subsec_name_****)
         """
+
+        attr_subsec = self.model_attributes.get_subsector_attribute_table()
+        for subsec in attr_subsec.key_values:
+            subsec_name = attr_subsec.get_attribute(subsec, "subsector")
+            attr_name = f"subsec_name_{subsec}"
+            setattr(self, attr_name, subsec_name, )
+        """
         # some subector reference variables
         self.subsec_name_agrc = "Agriculture"
         self.subsec_name_econ = "Economy"
@@ -624,7 +1109,7 @@ class AFOLU:
         self.subsec_name_lvst = "Livestock"
         self.subsec_name_scoe = "Stationary Combustion and Other Energy"
         self.subsec_name_soil = "Soil Management"
-
+        """
         return None
 
 
@@ -734,6 +1219,7 @@ class AFOLU:
         self.modvar_frst_frac_c_converted_available = "Fraction of Forest Converted C Available for Use"
         self.modvar_frst_frac_c_per_dm = "Carbon Fraction Dry Matter"
         self.modvar_frst_frac_c_per_hwp = "Carbon Fraction Harvested Wood Products"
+        self.modvar_frst_frac_max_degradation = "Maximum Degradation Fraction"
         self.modvar_frst_frac_temperate_nutrient_poor = "Forest Fraction Temperate Nutrient Poor"
         self.modvar_frst_frac_temperate_nutrient_rich = "Forest Fraction Temperate Nutrient Rich"
         self.modvar_frst_frac_tropical = "Forest Fraction Tropical"
@@ -1685,14 +2171,15 @@ class AFOLU:
             units_energy,
         )
 
+        #   
         arr_enfu_ged /= um_mass.convert(
-            modvar_ged.attribute("unit_mass"), # tonne 
-            units_mass, # kg
+            modvar_ged.attribute("unit_mass"),
+            units_mass,
         )
 
         # get biomass as 
         vec_ged_biomass = arr_enfu_ged[:, ind_biomass]
-        vec_mass_biomass = vec_ged_biomass/vec_energy_demand_fuelwood
+        vec_mass_biomass = vec_energy_demand_fuelwood/vec_ged_biomass
         vec_mass_c = vec_mass_biomass*vec_frst_c_frac
 
         return vec_mass_c
@@ -1703,6 +2190,7 @@ class AFOLU:
         df_energy_trajectories: pd.DataFrame,
         vec_fuel_demand_electricity: np.ndarray,
         kludge_inflation_factor: float = 0.05,
+        **kwargs,
     ) -> np.ndarray:
         """Estimate the demand for biomass coming from ENTC. Returns vector of
             estimated biomass demand in configuration units.
@@ -1765,7 +2253,6 @@ class AFOLU:
         )
 
         # get some units managers
-        um_energy = self.model_attributes.get_unit("energy")
         um_power = self.model_attributes.get_unit("power")
         
 
@@ -2027,10 +2514,10 @@ class AFOLU:
     
 
 
-    def estimate_c_demand_from_hwp_and_removals(self, #HEREHEREHEREHERE
+    def estimate_c_demand_from_hwp_and_removals(self,
         df_afolu_trajectories: pd.DataFrame,
         vec_rates_gdp: np.ndarray,
-        dict_check_integrated_variables: dict,
+        #dict_check_integrated_variables: dict,
         units_mass_out: Union['ModelVariable', str, None] = None,
         **kwargs,
     ) -> Tuple[np.ndarray, np.ndarray]:
@@ -2068,8 +2555,8 @@ class AFOLU:
         ## 
 
         # initialize some small checks and shorthands 
-        check_ippu = dict_check_integrated_variables.get(self.subsec_name_ippu)
-        check_scoe = dict_check_integrated_variables.get(self.subsec_name_scoe)
+        # check_ippu = dict_check_integrated_variables.get(self.subsec_name_ippu)
+        # check_scoe = dict_check_integrated_variables.get(self.subsec_name_scoe)
         modvar_demand_hwp = self.model_attributes.get_variable(
             self.model_ippu.modvar_ippu_demand_for_harvested_wood,
         )
@@ -2105,6 +2592,8 @@ class AFOLU:
         vec_frst_harvested_wood_industrial_paper = arr_frst_harvested_wood_industrial[:, ind_paper]
         vec_frst_harvested_wood_industrial_wood = arr_frst_harvested_wood_industrial[:, ind_wood]
 
+        print(f"vec_frst_harvested_wood_industrial_paper = {vec_frst_harvested_wood_industrial_paper}")
+
         # get C fraction of HWP
         vec_frst_ef_c = self.model_attributes.extract_model_variable(#
             df_afolu_trajectories,
@@ -2139,7 +2628,7 @@ class AFOLU:
             units_mass = units_mass_out,
             **kwargs,
         )
-        
+
 
         out = (
             vec_frst_c_fuel,
@@ -2789,10 +3278,10 @@ class AFOLU:
         tps = df_afolu_trajectories[field_tp].to_numpy()
         n_tp = len(tps)
 
-        # arrs to collapse: if the are of secondary forests declines, then assume that pre-existing forest was cut into first
-        #    - arr_area_to_collapse: areas converted in by year
-        #    - arr_cumulative_mass_to_collapse: cumulative mass by year for planted forests; used to scale conversion factors 
-        #    - arr_sequestration_to_collapse: sequestration totals by year
+        # arrs to collapse: if the area of secondary forests declines, then assume that pre-existing forest was cut into first
+        #    - arr_area_to_collapse:                areas converted in by year
+        #    - arr_cumulative_mass_to_collapse:     cumulative mass by year for new forests; used to scale conversion factors 
+        #    - arr_sequestration_to_collapse:       sequestration totals by year
         arr_area_to_collapse = np.zeros((n_tp, n_tp))
         arr_cumulative_mass_to_collapse = np.zeros((n_tp, n_tp))
         arr_sequestration_to_collapse = np.zeros((n_tp, n_tp))
@@ -2807,10 +3296,10 @@ class AFOLU:
         sf_frst_secondary_init = arr_frst_sf[0, self.ind_frst_scnd]
 
         # ACCOUNTING VECTORS
-        #    - vec_area_secondary_remaining_from_original stores the area of secondary forest that was initialized that remains after convesions occur 
-        #    - vec_area_converted_from_total: area in each time period of forest converted away from secondary forests
-        #    - vec_area_converted_from_original: area in each time period of forest converted away from secondary forests from original stock
-        #    - vec_area_new_total: total area converted to new w/o removing losses 
+        #    - vec_area_secondary_remaining_from_original:  stores the area of secondary forest that was initialized that remains after convesions occur 
+        #    - vec_area_converted_from_total:               area in each time period of forest converted away from secondary forests
+        #    - vec_area_converted_from_original:            area in each time period of forest converted away from secondary forests from original stock
+        #    - vec_area_new_total:                          total area converted to new w/o removing losses 
         vec_area_secondary_remaining_from_original = np.ones(n_tp)*arr_lndu_areas[0, self.ind_lndu_fsts]
         vec_area_converted_from_total = np.zeros(n_tp)
         vec_area_new_total = np.zeros(n_tp)
@@ -4124,8 +4613,7 @@ class AFOLU:
         vec_widths: Union[np.ndarray, None] = None,
         **kwargs,
     ) -> Dict[int, 'scipy.optimize._optimize.OptimizeResult']:
-        """
-        Get sets of sequestration curves as specified in input trajectories.
+        """Get sets of sequestration curves as specified in input trajectories.
             Reduces the number of times that optimization is called to only 
             deal with unique sets of 
 
@@ -4225,6 +4713,7 @@ class AFOLU:
             )
             t0 = time.time()
 
+
             ##  GET PARAMETERS AND CMF
 
             params = self.curves_npp.fit(
@@ -4278,9 +4767,8 @@ class AFOLU:
         tol_base: float = 0.0000001,
         **kwargs,
     ) -> Tuple:
-        """
-        For optimization, rescale values so that minimum sequestration factor 
-            has log_10 > 0. Returns the mofified scalar + 
+        """For optimization, rescale values so that minimum sequestration factor 
+            has log_10 > 0. Returns the convergence tolerance.
         """
         logs = np.array(
             [
@@ -4302,9 +4790,8 @@ class AFOLU:
     def get_npp_factor_rescale(self,
         series_factors: pd.Series,
     ) -> Tuple:
-        """
-        For optimization, rescale values so that minimum sequestration factor 
-            has log_10 > 0. Returns the mofified scalar + 
+        """For optimization, rescale values so that minimum sequestration factor 
+            has log_10 > 0. Returns the mofified scalar.
         """
         logs = np.array(
             [
@@ -4330,8 +4817,7 @@ class AFOLU:
         return_factors: bool = False,
         **kwargs,
     ) -> Union[pd.DataFrame, Tuple[pd.DataFrame]]:
-        """
-        Retrieve sequestration factor vectors for use in building estimated 
+        """Retrieve sequestration factor vectors for use in building estimated 
             curve. 
 
         Return
@@ -5173,7 +5659,7 @@ class AFOLU:
             axis = 0,
         )
 
-        #HEREHEREHEREHERE
+        # 
 
         # get yield
         arr_agrc_yield = np.array([
@@ -6516,6 +7002,7 @@ class AFOLU:
             override_vector_for_single_mv_q = True, 
             return_type = "array_base", 
         )
+
         # temperate biomass burned
         arr_frst_biomass_consumed_temperate = self.model_attributes.extract_model_variable(#
             df_afolu_trajectories, 

@@ -24,6 +24,8 @@ Input,Forest Sequestration Emission Factor," | Annual average :math:`\text{CO}_2
 Input,Fraction of Forest Converted C Available for Use,Fraction of carbon stock in forests that is available for use in energy production (biomass) and harvested wood production (HWP). ,``frac_frst_c_stock_converted_available_for_use_$CAT-FOREST$``,all,,0.5,1,1,,0,none,none,,,
 Input,HWP Half Life Paper,Half life of carbon sequestered in paper products (HWP),``hl_frst_half_life_hwp_paper_products``,none,,0,1,1,,0,none,none,,,
 Input,HWP Half Life Wood,Half life of carbon sequestered in wood products (HWP),``hl_frst_half_life_hwp_wood_products``,none,,0,1,1,,0,none,none,,,
+Input,Maximum Degradation Fraction,"Maximum fraction of carbon that can be removed from forestland without converting to other land use. Constrains removals for biomass in energy and harvested wood products.
+",``frac_frst_max_degradation_$CAT-FOREST$``,all,,0.6,1,1,,0,none,none,,,
 Input,Young Secondary Forest Sequestration Emission Factor," |Annual average :math:`\text{CO}_2` emitted per ha from sequestration in YOUNG (age < 20 yrs) secondary forestrs (entered as a number > 0, this is a positive number)
  | 
  |  NOTE: Young secondary forests (incl. plantations) sequester high amounts of carbon for a short period of time. This is only used if dynamic forest sequestration is turned on; otherwise, this variable is ignored.

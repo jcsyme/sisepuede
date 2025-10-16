@@ -86,7 +86,7 @@ class NPPCurve:
 
 ##  GAMMA
 #`
-def _bounds_gamma(
+def _BOUNDS_GAMMA(
     *args,
     **kwargs,
 ) -> float:
@@ -99,7 +99,7 @@ def _bounds_gamma(
 
 
 
-def _curve_gamma(
+def _CURVE_GAMMA(
     t: float,
     k0: float,
     k1: float,
@@ -118,7 +118,7 @@ def _curve_gamma(
 
 
 
-def _jacobian_gamma(
+def _JACOBIAN_GAMMA(
     t: float,
     k0: float,
     k1: float,
@@ -151,7 +151,7 @@ def _jacobian_gamma(
 # SEM CURVE
 #
 
-def _bounds_sem(
+def _BOUNDS_SEM(
     vec_target: np.ndarray,
     *args,
     force_convergence: bool = True,
@@ -168,7 +168,7 @@ def _bounds_sem(
 
 
 
-def _curve_sem(
+def _CURVE_SEM(
     t: float,
     a: float,
     b: float, 
@@ -187,7 +187,7 @@ def _curve_sem(
 
 
 
-def _deriv_sem(
+def _DERIV_SEM(
     t: float,
     a: float,
     b: float, 
@@ -309,18 +309,18 @@ class NPPCurves:
         
         # set up objects
         curve_gamma = NPPCurve(
-            _curve_gamma,
-            _bounds_gamma,
+            _CURVE_GAMMA,
+            _BOUNDS_GAMMA,
             _PARAMS_DEFAULT_GAMMA,
-            jacobian = _jacobian_gamma,
+            jacobian = _JACOBIAN_GAMMA,
             name = curve_name_gamma,
         )
 
         curve_sem = NPPCurve(
-            _curve_sem,
-            _bounds_sem,
+            _CURVE_SEM,
+            _BOUNDS_SEM,
             _PARAMS_DEFAULT_SEM,
-            derivative = _deriv_sem,
+            derivative = _DERIV_SEM,
             name = curve_name_sem,
         )
 
@@ -402,8 +402,7 @@ class NPPCurves:
         dt: Union[float, None] = None,
         vec_widths: Union[np.ndarray, None] = None,
     ) -> float:
-        """
-        Get the crude integral estimate of the curve
+        """Get the crude integral estimate of the curve
         
         800 years to primary forest:
         https://www.kloranebotanical.foundation/en/projects/return-primary-forest-europe#:~:text=Primary%20forests%20can%20be%20recreated,provided%20they're%20left%20alone.
@@ -492,8 +491,7 @@ class NPPCurves:
         tol: float = 0.0000001,
         vec_widths: Union[np.ndarray, None] = None,
     ) -> int:
-        """
-        Find the starting point for assumed steady state
+        """Find the starting point for assumed steady state
         """
         curve_npp = self.get_curve("sem")
         vec_widths = self.get_widths(vec_widths, )
@@ -523,8 +521,7 @@ class NPPCurves:
         tol: float = 0.0000001,
         vec_widths: Union[np.ndarray, None] = None,
     ) -> np.ndarray:
-        """
-        For a parameterization, get the cumulative fraction of biomass used. 
+        """For a parameterization, get the cumulative fraction of biomass used. 
         
 
         Arguments
@@ -608,8 +605,7 @@ class NPPCurves:
         field_val: str = "value",
         return_type: str = "array",
     ) -> Union[np.ndarray, pd.DataFrame]:
-        """
-        Do the collapse to return the collapsed mass array. Valid return_type
+        """Do the collapse to return the collapsed mass array. Valid return_type
             values are "array" or "dataframe"
         """
 
@@ -644,8 +640,7 @@ class NPPCurves:
     def get_assumed_steady_state_sem_p0(self,
         out: np.ndarray,
     ) -> Union[int, None]:
-        """
-        Find the starting point to iterate until steady state is reached.
+        """Find the starting point to iterate until steady state is reached.
         """
 
         # iterate over window
@@ -681,8 +676,7 @@ class NPPCurves:
         i_0: int,
         tol: float = 0.0000001,
     ) -> Union[int, None]:
-        """
-        Iterate from i_0 until steady state
+        """Iterate from i_0 until steady state
         """
 
         i = i_0
@@ -716,8 +710,7 @@ class NPPCurves:
         curve: Union[callable, str, NPPCurve, ],
         return_on_none: Any = None,
     ) -> Union[callable, None]:
-        """
-        Retrieve a curve for parameter estimation
+        """Retrieve a curve for parameter estimation
         """
 
         if isinstance(curve, NPPCurve) | callable(curve):
@@ -732,8 +725,7 @@ class NPPCurves:
     def get_dt(self,
         dt: Union[float, None] = None,
     ) -> float:
-        """
-        Retrieve dt
+        """Retrieve dt
         """
         dt = self.dt if not sf.isnumber(dt) else float(dt)
 
@@ -744,8 +736,7 @@ class NPPCurves:
     def get_targets(self,
         vec_targets: Union[np.ndarray, None] = None,
     ) -> Union[np.ndarray, None]:
-        """
-        Retrieve the targets
+        """Retrieve the targets
         """
         vec_targets = self.targets if vec_targets is None else vec_targets
 
@@ -756,8 +747,7 @@ class NPPCurves:
     def get_widths(self,
         vec_widths: Union[np.ndarray, None] = None,
     ) -> Union[callable, None]:
-        """
-        Retrieve the widths
+        """Retrieve the widths
         """
         vec_widths = self.widths if vec_widths is None else vec_widths
 
@@ -771,27 +761,30 @@ class NPPCurves:
         vec_targets: Union[np.ndarray, None] = None,
         vec_widths: Union[np.ndarray, None] = None,
     ) -> float:
-        """
-        Find distance between mean value of integrals and seqestration factors
-            using parameters b
+        """Find distance between mean value of integrals and seqestration 
+            factors using parameters b
 
         Function Arguments
         ------------------
-        - vec_params: vector of parameters to pass to fit function
+        vec_params : np.ndarray
+            Vector of parameters to pass to fit function
             - for Gamma: k0, k1, k2
             - for SEM: b, c, d (a is specified as limiting value for primary
                 since since lim f_SEM(t) as t -> inf is a)
-        - curve: curve to use:
-            - "gamma"
-            - "sem"
+        curve : Union[callable, str, NPPCurve, ]
+            Curve to use:
+                * "gamma"
+                * "sem"
     
             
         Keyword Arguments
         -----------------
-        - vec_targets: optional targets to pass. Defaults to self-defined
+        vec_targets : Union[np.ndarray, None]
+            Optional targets to pass. Defaults to self-defined
             - ordered array of young secondary, old secondary, and 
                 primary growth factors
-        - vec_widths: optional widths to pass
+        vec_widths : Union[np.ndarray, None]
+            Optional integration widths to pass
         """
 
         curve = self.get_curve(curve, )
