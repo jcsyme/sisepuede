@@ -4762,6 +4762,69 @@ def wrap_quote(
 
 
 
+def _write_csv(
+    df: pd.DataFrame,
+    path_out: Union[pathlib.Path, str],
+    makedir: bool = False,
+    overwrite: bool = True,
+    **kwargs,
+) -> bool:
+    """Write a CSV to a location without an index and with encoding = "UTF-8".
+        Checks to make sure that path_out has a suffix.
+
+    Function Arguments
+    ------------------
+    df : pd.DataFrame
+        DataFrame to export to CSV
+    path_out : Union[pathlib.Path, str]
+        Path to write CSV to
+
+    Keyword Arguments
+    -----------------
+    makedir : bool = False
+        If the parent directory isn't found, make the directory?
+    overwrite : bool = True
+        Overwrite the file if it exists?
+    **kwargs :
+        Passed to pd.DataFrame.to_csv
+    """
+
+    # ensure type is a pathlib.Path
+    if not isinstance(path_out, pathlib.Path):
+        try:
+            path_out = pathlib.Path(path_out)
+        
+        except Exception as e:
+            raise RuntimeError(f"Unable able to convert path_out '{path_out}' to Path: {e}")
+
+    # verify path
+    if (path_out.suffix == ""):
+        raise TypeError(f"Invalid path suffix '{path_out.suffix}' found: must be a file extension.")
+    
+    if not path_out.parents[0].is_dir():
+        if not makedir:
+            msg = f"""Unable to write to CSV: path '{path_out.parents[0]}' not found. 
+            Set makedir = True to make the directory on writing."""
+            raise RuntimeError(msg)
+
+        path_out.parents[0].mkdir(exist_ok = True, )
+
+
+    # finally, write
+    if path_out.is_file() and not overwrite:
+        return None
+    
+    df.to_csv(
+        path_out,
+        encoding = "UTF-8",
+        index = None,
+        **kwargs,
+    )
+
+    return True
+
+
+
 def _write_yaml(
     dict_write: dict,
     fp: Union[str, pathlib.Path],
