@@ -108,14 +108,12 @@ def plot_stack(
         return None
     
     if add_x:
-
         # if adding a dummy, copy first, then add field x
         df_plot = df[fields].copy()
         df_plot[field_x] = range(len(df_plot))
         fields.append(field_x)
 
     else:
-
         # if field_x is in the df, add it to fields, then copy
         fields.append(field_x)
         df_plot = df[fields].copy()

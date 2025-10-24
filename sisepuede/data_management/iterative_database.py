@@ -467,10 +467,12 @@ class IterativeDatabaseTable:
 				df_index = sf.get_csv_subset(
 					self.fp_table,
 					None,
-					fields_extract = self.fields_index,
 					chunk_size = index_chunk_size,
-					drop_duplicates = True
+					drop_duplicates = True,
+					fields_extract = self.fields_index,
+					force_column_order = True,
 				)
+				
 
 				str_log_msg = f"CSV at {self.fp_table}"
 

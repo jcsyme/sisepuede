@@ -1567,20 +1567,22 @@ def get_args(
 def get_csv_subset(
     fp_table: Union[str, None],
     dict_subset: Union[Dict[str, List], None],
-    fields_extract: Union[List[str], None] = None,
     chunk_size: int = 100000,
+    drop_duplicates: bool = True,
+    fields_extract: Union[List[str], None] = None,
+    force_column_order: bool = True,
     max_iter: Union[int, None] = None,
-    drop_duplicates: bool = True
 ) -> pd.DataFrame:
-    """
-    Return a subset of a CSV written in persistent storage without loading
+    """Return a subset of a CSV written in persistent storage without loading
         the entire file into memory (see PyTables for potential speed
         improvement).
 
     Function Arguments
     ------------------
-    - fp_table: file path to CSV to read in
-    - dict_subset: dictionary of fields to subset on, e.g.,
+    fp_table : Union[str, None]
+        File path to CSV to read in
+    dict_subset : Union[Dict[str, List], None]
+        Dictionary of fields to subset on, e.g.,
 
         dict_subset = {
             field_a = [v_a1, v_a2, ..., v_am)],
@@ -1592,21 +1594,23 @@ def get_csv_subset(
 
         * NOTE: only accepts discrete values
 
-    Optional Arguments
-    ------------------
-    - fields_extract: fields to extract from the data frame.
-        * If None, extracts all fields
-
     Keyword Arguments
     -----------------
-    - fields_extract: fields to extract from the data frame.
-    - chunk_size: get_csv_subset operates as an iterator, reading in
-        chunks of data of length `chunk_size`. Larger values may be more
-        efficient on machines with higher memory.
-    - max_iter: optional specification of a maximum number of iterations.
-        Only should be used for sampling data or when the structure of rows
-        is known.
-    - drop_duplicates: drop duplicates in table?
+    chunk_size : int
+        get_csv_subset operates as an iterator, reading in chunks of data of 
+        length `chunk_size`. Larger values may be more efficient on machines 
+        with higher memory
+    drop_duplicates : bool
+        Drop duplicates in table?
+    fields_extract : Union[List[str], None]
+        Fields to extract from the data frame.
+        * If None, extracts all fields
+    force_column_order : bool
+        Ensure that output columns are in the same order as specified?
+    max_iter : int
+        Optional specification of a maximum number of iterations. Only should be 
+        used for sampling data or when the structure of rows is known.
+    
     """
 
     df_obj = pd.read_csv(
@@ -1614,7 +1618,7 @@ def get_csv_subset(
         iterator = True,
         chunksize = chunk_size,
         engine = "c",
-        usecols = fields_extract
+        usecols = fields_extract,
     )
 
     df_out = []
@@ -1643,7 +1647,14 @@ def get_csv_subset(
         keep_going = False if (df_chunk is None) else keep_going
         keep_going = keep_going & (True if (max_iter is None) else (i < max_iter))
 
-    df_out = pd.concat(df_out, axis = 0).reset_index(drop = True) if (len(df_out) > 0) else None
+    # return None if no elements were found
+    if len(df_out) == 0:
+        return None
+    
+    # some things to do if a dataframe
+    df_out = _concat_df(df_out, )
+    if force_column_order:
+        df_out = df_out[fields_extract]
 
     return df_out
 
