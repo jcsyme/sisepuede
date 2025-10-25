@@ -1653,7 +1653,7 @@ def get_csv_subset(
     
     # some things to do if a dataframe
     df_out = _concat_df(df_out, )
-    if force_column_order:
+    if force_column_order and islistlike(fields_extract):
         df_out = df_out[fields_extract]
 
     return df_out

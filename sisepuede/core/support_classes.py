@@ -1694,23 +1694,25 @@ class Regions:
         field_country: Union[str, None] = None,
         return_modified_df: bool = False,
     ) -> Union[np.ndarray, pd.DataFrame]:
-        """
-        Map IEA countries in field_country to ISO codes contained in 
+        """Map IEA countries in field_country to ISO codes contained in 
             df_in[field_country]. If field_country is None, defaults to 
             self.field_iea_country.
 
         Function Arguments
         ------------------
-        - df_in: input data frame containing field country (if None, uses 
+        df_in : Union[pd.DataFrame, List, np.ndarray, str]
+            Input data frame containing field country (if None, uses 
             self.field_iea_country) OR list/np.ndarray or input country strings
             OR string
 
         Keyword Arguments
         -----------------
-        - field_country: field in df_in used to identify IEA countries if df_in
-            is a DataFrame
-        - return_modified_df: if True and df_in is a DataFrame, will return a 
-            DataFrame modified to include the iso field
+        field_country : Union[str, None]
+            Field in df_in used to identify IEA countries if df_in is a 
+            DataFrame
+        return_modified_df : bool 
+            if True and df_in is a DataFrame, will return a DataFrame modified 
+            to include the iso field
         """
        
         field_country = self.field_iea_country if (field_country is None) else field_country
