@@ -490,7 +490,6 @@ class CarbonLedger:
 
         # 3. Calculate the counterfactual ""
 
-
         # calculate actual sequestration here--want to do it in a loop so that it can adapt to changes in area
         for j in range(i):
             self.arr_c_seq_per_time_period_new_forests[i, j] = (
