@@ -1111,7 +1111,7 @@ class CircularEconomy:
             override_vector_for_single_mv_q = True, 
             return_type = "array_units_corrected",
         )[0, :]
-        vec_wali_bod_percap_init*= self.model_attributes.configuration.get("days_per_year")
+        vec_wali_bod_percap_init *= self.model_attributes.configuration.get("days_per_year")
 
         vec_wali_bod_correction = self.model_attributes.extract_model_variable(#
             df_ce_trajectories, 
@@ -1156,11 +1156,11 @@ class CircularEconomy:
             override_vector_for_single_mv_q = True, 
             return_type = "array_base",
         )
-
+        
         # scale per capita volume and bod/person (representing increases)
         array_wali_bod_percap = (array_wali_bod_percap.transpose()*vec_wali_scale_percapita_dem).transpose()
         array_wali_vol_domww_percap = (array_wali_vol_domww_percap.transpose()*vec_wali_scale_percapita_dem).transpose()
-
+        
         # total bod (kg), cod (tonne), and wastewater (m3) generated
         array_wali_bod_total = (array_wali_bod_percap.transpose()*array_pop.transpose()).transpose()
         array_wali_domww_total = (array_wali_vol_domww_percap.transpose()*array_pop.transpose()).transpose()
@@ -1192,7 +1192,7 @@ class CircularEconomy:
         array_trww_total_ww_cod_by_pathway = array_trww_total_bod_by_pathway.copy()
 
         ##  GET TOTALS BY TREATMENT PATHWAY
-
+       
         # domestic
         for cdw in cats_dom_ww:
             # get population category
@@ -1247,7 +1247,9 @@ class CircularEconomy:
             array_trww_total_cod_by_pathway += (array_pathways.transpose()*vec_cod)
             array_trww_total_ww_cod_by_pathway += (array_pathways.transpose()*vec_ww)
 
-        # total bod (kg -> tonne), cod (tonne), and ww vol (m3) -- get factor, which is applied only to the data frame (to presreve array_trww_total_bod_by_pathway in units of emissions mass for downstream calculations)
+        # total bod (kg -> tonne), cod (tonne), and ww vol (m3) -- get factor, which is applied 
+        # only to the data frame (to presreve array_trww_total_bod_by_pathway in units of 
+        # emissions mass for downstream calculations)
         factor_trww_emissions_mass_to_tow_mass = self.model_attributes.get_mass_equivalent(
             self.model_attributes.configuration.get("emissions_mass").lower(),
              self.model_attributes.get_variable_characteristic(
@@ -1355,7 +1357,7 @@ class CircularEconomy:
         array_trww_emissions_ch4_cod = ((array_trww_tow_cod_not_removed*array_trww_mcf).transpose()*vec_wali_cod_max_bo).transpose()
         array_trww_bod_equivalent_removed_sludge = array_trww_tow_bod_removed_sludge + (array_trww_tow_cod_removed_sludge.transpose()*(vec_wali_cod_max_bo/vec_wali_bod_max_bo)).transpose()
         array_trww_emissions_ch4_treatment = array_trww_emissions_ch4_bod + array_trww_emissions_ch4_cod
-        
+
         # get fraction of ch4 captures
         array_trww_frac_ch4_recovered = self.model_attributes.extract_model_variable(#
             df_ce_trajectories, 
