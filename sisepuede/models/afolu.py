@@ -426,7 +426,7 @@ class AFOLU:
                 * self.cat_ippu_paper
                 * self.cat_ippu_wood
 
-            * The Land Use transition corrector optimization model
+            * The Land Use tra   nsition corrector optimization model
 
                 * self.q_adjuster
 
@@ -6267,6 +6267,7 @@ class AFOLU:
                     # account for fraction used for fertilizer
                     vec_lsmm_nitrogen_cur = vec_lsmm_nitrogen_available*arr_lsmm_frac_used_for_fertilizer[:, index_cat_lsmm]
                     vec_lsmm_nitrogen_to_other += vec_lsmm_nitrogen_available - vec_lsmm_nitrogen_cur
+
                     # add to total by animal and splits by dung/urea (used in Soil Management subsector)
                     arr_lsmm_nitrogen_available[:, index_cat_lsmm] += vec_lsmm_nitrogen_cur
                     vec_lsmm_nitrogen_to_fertilizer_dung += vec_lsmm_nitrogen_cur*vec_lsmm_frac_n_in_dung
@@ -7226,7 +7227,10 @@ class AFOLU:
         #    SUMMARIZE N2O EMISSIONS AS DIRECT + INDIRECT   #
         #####################################################
 
-        scalar_n2on_to_emission_out = self.factor_n2on_to_n2o*self.model_attributes.get_scalar(self.modvar_lsmm_n_to_fertilizer_agg_dung, "mass")
+        scalar_n2on_to_emission_out = self.factor_n2on_to_n2o*self.model_attributes.get_scalar(
+            self.modvar_lsmm_n_to_fertilizer_agg_dung, 
+            "mass",
+        )
         scalar_n2on_to_emission_out *= self.model_attributes.get_gwp("n2o")
         
         # build emissions outputs
