@@ -564,6 +564,7 @@ class CircularEconomy:
         vec_ddocm_factors: np.ndarray,
         array_k: np.ndarray,
         vec_mcf: np.ndarray,
+        convert_to_co2e: bool = True,
         vec_oxf: np.ndarray = 0.0,
         vec_frac_captured: np.ndarray = 0.0,
     ) -> Tuple[np.ndarray, np.ndarray]:
@@ -586,6 +587,8 @@ class CircularEconomy:
 
         Keyword Arguments
         -----------------
+        convert_to_co2e : bool
+            Convert to CO2e?
         vec_frac_captured : np.ndarray
             Vector of fraction of biogas captured
         vec_oxf : np.ndarray 
@@ -655,6 +658,9 @@ class CircularEconomy:
         #print(array_ddocm_accumulated)
         # adjust for recovery + oxidisation
         array_ch4_total = array_ddocm_decomposed*self.factor_molecular_weight_ch4*self.landfill_gas_frac_methane
+        if convert_to_co2e:
+            array_ch4_total *= self.model_attributes.get_gwp("ch4")
+
         array_ch4_captured = (array_ch4_total.transpose()*vec_frac_captured).transpose()
         array_ch4_total -= array_ch4_captured
         array_ch4_total = (array_ch4_total.transpose()*(1 - vec_oxf)).transpose()
@@ -2083,6 +2089,7 @@ class CircularEconomy:
             vec_waso_ddocm,
             array_waso_k,
             vec_waso_mcf_landfill,
+            convert_to_co2e = True,
             vec_frac_captured = vec_waso_avg_frac_landfill_gas_capture,
             vec_oxf = vec_waso_oxf_landfill,
         )
@@ -2115,11 +2122,13 @@ class CircularEconomy:
         ##  OPEN DUMPING
 
         # use the first-order decay model for open dumping
+        self.vec_waso_mcf_open_dump = vec_waso_mcf_open_dump
         array_waso_emissions_ch4_open_dump, vec_waso_open_dump_gas_recovered = self.fod(
             array_waso_waste_open_dump,
             vec_waso_ddocm,
             array_waso_k,
             vec_waso_mcf_open_dump,
+            convert_to_co2e = True,
             vec_frac_captured = 0.0,
             vec_oxf = 0.0,
         )
