@@ -95,7 +95,6 @@ class CarbonLedger:
         df_afolu_trajectories: pd.DataFrame,
         model_attributes: ModelAttributes,
         cat_frst_secondary: str,
-        cats_lndu_frst: List[str],
         cats_lndu_track: Union[List[str], None],
         dict_lndu_to_frst: Dict[str, str],
         modvar_frst_frac_c_converted_available: Union['ModelVariable', str],
@@ -113,7 +112,6 @@ class CarbonLedger:
         self._initialize_attributes(
             model_attributes,
             cat_frst_secondary,
-            cats_lndu_frst,
             cats_lndu_track,
             dict_lndu_to_frst,
         )
@@ -142,7 +140,6 @@ class CarbonLedger:
     def _initialize_attributes(self,
         model_attributes: ModelAttributes,
         cat_frst_secondary: str,
-        cats_lndu_frst: List[str],
         cats_lndu_track: Union[List[str], None],    
         dict_lndu_to_frst: Dict[str, str],
     ) -> None:
@@ -157,14 +154,14 @@ class CarbonLedger:
 
 
         # set categories
-        cats_lndu_frst = [x for x in attr_lndu.key_values if (x in cats_lndu_frst)]
+        cats_lndu_frst = [x for x in attr_lndu.key_values if (x in dict_lndu_to_frst.keys())]
         
         cats_lndu_track = (
             [x for x in attr_lndu.key_values if (x in cats_lndu_track) and (x in cats_lndu_frst)]
             if sf.islistlike(cats_lndu_track)
             else cats_lndu_frst
         )
-        cats_frst_track = [dict_lndu_to_frst.get(x) for x in self.cats_lndu_track]
+        cats_frst_track = [dict_lndu_to_frst.get(x) for x in cats_lndu_track]
 
         # check for secondary forest
         if cat_frst_secondary not in cats_frst_track:
@@ -180,7 +177,7 @@ class CarbonLedger:
             "pycategory_primary_element"
         )
 
-        
+
 
         ##  SET PROPERTIES
 
