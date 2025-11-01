@@ -5539,9 +5539,10 @@ class Transformers:
     ####################################
 
     def _trfunc_enfu_adjust_exports(self,
+        cats_enfu: Union[List[str], None],
         df_input: Union[pd.DataFrame, None] = None,
-        magnitude: float = 0.8,
-        magnitude_type: str = "scalar",
+        magnitude: float = 1.5,
+        magnitude_type: str = "baseline_scalar",
         strat: Union[int, None] = None,
         vec_implementation_ramp: Union[np.ndarray, Dict[str, int], None] = None,
     ) -> pd.DataFrame:
@@ -5549,6 +5550,8 @@ class Transformers:
 
         Parameters
         ----------
+        cats_enfu : Union[List[str], None]
+            Optional list of ENFU categories to apply to.
         df_input : pd.DataFrame
             Optional data frame containing trajectories to modify
         magnitude : float
@@ -5569,7 +5572,7 @@ class Transformers:
         )
 
         # set bounds
-        bounds = (0.0, np.inf)
+        bounds = (-1.0, np.inf)
         magnitude = self.bounded_real_magnitude(
             magnitude, 
             0.8,
@@ -5589,9 +5592,10 @@ class Transformers:
             {
                 self.model_enercons.modvar_enfu_exports_fuel: {
                     "bounds": bounds,
+                    "categories": cats_enfu,
                     "magnitude": magnitude,
                     "magnitude_type": magnitude_type,
-                    "vec_ramp": self.vec_implementation_ramp
+                    "vec_ramp": self.vec_implementation_ramp,
                 },
             },
             field_region = self.key_region,
