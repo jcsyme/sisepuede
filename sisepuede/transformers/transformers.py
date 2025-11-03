@@ -5539,7 +5539,7 @@ class Transformers:
     ####################################
 
     def _trfunc_enfu_adjust_exports(self,
-        cats_enfu: Union[List[str], None],
+        cats_enfu: Union[List[str], None] = None,
         df_input: Union[pd.DataFrame, None] = None,
         magnitude: float = 1.5,
         magnitude_type: str = "baseline_scalar",
