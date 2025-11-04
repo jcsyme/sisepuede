@@ -1105,9 +1105,11 @@ def transformation_entc_renewable_target(
                 magnitude_renewables_by_region = dict((k, v/magnitude) for k, v in magnitude_renewables_by_region.items())
 
             if scale_non_renewables_to_match_surplus_msp:
-                v_total = sum(list(magnitude_renewables_by_region.values()))
+                v_total = float(sum(list(magnitude_renewables_by_region.values())))
+                scalar_v_total = 1/v_total if v_total != 0 else 0.0
+
                 magnitude_renewables_by_region = dict(
-                    (k, np.nan_to_num(magnitude*v/v_total, nan = 0.0, posinf = 0.0, ))
+                    (k, np.nan_to_num(magnitude*v*scalar_v_total, nan = 0.0, posinf = 0.0, ))
                     for k, v in magnitude_renewables_by_region.items()
                 )
 
