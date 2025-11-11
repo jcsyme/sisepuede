@@ -1,21 +1,26 @@
 ﻿fao_item,aggregate_fao_crop,``$CAT-LIVESTOCK$``
 Asses,,mules
+Bees,,
+Buffalo,,buffalo
 Camels,,horses
 Cattle,,cattle_dairy|cattle_nondairy
+Cattle and Buffaloes,,cattle_dairy|cattle_nondairy
 Chickens,,chickes
+Ducks,,chickens
+Geese,,chickens
 Goats,,goats
 Horses,,horses
 Mules and hinnies,,mules
-Sheep,,sheep
-Cattle and Buffaloes,,cattle_dairy|cattle_nondairy
-Poultry Birds,,chickens
-Sheep and Goats,,goats|sheep
-Bees,,
-Buffalo,,buffalo
-Ducks,,chickens
-Geese,,chickens
-Swine / pigs,,pigs
-Turkeys,,chickens
-Rabbits and hares,,
 Other camelids,,horses
 Other rodents,,
+Poultry Birds,,chickens
+Rabbits and hares,,
+Raw milk of buffalo,,buffalo
+Raw milk of camel,,horses
+Raw milk of cattle,,cattle_dairy
+Raw milk of goats,,goats
+Raw milk of sheep,,sheep
+Sheep,,sheep
+Sheep and Goats,,goats|sheep
+Swine / pigs,,pigs
+Turkeys,,chickens
