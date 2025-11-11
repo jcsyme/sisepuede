@@ -1,26 +1,26 @@
-﻿fao_item,aggregate_fao_crop,``$CAT-LIVESTOCK$``
-Asses,,mules
-Bees,,
-Buffalo,,buffalo
-Camels,,horses
-Cattle,,cattle_dairy|cattle_nondairy
-Cattle and Buffaloes,,cattle_dairy|cattle_nondairy
-Chickens,,chickes
-Ducks,,chickens
-Geese,,chickens
-Goats,,goats
-Horses,,horses
-Mules and hinnies,,mules
-Other camelids,,horses
-Other rodents,,
-Poultry Birds,,chickens
-Rabbits and hares,,
-Raw milk of buffalo,,buffalo
-Raw milk of camel,,horses
-Raw milk of cattle,,cattle_dairy
-Raw milk of goats,,goats
-Raw milk of sheep,,sheep
-Sheep,,sheep
-Sheep and Goats,,goats|sheep
-Swine / pigs,,pigs
-Turkeys,,chickens
+﻿fao_item,aggregate_fao_category,``$CAT-LIVESTOCK$``
+Asses,0,mules
+Bees,0,
+Buffalo,0,buffalo
+Camels,0,horses
+Cattle,0,cattle_dairy|cattle_nondairy
+Cattle and Buffaloes,1,buffalo|cattle_dairy|cattle_nondairy
+Chickens,0,chickes
+Ducks,0,chickens
+Geese,0,chickens
+Goats,0,goats
+Horses,0,horses
+Mules and hinnies,1,mules
+Other camelids,1,camels|horses
+Other rodents,0,
+Poultry Birds,1,chickens
+Rabbits and hares,0,
+Raw milk of buffalo,0,buffalo
+Raw milk of camel,0,horses
+Raw milk of cattle,0,cattle_dairy
+Raw milk of goats,0,goats
+Raw milk of sheep,0,sheep
+Sheep,0,sheep
+Sheep and Goats,1,goats|sheep
+Swine / pigs,0,pigs
+Turkeys,0,chickens
