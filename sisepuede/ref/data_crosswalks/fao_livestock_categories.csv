@@ -5,7 +5,7 @@ Buffalo,0,buffalo
 Camels,0,horses
 Cattle,0,cattle_dairy|cattle_nondairy
 Cattle and Buffaloes,1,buffalo|cattle_dairy|cattle_nondairy
-Chickens,0,chickes
+Chickens,0,chickens
 Ducks,0,chickens
 Geese,0,chickens
 Goats,0,goats
