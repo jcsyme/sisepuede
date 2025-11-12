@@ -603,10 +603,9 @@ def check_type(
     elem_type: Union[List[type], type],
     write_message: bool = False,
 ) -> Tuple[bool, Union[str, None]]:
-    """
-    Check if `elem` fits any of the types specified. Returns a bool and optional
-        message (if write_message == True). If no message is written, the second
-        element of the tuple is None.
+    """Check if `elem` fits any of the types specified. Returns a bool and 
+        optional message (if write_message == True). If no message is written, 
+        the second element of the tuple is None.
     """
     elem_type = [elem_type] if isinstance(elem_type, type) else elem_type
 
