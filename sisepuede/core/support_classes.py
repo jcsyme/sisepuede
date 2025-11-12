@@ -34,9 +34,11 @@ class YAMLConfigurationKeyError(Exception):
 ##########################
 
 # fields
+_FIELD_ADMINISTRATIVE_SPECIFICATION = "administrative_specification"
 _FIELD_DAY = "day"
 _FIELD_MONTH = "month"
 _FIELD_YEAR = "year"
+
 
 
 # module UUID
@@ -119,6 +121,18 @@ class Regions:
             * self.field_iea_value
         """
 
+
+        """
+        # 'tanzania', 'congo', 'türkiye','moldova','laos','syria','the_netherlands',
+        # regions.attributes.table[regions.attributes.table['category_name']=='Democratic Republic of the Congo']
+        # regions.attributes.table[regions.attributes.table['category_name']=='United Republic of Tanzania']
+        # regions.attributes.table[regions.attributes.table['category_name']=='Turkey']
+        # regions.attributes.table[regions.attributes.table['category_name']=='Republic of Moldova']
+        # regions.attributes.table[regions.attributes.table['category_name']=="Lao People's Democratic Republic"]
+        # regions.attributes.table[regions.attributes.table['category_name']=="Syrian Arab Republic"]
+        # regions.attributes.table[regions.attributes.table['category_name']=="Syrian Arab Republic"]
+        # regions.attributes.table[regions.attributes.table['category_name']=="Netherlands"]
+        """
         self.dict_iea_countries_lc_to_regions = {
             "chinese_taipei": "taiwan",
             "czech_republic": "czechia",
@@ -824,9 +838,6 @@ class Regions:
 
 
 
-            
-
-
     def fill_missing_regions(self,
         df: pd.DataFrame,
         fields_data: List[str],
@@ -846,11 +857,16 @@ class Regions:
         dict_method : dict
             Fill method information. Keys are a method while values are 
             dictionaries that map parameters to values. Options are:
-            * "grouping_average": Use a regional grouping average. Requires the
-                following parameters:
-                * "regional_grouping": grouping method to use
-            * "analog_population_center": Use an analog from the nearest 2020 
-                population center.
+            * "analog_population_center":   Use an analog from the nearest 2020 
+                                            population center.
+            * "constant_value":             Use a constant value (specified as
+                                            value in the dictionary)
+            * "grouping_average":           Use a regional grouping average. 
+                                            Requires the following parameters:
+                                            - "regional_grouping": 
+                                                grouping method to use
+            
+            
         region_spec : str
             Regional specification; must be one of
             * "iso": use ISO codes, available in regions.all_iso
@@ -889,8 +905,9 @@ class Regions:
         # check method
         method = list(dict_method.keys())[0]
         valid_methods = [
-            "grouping_average", 
             "analog_population_center",
+            "constant_value",
+            "grouping_average", 
         ]
 
         if method not in valid_methods:
@@ -969,6 +986,29 @@ class Regions:
                 return_region_type = region_spec,
                 aggregation_method = "mean",
             )
+
+
+        elif method == "constant_value":
+            # get the value
+            val = dict_method.get(method)
+
+            # use on region as an analog
+            df_new = df[
+                df[field_region] == df[field_region].iloc[0]
+            ].copy()
+
+            # set to the value
+            df_new_cat = []#df_new for x in regions_fill]
+            for i in regions_fill:
+                df_proxy = df_new.copy()
+                df_proxy[field_region] = i
+                df_new_cat.append(df_proxy)
+            
+            df_new = sf._concat_df(df_new_cat, )
+            df_new[fields_data] = val
+
+            # concatenate
+            df_out = sf._concat_df([df, df_new])
 
 
         elif method == "analog_population_center":
@@ -1459,6 +1499,43 @@ class Regions:
         )
 
         return out
+    
+
+
+    def get_regions_by_admnistrative_equivalent(self,
+        admin_spec: str,
+        return_type: Union[str, None] = None,
+    ) -> List[Union[str, int]]:
+        """Filter regions by administrative specification. Returns regions of 
+            type return_type
+
+        Function Arguments
+        ------------------
+        admin_spec : str
+            Valid administrative specification included in the regions attribute 
+            table
+
+        Keyword Arguments
+        -----------------
+        return_type : str
+            region, iso, or iso_numeric
+        """
+
+        tab = self.attributes.table
+        
+        regions_out = tab[
+            tab[_FIELD_ADMINISTRATIVE_SPECIFICATION].isin([admin_spec])
+        ]
+        regions_out = list(regions_out[self.key])
+
+        if return_type is not None:
+            regions_out = [
+                self.return_region_or_iso(x, return_type = return_type, ) 
+                for x in regions_out
+            ]
+
+        return regions_out
+
 
 
 
