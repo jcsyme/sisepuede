@@ -128,6 +128,7 @@ def scale_inputs_single_value(
     )
     model_sum_adjusted = df_projected_final[fields_output].iloc[ind].sum()
 
+
     ##  CALCULATE ERROR
     
     error = _ERROR_FUNCTIONS(
