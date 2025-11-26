@@ -9,10 +9,20 @@ import sisepuede.utilities._toolbox as sf
 from typing import *
 
 
+
+##########################
+#    GLOBAL VARIABLES    #
+##########################
+
 # some global settings
 _PARAMS_DEFAULT_GAMMA = np.array([235.5, 0.426, -0.00484], )  # see tang et al. table 1 for Boreal GPP
 _PARAMS_DEFAULT_SEM = np.array([0.1323, 1.0642, 6.3342, 3.455], )
 _WIDTHS_DEFAULT = (20, 180)  #, 1000)
+
+# some errors
+class InvalidNorm(Exception):
+    pass
+
 
 
 
@@ -56,10 +66,8 @@ class NPPCurve:
         *args,
         **kwargs,
     ) -> float:
-        out = self.function(
-            *args,
-            **kwargs,
-        )
+        
+        out = self.project(*args, **kwargs, )
 
         return out
     
@@ -76,10 +84,12 @@ class NPPCurve:
         """Initialiize the norm for the curve.
         """
 
+        function = np.vectorize(func, np.float64)
+
         self.bounds = bounds
         self.defaults = defaults
         self.derivative = derivative
-        self.function = func
+        self.function = function
         self.jacobian = jacobian
         self.name = name
         self.is_npp_curve = True
@@ -95,6 +105,8 @@ class NPPCurve:
         """
 
         norm = None if not sf.isnumber(norm) else norm
+        if norm == 0:
+            raise InvalidNorm(f"Keyword argument 'norm' cannot have value equal to zero.")
 
         # case where number
         self.norm = norm
@@ -127,6 +139,23 @@ class NPPCurve:
         )
 
         return out
+    
+
+
+    def project(self,
+        *args,
+        **kwargs,
+    ) -> Union[float, np.ndarray]:
+        """project the npp curve in time. Note that, in self.function(), args[0]
+            is always the time. 
+        """
+
+        out = self.function(*args, **kwargs)
+        if self.norm is not None:
+            out /= self.norm
+            
+        return out
+
     
 
 
@@ -365,7 +394,7 @@ class NPPCurves:
         # curve names
         curve_name_gamma = "gamma"
         curve_name_sem = "sem"
-        
+
         # set up objects
         curve_gamma = NPPCurve(
             _CURVE_GAMMA,
@@ -401,6 +430,7 @@ class NPPCurves:
         self.dict_curves = dict_curves
         self.key_func = key_func
         self.key_params_default = key_params_default
+        self.norm = norm
 
         return None
     
