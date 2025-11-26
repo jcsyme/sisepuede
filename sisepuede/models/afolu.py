@@ -111,6 +111,8 @@ class CarbonLedger:
 
         self._initialize_attributes(
             model_attributes,
+            modvar_frst_frac_c_converted_available,
+            modvar_frst_frac_max_degradation,
             cat_frst_secondary,
             cats_lndu_track,
             dict_lndu_to_frst,
@@ -118,8 +120,6 @@ class CarbonLedger:
 
         self._initialize_arrays(
             df_afolu_trajectories,
-            modvar_frst_frac_c_converted_available,
-            modvar_frst_frac_max_degradation,
             vec_c_removals_demanded,
             vec_init_by_cat_area,
             vec_init_by_cat_c_stock_per_area,
@@ -139,6 +139,8 @@ class CarbonLedger:
 
     def _initialize_attributes(self,
         model_attributes: ModelAttributes,
+        modvar_frst_frac_c_converted_available: Union['ModelVariable', str],
+        modvar_frst_frac_max_degradation: Union['ModelVariable', str],
         cat_frst_secondary: str,
         cats_lndu_track: Union[List[str], None],    
         dict_lndu_to_frst: Dict[str, str],
@@ -178,6 +180,14 @@ class CarbonLedger:
         )
 
 
+        # get some model variables
+        modvar_frst_frac_c_converted_available = model_attributes.get_variable(
+            modvar_frst_frac_c_converted_available,
+        )
+        modvar_frst_frac_max_degradation = model_attributes.get_variable(
+            modvar_frst_frac_max_degradation,
+        )
+
 
         ##  SET PROPERTIES
 
@@ -191,6 +201,8 @@ class CarbonLedger:
         self.dict_lndu_to_frst = dict_lndu_to_frst
         self.ind_frst_secondary = ind_frst_secondary
         self.model_attributes = model_attributes
+        self.modvar_frst_frac_c_converted_available = modvar_frst_frac_c_converted_available
+        self.modvar_frst_frac_max_degradation = modvar_frst_frac_max_degradation
         self.pycat_lndu = pycat_lndu
 
         return None
@@ -199,8 +211,6 @@ class CarbonLedger:
 
     def _initialize_arrays(self,
         df_afolu_trajectories: pd.DataFrame,
-        modvar_frst_frac_c_converted_available: Union['ModelVariable', str],
-        modvar_frst_frac_max_degradation: Union['ModelVariable', str],
         vec_c_removals_demanded: Union[np.ndarray, None],
         vec_init_by_cat_area: np.ndarray,
         vec_init_by_cat_c_stock_per_area: np.ndarray,
@@ -287,12 +297,12 @@ class CarbonLedger:
         # maximum degradation fraction for forests
         arr_min_frac_c_required = self.model_attributes.extract_model_variable(
             df_afolu_trajectories,
-            modvar_frst_frac_max_degradation,
+            self.modvar_frst_frac_max_degradation,
             return_type = "data_frame",
             var_bounds = (0, 1),
         )
 
-        fields_keep = modvar_frst_frac_max_degradation.build_fields(
+        fields_keep = self.modvar_frst_frac_max_degradation.build_fields(
             category_restrictions = self.cats_frst_track,
         )
         arr_min_frac_c_required = 1 - arr_min_frac_c_required[fields_keep].to_numpy()
@@ -301,7 +311,7 @@ class CarbonLedger:
         # Fraction of C available from conversion
         vec_frac_conversion_c_available_for_use = self.model_attributes.extract_model_variable(
             df_afolu_trajectories,
-            modvar_frst_frac_c_converted_available,
+            self.modvar_frst_frac_c_converted_available,
             override_vector_for_single_mv_q = False,
             return_type = "array_base",
             var_bounds = (0, 1),
@@ -394,7 +404,7 @@ class CarbonLedger:
 
         n_tps_no_withdrawals_new_growth = (
             20 
-            if not sf.isnumer(n_tps_no_withdrawals_new_growth, integer = True)
+            if not sf.isnumber(n_tps_no_withdrawals_new_growth, integer = True)
             else max(n_tps_no_withdrawals_new_growth, 1)
         )
 
