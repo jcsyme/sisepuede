@@ -30,15 +30,23 @@ class NPPCurve:
         derivative: Union[callable, None] = None,
         jacobian: Union[callable, None] = None,
         name: Union[str, None] = None,
+        norm: Union[float, None] = None,
     ) -> None:
         
-        self.bounds = bounds
-        self.defaults = defaults
-        self.derivative = derivative
-        self.function = func
-        self.jacobian = jacobian
-        self.name = name
-        self.is_npp_curve = True
+        self._initialize_attributes(
+            func,
+            bounds,
+            defaults,
+            derivative,
+            jacobian,
+            name,
+        )
+
+        self._initialize_norm(
+            norm,
+        )
+
+        
 
         return None
 
@@ -55,6 +63,45 @@ class NPPCurve:
 
         return out
     
+
+
+    def _initialize_attributes(self,
+        func: callable,
+        bounds: callable,
+        defaults: np.ndarray,
+        derivative: Union[callable, None],
+        jacobian: Union[callable, None],
+        name: Union[str, None],
+    ) -> None:
+        """Initialiize the norm for the curve.
+        """
+
+        self.bounds = bounds
+        self.defaults = defaults
+        self.derivative = derivative
+        self.function = func
+        self.jacobian = jacobian
+        self.name = name
+        self.is_npp_curve = True
+
+        return None
+    
+
+
+    def _initialize_norm(self,
+        norm: Union[float, None],
+    ) -> None:
+        """Initialiize the norm for the curve.
+        """
+
+        norm = None if not sf.isnumber(norm) else norm
+
+        # case where number
+        self.norm = norm
+
+        return None
+
+
 
 
     def get_parameters(self,
@@ -255,7 +302,8 @@ class NPPCurves:
     
     Initialization Arguments
     ------------------------
-    - sequestration_targets: ordered list of tuples of the form
+    sequestration_targets : List[Tuple]
+        Ordered list of tuples of the form
 
         [(targ_0, width_0), ... , (targ_{k - 1}, width_{k - 1})]
 
@@ -266,9 +314,16 @@ class NPPCurves:
     
     Optional Arguments
     ------------------
-    - dt: width for crude integral estimate
-    - stop_on_bad_target_spec: raise error if a target is specified incorrectly? 
-        If False, continues with well-specified values.
+    dt : float
+        Width for crude integral estimate
+    norm : Union[float, None]
+        Optional target area for integration; will normalize the NPP curve so
+        that the Reimann sum (or cumulative mass) will be equivalent to this 
+        area over the span from 0 - N, where N is the when a forest reaches
+        primary (e.g., 1000 years)
+    stop_on_bad_target_spec : bool
+        Raise error if a target is specified incorrectly? If False, continues 
+        with well-specified values.
 
     
     """
@@ -276,11 +331,14 @@ class NPPCurves:
     def __init__(self,
         sequestration_targets: List[Tuple],
         dt: float = 0.01,
+        norm: Union[float, None] = None,
         stop_on_bad_target_spec: bool = True,
     ) -> None:
         
 
-        self._initialize_curves()
+        self._initialize_curves(
+            norm = norm,
+        )
         self._initialize_sequestration_targets(
             sequestration_targets,
             dt, 
@@ -292,6 +350,7 @@ class NPPCurves:
 
 
     def _initialize_curves(self,
+        norm: Union[float, None],
     ) -> None:
         """
         initialize valid curves. Sets the following properties:
@@ -314,6 +373,7 @@ class NPPCurves:
             _PARAMS_DEFAULT_GAMMA,
             jacobian = _JACOBIAN_GAMMA,
             name = curve_name_gamma,
+            norm = norm,
         )
 
         curve_sem = NPPCurve(
@@ -322,6 +382,7 @@ class NPPCurves:
             _PARAMS_DEFAULT_SEM,
             derivative = _DERIV_SEM,
             name = curve_name_sem,
+            norm = norm,
         )
 
 
