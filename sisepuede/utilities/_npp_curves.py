@@ -84,12 +84,12 @@ class NPPCurve:
         """Initialiize the norm for the curve.
         """
 
-        function = np.vectorize(func, np.float64)
+        #function = np.vectorize(func, )#otypes = [float], )
 
         self.bounds = bounds
         self.defaults = defaults
         self.derivative = derivative
-        self.function = function
+        self.function = func
         self.jacobian = jacobian
         self.name = name
         self.is_npp_curve = True
@@ -148,11 +148,18 @@ class NPPCurve:
     ) -> Union[float, np.ndarray]:
         """project the npp curve in time. Note that, in self.function(), args[0]
             is always the time. 
+
+        Tries to retrieve norm from kwargs; iif not present, defaults to 
+            initialization value.
         """
 
-        out = self.function(*args, **kwargs)
-        if self.norm is not None:
-            out /= self.norm
+        # make sure the norm isn't passed to the raw function
+        norm = kwargs.pop("norm", self.norm, )
+        t = np.array(args[0]) if sf.islistlike(args[0]) else args[0]
+        out = self.function(t, *args[1:], **kwargs)
+
+        if norm is not None:
+            out /= norm
             
         return out
 
