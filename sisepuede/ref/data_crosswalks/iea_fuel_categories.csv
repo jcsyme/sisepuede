@@ -2,26 +2,26 @@
 ``fuel_ammonia``,,
 ``fuel_biofuels``,Biofuels,Biofuels and waste
 ``fuel_biogas``,,
-``fuel_biomass``,,
+``fuel_biomass``,Biofuels and waste,Biofuels and waste
 ``fuel_coal_deposits``,,
-``fuel_coal``,Coal,
+``fuel_coal``,Coal|Coal and coal products,
 ``fuel_coke``,,
-``fuel_crude``,,Oil Products
-``fuel_diesel``,Diesel,Oil Products
+``fuel_crude``,,Oil Products|Oil products|Oil and oil products
+``fuel_diesel``,Diesel,Oil Products|Oil products|Oil and oil products
 ``fuel_electricity``,Electricity,Electricity
 ``fuel_furnace_gas``,,
-``fuel_gasoline``,,Oil Products
-``fuel_geothermal``,,
+``fuel_gasoline``,,Oil Products|Oil products|Oil and oil products
+``fuel_geothermal``,Geothermal,
 ``fuel_hydrocarbon_gas_liquids``,,
 ``fuel_hydrogen``,,
-``fuel_kerosene``,,Oil Products
+``fuel_kerosene``,,Oil Products|Oil products|Oil and oil products
 ``fuel_natural_gas_unprocessed``,,
 ``fuel_natural_gas``,Natural Gas|Natural gas,
 ``fuel_nuclear``,Nuclear,
-``fuel_ocean``,,
-``fuel_oil``,Oil,Oil Products
+``fuel_ocean``,Tide,
+``fuel_oil``,Oil,Oil Products|Oil products|Oil and oil products
 ``fuel_other``,,
-``fuel_solar``,Solar|Solar PV,"Wind, solar, etc."
+``fuel_solar``,Solar|Solar PV|Solar thermal,"Wind, solar, etc."
 ``fuel_waste``,,Biofuels and waste
-``fuel_water``,Hydro,
+``fuel_water``,Hydro|Hydropower,
 ``fuel_wind``,Wind,"Wind, solar, etc."
