@@ -30,6 +30,25 @@ _ERROR_FUNCTIONS = ef.ErrorFunctions()
 #    PRIMARY FUNCTIONS    #
 ###########################
 
+def _clean_shift_into_field(
+    vec: np.ndarray,
+    effective_zero: float,
+) -> np.ndarray:
+    """Clean a target, shifted field.
+    """
+    
+    vec_out = np.nan_to_num(
+        vec,
+        nan = 0.0,
+        posinf = 0.0,
+    )
+
+    vec_out[np.abs(vec_out) < effective_zero] = 0.0
+
+    return vec_out
+
+
+
 def scale_inputs_single_value(
     df_in: pd.DataFrame,
     fields_input: List[str],
@@ -171,11 +190,19 @@ def shift_fuels_based_on_single_point(
     dict_fuel_to_modvars_by_subsec: Dict[str, Dict],
     model_attributes: 'ModelAttributes',
     cats_iter: Union[List[str], None] = None,
+    effective_zero: float = 10.0**(-8.0),
     key_fuel_fraction: str = "fuel_fraction",
-) -> pd.DataFrame:
+    vec_mass_ledger: Union[np.ndarray, None] = None,
+) -> Tuple[pd.DataFrame, np.ndarray]:
     """Using a single point in time comparison for target mixes, shift fuels 
         from one source to another.
 
+    Returns a tuple of the form:
+        (
+            df_candidate,       # DataFrame with fuels that have been shifted
+            vec_mass_ledger,    # Vector with available mass after scaling
+        )
+        
     Function Arguments
     ------------------
     df_input : pd.DataFrame
@@ -211,8 +238,13 @@ def shift_fuels_based_on_single_point(
     cats_iter : Union[List[str], None]
         Optional list of categories to iterate over. If None, will use all
         available in subsector
+    effective_zero : float
+        Value below which numbers are assumed to be 0
     key_fuel_fraction : str
         Key in dict_fuel_to_modvars_by_subsec.get(subector).get(_CAT_ENFU)
+    vec_mass_ledger : Union[np.ndarray, None]
+        Optional "ledger" for keeping track of mass available. Can be used as a
+        passthrough to allow iterative shifting away from fuels
     """
 
     ##  INITIALIZE
@@ -260,22 +292,23 @@ def shift_fuels_based_on_single_point(
         if field_target is None: continue
 
 
-        ##  GET TOTAL IN ELEC
-    
+        ##  GET TOTAL IN TARGET
+
+        # need to make sure the new target does not exceed 1
         vec_target_original = df_candidate[field_target].to_numpy()
         vec_target_new = sf.vec_bounds(vec_target_original*scalar_full, (0, 1))
 
+        # get adjusted scalar and convert to mass that is to be shifted
         scalar = np.nan_to_num(
             vec_target_new/vec_target_original,
             nan = 1.0,
             posinf = 1.0,
         )[ind_tp]
 
-        # get mass that needs to be shifted
         vec_mass_shift = vec_target_original*(scalar - 1)
         
 
-        ##  GET TOTAL AVAIL
+        ##  GET TOTAL MASS AVAIL TO SHIFT IN
 
         arr_mass = np.zeros(
             (
@@ -283,8 +316,6 @@ def shift_fuels_based_on_single_point(
                 len(fuels_shift_out, )
             )
         )
-
-        #print(dict_fuel_to_modvar_by_type)
         
         # iterate over each output fuel to retrieve how much is available
         for i, fuel in enumerate(fuels_shift_out, ):
@@ -303,7 +334,6 @@ def shift_fuels_based_on_single_point(
 
             arr_mass[:, i] = df_candidate[field_cur].to_numpy().copy()
 
-
         # cap shift at available
         vec_mass_cur = arr_mass.sum(axis = 1)
         vec_mass_cur = sf.vec_bounds(
@@ -316,14 +346,33 @@ def shift_fuels_based_on_single_point(
             arr_mass,
             thresh_correction = None,
         )
+        arr_mass = np.nan_to_num(
+            arr_mass,
+            nan = 0.0,
+            posinf = 0.0,
+        )
+        
+        global ams
+        ams = arr_mass.copy()
+
         arr_mass_shift = sf.do_array_mult(
             arr_mass,
             vec_mass_cur,
         )
 
-   
-        # now, execute the shift by iterating over "output" fuels
-        vec_mass_shift_to_target = 0.0
+
+        
+
+        ##  EXECUTE THE SHIFT BY ITERATING OVER "OUT" FUELS
+
+        
+        #ams = arr_mass_shift.copy()
+        w = np.where(np.isnan(arr_mass_shift))[0]
+        if len(w) > 0:
+            raise RuntimeError("Done")
+
+        vec_mass_shift_to_target = np.zeros(arr_mass_shift.shape[0])
+
         for i, fuel in enumerate(fuels_shift_out, ):
             
             # try getting subdicts for fuel--pass if not defined
@@ -341,10 +390,19 @@ def shift_fuels_based_on_single_point(
             vec_shift_cur = arr_mass_shift[:, i]
             vec_mass_shift_to_target += vec_shift_cur
             
-            df_candidate[field_cur] = df_candidate[field_cur].to_numpy() - vec_shift_cur
-        
-         
-        # update elec
-        df_candidate[field_target] = df_candidate[field_target].to_numpy() + vec_mass_shift_to_target
+            # convert nans and small values
+            df_candidate[field_cur] = _clean_shift_into_field(
+                df_candidate[field_cur].to_numpy() - vec_shift_cur,
+                effective_zero,
+            )
 
+        
+        df_candidate[field_target] = _clean_shift_into_field(
+            df_candidate[field_target].to_numpy() + vec_mass_shift_to_target,
+            effective_zero,
+        )
+        
     return df_candidate
+
+
+
