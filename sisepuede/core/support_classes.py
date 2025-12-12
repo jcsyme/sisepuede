@@ -96,6 +96,7 @@ class Regions:
         # initialize some default data source properties
         self._initialize_defaults_iea()
         self._initialize_generic_dict()
+        self._initialize_un_dict()
         self._initialize_uuid()
 
         return None
@@ -180,6 +181,80 @@ class Regions:
 
         return None
 
+
+    def _initialize_un_dict(self,
+    ) -> None:
+        """Build a dictionary mapping some UN names to regions. Sets the 
+            following properties:
+
+                * self.dict_un_countries_lc_to_regions
+        """
+
+        dict_un = {
+            #"anguilla": ,
+            "bolivia_(plur._state_of)": "bolivia",
+            #"bonaire,_st_eustatius,_saba": 
+            "central_african_rep.": "central_african_republic",
+            "china,_hong_kong_sar": "hong_kong",
+            "china,_macao_sar": "macao",
+            "congo": "republic_of_the_congo",
+            #"cook_islands": ,
+            "curaçao": "curacao",
+            #"czechoslovakia_(former)": ,
+            "côte_d'ivoire": "cote_divoire",
+            "dem._rep._of_the_congo": "democratic_republic_of_the_congo",
+            #"ethiopia,_incl._eritrea": ,
+            "faeroe_islands": "faroe_islands",
+            #"falkland_is._(malvinas)": ,
+            #"french_guiana": ,
+            #"german_dem._r._(former)": ,
+            #"germany,_fed._r._(former)": ,
+            #"guadeloupe": ,
+            #"guernsey": ,
+            "iran_(islamic_rep._of)": "iran",
+            #"jersey": ,
+            "korea,_dem.ppl's.rep.": "democratic_peoples_republic_of_korea",
+            "korea,_republic_of": "republic_of_korea",
+            "lao_people's_dem._rep.": "lao",
+            #"martinique": ,
+            #"mayotte": ,
+            "micronesia_(fed._states_of)": "micronesia",
+            #"montserrat": ,
+            #"neth._antilles_(former)": ,
+            "netherlands_(kingd._of_the)": "netherlands",
+            #"niue": ,
+            #"other_asia": ,
+            #"pacific_islands_(former)": ,
+            "russian_federation": "russia",
+            #"réunion": ,
+            #"saint_barthélemy": ,
+            "saint_martin_(french_part)": "saint_martin",
+            #"serbia_and_montenegro": ,
+            "sint_maarten_(dutch_part)": "sint_maarten",
+            #"st._helena_and_depend.": ,
+            "st._kitts_nevis": "saint_kitts_and_nevis",
+            "st._lucia": "saint_lucia",
+            #"st._pierre_miquelon": ,
+            "st._vincent_grenadines": "saint_vincent_and_the_grenadines",
+            #"state_of_palestine": ,
+            #"sudan_(former)": ,
+            "türkiye": "turkey",
+            #"ussr_(former)": ,
+            "united_rep._of_tanzania": "united_republic_of_tanzania",
+            "united_states_virgin_is.": "united_states_virgin_islands",
+            "venezuela_(bolivar._rep.)": "venezuela",
+            #"wallis_and_futuna_is.": ,
+            #"yemen_arab_rep._(former)": ,
+            #"yemen,_dem._(former)": ,
+            #"yugoslavia,_sfr_(former)": ,
+        }
+
+
+        ##  SET PROPERTIES
+
+        self.dict_un_countries_lc_to_regions = dict_un
+
+        return None
         
 
     def _initialize_region_properties(self,
@@ -1816,6 +1891,7 @@ class Regions:
 
     def data_func_try_isos_from_countries(self,
         df_in: Union[pd.DataFrame, List, np.ndarray, str],
+        drop_missing_isos_from_df: bool = False,
         field_country: Union[str, None] = None,
         missing_iso_flag: Union[str, None] = None,
         return_modified_df: bool = False,
@@ -1827,16 +1903,23 @@ class Regions:
 
         Function Arguments
         ------------------
-        - df_in: input data frame containing field country (if None, uses 
-            self.key) OR list/np.ndarray or input country strings OR string
+        df_in : DataFrame
+            Input DataFrame containing field country (if None, uses self.key) OR 
+            list/np.ndarray or input country strings OR string
 
         Keyword Arguments
         -----------------
-        - field_country: field in df_in used to identify IEA countries if df_in
-            is a DataFrame
-        - missing_iso_flag: if is None, will leave regions as input values if 
-            not found. Otherwise, uses flag
-        - return_modified_df: if True and df_in is a DataFrame, will return a 
+        drop_missing_isos_from_df : bool
+            If returning a DataFrame (i.e., if return_modified_df is True),
+            drop rows that are not associated with a valid ISO code?
+        field_country : Union[str, None]
+            Field in df_in used to identify IEA countries if df_in is a 
+            DataFrame
+        missing_iso_flag : Union[str, None]
+            If is None, will leave regions as input values if not found. 
+            Otherwise, uses flag
+        return_modified_df : bool
+            If True and df_in is a DataFrame, will return a 
             DataFrame modified to include the iso field
         """
         
@@ -1865,17 +1948,25 @@ class Regions:
             
             region = self.clean_region(region_base)
 
-            # set a hierarchy
+            # set a hierarchy--try base region, then try IEA, then UN, then generic
             region_full = (
                 region
                 if region in self.dict_region_to_iso.keys()
                 else None
             )
+
             region_full = (
                 self.dict_iea_countries_lc_to_regions.get(region)
                 if region_full is None
                 else region_full
             )
+
+            region_full = (
+                self.dict_un_countries_lc_to_regions.get(region)
+                if region_full is None
+                else region_full
+            )
+
             region_full = (
                 self.dict_generic_countries_to_regions.get(region)
                 if region_full is None
@@ -1899,9 +1990,18 @@ class Regions:
 
         # convert to array and modify data frame if specified
         out = np.array(vec_iso).astype(str)
+        
         if isinstance(df_in, pd.DataFrame) & return_modified_df:
             df_in[self.field_iso] = vec_iso
             out = df_in
+
+            if drop_missing_isos_from_df:
+                out = (
+                    out[
+                        out[self.field_iso].isin(self.all_isos)
+                    ]
+                    .reset_index(drop = True, )
+                )
 
         return out
 
