@@ -635,7 +635,9 @@ class CircularEconomy:
         m, n = array_waso_waste.shape
         array_ddocm_accumulated = np.zeros(array_waso_waste.shape)
         array_ddocm_decomposed = np.zeros(array_waso_waste.shape)
-        np.put(array_ddocm_accumulated, np.arange(0, len(array_ddocm_accumulated[0])), array_waso_waste[0])
+
+        # initialize ddom accumualted
+        array_ddocm_accumulated[0, :] = array_waso_waste[0]*vec_ddocm_factors*vec_mcf[0]
 
         # loop to update arrays
         for i in range(1, len(array_waso_waste)):
@@ -2005,9 +2007,10 @@ class CircularEconomy:
 
 
 
-        ##  SOLID WASTE DISPOSAL (LANDFILLS AND OPEN DUMPING)
+        ##  FIRST ORDER DECAY SOLID WASTE DISPOSAL (LANDFILLS AND OPEN DUMPING)
 
-        # "back project" waste from previous years to estimate deposits, which contribute to emissions (in absence of historical)
+        # "back project" waste from previous years to estimate deposits, 
+        # which contribute to emissions (in absence of historical data)
         n_periods_bp = self.model_attributes.configuration.get("historical_back_proj_n_periods")
         factor_waso_historical_bp_gr = self.model_attributes.extract_model_variable(#
             df_ce_trajectories, 
@@ -2016,7 +2019,7 @@ class CircularEconomy:
         )[0]
 
         (
-            rowind_waso_hist_periods_landfill, 
+            _, 
             rowind_waso_model_periods_landfill, 
             array_waso_waste_landfill
         ) = self.get_waso_historical_solid_waste(
@@ -2027,7 +2030,7 @@ class CircularEconomy:
         )
 
         (
-            rowind_waso_hist_periods_open_dump, 
+            _, 
             rowind_waso_model_periods_open_dump, 
             array_waso_waste_open_dump
         ) = self.get_waso_historical_solid_waste(
@@ -2080,9 +2083,8 @@ class CircularEconomy:
         vec_waso_ddocm = vec_waso_cat_attr_doc_content_as_fraction_wet_waste*vec_waso_cat_attr_docf_degradable
 
 
-        ##  Landfills
-        self.vec_waso_mcf_landfill = vec_waso_mcf_landfill
-        self.vec_waso_ddocm = vec_waso_ddocm
+        ##  LANDFILLS
+
         # use the first-order decay model for landfills
         array_waso_emissions_ch4_landfill, vec_waso_landfill_gas_recovered = self.fod(
             array_waso_waste_landfill,
@@ -2093,7 +2095,6 @@ class CircularEconomy:
             vec_frac_captured = vec_waso_avg_frac_landfill_gas_capture,
             vec_oxf = vec_waso_oxf_landfill,
         )
-        self.array_waso_emissions_ch4_landfill = array_waso_emissions_ch4_landfill
 
 
         # convert units
