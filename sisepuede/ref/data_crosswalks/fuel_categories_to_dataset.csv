@@ -1,0 +1,27 @@
+﻿``$CAT-FUEL$``,iea_fuels,iea_fuel_groups,wri_fuels,un_fuels
+``fuel_ammonia``,,,,
+``fuel_biofuels``,Biofuels,Biofuels and waste,Biofuels,combustible fuels
+``fuel_biogas``,,,,combustible fuels
+``fuel_biomass``,Biofuels and waste,Biofuels and waste,Biomass,combustible fuels
+``fuel_coal_deposits``,,,,
+``fuel_coal``,Coal|Coal and coal products,,Coal|Coal and coal products,combustible fuels
+``fuel_coke``,,,Petcoke,
+``fuel_crude``,,Oil Products|Oil products|Oil and oil products,,
+``fuel_diesel``,Diesel,Oil Products|Oil products|Oil and oil products,Diesel,
+``fuel_electricity``,Electricity,Electricity,Electricity,
+``fuel_furnace_gas``,,,,
+``fuel_gasoline``,,Oil Products|Oil products|Oil and oil products,,
+``fuel_geothermal``,Geothermal,,Geothermal,geothermal
+``fuel_hydrocarbon_gas_liquids``,,,,
+``fuel_hydrogen``,,,,
+``fuel_kerosene``,,Oil Products|Oil products|Oil and oil products,,
+``fuel_natural_gas_unprocessed``,,,,
+``fuel_natural_gas``,Natural Gas|Natural gas,,Gas|Natural Gas|Natural gas,combustible fuels
+``fuel_nuclear``,Nuclear,,Nuclear,nuclear
+``fuel_ocean``,Tide,,Wave and Tidal|Tide,"tide, wave, marine"
+``fuel_oil``,Oil,Oil Products|Oil products|Oil and oil products,Oil,combustible fuels
+``fuel_other``,,,,
+``fuel_solar``,Solar|Solar PV|Solar thermal,"Wind, solar, etc.",Solar|Solar PV|Solar thermal,solar
+``fuel_waste``,,Biofuels and waste,Waste|Waste Incineration,combustible fuels
+``fuel_water``,Hydro|Hydropower,,Hydro|Hydropower,hydro
+``fuel_wind``,Wind,"Wind, solar, etc.",Wind,wind
