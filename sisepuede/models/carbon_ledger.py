@@ -27,6 +27,8 @@ class BiomassCarbonLedger:
 
     KEY ASSUMPTIONS
     ---------------
+    * Conversions from young forest are assumed to be taken from the oldest
+        young forest first.
     * Protected areas do not experience removals
     * Primary forests are in emissions equilibrium; i.e., that annual 
         sequestration is offset by emissions from decomposition of biomass. 
@@ -56,13 +58,13 @@ class BiomassCarbonLedger:
     ---------
 
     # Initialization Arguments
-
-    df_afolu_trajectories : int
-        Number of time periods to initialize for
+    
+    n_tp : int
+        Number of time periods to use
     model_attributes : ModelAttributes
         ModelAttributes for some initialization
     cat_frst_secondary : str
-        Category in FRST to use for secondary forest
+        Secondary forest category
     cats_lndu_frst : List[str]
         List of forest land use categories
     cats_lndu_track : Union[List[str], None]
@@ -112,18 +114,21 @@ class BiomassCarbonLedger:
 
 
     def __init__(self,
-        df_afolu_trajectories: pd.DataFrame,
         model_attributes: ModelAttributes,
         cat_frst_secondary: str,
         cats_lndu_track: Union[List[str], None],
         dict_lndu_to_frst: Dict[str, str],
         modvar_frst_frac_c_converted_available: Union['ModelVariable', str],
         modvar_frst_frac_max_degradation: Union['ModelVariable', str],
-        vec_c_removals_demanded: Union[np.ndarray, None],
-        vec_init_by_cat_area: np.ndarray,
-        vec_init_by_cat_c_stock_per_area: np.ndarray,
-        vec_init_by_cat_seq_per_area: np.ndarray,
-        vec_sequestration_per_tp_new: np.ndarray,
+        n_tp: int,
+        vec_biomass_c_ag_init_stst_storage: np.ndarray,
+        vec_biomass_c_bg_to_ag_ratio: np.ndarray,
+        vec_frac_biomass_adjustment_threshold: Union[float, np.ndarray],
+        vec_frac_biomass_buffer: Union[float, np.ndarray],
+        vec_frac_biomass_dead_storage: Union[float, int, np.ndarray],
+        vec_frac_biomass_from_conversion_available_for_use: Union[float, int, np.ndarray],
+        vec_sf_nominal_initial: np.ndarray,
+        vec_total_removals_demanded: np.ndarray,
         n_tps_no_withdrawals_new_growth: int = 20,
         **kwargs,
     ) -> None:
@@ -136,14 +141,19 @@ class BiomassCarbonLedger:
             cat_frst_secondary,
             cats_lndu_track,
             dict_lndu_to_frst,
+            n_tp,
         )
 
         self._initialize_arrays(
-            df_afolu_trajectories,
-            vec_c_removals_demanded,
-            vec_init_by_cat_area,
-            vec_init_by_cat_c_stock_per_area,
-            vec_init_by_cat_seq_per_area,
+            n_tp,
+            vec_biomass_c_ag_init_stst_storage,
+            vec_biomass_c_bg_to_ag_ratio,
+            vec_frac_biomass_adjustment_threshold,
+            vec_frac_biomass_buffer,
+            vec_frac_biomass_dead_storage,
+            vec_frac_biomass_from_conversion_available_for_use,
+            vec_sf_nominal_initial,
+            vec_total_removals_demanded,
         )
 
         self._initialize_new_forest_properties(
@@ -155,6 +165,27 @@ class BiomassCarbonLedger:
 
         return None
     
+    
+
+
+    ##################################
+    #    INITIALIZATION FUNCTIONS    #
+    ##################################
+
+    def build_arr_young_sf_base_by_tp_planted(self,
+        vec_young_sf_curve: np.ndarray,
+    ) -> np.ndarray:
+        """Build the arr_young_biomass_c_ag_converted_by_tp_planted array
+        """
+
+        arr_young_sf_base_by_tp_planted = np.zeros((self.n_tp, self.n_tp, ))
+
+        for i in range(self.n_tp):
+            n_end = self.n_tp - i
+            arr_young_sf_base_by_tp_planted[i:] = vec_young_sf_curve[0:n_end]
+
+        return arr_young_sf_base_by_tp_planted
+    
 
 
     def _initialize_attributes(self,
@@ -164,6 +195,7 @@ class BiomassCarbonLedger:
         cat_frst_secondary: str,
         cats_lndu_track: Union[List[str], None],    
         dict_lndu_to_frst: Dict[str, str],
+        n_tp: int,
     ) -> None:
         """Initialize key attributes used to manage land use classes
         """
@@ -208,6 +240,10 @@ class BiomassCarbonLedger:
             modvar_frst_frac_max_degradation,
         )
 
+        if not sf.isnumber(n_tp, integer = True, ):
+            raise TypeError(f"n_tp must be an integer")
+
+
 
         ##  SET PROPERTIES
 
@@ -223,6 +259,7 @@ class BiomassCarbonLedger:
         self.model_attributes = model_attributes
         self.modvar_frst_frac_c_converted_available = modvar_frst_frac_c_converted_available
         self.modvar_frst_frac_max_degradation = modvar_frst_frac_max_degradation
+        self.n_tp = n_tp
         self.pycat_lndu = pycat_lndu
 
         return None
@@ -241,6 +278,9 @@ class BiomassCarbonLedger:
         vec_frac_biomass_buffer: Union[float, np.ndarray],
         vec_frac_biomass_dead_storage: Union[float, int, np.ndarray],
         vec_frac_biomass_from_conversion_available_for_use: Union[float, int, np.ndarray],
+        vec_sf_nominal_initial: np.ndarray,
+        vec_total_removals_demanded: np.ndarray,
+        vec_young_sf_curve: Union[float, np.ndarray],
     ) -> Tuple:
         """Check arrays used to initialize the ledger
         """
@@ -289,6 +329,28 @@ class BiomassCarbonLedger:
             "vec_frac_biomass_from_conversion_available_for_use",
         )
 
+        # initial annualized sequestration factors
+        vec_sf_nominal_initial = self._verify_convert_array_input_to_array(
+            vec_sf_nominal_initial,
+            n_cats,
+            "vec_sf_nominal_initial",
+        )
+
+        # vector of total C removals
+        vec_total_removals_demanded = self._verify_convert_array_input_to_array(
+            vec_total_removals_demanded,
+            n_tp,
+            "vec_total_removals_demanded",
+        )
+        
+        # check the sequestration factor curve for young forests
+        vec_young_sf_curve = self._verify_convert_array_input_to_array(
+            vec_young_sf_curve,
+            n_tp,
+            "vec_young_sf_curve",
+        )
+
+        
 
         out = (
             vec_biomass_c_ag_init_stst_storage,
@@ -297,21 +359,25 @@ class BiomassCarbonLedger:
             vec_frac_biomass_buffer,
             vec_frac_biomass_dead_storage,
             vec_frac_biomass_from_conversion_available_for_use,
+            vec_sf_nominal_initial,
+            vec_total_removals_demanded,
+            vec_young_sf_curve, 
         )
 
         return out
     
-    
 
 
     def _initialize_arrays(self,
-        n_tp: int,
         vec_biomass_c_ag_init_stst_storage: np.ndarray,
         vec_biomass_c_bg_to_ag_ratio: np.ndarray,
         vec_frac_biomass_adjustment_threshold: Union[float, np.ndarray],
         vec_frac_biomass_buffer: Union[float, np.ndarray],
         vec_frac_biomass_dead_storage: Union[float, int, np.ndarray],
         vec_frac_biomass_from_conversion_available_for_use: Union[float, int, np.ndarray],
+        vec_sf_nominal_initial: np.ndarray,
+        vec_total_removals_demanded: np.ndarray,
+        vec_young_sf_curve: Union[float, np.ndarray],
         **kwargs,
     ) -> None:
         """Initialize the arrays needed for tracking Carbon stock. Stores the
@@ -344,6 +410,8 @@ class BiomassCarbonLedger:
         * arr_area_conversion_into (T x N)
             Area of conversion into each land use type. Long by time period,
             wide by category.
+        * arr_area_protected_total (T x N)
+            Area of each type protected in total (orig + young)
         * vec_biomass_c_ag_init_stst_storage (N x 1)
             Array giving initial biomass C stock, i.e., mass of biomass c per 
             area for each category.
@@ -376,11 +444,24 @@ class BiomassCarbonLedger:
             that land use type. At or below this level, sequestration does not 
             occur (due to total degredation). This is required to prevent
             conversions that are separate from the land use model.
-
-
+        * vec_sf_nominal_initial (N x 1)
+            Nominal initial sequestration factors for original forests
+        * vec_total_removals_demanded (T x 1)
+            Vector of total removals demanded, including HWP and fuelwood
+            removals.
+        * vec_young_sf_curve (T x 1)
+            Vector of sequestration factors, over time, for newly planted
+            forests; entries at time t are the sequestration factors t time 
+            periods after planting. If entered as a single number, uses one 
+            value for every time period.
+            
 
         ##  INTERNAL VARIABLES
 
+        * arr_area_protected_original (T x N)
+            Area of each type (original) protected. Excludes young categories.
+        * arr_area_protected_original (T x N)
+            Area of each type (original) protected. Excludes young categories.
         * arr_area_remaining_from_orig (T x N)
             Area of tracked land use categories remaining from original,
             steady state assumption
@@ -391,6 +472,16 @@ class BiomassCarbonLedger:
             Array that stores the minimum required biomass per area as the
             outer product of `vec_biomass_c_ag_init_stst_storage` and 
             `vec_frac_biomass_dead_storage`
+        * arr_young_area_by_tp_planted (T x T)
+            Area of young forest by time period planted. Updated iteratively.
+        * arr_young_area_by_tp_planted_cumvals
+            Support array for dynamic updating of arr_young_area_by_tp_planted; 
+            stores cumulative areas to identify when conversions away from young 
+            forest (if they occur) take from older forests.
+        * arr_young_area_by_tp_planted_drops
+            Support array for dynamic updating of arr_young_area_by_tp_planted; 
+            stores area of conversion away from each area of young forest by 
+            time period.
         * vec_area_conversion_away_young_forest (T x 1)
             Vector of total conversion away from young forest
         * vec_area_conversion_away_young_forest_no_protection (T x 1)
@@ -399,7 +490,17 @@ class BiomassCarbonLedger:
         * vec_biomass_c_ag_init_healthy_available (N x 1)
             Vector storing the initial amount of health stock available by 
             category.
-        
+        * vec_frac_biomass_ag_decomposition (N x 1)
+            Estimated fraction of biomass that decomposes every year. This
+            fraction is estimated based on
+
+            
+            
+
+
+
+
+
 
         ##  OUTPUT VARIABLES
 
@@ -407,6 +508,7 @@ class BiomassCarbonLedger:
         """
 
         n_cats = len(self.cats_lndu_track)
+        n_tp = self.n_tp
 
         shape_by_tp = (n_tp, n_tp)
         shape_by_cat = (n_tp, n_cats)
@@ -417,25 +519,30 @@ class BiomassCarbonLedger:
 
         # shape T x N
         arr_area = np.zeros(shape_by_cat, )
+        arr_area_protected_original = np.zeros(shape_by_cat, )
+        arr_area_protected_total = np.zeros(shape_by_cat, )
+        arr_area_protected_young = np.zeros(shape_by_cat, )
         arr_area_remaining_from_orig = np.zeros(shape_by_cat, )
         arr_area_conversion_away_total = np.zeros(shape_by_cat, )
         arr_area_conversion_into = np.zeros(shape_by_cat, )
         arr_area_remaining_from_orig_after_conversion_away = np.zeros(shape_by_cat, )
         arr_biomass_c_min_reqd_per_area = np.zeros(shape_by_cat, )
 
+   
 
         ##  INITIALIZE VECTORS
 
         # by category
         vec_biomass_c_ag_init_healthy_available = np.zeros(n_cats, )
+        vec_frac_biomass_ag_decomposition = np.zeros(n_cats, )
 
         # by time period
         vec_area_conversion_away_young_forest = np.zeros(n_tp, )
         vec_area_conversion_away_young_forest_no_protection = np.zeros(n_tp, )
         
-        
 
         ##  GET AND VERIFY INITIALIZATION ARRAYS
+
         #   note: this call will check input types and convert to numpys
         #         entered as a number. Also verifies shape.
 
@@ -446,6 +553,9 @@ class BiomassCarbonLedger:
             vec_frac_biomass_buffer,
             vec_frac_biomass_dead_storage,
             vec_frac_biomass_from_conversion_available_for_use,
+            vec_sf_nominal_initial,
+            vec_total_removals_demanded,
+            vec_young_sf_curve,
         ) = self._check_initialization_arrays(
             n_cats,
             n_tp,
@@ -455,13 +565,23 @@ class BiomassCarbonLedger:
             vec_frac_biomass_buffer,
             vec_frac_biomass_dead_storage,
             vec_frac_biomass_from_conversion_available_for_use,
+            vec_sf_nominal_initial,
+            vec_total_removals_demanded,
+            vec_young_sf_curve,
         )
+
+
+        # set the young forest internal calculation arrays
+        self._initialize_young_forest_internal_arrays(vec_young_sf_curve, )
 
 
 
         ##  SET PROPERTIES
 
         self.arr_area = arr_area
+        self.arr_area_protected_original = arr_area_protected_original
+        self.arr_area_protected_total = arr_area_protected_total
+        self.arr_area_protected_young = arr_area_protected_young
         self.arr_area_remaining_from_orig = arr_area_remaining_from_orig
         self.arr_area_remaining_from_orig_after_conversion_away = arr_area_remaining_from_orig_after_conversion_away
         self.arr_area_conversion_away_total = arr_area_conversion_away_total
@@ -473,13 +593,140 @@ class BiomassCarbonLedger:
         self.vec_biomass_c_ag_init_stst_storage = vec_biomass_c_ag_init_stst_storage
         self.vec_biomass_c_bg_to_ag_ratio = vec_biomass_c_bg_to_ag_ratio
         self.vec_frac_biomass_adjustment_threshold = vec_frac_biomass_adjustment_threshold
+        self.vec_frac_biomass_ag_decomposition = vec_frac_biomass_ag_decomposition
         self.vec_frac_biomass_buffer = vec_frac_biomass_buffer
-        self.vec_frac_biomass_from_conversion_available_for_use = vec_frac_biomass_from_conversion_available_for_use
         self.vec_frac_biomass_dead_storage = vec_frac_biomass_dead_storage
+        self.vec_frac_biomass_from_conversion_available_for_use = vec_frac_biomass_from_conversion_available_for_use
+        self.vec_sf_nominal_initial = vec_sf_nominal_initial
+        self.vec_total_removals_demanded = vec_total_removals_demanded
+        self.vec_young_sf_curve = vec_young_sf_curve
 
         return None
 
 
+
+    def _initialize_young_forest_internal_arrays(self,
+        vec_young_sf_curve: np.ndarray,
+        **kwargs,
+    ) -> None:
+        """
+
+        * arr_young_biomass_c_ag_converted_by_tp_planted (T x T)
+            Above-ground C stock that is converted by time period
+        * arr_young_biomass_c_ag_stock (T x T)
+            Array storing the total estimated above-ground biomass C stock at 
+            *the end* of time period i for forests planted at time j. EXCLUDES 
+            CONVERSIONS FROM TIME PERIOD i.
+        * arr_young_biomass_c_ag_stock_if_untouched (T x T)
+            Total C stock in young forests if untouched for an area of forest
+            planted in time period t (column)
+        * arr_young_biomass_c_available_for_removals_mask (T x T)
+            Biomass available for removal from each area in time i (row) of new 
+            forest planted in time j (column)
+        * arr_young_biomass_c_bg_converted_by_tp_planted (T x T)
+            Below-ground C stock that is converted by time period
+        * arr_young_biomass_c_bg_stock (T x T)
+            Array storing the total estimated below-ground biomass C stock at 
+            *the end* of time period i for forests planted at time j. EXCLUDES 
+            CONVERSIONS FROM TIME PERIOD i.
+        * arr_young_biomass_c_loss_from_decomposition (T x T)
+            Array storing loss of C assumed to decompose at time i (from dead 
+            biomass or litter) and emit C at time j. This is estimated using the
+            fraction of biomass that is estimated to die as a condition for 
+            equilibrium based on primary forest factors.
+        * arr_young_biomass_c_stock_removal_allocation (T x T)
+            Array that stores how much biomass *is* removed in time i (row) of 
+            new forest planted in time j (column). Allocates total removal
+            under the assumption that older new forests are taken from first.
+        * arr_young_biomass_c_stock_removal_allocation_aux (T x T)
+            Auxiliary array to support calculations in 
+            arr_young_biomass_c_stock_removal_allocation
+        * arr_young_sf_adjusted_by_tp_planted (T x T)
+            Sequestration factors at time i for forests planted at time j. These
+            scale the base adjustment factors stored in 
+            `arr_young_sf_base_by_tp_planted` by factors stored in 
+            `arr_young_sf_adjustment_factor`. The factors are responsive to
+            changes in average stock per area from the previous time period.
+        * arr_young_sf_adjustment_factor (T x T)
+            Factors used to scale `arr_young_sf_base_by_tp_planted` based on the 
+            status of average carbon stock per ha in the previous time period. 
+            If the average stock falls below the adjustment threshold (see
+            `vec_frac_biomass_adjustment_threshold`), then sequestration factors
+            are scaled linearly based on the distance between the adjustment 
+            threshold and dead storage (see `vec_frac_biomass_dead_storage`) 
+        * arr_young_sf_base_by_tp_planted (T x T)
+            Array storing base sequestration factors by time period, which are
+            generally based on NPP curves
+        * vec_young_biomass_c_ag_converted (T x 1)
+            Total above-ground C converted from T x T; sum over column
+        * vec_young_biomass_c_available_for_removals_total (T x 1)
+            Total biomass available for removal from each area in time i; sum
+            over columns of arr_young_biomass_c_available_for_removals_mask
+        * vec_young_biomass_c_bg_converted (T x 1)
+            Total below-ground C converted from T x T; sum over columns
+
+        
+        
+        
+
+
+
+        """
+        shape_by_tp = (self.n_tp, self.n_tp, )
+
+        # shape T x T
+        arr_young_area_by_tp_planted = np.zeros(shape_by_tp, )
+        arr_young_area_by_tp_planted_cumvals = np.zeros(shape_by_tp, )
+        arr_young_area_by_tp_planted_drops = np.zeros(shape_by_tp, )
+        arr_young_biomass_c_ag_converted_by_tp_planted = np.zeros(shape_by_tp, )
+        arr_young_biomass_c_ag_stock = np.zeros(shape_by_tp, )
+        arr_young_biomass_c_ag_stock_if_untouched = np.zeros(shape_by_tp, )
+        arr_young_biomass_c_available_for_removals_mask = np.zeros(shape_by_tp, )
+        arr_young_biomass_c_bg_converted_by_tp_planted = np.zeros(shape_by_tp, )
+        arr_young_biomass_c_bg_stock = np.zeros(shape_by_tp, )
+        arr_young_biomass_c_loss_from_decomposition = np.zeros(shape_by_tp, )
+        arr_young_biomass_c_stock_removal_allocation = np.zeros(shape_by_tp, )
+        arr_young_biomass_c_stock_removal_allocation_aux = np.zeros(shape_by_tp, )
+        
+        arr_young_sf_adjusted_by_tp_planted = np.zeros(shape_by_tp, )
+        arr_young_sf_adjustment_factor = np.zeros(shape_by_tp, )
+
+        # vectors long by time period
+        vec_young_biomass_c_ag_converted = np.zeros(self.n_tp, )
+        vec_young_biomass_c_available_for_removals_total = np.zeros(self.n_tp, )
+        vec_young_biomass_c_bg_converted = np.zeros(self.n_tp, )
+
+        # build base sequestration factors by time period
+        arr_young_sf_base_by_tp_planted = self.build_arr_young_sf_base_by_tp_planted(
+            vec_young_sf_curve, 
+        )
+
+
+        ##  SET PROPERTIES
+
+        self.arr_young_area_by_tp_planted = arr_young_area_by_tp_planted
+        self.arr_young_area_by_tp_planted_cumvals = arr_young_area_by_tp_planted_cumvals
+        self.arr_young_area_by_tp_planted_drops = arr_young_area_by_tp_planted_drops
+        self.arr_young_sf_base_by_tp_planted = arr_young_sf_base_by_tp_planted
+        self.arr_young_biomass_c_ag_converted_by_tp_planted = arr_young_biomass_c_ag_converted_by_tp_planted
+        self.arr_young_biomass_c_ag_stock = arr_young_biomass_c_ag_stock
+        self.arr_young_biomass_c_ag_stock_if_untouched = arr_young_biomass_c_ag_stock_if_untouched
+        self.arr_young_biomass_c_available_for_removals_mask = arr_young_biomass_c_available_for_removals_mask
+        self.arr_young_biomass_c_bg_converted_by_tp_planted = arr_young_biomass_c_bg_converted_by_tp_planted
+        self.arr_young_biomass_c_bg_stock = arr_young_biomass_c_bg_stock
+        self.arr_young_biomass_c_loss_from_decomposition = arr_young_biomass_c_loss_from_decomposition
+        self.arr_young_biomass_c_stock_removal_allocation = arr_young_biomass_c_stock_removal_allocation
+        self.arr_young_biomass_c_stock_removal_allocation_aux = arr_young_biomass_c_stock_removal_allocation_aux
+        self.arr_young_sf_adjusted_by_tp_planted = arr_young_sf_adjusted_by_tp_planted
+        self.arr_young_sf_adjustment_factor = arr_young_sf_adjustment_factor
+        self.vec_young_biomass_c_ag_converted = vec_young_biomass_c_ag_converted
+        self.vec_young_biomass_c_available_for_removals_total = vec_young_biomass_c_available_for_removals_total
+        self.vec_young_biomass_c_bg_converted = vec_young_biomass_c_bg_converted
+
+        return None
+    
+
+    
 
     def _initialize_nf_availability_mask(self,
     ) -> None:
@@ -674,5 +921,6 @@ class BiomassCarbonLedger:
             # self.arr_c_stock_in_new_forest[(i + 1):, i] = area_new_forest*self.vec_sequestration_per_tp_new_cumulative
         
         
-        return None
+        return None#
+    
     
