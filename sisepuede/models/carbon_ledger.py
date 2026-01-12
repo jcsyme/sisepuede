@@ -109,7 +109,346 @@ class BiomassCarbonLedger:
     VARIABLE INFORMATION AND DESCRIPTIONS
     -------------------------------------
 
+    To facilitate clarity, variables here can be traced to both documentation 
+        and the Excel conceptual model contained in the SISEPUEDE reference
+        directory.
+        
+        In variable dimensions below:
+            * N = number of categories
+            * T = number of time periods
+            * UL = Unitless
+
+            
+        ##  INPUT VARIABLES
+
+        * `arr_area` (T x N)
+            Area of tracked categories.
+
+        * `arr_area_conversion_away_total` (T x N)
+            Area of land converted away; entry t gives the land converted 
+            away in time period t.
+
+        * `arr_area_conversion_into` (T x N)
+            Area of conversion into each land use type. Long by time period,
+            wide by category.
+
+        * `arr_area_protected_total` (T x N)
+            Area of each type protected in total (orig + young).
+
+        * `arr_biomass_c_average_ag_stock_in_conversion_targets` (T x N)
+            Average stock per ha in conversion target land use classes out of 
+            each forest type. Used to restrict removals from converted land use
+            classes.
+
+        * `vec_biomass_c_ag_init_stst_storage` (N x 1)
+            Array giving initial biomass C stock, i.e., mass of biomass c per 
+            area for each category.
+
+        * `vec_biomass_c_bg_to_ag_ratio` (N x 1)
+            Array giving the ratio of below ground biomass to above ground
+            biomass. This is used to produced crude estimates of below-ground
+            biomass stock.
+
+        * `vec_frac_biomass_adjustment_threshold` (T x 1) 
+            Vector storing the biomass sequestration adjustment threshold by 
+            time period. If the average carbon stock per area relative to the 
+            steady state (initial) stock per area drops below this threshold,
+            sequestration will start to decline linearly until the dead storage
+            threshold is reach, where sequestration stops.
+            (SOURCE FOR 33%).
+
+        * `vec_frac_biomass_buffer` (T x 1) 
+            Vector storing the biomass removal buffer zone by time period. If 
+            the average carbon stock per area relative to the steady state 
+            (initial) stock per area drops below this threshold, fewer removals 
+            can be satisfied due to scarcity. Removals satisfiable will scale
+            linearly downward until it reaches 0 at the dead storage threshold.
+
+        * `vec_frac_biomass_from_conversion_available_for_use` (T x 1)
+            Fraction of above-ground biomass that is available for use in 
+            fuelwood, roundwood, and harvested wood products after land use 
+            conversion. Any wood made available here reduces demand for removals
+            from live forest.
+
+        * `vec_frac_biomass_dead_storage` (T x 1)
+            Vector giving the fraction of the steady-state (initial) assumed 
+            carbon stock that is considered dead storage, i.e., minimum fraction 
+            of original stock that must remain on the land to allow it to remain 
+            that land use type. At or below this level, sequestration does not 
+            occur (due to total degredation). This is required to prevent
+            conversions that are separate from the land use model.
+
+        * `vec_sf_nominal_initial` (N x 1)
+            Nominal initial sequestration factors for original forests.
+
+        * `vec_total_removals_demanded` (T x 1)
+            Vector of total removals demanded, including HWP and fuelwood
+            removals.
+
+        * `vec_young_sf_curve` (T x 1)
+            Vector of sequestration factors, over time, for newly planted
+            forests; entries at time t are the sequestration factors t time 
+            periods after planting. If entered as a single number, uses one 
+            value for every time period.
+        
+
+
+        ##  INTERNAL CALCULATION VARIABLES
+
+        * `arr_area_protected_original` (T x N)
+            Area of each type (original) protected. Excludes young categories.
+            
+        * `arr_area_protected_original` (T x N)
+            Area of each type (original) protected. Excludes young categories.
+
+        * `arr_area_remaining_from_orig` (T x N)
+            Area of tracked land use categories remaining from original,
+            steady state assumption.
+
+        * `arr_area_remaining_from_orig_after_conversion_away` (T x N)
+            Area at end of time period for the land use class. I.e.,
+            arr_area_remaining_from_orig_after_conversion_away[t] = arr_area_remaining_from_orig[t + 1]
+        
+        * `arr_biomass_c_ag_min_reqd_per_area` (T x N)
+            Array that stores the minimum required biomass per area as the
+            outer product of `vec_biomass_c_ag_init_stst_storage` and 
+            `vec_frac_biomass_dead_storage`.
+        
+        * `arr_biomass_c_removals_from_converted_land_allocation` (T x N)
+            Allocation of C removals from converted land 
+
+        * `arr_orig_allocation_removals` (T x N)
+            Fraction of total pool used to allocated withdrawls by forest type.
+            Columns sum to 1.
+
+        * `arr_orig_biomass_c_ag_available_from_conversion` (T x N)
+            Above-ground biomass C from conversion made available for removals.
+            
+        * `arr_orig_biomass_c_ag_if_untouched` (T x N)
+            Similar to `arr_orig_biomass_c_ag_if_untouched`, tracks biomass
+            C stock that would be associated with areas of forest if no removals
+            were made. This is the primary comparison made to determine 
+            degredation and adjust sequestration factors accordingle. 
+
+        * `arr_orig_biomass_c_ag_preserved_in_conversion` (T x N)
+            Above ground biomass C that must be conserved--not allowed for 
+            removals--in converted lands to maintain carbon stock for land use 
+            conversion target classes.
+        
+        * `arr_orig_biomass_c_allocation_adjusted` (T x N)
+            Adjusted stock available based on fraction of removals satisfiable.
     
+        * `arr_orig_biomass_c_allocation_excluding_conversion` (T x N)
+            Allocation of biomass extractions between forest types; used in
+            estimates of above-ground C emissions or loss from conversion.
+
+        * `arr_orig_biomass_c_average_per_area_no_ds` (T x N)
+            Average biomass stock per area in original forest j at time i 
+            excluding dead storage.
+
+        * `arr_orig_frac_removables_satisfiable` (T x N)
+            Fraction of removables satisfiable based on average carbon storage 
+            level per unit area.
+
+        * `arr_orig_frac_stock_available` (T x N)
+            Average per area forest stock available excluding dead storage.
+
+        * `arr_orig_sf_adjustment_factor` (T x N)
+            Factors used to scale `arr_orig_biomass_c_ag_if_untouched` based on 
+            the status of average carbon stock per ha in original forests (those
+            present at the start of the simulation) in the previous time period. 
+            If the average stock falls below the adjustment threshold (see
+            `vec_frac_biomass_adjustment_threshold`), then sequestration factors
+            are scaled linearly based on the distance between the adjustment 
+            threshold and dead storage (see `vec_frac_biomass_dead_storage`).
+
+        * `arr_young_area_by_tp_planted` (T x T)
+            Area of young forest by time period planted.
+
+        * `arr_young_area_by_tp_planted_cumvals` (T x T)
+            Support array for dynamic updating of arr_young_area_by_tp_planted; 
+            stores cumulative areas to identify when conversions away from young 
+            forest (if they occur) take from older forests.
+
+        * `arr_young_area_by_tp_planted_drops` (T x T)
+            Support array for dynamic updating of arr_young_area_by_tp_planted; 
+            stores area of conversion away from each area of young forest by 
+            time period.
+
+        * `arr_biomass_c_ag_converted_away` (T x N)
+            Total stock of above-ground biomass C that is converted to a 
+            different land use category BEFORE removals and minimum needed to
+            stay for target land use class.
+
+        * `arr_young_biomass_c_ag_converted_by_tp_planted` (T x T)
+            Above-ground C stock that is converted by time period.
+
+        * `arr_young_biomass_c_ag_preserved_in_conversion_by_tp_planted` (T x T)
+            Young biomass that is converted that must remain to align with
+            target land use class to prevent removal and replanting. Defined for
+            each new forest class by time period planted. 
+
+        * `arr_young_biomass_c_ag_stock` (T x T)
+            Array storing the total estimated above-ground biomass C stock at 
+            *the end* of time period i for forests planted at time j. EXCLUDES 
+            CONVERSIONS FROM TIME PERIOD i.
+
+        * `arr_young_biomass_c_ag_stock_if_untouched` (T x T)
+            Total C stock in young forests if untouched for an area of forest
+            planted in time period t (column).
+
+        * `arr_young_biomass_c_available_for_removals_mask` (T x T)
+            Biomass available for removal from each area in time i (row) of new 
+            forest planted in time j (column).
+
+        * `arr_young_biomass_c_bg_converted_by_tp_planted` (T x T)
+            Below-ground C stock that is converted by time period.
+
+        * `arr_young_biomass_c_bg_stock` (T x T)
+            Array storing the total estimated below-ground biomass C stock at 
+            *the end* of time period i for forests planted at time j. EXCLUDES 
+            CONVERSIONS FROM TIME PERIOD i.
+
+        * `arr_young_biomass_c_loss_from_decomposition` (T x T)
+            Array storing loss of C assumed to decompose at time i (from dead 
+            biomass or litter) and emit C at time j. This is estimated using the
+            fraction of biomass that is estimated to die as a condition for 
+            equilibrium based on primary forest factors.
+
+        * `arr_young_biomass_c_stock_removal_allocation` (T x T)
+            Array that stores how much biomass *is* removed in time i (row) of 
+            new forest planted in time j (column). Allocates total removal
+            under the assumption that older new forests are taken from first.
+
+        * `arr_young_biomass_c_stock_removal_allocation_aux` (T x T)
+            Auxiliary array to support calculations in 
+            `arr_young_biomass_c_stock_removal_allocation`.
+
+        * `arr_young_sf_adjusted_by_tp_planted` (T x T)
+            Sequestration factors at time i for forests planted at time j. These
+            scale the base adjustment factors stored in 
+            `arr_young_sf_base_by_tp_planted` by factors stored in 
+            `arr_young_sf_adjustment_factor`. The factors are responsive to
+            changes in average stock per area from the previous time period.
+
+        * `arr_young_sf_adjustment_factor` (T x T)
+            Factors used to scale `arr_young_sf_base_by_tp_planted` based on the 
+            status of average carbon stock per ha in the previous time period. 
+            If the average stock falls below the adjustment threshold (see
+            `vec_frac_biomass_adjustment_threshold`), then sequestration factors
+            are scaled linearly based on the distance between the adjustment 
+            threshold and dead storage (see `vec_frac_biomass_dead_storage`).
+
+        * `arr_young_sf_base_by_tp_planted` (T x T)
+            Array storing base sequestration factors by time period, which are
+            generally based on NPP curves.
+
+        * `vec_area_conversion_away_young_forest` (T x 1)
+            Vector of total conversion away from young forest.
+
+        * `vec_area_conversion_away_young_forest_no_protection` (T x 1)
+            Vector of total conversion away from young forest EXCLUDING any 
+            protected land. Used in intermediate calculations for carbon stock.
+
+        * `vec_biomass_c_ag_init_healthy_available` (N x 1)
+            Vector storing the initial amount of health stock available by 
+            category.
+
+        * `vec_frac_biomass_ag_decomposition` (N x 1)
+            Estimated fraction of biomass that decomposes every year. This
+            fraction is estimated using the equilibrium assumption for primary 
+            forests, where total sequestration == total emission.
+        
+        * `vec_young_biomass_c_ag_converted` (T x 1)
+            Total above-ground C converted from T x T; sum over columns.
+
+        * `vec_young_biomass_c_ag_preserved_in_conversion` (T x 1)
+            Total young biomass from conversion that must remain to align with
+            target land use class to prevent removal and replanting.
+
+        * `vec_young_biomass_c_available_for_removals_total` (T x 1)
+
+            Total biomass available for removal from each area in time i; sum
+            over columns of arr_young_biomass_c_available_for_removals_mask`.
+
+        * `vec_young_biomass_c_bg_converted` (T x 1)
+            Total below-ground C converted from T x T; sum over columns.
+        
+        * `vec_biomass_c_removals_from_forest_demanded` (T x 1)
+            Total demand for removals from all forested land after accounting 
+            for automatic removals from available converted biomass.
+
+        * `vec_biomass_c_removed_from_original_demanded` (T x 1)
+            Demand for removals from original forested land after accounting for
+            automatic removals from available converted biomass.
+
+        * `vec_biomass_c_removed_from_original_unmet` (T x N)
+            Demand for removals unmet by original forests.
+
+        * `vec_biomass_c_removed_from_young` (T x 1)
+            Vector storing the mass of biomass removed from young forests at
+            time t
+        
+        * `vec_orig_biomass_c_accessible_pool` (T x 1)
+            Vector storing the total mass of biomass accessible. Used to
+            constrain removals.
+            
+
+
+        ##  OUTPUT VARIABLES
+
+        * `arr_biomass_c_ag_lost_conversion` (T x N)
+            Total above-ground C lost ue to conversion
+
+        * `arr_biomass_c_bg_lost_conversion` (T x N)
+            Total below-ground C lost due to conversion
+        
+        * `arr_biomass_c_removed_from_forests_excluding_conversion` (T x 1)
+            Total biomass removed from each forest type excluding conversions at
+            time i.
+            
+        * `arr_orig_biomass_c_ag_average_per_area` (T x N)
+            Average biomass Cin original forest per unit area are the start of
+            the time period (before conversion)
+        
+        * `arr_biomass_c_ag_lost_decomposition` (T x N)
+            Above-ground biomass C lost to decomposition in each forest type at 
+            time i
+
+        * `arr_orig_biomass_c_ag_starting` (T x N)
+            Above-ground biomass C in original forest at the start of the time
+            period.
+        
+        * `arr_biomass_c_bg_lost_removals` (T x N)
+            Below-ground biomass C lost due to removals in each forest type at 
+            time i
+        
+        * `arr_orig_biomass_c_removed_from_forests` (T x N)
+            Total biomass removed from each forest type j at time i
+
+        * `arr_orig_sf_adjusted` (T x N)
+            Adjusted seuqestration factor, which the base sequestration factor
+            (for each forest type) multiplied by the adjustment factor in 
+            `arr_orig_sf_adjustment_factor`
+
+        * `arr_total_biomass_c_ag_starting` (T x N)
+            Total above-ground biomass in each forest type at the start of time 
+            period t.
+        
+        * `arr_total_biomass_c_bg_starting` (T x N)
+            Total below-ground biomass in each forest type at the start of time 
+            period t.
+
+        * `vec_biomass_c_removals_from_converted` (T x 1)
+            Vector of actual removals from converted biomass available
+
+        * `vec_total_removals_met` (T x 1)
+            Total removals actually met
+
+        * `vec_young_biomass_c_ag_starting` (T x 1)
+            Vector storing the total above-ground biomass in young forests 
+            at time t. Column sums of `arr_young_biomass_c_ag_stock`
+
     """
 
 
@@ -386,308 +725,13 @@ class BiomassCarbonLedger:
         note this is temporary and will be moved up to the class docstring
 
 
-
-    VARIABLE INFORMATION AND DESCRIPTIONS
-    -------------------------------------
-
-    To facilitate clarity, variables here can be traced to both documentation 
-        and the Excel conceptual model contained in the SISEPUEDE reference
-        directory.
-        
-        In variable dimensions below:
-            * N = number of categories
-            * T = number of time periods
-            * UL = Unitless
-
-            
-        ##  INPUT VARIABLES
-
-        * `arr_area` (T x N)
-            Area of tracked categories.
-
-        * `arr_area_conversion_away_total` (T x N)
-            Area of land converted away; entry t gives the land converted 
-            away in time period t.
-
-        * `arr_area_conversion_into` (T x N)
-            Area of conversion into each land use type. Long by time period,
-            wide by category.
-
-        * `arr_area_protected_total` (T x N)
-            Area of each type protected in total (orig + young).
-
-        * `arr_biomass_c_average_ag_stock_in_conversion_targets` (T x N)
-            Average stock per ha in conversion target land use classes out of 
-            each forest type. Used to restrict removals from converted land use
-            classes.
-
-        * `vec_biomass_c_ag_init_stst_storage` (N x 1)
-            Array giving initial biomass C stock, i.e., mass of biomass c per 
-            area for each category.
-
-        * `vec_biomass_c_bg_to_ag_ratio` (N x 1)
-            Array giving the ratio of below ground biomass to above ground
-            biomass. This is used to produced crude estimates of below-ground
-            biomass stock.
-
-        * `vec_frac_biomass_adjustment_threshold` (T x 1) 
-            Vector storing the biomass sequestration adjustment threshold by 
-            time period. If the average carbon stock per area relative to the 
-            steady state (initial) stock per area drops below this threshold,
-            sequestration will start to decline linearly until the dead storage
-            threshold is reach, where sequestration stops.
-            (SOURCE FOR 33%).
-
-        * `vec_frac_biomass_buffer` (T x 1) 
-            Vector storing the biomass removal buffer zone by time period. If 
-            the average carbon stock per area relative to the steady state 
-            (initial) stock per area drops below this threshold, fewer removals 
-            can be satisfied due to scarcity. Removals satisfiable will scale
-            linearly downward until it reaches 0 at the dead storage threshold.
-
-        * `vec_frac_biomass_from_conversion_available_for_use` (T x 1)
-            Fraction of above-ground biomass that is available for use in 
-            fuelwood, roundwood, and harvested wood products after land use 
-            conversion. Any wood made available here reduces demand for removals
-            from live forest.
-
-        * `vec_frac_biomass_dead_storage` (T x 1)
-            Vector giving the fraction of the steady-state (initial) assumed 
-            carbon stock that is considered dead storage, i.e., minimum fraction 
-            of original stock that must remain on the land to allow it to remain 
-            that land use type. At or below this level, sequestration does not 
-            occur (due to total degredation). This is required to prevent
-            conversions that are separate from the land use model.
-
-        * `vec_sf_nominal_initial` (N x 1)
-            Nominal initial sequestration factors for original forests.
-
-        * `vec_total_removals_demanded` (T x 1)
-            Vector of total removals demanded, including HWP and fuelwood
-            removals.
-
-        * `vec_young_sf_curve` (T x 1)
-            Vector of sequestration factors, over time, for newly planted
-            forests; entries at time t are the sequestration factors t time 
-            periods after planting. If entered as a single number, uses one 
-            value for every time period.
-            
-
-
-        ##  INTERNAL CALCULATION VARIABLES
-
-        * `arr_area_protected_original` (T x N)
-            Area of each type (original) protected. Excludes young categories.
-            
-        * `arr_area_protected_original` (T x N)
-            Area of each type (original) protected. Excludes young categories.
-
-        * `arr_area_remaining_from_orig` (T x N)
-            Area of tracked land use categories remaining from original,
-            steady state assumption.
-
-        * `arr_area_remaining_from_orig_after_conversion_away` (T x N)
-            Area at end of time period for the land use class. I.e.,
-            arr_area_remaining_from_orig_after_conversion_away[t] = arr_area_remaining_from_orig[t + 1]
-        
-        * `arr_biomass_c_ag_min_reqd_per_area` (T x N)
-            Array that stores the minimum required biomass per area as the
-            outer product of `vec_biomass_c_ag_init_stst_storage` and 
-            `vec_frac_biomass_dead_storage`.
-        
-        * `arr_biomass_c_removals_from_converted_land_allocation` (T x N)
-            Allocation of C removals from converted land 
-
-        * `arr_orig_biomass_c_ag_available_from_conversion` (T x N)
-            Above-ground biomass C from conversion made available for removals.
-            
-        * `arr_orig_biomass_c_ag_if_untouched` (T x N)
-            Similar to `arr_orig_biomass_c_ag_if_untouched`, tracks biomass
-            C stock that would be associated with areas of forest if no removals
-            were made. This is the primary comparison made to determine 
-            degredation and adjust sequestration factors accordingle. 
-
-        * `arr_orig_biomass_c_ag_preserved_in_conversion` (T x N)
-            Above ground biomass C that must be conserved--not allowed for 
-            removals--in converted lands to maintain carbon stock for land use 
-            conversion target classes.
-        
-        * `arr_orig_biomass_c_allocation_excluding_conversion` (T x N)
-            Allocation of biomass extractions between forest types; used in
-            estimates of above-ground C emissions or loss from conversion.
-
-        * `arr_orig_sf_adjustment_factor` (T x N)
-            Factors used to scale `arr_orig_biomass_c_ag_if_untouched` based on 
-            the status of average carbon stock per ha in original forests (those
-            present at the start of the simulation) in the previous time period. 
-            If the average stock falls below the adjustment threshold (see
-            `vec_frac_biomass_adjustment_threshold`), then sequestration factors
-            are scaled linearly based on the distance between the adjustment 
-            threshold and dead storage (see `vec_frac_biomass_dead_storage`).
-
-        * `arr_young_area_by_tp_planted` (T x T)
-            Area of young forest by time period planted.
-
-        * `arr_young_area_by_tp_planted_cumvals` (T x T)
-            Support array for dynamic updating of arr_young_area_by_tp_planted; 
-            stores cumulative areas to identify when conversions away from young 
-            forest (if they occur) take from older forests.
-
-        * `arr_young_area_by_tp_planted_drops` (T x T)
-            Support array for dynamic updating of arr_young_area_by_tp_planted; 
-            stores area of conversion away from each area of young forest by 
-            time period.
-
-        * `arr_biomass_c_ag_converted_away` (T x N)
-            Total stock of above-ground biomass C that is converted to a 
-            different land use category BEFORE removals and minimum needed to
-            stay for target land use class.
-
-        * `arr_young_biomass_c_ag_converted_by_tp_planted` (T x T)
-            Above-ground C stock that is converted by time period.
-
-        * `arr_young_biomass_c_ag_preserved_in_conversion_by_tp_planted` (T x T)
-            Young biomass that is converted that must remain to align with
-            target land use class to prevent removal and replanting. Defined for
-            each new forest class by time period planted. 
-
-        * `arr_young_biomass_c_ag_stock` (T x T)
-            Array storing the total estimated above-ground biomass C stock at 
-            *the end* of time period i for forests planted at time j. EXCLUDES 
-            CONVERSIONS FROM TIME PERIOD i.
-
-        * `arr_young_biomass_c_ag_stock_if_untouched` (T x T)
-            Total C stock in young forests if untouched for an area of forest
-            planted in time period t (column).
-
-        * `arr_young_biomass_c_available_for_removals_mask` (T x T)
-            Biomass available for removal from each area in time i (row) of new 
-            forest planted in time j (column).
-
-        * `arr_young_biomass_c_bg_converted_by_tp_planted` (T x T)
-            Below-ground C stock that is converted by time period.
-
-        * `arr_young_biomass_c_bg_stock` (T x T)
-            Array storing the total estimated below-ground biomass C stock at 
-            *the end* of time period i for forests planted at time j. EXCLUDES 
-            CONVERSIONS FROM TIME PERIOD i.
-
-        * `arr_young_biomass_c_loss_from_decomposition` (T x T)
-            Array storing loss of C assumed to decompose at time i (from dead 
-            biomass or litter) and emit C at time j. This is estimated using the
-            fraction of biomass that is estimated to die as a condition for 
-            equilibrium based on primary forest factors.
-
-        * `arr_young_biomass_c_stock_removal_allocation` (T x T)
-            Array that stores how much biomass *is* removed in time i (row) of 
-            new forest planted in time j (column). Allocates total removal
-            under the assumption that older new forests are taken from first.
-
-        * `arr_young_biomass_c_stock_removal_allocation_aux` (T x T)
-            Auxiliary array to support calculations in 
-            `arr_young_biomass_c_stock_removal_allocation`.
-
-        * `arr_young_sf_adjusted_by_tp_planted` (T x T)
-            Sequestration factors at time i for forests planted at time j. These
-            scale the base adjustment factors stored in 
-            `arr_young_sf_base_by_tp_planted` by factors stored in 
-            `arr_young_sf_adjustment_factor`. The factors are responsive to
-            changes in average stock per area from the previous time period.
-
-        * `arr_young_sf_adjustment_factor` (T x T)
-            Factors used to scale `arr_young_sf_base_by_tp_planted` based on the 
-            status of average carbon stock per ha in the previous time period. 
-            If the average stock falls below the adjustment threshold (see
-            `vec_frac_biomass_adjustment_threshold`), then sequestration factors
-            are scaled linearly based on the distance between the adjustment 
-            threshold and dead storage (see `vec_frac_biomass_dead_storage`).
-
-        * `arr_young_sf_base_by_tp_planted` (T x T)
-            Array storing base sequestration factors by time period, which are
-            generally based on NPP curves.
-
-        * `vec_area_conversion_away_young_forest` (T x 1)
-            Vector of total conversion away from young forest.
-
-        * `vec_area_conversion_away_young_forest_no_protection` (T x 1)
-            Vector of total conversion away from young forest EXCLUDING any 
-            protected land. Used in intermediate calculations for carbon stock.
-
-        * `vec_biomass_c_ag_init_healthy_available` (N x 1)
-            Vector storing the initial amount of health stock available by 
-            category.
-
-        * `vec_frac_biomass_ag_decomposition` (N x 1)
-            Estimated fraction of biomass that decomposes every year. This
-            fraction is estimated using the equilibrium assumption for primary 
-            forests, where total sequestration == total emission.
-        
-        * `vec_young_biomass_c_ag_converted` (T x 1)
-            Total above-ground C converted from T x T; sum over columns.
-
-        * `vec_young_biomass_c_ag_preserved_in_conversion` (T x 1)
-            Total young biomass from conversion that must remain to align with
-            target land use class to prevent removal and replanting.
-
-        * `vec_young_biomass_c_available_for_removals_total` (T x 1)
-
-            Total biomass available for removal from each area in time i; sum
-            over columns of arr_young_biomass_c_available_for_removals_mask`.
-
-        * `vec_young_biomass_c_bg_converted` (T x 1)
-            Total below-ground C converted from T x T; sum over columns.
-            
-
-
-        ##  OUTPUT VARIABLES
-
-        * `arr_biomass_c_ag_lost_conversion` (T x N)
-            Total above-ground C lost ue to conversion
-
-        * `arr_biomass_c_bg_lost_conversion` (T x N)
-            Total below-ground C lost due to conversion
-        
-        * `arr_orig_biomass_c_ag_average_per_area` (T x N)
-            Average biomass Cin original forest per unit area are the start of
-            the time period (before conversion)
-
-        * `arr_orig_biomass_c_ag_starting` (T x N)
-            Above-ground biomass C in original forest at the start of the time
-            period.
-
-        * `arr_orig_sf_adjusted` (T x N)
-            Adjusted seuqestration factor, which the base sequestration factor
-            (for each forest type) multiplied by the adjustment factor in 
-            `arr_orig_sf_adjustment_factor`
-
-        * `arr_total_biomass_c_ag_starting` (T x N)
-            Total above-ground biomass in each forest type at the start of time 
-            period t.
-        
-        * `arr_total_biomass_c_bg_starting` (T x N)
-            Total below-ground biomass in each forest type at the start of time 
-            period t.
-
-        * vec_biomass_c_removals_from_converted (T x 1)
-            Vector of actual removals from converted biomass available
-
-        * `vec_young_biomass_c_ag_starting` (T x 1)
-            Vector storing the total above-ground biomass in young forests 
-            at time t. Column sums of `arr_young_biomass_c_ag_stock`
-
-        
         """
 
         n_cats = len(self.cats_lndu_track)
         n_tp = self.n_tp
 
-        shape_by_tp = (n_tp, n_tp)
         shape_by_cat = (n_tp, n_cats)
-        shape_by_cat_with_new = (n_tp, n_cats + 1)
-        
-
-        
-        
+    
         ##  INITIALIZE ARRAYS
 
         # shape T x N
@@ -704,22 +748,31 @@ class BiomassCarbonLedger:
         arr_biomass_c_average_ag_stock_in_conversion_targets = np.zeros(shape_by_cat, )
         arr_biomass_c_ag_converted_away = np.zeros(shape_by_cat, )
         arr_biomass_c_ag_lost_conversion = np.zeros(shape_by_cat, )
+        arr_biomass_c_ag_lost_decomposition = np.zeros(shape_by_cat, )
         arr_biomass_c_bg_lost_conversion = np.zeros(shape_by_cat, )
+        arr_biomass_c_bg_lost_removals = np.zeros(shape_by_cat, )
         arr_biomass_c_ag_min_reqd_per_area = np.zeros(shape_by_cat, )
         arr_biomass_c_removals_from_converted_land_allocation = np.zeros(shape_by_cat, )
-        
-        arr_orig_biomass_c_allocation_excluding_conversion = np.zeros(shape_by_cat, )
+        arr_biomass_c_removed_from_forests_excluding_conversion = np.zeros(shape_by_cat, )
+
+        arr_orig_allocation_removals = np.zeros(shape_by_cat, )
         arr_orig_biomass_c_ag_available_from_conversion = np.zeros(shape_by_cat, )
         arr_orig_biomass_c_ag_average_per_area = np.zeros(shape_by_cat, )
         arr_orig_biomass_c_ag_if_untouched = np.zeros(shape_by_cat, )
         arr_orig_biomass_c_ag_preserved_in_conversion = np.zeros(shape_by_cat, )
         arr_orig_biomass_c_ag_starting = np.zeros(shape_by_cat, )
+        arr_orig_biomass_c_allocation_adjusted = np.zeros(shape_by_cat, )
+        arr_orig_biomass_c_allocation_excluding_conversion = np.zeros(shape_by_cat, )
+        arr_orig_biomass_c_average_per_area_no_ds = np.zeros(shape_by_cat, )
+        arr_orig_biomass_c_removed_from_forests = np.zeros(shape_by_cat, )
+        arr_orig_frac_stock_available = np.zeros(shape_by_cat, )
+        arr_orig_frac_removables_satisfiable = np.zeros(shape_by_cat, )
         arr_orig_sf_adjusted = np.zeros(shape_by_cat, )
         arr_orig_sf_adjustment_factor = np.zeros(shape_by_cat, )
-        
 
         arr_total_biomass_c_ag_starting = np.zeros(shape_by_cat, )
         arr_total_biomass_c_bg_starting = np.zeros(shape_by_cat, )
+
 
 
         ##  INITIALIZE VECTORS
@@ -732,7 +785,14 @@ class BiomassCarbonLedger:
         vec_area_conversion_away_young_forest = np.zeros(n_tp, )
         vec_area_conversion_away_young_forest_no_protection = np.zeros(n_tp, )
         vec_biomass_c_removals_from_converted = np.zeros(n_tp, )
+        vec_biomass_c_removals_from_forest_demanded = np.zeros(n_tp, )
+        vec_biomass_c_removed_from_original_demanded = np.zeros(n_tp, )
+        vec_biomass_c_removed_from_original_unmet = np.zeros(n_tp, )
+        vec_biomass_c_removed_from_young = np.zeros(n_tp, )
+        vec_orig_biomass_c_accessible_pool = np.zeros(n_tp, )
+        vec_total_removals_met = np.zeros(n_tp, )
         vec_young_biomass_c_ag_starting = np.zeros(n_tp, )
+
 
 
         ##  GET AND VERIFY INITIALIZATION ARRAYS
@@ -769,7 +829,6 @@ class BiomassCarbonLedger:
         self._initialize_young_forest_internal_arrays(vec_young_sf_curve, )
 
 
-        
         ##  SET PROPERTIES
 
         self.arr_area = arr_area
@@ -780,40 +839,51 @@ class BiomassCarbonLedger:
         self.arr_area_remaining_from_orig_after_conversion_away = arr_area_remaining_from_orig_after_conversion_away
         self.arr_area_conversion_away_total = arr_area_conversion_away_total
         self.arr_area_conversion_into = arr_area_conversion_into
-
         self.arr_biomass_c_ag_available_from_conversion = arr_biomass_c_ag_available_from_conversion
         self.arr_biomass_c_average_ag_stock_in_conversion_targets = arr_biomass_c_average_ag_stock_in_conversion_targets
         self.arr_biomass_c_ag_converted_away = arr_biomass_c_ag_converted_away
         self.arr_biomass_c_ag_min_reqd_per_area = arr_biomass_c_ag_min_reqd_per_area
         self.arr_biomass_c_ag_lost_conversion = arr_biomass_c_ag_lost_conversion
+        self.arr_biomass_c_ag_lost_decomposition = arr_biomass_c_ag_lost_decomposition
         self.arr_biomass_c_bg_lost_conversion = arr_biomass_c_bg_lost_conversion
+        self.arr_biomass_c_bg_lost_removals = arr_biomass_c_bg_lost_removals
         self.arr_biomass_c_removals_from_converted_land_allocation = arr_biomass_c_removals_from_converted_land_allocation
-
+        self.arr_biomass_c_removed_from_forests_excluding_conversion = arr_biomass_c_removed_from_forests_excluding_conversion
+        self.arr_orig_allocation_removals = arr_orig_allocation_removals
         self.arr_orig_biomass_c_ag_available_from_conversion = arr_orig_biomass_c_ag_available_from_conversion
         self.arr_orig_biomass_c_ag_average_per_area = arr_orig_biomass_c_ag_average_per_area
         self.arr_orig_biomass_c_ag_if_untouched = arr_orig_biomass_c_ag_if_untouched
         self.arr_orig_biomass_c_ag_preserved_in_conversion = arr_orig_biomass_c_ag_preserved_in_conversion
         self.arr_orig_biomass_c_ag_starting = arr_orig_biomass_c_ag_starting
+        self.arr_orig_biomass_c_allocation_adjusted = arr_orig_biomass_c_allocation_adjusted
         self.arr_orig_biomass_c_allocation_excluding_conversion = arr_orig_biomass_c_allocation_excluding_conversion
+        self.arr_orig_biomass_c_average_per_area_no_ds = arr_orig_biomass_c_average_per_area_no_ds
+        self.arr_orig_biomass_c_removed_from_forests = arr_orig_biomass_c_removed_from_forests
+        self.arr_orig_frac_stock_available = arr_orig_frac_stock_available
+        self.arr_orig_frac_removables_satisfiable = arr_orig_frac_removables_satisfiable
         self.arr_orig_sf_adjusted = arr_orig_sf_adjusted
         self.arr_orig_sf_adjustment_factor = arr_orig_sf_adjustment_factor
-
         self.arr_total_biomass_c_ag_starting = arr_total_biomass_c_ag_starting
         self.arr_total_biomass_c_bg_starting = arr_total_biomass_c_bg_starting
-
         self.vec_area_conversion_away_young_forest = vec_area_conversion_away_young_forest
         self.vec_area_conversion_away_young_forest_no_protection = vec_area_conversion_away_young_forest_no_protection
         self.vec_biomass_c_ag_init_healthy_available = vec_biomass_c_ag_init_healthy_available
         self.vec_biomass_c_ag_init_stst_storage = vec_biomass_c_ag_init_stst_storage
         self.vec_biomass_c_bg_to_ag_ratio = vec_biomass_c_bg_to_ag_ratio
         self.vec_biomass_c_removals_from_converted = vec_biomass_c_removals_from_converted
+        self.vec_biomass_c_removals_from_forest_demanded = vec_biomass_c_removals_from_forest_demanded
+        self.vec_biomass_c_removed_from_original_demanded = vec_biomass_c_removed_from_original_demanded
+        self.vec_biomass_c_removed_from_original_unmet = vec_biomass_c_removed_from_original_unmet
+        self.vec_biomass_c_removed_from_young = vec_biomass_c_removed_from_young
         self.vec_frac_biomass_adjustment_threshold = vec_frac_biomass_adjustment_threshold
         self.vec_frac_biomass_ag_decomposition = vec_frac_biomass_ag_decomposition
         self.vec_frac_biomass_buffer = vec_frac_biomass_buffer
         self.vec_frac_biomass_dead_storage = vec_frac_biomass_dead_storage
         self.vec_frac_biomass_from_conversion_available_for_use = vec_frac_biomass_from_conversion_available_for_use
+        self.vec_orig_biomass_c_accessible_pool = vec_orig_biomass_c_accessible_pool
         self.vec_sf_nominal_initial = vec_sf_nominal_initial
         self.vec_total_removals_demanded = vec_total_removals_demanded
+        self.vec_total_removals_met = vec_total_removals_met
         self.vec_young_biomass_c_ag_starting = vec_young_biomass_c_ag_starting
         self.vec_young_sf_curve = vec_young_sf_curve
 
