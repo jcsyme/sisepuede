@@ -12,6 +12,137 @@ class ShapeError(Exception):
     pass
 
 
+"""
+FOR USE IN AFOLU WRAPPER
+
+# Initialization Arguments
+    
+    n_tp : int
+        Number of time periods to use
+    model_attributes : ModelAttributes
+        ModelAttributes for some initialization
+    cat_frst_secondary : str
+        Secondary forest category
+    cats_lndu_frst : List[str]
+        List of forest land use categories
+    cats_lndu_track : Union[List[str], None]
+        Land use categories to track
+    dict_lndu_to_frst: Dict[str, str]
+        Dictionary mapping land use categories to associated forest categories
+    modvar_frst_frac_c_converted_available: Union['ModelVariable', str]
+        ModelVariable that stores the fraction of C converted that is available
+        for use
+    modvar_frst_frac_max_degradation : Union[ModelVariable, str]
+        ModelVariable giving maximum degredation fraction (by land use category)
+    vec_c_removals_demanded: Union[np.ndarray, None],
+        Vector (n_time_periods) of exogenous demands for removals (from fuelwood
+        and harvested wood products). If None, sets to 0.
+    vec_init_by_cat_area : np.ndarray
+        Vector (length n_cats) of initial areas, ordered by cats_lndu_track
+    vec_init_by_cat_c_stock_per_area : np.ndarray
+        Vector (length n_cats) of initial C stock per unit area, ordered by 
+        cats_lndu_track
+    vec_init_by_cat_seq_per_area : np.ndarray
+        Vector (length n_cats) of initial C sequestration per unit area, 
+        ordered by cats_lndu_track
+    vec_sequestration_per_tp_new : np.ndarray
+        Vector storing sequestration rates (mass C/area/time_period) for new
+        growth. Can be derived from NPP curve.
+
+
+
+
+        
+        model_attributes: 'ModelAttributes',
+        cat_frst_secondary: str,
+        cats_lndu_track: Union[List[str], None],
+        dict_lndu_to_frst: Dict[str, str],
+        modvar_frst_frac_c_converted_available: Union['ModelVariable', str],
+        modvar_frst_frac_max_degradation: Union['ModelVariable', str],
+
+
+
+        model_attributes: 'ModelAttributes',
+        modvar_frst_frac_c_converted_available: Union['ModelVariable', str],
+        modvar_frst_frac_max_degradation: Union['ModelVariable', str],
+        cat_frst_secondary: str,
+        cats_lndu_track: Union[List[str], None],    
+        dict_lndu_to_frst: Dict[str, str],
+
+
+        def _initialize_attributes(self,
+        
+        n_tp: int,
+    ) -> None:
+        Initialize key attributes used to manage land use classes
+        
+
+        attr_lndu = model_attributes.get_attribute_table(
+            model_attributes.subsec_name_lndu,
+        )
+        # some dictionaries
+        dict_frst_to_lndu = sf.reverse_dict(dict_lndu_to_frst,)
+
+
+        # set categories
+        cats_lndu_frst = [x for x in attr_lndu.key_values if (x in dict_lndu_to_frst.keys())]
+        
+        cats_lndu_track = (
+            [x for x in attr_lndu.key_values if (x in cats_lndu_track) and (x in cats_lndu_frst)]
+            if sf.islistlike(cats_lndu_track)
+            else cats_lndu_frst
+        )
+        cats_frst_track = [dict_lndu_to_frst.get(x) for x in cats_lndu_track]
+
+        # check for secondary forest
+        if cat_frst_secondary not in cats_frst_track:
+            raise RuntimeError(f"Error: secondary forest category '{cat_frst_secondary}' must be associated with a land use class to track.")
+        
+        ind_frst_secondary = cats_frst_track.index(cat_frst_secondary)
+        cat_lndu_fsts = dict_frst_to_lndu.get(cat_frst_secondary)
+
+
+        # pycategory for landuse
+        pycat_lndu = model_attributes.get_subsector_attribute(
+            model_attributes.subsec_name_lndu,
+            "pycategory_primary_element"
+        )
+
+
+        # get some model variables
+        modvar_frst_frac_c_converted_available = model_attributes.get_variable(
+            modvar_frst_frac_c_converted_available,
+        )
+        modvar_frst_frac_max_degradation = model_attributes.get_variable(
+            modvar_frst_frac_max_degradation,
+        )
+
+        if not sf.isnumber(n_tp, integer = True, ):
+            raise TypeError(f"n_tp must be an integer")
+
+
+
+        ##  SET PROPERTIES
+
+        self.attr_lndu = attr_lndu
+        self.cat_frst_secondary = cat_frst_secondary
+        self.cat_lndu_fsts = cat_lndu_fsts
+        self.cats_frst_track = cats_frst_track
+        self.cats_lndu_frst = cats_lndu_frst
+        self.cats_lndu_track = cats_lndu_track
+        self.dict_frst_to_lndu = dict_frst_to_lndu
+        self.dict_lndu_to_frst = dict_lndu_to_frst
+        self.ind_frst_secondary = ind_frst_secondary
+        self.model_attributes = model_attributes
+        self.modvar_frst_frac_c_converted_available = modvar_frst_frac_c_converted_available
+        self.modvar_frst_frac_max_degradation = modvar_frst_frac_max_degradation
+        self.n_tp = n_tp
+        self.pycat_lndu = pycat_lndu
+
+        return None
+""";
+
+
 
 
 
@@ -61,26 +192,34 @@ class BiomassCarbonLedger:
     
     n_tp : int
         Number of time periods to use
-    model_attributes : ModelAttributes
-        ModelAttributes for some initialization
-    cat_frst_secondary : str
-        Secondary forest category
-    cats_lndu_frst : List[str]
-        List of forest land use categories
-    cats_lndu_track : Union[List[str], None]
-        Land use categories to track
-    dict_lndu_to_frst: Dict[str, str]
-        Dictionary mapping land use categories to associated forest categories
-    modvar_frst_frac_c_converted_available: Union['ModelVariable', str]
-        ModelVariable that stores the fraction of C converted that is available
-        for use
-    modvar_frst_frac_max_degradation : Union[ModelVariable, str]
-        ModelVariable giving maximum degredation fraction (by land use category)
-    vec_c_removals_demanded: Union[np.ndarray, None],
+
+
+    n_tp: int,
+    vec_area_init : np.ndarray
+        Vector (length 2) of initial areas for primary and secondary forest
+    vec_biomass_c_ag_init_stst_storage : np.ndarray
+        Vector (length 2) of initial steady state storage of above-ground 
+        biomass in primary (index 0) and secondary (index 1) forest in terms of 
+        mass per unit area.
+    vec_biomass_c_bg_to_ag_ratio : np.ndarray
+        Vector (length 2) giving the ratio of below-ground biomass to 
+        above-ground biomass for primary and secondary forest
+    vec_frac_biomass_adjustment_threshold : Union[float, np.ndarray]
+        Vector (length T) or float giving adjustment threshold, as a proportion,
+
+        vec_frac_biomass_buffer: Union[float, np.ndarray],
+        vec_frac_biomass_dead_storage: Union[float, int, np.ndarray],
+        vec_frac_biomass_from_conversion_available_for_use: Union[float, int, np.ndarray],
+        vec_sf_nominal_initial: np.ndarray,
+    vec_total_removals_demanded: np.ndarray
         Vector (n_time_periods) of exogenous demands for removals (from fuelwood
         and harvested wood products). If None, sets to 0.
+    vec_young_sf_curve: np.ndarray
+        Vector storing sequestration rates (mass C/area/time_period) for new
+        growth. Can be derived from NPP curve.
+
     vec_init_by_cat_area : np.ndarray
-        Vector (length n_cats) of initial areas, ordered by cats_lndu_track
+        V
     vec_init_by_cat_c_stock_per_area : np.ndarray
         Vector (length n_cats) of initial C stock per unit area, ordered by 
         cats_lndu_track
@@ -88,8 +227,7 @@ class BiomassCarbonLedger:
         Vector (length n_cats) of initial C sequestration per unit area, 
         ordered by cats_lndu_track
     vec_sequestration_per_tp_new : np.ndarray
-        Vector storing sequestration rates (mass C/area/time_period) for new
-        growth. Can be derived from NPP curve.
+        
 
         
     # Keyword Arguments
@@ -208,11 +346,6 @@ class BiomassCarbonLedger:
         * `arr_area_remaining_from_orig_after_conversion_away` (T x N)
             Area at end of time period for the land use class. I.e.,
             arr_area_remaining_from_orig_after_conversion_away[t] = arr_area_remaining_from_orig[t + 1]
-        
-        * `arr_biomass_c_ag_min_reqd_per_area` (T x N)
-            Array that stores the minimum required biomass per area as the
-            outer product of `vec_biomass_c_ag_init_stst_storage` and 
-            `vec_frac_biomass_dead_storage`.
         
         * `arr_biomass_c_removals_from_converted_land_allocation` (T x N)
             Allocation of C removals from converted land 
@@ -350,10 +483,19 @@ class BiomassCarbonLedger:
             Vector of total conversion away from young forest EXCLUDING any 
             protected land. Used in intermediate calculations for carbon stock.
 
+        * `vec_area_protected_young` (T x 1)
+            Vector storing the area of protected young forest under the
+            assumption that it is protected AFTER original forest.
+
         * `vec_biomass_c_ag_init_healthy_available` (N x 1)
             Vector storing the initial amount of health stock available by 
             category.
 
+        * `vec_biomass_c_ag_min_reqd_per_area` (T x N)
+            Array that stores the minimum required biomass per area as the
+            outer product of `vec_biomass_c_ag_init_stst_storage` and 
+            `vec_frac_biomass_dead_storage`.
+        
         * `vec_frac_biomass_ag_decomposition` (N x 1)
             Estimated fraction of biomass that decomposes every year. This
             fraction is estimated using the equilibrium assumption for primary 
@@ -453,13 +595,8 @@ class BiomassCarbonLedger:
 
 
     def __init__(self,
-        model_attributes: ModelAttributes,
-        cat_frst_secondary: str,
-        cats_lndu_track: Union[List[str], None],
-        dict_lndu_to_frst: Dict[str, str],
-        modvar_frst_frac_c_converted_available: Union['ModelVariable', str],
-        modvar_frst_frac_max_degradation: Union['ModelVariable', str],
         n_tp: int,
+        vec_area_init: np.ndarray,
         vec_biomass_c_ag_init_stst_storage: np.ndarray,
         vec_biomass_c_bg_to_ag_ratio: np.ndarray,
         vec_frac_biomass_adjustment_threshold: Union[float, np.ndarray],
@@ -468,23 +605,19 @@ class BiomassCarbonLedger:
         vec_frac_biomass_from_conversion_available_for_use: Union[float, int, np.ndarray],
         vec_sf_nominal_initial: np.ndarray,
         vec_total_removals_demanded: np.ndarray,
+        vec_young_sf_curve: np.ndarray,
         n_tps_no_withdrawals_new_growth: int = 20,
         **kwargs,
     ) -> None:
         
 
         self._initialize_attributes(
-            model_attributes,
-            modvar_frst_frac_c_converted_available,
-            modvar_frst_frac_max_degradation,
-            cat_frst_secondary,
-            cats_lndu_track,
-            dict_lndu_to_frst,
             n_tp,
+            n_tps_no_withdrawals_new_growth = n_tps_no_withdrawals_new_growth,
         )
 
         self._initialize_arrays(
-            n_tp,
+            vec_area_init,
             vec_biomass_c_ag_init_stst_storage,
             vec_biomass_c_bg_to_ag_ratio,
             vec_frac_biomass_adjustment_threshold,
@@ -493,14 +626,9 @@ class BiomassCarbonLedger:
             vec_frac_biomass_from_conversion_available_for_use,
             vec_sf_nominal_initial,
             vec_total_removals_demanded,
+            vec_young_sf_curve, 
         )
 
-        self._initialize_new_forest_properties(
-            vec_sequestration_per_tp_new,
-            n_tps_no_withdrawals_new_growth,
-        )
-
-        self._initialize_nf_availability_mask()
 
         return None
     
@@ -511,7 +639,7 @@ class BiomassCarbonLedger:
     #    INITIALIZATION FUNCTIONS    #
     ##################################
 
-    def build_arr_young_sf_base_by_tp_planted(self,
+    def _build_arr_young_sf_base_by_tp_planted(self,
         vec_young_sf_curve: np.ndarray,
     ) -> np.ndarray:
         """Build the arr_young_biomass_c_ag_converted_by_tp_planted array
@@ -521,96 +649,14 @@ class BiomassCarbonLedger:
 
         for i in range(self.n_tp):
             n_end = self.n_tp - i
-            arr_young_sf_base_by_tp_planted[i:] = vec_young_sf_curve[0:n_end]
+            arr_young_sf_base_by_tp_planted[i:self.n_tp, i] = vec_young_sf_curve[0:n_end]
 
         return arr_young_sf_base_by_tp_planted
     
 
 
-    def _initialize_attributes(self,
-        model_attributes: ModelAttributes,
-        modvar_frst_frac_c_converted_available: Union['ModelVariable', str],
-        modvar_frst_frac_max_degradation: Union['ModelVariable', str],
-        cat_frst_secondary: str,
-        cats_lndu_track: Union[List[str], None],    
-        dict_lndu_to_frst: Dict[str, str],
-        n_tp: int,
-    ) -> None:
-        """Initialize key attributes used to manage land use classes
-        """
-
-        attr_lndu = model_attributes.get_attribute_table(
-            model_attributes.subsec_name_lndu,
-        )
-        # some dictionaries
-        dict_frst_to_lndu = sf.reverse_dict(dict_lndu_to_frst,)
-
-
-        # set categories
-        cats_lndu_frst = [x for x in attr_lndu.key_values if (x in dict_lndu_to_frst.keys())]
-        
-        cats_lndu_track = (
-            [x for x in attr_lndu.key_values if (x in cats_lndu_track) and (x in cats_lndu_frst)]
-            if sf.islistlike(cats_lndu_track)
-            else cats_lndu_frst
-        )
-        cats_frst_track = [dict_lndu_to_frst.get(x) for x in cats_lndu_track]
-
-        # check for secondary forest
-        if cat_frst_secondary not in cats_frst_track:
-            raise RuntimeError(f"Error: secondary forest category '{cat_frst_secondary}' must be associated with a land use class to track.")
-        
-        ind_frst_secondary = cats_frst_track.index(cat_frst_secondary)
-        cat_lndu_fsts = dict_frst_to_lndu.get(cat_frst_secondary)
-
-
-        # pycategory for landuse
-        pycat_lndu = model_attributes.get_subsector_attribute(
-            model_attributes.subsec_name_lndu,
-            "pycategory_primary_element"
-        )
-
-
-        # get some model variables
-        modvar_frst_frac_c_converted_available = model_attributes.get_variable(
-            modvar_frst_frac_c_converted_available,
-        )
-        modvar_frst_frac_max_degradation = model_attributes.get_variable(
-            modvar_frst_frac_max_degradation,
-        )
-
-        if not sf.isnumber(n_tp, integer = True, ):
-            raise TypeError(f"n_tp must be an integer")
-
-
-
-        ##  SET PROPERTIES
-
-        self.attr_lndu = attr_lndu
-        self.cat_frst_secondary = cat_frst_secondary
-        self.cat_lndu_fsts = cat_lndu_fsts
-        self.cats_frst_track = cats_frst_track
-        self.cats_lndu_frst = cats_lndu_frst
-        self.cats_lndu_track = cats_lndu_track
-        self.dict_frst_to_lndu = dict_frst_to_lndu
-        self.dict_lndu_to_frst = dict_lndu_to_frst
-        self.ind_frst_secondary = ind_frst_secondary
-        self.model_attributes = model_attributes
-        self.modvar_frst_frac_c_converted_available = modvar_frst_frac_c_converted_available
-        self.modvar_frst_frac_max_degradation = modvar_frst_frac_max_degradation
-        self.n_tp = n_tp
-        self.pycat_lndu = pycat_lndu
-
-        return None
-    
-
-    
-
-
-
     def _check_initialization_arrays(self,
-        n_cats: int,
-        n_tp: int,
+        vec_area_init: np.ndarray,
         vec_biomass_c_ag_init_stst_storage: np.ndarray,
         vec_biomass_c_bg_to_ag_ratio: np.ndarray,
         vec_frac_biomass_adjustment_threshold: Union[float, np.ndarray],
@@ -626,73 +672,90 @@ class BiomassCarbonLedger:
 
         ##  VERIFY AND CONVERT
 
+        # initial area
+        vec_area_init = self._verify_convert_array_input_to_array(
+            vec_area_init,
+            self.n_cats,
+            "vec_area_init",
+        )
+
         # initial steady-state storage
         vec_biomass_c_ag_init_stst_storage = self._verify_convert_array_input_to_array(
             vec_biomass_c_ag_init_stst_storage,
-            n_cats,
+            self.n_cats,
             "vec_biomass_c_ag_init_stst_storage",
         )
 
         # initial below ground biomass to above ground biomass ratio
         vec_biomass_c_bg_to_ag_ratio = self._verify_convert_array_input_to_array(
             vec_biomass_c_bg_to_ag_ratio,
-            n_cats,
+            self.n_cats,
             "vec_biomass_c_bg_to_ag_ratio",
         )
 
         # removals adjustment threshold
         vec_frac_biomass_adjustment_threshold = self._verify_convert_array_input_to_array(
             vec_frac_biomass_adjustment_threshold,
-            n_tp,
+            self.n_tp,
             "vec_frac_biomass_adjustment_threshold",
         )
 
         # biomass buffer
         vec_frac_biomass_buffer = self._verify_convert_array_input_to_array(
             vec_frac_biomass_buffer,
-            n_tp,
+            self.n_tp,
             "vec_frac_biomass_buffer",
         )
 
         # initial dead storage fraction
         vec_frac_biomass_dead_storage = self._verify_convert_array_input_to_array(
             vec_frac_biomass_dead_storage,
-            n_tp,
+            self.n_tp,
             "vec_frac_biomass_dead_storage",
         )
 
         # how much converted biomass (ag) is available for use
         vec_frac_biomass_from_conversion_available_for_use  = self._verify_convert_array_input_to_array(
             vec_frac_biomass_from_conversion_available_for_use,
-            n_tp,
+            self.n_tp,
             "vec_frac_biomass_from_conversion_available_for_use",
         )
 
         # initial annualized sequestration factors
         vec_sf_nominal_initial = self._verify_convert_array_input_to_array(
             vec_sf_nominal_initial,
-            n_cats,
+            self.n_cats,
             "vec_sf_nominal_initial",
         )
 
         # vector of total C removals
         vec_total_removals_demanded = self._verify_convert_array_input_to_array(
             vec_total_removals_demanded,
-            n_tp,
+            self.n_tp,
             "vec_total_removals_demanded",
         )
         
         # check the sequestration factor curve for young forests
         vec_young_sf_curve = self._verify_convert_array_input_to_array(
             vec_young_sf_curve,
-            n_tp,
+            self.n_tp,
             "vec_young_sf_curve",
         )
 
-        
+
+        ##  INITIALIZE SOME OTHER DEPENDENTS
+
+        vec_biomass_c_ag_min_reqd_per_area = vec_biomass_c_ag_init_stst_storage*vec_frac_biomass_dead_storage[0]
+        vec_biomass_c_ag_init_healthy_available = vec_biomass_c_ag_init_stst_storage - vec_biomass_c_ag_min_reqd_per_area
+
+
+        ##  RETURN
 
         out = (
+            vec_area_init,
+            vec_biomass_c_ag_init_healthy_available,
             vec_biomass_c_ag_init_stst_storage,
+            vec_biomass_c_ag_min_reqd_per_area,
             vec_biomass_c_bg_to_ag_ratio,
             vec_frac_biomass_adjustment_threshold,
             vec_frac_biomass_buffer,
@@ -707,7 +770,38 @@ class BiomassCarbonLedger:
     
 
 
+    def _initialize_attributes(self,
+        n_tp: int,
+        n_tps_no_withdrawals_new_growth: int = 20,
+    ) -> None:
+        """Initialize key attributes used to manage land use classes
+        """
+
+        if not sf.isnumber(n_tp, integer = True, ):
+            raise TypeError(f"Invalid type for n_tp. Must be an integer.")
+
+
+        ##  CHECK NUMBER OF TIME PERIODS WITH NO WITHDRAWALS FOR NEWLY PLANTED FORESTS
+
+        n_tps_no_withdrawals_new_growth = (
+            20 
+            if not sf.isnumber(n_tps_no_withdrawals_new_growth, integer = True)
+            else max(n_tps_no_withdrawals_new_growth, 1)
+        )
+
+
+        ##  SET PROPERTIES
+
+        self.n_cats = 2
+        self.n_tp = n_tp
+        self.n_tps_no_withdrawals_new_growth = n_tps_no_withdrawals_new_growth
+    
+        return None
+    
+
+
     def _initialize_arrays(self,
+        vec_area_init: np.ndarray,
         vec_biomass_c_ag_init_stst_storage: np.ndarray,
         vec_biomass_c_bg_to_ag_ratio: np.ndarray,
         vec_frac_biomass_adjustment_threshold: Union[float, np.ndarray],
@@ -727,7 +821,7 @@ class BiomassCarbonLedger:
 
         """
 
-        n_cats = len(self.cats_lndu_track)
+        n_cats = self.n_cats
         n_tp = self.n_tp
 
         shape_by_cat = (n_tp, n_cats)
@@ -738,7 +832,6 @@ class BiomassCarbonLedger:
         arr_area = np.zeros(shape_by_cat, )
         arr_area_protected_original = np.zeros(shape_by_cat, )
         arr_area_protected_total = np.zeros(shape_by_cat, )
-        arr_area_protected_young = np.zeros(shape_by_cat, )
         arr_area_remaining_from_orig = np.zeros(shape_by_cat, )
         arr_area_conversion_away_total = np.zeros(shape_by_cat, )
         arr_area_conversion_into = np.zeros(shape_by_cat, )
@@ -751,7 +844,6 @@ class BiomassCarbonLedger:
         arr_biomass_c_ag_lost_decomposition = np.zeros(shape_by_cat, )
         arr_biomass_c_bg_lost_conversion = np.zeros(shape_by_cat, )
         arr_biomass_c_bg_lost_removals = np.zeros(shape_by_cat, )
-        arr_biomass_c_ag_min_reqd_per_area = np.zeros(shape_by_cat, )
         arr_biomass_c_removals_from_converted_land_allocation = np.zeros(shape_by_cat, )
         arr_biomass_c_removed_from_forests_excluding_conversion = np.zeros(shape_by_cat, )
 
@@ -778,12 +870,14 @@ class BiomassCarbonLedger:
         ##  INITIALIZE VECTORS
 
         # by category
-        vec_biomass_c_ag_init_healthy_available = np.zeros(n_cats, )
+        #vec_biomass_c_ag_init_healthy_available = np.zeros(n_cats, )
+        #vec_biomass_c_ag_min_reqd_per_area = np.zeros(n_cats, )
         vec_frac_biomass_ag_decomposition = np.zeros(n_cats, )
 
         # by time period
         vec_area_conversion_away_young_forest = np.zeros(n_tp, )
         vec_area_conversion_away_young_forest_no_protection = np.zeros(n_tp, )
+        vec_area_protected_young = np.zeros(shape_by_cat, )
         vec_biomass_c_removals_from_converted = np.zeros(n_tp, )
         vec_biomass_c_removals_from_forest_demanded = np.zeros(n_tp, )
         vec_biomass_c_removed_from_original_demanded = np.zeros(n_tp, )
@@ -801,7 +895,10 @@ class BiomassCarbonLedger:
         #         entered as a number. Also verifies shape.
 
         (
+            vec_area_init,
+            vec_biomass_c_ag_init_healthy_available,
             vec_biomass_c_ag_init_stst_storage,
+            vec_biomass_c_ag_min_reqd_per_area,
             vec_biomass_c_bg_to_ag_ratio,
             vec_frac_biomass_adjustment_threshold,
             vec_frac_biomass_buffer,
@@ -811,8 +908,7 @@ class BiomassCarbonLedger:
             vec_total_removals_demanded,
             vec_young_sf_curve,
         ) = self._check_initialization_arrays(
-            n_cats,
-            n_tp,
+            vec_area_init,
             vec_biomass_c_ag_init_stst_storage,
             vec_biomass_c_bg_to_ag_ratio,
             vec_frac_biomass_adjustment_threshold,
@@ -824,9 +920,17 @@ class BiomassCarbonLedger:
             vec_young_sf_curve,
         )
 
+        vec_young_sf_curve_cumulative = np.cumsum(vec_young_sf_curve)
+
 
         # set the young forest internal calculation arrays
         self._initialize_young_forest_internal_arrays(vec_young_sf_curve, )
+
+
+        ##  DO ANY UPDATES TO INITIAL ARRAYS
+
+        arr_area[0] = vec_area_init
+        arr_area_remaining_from_orig[0] = vec_area_init
 
 
         ##  SET PROPERTIES
@@ -834,7 +938,6 @@ class BiomassCarbonLedger:
         self.arr_area = arr_area
         self.arr_area_protected_original = arr_area_protected_original
         self.arr_area_protected_total = arr_area_protected_total
-        self.arr_area_protected_young = arr_area_protected_young
         self.arr_area_remaining_from_orig = arr_area_remaining_from_orig
         self.arr_area_remaining_from_orig_after_conversion_away = arr_area_remaining_from_orig_after_conversion_away
         self.arr_area_conversion_away_total = arr_area_conversion_away_total
@@ -842,7 +945,6 @@ class BiomassCarbonLedger:
         self.arr_biomass_c_ag_available_from_conversion = arr_biomass_c_ag_available_from_conversion
         self.arr_biomass_c_average_ag_stock_in_conversion_targets = arr_biomass_c_average_ag_stock_in_conversion_targets
         self.arr_biomass_c_ag_converted_away = arr_biomass_c_ag_converted_away
-        self.arr_biomass_c_ag_min_reqd_per_area = arr_biomass_c_ag_min_reqd_per_area
         self.arr_biomass_c_ag_lost_conversion = arr_biomass_c_ag_lost_conversion
         self.arr_biomass_c_ag_lost_decomposition = arr_biomass_c_ag_lost_decomposition
         self.arr_biomass_c_bg_lost_conversion = arr_biomass_c_bg_lost_conversion
@@ -867,8 +969,11 @@ class BiomassCarbonLedger:
         self.arr_total_biomass_c_bg_starting = arr_total_biomass_c_bg_starting
         self.vec_area_conversion_away_young_forest = vec_area_conversion_away_young_forest
         self.vec_area_conversion_away_young_forest_no_protection = vec_area_conversion_away_young_forest_no_protection
+        self.vec_area_init = vec_area_init
+        self.vec_area_protected_young = vec_area_protected_young
         self.vec_biomass_c_ag_init_healthy_available = vec_biomass_c_ag_init_healthy_available
         self.vec_biomass_c_ag_init_stst_storage = vec_biomass_c_ag_init_stst_storage
+        self.vec_biomass_c_ag_min_reqd_per_area = vec_biomass_c_ag_min_reqd_per_area
         self.vec_biomass_c_bg_to_ag_ratio = vec_biomass_c_bg_to_ag_ratio
         self.vec_biomass_c_removals_from_converted = vec_biomass_c_removals_from_converted
         self.vec_biomass_c_removals_from_forest_demanded = vec_biomass_c_removals_from_forest_demanded
@@ -886,6 +991,7 @@ class BiomassCarbonLedger:
         self.vec_total_removals_met = vec_total_removals_met
         self.vec_young_biomass_c_ag_starting = vec_young_biomass_c_ag_starting
         self.vec_young_sf_curve = vec_young_sf_curve
+        self.vec_young_sf_curve_cumulative = vec_young_sf_curve_cumulative
 
         return None
 
@@ -924,7 +1030,7 @@ class BiomassCarbonLedger:
         vec_young_biomass_c_bg_converted = np.zeros(self.n_tp, )
 
         # build base sequestration factors by time period
-        arr_young_sf_base_by_tp_planted = self.build_arr_young_sf_base_by_tp_planted(
+        arr_young_sf_base_by_tp_planted = self._build_arr_young_sf_base_by_tp_planted(
             vec_young_sf_curve, 
         )
 
@@ -955,65 +1061,6 @@ class BiomassCarbonLedger:
         return None
     
 
-    
-
-    def _initialize_nf_availability_mask(self,
-    ) -> None:
-        """Initialize the availability mask, which denotes a one if new forest
-            has existed long enough to allow for removals (reasonably)
-        """
-
-        arr = self.arr_mask_new_forest_available
-        n0 = self.n_tps_no_withdrawals_new_growth + 1
-
-        for i in range(n0, arr.shape[0]):
-            j_max = i - self.n_tps_no_withdrawals_new_growth
-            arr[i, 0:j_max] = 1
-
-        self.arr_mask_new_forest_available = arr
-
-        return None
-    
-
-
-    def _initialize_new_forest_properties(self,
-        vec_sequestration_per_tp_new: np.ndarray,
-        n_tps_no_withdrawals_new_growth: int = 20,
-    ) -> None:
-        """Initialize key attributes used to manage land use classes
-        """ 
-
-        ##  CHECK vec_sequestration_per_tp_new
-
-        if not sf.islistlike(vec_sequestration_per_tp_new):
-            raise TypeError(f"vec_sequestration_per_tp_new must be a list or numpy array")
-        
-        # convert to array
-        vec_sequestration_per_tp_new = np.array(vec_sequestration_per_tp_new)
-        if vec_sequestration_per_tp_new.shape[0] != self.n_tp:
-            raise RuntimeError(f"Invalid shape {vec_sequestration_per_tp_new.shape[0]} for vec_sequestration_per_tp_new: must be of length {self.n_tp}")
-
-        vec_sequestration_per_tp_new_cumulative = np.cumsum(vec_sequestration_per_tp_new)
-
-
-        ##  CHECK NUMBER OF TIME PERIODS WITH NO WITHDRAWALS FOR NEWLY PLANTED FORESTS
-
-        n_tps_no_withdrawals_new_growth = (
-            20 
-            if not sf.isnumber(n_tps_no_withdrawals_new_growth, integer = True)
-            else max(n_tps_no_withdrawals_new_growth, 1)
-        )
-
-
-        ##  SET PROPERTIES
-
-        self.n_tps_no_withdrawals_new_growth = n_tps_no_withdrawals_new_growth
-        self.vec_sequestration_per_tp_new = vec_sequestration_per_tp_new
-        self.vec_sequestration_per_tp_new_cumulative = vec_sequestration_per_tp_new_cumulative
-
-        return None
-    
-
 
     def _verify_convert_array_input_to_array(self,
         vec: Union[float, np.ndarray],
@@ -1027,13 +1074,13 @@ class BiomassCarbonLedger:
         """
         
         # first, check type
-        ok = sf.isnumber(vec) | isinstance(vec, np.ndarray)
+        ok = sf.isnumber(vec) | isinstance(vec, (np.ndarray, list))
         if not ok:
             tp = type(vec)
             raise TypeError(f"Invalid type '{tp}' found for {varname}. Must be a number of an array")
 
         # verify dimensions
-        dims = (dims, ) if sf.isnumer(dims, integer = True, ) else dims
+        dims = (dims, ) if sf.isnumber(dims, integer = True, ) else dims
         if not isinstance(dims, tuple):
             tp = type(dims)
             raise TypeError(f"Invalid type '{tp}' found for dims. Must be an integer or a tuple")
@@ -1041,8 +1088,8 @@ class BiomassCarbonLedger:
         # convert vector
         vec = (
             vec*np.ones(dims, )
-            if not isinstance(vec, np.ndarray)
-            else vec
+            if sf.isnumber(vec)
+            else np.array(vec)
         )
 
         # finally, verify shape
@@ -1066,8 +1113,8 @@ class BiomassCarbonLedger:
     def _update(self,
         i: int,
         area_new_forest: float,
-        vec_converted_away: np.ndarray,
-        vec_protected: np.ndarray,
+        vec_area_converted_away: Union[list, np.ndarray],
+        vec_area_protected: np.ndarray,
     ) -> None:
         """Update the ledger with land use lose
 
@@ -1075,81 +1122,95 @@ class BiomassCarbonLedger:
         ------------------
         i : int
             Time period to update (row index)
-        area_new_forest : float
+        vec_converted_away : float
             Area of new forest entering (through planting/aforestation or 
             natural conversion)
         vec_converted_away : np.ndarray 
-            Vector of total land use area converted away from tracked land use 
-            types
+            Ordered vector of total land use area converted away from tracked 
+            land use types
         vec_protected : np.ndarray
-            Vector of protected arrays
+            Vector of protected land use area
         """
-
-        # update exogenous parameters
-        self.arr_area_conversion_away[i, :] = vec_converted_away
-        self.arr_area_protected[i, :] = vec_protected
-
-        if i < self.n_tp - 1:
-            self.arr_areas_new_forest[(i + 1):, i] = area_new_forest
-
-
-        #
-        # make any area adjustments here for new forest
-        # if deforestation continues, it can encroach on new forest
-        #
-
-        area_to_shift_from_new = 0
-
-        # 1. update area remaining from original and 
-        if i < self.n_tp - 1:
-            self.arr_area_original_remaining[i + 1, :] = self.arr_area_original_remaining[i, :] - vec_converted_away
-            area_to_shift_from_new = max(
-                -1*self.arr_area_original_remaining[i + 1, self.ind_frst_secondary],
-                0
-            )
-
-            # set to 0 to ensure that the shift from new doesn't accumulate
-            self.arr_area_original_remaining[i + 1, :] = max(self.arr_area_original_remaining[i + 1, :], 0)
-
-
-        # 2. eliminate any new forest if implied by deforestation of secondary forest
-        #      - iterate over columns in "new" to remove forest if necessary
-        if area_to_shift_from_new > 0:
-            j = 0
-            area_shifted = 0
-            while (area_shifted < area_to_shift_from_new):
-                area_avail_cur = self.arr_areas_new_forest[i + 1, j]
-                area_shift_cur = min(
-                    area_to_shift_from_new - area_shifted,
-                    area_avail_cur
-                )
-
-                self.arr_areas_new_forest[(i + 1):, j] = area_avail_cur - area_shift_cur
-                area_shifted += area_shift_cur
-                
-                # move to next column and implement a safety check here
-                j += 1
-                if j > self.arr_areas_new_forest.shape[1] - 1:
-                    break
-                
-
-        # 3. Calculate the counterfactual ""
-
-        # calculate actual sequestration here--want to do it in a loop so that it can adapt to changes in area
-        for j in range(i):
-            self.arr_c_seq_per_time_period_new_forests[i, j] = (
-                self.arr_areas_new_forest[i, j]
-                *self.vec_sequestration_per_tp_new[i - 1]
-            )
-
-            if i >= self.n_tp - 1: continue
-
-            self.arr_c_stock_in_new_forest[(i + 1), j] = self.arr_c_seq_per_time_period_new_forests[0:(i + 1), j].sum()
-
-            # self.arr_c_seq_per_time_period_new_forests[(i + 1):, i] = area_new_forest*self.vec_sequestration_per_tp_new[0:(self.n_tp - i - 1)]
-            # self.arr_c_stock_in_new_forest[(i + 1):, i] = area_new_forest*self.vec_sequestration_per_tp_new_cumulative
+        # skip if invalid
+        if (i < 0) | (i >= self.n_tp):
+            return None
         
+        
+        self._update_areas(
+            i,
+            area_new_forest,
+            vec_area_converted_away,
+            vec_area_protected,
+        )
         
         return None#
     
-    
+
+
+    def _update_areas(self,
+        i: int,
+        area_new_forest: float,
+        vec_area_converted_away: Union[list, np.ndarray],
+        vec_area_protected: np.ndarray,
+    ) -> None:
+        """Update area arrays in support of _update()
+        """
+
+        # check types
+        if sf.islistlike(vec_area_converted_away):
+            vec_area_converted_away = np.array(vec_area_converted_away)
+
+        if sf.islistlike(vec_area_protected):
+            vec_area_protected = np.array(vec_area_protected)
+
+
+        ##  UPDATE AREA ARRAYS (IN ORDER)
+
+        # basic area arrays
+        self.arr_area_conversion_away_total[i] = vec_area_converted_away
+        self.arr_area_conversion_into[i, 1] = area_new_forest
+        self.arr_area_remaining_from_orig_after_conversion_away[i] = self.arr_area[i] - vec_area_converted_away
+
+        # protected area
+        self.arr_area_protected_total[i] = vec_area_protected
+        
+        
+        ##  UPDATE PROTECTED AREAS
+
+        area_protected_young = max(
+            vec_area_protected[1] - self.arr_area_remaining_from_orig_after_conversion_away[i, 1],
+            0, 
+        )
+        vec_protected_original = np.min(
+            [
+                self.arr_area[i],
+                vec_area_protected
+            ],
+            axis = 0,
+        )
+
+        # assign
+        self.arr_area_protected_original[i] = vec_protected_original
+        self.vec_area_protected_young[i] = area_protected_young
+
+
+        ##  UPDATE OTHER AREAS DEPENDENT ON PROTECTED
+
+        # HERE
+
+
+        # updates for
+        if i > 0:
+
+            # update area remaining from original forest
+            self.arr_area_remaining_from_orig[i] = self.arr_area_remaining_from_orig[i - 1] - vec_area_converted_away
+
+            # update area total
+            self.arr_area[i] = self.arr_area[i - 1] - vec_area_converted_away
+            self.arr_area[i] += self.arr_area_conversion_into[i - 1]
+
+
+        
+        ##  UPDATE PROTECTED AREAS 
+
+        return None
