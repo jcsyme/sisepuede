@@ -770,6 +770,33 @@ class BiomassCarbonLedger:
     
 
 
+    def _get_vec_frac_biomass_ag_decomposition(self,
+        vec_biomass_c_ag_init_stst_storage: np.ndarray,
+        vec_sf_nominal_initial: np.ndarray,
+    ) -> np.ndarray:
+        """Initialize the fraction of above-ground biomass that is assumed to
+            decompose each year. This is estimated under the assumption that
+            primary forests are in equilibrium--i.e., they are a net 0 for 
+            sequestration given that as much carbon decomposes as is sequestered
+            by the forest.
+        """
+        
+        # get indices
+        ind_fp = self.ind_frst_primary
+        ind_fs = self.ind_frst_secondary
+
+        # ratio of loss to
+        frac = vec_sf_nominal_initial[ind_fp]/vec_biomass_c_ag_init_stst_storage[ind_fp]
+        vec_frac_biomass_ag_decomposition = self._verify_convert_array_input_to_array(
+            frac,
+            self.n_tp,
+            "vec_frac_biomass_ag_decomposition",
+        )
+
+        return vec_frac_biomass_ag_decomposition
+    
+
+
     def _initialize_attributes(self,
         n_tp: int,
         n_tps_no_withdrawals_new_growth: int = 20,
@@ -792,6 +819,8 @@ class BiomassCarbonLedger:
 
         ##  SET PROPERTIES
 
+        self.ind_frst_primary = 0
+        self.ind_frst_secondary = 1
         self.n_cats = 2
         self.n_tp = n_tp
         self.n_tps_no_withdrawals_new_growth = n_tps_no_withdrawals_new_growth
@@ -869,15 +898,10 @@ class BiomassCarbonLedger:
 
         ##  INITIALIZE VECTORS
 
-        # by category
-        #vec_biomass_c_ag_init_healthy_available = np.zeros(n_cats, )
-        #vec_biomass_c_ag_min_reqd_per_area = np.zeros(n_cats, )
-        vec_frac_biomass_ag_decomposition = np.zeros(n_cats, )
-
         # by time period
         vec_area_conversion_away_young_forest = np.zeros(n_tp, )
         vec_area_conversion_away_young_forest_no_protection = np.zeros(n_tp, )
-        vec_area_protected_young = np.zeros(shape_by_cat, )
+        vec_area_protected_young = np.zeros(n_tp, )
         vec_biomass_c_removals_from_converted = np.zeros(n_tp, )
         vec_biomass_c_removals_from_forest_demanded = np.zeros(n_tp, )
         vec_biomass_c_removed_from_original_demanded = np.zeros(n_tp, )
@@ -925,6 +949,14 @@ class BiomassCarbonLedger:
 
         # set the young forest internal calculation arrays
         self._initialize_young_forest_internal_arrays(vec_young_sf_curve, )
+
+
+        ##  GET ANY DERIVATIVE/CALCULATED VALUES HERE
+
+        vec_frac_biomass_ag_decomposition = self._get_vec_frac_biomass_ag_decomposition(
+            vec_biomass_c_ag_init_stst_storage,
+            vec_sf_nominal_initial,
+        )
 
 
         ##  DO ANY UPDATES TO INITIAL ARRAYS
@@ -1115,6 +1147,8 @@ class BiomassCarbonLedger:
         area_new_forest: float,
         vec_area_converted_away: Union[list, np.ndarray],
         vec_area_protected: np.ndarray,
+        vec_biomass_c_average_ag_stock_in_conversion_targets: np.ndarray,
+        unsafe: bool = False,
     ) -> None:
         """Update the ledger with land use lose
 
@@ -1122,28 +1156,45 @@ class BiomassCarbonLedger:
         ------------------
         i : int
             Time period to update (row index)
-        vec_converted_away : float
-            Area of new forest entering (through planting/aforestation or 
-            natural conversion)
-        vec_converted_away : np.ndarray 
+        area_new_forest : float
+            Area of new (planted or regenerated) forest entering the young 
+            secondary pipeline
+        vec_area_converted_away : float
             Ordered vector of total land use area converted away from tracked 
             land use types
-        vec_protected : np.ndarray
-            Vector of protected land use area
+        vec_area_protected : np.ndarray 
+            Ordered vector of of protected land use area
+        vec_biomass_c_average_ag_stock_in_conversion_targets : np.ndarray
+            Ordered vector of per unit area average carbon stock in target 
+            land use classes--i.e., classes to which each forest type is
+            transitioning into in time period i. This is used to restrict
+            available removals from conversion and preserve logical consistency.
         """
         # skip if invalid
         if (i < 0) | (i >= self.n_tp):
             return None
         
+        # update other inputs, including average stock in target classes
+        self._update_other_inputs(
+            i,
+            vec_biomass_c_average_ag_stock_in_conversion_targets,
+            unsafe = unsafe,
+        )
         
+        # update area inputs
         self._update_areas(
             i,
             area_new_forest,
             vec_area_converted_away,
             vec_area_protected,
+            unsafe = unsafe,
         )
         
-        return None#
+        # update young biomass
+        self._update_young_biomass(i, )
+
+
+        return None
     
 
 
@@ -1152,9 +1203,25 @@ class BiomassCarbonLedger:
         area_new_forest: float,
         vec_area_converted_away: Union[list, np.ndarray],
         vec_area_protected: np.ndarray,
+        unsafe: bool = False,
     ) -> None:
-        """Update area arrays in support of _update()
+        """Update area arrays in support of _update(). Updates the following
+            arrays:
+
+            * arr_area
+            * arr_area_conversion_away_total
+            * arr_area_conversion_into
+            * arr_area_protected_original
+            * arr_area_protected_total
+            * arr_area_protected_young
+            * arr_area_remaining_from_orig
+            * arr_area_remaining_from_orig_after_conversion_away
+            * vec_area_conversion_away_young_forest
+            * vec_area_conversion_away_young_forest_no_protection
+
         """
+
+        ##  INITIALIZATION
 
         # check types
         if sf.islistlike(vec_area_converted_away):
@@ -1163,13 +1230,39 @@ class BiomassCarbonLedger:
         if sf.islistlike(vec_area_protected):
             vec_area_protected = np.array(vec_area_protected)
 
+        # shortcuts
+        ind_fs = self.ind_frst_secondary
+
+        # check shapes?
+        if not unsafe:
+            if not sf.isnumber(area_new_forest):
+                raise TypeError(f"area_new_forest must be a number type.")
+
+            self._verify_convert_array_input_to_array(
+                vec_area_converted_away,
+                self.n_cats,
+                "vec_area_converted_away"
+            )
+
+            self._verify_convert_array_input_to_array(
+                vec_area_protected,
+                self.n_cats,
+                "vec_area_protected"
+            )
+
+
+
 
         ##  UPDATE AREA ARRAYS (IN ORDER)
 
         # basic area arrays
         self.arr_area_conversion_away_total[i] = vec_area_converted_away
-        self.arr_area_conversion_into[i, 1] = area_new_forest
-        self.arr_area_remaining_from_orig_after_conversion_away[i] = self.arr_area[i] - vec_area_converted_away
+        self.arr_area_conversion_into[i, ind_fs] = area_new_forest
+        self.arr_area_remaining_from_orig_after_conversion_away[i] = np.clip(
+            self.arr_area[i] - vec_area_converted_away,
+            0,
+            np.inf,
+        )
 
         # protected area
         self.arr_area_protected_total[i] = vec_area_protected
@@ -1178,7 +1271,7 @@ class BiomassCarbonLedger:
         ##  UPDATE PROTECTED AREAS
 
         area_protected_young = max(
-            vec_area_protected[1] - self.arr_area_remaining_from_orig_after_conversion_away[i, 1],
+            vec_area_protected[1] - self.arr_area_remaining_from_orig_after_conversion_away[i, ind_fs],
             0, 
         )
         vec_protected_original = np.min(
@@ -1193,24 +1286,263 @@ class BiomassCarbonLedger:
         self.arr_area_protected_original[i] = vec_protected_original
         self.vec_area_protected_young[i] = area_protected_young
 
-
-        ##  UPDATE OTHER AREAS DEPENDENT ON PROTECTED
-
-        # HERE
-
-
-        # updates for
+        # updates for key areas that are initialized on object creation but need to be updated
         if i > 0:
 
             # update area remaining from original forest
-            self.arr_area_remaining_from_orig[i] = self.arr_area_remaining_from_orig[i - 1] - vec_area_converted_away
+            self.arr_area_remaining_from_orig[i] = np.clip(
+                self.arr_area_remaining_from_orig[i - 1] - vec_area_converted_away,
+                0,
+                np.inf,
+            )
 
             # update area total
-            self.arr_area[i] = self.arr_area[i - 1] - vec_area_converted_away
+            self.arr_area[i] = np.clip(
+                self.arr_area[i - 1] - vec_area_converted_away,
+                0,
+                np.inf,
+            )
             self.arr_area[i] += self.arr_area_conversion_into[i - 1]
 
 
-        
-        ##  UPDATE PROTECTED AREAS 
 
+        ##  UPDATE OTHER AREAS DEPENDENT ON PROTECTED
+
+        # update the hypothetical area converted away from young forest (EXCLUDING protection)
+        area_conversion_away_young_forest_no_protection = -1*min(
+            self.arr_area_remaining_from_orig[i, ind_fs] - vec_area_converted_away[1],
+            0
+        )
+        self.vec_area_conversion_away_young_forest_no_protection[i] = area_conversion_away_young_forest_no_protection
+
+        # assign the area of forest that is converted away
+        area_conversion_away_young_forest = max(
+            self.vec_area_conversion_away_young_forest_no_protection[i] - self.vec_area_protected_young[i],
+            0
+        )
+        self.vec_area_conversion_away_young_forest[i] = area_conversion_away_young_forest
+
+
+        return None
+
+
+
+    def _update_other_inputs(self,
+        i: int,
+        vec_biomass_c_average_ag_stock_in_conversion_targets: np.ndarray,
+        unsafe: bool = False,
+    ) -> None:
+        """Update other necessary arrays in support of _update(). Updates the 
+            following arrays:
+
+            * 
+
+        """
+        
+        # verify shape?
+        if not unsafe:
+            self._verify_convert_array_input_to_array(
+                vec_biomass_c_average_ag_stock_in_conversion_targets,
+                self.n_cats,
+                "vec_biomass_c_average_ag_stock_in_conversion_targets",
+            )
+
+
+        self.arr_biomass_c_average_ag_stock_in_conversion_targets[i] = vec_biomass_c_average_ag_stock_in_conversion_targets
+
+
+
+        return None
+    
+
+
+
+    def _update_young_biomass(self,
+        i: int,
+    ) -> None:
+        """Update the young biomass matrices.
+        """
+
+        # start with area, including conversions
+        self._update_yf_area(i, )
+
+        # move to untouched C stock counterfactual, which is only dependent on area
+        self._update_yf_untouched_c_stock(i, )
+
+        # conversions of biomass, including amount that remains, for AG/BG
+        self._update_yf_biomass_conversions(i, )
+
+
+
+        return None
+    
+
+
+    
+        
+
+
+
+    def _update_yf_biomass_conversions(self,
+        i: int,
+    ) -> None:
+        """Update the area of young biomass arrays. Updates:
+
+            * arr_young_biomass_c_ag_converted_by_tp_planted
+            * arr_young_biomass_c_ag_preserved_in_conversion_by_tp_planted 
+            * arr_young_biomass_c_bg_converted_by_tp_planted
+            * vec_young_biomass_c_ag_converted
+            * vec_young_biomass_c_ag_preserved_in_conversion
+            * vec_young_biomass_c_bg_converted
+        """
+
+        ind_fs = self.ind_frst_secondary
+
+
+        ##  UPDATE arr_young_biomass_c_ag_converted_by_tp_planted
+
+        if i > 0:
+            new_row = np.nan_to_num(
+                self.arr_young_biomass_c_ag_stock[i - 1]
+                *(
+                    self.arr_young_area_by_tp_planted_drops[i]
+                    /self.arr_young_area_by_tp_planted[i - 1]
+                ),
+                nan = 0.0,
+                posinf = 0.0,
+            )
+
+            self.arr_young_biomass_c_ag_converted_by_tp_planted[i] = new_row
+            self.vec_young_biomass_c_ag_converted[i] = new_row.sum()
+
+        
+        ##  UPDATE arr_young_biomass_c_ag_preserved_in_conversion_by_tp_planted
+
+        vec_min = self.arr_young_biomass_c_ag_converted_by_tp_planted[i]
+        vec_conv = self.arr_young_area_by_tp_planted_drops[i]
+        avg_c_target_luc = self.arr_biomass_c_average_ag_stock_in_conversion_targets[i, ind_fs]
+        print(vec_conv*avg_c_target_luc)
+        vec_preserved = np.clip(
+            vec_conv*avg_c_target_luc,
+            0,
+            vec_min
+        )
+
+        self.arr_young_biomass_c_ag_preserved_in_conversion_by_tp_planted[i] = vec_preserved
+        self.vec_young_biomass_c_ag_preserved_in_conversion[i] = vec_preserved.sum()
+
+
+        ##  UPDATE arr_young_biomass_c_bg_converted_by_tp_planted
+
+        self.arr_young_biomass_c_bg_converted_by_tp_planted[i] = (
+            self.arr_young_biomass_c_ag_converted_by_tp_planted[i]
+            * self.vec_biomass_c_bg_to_ag_ratio[ind_fs]
+        )
+
+        return None
+
+
+
+
+
+    def _update_yf_area(self,
+        i: int,
+    ) -> None:
+        """Update the area of young biomass arrays. Updates:
+
+            * arr_young_area_by_tp_planted
+            * arr_young_area_by_tp_planted_cumvals
+            * arr_young_area_by_tp_planted_drops
+
+        """
+
+        ind_fs = self.ind_frst_secondary
+
+
+        ##  INITIALIZE NEW AREA PLANTED
+
+        self.arr_young_area_by_tp_planted[i, i] = self.arr_area_conversion_into[i, ind_fs]
+
+        # no more action needs to be taken if on the first iteration
+        if i == 0:
+            return None
+
+
+        ##  UPDATE CUMULATIVE VALUES: arr_young_area_by_tp_planted_cumvals
+        #
+        #   needed for conversions out
+        
+        arr_cv = self.arr_young_area_by_tp_planted_cumvals
+        arr_cv[i] = np.cumsum(self.arr_young_area_by_tp_planted[i - 1])
+        self.arr_young_area_by_tp_planted_cumvals = arr_cv
+
+
+
+        ##  UPDATE CONVERSIONS OUT: arr_young_area_by_tp_planted_drops
+
+        arr = self.arr_young_area_by_tp_planted_drops
+        area_conv_away = self.vec_area_conversion_away_young_forest[i]
+        print(area_conv_away)
+        for j in range(i):
+
+            # if the cumulative area to this point is less than the total 
+            # converted away, that means ALL of the new forest planted in this
+            # time period will be converted
+            if arr_cv[i, j] < area_conv_away:
+                arr[i, j] = self.arr_young_area_by_tp_planted[i - 1, j]
+                continue
+            
+            # otherwise, only some portion of this area will be converted away
+            # (or NONE, if the previous step has already been met)
+            base = arr_cv[i, j - 1] if j > 1 else 0
+            arr[i, j] = (
+                area_conv_away - base
+                if base < area_conv_away
+                else 0 
+            )
+
+        self.arr_young_area_by_tp_planted_drops = arr
+
+
+
+        ##  UPDATE AREA: arr_young_area_by_tp_planted
+        
+        # set as previous area less conversions out
+        arr1 = self.arr_young_area_by_tp_planted
+        arr2 = self.arr_young_area_by_tp_planted_drops
+
+        print(arr1[i - 1, 0:i])
+        arr1[i, 0:i] = arr1[i - 1, 0:i] - arr2[i, 0:i]
+
+        self.arr_young_area_by_tp_planted = arr1
+
+        return None
+    
+
+
+    def _update_yf_untouched_c_stock(self,
+        i: int,
+    ) -> None:
+        """Update the counterfactual "untouched" c stock array. Updates:
+
+            * arr_young_biomass_c_ag_stock_if_untouched
+        """
+
+        arr_area = self.arr_young_area_by_tp_planted
+        vec_sf = self.vec_young_sf_curve
+
+        # case for init
+        if i == 0:
+            self.arr_young_biomass_c_ag_stock_if_untouched[i, i] = vec_sf[i]*arr_area[i, i]
+            return None
+        
+        
+        # add as previous stock*(1 - decomp rate ) plus sequestration
+        frac_decomp = self.vec_frac_biomass_ag_decomposition[i]
+
+        self.arr_young_biomass_c_ag_stock_if_untouched[i] = (
+            self.arr_young_biomass_c_ag_stock_if_untouched[i - 1] * (1 - frac_decomp)
+            + arr_area[i] * self.arr_young_sf_base_by_tp_planted[i]
+        )
+        
         return None
