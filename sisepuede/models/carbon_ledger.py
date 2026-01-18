@@ -1465,7 +1465,7 @@ class BiomassCarbonLedger:
 
 
         ##  UPDATES
-
+        #HEREHEREHERE
         # 1. above-ground biomass lost to conversion: arr_biomass_c_ag_lost_conversion
         vec_c_ag_lost_conv = (
             vec_c_ag_conv - vec_c_ag_conv_pres - removals_from_orig*vec_frac_c_rmv_alloc
