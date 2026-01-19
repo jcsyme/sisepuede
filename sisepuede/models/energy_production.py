@@ -2422,8 +2422,7 @@ class EnergyProduction:
         dict_upstream: Union[Dict, None] = None,
         modvar_enfu_production: Union[str, None] = None,
     ) -> pd.DataFrame:
-        """
-        Using the vproductionbytechnologyannual table, account for 
+        """Using the vproductionbytechnologyannual table, account for 
             upstream/downstream fuel swaps and imports to generate fuel 
             production.
 
@@ -2538,28 +2537,29 @@ class EnergyProduction:
         df_demand_annual: pd.DataFrame,
         arr_enfu_exports: np.ndarray,
         vector_reference_time_period: Union[list, np.ndarray],
-        modvar_enfu_demand: Union[str, None] = None,
+        modvar_enfu_demand: Union[str, 'ModelVariable', None] = None,
         return_type: str = "array_base"
     ) -> Union[np.ndarray, pd.DataFrame]:
-        """
-        Using the vdemandannualnn table, account for 
-            upstream/downstream fuel swaps and imports to generate fuel 
-            production.
+        """Using the vdemandannualnn table, account for upstream/downstream fuel 
+            swaps and imports to generate fuel production.
 
         Function Arguments
         ------------------
-        - df_demand_annual: data frame of annual demand (non-nodal) extracted
-            from NemoMod outputs
-        - arr_enfu_exports: array of exports,
+        df_demand_annual : pd.DataFrame 
+            DataFrame of annual demand (non-nodal) extracted from NemoMod 
+            outputs
+        arr_enfu_exports : np.ndarray
+            Array of exports,
             * UNITS: NEMO MOD UNITS (may need to adjust)
-        - vector_reference_time_period: reference time periods to use in 
-            merge--e.g., 
+        vector_reference_time_period : Union[list, np.ndarray]
+            Reference time periods to use in merge--e.g., 
             df_elec_trajectories[EnergyProduction.model_attributes.dim_time_period]
 
         Keyword Arguments
         -----------------
-        - modvar_enfu_demand: model variable used for Total Fuel Demand
-        - return_type: 
+        modvar_enfu_demand : Union[str, 'ModelVariable', None]
+            Model variable used for Total Fuel Demand
+        return_type: 
             * "array_base": return an array (expanded to all categories) of 
                 demand in NEMOMOD ENERGY UNITS
             * "data_frame": return a dataframe in energy units of 
@@ -7163,12 +7163,15 @@ class EnergyProduction:
             arr_enfu_demands, 
             arr_enfu_demands_distribution, 
             arr_enfu_export, 
-            arr_enfu_imports, 
-            arr_enfu_production
+            arr_enfu_imports_0, 
+            arr_enfu_production_0
          ) = tuple_enfu_production_and_demands
         
         # updated 20230211 - NemoMod now solves for imports due to endogeneity of certain fuels.
         # Demand is passed as production + imports, and import fractions are specified in MinShareProduction
+        arr_enfu_imports = arr_enfu_imports_0.copy()
+        arr_enfu_production = arr_enfu_production_0.copy()
+
         arr_enfu_production += arr_enfu_imports 
 
         # get transmission loss and calculate final demand
@@ -7265,7 +7268,11 @@ class EnergyProduction:
             method.
         """
 
-        attribute_fuel = self.model_attributes.get_attribute_table(self.subsec_name_enfu) if (attribute_fuel is None) else attribute_fuel
+        attribute_fuel = (
+            self.model_attributes.get_attribute_table(self.subsec_name_enfu) 
+            if (attribute_fuel is None) 
+            else attribute_fuel
+        )
        
 
         ##  GET PRODUCTION DEMAND FROM INTEGRATED MODEL
@@ -7279,9 +7286,19 @@ class EnergyProduction:
             if (tuple_enfu_production_and_demands is None) 
             else tuple_enfu_production_and_demands
         )
-        arr_enfu_demands, arr_enfu_demands_distribution, arr_enfu_export, arr_enfu_imports, arr_enfu_production = tuple_enfu_production_and_demands
+        (
+            _, 
+            _, 
+            _, 
+            arr_enfu_imports_0, 
+            arr_enfu_production_0,
+         ) = tuple_enfu_production_and_demands
         
-        # updated 20230211 - NemoMod now solves for imports due to endogeneity of certain fuels. Demand is passed as production + imports, and import fractions are specified in MinShareProduction
+        # updated 20230211 - NemoMod now solves for imports due to endogeneity of certain fuels. 
+        # Demand is passed as production + imports, and import fractions are specified in MinShareProduction
+        arr_enfu_imports = arr_enfu_imports_0.copy()
+        arr_enfu_production = arr_enfu_production_0.copy()
+        
         arr_enfu_production += arr_enfu_imports 
 
         # get transmission loss and calculate final demand
@@ -7324,10 +7341,17 @@ class EnergyProduction:
             direction = self.direction_exchange_year_time_period
         )
 
-        df_enfu_production = df_enfu_production.melt(
-            id_vars = [self.field_nemomod_year]
-        ).rename(
-            columns = {"variable": self.field_nemomod_fuel, "value": self.field_nemomod_value}
+        df_enfu_production = (
+            df_enfu_production
+            .melt(
+                id_vars = [self.field_nemomod_year]
+            )
+            .rename(
+                columns = {
+                    "variable": self.field_nemomod_fuel, 
+                    "value": self.field_nemomod_value,
+                }
+            )
         )
 
         # add additional required fields, then sort
@@ -7343,7 +7367,9 @@ class EnergyProduction:
             regions = regions
         )
 
-        return {self.model_attributes.table_nemomod_specified_annual_demand: df_enfu_production}
+        dict_return = {self.model_attributes.table_nemomod_specified_annual_demand: df_enfu_production}
+
+        return dict_return
 
 
 
@@ -9705,7 +9731,7 @@ class EnergyProduction:
             arr_enfu_export_no_entc, 
             arr_enfu_imports_no_entc, 
             arr_enfu_production_no_entc
-         ) = tuple_enfu_production_and_demands
+        ) = tuple_enfu_production_and_demands
 
         # get production by technology table from Nemomod
         df_demand_annual = sqlutil.sql_table_to_df(engine, table_name_demand_annual)
@@ -9833,7 +9859,7 @@ class EnergyProduction:
         )
         df_out += [df_enfu_transmission_losses]
         
-
+        # prod = demand + exports - imports
         # 8. get adjusted exports as production + imports - demands
         arr_enfu_exports_adj = arr_enfu_production + arr_enfu_imports - arr_enfu_transmission_losses - arr_enfu_demands
         arr_enfu_exports_adj = sf.vec_bounds(arr_enfu_exports_adj, (0, np.inf))
@@ -10265,7 +10291,7 @@ class EnergyProduction:
 
 
         ##  3. ADD TABLES DEPENDENT ON MODEL PASS THROUGH (df_elec_trajectories)
-
+        
         if df_elec_trajectories is not None:
             # AnnualEmissionLimit
             dict_out.update(
@@ -10379,6 +10405,9 @@ class EnergyProduction:
                     regions = regions
                 )
             )
+
+            self.df_elec_trajectories = df_elec_trajectories.copy()
+            self.tuple_enfu_production_and_demands = tuple_enfu_production_and_demands
             # SpecifiedAnnualDemand
             dict_out.update(
                 self.format_nemomod_table_specified_annual_demand(
