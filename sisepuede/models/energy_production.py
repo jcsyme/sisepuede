@@ -7298,7 +7298,7 @@ class EnergyProduction:
         # Demand is passed as production + imports, and import fractions are specified in MinShareProduction
         arr_enfu_imports = arr_enfu_imports_0.copy()
         arr_enfu_production = arr_enfu_production_0.copy()
-        
+
         arr_enfu_production += arr_enfu_imports 
 
         # get transmission loss and calculate final demand
@@ -10405,9 +10405,6 @@ class EnergyProduction:
                     regions = regions
                 )
             )
-
-            self.df_elec_trajectories = df_elec_trajectories.copy()
-            self.tuple_enfu_production_and_demands = tuple_enfu_production_and_demands
             # SpecifiedAnnualDemand
             dict_out.update(
                 self.format_nemomod_table_specified_annual_demand(
