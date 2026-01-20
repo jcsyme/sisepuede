@@ -607,12 +607,9 @@ def check_type(
         message (if write_message == True). If no message is written, the second
         element of the tuple is None.
     """
-    elem_type = [elem_type] if isinstance(elem_type, type) else elem_type
-
     # verify input type
-    is_valid = False
-    for tp in elem_type:
-        is_valid |= isinstance(elem, tp)
+    elem_type = elem_type if not islistlike(elem_type) else tuple(elem_type, )
+    is_valid = isinstance(elem, elem_type, )
 
     # build message
     msg = None
