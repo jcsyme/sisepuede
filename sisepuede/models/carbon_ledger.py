@@ -1197,13 +1197,12 @@ class BiomassCarbonLedger:
     ###                             ###
     ###################################
 
-
     def _update(self,
         i: int,
         area_new_forest: float,
         vec_area_converted_away: Union[list, np.ndarray],
-        vec_area_protected: np.ndarray,
-        vec_biomass_c_average_ag_stock_in_conversion_targets: np.ndarray,
+        vec_area_protected: Union[list, np.ndarray],
+        vec_biomass_c_average_ag_stock_in_conversion_targets: Union[list, np.ndarray],
         unsafe: bool = False,
     ) -> None:
         """Update the ledger with land use lose
@@ -1215,21 +1214,46 @@ class BiomassCarbonLedger:
         area_new_forest : float
             Area of new (planted or regenerated) forest entering the young 
             secondary pipeline
-        vec_area_converted_away : float
+        vec_area_converted_away : Union[list, np.ndarray]
             Ordered vector of total land use area converted away from tracked 
             land use types
-        vec_area_protected : np.ndarray 
+        vec_area_protected : Union[list, np.ndarray]
             Ordered vector of of protected land use area
-        vec_biomass_c_average_ag_stock_in_conversion_targets : np.ndarray
+        vec_biomass_c_average_ag_stock_in_conversion_targets : Union[list, np.ndarray]
             Ordered vector of per unit area average carbon stock in target 
             land use classes--i.e., classes to which each forest type is
             transitioning into in time period i. This is used to restrict
             available removals from conversion and preserve logical consistency.
+
+        Keyword Arguments
+        -----------------
+        unsafe : bool
+            Set to True to remove checks on vector shapes
         """
+
+        ##  PERFORM CHECKS
+
+        # verify input types and convert to numpy arrays if necessary
+        (
+            vec_area_converted_away,
+            vec_area_protected,
+            vec_biomass_c_average_ag_stock_in_conversion_targets,
+        ) = self._validate_update_types(
+            i,
+            area_new_forest, 
+            vec_area_converted_away,
+            vec_area_protected,
+            vec_biomass_c_average_ag_stock_in_conversion_targets,
+        )
+
         # skip if invalid
         if (i < 0) | (i >= self.n_tp):
             return None
         
+
+
+        ##  PERFORM UPDATES IN ORDER
+
         # update other inputs, including average stock in target classes
         self._update_other_inputs(
             i,
@@ -1320,6 +1344,11 @@ class BiomassCarbonLedger:
         ##  UPDATE AREA ARRAYS (IN ORDER)
         
         # basic area arrays
+        vec_area_converted_away_prev = (
+            self.arr_area_conversion_away_total[i - 1]
+            if i > 0
+            else 0
+        )
         self.arr_area_conversion_away_total[i] = vec_area_converted_away
         self.arr_area_conversion_into[i, ind_fs] = area_new_forest
 
@@ -1327,23 +1356,20 @@ class BiomassCarbonLedger:
         if i > 0:
 
             # update area remaining from original forest
-            self.arr_area_remaining_from_orig[i] = np.clip(
-                self.arr_area_remaining_from_orig[i - 1] - vec_area_converted_away,
-                0,
-                np.inf,
-            )
+            self.arr_area_remaining_from_orig[i] = self.arr_area_remaining_from_orig_after_conversion_away[i - 1]
 
             # update area total
             self.arr_area[i] = np.clip(
-                self.arr_area[i - 1] - vec_area_converted_away,
+                self.arr_area[i - 1] - vec_area_converted_away_prev,
                 0,
                 np.inf,
             )
             self.arr_area[i] += self.arr_area_conversion_into[i - 1]
 
+
         # area of original after converting away
         self.arr_area_remaining_from_orig_after_conversion_away[i] = np.clip(
-            self.arr_area[i] - vec_area_converted_away,
+            self.arr_area_remaining_from_orig[i] - vec_area_converted_away,
             0,
             np.inf,
         )
@@ -1499,7 +1525,7 @@ class BiomassCarbonLedger:
         # have to add in young decomp
         vec_c_ag_lost_decomp[ind_fs] += c_decomp_young
         
-        self.arr_biomass_c_ag_lost_decomposition = vec_c_ag_lost_decomp
+        self.arr_biomass_c_ag_lost_decomposition[i] = vec_c_ag_lost_decomp
 
 
         # 3. below-ground biomass lost from conversion: arr_biomass_c_bg_lost_conversion
@@ -2239,3 +2265,86 @@ class BiomassCarbonLedger:
         return None
 
     
+
+    def _validate_update_types(self,
+        i: int,
+        area_new_forest: float,
+        vec_area_converted_away: Union[list, np.ndarray],
+        vec_area_protected: Union[list, np.ndarray],
+        vec_biomass_c_average_ag_stock_in_conversion_targets: Union[list, np.ndarray],
+    ) -> None:
+        """Check input types for self._update(). Returns vectors as np array in 
+            the following form:
+
+            (
+                vec_area_converted_away,
+                vec_area_protected,
+                vec_biomass_c_average_ag_stock_in_conversion_targets,
+            )
+
+        Function Arguments
+        ------------------
+        i : int
+            Time period to update (row index)
+        area_new_forest : float
+            Area of new (planted or regenerated) forest entering the young 
+            secondary pipeline
+        vec_area_converted_away : Union[list, np.ndarray]
+            Ordered vector of total land use area converted away from tracked 
+            land use types
+        vec_area_protected : Union[list, np.ndarray]
+            Ordered vector of of protected land use area
+        vec_biomass_c_average_ag_stock_in_conversion_targets : Union[list, np.ndarray]
+            Ordered vector of per unit area average carbon stock in target 
+            land use classes--i.e., classes to which each forest type is
+            transitioning into in time period i. This is used to restrict
+            available removals from conversion and preserve logical consistency.
+        """
+
+        # check indexer
+        if not sf.isnumber(i, integer = True, ):
+            tp = type(i)
+            raise TypeError(f"invalid type found for index 'i': {tp}. Must be an integer.")
+        
+        # check area
+        if not sf.isnumber(area_new_forest, ):
+            tp = type(area_new_forest)
+            raise TypeError(f"invalid type found for area_new_forest: {tp}. Must be a number.")
+
+        # verify conversion vector and convert to numpy array if checks are passed
+        sf.check_type(
+            vec_area_converted_away,
+            Union[list, np.ndarray],
+            "vec_area_converted_away"
+        )
+        vec_area_converted_away = np.array(vec_area_converted_away, )
+
+        # verify the area protected vector and convert to numpy array if checks are passed
+        sf.check_type(
+            vec_area_protected,
+            Union[list, np.ndarray],
+            "vec_area_protected"
+        )
+        vec_area_protected = np.array(vec_area_protected, )
+
+        # verify conversion target average ag stock vector and convert to numpy array if checks are passed
+        sf.check_type(
+            vec_biomass_c_average_ag_stock_in_conversion_targets,
+            Union[list, np.ndarray],
+            "vec_biomass_c_average_ag_stock_in_conversion_targets"
+        )
+        vec_biomass_c_average_ag_stock_in_conversion_targets = np.array(vec_biomass_c_average_ag_stock_in_conversion_targets, )
+
+        # setup return
+        out = (
+            vec_area_converted_away,
+            vec_area_protected,
+            vec_biomass_c_average_ag_stock_in_conversion_targets,
+        )
+
+        return out
+    
+
+
+
+
