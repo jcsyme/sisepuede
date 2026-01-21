@@ -5543,6 +5543,7 @@ class Transformers:
         df_input: Union[pd.DataFrame, None] = None,
         magnitude: float = 1.5,
         magnitude_type: str = "baseline_scalar",
+        return_magnitude: bool = False,
         strat: Union[int, None] = None,
         vec_implementation_ramp: Union[np.ndarray, Dict[str, int], None] = None,
     ) -> pd.DataFrame:
@@ -5559,6 +5560,8 @@ class Transformers:
             NOTE: If magnitude_type changes, then the behavior of the transformation will change.
         magnitude_type : str
             Type of magnitude, as specified in `transformers.lib.general.transformations_general`. See `?transformers.lib.general.transformations_general` for more information on the specification of magnitude_type for general transformer values. 
+        return_magnitude : bool
+            Return the magnitude dictionary only? NOTE: DO NOT SPECIFY IN CONFIGURATION YAMLS
         strat : int
             Optional strategy value to specify for the transformation
         vec_implementation_ramp : Union[np.ndarray, Dict[str, int], None]
@@ -5601,6 +5604,9 @@ class Transformers:
 
             magnitude.update({k: v, })
 
+        if return_magnitude:
+            return magnitude
+        
 
         # check implementation ramp
         vec_implementation_ramp = self.check_implementation_ramp(
@@ -5615,8 +5621,6 @@ class Transformers:
 
         for k, v in magnitude.items():
 
-
-            print(k, v)
             df_out = tbg.transformation_general(
                 df_out,
                 self.model_attributes,

@@ -860,6 +860,24 @@ class TransformationSummarizer:
     
         return magnitude
 
+
+
+    def summarize_special_case_enfu_exports(self,
+        base_transformer: 'Transformer',
+        dict_params: Dict[str, Any],
+        kwargs: Dict[str, Any],                                     
+    ) -> float:
+        """Summarize transformations based wastewater treatment pathways
+            transformer
+        """
+        dict_magnitude = dict_params.get("magnitude")
+        if dict_magnitude is None:
+            dict_magnitude = base_transformer(return_magnitude = True, )
+            
+        magnitude = np.mean(dict_magnitude.values())
+
+        return magnitude
+    
     
 
     def summarize_special_case_lndu_bounds(self,
@@ -1106,7 +1124,13 @@ class TransformationSummarizer:
         if base_transformer.code == f"{prefix_transformer_code}:AGRC:INC_CONSERVATION_AGRICULTURE":
             out = self.summarize_special_case_agrc_conservation_ag(*args_summary, )
             return out
-    
+
+
+        # ENFU - Exports Adjustment
+        if base_transformer.code == f"{prefix_transformer_code}:ENFU:ADJ_EXPORTS":
+            out = self.summarize_special_case_enfu_exports(*args_summary, )
+            return out 
+            
     
         # ENTC - Least cost solution
         if base_transformer.code == f"{prefix_transformer_code}:ENTC:LEAST_COST_SOLUTION":
