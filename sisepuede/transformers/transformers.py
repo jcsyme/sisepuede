@@ -5571,13 +5571,36 @@ class Transformers:
             else df_input
         )
 
-        # set bounds
-        bounds = (-1.0, np.inf)
-        magnitude = self.bounded_real_magnitude(
-            magnitude, 
-            0.8,
-            bounds = bounds,
+        # get model variable 
+        modvar = (
+            self
+            .model_attributes
+            .get_variable(
+                self.model_enercons.modvar_enfu_exports_fuel
+            )
         )
+        
+        if sf.isnumber(magnitude) or (magnitude is None):
+            cats = self.model_attributes.get_variable_categories(modvar)
+            magnitude = dict((k, magnitude) for k in cats)
+
+        if not isinstance(magnitude, dict):
+            tp = type(magnitude)
+            raise TypeError(f"Argument `magnitude` must be a number or dictionary")
+
+        # set bounds for each adjustment
+        bounds = (-1.0, np.inf)
+        keys = list(magnitude.keys())
+
+        for k in keys:
+            v = self.bounded_real_magnitude(
+                magnitude.get(k), 
+                0.8,
+                bounds = bounds,
+            )
+
+            magnitude.update({k: v, })
+
 
         # check implementation ramp
         vec_implementation_ramp = self.check_implementation_ramp(
@@ -5586,21 +5609,29 @@ class Transformers:
         )
 
 
-        df_out = tbg.transformation_general(
-            df_input,
-            self.model_attributes,
-            {
-                self.model_enercons.modvar_enfu_exports_fuel: {
-                    "bounds": bounds,
-                    "categories": cats_enfu,
-                    "magnitude": magnitude,
-                    "magnitude_type": magnitude_type,
-                    "vec_ramp": self.vec_implementation_ramp,
+        ##  IMPLEMENT TRANSFORMATION 
+
+        df_out = df_input.copy()
+
+        for k, v in magnitude.items():
+
+
+            print(k, v)
+            df_out = tbg.transformation_general(
+                df_out,
+                self.model_attributes,
+                {
+                    self.model_enercons.modvar_enfu_exports_fuel: {
+                        "bounds": bounds,
+                        "categories": [k],
+                        "magnitude": v,
+                        "magnitude_type": magnitude_type,
+                        "vec_ramp": self.vec_implementation_ramp,
+                    },
                 },
-            },
-            field_region = self.key_region,
-            strategy_id = strat,
-        )
+                field_region = self.key_region,
+                strategy_id = strat,
+            )
         
         return df_out
     
