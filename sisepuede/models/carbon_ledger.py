@@ -2091,10 +2091,11 @@ class BiomassCarbonLedger:
         arr_mask = self.arr_young_biomass_c_available_for_removals_mask
 
         # calculation for each time period for which biomass are available
+        ind_fs = self.ind_frst_secondary
         inds_col = list(range(self.n_tps_no_withdrawals_new_growth + 1, i))
         
         # shortcuts
-        biomass_ag_min_per_area = self.vec_biomass_c_ag_min_reqd_per_area[i]
+        biomass_ag_min_per_area = self.vec_biomass_c_ag_min_reqd_per_area[ind_fs]
         vec_areas_conv = self.arr_young_area_by_tp_planted[i - 1, inds_col]
         vec_biomass_converted = self.arr_young_biomass_c_ag_converted_by_tp_planted[i, inds_col]
         vec_biomass_stock_prev = self.arr_young_biomass_c_ag_stock[i - 1, inds_col]
@@ -2102,7 +2103,8 @@ class BiomassCarbonLedger:
         # update mask
         mask_new = vec_biomass_stock_prev - vec_areas_conv*biomass_ag_min_per_area
         mask_new -= vec_biomass_converted
-        arr_mask[i, inds_col] = np.clip(mask_new, 0)
+        print(f"mask_new = {mask_new}")
+        arr_mask[i, inds_col] = np.clip(mask_new, 0, np.inf)
 
         self.arr_young_biomass_c_available_for_removals_mask = arr_mask
         self.vec_young_biomass_c_available_for_removals_total[i] = arr_mask[i].sum()
