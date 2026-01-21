@@ -5877,16 +5877,17 @@ class Transformers:
         )
 
         # renewable categories
+        force_re_techs_from_dict = isinstance(categories_entc_renewable, list)
         categories_entc_renewable = self.get_entc_cats_renewable(
             categories_entc_renewable, 
         )
-
         
         # dictionary mapping to target minimum shares of production
         dict_entc_renewable_target_msp = self.get_entc_dict_renewable_target_msp(
             cats_renewable = categories_entc_renewable,
             dict_entc_renewable_target_msp = dict_entc_renewable_target_msp,
         )
+
 
         # characteristics for MSP ramp 
         (
@@ -5908,6 +5909,7 @@ class Transformers:
             self.model_enerprod,
             dict_cats_entc_max_investment = dict_entc_renewable_target_cats_max_investment,
             field_region = self.key_region,
+            force_re_techs_from_dict = force_re_techs_from_dict,
             magnitude_renewables = dict_entc_renewable_target_msp,
             scale_non_renewables_to_match_surplus_msp = scale_non_renewables_to_match_surplus_msp,
             strategy_id = strat,

@@ -829,6 +829,7 @@ def transformation_entc_renewable_target(
     drop_flag: Union[int, float, None] = None,
     factor_vec_ramp_msp: Union[float, int, None] = None,
     field_region: str = "region",
+    force_re_techs_from_dict: bool = False,
     fuel_elec: Union[str, None] = None,
     include_target: bool = True,
     magnitude_as_floor: bool = False,
@@ -857,11 +858,11 @@ def transformation_entc_renewable_target(
 
     Keyword Arguments
     -----------------
-    - dict_cats_entc_max_investment: dictionary of categories to place a cap on
-        maximum investment for. Each key maps to a dictionary with two elements;
-        one is a vector of values to use for the cap (-999 is used to implement
-        no maximum--key "vec"), and the other is the type of vector, which can
-        be either
+    dict_cats_entc_max_investment : 
+        Dictionary of categories to place a cap on maximum investment for. Each 
+        key maps to a dictionary with two elements; one is a vector of values to 
+        use for the cap (-999 is used to implement no maximum--key "vec"), and 
+        the other is the type of vector, which can be either
             * "value" (use raw values) or 
             * "scalar" (scalar applied to maximum residual capacity over periods
                 where vec_ramp = 0
@@ -878,39 +879,50 @@ def transformation_entc_renewable_target(
 
         where `cat_entc_i` is a category, `vec` gives values as numpy vector, and
         `type` gives the type of the time series.
-    - drop_flag: value in 
-        model_enerprod.modvar_entc_max_elec_prod_increase_for_msp used to 
-        signal the presence of no constraint. Defaults to 
+    drop_flag : 
+        Value in model_enerprod.modvar_entc_max_elec_prod_increase_for_msp used 
+        to signal the presence of no constraint. Defaults to 
         model_enerprod.drop_flag_tech_capacities if None
-    - factor_vec_ramp_msp: factor used to accelerate the rate at which
-        MinShareProduction declines to 0 for non-renewable energy technologies.
-        If None, defaults to 1.5 (1 is the same rate).
-    - field_region: field in df_input that specifies the region
-    - fuel_elec: $CAT-TECHNOLOGY$ category specifying electricity. If None, 
-        defaults to model_enerprod.cat_enfu_fuel
-    - include_target: if True, sets the renewable target (Default). If False, 
-        will only manipulate minimum shares of production. Should only be used
-        in conjunction with `scale_non_renewables_to_match_surplus_msp = True`
-    - magnitude_as_floor: if True, will not allow any renewables to decline in 
-        magnitude unless the dictionary `magnitude_renewables` forces some 
-        renewables to make up a higher share
-    - magnitude_renewables: Dict mapping renewable categories to target minimum
-        shares of production by the final time period OR float giving a uniform 
-        value to apply to all renewable categories (as defined in 
-        `cats_renewable`). If None, the renewable minimum share of production 
-        for each renewable category is kept stable as soon as vec_remp != 0.
-    - regions_apply: optional set of regions to use to define strategy. If None,
-        applies to all regions.
-    - scale_non_renewables_to_match_surplus_msp: if True, will scale MSP from
-        non-renewable sources to match the surplus, where surplus is calculated
-        as 
+    factor_vec_ramp_msp : 
+        Factor used to accelerate the rate at which MinShareProduction declines 
+        to 0 for non-renewable energy technologies. If None, defaults to 1.5 (1 
+        is the same rate).
+    field_region : 
+        Field in df_input that specifies the region
+    force_re_techs_from_dict : bool
+        Force renewable technologies to be specified by the dictionary? If 
+        False (default), will infer re techs from input DataFrame.
+    fuel_elec : 
+        $CAT-TECHNOLOGY$ category specifying electricity. If None, defaults to 
+        model_enerprod.cat_enfu_fuel
+    include_target : 
+        If True, sets the renewable target (Default). If False, will only 
+        manipulate minimum shares of production. Should only be used in 
+        conjunction with `scale_non_renewables_to_match_surplus_msp = True`
+    magnitude_as_floor : 
+        If True, will not allow any renewables to decline in magnitude unless 
+        the dictionary `magnitude_renewables` forces some renewables to make up 
+        a higher share
+    - magnitude_renewables : 
+        Dict mapping renewable categories to target minimum shares of production 
+        by the final time period OR float giving a uniform value to apply to all 
+        renewable categories (as defined in `cats_renewable`). If None, the 
+        renewable minimum share of production for each renewable category is 
+        kept stable as soon as vec_remp != 0.
+    - regions_apply : 
+        Optional set of regions to use to define strategy. If None, applies to 
+        all regions.
+    - scale_non_renewables_to_match_surplus_msp : 
+        If True, will scale MSP from non-renewable sources to match the surplus, 
+        where surplus is calculated as 
             surplus = max(MSP_0 - T, 0)
 
         where R is the original total of all MSPs and T is the total renewable
         target. If False, MSPs are set to 0 for all non-renewable targets.
 
-    - strategy_id: optional specification of strategy id to add to output
-        dataframe (only added if integer)
+    - strategy_id : 
+        Optional specification of strategy id to add to output dataframe (only 
+        added if integer)
     """
     
     ##  INITIALIZATION
@@ -986,16 +998,27 @@ def transformation_entc_renewable_target(
         # init the magnitude for the region
         magnitude = magnitude_target
 
-        # get renewable categories from input data frame; if none are specified, append and return (nothing to transform)
-        dict_cats_renewable_all = get_renewable_categories_from_inputs_final_tp(
-            df, 
-            model_enerprod,
-        )
+        
+        ##  GET RENEWABLE CATEGORIES
+
+        if isinstance(magnitude_renewables, dict) & force_re_techs_from_dict:
+            dict_cats_renewable_all = dict(
+                (k, 1.0) for k in magnitude_renewables.keys()
+                if k in attr_entc.key_values
+            )
+
+        else:
+            # get renewable categories from input data frame; if none are specified, append and return (nothing to transform)
+            dict_cats_renewable_all = get_renewable_categories_from_inputs_final_tp(
+                df, 
+                model_enerprod,
+            )
 
         if len(dict_cats_renewable_all) == 0:
             df_out.append(df)
             continue
-        
+
+            
         # only focus on electricity generation
         cats_renewable = [
             x for x in attr_entc.key_values 
