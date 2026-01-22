@@ -34,9 +34,11 @@ class YAMLConfigurationKeyError(Exception):
 ##########################
 
 # fields
+_FIELD_ADMINISTRATIVE_SPECIFICATION = "administrative_specification"
 _FIELD_DAY = "day"
 _FIELD_MONTH = "month"
 _FIELD_YEAR = "year"
+
 
 
 # module UUID
@@ -94,6 +96,7 @@ class Regions:
         # initialize some default data source properties
         self._initialize_defaults_iea()
         self._initialize_generic_dict()
+        self._initialize_un_dict()
         self._initialize_uuid()
 
         return None
@@ -119,6 +122,18 @@ class Regions:
             * self.field_iea_value
         """
 
+
+        """
+        # 'tanzania', 'congo', 'türkiye','moldova','laos','syria','the_netherlands',
+        # regions.attributes.table[regions.attributes.table['category_name']=='Democratic Republic of the Congo']
+        # regions.attributes.table[regions.attributes.table['category_name']=='United Republic of Tanzania']
+        # regions.attributes.table[regions.attributes.table['category_name']=='Turkey']
+        # regions.attributes.table[regions.attributes.table['category_name']=='Republic of Moldova']
+        # regions.attributes.table[regions.attributes.table['category_name']=="Lao People's Democratic Republic"]
+        # regions.attributes.table[regions.attributes.table['category_name']=="Syrian Arab Republic"]
+        # regions.attributes.table[regions.attributes.table['category_name']=="Syrian Arab Republic"]
+        # regions.attributes.table[regions.attributes.table['category_name']=="Netherlands"]
+        """
         self.dict_iea_countries_lc_to_regions = {
             "chinese_taipei": "taiwan",
             "czech_republic": "czechia",
@@ -166,6 +181,80 @@ class Regions:
 
         return None
 
+
+    def _initialize_un_dict(self,
+    ) -> None:
+        """Build a dictionary mapping some UN names to regions. Sets the 
+            following properties:
+
+                * self.dict_un_countries_lc_to_regions
+        """
+
+        dict_un = {
+            #"anguilla": ,
+            "bolivia_(plur._state_of)": "bolivia",
+            #"bonaire,_st_eustatius,_saba": 
+            "central_african_rep.": "central_african_republic",
+            "china,_hong_kong_sar": "hong_kong",
+            "china,_macao_sar": "macao",
+            "congo": "republic_of_the_congo",
+            #"cook_islands": ,
+            "curaçao": "curacao",
+            #"czechoslovakia_(former)": ,
+            "côte_d'ivoire": "cote_divoire",
+            "dem._rep._of_the_congo": "democratic_republic_of_the_congo",
+            #"ethiopia,_incl._eritrea": ,
+            "faeroe_islands": "faroe_islands",
+            #"falkland_is._(malvinas)": ,
+            #"french_guiana": ,
+            #"german_dem._r._(former)": ,
+            #"germany,_fed._r._(former)": ,
+            #"guadeloupe": ,
+            #"guernsey": ,
+            "iran_(islamic_rep._of)": "iran",
+            #"jersey": ,
+            "korea,_dem.ppl's.rep.": "democratic_peoples_republic_of_korea",
+            "korea,_republic_of": "republic_of_korea",
+            "lao_people's_dem._rep.": "lao",
+            #"martinique": ,
+            #"mayotte": ,
+            "micronesia_(fed._states_of)": "micronesia",
+            #"montserrat": ,
+            #"neth._antilles_(former)": ,
+            "netherlands_(kingd._of_the)": "netherlands",
+            #"niue": ,
+            #"other_asia": ,
+            #"pacific_islands_(former)": ,
+            "russian_federation": "russia",
+            #"réunion": ,
+            #"saint_barthélemy": ,
+            "saint_martin_(french_part)": "saint_martin",
+            #"serbia_and_montenegro": ,
+            "sint_maarten_(dutch_part)": "sint_maarten",
+            #"st._helena_and_depend.": ,
+            "st._kitts_nevis": "saint_kitts_and_nevis",
+            "st._lucia": "saint_lucia",
+            #"st._pierre_miquelon": ,
+            "st._vincent_grenadines": "saint_vincent_and_the_grenadines",
+            #"state_of_palestine": ,
+            #"sudan_(former)": ,
+            "türkiye": "turkey",
+            #"ussr_(former)": ,
+            "united_rep._of_tanzania": "united_republic_of_tanzania",
+            "united_states_virgin_is.": "united_states_virgin_islands",
+            "venezuela_(bolivar._rep.)": "venezuela",
+            #"wallis_and_futuna_is.": ,
+            #"yemen_arab_rep._(former)": ,
+            #"yemen,_dem._(former)": ,
+            #"yugoslavia,_sfr_(former)": ,
+        }
+
+
+        ##  SET PROPERTIES
+
+        self.dict_un_countries_lc_to_regions = dict_un
+
+        return None
         
 
     def _initialize_region_properties(self,
@@ -824,9 +913,6 @@ class Regions:
 
 
 
-            
-
-
     def fill_missing_regions(self,
         df: pd.DataFrame,
         fields_data: List[str],
@@ -846,11 +932,16 @@ class Regions:
         dict_method : dict
             Fill method information. Keys are a method while values are 
             dictionaries that map parameters to values. Options are:
-            * "grouping_average": Use a regional grouping average. Requires the
-                following parameters:
-                * "regional_grouping": grouping method to use
-            * "analog_population_center": Use an analog from the nearest 2020 
-                population center.
+            * "analog_population_center":   Use an analog from the nearest 2020 
+                                            population center.
+            * "constant_value":             Use a constant value (specified as
+                                            value in the dictionary)
+            * "grouping_average":           Use a regional grouping average. 
+                                            Requires the following parameters:
+                                            - "regional_grouping": 
+                                                grouping method to use
+            
+            
         region_spec : str
             Regional specification; must be one of
             * "iso": use ISO codes, available in regions.all_iso
@@ -889,8 +980,9 @@ class Regions:
         # check method
         method = list(dict_method.keys())[0]
         valid_methods = [
-            "grouping_average", 
             "analog_population_center",
+            "constant_value",
+            "grouping_average", 
         ]
 
         if method not in valid_methods:
@@ -969,6 +1061,29 @@ class Regions:
                 return_region_type = region_spec,
                 aggregation_method = "mean",
             )
+
+
+        elif method == "constant_value":
+            # get the value
+            val = dict_method.get(method)
+
+            # use on region as an analog
+            df_new = df[
+                df[field_region] == df[field_region].iloc[0]
+            ].copy()
+
+            # set to the value
+            df_new_cat = []#df_new for x in regions_fill]
+            for i in regions_fill:
+                df_proxy = df_new.copy()
+                df_proxy[field_region] = i
+                df_new_cat.append(df_proxy)
+            
+            df_new = sf._concat_df(df_new_cat, )
+            df_new[fields_data] = val
+
+            # concatenate
+            df_out = sf._concat_df([df, df_new])
 
 
         elif method == "analog_population_center":
@@ -1459,6 +1574,43 @@ class Regions:
         )
 
         return out
+    
+
+
+    def get_regions_by_admnistrative_equivalent(self,
+        admin_spec: str,
+        return_type: Union[str, None] = None,
+    ) -> List[Union[str, int]]:
+        """Filter regions by administrative specification. Returns regions of 
+            type return_type
+
+        Function Arguments
+        ------------------
+        admin_spec : str
+            Valid administrative specification included in the regions attribute 
+            table
+
+        Keyword Arguments
+        -----------------
+        return_type : str
+            region, iso, or iso_numeric
+        """
+
+        tab = self.attributes.table
+        
+        regions_out = tab[
+            tab[_FIELD_ADMINISTRATIVE_SPECIFICATION].isin([admin_spec])
+        ]
+        regions_out = list(regions_out[self.key])
+
+        if return_type is not None:
+            regions_out = [
+                self.return_region_or_iso(x, return_type = return_type, ) 
+                for x in regions_out
+            ]
+
+        return regions_out
+
 
 
 
@@ -1694,23 +1846,25 @@ class Regions:
         field_country: Union[str, None] = None,
         return_modified_df: bool = False,
     ) -> Union[np.ndarray, pd.DataFrame]:
-        """
-        Map IEA countries in field_country to ISO codes contained in 
+        """Map IEA countries in field_country to ISO codes contained in 
             df_in[field_country]. If field_country is None, defaults to 
             self.field_iea_country.
 
         Function Arguments
         ------------------
-        - df_in: input data frame containing field country (if None, uses 
+        df_in : Union[pd.DataFrame, List, np.ndarray, str]
+            Input data frame containing field country (if None, uses 
             self.field_iea_country) OR list/np.ndarray or input country strings
             OR string
 
         Keyword Arguments
         -----------------
-        - field_country: field in df_in used to identify IEA countries if df_in
-            is a DataFrame
-        - return_modified_df: if True and df_in is a DataFrame, will return a 
-            DataFrame modified to include the iso field
+        field_country : Union[str, None]
+            Field in df_in used to identify IEA countries if df_in is a 
+            DataFrame
+        return_modified_df : bool 
+            if True and df_in is a DataFrame, will return a DataFrame modified 
+            to include the iso field
         """
        
         field_country = self.field_iea_country if (field_country is None) else field_country
@@ -1737,6 +1891,7 @@ class Regions:
 
     def data_func_try_isos_from_countries(self,
         df_in: Union[pd.DataFrame, List, np.ndarray, str],
+        drop_missing_isos_from_df: bool = False,
         field_country: Union[str, None] = None,
         missing_iso_flag: Union[str, None] = None,
         return_modified_df: bool = False,
@@ -1748,16 +1903,23 @@ class Regions:
 
         Function Arguments
         ------------------
-        - df_in: input data frame containing field country (if None, uses 
-            self.key) OR list/np.ndarray or input country strings OR string
+        df_in : DataFrame
+            Input DataFrame containing field country (if None, uses self.key) OR 
+            list/np.ndarray or input country strings OR string
 
         Keyword Arguments
         -----------------
-        - field_country: field in df_in used to identify IEA countries if df_in
-            is a DataFrame
-        - missing_iso_flag: if is None, will leave regions as input values if 
-            not found. Otherwise, uses flag
-        - return_modified_df: if True and df_in is a DataFrame, will return a 
+        drop_missing_isos_from_df : bool
+            If returning a DataFrame (i.e., if return_modified_df is True),
+            drop rows that are not associated with a valid ISO code?
+        field_country : Union[str, None]
+            Field in df_in used to identify IEA countries if df_in is a 
+            DataFrame
+        missing_iso_flag : Union[str, None]
+            If is None, will leave regions as input values if not found. 
+            Otherwise, uses flag
+        return_modified_df : bool
+            If True and df_in is a DataFrame, will return a 
             DataFrame modified to include the iso field
         """
         
@@ -1786,17 +1948,25 @@ class Regions:
             
             region = self.clean_region(region_base)
 
-            # set a hierarchy
+            # set a hierarchy--try base region, then try IEA, then UN, then generic
             region_full = (
                 region
                 if region in self.dict_region_to_iso.keys()
                 else None
             )
+
             region_full = (
                 self.dict_iea_countries_lc_to_regions.get(region)
                 if region_full is None
                 else region_full
             )
+
+            region_full = (
+                self.dict_un_countries_lc_to_regions.get(region)
+                if region_full is None
+                else region_full
+            )
+
             region_full = (
                 self.dict_generic_countries_to_regions.get(region)
                 if region_full is None
@@ -1820,9 +1990,18 @@ class Regions:
 
         # convert to array and modify data frame if specified
         out = np.array(vec_iso).astype(str)
+        
         if isinstance(df_in, pd.DataFrame) & return_modified_df:
             df_in[self.field_iso] = vec_iso
             out = df_in
+
+            if drop_missing_isos_from_df:
+                out = (
+                    out[
+                        out[self.field_iso].isin(self.all_isos)
+                    ]
+                    .reset_index(drop = True, )
+                )
 
         return out
 
