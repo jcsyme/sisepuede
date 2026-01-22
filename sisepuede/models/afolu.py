@@ -684,7 +684,7 @@ class AFOLU:
         self.modvar_agrc_n_content_of_above_ground_residues = "N Content of Above Ground Residues"
         self.modvar_agrc_n_content_of_below_ground_residues = "N Content of Below Ground Residues"
         self.modvar_agrc_ratio_above_ground_residue_to_harvested_yield = "Ratio of Above Ground Residue to Harvested Yield"
-        self.modvar_agrc_ratio_below_ground_biomass_to_above_ground_biomass = "Ratio of Below Ground Biomass to Above Ground Biomass"
+        self.modvar_agrc_ratio_below_ground_biomass_to_above_ground_biomass = "Crop Ratio of Below Ground Biomass to Above Ground Biomass"
         self.modvar_agrc_regression_m_above_ground_residue = "Above Ground Residue Dry Matter Slope"
         self.modvar_agrc_regression_b_above_ground_residue = "Above Ground Residue Dry Matter Intercept"
         self.modvar_agrc_total_food_lost_in_ag = "Total Food Produced Lost Before Consumption"
