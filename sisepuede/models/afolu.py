@@ -803,10 +803,10 @@ class AFOLU:
         self.modvar_lndu_area_converted = "Area of Land Use Converted"
         self.modvar_lndu_area_converted_from_type = "Area of Land Use Converted Away from Type"
         self.modvar_lndu_area_converted_to_type = "Area of Land Use Converted to Type"
+        self.modvar_lndu_biomass_stock_factor_ag = "Initial Above Ground Biomass Stock Factor"
+        self.modvar_lndu_biomass_stock_ratio_bg_to_ag = "Below Ground to Above Ground Biomass Stock Ratio"
         self.modvar_lndu_constraint_area_max = "Maximum Area"
         self.modvar_lndu_constraint_area_min = "Minimum Area"
-        self.modvar_lndu_c_stock_bgb_ratio = "Below Ground Biomass Carbon Stock Ratio"
-        self.modvar_lndu_c_stock_factor_abg = "Initial Above Ground Biomass Carbon Stock Factor"
         # self.modvar_lndu_ef_co2_conv = ":math:\\text{CO}_2 Land Use Conversion Emission Factor"
         self.modvar_lndu_emissions_conv = ":math:\\text{CO}_2 Emissions from Land Use Conversion"
         self.modvar_lndu_emissions_conv_away = ":math:\\text{CO}_2 Emissions from Conversion Away from Land Use Type"
@@ -1346,10 +1346,10 @@ class AFOLU:
         
         # get variables
         modvar_bmass_ag = self.model_attributes.get_variable(
-            self.modvar_lndu_c_stock_factor_abg,
+            self.modvar_lndu_biomass_stock_factor_ag,
         )
         modvar_bmass_ratio_bg = self.model_attributes.get_variable(
-            self.modvar_lndu_c_stock_bgb_ratio,
+            self.modvar_lndu_biomass_stock_ratio_bg_to_ag,
         )
         
         # get each variable
@@ -3701,8 +3701,8 @@ class AFOLU:
 
         # get fields that are needed
         dict_mv_to_fields = self.model_attributes.dict_model_variables_to_variable_fields
-        fields_agb = dict_mv_to_fields.get(self.modvar_lndu_c_stock_factor_abg, )
-        fields_bgb = dict_mv_to_fields.get(self.modvar_lndu_c_stock_bgb_ratio, )
+        fields_agb = dict_mv_to_fields.get(self.modvar_lndu_biomass_stock_factor_ag, )
+        fields_bgb = dict_mv_to_fields.get(self.modvar_lndu_biomass_stock_ratio_bg_to_ag, )
         fields_pij = dict_mv_to_fields.get(self.modvar_lndu_prob_transition, )
         
         # return None?
@@ -3739,7 +3739,7 @@ class AFOLU:
         # convert units to output units
         if correct_emission_units:
             scalar = self.model_attributes.get_scalar(
-                self.modvar_lndu_c_stock_factor_abg,
+                self.modvar_lndu_biomass_stock_factor_ag,
                 "mass"
             )
 
@@ -3751,7 +3751,7 @@ class AFOLU:
         if self.model_attributes.get_variable(target_units_area_modvar) is not None:
             scalar = self.model_attributes.get_variable_unit_conversion_factor(
                 target_units_area_modvar,
-                self.modvar_lndu_c_stock_factor_abg,
+                self.modvar_lndu_biomass_stock_factor_ag,
                 "area"
             )
 

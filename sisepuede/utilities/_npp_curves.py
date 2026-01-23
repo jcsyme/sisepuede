@@ -14,6 +14,9 @@ from typing import *
 #    GLOBAL VARIABLES    #
 ##########################
 
+# module uuid
+_MODULE_UUID = "C437BEFC-FFA4-4412-AF98-E704A556DD18"
+
 # some global settings
 _PARAMS_DEFAULT_GAMMA = np.array([235.5, 0.426, -0.00484], )  # see tang et al. table 1 for Boreal GPP
 _PARAMS_DEFAULT_SEM = np.array([0.1323, 1.0642, 6.3342, 3.455], )
@@ -149,7 +152,7 @@ class NPPCurve:
         """project the npp curve in time. Note that, in self.function(), args[0]
             is always the time. 
 
-        Tries to retrieve norm from kwargs; iif not present, defaults to 
+        Tries to retrieve norm from kwargs; if not present, defaults to 
             initialization value.
         """
 
