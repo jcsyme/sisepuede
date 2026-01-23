@@ -1905,6 +1905,7 @@ def transformation_enfu_adjust_prices(
 
         magnitude = dict((k, magnitude) for k in list(all_cats))
 
+    
     # verify type
     if not isinstance(magnitude, dict):
         tp = type(magnitude)
