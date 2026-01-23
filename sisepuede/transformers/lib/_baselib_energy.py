@@ -1731,6 +1731,238 @@ def transformation_entc_specify_transmission_losses(
 
 
 
+def transformation_enfu_adjust_exports(
+    df_input: pd.DataFrame,
+    magnitude: Union[Dict[str, float], float],
+    vec_ramp: np.ndarray,
+    model_attributes: ma.ModelAttributes,
+    model_enercons: ml.EnergyConsumption,
+    bounds: Tuple = (0, np.inf),
+    field_region: str = "region",
+    magnitude_type: str = "baseline_scalar",
+    return_magnitude: bool = False,
+    **kwargs
+) -> pd.DataFrame:
+    """Implement the "Adjust Exports" ENFU transformer on input DataFrame 
+        df_input (default is decrease by 20%). Allows for increases in exports 
+        (> 1) or decreases (< 1).
+
+    Parameters
+    ----------
+    cats_enfu : Union[List[str], None]
+        Optional list of ENFU categories to apply to.
+    df_input : pd.DataFrame
+        Optional data frame containing trajectories to modify
+    magnitude : float
+        Magnitude of decrease in exports--e.g., a 20% decrease is entered as 
+        0.8. If using the default value of `magnitude_type == "scalar"`, this 
+        magnitude will scale the final time value downward by this factor. If 
+        entered as a dictionary, keys are fuels and values are magnitudes to 
+        apply.
+        NOTE: If magnitude_type changes, then the behavior of the transformation 
+        will change.
+    magnitude_type : str
+        Type of magnitude, as specified in 
+        `transformers.lib.general.transformations_general`. See 
+        `?transformers.lib.general.transformations_general` for more information 
+        on the specification of magnitude_type for general transformer values. 
+    return_magnitude : bool
+        Return the magnitude dictionary only? NOTE: DO NOT SPECIFY IN 
+        CONFIGURATION YAMLS
+    strat : int
+        Optional strategy value to specify for the transformation
+    vec_implementation_ramp : Union[np.ndarray, Dict[str, int], None]
+        Optional vector or dictionary specifying the implementation scalar ramp 
+        for the transformation. If None, defaults to a uniform ramp that starts 
+        at the time specified in the configuration.
+    """
+
+    # check input dataframe
+
+    # get model variable 
+    modvar = model_attributes.get_variable(model_enercons.modvar_enfu_exports_fuel, )
+
+    
+    if sf.isnumber(magnitude) or (magnitude is None):
+        cats = model_attributes.get_variable_categories(modvar)
+        magnitude = dict((k, magnitude) for k in cats)
+
+    if not isinstance(magnitude, dict):
+        raise TypeError(f"Argument `magnitude` must be a number or dictionary")
+
+    # set bounds for each adjustment
+    bounds = (-1.0, np.inf)
+    keys = list(magnitude.keys())
+
+    for k in keys:
+        v = sf.bounded_real_magnitude(
+            magnitude.get(k), 
+            0.8,
+            bounds = bounds,
+        )
+
+        magnitude.update({k: v, })
+
+    if return_magnitude:
+        return magnitude
+
+
+    ##  IMPLEMENT TRANSFORMATION 
+
+    df_out = df_input.copy()
+
+    for k, v in magnitude.items():
+
+        df_out = transformation_general(
+            df_out,
+            model_attributes,
+            {
+                model_enercons.modvar_enfu_exports_fuel: {
+                    "bounds": bounds,
+                    "categories": [k],
+                    "magnitude": v,
+                    "magnitude_type": magnitude_type,
+                    "vec_ramp": vec_ramp,
+                }
+            },
+            field_region = field_region,
+            **kwargs,
+        )
+
+
+    return df_out
+
+
+
+def transformation_enfu_adjust_prices(
+    df_input: pd.DataFrame,
+    magnitude: Union[Dict[str, float], float],
+    vec_ramp: np.ndarray,
+    model_attributes: ma.ModelAttributes,
+    model_enercons: ml.EnergyConsumption,
+    bounds: Tuple = (0, np.inf),
+    field_region: str = "region",
+    magnitude_type: str = "baseline_scalar",
+    return_magnitude: bool = False,
+    **kwargs
+) -> pd.DataFrame:
+    """Implement the "Adjust Prices" ENFU transformer on input DataFrame 
+        df_input (default decreases by 20%). Allows for increases in prices 
+        (> 1) or decreases (< 1).
+
+    Parameters
+    ----------
+    cats_enfu : Union[List[str], None]
+        Optional list of ENFU categories to apply to.
+    df_input : pd.DataFrame
+        Optional data frame containing trajectories to modify
+    magnitude : float
+        Magnitude of decrease in exports--e.g., a 20% decrease is entered as 
+        0.8. If using the default value of `magnitude_type == "scalar"`, this 
+        magnitude will scale the final time value downward by this factor. If 
+        entered as a dictionary, keys are fuels and values are magnitudes to 
+        apply.
+        NOTE: If magnitude_type changes, then the behavior of the transformation 
+            will change.
+    magnitude_type : str
+        Type of magnitude, as specified in 
+        `transformers.lib.general.transformations_general`. See 
+        `?transformers.lib.general.transformations_general` for more information 
+        on the specification of magnitude_type for general transformer values. 
+    return_magnitude : bool
+        Return the magnitude dictionary only? NOTE: DO NOT SPECIFY IN 
+        CONFIGURATION YAMLS
+    strat : int
+        Optional strategy value to specify for the transformation
+    vec_implementation_ramp : Union[np.ndarray, Dict[str, int], None]
+        Optional vector or dictionary specifying the implementation scalar ramp 
+        for the transformation. If None, defaults to a uniform ramp that starts 
+        at the time specified in the configuration.
+    
+    **kwargs: passed to transformation_general()
+    """
+
+    # check input dataframe
+
+    # get model variable 
+    modvars = [
+        model_enercons.modvar_enfu_price_gravimetric,
+        model_enercons.modvar_enfu_price_thermal,
+        model_enercons.modvar_enfu_price_volumetric
+    ]
+
+    modvars = [
+        model_attributes.get_variable(x) for x in modvars
+    ]
+
+    
+    # convert to dictionary
+    if sf.isnumber(magnitude) or (magnitude is None):
+        all_cats = set({})
+        for modvar in modvars:
+            cats = model_attributes.get_variable_categories(modvar, )
+            all_cats |= set(cats)
+
+        magnitude = dict((k, magnitude) for k in list(all_cats))
+
+    # verify type
+    if not isinstance(magnitude, dict):
+        tp = type(magnitude)
+        raise TypeError(f"Argument `magnitude` must be a number or dictionary")
+
+    # set bounds for each adjustment
+    bounds = (-1.0, np.inf)
+    keys = list(magnitude.keys())
+
+    for k in keys:
+        v = sf.bounded_real_magnitude(
+            magnitude.get(k),
+            0.8,
+            bounds = bounds,
+        )
+
+        magnitude.update({k: v, })
+
+    if return_magnitude:
+        return magnitude
+    
+
+    ##  IMPLEMENT TRANSFORMATION 
+
+    df_out = df_input.copy()
+
+    for k, v in magnitude.items():
+        
+        # check to see if the fuel is associated with each model variable
+        modvars_to_adj = []
+        for modvar in modvars:
+            cats = model_attributes.get_variable_categories(modvar, )
+            if k in cats:
+                modvars_to_adj.append(modvar.name)
+
+        # specify adjustments
+        dict_base = {
+            "bounds": bounds,
+            "categories": [k],
+            "magnitude": v,
+            "magnitude_type": magnitude_type,
+            "vec_ramp": vec_ramp,
+        }
+
+        dict_gnrl = dict((k, dict_base) for k in modvars_to_adj)
+        
+        df_out = transformation_general(
+            df_out,
+            model_attributes,
+            dict_gnrl,
+            field_region = field_region,
+            **kwargs,
+        )
+    
+    return df_out
+
+
+
 def transformation_entc_retire_fossil_fuel_early(
     df_input: pd.DataFrame,
     dict_categories_to_vec_ramp: Dict[str, np.ndarray],

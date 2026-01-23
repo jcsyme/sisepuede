@@ -209,6 +209,24 @@ def back_project_array(
     out = (vec_mu**array_exponent)*array_in[0]
 
     return out
+
+
+
+def bounded_real_magnitude(
+    magnitude: Union[float, int],
+    default: Union[float, int],
+    bounds: Tuple = (0.0, 1.0),
+) -> float:
+    """Shortcut function to clean up a common operation; bounds magnitude
+        if specify as a float, otherwise reverts to default
+    """
+    out = (
+        default
+        if not isnumber(magnitude) 
+        else max(min(float(magnitude), bounds[1]), bounds[0])
+    )
+
+    return out
     
 
 

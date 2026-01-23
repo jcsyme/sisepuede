@@ -1399,6 +1399,15 @@ class Transformers:
         all_transformers.append(self.enfu_adjust_exports)
 
 
+        self.enfu_adjust_prices = Transformer(
+            f"{_MODULE_CODE_SIGNATURE}:ENFU:ADJ_PRICES", 
+            self._trfunc_enfu_adjust_prices,
+            attr_transformer_code
+        )
+        all_transformers.append(self.enfu_adjust_prices)
+
+
+
         ##  ENTC
 
         self.entc_clean_hydrogen = Transformer(
@@ -1753,10 +1762,10 @@ class Transformers:
         Shortcut function to clean up a common operation; bounds magnitude
             if specify as a float, otherwise reverts to default
         """
-        out = (
-            default
-            if not sf.isnumber(magnitude) 
-            else max(min(float(magnitude), bounds[1]), bounds[0])
+        out = sf.bounded_real_magnitude(
+            magnitude,
+            default,
+            bounds = bounds,
         )
 
         return out
@@ -5539,15 +5548,14 @@ class Transformers:
     ####################################
 
     def _trfunc_enfu_adjust_exports(self,
-        cats_enfu: Union[List[str], None] = None,
         df_input: Union[pd.DataFrame, None] = None,
-        magnitude: float = 1.5,
+        magnitude: Union[dict, float] = 1.5,
         magnitude_type: str = "baseline_scalar",
         return_magnitude: bool = False,
         strat: Union[int, None] = None,
         vec_implementation_ramp: Union[np.ndarray, Dict[str, int], None] = None,
     ) -> pd.DataFrame:
-        """Implement the "Adjust Exports" ENFU transformer on input DataFrame df_input (decrease by 20%). Allows for increases in exports (positive magnitude) or decreases (negative magnitude).
+        """Implement the "Adjust Exports" ENFU transformer on input DataFrame df_input (decrease by 20%). Allows for increases in exports (> 1) or decreases (< 1).
 
         Parameters
         ----------
@@ -5556,7 +5564,7 @@ class Transformers:
         df_input : pd.DataFrame
             Optional data frame containing trajectories to modify
         magnitude : float
-            Magnitude of decrease in exports--e.g., a 20% decrease is entered as 0.8. If using the default value of `magnitude_type == "scalar"`, this magnitude will scale the final time value downward by this factor. 
+            Magnitude of decrease in exports--e.g., a 20% decrease is entered as 0.8. If using the default value of `magnitude_type == "scalar"`, this magnitude will scale the final time value downward by this factor. If entered as a dictionary, keys are fuels and values are magnitudes to apply.
             NOTE: If magnitude_type changes, then the behavior of the transformation will change.
         magnitude_type : str
             Type of magnitude, as specified in `transformers.lib.general.transformations_general`. See `?transformers.lib.general.transformations_general` for more information on the specification of magnitude_type for general transformer values. 
@@ -5574,70 +5582,83 @@ class Transformers:
             else df_input
         )
 
-        # get model variable 
-        modvar = (
-            self
-            .model_attributes
-            .get_variable(
-                self.model_enercons.modvar_enfu_exports_fuel
-            )
-        )
-        
-        if sf.isnumber(magnitude) or (magnitude is None):
-            cats = self.model_attributes.get_variable_categories(modvar)
-            magnitude = dict((k, magnitude) for k in cats)
-
-        if not isinstance(magnitude, dict):
-            tp = type(magnitude)
-            raise TypeError(f"Argument `magnitude` must be a number or dictionary")
-
-        # set bounds for each adjustment
-        bounds = (-1.0, np.inf)
-        keys = list(magnitude.keys())
-
-        for k in keys:
-            v = self.bounded_real_magnitude(
-                magnitude.get(k), 
-                0.8,
-                bounds = bounds,
-            )
-
-            magnitude.update({k: v, })
-
-        if return_magnitude:
-            return magnitude
-        
-
         # check implementation ramp
         vec_implementation_ramp = self.check_implementation_ramp(
             vec_implementation_ramp,
             df_input,
         )
 
-
-        ##  IMPLEMENT TRANSFORMATION 
-
-        df_out = df_input.copy()
-
-        for k, v in magnitude.items():
-
-            df_out = tbg.transformation_general(
-                df_out,
-                self.model_attributes,
-                {
-                    self.model_enercons.modvar_enfu_exports_fuel: {
-                        "bounds": bounds,
-                        "categories": [k],
-                        "magnitude": v,
-                        "magnitude_type": magnitude_type,
-                        "vec_ramp": self.vec_implementation_ramp,
-                    },
-                },
-                field_region = self.key_region,
-                strategy_id = strat,
-            )
+        df_out = tbe.transformation_enfu_adjust_exports(
+            df_input,
+            magnitude,
+            vec_implementation_ramp,
+            self.model_attributes,
+            self.model_enercons,
+            field_region = self.key_region,
+            magnitude_type = magnitude_type,
+            return_magnitude = return_magnitude,
+            strategy_id = strat,
+        )
         
         return df_out
+    
+
+
+    def _trfunc_enfu_adjust_prices(self,
+        df_input: Union[pd.DataFrame, None] = None,
+        magnitude: float = 1.2,
+        magnitude_type: str = "baseline_scalar",
+        return_magnitude: bool = False,
+        strat: Union[int, None] = None,
+        vec_implementation_ramp: Union[np.ndarray, Dict[str, int], None] = None,
+    ) -> pd.DataFrame:
+        """Implement the "Adjust Prices" ENFU transformer on input DataFrame df_input (default decreases by 20%). Allows for increases in prices (> 1) or decreases (< 1).
+
+        Parameters
+        ----------
+        cats_enfu : Union[List[str], None]
+            Optional list of ENFU categories to apply to.
+        df_input : pd.DataFrame
+            Optional data frame containing trajectories to modify
+        magnitude : float
+            Magnitude of decrease in exports--e.g., a 20% decrease is entered as 0.8. If using the default value of `magnitude_type == "scalar"`, this magnitude will scale the final time value downward by this factor. If entered as a dictionary, keys are fuels and values are magnitudes to apply.
+            NOTE: If magnitude_type changes, then the behavior of the transformation will change.
+        magnitude_type : str
+            Type of magnitude, as specified in `transformers.lib.general.transformations_general`. See `?transformers.lib.general.transformations_general` for more information on the specification of magnitude_type for general transformer values. 
+        return_magnitude : bool
+            Return the magnitude dictionary only? NOTE: DO NOT SPECIFY IN CONFIGURATION YAMLS
+        strat : int
+            Optional strategy value to specify for the transformation
+        vec_implementation_ramp : Union[np.ndarray, Dict[str, int], None]
+            Optional vector or dictionary specifying the implementation scalar ramp for the transformation. If None, defaults to a uniform ramp that starts at the time specified in the configuration.
+        """
+        # check input dataframe
+        df_input = (
+            self.baseline_inputs
+            if not isinstance(df_input, pd.DataFrame) 
+            else df_input
+        )
+
+        # check implementation ramp
+        vec_implementation_ramp = self.check_implementation_ramp(
+            vec_implementation_ramp,
+            df_input,
+        )
+        
+        # get output
+        out = tbe.transformation_enfu_adjust_prices(
+            df_input,
+            magnitude,
+            vec_implementation_ramp,
+            self.model_attributes,
+            self.model_enercons,
+            field_region = self.key_region,
+            magnitude_type = magnitude_type,
+            return_magnitude = return_magnitude,
+            strategy_id = strat,
+        )
+        
+        return out
     
 
 
