@@ -4,12 +4,25 @@
 
 import numpy as np
 import pandas as pd
+import scipy.optimize as sco
 import sisepuede.utilities._toolbox as sf
 from typing import *
 
 
+
+##########################
+#    GLOBAL VARIABLES    #
+##########################
+
+_MODULE_UUID = "75A3CD91-6944-4A08-A44A-6C3BC9DA855D"
+
 class ShapeError(Exception):
     pass
+
+
+
+
+
 
 
 """
@@ -1080,6 +1093,19 @@ class BiomassCarbonLedger:
         self.vec_young_biomass_c_ag_starting = vec_young_biomass_c_ag_starting
         self.vec_young_sf_curve = vec_young_sf_curve
         self.vec_young_sf_curve_cumulative = vec_young_sf_curve_cumulative
+
+        return None
+    
+
+
+    def _initialize_uuid(self,
+    ) -> None:
+        """
+        Initialize the UUID
+        """
+
+        self.is_biomass_carbon_ledger = True
+        self._uuid = _MODULE_UUID
 
         return None
 
@@ -2351,7 +2377,149 @@ class BiomassCarbonLedger:
         )
 
         return out
+
+
+
+def calculate_cumulative_mass(
+    vec_sf: np.ndarray,
+    frac_decomp: float,
+) -> np.ndarray:
+    """Calculate the cumulative mass from a sequestration vector
+        (function of time) and a stationary decomposition fraction
+    """
+    n = vec_sf.shape[0]
+    vec_cumulative = np.zeros(n, )
+
+    for i in range(n - 1):
+        vec_cumulative[i + 1] = vec_cumulative[i]*(1 - frac_decomp) + vec_sf[i + 1]
+
+    return vec_cumulative
+
+
+
+def estimate_decomposition_fraction(
+    vec_sf: np.ndarray,
+    method: str = "SLSQP",
+    return_frac: bool = False,
+    **kwargs,
+) -> Union[float, sco._optimize.OptimizeResult]:
+    """Using a sequestration curve (fit) and a target mass, estiamte
+        the decomposition fraction. The fraction f will satisfy the following
+        condition in equilibrium for biomass stock x_i and sequestration rate
+        s_i at time i:
+
+        x_{i + 1} = x_{i}f + s_i
+
+        Additionally the fraction must be set to that the cumulative mass is
+        monotonically increasing.
+    """
+
+    out = sco.minimize(
+        get_fraction_error,
+        0.0,   # starting from 0 should guarantee convergence 
+        args = (vec_sf, ),
+        method = method,
+        **kwargs,
+    )
+    # 
     
+    if return_frac:
+        out = out.x[0]
+
+    return out
+
+
+
+def get_fraction_error(
+    frac_decomp: float,
+    vec_sf: np.ndarray,
+) -> float:
+    """Get the long term equilibrium error associated with a 
+        fraction frac_decomp.
+    """
+    vec_cm = calculate_cumulative_mass(vec_sf, frac_decomp, )
+    out = summarize_cumulative_change(vec_cm)
+
+    return out
+
+
+
+def is_biomass_carbon_ledger(
+    obj: Any,
+) -> bool:
+    """
+    check if obj is a SISEPUEDE CircularEconomy model
+    """
+    out = hasattr(obj, "is_biomass_carbon_ledger")
+    uuid = getattr(obj, "_uuid", None)
+    
+    out &= (
+        uuid == _MODULE_UUID
+        if uuid is not None
+        else False
+    )
+
+    return out
+
+
+
+def summarize_cumulative_change(
+    vec_cumulative: np.ndarray,
+    tol: float = 10**(-6),
+) -> Union[int, float]:
+    """Check if the cumulative mass has entered a practical steady state 
+        AND if the function is monotonically increasing.
+
+        Returns a tuple of the form
+
+        (
+            flag_monotonic_increase,
+            max_err_after_first_instance,
+        )
+        
+        where:
+            flag_monotonic_increase
+                gives a 1 if the mass is monotonically increasing and 0
+                otherwise, and
+            max_err_after_first_instance
+                gives the maximum error observed after the error falls 
+                below tol. If it never falls below tol, the minimum error
+                is returned instead.
+    """
+
+    # fails if cumulative mass 
+    if vec_cumulative[1:].min() <= 0:
+        return (0, tol*1000)
+
+    # check monotonicity
+    dev_dt = vec_cumulative[1:] - vec_cumulative[0:-1]
+    flag_monotonic_increase = (dev_dt.min() >= 0)
+    monotonic_factor = (
+        1
+        if flag_monotonic_increase
+        else 1/tol
+    )
+
+    # reaching zero is a problem
+    vec_err = np.abs(
+        1 - vec_cumulative[0:-1]/vec_cumulative[1:]
+    )
+
+    # 
+    w = np.where(vec_err <= tol)[0]
+    out = (
+        vec_err.min()
+        if len(w) == 0
+        else vec_err[w].min()
+    )
+    out += (
+        tol/10
+        if not flag_monotonic_increase
+        else 0
+    )
+    out *= monotonic_factor
+
+    return out
 
 
 
