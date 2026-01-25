@@ -28,6 +28,11 @@ class InvalidNorm(Exception):
 
 
 
+class MissingNPPParameters(Exception):
+    pass
+
+
+
 
 ################################
 #    INITIALIZE SOME CURVES    #
@@ -59,6 +64,7 @@ class NPPCurve:
             norm,
         )
 
+        self._initialize_uuid()
         
 
         return None
@@ -113,6 +119,18 @@ class NPPCurve:
 
         # case where number
         self.norm = norm
+
+        return None
+    
+
+
+    def _initialize_uuid(self,
+    ) -> None:
+        """Initialize the UUID
+        """
+
+        self.is_npp_curve = True
+        self._uuid = _MODULE_UUID
 
         return None
 
@@ -384,6 +402,8 @@ class NPPCurves:
             stop_on_error = stop_on_bad_target_spec,
         )
 
+        self._initialize_uuid()
+
         return None
     
 
@@ -494,6 +514,18 @@ class NPPCurves:
         self.widths = widths
 
         return None
+    
+
+
+    def _initialize_uuid(self,
+    ) -> None:
+        """Initialize the UUID
+        """
+
+        self.is_npp_curves = True
+        self._uuid = _MODULE_UUID
+
+        return None
 
 
 
@@ -530,6 +562,7 @@ class NPPCurves:
 
     def fit(self,
         curve: Union[str, NPPCurve], 
+        assign_as_default: bool = True,
         force_convergence: bool = True, 
         method: str = "SLSQP",  # "Nelder-Mead"
         vec_params_0: Union[np.ndarray, None] = None,  # np.array([pb, pc, pd_val])
@@ -545,6 +578,9 @@ class NPPCurves:
         
         Keyword Arguments
         -----------------
+        assign_as_default : bool
+            Assign resulting parameters to the "params" property? If True, sets
+            parameters to self.defaults and vec_targets to self.targets.
         force_convergence : bool
             in SEM method, force convergence to the final average sequestration
             value provided in curves.targets? If True, sets param a to the last
@@ -581,6 +617,9 @@ class NPPCurves:
             method = method,
             **kwargs,
         )
+
+        if assign_as_default:
+            curve.defaults = result.x
 
         return result
     
@@ -902,3 +941,46 @@ class NPPCurves:
         
         return out
 
+
+
+
+###################################
+###                             ###
+###    SOME SIMPLE FUNCTIONS    ###
+###                             ###
+###################################
+
+
+def is_npp_curve(
+    obj: Any,
+) -> bool:
+    """Check if obj is a SISEPUEDE NPPCurve
+    """
+    out = hasattr(obj, "is_npp_curve")
+    uuid = getattr(obj, "_uuid", None)
+    
+    out &= (
+        uuid == _MODULE_UUID
+        if uuid is not None
+        else False
+    )
+
+    return out
+
+
+
+def is_npp_curves(
+    obj: Any,
+) -> bool:
+    """Check if obj is a SISEPUEDE NPPCurves
+    """
+    out = hasattr(obj, "is_npp_curves")
+    uuid = getattr(obj, "_uuid", None)
+    
+    out &= (
+        uuid == _MODULE_UUID
+        if uuid is not None
+        else False
+    )
+
+    return out

@@ -4126,10 +4126,11 @@ class AFOLU:
         field_ord_1: str = "young",
         field_ord_2: str = "secondary",
         field_ord_3: str = "primary",
+        first_only: bool = True,
         force_convergence: bool = False,
+        include_primary_forest_in_npp: Union[bool, None] = None,
         key_cmf: str = "cmf",
         key_params: str = "params",
-        include_primary_forest_in_npp: Union[bool, None] = None,
         maxiter: int = 500,
         method: str = "SLSQP",
         params_init: Union[np.ndarray, None] = None,
@@ -4164,16 +4165,20 @@ class AFOLU:
                 - "sem"
         field_ord_i : str
             ordered field name to use as sequestration factors
+        first_only : bool
+            Keep only the first sequestration factors--set to False to keep
+            all possible curves, based on unique conminations of values in 
+            field_ord_1, field_ord_2, and field_ord_3
         force_convergence : bool
             force parameter a in SEM to converge to final value? Only applies
             if curve_npp is "sem"
+        include_primary_forest_in_npp : bool
+            Include primary forest in the NPP curve fitting? If None, defaults 
+            to self.npp_include_primary_forest
         key_cmf : str
             Key in subdictionaries storing cmf
         key_params : str
             Key in subdictionaries storing parameters
-        include_primary_forest_in_npp : bool
-            Include primary forest in the NPP curve fitting? If None, defaults 
-            to self.npp_include_primary_forest
         maxiter : int
             maximum number of iterations of solver
         method : str
@@ -4218,6 +4223,9 @@ class AFOLU:
         
         for i, row in df_ordered_sequestration.iterrows():
 
+            if first_only and (i > 0):
+                continue
+
             # get the factors and the parameter curve
             vec_factors = row[fields_targets].to_numpy()
             tol = self.get_npp_convergence_tolerance(row, **kwargs)
@@ -4227,7 +4235,6 @@ class AFOLU:
             self.curves_npp._initialize_sequestration_targets(
                 inputs,
                 dt = self.curves_npp.dt,
-                
             )
             
             self._log(
@@ -4241,6 +4248,7 @@ class AFOLU:
 
             params = self.curves_npp.fit(
                 curve_npp,
+                assign_as_default = first_only,
                 force_convergence = force_convergence,
                 method = method,
                 options = {
@@ -4275,11 +4283,12 @@ class AFOLU:
             
             
         # remove existing inputs
-        self.curves_npp._initialize_sequestration_targets(
-            [],
-            dt = self.curves_npp.dt,
-            
-        )
+        if not first_only:
+            self.curves_npp._initialize_sequestration_targets(
+                [],
+                dt = self.curves_npp.dt,
+                
+            )
 
         return dict_out
 

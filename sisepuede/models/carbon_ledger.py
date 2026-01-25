@@ -5,6 +5,7 @@
 import numpy as np
 import pandas as pd
 import scipy.optimize as sco
+import sisepuede.utilities._npp_curves as npp
 import sisepuede.utilities._toolbox as sf
 from typing import *
 
@@ -218,29 +219,40 @@ class BiomassCarbonLedger:
         Vector (length 2) giving the ratio of below-ground biomass to 
         above-ground biomass for primary and secondary forest
     vec_frac_biomass_adjustment_threshold : Union[float, np.ndarray]
-        Vector (length T) or float giving adjustment threshold, as a proportion,
-
-        vec_frac_biomass_buffer: Union[float, np.ndarray],
-        vec_frac_biomass_dead_storage: Union[float, int, np.ndarray],
-        vec_frac_biomass_from_conversion_available_for_use: Union[float, int, np.ndarray],
-        vec_sf_nominal_initial: np.ndarray,
+        Vector (length T) or float giving adjustment threshold for 
+        sequestration. If the average carbon stock level per area falls below 
+        this threshold (as a percentage of original), then sequestration will
+        start to decline.
+    vec_frac_biomass_buffer: Union[float, np.ndarray]
+        Below this fractional level (of average carbon stock per area relative
+        to initial carbon stock per area), removals are slowed due to scarcity
+        and/or policies.
+    vec_frac_biomass_dead_storage: Union[float, int, np.ndarray]
+        Below this fractional level (of average carbon stock per area relative
+        to initial carbon stock per area), there are no removals. Analogous to
+        reservoir dead storage.
+    vec_frac_biomass_from_conversion_available_for_use: Union[float, int, np.ndarray]
+        Land use conversion removes biomass between land use types; in clear-
+        cutting, this is assumed to be lost to burning. Increasing this fraction
+        makes this biomass available for use in HWP or fuelwood.
+    vec_sf_nominal_initial: np.ndarray
+        Vector storing, by forest type, the initial sequestration factors 
+        (annual) for each forest type.
     vec_total_removals_demanded: np.ndarray
         Vector (n_time_periods) of exogenous demands for removals (from fuelwood
         and harvested wood products). If None, sets to 0.
-    vec_young_sf_curve: np.ndarray
+    vec_young_sf_curve_specification: Union[np.ndarray, npp.NPPCurve]
         Vector storing sequestration rates (mass C/area/time_period) for new
-        growth. Can be derived from NPP curve.
-
-    vec_init_by_cat_area : np.ndarray
-        V
-    vec_init_by_cat_c_stock_per_area : np.ndarray
-        Vector (length n_cats) of initial C stock per unit area, ordered by 
-        cats_lndu_track
-    vec_init_by_cat_seq_per_area : np.ndarray
-        Vector (length n_cats) of initial C sequestration per unit area, 
-        ordered by cats_lndu_track
-    vec_sequestration_per_tp_new : np.ndarray
-        
+        growth. Different behaviors can be expected depending on the 
+        specifiction:
+            * vec_young_sf_curve_specification: np.ndarray
+                If specified as a vector, it must be specified far enough out to 
+                be considered in equilibrium; the estimated fraction of biomass 
+                that is lost to decomposition annually will depend on it. 
+            * vec_young_sf_curve_specification: npp.NPPCurve
+                If specified as an NPPCurve, then the curve *must* be fit an 
+                include parameters. If parameters are not fit, then an error 
+                will be thrown.
 
         
     # Keyword Arguments
@@ -248,12 +260,8 @@ class BiomassCarbonLedger:
     n_tps_no_withdrawals_new_growth : int
         Number of time periods without removals while new growth occurs. 
     **kwargs: 
-        Passed to initialize arrays. Can be used to set initial values for
-        arrays. Use
-
-            {"initval_ARRAYVARNAME": x}
-
-        to set the initial value of ARRAYVARNAME in x
+        Passed to initialize arrays. Can be used to pass arguments to 
+        estimate_decomposition_fraction()
 
         
 
@@ -265,6 +273,7 @@ class BiomassCarbonLedger:
         directory.
         
         In variable dimensions below:
+            * E = number of time steps to equilibrium for a sequestration curve
             * N = number of categories
             * T = number of time periods
             * UL = Unitless
@@ -623,7 +632,7 @@ class BiomassCarbonLedger:
         vec_frac_biomass_from_conversion_available_for_use: Union[float, int, np.ndarray],
         vec_sf_nominal_initial: np.ndarray,
         vec_total_removals_demanded: np.ndarray,
-        vec_young_sf_curve: np.ndarray,
+        vec_young_sf_curve_specification: np.ndarray,
         n_tps_no_withdrawals_new_growth: int = 20,
         **kwargs,
     ) -> None:
@@ -633,6 +642,7 @@ class BiomassCarbonLedger:
             n_tp,
             n_tps_no_withdrawals_new_growth = n_tps_no_withdrawals_new_growth,
         )
+
 
         self._initialize_arrays(
             vec_area_init,
@@ -644,13 +654,14 @@ class BiomassCarbonLedger:
             vec_frac_biomass_from_conversion_available_for_use,
             vec_sf_nominal_initial,
             vec_total_removals_demanded,
-            vec_young_sf_curve, 
+            vec_young_sf_curve_specification,
+            **kwargs,
         )
 
 
         return None
     
-    
+
 
 
     ##################################
@@ -683,7 +694,6 @@ class BiomassCarbonLedger:
         vec_frac_biomass_from_conversion_available_for_use: Union[float, int, np.ndarray],
         vec_sf_nominal_initial: np.ndarray,
         vec_total_removals_demanded: np.ndarray,
-        vec_young_sf_curve: Union[float, np.ndarray],
     ) -> Tuple:
         """Check arrays used to initialize the ledger
         """
@@ -752,13 +762,6 @@ class BiomassCarbonLedger:
             self.n_tp,
             "vec_total_removals_demanded",
         )
-        
-        # check the sequestration factor curve for young forests
-        vec_young_sf_curve = self._verify_convert_array_input_to_array(
-            vec_young_sf_curve,
-            self.n_tp,
-            "vec_young_sf_curve",
-        )
 
 
         ##  INITIALIZE SOME OTHER DEPENDENTS
@@ -781,7 +784,6 @@ class BiomassCarbonLedger:
             vec_frac_biomass_from_conversion_available_for_use,
             vec_sf_nominal_initial,
             vec_total_removals_demanded,
-            vec_young_sf_curve, 
         )
 
         return out
@@ -837,30 +839,79 @@ class BiomassCarbonLedger:
     
 
 
-    def _get_vec_frac_biomass_ag_decomposition(self,
-        vec_biomass_c_ag_init_stst_storage: np.ndarray,
-        vec_sf_nominal_initial: np.ndarray,
-    ) -> np.ndarray:
-        """Initialize the fraction of above-ground biomass that is assumed to
-            decompose each year. This is estimated under the assumption that
-            primary forests are in equilibrium--i.e., they are a net 0 for 
-            sequestration given that as much carbon decomposes as is sequestered
-            by the forest.
-        """
-        
-        # get indices
-        ind_fp = self.ind_frst_primary
-        ind_fs = self.ind_frst_secondary
+    def _get_young_sf_curve(self,
+        vec_young_sf_curve_specification: np.ndarray,
+        **kwargs,
+    ) -> None:
+        """Get the young sf curve and the decomposition fractions; must pass
+            vec_young_sf_curve_specification as a vector to equilibrium (time
+            period).
 
-        # ratio of loss to
-        frac = vec_sf_nominal_initial[ind_fp]/vec_biomass_c_ag_init_stst_storage[ind_fp]
+            out = (
+                vec_young_sf_curve,
+            )
+        """
+
+        if not isinstance(vec_young_sf_curve_specification, np.ndarray):
+            tp = str(type(vec_young_sf_curve_specification))
+            raise TypeError(f"Invalid type {tp} for vec_young_sf_curve_specification: must be a NumPy array.")
+        
+
+        """
+        # check if error should be tossed
+        is_npp = isinstance(vec_young_sf_curve_specification, tuple)
+        is_npp &= (
+            (
+                npp.is_npp_curve(vec_young_sf_curve_specification[0])
+                & sf.isnumber(vec_young_sf_curve_specification[1], integer = True, )
+                & (len(vec_young_sf_curve_specification) == 2)
+            )
+            if is_npp3
+            else False
+        )
+       
+        is_numpy = isinstance(vec_young_sf_curve_specification, np.ndarray)
+
+        if not (is_npp | is_numpy):
+            tp = str(type(vec_young_sf_curve_specification))
+            raise TypeError(f"Invalid type {tp} for vec_young_sf_curve_specification: must be a NumPy array or a tuple with (NPPCurve, N_TP_EQUILIBRIUM)")
+        
+
+        # case where npp
+        if is_npp:
+            if npp.defaults is None:
+                raise npp.MissingNPPParameters("Parameters in NPPCurve vec_young_sf_curve_specification should not be None. Must be tuple.")
+            
+            #
+            curve_npp, n_eq = vec_young_sf_curve_specification
+            params_def = curve_npp.defaults
+            vec_young_sf_curve_specification = np.array([curve_npp(x, *params_def) for x in range(n_eq)])
+        """
+
+        ##  GET DECOMPOSITION FRACTION 
+
+        frac_decomp = estimate_decomposition_fraction(
+            vec_young_sf_curve_specification, 
+            return_frac = True,
+            **kwargs,
+        )
+
+        vec_young_sf_curve = vec_young_sf_curve_specification[0:self.n_tp]
+
+
+        # conver to 
         vec_frac_biomass_ag_decomposition = self._verify_convert_array_input_to_array(
-            frac,
+            frac_decomp,
             self.n_tp,
             "vec_frac_biomass_ag_decomposition",
         )
 
-        return vec_frac_biomass_ag_decomposition
+        out = (
+            vec_frac_biomass_ag_decomposition,
+            vec_young_sf_curve, 
+        )
+
+        return out
     
 
 
@@ -906,7 +957,7 @@ class BiomassCarbonLedger:
         vec_frac_biomass_from_conversion_available_for_use: Union[float, int, np.ndarray],
         vec_sf_nominal_initial: np.ndarray,
         vec_total_removals_demanded: np.ndarray,
-        vec_young_sf_curve: Union[float, np.ndarray],
+        vec_young_sf_curve_specification: np.ndarray,
         **kwargs,
     ) -> None:
         """Initialize the arrays needed for tracking Carbon stock. Stores the
@@ -998,7 +1049,6 @@ class BiomassCarbonLedger:
             vec_frac_biomass_from_conversion_available_for_use,
             vec_sf_nominal_initial,
             vec_total_removals_demanded,
-            vec_young_sf_curve,
         ) = self._check_initialization_arrays(
             vec_area_init,
             vec_biomass_c_ag_init_stst_storage,
@@ -1009,22 +1059,21 @@ class BiomassCarbonLedger:
             vec_frac_biomass_from_conversion_available_for_use,
             vec_sf_nominal_initial,
             vec_total_removals_demanded,
+        )
+
+
+        ##  GET YOUNG SEQUESTRTION CURVE AND DECOMPOSITION FRACTION
+
+        (
+            vec_frac_biomass_ag_decomposition,
             vec_young_sf_curve,
+        ) = self._get_young_sf_curve(
+            vec_young_sf_curve_specification,
+            **kwargs,
         )
 
-        vec_young_sf_curve_cumulative = np.cumsum(vec_young_sf_curve)
-
-
-        # set the young forest internal calculation arrays
+        vec_young_sf_curve_cumulative = np.cumsum(vec_young_sf_curve, )
         self._initialize_young_forest_internal_arrays(vec_young_sf_curve, )
-
-
-        ##  GET ANY DERIVATIVE/CALCULATED VALUES HERE
-
-        vec_frac_biomass_ag_decomposition = self._get_vec_frac_biomass_ag_decomposition(
-            vec_biomass_c_ag_init_stst_storage,
-            vec_sf_nominal_initial,
-        )
 
 
         ##  DO ANY UPDATES TO INITIAL ARRAYS
@@ -2438,7 +2487,7 @@ def get_fraction_error(
         fraction frac_decomp.
     """
     vec_cm = calculate_cumulative_mass(vec_sf, frac_decomp, )
-    out = summarize_cumulative_change(vec_cm)
+    out = summarize_cumulative_change(vec_cm, )
 
     return out
 
@@ -2489,7 +2538,7 @@ def summarize_cumulative_change(
 
     # fails if cumulative mass 
     if vec_cumulative[1:].min() <= 0:
-        return (0, tol*1000)
+        return tol*1000
 
     # check monotonicity
     dev_dt = vec_cumulative[1:] - vec_cumulative[0:-1]
