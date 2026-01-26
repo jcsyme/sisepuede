@@ -732,6 +732,8 @@ class AFOLU:
         self.modvar_frst_average_fraction_burned_annually = "Average Fraction of Forest Burned Annually"
         self.modvar_frst_biomass_consumed_fire_temperate = "Fire Biomass Consumption for Temperate Forests"
         self.modvar_frst_biomass_consumed_fire_tropical = "Fire Biomass Consumption for Tropical Forests"
+        self.modvar_frst_biomass_growth_rate = "Forest Above Ground Biomass Growth Rate"
+        self.modvar_frst_biomass_growth_rate_young_secondary = "Young Secondary Forest Above Ground Biomass Growth Rate"
         self.modvar_frst_c_stock = "Above Ground C Stock in Forests"
         self.modvar_frst_ef_co2_fires = ":math:\\text{CO}_2 Forest Fire Emission Factor"
         self.modvar_frst_ef_ch4 = ":math:\\text{CH}_4 Forest Methane Emissions"
@@ -748,8 +750,7 @@ class AFOLU:
         self.modvar_frst_frac_tropical = "Forest Fraction Tropical"
         self.modvar_frst_hwp_half_life_paper = "HWP Half Life Paper"
         self.modvar_frst_hwp_half_life_wood = "HWP Half Life Wood"
-        self.modvar_frst_sq_co2 = "Forest Sequestration Emission Factor"
-        self.modvar_frst_sq_co2_young_secondary = "Young Secondary Forest Sequestration Emission Factor"
+        
         
         #additional lists
         self.modvar_list_frst_frac_temptrop = [
@@ -803,6 +804,7 @@ class AFOLU:
         self.modvar_lndu_area_converted = "Area of Land Use Converted"
         self.modvar_lndu_area_converted_from_type = "Area of Land Use Converted Away from Type"
         self.modvar_lndu_area_converted_to_type = "Area of Land Use Converted to Type"
+        self.modvar_lndu_biomass_growth_rate = "Land Use Above Ground Biomass Growth Rate" #NEW
         self.modvar_lndu_biomass_stock_factor_ag = "Initial Above Ground Biomass Stock Factor"
         self.modvar_lndu_biomass_stock_ratio_bg_to_ag = "Below Ground to Above Ground Biomass Stock Ratio"
         self.modvar_lndu_constraint_area_max = "Maximum Area"
@@ -832,7 +834,6 @@ class AFOLU:
         self.modvar_lndu_prob_transition = "Unadjusted Land Use Transition Probability"
         self.modvar_lndu_rate_utilization = "Utilization Rate" #NEW
         self.modvar_lndu_reallocation_factor = "Land Use Yield Reallocation Factor"
-        self.modvar_lndu_sf_co2 = "Land Use Biomass Sequestration Factor" #NEW
         self.modvar_lndu_vdes = "Vegetarian Diet Exchange Scalar"
         self.modvar_lndu_yf_pasture_sup = "Maximum Pasture Dry Matter Yield Factor"
 
@@ -3014,7 +3015,7 @@ class AFOLU:
     
 
 
-    def get_frst_sequestration_factors(self,
+    def get_frst_sequestration_factors(self, #HEREHEREHERE
         df_afolu_trajectories: pd.DataFrame,
         modvar_area: Union[str, 'ModelVariable', None] = None,
         modvar_sequestration: Union[str, 'ModelVariable', None] = None,
@@ -3032,8 +3033,7 @@ class AFOLU:
         # get sequetration factor variable
         modvar_sequestration = self.model_attributes.get_variable(modvar_sequestration)
         if modvar_sequestration is None:
-            modvar_sequestration = self.modvar_frst_sq_co2
-
+            modvar_sequestration = self.modvar_frst_biomass_growth_rate
 
         # get sequestration factors
         arr_frst_ef_sequestration = self.model_attributes.extract_model_variable(
@@ -4361,13 +4361,13 @@ class AFOLU:
                 arr_frst_ef_sequestration_young,
             )
 
-            with sequestration factors in terms of (self.modvar_frst_sq_co2)
+            with sequestration factors in terms of (self.modvar_frst_biomass_growth_rate)
             units of mass and self.model_socioeconomic.modvar_gnrl_area area
         """
 
         ##  GET SEQUESTRATION FACTORS
         #   - LU prevalence and incidence
-        #   - put everything in terms of modvar_frst_sq_co2
+        #   - put everything in terms of modvar_frst_biomass_growth_rate
             
         arr_frst_ef_sequestration = self.get_frst_sequestration_factors(
             df_afolu_trajectories, 
@@ -4377,12 +4377,12 @@ class AFOLU:
         arr_frst_ef_sequestration_young = self.get_frst_sequestration_factors(
             df_afolu_trajectories, 
             override_vector_for_single_mv_q = False, 
-            modvar_sequestration = self.modvar_frst_sq_co2_young_secondary, 
+            modvar_sequestration = self.modvar_frst_biomass_growth_rate_young_secondary, 
         )
         
         #arr_frst_ef_sequestration_young *= self.model_attributes.get_variable_unit_conversion_factor(
-        #    self.modvar_frst_sq_co2_young_secondary,
-        #    self.modvar_frst_sq_co2,
+        #    self.modvar_frst_biomass_growth_rate_young_secondary,
+        #    self.modvar_frst_biomass_growth_rate,
         #    "mass"
         #)
         
@@ -6364,21 +6364,21 @@ class AFOLU:
         # biomass sequestration by land use type
         arr_lndu_ef_sequestration = self.model_attributes.extract_model_variable(#
             df_afolu_trajectories, 
-            self.modvar_lndu_sf_co2, 
+            self.modvar_lndu_biomass_growth_rate, 
             expand_to_all_cats = True,
             override_vector_for_single_mv_q = True, 
             return_type = "array_units_corrected",
         )
         arr_lndu_ef_sequestration *= self.model_attributes.get_variable_unit_conversion_factor(
             self.model_socioeconomic.modvar_gnrl_area,
-            self.modvar_lndu_sf_co2,
+            self.modvar_lndu_biomass_growth_rate,
             "area"
         )
         
         # get land use sequestration in biomass
         arr_lndu_sequestration_co2e = -1*arr_land_use*arr_lndu_ef_sequestration
         arr_lndu_sequestration_co2e *= self.model_attributes.get_variable_unit_conversion_factor(
-            self.modvar_lndu_sf_co2,
+            self.modvar_lndu_biomass_growth_rate,
             self.modvar_lndu_emissions_co2_sequestration,
             "mass"
         )

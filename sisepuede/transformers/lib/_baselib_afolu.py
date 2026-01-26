@@ -812,7 +812,7 @@ def transformation_frst_increase_sequestration(
             df,
             model_attributes,
             {
-                model_afolu.modvar_frst_sq_co2: {
+                model_afolu.modvar_frst_biomass_growth_rate_co2: {
                     "bounds": bounds,
                     "categories": cats_frst,
                     "magnitude": magnitude,
@@ -1677,7 +1677,7 @@ def transformation_lndu_increase_silvopasture(
     )
 
     # get the sequestration factor variables
-    modvar_frst_sf = model_attributes.get_variable(model_afolu.modvar_frst_sq_co2, )
+    modvar_frst_sf = model_attributes.get_variable(model_afolu.modvar_frst_biomass_growth_rate_co2, )
     modvar_lndu_sf = model_attributes.get_variable(model_afolu.modvar_lndu_sf_co2, )
 
     # field to extract factors from and to mix factors into
@@ -1721,13 +1721,13 @@ def transformation_lndu_increase_silvopasture(
 
     # convert units
     scalar = model_attributes.get_variable_unit_conversion_factor(
-        model_afolu.modvar_frst_sq_co2,  # e.g, ha
+        model_afolu.modvar_frst_biomass_growth_rate_co2,  # e.g, ha
         model_afolu.modvar_lndu_sf_co2,  # e.g., km2
         "mass"
     ) 
 
     scalar /= model_attributes.get_variable_unit_conversion_factor(
-        model_afolu.modvar_frst_sq_co2,  # e.g, ha
+        model_afolu.modvar_frst_biomass_growth_rate_co2,  # e.g, ha
         model_afolu.modvar_lndu_sf_co2,  # e.g., km2
         "area"
     ) 
