@@ -6,6 +6,12 @@ Input,Carbon Fraction Dry Matter,"Fraction of dry matter in forests that is carb
 Input,Carbon Fraction Harvested Wood Products,"Fraction of harvested wood products that is carbon. Default is based on Table 12.4 from IPCC C4, V12.",``frac_frst_c_in_wood_products``,none,,0.5,1,1,,0,none,none,,,
 Input,Fire Biomass Consumption for Temperate Forests,"See Table 2.4  and Equation 2.27 in V4, C2, IPCC GNGHGI (2019R)","``qty_frst_biomass_consumed_by_fire_temperate_$CAT-FOREST$_$UNIT-MASS$_per_$UNIT-AREA$`` (``$UNIT-MASS$ = tonne``, ``$UNIT-AREA$ = ha``)",all,,0,1,1,,0,none,none,,,
 Input,Fire Biomass Consumption for Tropical Forests,"See Table 2.4  and Equation 2.27 in V4, C2, IPCC GNGHGI (2019R)","``qty_frst_biomass_consumed_by_fire_tropical_$CAT-FOREST$_$UNIT-MASS$_per_$UNIT-AREA$`` (``$UNIT-MASS$ = tonne``, ``$UNIT-AREA$ = ha``)",all,,0,1,1,,0,none,none,,,
+Input,Forest Above Ground Biomass Growth Rate," | Per-time period average above-ground biomass dry matter growth rate. Used to estimate carbon stock sequestration in biomass matter.
+ | 
+ | Note: baseline estimates for neotropical regions are available from `Heinrich et al. (2021) <https://www.nature.com/articles/s41467-021-22050-1>`_
+ | * 3.05 ± 0.5 tonne C/ha/year (seconary)
+ | * 11-20 times less for primary
+","``biomass_frst_growth_rate_ag_$CAT-FOREST$_$UNIT-MASS$_$UNIT-AREA$`` (``$UNIT-AREA$ = ha``, ``$UNIT-MASS$ = tonne``)",all,,0,1,1,,0,none,none,,,
 Input,Forest Fraction Temperate Nutrient Poor," | Used to calculate :math:`\text{N}_2\text{O}` emissions from organic soils. 
  | 
  | Forest Fraction Temperate Nutrient Poor, Forest Fraction Temperate Nutrient Rich, and Forest Fraction Tropical must sum to 1",``frac_frst_$CAT-FOREST$_cl1_temperate_nutrient_poor``,all,,0,1,1,1,0,``temperate_forest_nutrient_poor``,none,,,
@@ -15,12 +21,6 @@ Input,Forest Fraction Temperate Nutrient Rich," | Used to calculate :math:`\text
 Input,Forest Fraction Tropical," | Used to calculate :math:`\text{N}_2\text{O}` emissions from organic soils. 
  | 
  | Forest Fraction Temperate Nutrient Poor, Forest Fraction Temperate Nutrient Rich, and Forest Fraction Tropical must sum to 1",``frac_frst_$CAT-FOREST$_cl1_tropical``,all,,0,1,1,1,0,``tropical_forest``,none,,,
-Input,Forest Above Ground Biomass Growth Rate," | Per-time period average above-ground biomass dry matter growth rate. Used to estimate carbon stock sequestration in biomass matter.
- | 
- | Note: baseline estimates for neotropical regions are available from `Heinrich et al. (2021) <https://www.nature.com/articles/s41467-021-22050-1>`_
- | * 3.05 ± 0.5 tonne C/ha/year (seconary)
- | * 11-20 times less for primary
-","``biomass_frst_growth_rate_ag_$CAT-FOREST$_$UNIT-MASS$_$UNIT-AREA$`` (``$UNIT-AREA$ = ha``, ``$UNIT-MASS$ = kt``)",all,,0,1,1,,0,none,none,,,
 Input,Fraction of Forest Converted C Available for Use,Fraction of carbon stock in forests that is available for use in energy production (biomass) and harvested wood production (HWP). ,``frac_frst_c_stock_converted_available_for_use_$CAT-FOREST$``,all,,0.5,1,1,,0,none,none,,,
 Input,HWP Half Life Paper,Half life of carbon sequestered in paper products (HWP),``hl_frst_half_life_hwp_paper_products``,none,,0,1,1,,0,none,none,,,
 Input,HWP Half Life Wood,Half life of carbon sequestered in wood products (HWP),``hl_frst_half_life_hwp_wood_products``,none,,0,1,1,,0,none,none,,,
@@ -29,7 +29,7 @@ Input,Maximum Degradation Fraction,"Maximum fraction of carbon that can be remov
 Input,Young Secondary Forest Above Ground Biomass Growth Rate," |Per-time period average above-ground biomass dry matter growth rate in  YOUNG (age < 20 yrs) secondary forestrs (entered as a number > 0, this is a positive number). Used to estimate carbon stock sequestration in biomass matter. 
  | 
  |  NOTE: Young secondary forests (incl. plantations) sequester high amounts of carbon for a short period of time. This is only used if dynamic forest sequestration is turned on; otherwise, this variable is ignored.
-","``biomass_frst_growth_rate_young_ag_$CAT-FOREST$_$EMISSION-GAS$_$UNIT-AREA$`` (``$EMISSION-GAS$ = co2``, ``$UNIT-AREA$ = ha``, ``$UNIT-MASS$ = kt``)",``secondary``,,0,1,1,,0,none,none,,,
+","``biomass_frst_growth_rate_young_ag_$CAT-FOREST$_$EMISSION-GAS$_$UNIT-AREA$`` (``$EMISSION-GAS$ = co2``, ``$UNIT-AREA$ = ha``, ``$UNIT-MASS$ = tonne``)",``secondary``,,0,1,1,,0,none,none,,,
 Output,:math:`\text{CH}_4` Emissions from Forests,Total methane emissions from forests,``emission_co2e_$EMISSION-GAS$_frst_methane_$CAT-FOREST$`` (``$EMISSION-GAS$ = ch4``),all,,0,1,1,,1,none,none,,,
 Output,:math:`\text{CO}_2` Emissions from Forest Biomass Sequestration,Sequestration in forests modeled as negative emissions,``emission_co2e_$EMISSION-GAS$_frst_sequestration_$CAT-FOREST$`` (``$EMISSION-GAS$ = co2``),all,,0,1,1,,1,none,none,,,
 Output,:math:`\text{CO}_2` Emissions from Forest Fires,,``emission_co2e_$EMISSION-GAS$_frst_forest_fires`` (``$EMISSION-GAS$ = co2``),none,,0,1,1,,1,none,none,,,

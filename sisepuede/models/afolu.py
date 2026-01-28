@@ -2164,6 +2164,24 @@ class AFOLU:
 
 
     
+    def get_bcl_modvars_for_unit_targets(self,
+    ) -> Tuple['ModelVariable']:
+        """Get ModelVariables to use for target units of area and mass. Returns
+            a tuple of the form:
+
+                (modvar_area, modvar_mass, )
+        """
+
+        matt = self.model_attributes
+        modvar_area = matt.get_variable(self.model_socioeconomic.modvar_gnrl_area, )
+        modvar_mass = matt.get_variable(self.modvar_lndu_biomass_stock_factor_ag, )
+        
+        out = (modvar_area, modvar_mass, )
+
+        return out
+    
+
+
     def get_emissions_co2_from_hwp(self,
         df_afolu_trajectories: pd.DataFrame,
         vec_frst_c_paper: np.ndarray,
@@ -3017,38 +3035,91 @@ class AFOLU:
 
     def get_frst_sequestration_factors(self, #HEREHEREHERE
         df_afolu_trajectories: pd.DataFrame,
-        modvar_area: Union[str, 'ModelVariable', None] = None,
+        modvar_to_correct_to_area: Union[str, 'ModelVariable', None] = None,
+        modvar_to_correct_to_mass: Union[str, 'ModelVariable', None] = None,
         modvar_sequestration: Union[str, 'ModelVariable', None] = None,
         override_vector_for_single_mv_q: bool = True,
         **kwargs,
     ) -> Tuple:
         """Retrieve the sequestration factors for forest in terms of 
             modvar_sequestration units and modvar_area
+
+        Function Arguments
+        ------------------
+        df_afolu_trajectories : pd.DataFrame
+            Input DataFrame storing input data
+
+        Keyword Arguments
+        -----------------
+        modvar_to_correct_to_area : Union[str, 'ModelVariable', None]
+            Optional variable to correct area units. If None, no adjustment is
+            performed and outputs keep area units of modvar_sequestration.
+        modvar_to_correct_to_mass : Union[str, 'ModelVariable', None]
+            Optional variable to use to correct mass units. If None, no 
+            adjustment is performed and outputs keep mass units of 
+            modvar_sequestration. Enter "config" to correct to output 
+            (configuration) mass units.
+        modvar_sequestration : Union[str, 'ModelVariable', None]
+            ModelVariable to use for returning growth rate. If None, defaults
+            to self.modvar_frst_biomass_growth_rate
+        override_vector_for_single_mv_q : bool
+            If a single or field category: 
+                * True:     Return an array
+                * False:    Return a vector 
+
         """
         # get area variable
-        modvar_area = self.model_attributes.get_variable(modvar_area)
-        if modvar_area is None:
-            modvar_area = self.model_socioeconomic.modvar_gnrl_area 
+        output_mass_as_config = isinstance(modvar_to_correct_to_mass, str)
+        output_mass_as_config &= (
+            (modvar_to_correct_to_mass == "config") 
+            if output_mass_as_config
+            else False
+        )
 
-        # get sequetration factor variable
-        modvar_sequestration = self.model_attributes.get_variable(modvar_sequestration)
+        # check--the "mass" check protects against the minute possibility that someone names a variable config
+        modvar_to_correct_to_area = self.model_attributes.get_variable(modvar_to_correct_to_area, )
+        modvar_to_correct_to_mass = (
+            self.model_attributes.get_variable(modvar_to_correct_to_mass, )
+            if not output_mass_as_config
+            else None
+        )
+
+        
+        ##  GET SEQUESTRATION VARIABLE
+
+        modvar_sequestration = self.model_attributes.get_variable(modvar_sequestration, )
         if modvar_sequestration is None:
             modvar_sequestration = self.modvar_frst_biomass_growth_rate
 
-        # get sequestration factors
+        # get sequestration factor--correct if specified
+        return_type = "array_units_corrected" if output_mass_as_config else "array_base"
+
         arr_frst_ef_sequestration = self.model_attributes.extract_model_variable(
             df_afolu_trajectories, 
             modvar_sequestration, 
             override_vector_for_single_mv_q = override_vector_for_single_mv_q, 
-            return_type = "array_units_corrected",
+            return_type = return_type,
             **kwargs,
         )
 
-        arr_frst_ef_sequestration *= self.model_attributes.get_variable_unit_conversion_factor(
-            modvar_area,
-            modvar_sequestration,
-            "area"
-        )
+
+        ##  PERFORM ANY CORRECTIONS
+
+        # correct area?
+        if mv.is_model_variable(modvar_to_correct_to_area):
+            arr_frst_ef_sequestration *= self.model_attributes.get_variable_unit_conversion_factor(
+                modvar_to_correct_to_area,
+                modvar_sequestration,
+                "area"
+            )
+
+        # correct mass?
+        if mv.is_model_variable(modvar_to_correct_to_mass):
+            arr_frst_ef_sequestration *= self.model_attributes.get_variable_unit_conversion_factor(
+                modvar_sequestration,
+                modvar_to_correct_to_mass,
+                "mass"
+            )
 
         return arr_frst_ef_sequestration
     
@@ -3066,6 +3137,8 @@ class AFOLU:
                 df_emission_method,
             ]
         """
+        print("DEPRACATED CALL TO get_frst_sequestration_static()!")
+
         # get different variables
         arr_frst_ef_sequestration = self.get_frst_sequestration_factors(df_afolu_trajectories, )
         arr_frst_ef_methane = self.get_frst_methane_factors(df_afolu_trajectories, )
@@ -4346,6 +4419,8 @@ class AFOLU:
         field_ord_1: str = "young",
         field_ord_2: str = "secondary",
         field_ord_3: str = "primary",
+        modvar_to_correct_to_area: Union['ModelVariable', str, None] = None,
+        modvar_to_correct_to_mass: Union['ModelVariable', str, None] = None,
         return_factors: bool = False,
         **kwargs,
     ) -> Union[pd.DataFrame, Tuple[pd.DataFrame]]:
@@ -4371,13 +4446,17 @@ class AFOLU:
             
         arr_frst_ef_sequestration = self.get_frst_sequestration_factors(
             df_afolu_trajectories, 
+            modvar_to_correct_to_area = modvar_to_correct_to_area,
+            modvar_to_correct_to_mass = modvar_to_correct_to_mass,
             expand_to_all_cats = True,
-            
         )
+        
         arr_frst_ef_sequestration_young = self.get_frst_sequestration_factors(
             df_afolu_trajectories, 
-            override_vector_for_single_mv_q = False, 
             modvar_sequestration = self.modvar_frst_biomass_growth_rate_young_secondary, 
+            modvar_to_correct_to_area = modvar_to_correct_to_area,
+            modvar_to_correct_to_mass = modvar_to_correct_to_mass,
+            override_vector_for_single_mv_q = False, 
         )
         
         #arr_frst_ef_sequestration_young *= self.model_attributes.get_variable_unit_conversion_factor(
