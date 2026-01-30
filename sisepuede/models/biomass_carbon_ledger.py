@@ -206,6 +206,11 @@ class BiomassCarbonLedger:
     
     n_tp : int
         Number of time periods to use
+    arr_frac_biomass_dead_storage: Union[float, np.ndarray]
+        Below this fractional level (of average carbon stock per area relative
+        to initial carbon stock per area), there are no removals. Analogous to
+        reservoir dead storage. Generally set at or near (above) the next 
+        highest non-forest biomass stock threshold.
     vec_area_init : np.ndarray
         Vector (length 2) of initial areas for primary and secondary forest
     vec_biomass_c_ag_init_stst_storage : np.ndarray
@@ -224,10 +229,6 @@ class BiomassCarbonLedger:
         Below this fractional level (of average carbon stock per area relative
         to initial carbon stock per area), removals are slowed due to scarcity
         and/or policies.
-    vec_frac_biomass_dead_storage: Union[float, int, np.ndarray]
-        Below this fractional level (of average carbon stock per area relative
-        to initial carbon stock per area), there are no removals. Analogous to
-        reservoir dead storage.
     vec_frac_biomass_from_conversion_available_for_use: Union[float, int, np.ndarray]
         Land use conversion removes biomass between land use types; in clear-
         cutting, this is assumed to be lost to burning. Increasing this fraction
@@ -297,6 +298,14 @@ class BiomassCarbonLedger:
             each forest type. Used to restrict removals from converted land use
             classes.
 
+        * `arr_frac_biomass_dead_storage` (T x N)
+            Array giving the fraction of the steady-state (initial) assumed 
+            carbon stock that is considered dead storage, i.e., minimum fraction 
+            of original stock that must remain on the land to allow it to remain 
+            that land use type. At or below this level, sequestration does not 
+            occur (due to total degredation). This is required to prevent
+            conversions that are separate from the land use model.
+
         * `vec_biomass_c_ag_init_stst_storage` (N x 1)
             Array giving initial biomass C stock, i.e., mass of biomass c per 
             area for each category.
@@ -326,14 +335,6 @@ class BiomassCarbonLedger:
             fuelwood, roundwood, and harvested wood products after land use 
             conversion. Any wood made available here reduces demand for removals
             from live forest.
-
-        * `vec_frac_biomass_dead_storage` (T x 1)
-            Vector giving the fraction of the steady-state (initial) assumed 
-            carbon stock that is considered dead storage, i.e., minimum fraction 
-            of original stock that must remain on the land to allow it to remain 
-            that land use type. At or below this level, sequestration does not 
-            occur (due to total degredation). This is required to prevent
-            conversions that are separate from the land use model.
 
         * `vec_sf_nominal_initial` (N x 1)
             Nominal initial sequestration factors for original forests.
@@ -414,7 +415,7 @@ class BiomassCarbonLedger:
             If the average stock falls below the adjustment threshold (see
             `vec_frac_biomass_adjustment_threshold`), then sequestration factors
             are scaled linearly based on the distance between the adjustment 
-            threshold and dead storage (see `vec_frac_biomass_dead_storage`).
+            threshold and dead storage (see `arr_frac_biomass_dead_storage`).
 
         * `arr_total_biomass_c_ag_available_from_conversion` (T x N)
             Above-ground biomass C from conversion made available for removals.
@@ -489,7 +490,7 @@ class BiomassCarbonLedger:
             If the average stock falls below the adjustment threshold (see
             `vec_frac_biomass_adjustment_threshold`), then sequestration factors
             are scaled linearly based on the distance between the adjustment 
-            threshold and dead storage (see `vec_frac_biomass_dead_storage`).
+            threshold and dead storage (see `arr_frac_biomass_dead_storage`).
 
         * `arr_young_sf_base_by_tp_planted` (T x T)
             Array storing base sequestration factors by time period, which are
@@ -513,7 +514,7 @@ class BiomassCarbonLedger:
         * `vec_biomass_c_ag_min_reqd_per_area` (T x N)
             Array that stores the minimum required biomass per area as the
             outer product of `vec_biomass_c_ag_init_stst_storage` and 
-            `vec_frac_biomass_dead_storage`.
+            `arr_frac_biomass_dead_storage`.
         
         * `vec_frac_biomass_ag_decomposition` (N x 1)
             Estimated fraction of biomass that decomposes every year. This
@@ -620,12 +621,12 @@ class BiomassCarbonLedger:
 
     def __init__(self,
         n_tp: int,
+        arr_frac_biomass_dead_storage: Union[float, np.ndarray],
         vec_area_init: np.ndarray,
         vec_biomass_c_ag_init_stst_storage: np.ndarray,
         vec_biomass_c_bg_to_ag_ratio: np.ndarray,
         vec_frac_biomass_adjustment_threshold: Union[float, np.ndarray],
         vec_frac_biomass_buffer: Union[float, np.ndarray],
-        vec_frac_biomass_dead_storage: Union[float, int, np.ndarray],
         vec_frac_biomass_from_conversion_available_for_use: Union[float, int, np.ndarray],
         vec_sf_nominal_initial: np.ndarray,
         vec_total_removals_demanded: np.ndarray,
@@ -642,12 +643,12 @@ class BiomassCarbonLedger:
 
 
         self._initialize_arrays(
+            arr_frac_biomass_dead_storage,
             vec_area_init,
             vec_biomass_c_ag_init_stst_storage,
             vec_biomass_c_bg_to_ag_ratio,
             vec_frac_biomass_adjustment_threshold,
             vec_frac_biomass_buffer,
-            vec_frac_biomass_dead_storage,
             vec_frac_biomass_from_conversion_available_for_use,
             vec_sf_nominal_initial,
             vec_total_removals_demanded,
@@ -682,12 +683,12 @@ class BiomassCarbonLedger:
 
 
     def _check_initialization_arrays(self,
+        arr_frac_biomass_dead_storage: Union[float, np.ndarray],
         vec_area_init: np.ndarray,
         vec_biomass_c_ag_init_stst_storage: np.ndarray,
         vec_biomass_c_bg_to_ag_ratio: np.ndarray,
         vec_frac_biomass_adjustment_threshold: Union[float, np.ndarray],
         vec_frac_biomass_buffer: Union[float, np.ndarray],
-        vec_frac_biomass_dead_storage: Union[float, int, np.ndarray],
         vec_frac_biomass_from_conversion_available_for_use: Union[float, int, np.ndarray],
         vec_sf_nominal_initial: np.ndarray,
         vec_total_removals_demanded: np.ndarray,
@@ -696,6 +697,13 @@ class BiomassCarbonLedger:
         """
 
         ##  VERIFY AND CONVERT
+
+        # initial dead storage fraction
+        arr_frac_biomass_dead_storage = self._verify_convert_array_input_to_array(
+            arr_frac_biomass_dead_storage,
+            (self.n_tp, self.n_cats, ),
+            "arr_frac_biomass_dead_storage",
+        )
 
         # initial area
         vec_area_init = self._verify_convert_array_input_to_array(
@@ -732,13 +740,6 @@ class BiomassCarbonLedger:
             "vec_frac_biomass_buffer",
         )
 
-        # initial dead storage fraction
-        vec_frac_biomass_dead_storage = self._verify_convert_array_input_to_array(
-            vec_frac_biomass_dead_storage,
-            self.n_tp,
-            "vec_frac_biomass_dead_storage",
-        )
-
         # how much converted biomass (ag) is available for use
         vec_frac_biomass_from_conversion_available_for_use  = self._verify_convert_array_input_to_array(
             vec_frac_biomass_from_conversion_available_for_use,
@@ -763,13 +764,14 @@ class BiomassCarbonLedger:
 
         ##  INITIALIZE SOME OTHER DEPENDENTS
 
-        vec_biomass_c_ag_min_reqd_per_area = vec_biomass_c_ag_init_stst_storage*vec_frac_biomass_dead_storage[0]
+        vec_biomass_c_ag_min_reqd_per_area = vec_biomass_c_ag_init_stst_storage*arr_frac_biomass_dead_storage[0]
         vec_biomass_c_ag_init_healthy_available = vec_biomass_c_ag_init_stst_storage - vec_biomass_c_ag_min_reqd_per_area
 
 
         ##  RETURN
 
         out = (
+            arr_frac_biomass_dead_storage,
             vec_area_init,
             vec_biomass_c_ag_init_healthy_available,
             vec_biomass_c_ag_init_stst_storage,
@@ -777,7 +779,6 @@ class BiomassCarbonLedger:
             vec_biomass_c_bg_to_ag_ratio,
             vec_frac_biomass_adjustment_threshold,
             vec_frac_biomass_buffer,
-            vec_frac_biomass_dead_storage,
             vec_frac_biomass_from_conversion_available_for_use,
             vec_sf_nominal_initial,
             vec_total_removals_demanded,
@@ -804,7 +805,7 @@ class BiomassCarbonLedger:
         ##  START WITH THE ADJUSTMENT FACTOR arr_orig_sf_adjustment_factor
 
         # shortcuts
-        frac_dead_storage = self.vec_frac_biomass_dead_storage[i - 1]
+        frac_dead_storage = self.arr_frac_biomass_dead_storage[i - 1]
         thresh_adjustment = self.vec_frac_biomass_adjustment_threshold[i - 1]
         vec_stock = arr_stock[i - 1]
         vec_stock_untouched = arr_stock_untouched[i - 1]
@@ -945,12 +946,12 @@ class BiomassCarbonLedger:
 
 
     def _initialize_arrays(self,
+        arr_frac_biomass_dead_storage: Union[float, np.ndarray],
         vec_area_init: np.ndarray,
         vec_biomass_c_ag_init_stst_storage: np.ndarray,
         vec_biomass_c_bg_to_ag_ratio: np.ndarray,
         vec_frac_biomass_adjustment_threshold: Union[float, np.ndarray],
         vec_frac_biomass_buffer: Union[float, np.ndarray],
-        vec_frac_biomass_dead_storage: Union[float, int, np.ndarray],
         vec_frac_biomass_from_conversion_available_for_use: Union[float, int, np.ndarray],
         vec_sf_nominal_initial: np.ndarray,
         vec_total_removals_demanded: np.ndarray,
@@ -1035,6 +1036,7 @@ class BiomassCarbonLedger:
         #         entered as a number. Also verifies shape.
 
         (
+            arr_frac_biomass_dead_storage,
             vec_area_init,
             vec_biomass_c_ag_init_healthy_available,
             vec_biomass_c_ag_init_stst_storage,
@@ -1042,17 +1044,16 @@ class BiomassCarbonLedger:
             vec_biomass_c_bg_to_ag_ratio,
             vec_frac_biomass_adjustment_threshold,
             vec_frac_biomass_buffer,
-            vec_frac_biomass_dead_storage,
             vec_frac_biomass_from_conversion_available_for_use,
             vec_sf_nominal_initial,
             vec_total_removals_demanded,
         ) = self._check_initialization_arrays(
+            arr_frac_biomass_dead_storage,
             vec_area_init,
             vec_biomass_c_ag_init_stst_storage,
             vec_biomass_c_bg_to_ag_ratio,
             vec_frac_biomass_adjustment_threshold,
             vec_frac_biomass_buffer,
-            vec_frac_biomass_dead_storage,
             vec_frac_biomass_from_conversion_available_for_use,
             vec_sf_nominal_initial,
             vec_total_removals_demanded,
@@ -1096,6 +1097,7 @@ class BiomassCarbonLedger:
         self.arr_biomass_c_bg_lost_removals = arr_biomass_c_bg_lost_removals
         self.arr_biomass_c_removals_from_converted_land_allocation = arr_biomass_c_removals_from_converted_land_allocation
         self.arr_biomass_c_removed_from_forests_excluding_conversion = arr_biomass_c_removed_from_forests_excluding_conversion
+        self.arr_frac_biomass_dead_storage = arr_frac_biomass_dead_storage
         self.arr_orig_allocation_removals = arr_orig_allocation_removals
         self.arr_orig_biomass_c_ag_average_per_area = arr_orig_biomass_c_ag_average_per_area
         self.arr_orig_biomass_c_ag_average_per_area_no_ds = arr_orig_biomass_c_ag_average_per_area_no_ds
@@ -1129,7 +1131,6 @@ class BiomassCarbonLedger:
         self.vec_frac_biomass_adjustment_threshold = vec_frac_biomass_adjustment_threshold
         self.vec_frac_biomass_ag_decomposition = vec_frac_biomass_ag_decomposition
         self.vec_frac_biomass_buffer = vec_frac_biomass_buffer
-        self.vec_frac_biomass_dead_storage = vec_frac_biomass_dead_storage
         self.vec_frac_biomass_from_conversion_available_for_use = vec_frac_biomass_from_conversion_available_for_use
         self.vec_orig_biomass_c_accessible_pool = vec_orig_biomass_c_accessible_pool
         self.vec_sf_nominal_initial = vec_sf_nominal_initial
@@ -1223,7 +1224,7 @@ class BiomassCarbonLedger:
 
 
     def _verify_convert_array_input_to_array(self,
-        vec: Union[float, np.ndarray],
+        arr: Union[float, np.ndarray],
         dims: Union[int, Tuple],
         varname: str,
     ) -> np.ndarray:
@@ -1234,9 +1235,9 @@ class BiomassCarbonLedger:
         """
         
         # first, check type
-        ok = sf.isnumber(vec) | isinstance(vec, (np.ndarray, list))
+        ok = sf.isnumber(arr) | isinstance(arr, (np.ndarray, list))
         if not ok:
-            tp = type(vec)
+            tp = type(arr)
             raise TypeError(f"Invalid type '{tp}' found for {varname}. Must be a number of an array")
 
         # verify dimensions
@@ -1246,18 +1247,18 @@ class BiomassCarbonLedger:
             raise TypeError(f"Invalid type '{tp}' found for dims. Must be an integer or a tuple")
         
         # convert vector
-        vec = (
-            vec*np.ones(dims, )
-            if sf.isnumber(vec)
-            else np.array(vec)
+        arr = (
+            arr*np.ones(dims, )
+            if sf.isnumber(arr)
+            else np.array(arr)
         )
 
         # finally, verify shape
-        if vec.shape != dims:
-            raise ShapeError(f"Invalid shape {vec.shape} specified for {varname}. Must be {dims}")
+        if arr.shape != dims:
+            raise ShapeError(f"Invalid shape {arr.shape} specified for {varname}. Must be {dims}")
         
 
-        return vec
+        return arr
     
 
 
@@ -1706,7 +1707,7 @@ class BiomassCarbonLedger:
 
         # shortcuts
         frac_buffer = self.vec_frac_biomass_buffer[i]
-        frac_dead_storage = self.vec_frac_biomass_dead_storage[i]
+        frac_dead_storage = self.arr_frac_biomass_dead_storage[i]
         vec_removals_alloc = self.arr_orig_biomass_c_allocation_excluding_conversion[i]
 
 
