@@ -2201,7 +2201,7 @@ def transformation_soil_reduce_excess_fertilizer(
         )
 
         mag = (
-            float(sf.vec_bounds(1 - mag, (0, 1)))
+            float(sf.vec_bounds(1 - mag, (0, np.inf)))
             if mag is not None
             else None
         )
