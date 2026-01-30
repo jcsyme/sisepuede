@@ -15,14 +15,28 @@ from sisepuede.models.energy_consumption import EnergyConsumption
 from sisepuede.models.ippu import IPPU
 from sisepuede.models.socioeconomic import Socioeconomic
 from sisepuede.utilities._plotting import is_valid_figtuple
+import sisepuede.models.biomass_carbon_ledger as bcl
 import sisepuede.utilities._npp_curves as npp
 import sisepuede.utilities._optimization as suo
 import sisepuede.utilities._toolbox as sf
 
 
 
+##########################
+#    GLOBAL VARIABLES    #
+##########################
+
+# some dummy fields--used for ordering sequestration numbers 
+_FIELD_NPP_ORD_1 = "young"
+_FIELD_NPP_ORD_2 = "secondary"
+_FIELD_NPP_ORD_3 = "primary"
+
+# module uuid
 _MODULE_UUID = "53E0A234-5674-47C8-B950-5A419EEAAF00"  
+
+# integration information
 _NPP_INTEGRATION_WINDOWS = [20, 480, 1000]
+
 
 
 
@@ -119,7 +133,9 @@ class AFOLU:
         self._initialize_models(
             min_diag_qadj = min_diag_qadj,
         )
-        self._initialize_npp_properties(
+
+        # NPP and ledger
+        self._initialize_ledger_properties(
             npp_curve = npp_curve,
             npp_include_primary_forest = npp_include_primary_forest,
             npp_integration_windows = npp_integration_windows,
@@ -433,6 +449,65 @@ class AFOLU:
 
 
 
+    def _initialize_ledger_properties(self,
+        npp_curve: Union[str, npp.NPPCurve, None] = None,
+        npp_include_primary_forest: bool = False,
+        npp_integration_windows: Union[list, tuple, np.ndarray] = _NPP_INTEGRATION_WINDOWS,
+    ) -> None:
+        """Initialize properties related to the BiomassCarbonLedger (BCL) and 
+            Net Primary Productivity (NPP) estimator. Sets the following 
+            properties:
+
+            * self.curves_npp
+            * self.ledger
+                Default of None so that the property is available (modified in 
+                project_land_use_integrated)
+            * self.modvar_ledger_target_units_area
+                ModelVariable storing target area units for the ledger
+            * self.modvar_ledger_target_units_mass
+                ModelVariable storing target mass units for the ledger
+            * self.npp_include_primary_forest
+                Include primary forest in the NPP integration? If True, will 
+                integrate so that the tail averages the primary forest
+                sequestration value. 
+            * self.npp_integration_windows
+                Time period windows for integration matching. Each element 
+                is the time span (sequentially) of young secondary,  secondary, 
+                and primary forests.
+        """
+
+        # used to fit NPP curves numerically
+        curves_npp = npp.NPPCurves([])
+        npp_curve = (
+            npp_curve 
+            if npp_curve in curves_npp.curves
+            else None
+        )
+
+        # check if an error needs to be thrown
+        error_q = not sf.islistlike(npp_integration_windows) 
+        error_q &= not isinstance(npp_integration_windows, tuple)
+        error_q &= npp_curve is not None
+        
+        if error_q:
+            tp = str(type(npp_integration_windows))
+            raise RuntimeError(f"Unable to initialize npp_curve {npp_curve}: invalid integration window of type {tp} specified. Must be array-like.")
+
+
+        ##  SET PROPERTIES
+
+        self.curves_npp = curves_npp
+        self.ledger = None
+        self.modvar_ledger_target_units_area = self.modvar_lndu_biomass_stock_factor_ag
+        self.modvar_ledger_target_units_mass = self.modvar_lndu_biomass_stock_factor_ag
+        self.npp_curve = npp_curve
+        self.npp_include_primary_forest = npp_include_primary_forest
+        self.npp_integration_windows = npp_integration_windows
+
+        return None
+    
+
+
     def _initialize_models(self,
         min_diag_qadj: float = 0.98,
         model_attributes: Union[ModelAttributes, None] = None,
@@ -512,57 +587,6 @@ class AFOLU:
         self.model_ippu = model_ippu
         self.model_socioeconomic = model_socioeconomic
         self.q_adjuster = q_adjuster
-
-        return None
-
-
-
-    def _initialize_npp_properties(self,
-        npp_curve: Union[str, npp.NPPCurve, None] = None,
-        npp_include_primary_forest: bool = False,
-        npp_integration_windows: Union[list, tuple, np.ndarray] = _NPP_INTEGRATION_WINDOWS,
-    ) -> None:
-        """
-        Initialize properties related to the Net Primary Productivity estimator.
-            Sets the following properties:
-            
-            * NPP Curve fitting for dynamic forest sequestration
-
-                * self.curves_npp
-                * self.npp_include_primary_forest
-                    Include primary forest in the NPP integration? If True,
-                    will integrate so that the tail averages the primary forest
-                    sequestration value. In general, however, 
-                * self.npp_integration_windows
-                    Time period windows for integration matching. Each element 
-                    is the time span (sequentially) of young secondary, 
-                    secondary, and primary forests.
-        """
-
-        # used to fit NPP curves numerically
-        curves_npp = npp.NPPCurves([])
-        npp_curve = (
-            npp_curve 
-            if npp_curve in curves_npp.curves
-            else None
-        )
-
-        # check if an error needs to be thrown
-        error_q = not sf.islistlike(npp_integration_windows) 
-        error_q &= not isinstance(npp_integration_windows, tuple)
-        error_q &= npp_curve is not None
-        
-        if error_q:
-            tp = str(type(npp_integration_windows))
-            raise RuntimeError(f"Unable to initialize npp_curve {npp_curve}: invalid integration window of type {tp} specified. Must be array-like.")
-
-
-        ##  SET PROPERTIES
-
-        self.curves_npp = curves_npp
-        self.npp_curve = npp_curve
-        self.npp_include_primary_forest = npp_include_primary_forest
-        self.npp_integration_windows = npp_integration_windows
 
         return None
 
@@ -730,6 +754,9 @@ class AFOLU:
 
         # forest model variables
         self.modvar_frst_average_fraction_burned_annually = "Average Fraction of Forest Burned Annually"
+        self.modvar_frst_bcl_frac_adjustment_thresh = "Biomass Carbon Ledger Adjustment Threshold"
+        self.modvar_frst_bcl_frac_buffer = "Biomass Carbon Ledger Buffer Fraction"
+        self.modvar_frst_bcl_frac_dead_storage = "Biomass Carbon Ledger Dead Storage Fraction"
         self.modvar_frst_biomass_consumed_fire_temperate = "Fire Biomass Consumption for Temperate Forests"
         self.modvar_frst_biomass_consumed_fire_tropical = "Fire Biomass Consumption for Tropical Forests"
         self.modvar_frst_biomass_growth_rate = "Forest Above Ground Biomass Growth Rate"
@@ -2164,6 +2191,105 @@ class AFOLU:
 
 
     
+    def get_bcl_growth_rates_and_stocks(self,
+        df_afolu_trajectories: pd.DataFrame,
+        normalize_sfs: bool = True, 
+        **kwargs,
+    ) -> Dict[str, np.ndarray]:
+        """For a given input DataFrame, retrieve the stocks and growth rates
+            associated with primary and secondary (and young) forests. Returns
+            a dictionary mapping BiomassCarbonLedger initialization arguments
+            to values.
+
+        Function Arguments
+        ------------------
+        df_afolu_trajectories : pd.DataFrame
+            DataFrame containing input trajectories
+
+        Keyword Arguments
+        -----------------
+        normalize_sfs : bool
+            Normalize sequetration? If True, uses best fit NPP curve fit to
+            estimate stock in equilibrium (x_est) from NPP curve and compares 
+            to primary forest starting stock (x_p(0)). Then, the sequestration 
+            factors--secondary, primary, and young--are scaled by x_p(0)/x_est
+        **kwargs :
+            Passed to get_bcl_sequestration_factors()
+        """
+
+        ##  INITIALIZATION
+
+        # shortcuts
+        matt = self.model_attributes
+        modvar_lndu_stock_initial = self.modvar_lndu_biomass_stock_factor_ag
+        
+        (modvar_targunits_area, modvar_targunits_mass, ) = self.get_bcl_modvars_for_unit_targets()
+
+
+        ##  GET BIOMASS GROWTH RATES AND DECOMP
+
+        # primary, secondary, and young sequestration factors
+        factors_initial, vec_young_sf = self.get_bcl_sequestration_factors(
+            df_afolu_trajectories, 
+            **kwargs,
+        )
+        
+        # get decomposition fraction
+        frac_decomp = bcl.estimate_decomposition_fraction(
+            vec_young_sf, 
+            return_frac = True, 
+        )
+
+
+        ##  GET INITIAL STOCK FACTORS
+
+        # get the initial stock factors
+        arr_stock_init = self.model_attributes.extract_model_variable(
+            df_afolu_trajectories,
+            modvar_lndu_stock_initial,
+            expand_to_all_cats = True,
+            return_type = "array_base",
+        )
+
+        arr_stock_init = self.scale_mass_per_area_array(
+            arr_stock_init,
+            modvar_lndu_stock_initial,
+            modvar_targunits_area,
+            modvar_targunits_mass,
+        )
+
+        # indices
+        ind_fstp, ind_fsts = self.get_lndu_indices_fstp_fsts()
+
+        
+        ##  GET NORM?
+
+        if normalize_sfs:
+            # get the stock implied by NPP
+            vec_cm = bcl.calculate_cumulative_mass(vec_young_sf, frac_decomp, )
+            stock_npp = vec_cm.max()
+
+            # primary stock
+            stock_primary = arr_stock_init[0, ind_fstp]
+
+            scalar = stock_primary/stock_npp
+
+            # adjust
+            factors_initial *= scalar
+            vec_young_sf *= scalar
+            
+
+        # build outputs, ordered for direct entrance to ledger
+        dict_out = {
+            "vec_biomass_c_ag_init_stst_storage": arr_stock_init[0, [ind_fstp, ind_fsts]],
+            "vec_sf_nominal_initial": factors_initial,
+            "vec_young_sf_curve_specification": vec_young_sf,
+        }
+        
+        return dict_out
+
+
+
     def get_bcl_modvars_for_unit_targets(self,
     ) -> Tuple['ModelVariable']:
         """Get ModelVariables to use for target units of area and mass. Returns
@@ -2171,12 +2297,87 @@ class AFOLU:
 
                 (modvar_area, modvar_mass, )
         """
+        # area
+        modvar_area = self.model_attributes.get_variable(
+            self.modvar_ledger_target_units_area, 
+            stop_on_missing = True, 
+        )
 
-        matt = self.model_attributes
-        modvar_area = matt.get_variable(self.model_socioeconomic.modvar_gnrl_area, )
-        modvar_mass = matt.get_variable(self.modvar_lndu_biomass_stock_factor_ag, )
+        modvar_mass = self.model_attributes.get_variable(
+            self.modvar_ledger_target_units_mass, 
+            stop_on_missing = True, 
+        )
         
         out = (modvar_area, modvar_mass, )
+
+        return out
+    
+
+
+    def get_bcl_sequestration_factors(self,
+        df_afolu_trajectories: pd.DataFrame,
+        field_ord_1: str = _FIELD_NPP_ORD_1,
+        field_ord_2: str = _FIELD_NPP_ORD_2,
+        field_ord_3: str = _FIELD_NPP_ORD_3,
+        maxiter: int = 1000,
+        **kwargs,
+    ) -> None:
+        """Initialize the BiomassCarbonLedger for use in AFOLU emissions
+            estimates and biomass C availability for energy and industry.
+        """
+        ##  BUILD SF CURVE
+
+        # get target units
+        modvar_targunits_area, modvar_targunits_mass = self.get_bcl_modvars_for_unit_targets()
+
+        
+        (
+            df_sf_groups,
+            arr_frst_sf,
+            _,
+        ) = self.get_npp_frst_sequestration_factor_vectors(
+            df_afolu_trajectories,
+            field_ord_1 = field_ord_1,
+            field_ord_2 = field_ord_2,
+            field_ord_3 = field_ord_3,
+            modvar_to_correct_to_area = modvar_targunits_area,
+            modvar_to_correct_to_mass = modvar_targunits_mass,
+            return_factors = True,
+        )
+
+        # fit, even if we don't use the dictionary
+        dict_curves = self.get_npp_biomass_sequestration_curves(
+            df_sf_groups.iloc[0:1],
+            first_only = True,
+            force_convergence = True, 
+            maxiter = maxiter,
+        )
+        
+            
+        ##  GET THE CURVE AND PROJECT
+
+        curve = self.curves_npp.get_curve(self.npp_curve, )
+        params = curve.defaults
+
+
+        # project out sequestration factor; should be in equilibrium in primary phase
+        # note that vec_sf is in:
+        #                        - mass terms of self.modvar_frst_biomass_growth_rate
+        #                        - area terms of self.modvar_gnrl_area
+        n_tp_to_eq = sum(self.curves_npp.widths[0:2]) 
+        n_tp_to_eq += self.curves_npp.widths[-1]/2
+        vec_sf = np.array([curve(x, *params) for x in range(int(n_tp_to_eq))])
+
+        # get base initial sequestration factors
+        factors_initial = (
+            df_sf_groups[[field_ord_3, field_ord_2]]
+            .iloc[0]
+            .to_numpy()
+            .copy()
+        )
+        
+        # return as tuple
+        out = (factors_initial, vec_sf, )
 
         return out
     
@@ -2729,7 +2930,7 @@ class AFOLU:
         arr_lndu_areas: np.ndarray, #arr_land_use
         arr_frst_areas: np.ndarray,
         attr_lndu: Union[AttributeTable, None] = None,
-        field_sfv_secondary: str = "secondary",
+        field_sfv_secondary: str = _FIELD_NPP_ORD_2,
         key_cmf: str = "cmf",
         key_params: str = "params",
         npp_curve: Union[str, None] = None,
@@ -3033,7 +3234,7 @@ class AFOLU:
     
 
 
-    def get_frst_sequestration_factors(self, #HEREHEREHERE
+    def get_frst_sequestration_factors(self,
         df_afolu_trajectories: pd.DataFrame,
         modvar_to_correct_to_area: Union[str, 'ModelVariable', None] = None,
         modvar_to_correct_to_mass: Union[str, 'ModelVariable', None] = None,
@@ -3102,24 +3303,13 @@ class AFOLU:
             **kwargs,
         )
 
-
-        ##  PERFORM ANY CORRECTIONS
-
-        # correct area?
-        if mv.is_model_variable(modvar_to_correct_to_area):
-            arr_frst_ef_sequestration *= self.model_attributes.get_variable_unit_conversion_factor(
-                modvar_to_correct_to_area,
-                modvar_sequestration,
-                "area"
-            )
-
-        # correct mass?
-        if mv.is_model_variable(modvar_to_correct_to_mass):
-            arr_frst_ef_sequestration *= self.model_attributes.get_variable_unit_conversion_factor(
-                modvar_sequestration,
-                modvar_to_correct_to_mass,
-                "mass"
-            )
+        # correct to target units (based on modvar_to_correct_to_ ... )
+        arr_frst_ef_sequestration = self.scale_mass_per_area_array(
+            arr_frst_ef_sequestration,
+            modvar_sequestration,
+            modvar_to_correct_to_area,
+            modvar_to_correct_to_mass,
+        )
 
         return arr_frst_ef_sequestration
     
@@ -3251,6 +3441,45 @@ class AFOLU:
         tuple_out = (arr_constraint_inf, arr_constraint_sup)
 
         return tuple_out
+
+
+
+    def get_lndu_indices_fstp_fsts(self,
+        return_categories: bool = False,
+    ) -> Tuple:
+        """Get the indices of primary forest and secondary forest in
+            Land Use.
+        """
+        attr_lndu = self.model_attributes.get_attribute_table(
+            self
+            .model_attributes
+            .subsec_name_lndu
+        )
+        
+        cat_lndu_fstp = (
+            self
+            .dict_cats_frst_to_cats_lndu
+            .get(self.cat_frst_prim, )
+        )
+        
+        cat_lndu_fsts = (
+            self
+            .dict_cats_frst_to_cats_lndu
+            .get(self.cat_frst_scnd, )
+        )
+
+        if return_categories:
+            out = (cat_lndu_fstp, cat_lndu_fsts, )
+            return out
+
+        
+        # get indices
+        ind_lndu_fstp = attr_lndu.get_key_value_index(cat_lndu_fstp, )
+        ind_lndu_fsts = attr_lndu.get_key_value_index(cat_lndu_fsts, )
+
+        out = (ind_lndu_fstp, ind_lndu_fsts, )
+
+        return out
 
 
 
@@ -4196,9 +4425,9 @@ class AFOLU:
     def get_npp_biomass_sequestration_curves(self,
         df_ordered_sequestration: pd.DataFrame,
         curve_npp: Union[str, npp.NPPCurve, None] = None,
-        field_ord_1: str = "young",
-        field_ord_2: str = "secondary",
-        field_ord_3: str = "primary",
+        field_ord_1: str = _FIELD_NPP_ORD_1,
+        field_ord_2: str = _FIELD_NPP_ORD_2,
+        field_ord_3: str = _FIELD_NPP_ORD_3,
         first_only: bool = True,
         force_convergence: bool = False,
         include_primary_forest_in_npp: Union[bool, None] = None,
@@ -4416,9 +4645,9 @@ class AFOLU:
 
     def get_npp_frst_sequestration_factor_vectors(self,
         df_afolu_trajectories: pd.DataFrame,
-        field_ord_1: str = "young",
-        field_ord_2: str = "secondary",
-        field_ord_3: str = "primary",
+        field_ord_1: str = _FIELD_NPP_ORD_1,
+        field_ord_2: str = _FIELD_NPP_ORD_2,
+        field_ord_3: str = _FIELD_NPP_ORD_3,
         modvar_to_correct_to_area: Union['ModelVariable', str, None] = None,
         modvar_to_correct_to_mass: Union['ModelVariable', str, None] = None,
         return_factors: bool = False,
@@ -4450,7 +4679,7 @@ class AFOLU:
             modvar_to_correct_to_mass = modvar_to_correct_to_mass,
             expand_to_all_cats = True,
         )
-        
+
         arr_frst_ef_sequestration_young = self.get_frst_sequestration_factors(
             df_afolu_trajectories, 
             modvar_sequestration = self.modvar_frst_biomass_growth_rate_young_secondary, 
@@ -5297,19 +5526,8 @@ class AFOLU:
         # initialize biomass removals demand
         ##  HARVESTED WOOD PRODUCTS
 
-
-        # add to output
-        df_out = self.estimate_c_demand_from_hwp(
-            df_afolu_trajectories,
-            vec_hh,
-            vec_gdp,
-            vec_rates_gdp,
-            vec_rates_gdp_per_capita,
-            dict_dims,
-            n_projection_time_periods,
-            projection_time_periods,
-            self.dict_integration_variables_by_subsector,
-        )
+        # GET DEMANDS HERE
+        
 
         ##  HEREHEREHERE
 
@@ -5397,7 +5615,9 @@ class AFOLU:
                 posinf = 0.0,
             )
 
-            # calculate net surplus met
+            
+            ##  CALCULATE NET SURPLUS MET
+
             vec_lvst_unmet_demand_to_impexp = (
                 sf.vec_bounds(vec_lvst_unmet_demand, (0, np.inf))
                 *arr_lndu_frac_increasing_net_imports_met[i + 1, self.ind_lndu_pstr]
@@ -5408,12 +5628,12 @@ class AFOLU:
             )
             vec_lvst_unmet_demand_lost = vec_lvst_unmet_demand - vec_lvst_unmet_demand_to_impexp
 
+            # get adjusted population
             vec_lvst_pop_adj = vec_lvst_prod_supported_pre_realloc + vec_lvst_unmet_demand_lost
             if len(inds_lvst_where_pop_noncc) > 0:
                 np.put(vec_lvst_unmet_demand_to_impexp, inds_lvst_where_pop_noncc, 0)
                 np.put(vec_lvst_unmet_demand_lost, inds_lvst_where_pop_noncc, 0)
                 np.put(vec_lvst_pop_adj, inds_lvst_where_pop_noncc, arr_lvst_dem[i + 1, inds_lvst_where_pop_noncc])
-
 
             vec_lvst_unmet_demand = vec_lvst_unmet_demand_to_impexp.copy()
             vec_lvst_reallocation_target = vec_lvst_unmet_demand*vec_lndu_yrf[i + 1] # demand for livestock met by reallocating land
@@ -5427,8 +5647,9 @@ class AFOLU:
             area_target_pstr = area_pstr_proj + area_lndu_pstr_increase_0
 
 
-
-            ##  AGRICULTURE - calculate demand increase in crops, which is a function of gdp/capita (exogenous) and livestock demand (used for feed)
+            ##  AGRICULTURE - calculate demand increase in crops, which is a 
+            #                 function of gdp/capita (exogenous) and livestock 
+            #                 demand (used for feed)
                         
             vec_agrc_feed_dem_yield = sum((arr_lndu_yield_by_lvst*vec_lvst_dem_gr_iterator).transpose())
             vec_agrc_total_dem_yield = (arr_agrc_production_nonfeed_unadj[i + 1] + vec_agrc_feed_dem_yield)
@@ -5947,6 +6168,49 @@ class AFOLU:
             np.put(arr_lu_derived.transpose(), rng, arr_dem_based[:, w])
 
         return arr_lu_derived
+    
+
+
+    def scale_mass_per_area_array(self,
+        arr_to_scale: np.ndarray,
+        modvar_base: Union['ModelVariable', str],
+        modvar_to_correct_to_area: Union['ModelVariable', str, None],
+        modvar_to_correct_to_mass: Union['ModelVariable', str, None],
+    ) -> np.ndarray:
+        """For an array that is mass per area, scale to match optional units 
+            from mass and area variables. Shortcut to prevent repetetive uses. 
+            If modvar_base isn't specified correctly, returns the original 
+            array.
+        """
+        
+        arr_out = arr_to_scale.copy()
+
+        # model variable calls
+        modvar_base = self.model_attributes.get_variable(modvar_base, )
+        modvar_to_correct_to_area = self.model_attributes.get_variable(modvar_to_correct_to_area, )
+        modvar_to_correct_to_mass = self.model_attributes.get_variable(modvar_to_correct_to_mass, )
+
+        if modvar_base is None:
+            return arr_out
+
+        # correct the area
+        if mv.is_model_variable(modvar_to_correct_to_area, ):
+            arr_out *= self.model_attributes.get_variable_unit_conversion_factor(
+                modvar_to_correct_to_area,
+                modvar_base,
+                "area"
+            )
+
+        # correct mass?
+        if mv.is_model_variable(modvar_to_correct_to_mass, ):
+            arr_out *= self.model_attributes.get_variable_unit_conversion_factor(
+                modvar_base,
+                modvar_to_correct_to_mass,
+                "mass"
+            )
+
+        return arr_out
+
 
 
 
@@ -6685,6 +6949,19 @@ class AFOLU:
             )
         ]
 
+
+        # add to output HWP
+        df_out = self.estimate_c_demand_from_hwp(
+            df_afolu_trajectories,
+            vec_hh,
+            vec_gdp,
+            vec_rates_gdp,
+            vec_rates_gdp_per_capita,
+            dict_dims,
+            n_projection_time_periods,
+            projection_time_periods,
+            self.dict_integration_variables_by_subsector,
+        )
 
 
 

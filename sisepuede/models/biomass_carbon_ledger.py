@@ -206,9 +206,6 @@ class BiomassCarbonLedger:
     
     n_tp : int
         Number of time periods to use
-
-
-    n_tp: int,
     vec_area_init : np.ndarray
         Vector (length 2) of initial areas for primary and secondary forest
     vec_biomass_c_ag_init_stst_storage : np.ndarray
