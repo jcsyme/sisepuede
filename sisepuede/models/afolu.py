@@ -37,6 +37,9 @@ _MODULE_UUID = "53E0A234-5674-47C8-B950-5A419EEAAF00"
 # integration information
 _NPP_INTEGRATION_WINDOWS = [20, 480, 1000]
 
+# error classes
+class InvalidBufferThreshold(Exception):
+    pass
 
 
 
@@ -2190,6 +2193,109 @@ class AFOLU:
         return out
 
 
+
+    def get_bcl_adjusted_thresholds(self,
+        df_afolu_trajectories: pd.DataFrame,
+        vec_frac_biomass_adjustment_threshold: np.ndarray,
+        vec_frac_biomass_buffer: np.ndarray,
+        vec_frac_biomass_dead_storage: np.ndarray,
+        min_span_frac: float = 0.1,
+    ) -> Tuple[np.ndarray]:
+        """Adjust thresholds for entry into 
+        """
+
+        ##  INITIALIZATION
+        
+        # get attribute for land use
+        matt = self.model_attributes
+        attr_lndu = matt.get_attribute_table(matt.subsec_name_lndu, )
+        
+        # indices of forest classes in LNDU
+        ind_lndu_fstp, ind_lndu_fsts = self.get_lndu_indices_fstp_fsts()
+        cat_lndu_fstm = self.dict_cats_frst_to_cats_lndu.get(self.cat_frst_mang, )
+        ind_lndu_fstm = attr_lndu.get_key_value_index(cat_lndu_fstm, )
+        
+        
+        ##  GET LAND USE STOCK TO GET BASE FRACTION
+        
+        array_lndu_stock_init = matt.extract_model_variable(
+            df_afolu_trajectories,
+            self.modvar_lndu_biomass_stock_factor_ag,
+            expand_to_all_cats = True,
+            return_type = "array_base",
+        )
+
+        # get maximum level for non-forests
+        inds_non_forest = [
+            x for x in range(attr_lndu.n_key_values) 
+            if x not in [ind_lndu_fstm, ind_lndu_fstp, ind_lndu_fsts]
+        ]
+
+        # get the maximum non-biomass
+        vec_max_stock_not_forest = array_lndu_stock_init[:, inds_non_forest].max(axis = 1, )
+
+        # get the fraction of forest biomass that corresponds with the next-larget non-forest land use category
+        arr_frac_max_stock_not_forest = sf.do_array_mult(
+            1/array_lndu_stock_init[:, [ind_lndu_fstp, ind_lndu_fsts]],
+            vec_max_stock_not_forest,
+        )
+        arr_frac_max_stock_not_forest = np.nan_to_num(
+            arr_frac_max_stock_not_forest,
+            nan = 0.0,
+            posinf = 0.0,
+        )
+
+
+        ##  DEAD STORAGE AND BUFFER ZONE ARE BASED OVER TRANSITION THRESH
+        
+        # dead storage that is passed is fraction OVER biomass stock level associated with 
+        arr_weight = 1 - arr_frac_max_stock_not_forest
+
+        #
+        arr_frac_biomass_dead_storage = sf.do_array_mult(arr_weight, vec_frac_biomass_dead_storage, )
+        arr_frac_biomass_dead_storage = np.clip(
+            arr_frac_max_stock_not_forest + arr_frac_biomass_dead_storage,
+            0.0,
+            1.0,
+        )
+
+        # get bounds    
+        v_min = arr_frac_biomass_dead_storage + min_span_frac
+        v_max = (
+            vec_frac_biomass_adjustment_threshold
+            *np.ones((arr_frac_biomass_dead_storage.shape[1], arr_frac_biomass_dead_storage.shape[0]))
+        ).transpose()
+
+        # verify
+        for i in range(v_min.shape[0]):
+            if (v_max[i] - v_min[i]).min() < 0:
+                msg = f"""Unable to set buffer, dead storage, and adjustment threshold;
+                The following relationship must hold:
+                    
+                    adjustment_threshold > buffer > dead_storage
+                
+                """
+                raise InvalidBufferThreshold(msg)
+
+
+        # set bounds
+        arr_frac_biomass_buffer = sf.do_array_mult(arr_weight, vec_frac_biomass_buffer, )
+        arr_frac_biomass_buffer = np.clip(
+            arr_frac_max_stock_not_forest + arr_frac_biomass_buffer,
+            v_min,
+            v_max,
+        )
+
+        # set the output
+        out = (
+            arr_frac_biomass_buffer,
+            arr_frac_biomass_dead_storage,
+            vec_frac_biomass_adjustment_threshold,
+        )
+
+        return out
+    
+
     
     def get_bcl_growth_rates_and_stocks(self,
         df_afolu_trajectories: pd.DataFrame,
@@ -2309,6 +2415,113 @@ class AFOLU:
         )
         
         out = (modvar_area, modvar_mass, )
+
+        return out
+    
+
+
+    def get_bcl_removal_thresholds(self,
+        df_afolu_trajectories: pd.DataFrame,
+        **kwargs,
+    ) -> Dict[str, np.ndarray]:
+        """Retrieve other parameters and format for BiomassCarbonLedger, 
+            including:
+
+            * vec_biomass_c_bg_to_ag_ratio
+            * vec_frac_biomass_adjustment_threshold
+            * vec_frac_biomass_buffer
+            * vec_frac_biomass_dead_storage
+            * vec_frac_biomass_from_conversion_available_for_use
+
+        Returns a tuple of the form:
+
+            (
+                arr_frac_biomass_buffer,
+                arr_frac_biomass_dead_storage,
+                vec_frac_biomass_adjustment_threshold,
+            )
+
+        Function Arguments
+        ------------------
+        df_afolu_trajectories : pd.DataFrame
+            DataFrame of input data
+
+        Keyword Arguments
+        -----------------
+        **kwargs : 
+            Passed to get_bcl_adjusted_thresholds()
+        """
+
+        # indices of forest classes in LNDU
+        ind_fstp, ind_fsts = self.get_lndu_indices_fstp_fsts()
+
+        # initialize output dictinary
+        dict_out = {}
+
+        
+        ##  EXTRACT KEY VARIABLES
+        
+        # below-ground biomass to above-ground biomass ratio
+        vec_biomass_c_bg_to_ag_ratio = (
+            self
+            .model_attributes
+            .extract_model_variable(
+                df_afolu_trajectories,
+                self.modvar_lndu_biomass_stock_ratio_bg_to_ag,
+                expand_to_all_cats = True, 
+                return_type = "array_base",
+                var_bounds = (0, np.inf)
+            )
+        )
+        dict_out.update({"vec_biomass_c_bg_to_ag_ratio": vec_biomass_c_bg_to_ag_ratio[0]})
+
+
+        ##  ADJUSTMENT THRESHOLD NEEDS TO BE CHECKED AGAINST DEAD STORAGE AND BUFFER
+        
+        # get the adjustment threshold
+        vec_frac_biomass_adjustment_threshold = (
+            self
+            .model_attributes
+            .extract_model_variable(
+                df_afolu_trajectories,
+                self.modvar_frst_bcl_frac_adjustment_thresh,
+                return_type = "array_base",
+                var_bounds = (0, 1)
+            )
+        )
+
+        # get the buffer
+        vec_frac_biomass_buffer = (
+            self
+            .model_attributes
+            .extract_model_variable(
+                df_afolu_trajectories,
+                self.modvar_frst_bcl_frac_buffer,
+                return_type = "array_base",
+                var_bounds = (0, 1)
+            )
+        )
+
+        # get the adjustment threshold
+        vec_frac_biomass_dead_storage = (
+            self
+            .model_attributes
+            .extract_model_variable(
+                df_afolu_trajectories,
+                self.modvar_frst_bcl_frac_dead_storage,
+                return_type = "array_base",
+                var_bounds = (0, 1)
+            )
+        )
+
+        
+        out = self.get_bcl_adjusted_thresholds(
+            df_afolu_trajectories,
+            vec_frac_biomass_adjustment_threshold,
+            vec_frac_biomass_buffer,
+            vec_frac_biomass_dead_storage,
+            **kwargs,
+        )
 
         return out
     
