@@ -2301,11 +2301,17 @@ class AFOLU:
         df_afolu_trajectories: pd.DataFrame,
         normalize_sfs: bool = True, 
         **kwargs,
-    ) -> Dict[str, np.ndarray]:
+    ) -> Tuple[np.ndarray]:
         """For a given input DataFrame, retrieve the stocks and growth rates
             associated with primary and secondary (and young) forests. Returns
-            a dictionary mapping BiomassCarbonLedger initialization arguments
-            to values.
+            a tuple with the following BiomassCarbonLedger initialization 
+            arguments:
+
+            (
+                vec_biomass_c_ag_init_stst_storage,
+                vec_sf_nominal_initial,
+                vec_young_sf_curve_specification,
+            )
 
         Function Arguments
         ------------------
@@ -2386,13 +2392,17 @@ class AFOLU:
             
 
         # build outputs, ordered for direct entrance to ledger
-        dict_out = {
-            "vec_biomass_c_ag_init_stst_storage": arr_stock_init[0, [ind_fstp, ind_fsts]],
-            "vec_sf_nominal_initial": factors_initial,
-            "vec_young_sf_curve_specification": vec_young_sf,
-        }
+        # vec_biomass_c_ag_init_stst_storage
+        # vec_sf_nominal_initial
+        # vec_young_sf_curve_specification
+
+        out = (
+            arr_stock_init[0, [ind_fstp, ind_fsts]],
+            factors_initial,
+            vec_young_sf,
+        )
         
-        return dict_out
+        return out
 
 
 
@@ -2415,6 +2425,70 @@ class AFOLU:
         )
         
         out = (modvar_area, modvar_mass, )
+
+        return out
+    
+
+
+    def get_bcl_other_parameters(self,
+        df_afolu_trajectories: pd.DataFrame,
+        **kwargs,
+    ) -> Dict[str, np.ndarray]:
+        """Retrieve other parameters and format for BiomassCarbonLedger, 
+            including:
+
+            * vec_biomass_c_bg_to_ag_ratio
+            * vec_frac_biomass_from_conversion_available_for_use
+
+        Returns a tuple of the form:
+
+            (
+                vec_biomass_c_bg_to_ag_ratio,
+                vec_frac_biomass_from_conversion_available_for_use,
+            )
+
+        Function Arguments
+        ------------------
+        df_afolu_trajectories : pd.DataFrame
+            DataFrame of input data
+        """
+
+
+        # get attribute for land use
+        matt = self.model_attributes
+
+        attr_lndu = matt.get_attribute_table(matt.subsec_name_lndu, )
+        
+        # indices of forest classes in LNDU
+        ind_lndu_fstp, ind_lndu_fsts = self.get_lndu_indices_fstp_fsts()
+        
+        
+        ##  GET OTHER PARAMETERS
+
+        # land use below ground to above ground stock ratio
+        array_lndu_ratio_bg_to_ag = matt.extract_model_variable(
+            df_afolu_trajectories,
+            self.modvar_lndu_biomass_stock_ratio_bg_to_ag,
+            expand_to_all_cats = True,
+            return_type = "array_base",
+            var_bounds = (0, np.inf),
+        )
+
+        vec_biomass_c_bg_to_ag_ratio = array_lndu_ratio_bg_to_ag[:, [ind_lndu_fstp, ind_lndu_fsts]]
+
+
+        # fraction of converted biomass available for use
+        vec_frac_biomass_from_conversion_available_for_use = matt.extract_model_variable(
+            df_afolu_trajectories,
+            self.modvar_frst_frac_c_converted_available,
+            return_type = "array_base",
+            var_bounds = (0, 1),
+        )
+
+        out = (
+            vec_biomass_c_bg_to_ag_ratio,
+            vec_frac_biomass_from_conversion_available_for_use,
+        )
 
         return out
     
