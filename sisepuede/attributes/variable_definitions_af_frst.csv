@@ -26,7 +26,7 @@ Input,Forest Fraction Temperate Nutrient Rich," | Used to calculate :math:`\text
 Input,Forest Fraction Tropical," | Used to calculate :math:`\text{N}_2\text{O}` emissions from organic soils. 
  | 
  | Forest Fraction Temperate Nutrient Poor, Forest Fraction Temperate Nutrient Rich, and Forest Fraction Tropical must sum to 1",``frac_frst_$CAT-FOREST$_cl1_tropical``,all,,0,1,1,1,0,``tropical_forest``,none,,,
-Input,Fraction of Forest Converted C Available for Use,Fraction of carbon stock in forests that is available for use in energy production (biomass) and harvested wood production (HWP). ,``frac_frst_c_stock_converted_available_for_use_$CAT-FOREST$``,``primary``|``secondary``,,0.5,1,1,,0,none,none,,,
+Input,Fraction of Forest Converted C Available for Use,Fraction of carbon stock in forests that is available for use in energy production (biomass) and harvested wood production (HWP). ,``frac_frst_c_stock_converted_available_for_use``,none,,0.5,1,1,,0,none,none,,,
 Input,HWP Half Life Paper,Half life of carbon sequestered in paper products (HWP),``hl_frst_half_life_hwp_paper_products``,none,,0,1,1,,0,none,none,,,
 Input,HWP Half Life Wood,Half life of carbon sequestered in wood products (HWP),``hl_frst_half_life_hwp_wood_products``,none,,0,1,1,,0,none,none,,,
 Input,Young Secondary Forest Above Ground Biomass Growth Rate," |Per-time period average above-ground biomass dry matter growth rate in  YOUNG (age < 20 yrs) secondary forestrs (entered as a number > 0, this is a positive number). Used to estimate carbon stock sequestration in biomass matter. 

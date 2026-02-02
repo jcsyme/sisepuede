@@ -81,6 +81,9 @@ class AFOLU:
         adjusting transition matrices. If None, defaults to config (IN 
         PROCESSS). Note that this threshold will not modify unadjusted diagonal
         transitions that begin below this constraint.
+    n_tps_no_withdrawals_new_growth : int
+        In Biomass Carbon Ledger, number of time periods where withdrawals from
+        new forests are prevented to allow for new growth.
     npp_curve : Union[str, npp.NPPCurve, None] 
         Optional specification of an NPP curve to use for dynamic forest 
         sequestration. In dynamic forest sequestration, forest sequestration 
@@ -97,7 +100,6 @@ class AFOLU:
         Net Primary Productivity (NPP) curve? If False, uses secondary forest 
         (non-young) sequestration factor as long term integration target. Only
         applies if `npp_curve` is specified as a valid curve.
-
     npp_integration_windows : arraylike
         Used for NPP curve fitting--to fit, integration is performed (or 
         estimated) in the windows specified here, and the average value by time
@@ -110,6 +112,7 @@ class AFOLU:
         attributes: ModelAttributes,
         logger: Union[logging.Logger, None] = None,
         min_diag_qadj: float = 0.98,
+        n_tps_no_withdrawals_new_growth: int = 20,
         npp_curve: Union[str, npp.NPPCurve, None] = None,
         npp_include_primary_forest: bool = False,
         npp_integration_windows: Union[list, tuple, np.ndarray] = _NPP_INTEGRATION_WINDOWS,
@@ -139,6 +142,7 @@ class AFOLU:
 
         # NPP and ledger
         self._initialize_ledger_properties(
+            n_tps_no_withdrawals_new_growth = n_tps_no_withdrawals_new_growth,
             npp_curve = npp_curve,
             npp_include_primary_forest = npp_include_primary_forest,
             npp_integration_windows = npp_integration_windows,
@@ -453,6 +457,7 @@ class AFOLU:
 
 
     def _initialize_ledger_properties(self,
+        n_tps_no_withdrawals_new_growth: int = 20,
         npp_curve: Union[str, npp.NPPCurve, None] = None,
         npp_include_primary_forest: bool = False,
         npp_integration_windows: Union[list, tuple, np.ndarray] = _NPP_INTEGRATION_WINDOWS,
@@ -469,6 +474,9 @@ class AFOLU:
                 ModelVariable storing target area units for the ledger
             * self.modvar_ledger_target_units_mass
                 ModelVariable storing target mass units for the ledger
+            * self.n_tps_no_withdrawals_new_growth
+                Default number of time periods to prevent removals from newly
+                planted forests to allow growth
             * self.npp_include_primary_forest
                 Include primary forest in the NPP integration? If True, will 
                 integrate so that the tail averages the primary forest
@@ -496,6 +504,12 @@ class AFOLU:
             tp = str(type(npp_integration_windows))
             raise RuntimeError(f"Unable to initialize npp_curve {npp_curve}: invalid integration window of type {tp} specified. Must be array-like.")
 
+        # verify that n_tps_no_withdrawals_new_growth is valid
+        n_tp_ng_error = not sf.isnumber(n_tps_no_withdrawals_new_growth, integer = True, )
+        n_tp_ng_error |= (n_tps_no_withdrawals_new_growth <= 0) if not n_tp_ng_error else n_tp_ng_error
+        if n_tp_ng_error:
+            raise TypeError(f"n_tps_no_withdrawals_new_growth must be a positive integer ")
+        
 
         ##  SET PROPERTIES
 
@@ -503,6 +517,7 @@ class AFOLU:
         self.ledger = None
         self.modvar_ledger_target_units_area = self.modvar_lndu_biomass_stock_factor_ag
         self.modvar_ledger_target_units_mass = self.modvar_lndu_biomass_stock_factor_ag
+        self.n_tps_no_withdrawals_new_growth = n_tps_no_withdrawals_new_growth
         self.npp_curve = npp_curve
         self.npp_include_primary_forest = npp_include_primary_forest
         self.npp_integration_windows = npp_integration_windows
@@ -2191,6 +2206,69 @@ class AFOLU:
         )
 
         return out
+    
+
+
+    def get_bcl(self,
+        df_afolu_trajectories: pd.DataFrame,
+        **kwargs,
+    ) -> None:
+        """Get the biomass carbon ledger
+        """
+        # demands
+        vec_demands = self.get_bcl_demand_removals(
+            df_afolu_trajectories,
+        )
+        
+        # initial area
+        vec_area_init = self.get_bcl_area_forests_initial(
+            df_afolu_trajectories,
+        ) 
+
+        # get growth rate and stocks
+        (
+            vec_biomass_c_ag_init_stst_storage,
+            vec_sf_nominal_initial,
+            vec_young_sf_curve_specification,
+        ) = self.get_bcl_growth_rates_and_stocks(
+            df_afolu_trajectories, 
+        )
+        
+        # other parameters
+        (
+            vec_biomass_c_bg_to_ag_ratio,
+            vec_frac_biomass_from_conversion_available_for_use,
+        ) = self.get_bcl_other_parameters(
+            df_afolu_trajectories, 
+        )
+
+        # removal thresholds
+        (
+            arr_frac_biomass_buffer,
+            arr_frac_biomass_dead_storage,
+            vec_frac_biomass_adjustment_threshold,
+        ) = self.get_bcl_removal_thresholds(
+            df_afolu_trajectories, 
+            **kwargs,
+        )
+        
+        # build the ledger
+        ledger = bcl.BiomassCarbonLedger(
+            df_afolu_trajectories.shape[0],
+            arr_frac_biomass_buffer,
+            arr_frac_biomass_dead_storage,
+            vec_area_init, #[10000, 250000],
+            vec_biomass_c_ag_init_stst_storage,
+            vec_biomass_c_bg_to_ag_ratio,
+            vec_frac_biomass_adjustment_threshold,
+            vec_frac_biomass_from_conversion_available_for_use,
+            vec_sf_nominal_initial,
+            vec_demands,
+            vec_young_sf_curve_specification,
+            n_tps_no_withdrawals_new_growth = self.n_tps_no_withdrawals_new_growth,
+        )
+        
+        return ledger
 
 
 
@@ -2296,6 +2374,88 @@ class AFOLU:
         return out
     
 
+
+    def get_bcl_area_forests_initial(self,
+        df_afolu_trajectories: pd.DataFrame,
+    ) -> pd.DataFrame:
+        """Retrieve initial areas of land from existing output by combining surface 
+            area with initial land use fractions. Returns a data frame named using
+            the 
+
+                self.modvar_lndu_area_by_cat   # (Land Use Area)
+
+            variable.
+        
+        Function Arguments
+        ------------------
+
+        Keyword Arguments
+        -----------------
+    
+        """
+        # initialization
+        modvar_area_source = self.model_socioeconomic.modvar_gnrl_area
+        ind_lndu_fstp, ind_lndu_fsts = self.get_lndu_indices_fstp_fsts()
+        modvar_area_target, _ = self.get_bcl_modvars_for_unit_targets()
+        
+        # get the area
+        vec_area = self.model_attributes.extract_model_variable(
+            df_afolu_trajectories,
+            self.model_socioeconomic.modvar_gnrl_area,
+            return_type = "array_base",
+        )
+        arr_props = self.model_attributes.extract_model_variable(
+            df_afolu_trajectories,
+            self.modvar_lndu_initial_frac,
+            return_type = "array_base",
+        )
+        
+        # convert to correct output units 
+        arr_out = sf.do_array_mult(arr_props, vec_area)
+        scalar = self.model_attributes.get_variable_unit_conversion_factor(
+            modvar_area_source,
+            modvar_area_target,
+            "area"
+        )
+
+        arr_out *= scalar
+        vec_out = arr_out[0, [ind_lndu_fstp, ind_lndu_fsts]]
+    
+        return vec_out
+    
+
+
+    def get_bcl_demand_removals(self,
+        df_afolu_trajectories: pd.DataFrame,
+    ) -> np.ndarray:
+        """Get the estimated demand for biomass removals
+        """
+        # approach:
+        # estimate demand
+        # Specify TotalTechnologyAnnualUpperLimit
+        # adjust Estimated MSP so that it doesn't conflict with TotalTechnologyAnnualUpperLimit
+        # Allow for biomass imports to avoid infeasibilities, but they should be expected to be small 
+        #       (will have to account for those differently)
+
+        print("TEMPORARY IMPLEMENTATION IN get_bcl_demand_removals(): DEMAND IS FOR DEMONSTRATION PURPOSES")
+
+        n_tp = df_afolu_trajectories.shape[0]
+        dem = [200000*np.exp(0 + x/36) for x in range(n_tp + 3)]
+        dem = [
+            2000000,
+            2050000,
+            2110000,
+            2210000,
+            3000000,
+            25000000,
+            2520000,
+        ] + [x*10 for x in dem[10:]]
+
+        dem = dem[0:n_tp]
+        
+        return dem
+    
+
     
     def get_bcl_growth_rates_and_stocks(self,
         df_afolu_trajectories: pd.DataFrame,
@@ -2363,7 +2523,7 @@ class AFOLU:
             return_type = "array_base",
         )
 
-        arr_stock_init = self.scale_mass_per_area_array(
+        arr_stock_init = self.scale_bcl_mass_per_area_array(
             arr_stock_init,
             modvar_lndu_stock_initial,
             modvar_targunits_area,
@@ -2474,7 +2634,7 @@ class AFOLU:
             var_bounds = (0, np.inf),
         )
 
-        vec_biomass_c_bg_to_ag_ratio = array_lndu_ratio_bg_to_ag[:, [ind_lndu_fstp, ind_lndu_fsts]]
+        vec_biomass_c_bg_to_ag_ratio = array_lndu_ratio_bg_to_ag[0, [ind_lndu_fstp, ind_lndu_fsts]]
 
 
         # fraction of converted biomass available for use
@@ -2665,6 +2825,67 @@ class AFOLU:
         
         # return as tuple
         out = (factors_initial, vec_sf, )
+
+        return out
+    
+
+
+    def get_bcl_update_args(self,
+        arr_transition_adj: np.ndarray,
+        vec_lndu_area_protected: np.ndarray,
+        vec_lndu_biomass_c_average_ag_stock: np.ndarray,
+        scalar_int_area_to_bcl_area: float,
+        scalar_int_mass_to_bcl_mass: float,
+    ) -> Tuple:
+        """Get the ordered input arguments to ledger._update(). Includes units
+            adjustments. 
+        """
+        # get key indicies
+        inds_lndu_frst = self.get_lndu_indices_fstp_fsts(include_mangroves = True, )
+        ind_lndu_fstm, ind_lndu_fstp, ind_lndu_fsts = inds_lndu_frst
+        inds_lndu_not_frst = [x for x in range(arr_transition_adj.shape[0]) if x not in inds_lndu_frst]
+
+
+        ##  AREAS
+
+        # get area transitioning into forests newly
+        area_into_fsts = arr_transition_adj[inds_lndu_not_frst, ind_lndu_fsts].sum()
+        area_into_fsts *= scalar_int_area_to_bcl_area
+
+        # get areas converted AWAY from primary and secondary forest
+        arr_transition_adj_frst_window = arr_transition_adj[
+            [ind_lndu_fstp, ind_lndu_fsts], 
+            inds_lndu_not_frst
+        ]
+        
+        vec_area_converted_away_fsts = arr_transition_adj_frst_window.sum(axis = 1, )
+        vec_area_converted_away_fsts *= scalar_int_area_to_bcl_area
+
+
+        ##  AVERAGE MASS PER UNIT AREA IN TARGETS
+
+        vec_lndu_avg_biomass = vec_lndu_biomass_c_average_ag_stock.copy()/scalar_int_area_to_bcl_area
+        vec_lndu_avg_biomass *= scalar_int_mass_to_bcl_mass
+
+        # normalize shares of land use targets to 1 for use in weighting land use
+        arr_lndu_shares_by_frst = sf.check_row_sums(
+            arr_transition_adj_frst_window,
+            thresh_correction = None,
+        )
+        vec_avg_stock_in_targets_in_ledger = (
+            arr_lndu_shares_by_frst*vec_lndu_avg_biomass[[ind_lndu_fstp, ind_lndu_fsts]]
+        ).sum(axis = 1)
+
+        # adjust as inputs to ledger
+        vec_area_protected_in_ledger = vec_lnud_area_protected*scalar_int_area_to_bcl_area
+    
+
+        out = (
+            area_into_fsts,
+            vec_area_converted_away_fsts,
+            vec_area_protected_in_ledger,
+            vec_avg_stock_in_targets_in_ledger,
+        )
 
         return out
     
@@ -3591,7 +3812,7 @@ class AFOLU:
         )
 
         # correct to target units (based on modvar_to_correct_to_ ... )
-        arr_frst_ef_sequestration = self.scale_mass_per_area_array(
+        arr_frst_ef_sequestration = self.scale_bcl_mass_per_area_array(
             arr_frst_ef_sequestration,
             modvar_sequestration,
             modvar_to_correct_to_area,
@@ -3670,7 +3891,7 @@ class AFOLU:
         """
         modvar_area_target = self.model_attributes.get_variable(modvar_area_target)
         modvar_area_target = (
-            self.model_socioeconomic.modvar_gnrl_area
+            self.get_lndu_integrated_target_area_modvar()
             if modvar_area_target is None
             else modvar_area_target
         )
@@ -3733,6 +3954,7 @@ class AFOLU:
 
     def get_lndu_indices_fstp_fsts(self,
         return_categories: bool = False,
+        include_mangroves: bool = False,
     ) -> Tuple:
         """Get the indices of primary forest and secondary forest in
             Land Use.
@@ -3743,28 +3965,31 @@ class AFOLU:
             .subsec_name_lndu
         )
         
-        cat_lndu_fstp = (
-            self
-            .dict_cats_frst_to_cats_lndu
-            .get(self.cat_frst_prim, )
-        )
+        cat_lndu_fstm = self.dict_cats_frst_to_cats_lndu.get(self.cat_frst_mang, )
+        cat_lndu_fstp = self.dict_cats_frst_to_cats_lndu.get(self.cat_frst_prim, )
+        cat_lndu_fsts = self.dict_cats_frst_to_cats_lndu.get(self.cat_frst_scnd, )
         
-        cat_lndu_fsts = (
-            self
-            .dict_cats_frst_to_cats_lndu
-            .get(self.cat_frst_scnd, )
-        )
-
+        # initialize output
+        out = [cat_lndu_fstp, cat_lndu_fsts]
+        if include_mangroves: out.prepend(cat_lndu_fstm)
         if return_categories:
-            out = (cat_lndu_fstp, cat_lndu_fsts, )
-            return out
-
+            return tuple(out)
         
-        # get indices
-        ind_lndu_fstp = attr_lndu.get_key_value_index(cat_lndu_fstp, )
-        ind_lndu_fsts = attr_lndu.get_key_value_index(cat_lndu_fsts, )
+        # otherwise, get ordered indices
+        out = tuple([attr_lndu.get_key_value_index(x, ) for x in out])
 
-        out = (ind_lndu_fstp, ind_lndu_fsts, )
+        return out
+    
+
+
+    def get_lndu_integrated_target_area_modvar(self,
+    ) -> 'ModelVariable':
+        """Get the standard ModelVariable to use for the target units for the 
+            integrated land use model.
+        """
+        out = self.model_attributes.get_variable(
+            self.model_socioeconomic.modvar_gnrl_area,
+        )
 
         return out
 
@@ -4230,10 +4455,10 @@ class AFOLU:
 
     def get_markov_matrices(self,
         df_ordered_trajectories: pd.DataFrame,
-        correct_emission_units: bool = True,
         n_tp: Union[int, None] = None,
         return_c_stock_conversion_factors: bool = True,
-        target_units_area_modvar: Union[str, 'ModelVariable', None] = None,
+        modvar_target_units_area: Union[str, 'ModelVariable', None] = None,
+        modvar_target_units_mass: Union[str, 'ModelVariable', None] = None,
         thresh_correct: float = 0.0001,
     ) -> Union[np.ndarray, Tuple[np.ndarray, np.ndarray]]:
         """Get the transition and emission factors matrices from the data frame 
@@ -4248,8 +4473,6 @@ class AFOLU:
 
         Keyword Arguments
         -----------------
-        correct_emission_units : bool
-            Correct emissions to configuration units?
         return_c_stock_conversion_factors : bool
             Return C stock converion factors as well?
             * False:    Returns ONLY the array of transition probabilities (not
@@ -4265,11 +4488,17 @@ class AFOLU:
                             arr_c_lndu_agb, # array of c above ground biomass
                         )
 
-        target_units_area_modvar : Union[str, 'ModelVariable', None]
-            modvar that will drive emissions, used to 
-            identify target area units to which conversion emission factors are 
-            applied. 
-            * If None, no adjustment is made
+        modvar_target_units_area : Union[str, 'ModelVariable', None]
+            ModelVariable used to identify target area units for output
+            *   If None, no adjustment is made (remain in terms of 
+                self.modvar_lndu_biomass_stock_factor_ag)
+        modvar_target_units_mass : Union[str, 'ModelVariable', None]
+            ModelVariable used to identify target mass units for the outputs
+            *   If None, no adjustment is made (remain in terms of 
+                self.modvar_lndu_biomass_stock_factor_ag)
+        modvar_target_units_mass : Union[str, 'ModelVariable', None]
+            ModelVariable used to identify target mass units for the
+            BiomassCarbonLedger and all associated 
         n_tp : Union[int, None]
             The number of time periods. Default value is None, which implies all 
             time periods
@@ -4325,10 +4554,12 @@ class AFOLU:
             attr_lndu = attr_lndu,
         )
 
-        # convert units to output units
-        if correct_emission_units:
-            scalar = self.model_attributes.get_scalar(
+        # convert units to target?
+        modvar_target_units_mass = self.model_attributes.get_variable(modvar_target_units_mass, )
+        if modvar_target_units_mass is not None:
+            scalar = self.model_attributes.get_variable_unit_conversion_factor(
                 self.modvar_lndu_biomass_stock_factor_ag,
+                modvar_target_units_mass,
                 "mass"
             )
 
@@ -4337,9 +4568,10 @@ class AFOLU:
             arr_c_lndu_agb *= scalar
 
         # ensure area is accounted for
-        if self.model_attributes.get_variable(target_units_area_modvar) is not None:
+        modvar_target_units_area = self.model_attributes.get_variable(modvar_target_units_area, )
+        if modvar_target_units_area is not None:
             scalar = self.model_attributes.get_variable_unit_conversion_factor(
-                target_units_area_modvar,
+                modvar_target_units_area,
                 self.modvar_lndu_biomass_stock_factor_ag,
                 "area"
             )
@@ -5635,9 +5867,9 @@ class AFOLU:
         df_afolu_trajectories: pd.DataFrame,
         vec_initial_area: np.ndarray,
         arrs_transitions: np.ndarray,
+        arr_c_lndu_agb: np.ndarray,
         arrs_c_agb: np.ndarray,
         arrs_c_bgb: np.ndarray,
-        arr_c_init_agb: np.ndarray,
         arr_agrc_production_nonfeed_unadj: np.ndarray,
         arr_agrc_yield_factors: np.ndarray,
         arr_lndu_constraints_inf: np.ndarray,
@@ -5678,14 +5910,10 @@ class AFOLU:
             Initial state vector of area
         arrs_transitions : np.ndarray
             Array of transition matrices, ordered by time period
-        arrs_c_agb : np.ndarray
-            Array of above-ground biomass c stock conversion factors, in terms 
-            of output units of mass per area (units of vec_initial_area)
-        arrs_c_bgb : np.ndarray
-            Array of below-ground biomass c stock conversion factors, in terms 
-            of output units of mass per area (units of vec_initial_area)
-        arr_c_init_agb : np.ndarray
-            Initial 
+        arr_c_lndu_agb: np.ndarray
+            Array storing above ground biomass
+        arrs_c_agb: np.ndarray
+        arrs_c_bgb: np.ndarray
         arr_agrc_production_nonfeed_unadj : np.ndarray
             Array of agricultural non-feed demand yield (human consumption)
         arr_agrc_yield_factors : np.ndarray
@@ -5750,6 +5978,8 @@ class AFOLU:
 
         """
         
+        ##  BASE INITIALIZATION
+
         t0 = time.time()
 
         # check shapes
@@ -5770,6 +6000,19 @@ class AFOLU:
         ]
         m = attr_lndu.n_key_values
 
+        # scalar to convert input area values to biomass carbon ledger values
+        modvar_bcl_area, modvar_bcl_mass = self.get_bcl_modvars_for_unit_targets() 
+        scalar_int_area_to_bcl_area = self.model_attributes.get_variable_unit_conversion_factor(
+            self.get_lndu_integrated_target_area_modvar(),
+            modvar_bcl_area,
+        )
+
+        scalar_int_mass_to_bcl_mass = self.model_attributes.get_variable_unit_conversion_factor(
+            self.modvar_lndu_biomass_stock_factor_ag,
+            modvar_bcl_area,
+        )
+
+
 
         ##  INITIALIZE OUTPUT ARRAYS AND VARIABLES
 
@@ -5778,14 +6021,6 @@ class AFOLU:
         arr_agrc_net_import_increase = np.zeros((n_tp, attr_agrc.n_key_values))
         arr_agrc_change_to_net_imports_lost = np.zeros((n_tp, attr_agrc.n_key_values))
         
-        # initialize carbon stock stored in above-ground biomass in forests
-        arr_c_stock_frsts = vec_initial_area[inds_frst]*arr_c_init_agb[0, inds_frst]
-        arr_c_stock_frsts = np.repeat(
-            [arr_c_stock_frsts],
-            n_tp,
-            axis = 0,
-        )
-
         # 
 
         # get yield
@@ -5801,14 +6036,19 @@ class AFOLU:
         # livestock demands
         arr_lvst_dem_adj = arr_lvst_dem.copy().astype(int)
         arr_lvst_pop_adj = arr_lvst_dem.copy().astype(int)
-
         arr_lvst_net_import_increase = np.zeros((n_tp, attr_lvst.n_key_values))
         arr_lvst_change_to_net_imports_lost = np.zeros((n_tp, attr_lvst.n_key_values))
+        vec_lvst_dem_gr_iterator = np.ones(len(arr_lvst_dem[0]))
+
+        # land use
         arrs_land_conv = np.zeros((n_tp, attr_lndu.n_key_values, attr_lndu.n_key_values))
         arrs_transitions_adj = np.zeros(arrs_transitions.shape)
 
+        # other
         arrs_yields_per_livestock = np.array([arr_lndu_yield_by_lvst for k in range(n_tp)])
-
+        
+        # initialize the ledger
+        ledger = self.get_bcl(df_afolu_trajectories, )
         
         # initialize biomass removals demand
         ##  HARVESTED WOOD PRODUCTS
@@ -5820,8 +6060,7 @@ class AFOLU:
 
         ##  INITIALIZE VARIABLES
 
-        vec_lvst_dem_gr_iterator = np.ones(len(arr_lvst_dem[0]))
-
+        
 
 
         """
@@ -5854,20 +6093,12 @@ class AFOLU:
         i = 0
 
         while i < n_tp - 1:
-            
-            # check emission factor index
-            i_ef = i if (i < len(arrs_efs)) else len(arrs_efs) - 1
-            if i_ef != i:
-                self._log(
-                    f"No emission factor matrix found for time period {self.time_periods[i]}; using the matrix from period {len(arrs_efs) - 1}.",
-                    type_log = "warning"
-                )
 
             # check transition matrix index
             i_tr = i if (i < len(arrs_transitions)) else len(arrs_transitions) - 1
             if i_tr != i:
                 self._log(
-                    f"No transition matrix found for time period {self.time_periods[i]}; using the matrix from period {len(arrs_efs) - 1}.",
+                    f"No transition matrix found for time period {self.time_periods[i]}; using the matrix from period {len(arrs_transitions) - 1}.",
                     type_log = "warning"
                 )
 
@@ -6048,6 +6279,21 @@ class AFOLU:
 
             ##  CALCULATE FINAL LAND CONVERSION AND EMISSIONS 
 
+            # update the ledger
+            args_bcl = self.get_bcl_update_args(
+                arr_transition_adj,
+                arr_lndu_constraints_inf[i],
+                arr_c_lndu_agb[i],
+                scalar_int_area_to_bcl_area,
+                scalar_int_mass_to_bcl_mass,
+            )
+            ledger._update(i, *args_bcl, )
+
+            
+            
+            # now, estimate emissions
+            #
+            # NEED FUNCTION HERE FOR CONVERSIONS
             arr_land_conv = (arr_transition_adj.transpose()*x.transpose()).transpose()
             arr_emissions_conv_matrix = (arr_transition_adj*arrs_efs[i_ef]).transpose()*x.transpose() # sums across columns
             arr_emissions_conv_matrix = arr_emissions_conv_matrix.transpose()
@@ -6113,7 +6359,7 @@ class AFOLU:
             arrs_transitions_adj,
             arrs_yields_per_livestock,
         )
-    
+        
         return out
 
 
@@ -6458,7 +6704,7 @@ class AFOLU:
     
 
 
-    def scale_mass_per_area_array(self,
+    def scale_bcl_mass_per_area_array(self,
         arr_to_scale: np.ndarray,
         modvar_base: Union['ModelVariable', str],
         modvar_to_correct_to_area: Union['ModelVariable', str, None],
@@ -6658,10 +6904,9 @@ class AFOLU:
 
         tup = self.get_markov_matrices(
             df_afolu_trajectories, 
-            correct_emission_units = True,
             n_tp = n_projection_time_periods,
             return_c_stock_conversion_factors = True,
-            target_units_area_modvar = self.model_socioeconomic.modvar_gnrl_area,
+            modvar_target_units_area = self.get_lndu_integrated_target_area_modvar(),
         )
 
         (
@@ -6739,6 +6984,7 @@ class AFOLU:
             vec_pop,
             vec_rates_gdp_per_capita,
         )
+    
         
 
 
