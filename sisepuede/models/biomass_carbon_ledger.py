@@ -1570,7 +1570,7 @@ class BiomassCarbonLedger:
         frac_decomp = self.vec_frac_biomass_ag_decomposition[i]
         ind_fs = self.ind_frst_secondary
         removals_from_conv = self.vec_biomass_c_removals_from_converted[i]
-
+                            
         vec_c_ag_conv = self.arr_orig_biomass_c_ag_converted_away[i]
         vec_c_ag_conv_pres = self.arr_orig_biomass_c_ag_preserved_in_conversion[i]
         vec_c_ag_removed = self.arr_orig_biomass_c_removed_from_forests[i]
@@ -1581,15 +1581,13 @@ class BiomassCarbonLedger:
         ##  UPDATES
 
         # 1. above-ground biomass lost to conversion: arr_biomass_c_ag_lost_conversion
-        
+        # Note that the removals from forests *includes* removals from young forests in 
+        # secondary; we have to add total converted C from young back in 
         vec_c_ag_lost_conv = (
             vec_c_ag_conv 
             - vec_c_ag_conv_pres 
             - removals_from_conv*vec_frac_c_rmv_alloc
         )
-
-        # the removals from forests *includes* removals from young forests in 
-        # secondary; we have to add total converted C from young back in 
         vec_c_ag_lost_conv[ind_fs] += c_avail_conv_young
 
         self.arr_biomass_c_ag_lost_conversion[i] = vec_c_ag_lost_conv
@@ -1597,9 +1595,8 @@ class BiomassCarbonLedger:
 
         # 2. above-ground biomass lost to decomposition: arr_biomass_c_ag_lost_decomposition
         
-        vec_c_ag_lost_decomp = frac_decomp*(vec_c_ag_starting - vec_c_ag_conv - vec_c_ag_removed)
-        
         # have to add in young decomp
+        vec_c_ag_lost_decomp = frac_decomp*(vec_c_ag_starting - vec_c_ag_conv - vec_c_ag_removed)
         vec_c_ag_lost_decomp[ind_fs] += c_decomp_young
         
         self.arr_biomass_c_ag_lost_decomposition[i] = vec_c_ag_lost_decomp
@@ -1607,8 +1604,8 @@ class BiomassCarbonLedger:
 
         # 3. below-ground biomass lost from conversion: arr_biomass_c_bg_lost_conversion
 
-        vec_c_bg_conv = vec_c_ag_conv.copy()
-        vec_c_bg_conv[ind_fs] += c_avail_conv_young
+        vec_c_bg_conv = vec_c_ag_conv.copy() - vec_c_ag_conv_pres
+        vec_c_bg_conv[ind_fs] += c_avail_conv_young 
         vec_c_bg_conv *= self.vec_biomass_c_bg_to_ag_ratio
 
         self.arr_biomass_c_bg_lost_conversion[i] = vec_c_bg_conv
