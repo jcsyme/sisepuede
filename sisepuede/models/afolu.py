@@ -2877,7 +2877,7 @@ class AFOLU:
         ).sum(axis = 1)
 
         # adjust as inputs to ledger
-        vec_area_protected_in_ledger = vec_lnud_area_protected*scalar_int_area_to_bcl_area
+        vec_area_protected_in_ledger = vec_lndu_area_protected*scalar_int_area_to_bcl_area
     
 
         out = (
@@ -3971,7 +3971,9 @@ class AFOLU:
         
         # initialize output
         out = [cat_lndu_fstp, cat_lndu_fsts]
-        if include_mangroves: out.prepend(cat_lndu_fstm)
+        if include_mangroves: 
+            out = [cat_lndu_fstm] + out
+            
         if return_categories:
             return tuple(out)
         
@@ -6289,7 +6291,7 @@ class AFOLU:
             )
             ledger._update(i, *args_bcl, )
 
-            
+
             
             # now, estimate emissions
             #
