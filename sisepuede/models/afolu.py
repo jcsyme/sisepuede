@@ -2425,6 +2425,89 @@ class AFOLU:
     
 
 
+    def get_bcl_conversion_of_stock(self,
+        i: int,
+        ledger: 'BiomassCarbonLedger',
+        arr_transition_adj: np.ndarray,
+        arr_conv_agb: np.ndarray,
+        arr_conv_bgb: np.ndarray,
+        vec_area_0: np.ndarray, # array at start of time step
+        vec_c_lndu_agb: np.ndarray,#arr_c_lndu_agb[i],
+        vec_c_lndu_ratio_bg_to_ag: np.ndarray,#arr_c_lndu_agb[i],
+        scalar_int_mass_to_bcl_mass: float,
+    ) -> Tuple[np.ndarray]:
+        """Get matrices of above-ground and below ground biomass emissions from 
+            conversion from the BiomassCarbonLedger, adjusted transition 
+            matrices, and above- and below-ground biomass stocks in each land 
+            use class.
+        """
+
+        inds_lndu_frst = self.get_lndu_indices_fstp_fsts(include_mangroves = True, )
+        ind_lndu_fstm, ind_lndu_fstp, ind_lndu_fsts = inds_lndu_frst
+        inds_lndu_not_frst = [x for x in range(arr_transition_adj.shape[0]) if x not in inds_lndu_frst]
+        
+        # get average biomass stock for each forest t
+        vec_avg_biomass_ag_stock_factor = ledger.arr_orig_biomass_c_ag_average_per_area[i]
+        vec_avg_biomass_bg_stock_factor = vec_avg_biomass_ag_stock_factor*vec_c_lndu_ratio_bg_to_ag[[ind_lndu_fstp, ind_lndu_fsts]]
+
+        # get areas converted (long--j to i), then transpose areas converted matrix back to original (i -> j)
+        arr_area_transitions = vec_area_0*arr_transition_adj.transpose()
+        arr_converted = arr_area_transitions[:, [ind_lndu_fstp, ind_lndu_fsts]]
+        arr_area_transitions = arr_area_transitions.transpose()
+        # arr_converted *= scalar_int_area_to_bcl_area
+
+        # get difference between biomass 
+        arr_biomass_ag_diff_from_target_stocks = vec_c_lndu_agb*np.ones((2, vec_c_lndu_agb.shape[0]))
+        arr_biomass_bg_diff_from_target_stocks = arr_biomass_ag_diff_from_target_stocks.copy()*vec_c_lndu_ratio_bg_to_ag
+        arr_biomass_ag_diff_from_target_stocks = arr_biomass_ag_diff_from_target_stocks.transpose()
+        arr_biomass_bg_diff_from_target_stocks = arr_biomass_bg_diff_from_target_stocks.transpose()
+
+
+        ##  GET ALLOCATIONS BY TARGET CLASSES
+        
+        # get the allocation of biomass conversion -- above-ground
+        arr_alloc_biomass_to_target_stocks_ag = vec_avg_biomass_ag_stock_factor - arr_biomass_ag_diff_from_target_stocks
+        arr_alloc_biomass_to_target_stocks_ag *= arr_converted
+        arr_alloc_biomass_to_target_stocks_ag[inds_lndu_frst, :] = 0
+
+        # get the allocation of biomass conversion -- below-ground
+        arr_alloc_biomass_to_target_stocks_bg = vec_avg_biomass_bg_stock_factor - arr_biomass_bg_diff_from_target_stocks
+        arr_alloc_biomass_to_target_stocks_bg *= arr_converted
+        arr_alloc_biomass_to_target_stocks_bg[inds_lndu_frst, :] = 0
+
+        # normalize
+        arr_alloc_biomass_to_target_stocks_ag /= arr_alloc_biomass_to_target_stocks_ag.sum(axis = 0, )
+        arr_alloc_biomass_to_target_stocks_bg /= arr_alloc_biomass_to_target_stocks_bg.sum(axis = 0, )
+
+
+        ##  GET CONVERSION MASS FROM LEDGER AND OVERWRITE BASIC MATRIX
+
+        # get the amount of C to attribute to conversion from the ledger
+        vec_biomass_converted_ag = ledger.arr_biomass_c_ag_lost_conversion[i]/scalar_int_mass_to_bcl_mass
+        vec_biomass_converted_bg = ledger.arr_biomass_c_bg_lost_conversion[i]/scalar_int_mass_to_bcl_mass
+
+        #  distribute via fractional allocation
+        arr_alloc_biomass_to_target_stocks_ag *= vec_biomass_converted_ag
+        arr_alloc_biomass_to_target_stocks_bg *= vec_biomass_converted_bg
+        
+        # get total biomass converted from basic matrix
+        arr_conv_agb_out = arr_conv_agb * arr_area_transitions
+        arr_conv_bgb_out = arr_conv_bgb * arr_area_transitions
+
+        # finally, over write basic matrix for primary and secondary forest with allocated totals from ledger
+        arr_conv_agb_out[[ind_lndu_fstp, ind_lndu_fsts], :] = arr_alloc_biomass_to_target_stocks_ag.transpose()
+        arr_conv_bgb_out[[ind_lndu_fstp, ind_lndu_fsts], :] = arr_alloc_biomass_to_target_stocks_bg.transpose()
+
+
+        out = (
+            arr_conv_agb_out,
+            arr_conv_bgb_out,
+        )
+        
+        return out
+        
+
+
     def get_bcl_demand_removals(self,
         df_afolu_trajectories: pd.DataFrame,
     ) -> np.ndarray:
@@ -2832,8 +2915,10 @@ class AFOLU:
 
     def get_bcl_update_args(self,
         arr_transition_adj: np.ndarray,
+        vec_lndu_area_0: np.ndarray,   # x at beginning
         vec_lndu_area_protected: np.ndarray,
         vec_lndu_biomass_c_average_ag_stock: np.ndarray,
+        vec_lndu_biomass_c_ratio_bg_to_ag: np.ndarray,
         scalar_int_area_to_bcl_area: float,
         scalar_int_mass_to_bcl_mass: float,
     ) -> Tuple:
@@ -2844,47 +2929,59 @@ class AFOLU:
         inds_lndu_frst = self.get_lndu_indices_fstp_fsts(include_mangroves = True, )
         ind_lndu_fstm, ind_lndu_fstp, ind_lndu_fsts = inds_lndu_frst
         inds_lndu_not_frst = [x for x in range(arr_transition_adj.shape[0]) if x not in inds_lndu_frst]
-
+        vec_lndu_area_0
 
         ##  AREAS
 
-        # get area transitioning into forests newly
-        area_into_fsts = arr_transition_adj[inds_lndu_not_frst, ind_lndu_fsts].sum()
-        area_into_fsts *= scalar_int_area_to_bcl_area
+        arr_transition_adj_area = (vec_lndu_area_0*arr_transition_adj.transpose()).transpose()
 
+        # get area transitioning into forests newly
+        area_into_fsts = arr_transition_adj_area[inds_lndu_not_frst, ind_lndu_fsts].sum()
+        area_into_fsts *= scalar_int_area_to_bcl_area
+ 
         # get areas converted AWAY from primary and secondary forest
-        arr_transition_adj_frst_window = arr_transition_adj[
-            [ind_lndu_fstp, ind_lndu_fsts], 
-            inds_lndu_not_frst
+        arr_transition_adj_frst_window = arr_transition_adj_area[
+            np.ix_(
+                [ind_lndu_fstp, ind_lndu_fsts], 
+                inds_lndu_not_frst,
+            )
         ]
-        
+
         vec_area_converted_away_fsts = arr_transition_adj_frst_window.sum(axis = 1, )
         vec_area_converted_away_fsts *= scalar_int_area_to_bcl_area
 
 
         ##  AVERAGE MASS PER UNIT AREA IN TARGETS
 
-        vec_lndu_avg_biomass = vec_lndu_biomass_c_average_ag_stock.copy()/scalar_int_area_to_bcl_area
-        vec_lndu_avg_biomass *= scalar_int_mass_to_bcl_mass
+        vec_lndu_avg_biomass_ag = vec_lndu_biomass_c_average_ag_stock.copy()/scalar_int_area_to_bcl_area
+        vec_lndu_avg_biomass_ag *= scalar_int_mass_to_bcl_mass
+        vec_lndu_avg_biomass_bg = vec_lndu_avg_biomass_ag * vec_lndu_biomass_c_ratio_bg_to_ag
 
         # normalize shares of land use targets to 1 for use in weighting land use
         arr_lndu_shares_by_frst = sf.check_row_sums(
             arr_transition_adj_frst_window,
             thresh_correction = None,
         )
-        vec_avg_stock_in_targets_in_ledger = (
-            arr_lndu_shares_by_frst*vec_lndu_avg_biomass[[ind_lndu_fstp, ind_lndu_fsts]]
+
+        # get weighted averages
+        vec_avg_stock_ag_in_targets_in_ledger = (
+            arr_lndu_shares_by_frst*vec_lndu_avg_biomass_ag[inds_lndu_not_frst]
+        ).sum(axis = 1)
+
+        vec_avg_stock_bg_in_targets_in_ledger = (
+            arr_lndu_shares_by_frst*vec_lndu_avg_biomass_bg[inds_lndu_not_frst]
         ).sum(axis = 1)
 
         # adjust as inputs to ledger
-        vec_area_protected_in_ledger = vec_lndu_area_protected*scalar_int_area_to_bcl_area
+        vec_area_protected_in_ledger = vec_lndu_area_protected[[ind_lndu_fstp, ind_lndu_fsts]]*scalar_int_area_to_bcl_area
     
 
         out = (
             area_into_fsts,
             vec_area_converted_away_fsts,
             vec_area_protected_in_ledger,
-            vec_avg_stock_in_targets_in_ledger,
+            vec_avg_stock_ag_in_targets_in_ledger,
+            vec_avg_stock_bg_in_targets_in_ledger,
         )
 
         return out
@@ -3044,14 +3141,14 @@ class AFOLU:
 
 
     def format_lndu_conversion_emissions_and_scale_secondary_forest(self,
-        arrs_lndu_emissions_conv_matrices: np.ndarray,
+        arrs_lndu_emissions_conv_agb_matrices: np.ndarray,
         scalar_secondary_forest_conversions: Union[np.ndarray, float] = 1.0,
     ) -> pd.DataFrame:
         """Scale conversion emissions *out* of secondary forest based on biomass
             accumulation from NPP (calculate assuming that original secondary
             is coverted first) 
         """
-        arrs_out = arrs_lndu_emissions_conv_matrices.copy()
+        arrs_out = arrs_lndu_emissions_conv_agb_matrices.copy()
         n, _ = arrs_out[0].shape
         w = np.where(np.arange(n) != self.ind_lndu_fsts)[0]
 
@@ -5870,6 +5967,7 @@ class AFOLU:
         vec_initial_area: np.ndarray,
         arrs_transitions: np.ndarray,
         arr_c_lndu_agb: np.ndarray,
+        arr_c_lndu_ratio_bg_to_ag: np.ndarray,
         arrs_c_agb: np.ndarray,
         arrs_c_bgb: np.ndarray,
         arr_agrc_production_nonfeed_unadj: np.ndarray,
@@ -5969,7 +6067,7 @@ class AFOLU:
         - arr_agrc_net_import_increase,
         - arr_agrc_yield,
         - arr_emissions_conv,
-        - arr_emissions_conv_matrices,
+        - arr_emissions_conv_agb_matrices,
         - arr_land_use,
         - arr_lvst_change_to_net_imports_lost,
         - arr_lvst_net_import_increase,
@@ -6007,11 +6105,13 @@ class AFOLU:
         scalar_int_area_to_bcl_area = self.model_attributes.get_variable_unit_conversion_factor(
             self.get_lndu_integrated_target_area_modvar(),
             modvar_bcl_area,
+            "area",
         )
 
         scalar_int_mass_to_bcl_mass = self.model_attributes.get_variable_unit_conversion_factor(
             self.modvar_lndu_biomass_stock_factor_ag,
-            modvar_bcl_area,
+            modvar_bcl_mass,
+            "mass",
         )
 
 
@@ -6032,7 +6132,8 @@ class AFOLU:
         ])
         
         arr_emissions_conv = np.zeros((n_tp, attr_lndu.n_key_values))
-        arr_emissions_conv_matrices = np.zeros(arrs_transitions.shape)
+        arr_emissions_conv_agb_matrices = np.zeros(arrs_transitions.shape)
+        arr_emissions_conv_bgb_matrices = np.zeros(arrs_transitions.shape)
         arr_land_use = np.array([vec_initial_area for k in range(n_tp)])
         
         # livestock demands
@@ -6058,7 +6159,7 @@ class AFOLU:
         # GET DEMANDS HERE
         
 
-        ##  HEREHEREHERE
+        ##  
 
         ##  INITIALIZE VARIABLES
 
@@ -6284,24 +6385,37 @@ class AFOLU:
             # update the ledger
             args_bcl = self.get_bcl_update_args(
                 arr_transition_adj,
+                x,
                 arr_lndu_constraints_inf[i],
                 arr_c_lndu_agb[i],
+                arr_c_lndu_ratio_bg_to_ag[i],
                 scalar_int_area_to_bcl_area,
                 scalar_int_mass_to_bcl_mass,
             )
             ledger._update(i, *args_bcl, )
 
+            # get biomass loss from conversion
+            (
+                arr_emissions_agb_conv_matrix,
+                arr_emissions_bgb_conv_matrix,
+            ) = self.get_bcl_conversion_of_stock(
+                i,
+                ledger,
+                arr_transition_adj,
+                arrs_c_agb[i],
+                arrs_c_bgb[i],
+                x,                              # area of land at beginning of time period
+                arr_c_lndu_agb[i],
+                arr_c_lndu_ratio_bg_to_ag[i],
+                scalar_int_mass_to_bcl_mass,
+            )
 
-            
-            # now, estimate emissions
-            #
-            # NEED FUNCTION HERE FOR CONVERSIONS
             arr_land_conv = (arr_transition_adj.transpose()*x.transpose()).transpose()
-            arr_emissions_conv_matrix = (arr_transition_adj*arrs_efs[i_ef]).transpose()*x.transpose() # sums across columns
-            arr_emissions_conv_matrix = arr_emissions_conv_matrix.transpose()
-            vec_emissions_conv = arr_emissions_conv_matrix.sum(axis = 1)
-
+            vec_emissions_conv = arr_emissions_agb_conv_matrix.sum(axis = 1)
+            vec_emissions_conv += arr_emissions_bgb_conv_matrix.sum(axis = 1)
+                        
             if i + 1 < n_tp:
+
                 # update agriculture arrays
                 rng_agrc = list(range((i + 1)*attr_agrc.n_key_values, (i + 2)*attr_agrc.n_key_values))
                 np.put(arr_agrc_change_to_net_imports_lost, rng_agrc, vec_agrc_unmet_demand_yields_lost)
@@ -6318,7 +6432,8 @@ class AFOLU:
             np.put(arr_land_use, rng_put, x)
             np.put(arr_emissions_conv, rng_put, vec_emissions_conv)
 
-            arr_emissions_conv_matrices[i] = arr_emissions_conv_matrix
+            arr_emissions_conv_agb_matrices[i] = arr_emissions_agb_conv_matrix
+            arr_emissions_conv_bgb_matrices[i] = arr_emissions_bgb_conv_matrix
             arrs_land_conv[i] = arr_land_conv
             arrs_transitions_adj[i] = arr_transition_adj
 
@@ -6327,24 +6442,55 @@ class AFOLU:
             i += 1
 
 
+
+
+
         # add on final time step by repeating the transition matrix
         trans_adj = arrs_transitions_adj[i - 1]
 
-        # calculate final land conversion and emissions
-        arr_land_conv = (trans_adj.transpose()*x.transpose()).transpose()
-        arr_emissions_conv_matrix = (trans_adj*arrs_efs[len(arrs_efs) - 1]).transpose()*x.transpose() # sums across columns
-        arr_emissions_conv_matrix = arr_emissions_conv_matrix.transpose()
-        vec_emissions_conv = arr_emissions_conv_matrix.sum(axis = 1)
-        
+        # update the ledger
+        args_bcl = self.get_bcl_update_args(
+            trans_adj,
+            x,
+            arr_lndu_constraints_inf[i],
+            arr_c_lndu_agb[i],
+            arr_c_lndu_ratio_bg_to_ag[i],
+            scalar_int_area_to_bcl_area,
+            scalar_int_mass_to_bcl_mass,
+        )
+        ledger._update(i, *args_bcl, )
+
+        # get biomass loss from conversion
+        (
+            arr_emissions_agb_conv_matrix,
+            arr_emissions_bgb_conv_matrix,
+        ) = self.get_bcl_conversion_of_stock(
+            i,
+            ledger,
+            arr_transition_adj,
+            arrs_c_agb[i],
+            arrs_c_bgb[i],
+            x,                              # area of land at beginning of time period
+            arr_c_lndu_agb[i],
+            arr_c_lndu_ratio_bg_to_ag[i],
+            scalar_int_mass_to_bcl_mass,
+        )
+
+        arr_land_conv = (arr_transition_adj.transpose()*x.transpose()).transpose()
+        vec_emissions_conv = arr_emissions_agb_conv_matrix.sum(axis = 1)
+        vec_emissions_conv += arr_emissions_bgb_conv_matrix.sum(axis = 1)
+
         # add to tables
         rng_put = np.arange((i)*attr_lndu.n_key_values, (i + 1)*attr_lndu.n_key_values)
         np.put(arr_land_use, rng_put, x)
         np.put(arr_emissions_conv, rng_put, vec_emissions_conv)
 
         # update matrix lists
-        arr_emissions_conv_matrices[i] = arr_emissions_conv_matrix
+        arr_emissions_conv_agb_matrices[i] = arr_emissions_agb_conv_matrix
+        arr_emissions_conv_bgb_matrices[i] = arr_emissions_bgb_conv_matrix
         arrs_land_conv[i] = arr_land_conv
         arrs_transitions_adj[i] = trans_adj
+
 
         out = (
             arr_agrc_change_to_net_imports_lost,
@@ -6352,7 +6498,8 @@ class AFOLU:
             arr_agrc_net_import_increase,
             arr_agrc_yield,
             arr_emissions_conv,
-            arr_emissions_conv_matrices,
+            arr_emissions_conv_agb_matrices,
+            arr_emissions_conv_bgb_matrices,
             arr_land_use,
             arr_lvst_change_to_net_imports_lost,
             arr_lvst_net_import_increase,
@@ -6360,6 +6507,7 @@ class AFOLU:
             arrs_land_conv,
             arrs_transitions_adj,
             arrs_yields_per_livestock,
+            ledger,
         )
         
         return out
@@ -6918,6 +7066,15 @@ class AFOLU:
             arr_lndu_c_init_agb,
         ) = tup
 
+        # land use below ground to above ground stock ratio
+        array_lndu_ratio_bg_to_ag = self.model_attributes.extract_model_variable(
+            df_afolu_trajectories,
+            self.modvar_lndu_biomass_stock_ratio_bg_to_ag,
+            expand_to_all_cats = True,
+            return_type = "array_base",
+            var_bounds = (0, np.inf),
+        )
+
         
         ##  REALLOCATION FACTOR
 
@@ -6987,8 +7144,8 @@ class AFOLU:
             vec_rates_gdp_per_capita,
         )
     
-        
-
+        # HEREHEREHEREHERE
+        # return arrs_lndu_c_agb, arrs_lndu_c_bgb
 
         ################################################
         #    CALCULATE LAND USE + AGRC/LVST DRIVERS    #
@@ -7001,20 +7158,24 @@ class AFOLU:
             arr_agrc_net_import_increase,
             arr_agrc_yield,
             arr_lndu_emissions_conv,
-            arrs_lndu_emissions_conv_matrices,
+            arrs_lndu_emissions_conv_agb_matrices,
+            arrs_lndu_emissions_conv_bgb_matrices,
             arr_land_use,                             # note: this is in terms of modvar_gnrl_area (Area of Region)
             arr_lvst_change_to_net_imports_lost,
             arr_lvst_net_import_increase,
             arr_lvst_pop,
             arrs_lndu_land_conv,
             arrs_lndu_q_adj,
-            self.yields_per_livestock
+            self.yields_per_livestock,
+            ledger,
         ) = self.project_integrated_land_use(
+            df_afolu_trajectories,
             vec_modvar_lndu_initial_area,
             arrs_lndu_q_unadj,
+            arr_lndu_c_init_agb,
+            array_lndu_ratio_bg_to_ag,
             arrs_lndu_c_agb,
             arrs_lndu_c_bgb,
-            arr_lndu_c_init_agb,
             arr_agrc_production_nonfeed_unadj,
             arr_agrc_yf,
             arr_lndu_constraints_inf,
@@ -7031,11 +7192,8 @@ class AFOLU:
             vec_area,
             n_tp = n_projection_time_periods,
         )
-        self.arrs_lndu_land_conv = arrs_lndu_land_conv
-        self.arr_land_use = arr_land_use
-        
-        
 
+        return ledger
 
 
         # update imports/exports for agriculture
@@ -7386,7 +7544,7 @@ class AFOLU:
         list_frst_ests = self.get_frst_sequestration_and_land_use_conversion_emission(
             df_afolu_trajectories,
             arrs_lndu_land_conv,
-            arrs_lndu_emissions_conv_matrices,
+            arrs_lndu_emissions_conv_agb_matrices,
             arr_land_use,
             arr_area_frst,
         )

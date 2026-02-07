@@ -294,9 +294,14 @@ class BiomassCarbonLedger:
             Area of each type protected in total (orig + young).
 
         * `arr_biomass_c_average_ag_stock_in_conversion_targets` (T x N)
-            Average stock per ha in conversion target land use classes out of 
-            each forest type. Used to restrict removals from converted land use
-            classes.
+            Average above-ground stock per ha in conversion target land use 
+            classes out of each forest type. Used to restrict removals from 
+            converted land use classes.
+
+        * `arr_biomass_c_average_bg_stock_in_conversion_targets` (T x N)
+            Average below-ground stock per ha in conversion target land use 
+            classes out of each forest type. Used to estimate loss of stock
+            from conversion.
         
         * `arr_frac_biomass_buffer` (T x 1) 
             Vector storing the biomass removal buffer zone by time period. If 
@@ -988,6 +993,7 @@ class BiomassCarbonLedger:
 
         arr_biomass_c_ag_available_from_conversion = np.zeros(shape_by_cat, )
         arr_biomass_c_average_ag_stock_in_conversion_targets = np.zeros(shape_by_cat, )
+        arr_biomass_c_average_bg_stock_in_conversion_targets = np.zeros(shape_by_cat, )
         arr_biomass_c_ag_lost_conversion = np.zeros(shape_by_cat, )
         arr_biomass_c_ag_lost_decomposition = np.zeros(shape_by_cat, )
         arr_biomass_c_bg_lost_conversion = np.zeros(shape_by_cat, )
@@ -1095,6 +1101,7 @@ class BiomassCarbonLedger:
         self.arr_area_conversion_into = arr_area_conversion_into
         self.arr_biomass_c_ag_available_from_conversion = arr_biomass_c_ag_available_from_conversion
         self.arr_biomass_c_average_ag_stock_in_conversion_targets = arr_biomass_c_average_ag_stock_in_conversion_targets
+        self.arr_biomass_c_average_bg_stock_in_conversion_targets = arr_biomass_c_average_bg_stock_in_conversion_targets
         self.arr_biomass_c_ag_lost_conversion = arr_biomass_c_ag_lost_conversion
         self.arr_biomass_c_ag_lost_decomposition = arr_biomass_c_ag_lost_decomposition
         self.arr_biomass_c_bg_lost_conversion = arr_biomass_c_bg_lost_conversion
@@ -1280,6 +1287,7 @@ class BiomassCarbonLedger:
         vec_area_converted_away: Union[list, np.ndarray],
         vec_area_protected: Union[list, np.ndarray],
         vec_biomass_c_average_ag_stock_in_conversion_targets: Union[list, np.ndarray],
+        vec_biomass_c_average_bg_stock_in_conversion_targets: Union[list, np.ndarray],
         unsafe: bool = False,
     ) -> None:
         """Update the ledger with land use lose
@@ -1297,10 +1305,15 @@ class BiomassCarbonLedger:
         vec_area_protected : Union[list, np.ndarray]
             Ordered vector of of protected land use area
         vec_biomass_c_average_ag_stock_in_conversion_targets : Union[list, np.ndarray]
-            Ordered vector of per unit area average carbon stock in target 
-            land use classes--i.e., classes to which each forest type is
+            Ordered vector of per unit area average above-ground carbon stock in 
+            target land use classes--i.e., classes to which each forest type is
             transitioning into in time period i. This is used to restrict
             available removals from conversion and preserve logical consistency.
+        vec_biomass_c_average_bg_stock_in_conversion_targets : Union[list, np.ndarray]
+            Ordered vector of per unit area average carbon stock in target 
+            land use classes--i.e., classes to which each forest type is
+            transitioning into in time period i. This is used to estiamte losses
+            in below-ground biomass carbon stock due to conversion.
 
         Keyword Arguments
         -----------------
@@ -1335,6 +1348,7 @@ class BiomassCarbonLedger:
         self._update_other_inputs(
             i,
             vec_biomass_c_average_ag_stock_in_conversion_targets,
+            vec_biomass_c_average_bg_stock_in_conversion_targets,
             unsafe = unsafe,
         )
         
@@ -1576,8 +1590,11 @@ class BiomassCarbonLedger:
         vec_c_ag_removed = self.arr_orig_biomass_c_removed_from_forests[i]
         vec_c_ag_starting = self.arr_orig_biomass_c_ag_starting[i]
         vec_frac_c_rmv_alloc = self.arr_biomass_c_removals_from_converted_land_allocation[i]
+        
+        vec_area_in_targs = self.arr_area_conversion_away_total[i]
+        vec_c_bg_avg_in_targs = self.arr_biomass_c_average_bg_stock_in_conversion_targets[i]
 
-
+        
         ##  UPDATES
 
         # 1. above-ground biomass lost to conversion: arr_biomass_c_ag_lost_conversion
@@ -1608,6 +1625,13 @@ class BiomassCarbonLedger:
         vec_c_bg_conv[ind_fs] += c_avail_conv_young 
         vec_c_bg_conv *= self.vec_biomass_c_bg_to_ag_ratio
 
+        # eliminate conversions associatied with the target 
+        vec_c_bg_conv = np.clip(
+            vec_c_bg_conv - vec_area_in_targs*vec_c_bg_avg_in_targs,
+            0,
+            np.inf,
+        )
+
         self.arr_biomass_c_bg_lost_conversion[i] = vec_c_bg_conv
         
 
@@ -1617,7 +1641,7 @@ class BiomassCarbonLedger:
         vec_c_bg_rmv[ind_fs] += c_removed_young
         vec_c_bg_rmv *= self.vec_biomass_c_bg_to_ag_ratio
 
-        self.arr_biomass_c_bg_lost_removals = vec_c_bg_rmv
+        self.arr_biomass_c_bg_lost_removals[i] = vec_c_bg_rmv
 
 
         # 5. finally, get total removals met
@@ -1948,6 +1972,7 @@ class BiomassCarbonLedger:
     def _update_other_inputs(self,
         i: int,
         vec_biomass_c_average_ag_stock_in_conversion_targets: np.ndarray,
+        vec_biomass_c_average_bg_stock_in_conversion_targets: np.ndarray,
         unsafe: bool = False,
     ) -> None:
         """Update other necessary arrays in support of _update(). Updates the 
@@ -1965,9 +1990,15 @@ class BiomassCarbonLedger:
                 "vec_biomass_c_average_ag_stock_in_conversion_targets",
             )
 
+            self._verify_convert_array_input_to_array(
+                vec_biomass_c_average_bg_stock_in_conversion_targets,
+                self.n_cats,
+                "vec_biomass_c_average_bg_stock_in_conversion_targets",
+            )
+
 
         self.arr_biomass_c_average_ag_stock_in_conversion_targets[i] = vec_biomass_c_average_ag_stock_in_conversion_targets
-
+        self.arr_biomass_c_average_bg_stock_in_conversion_targets[i] = vec_biomass_c_average_bg_stock_in_conversion_targets
 
         return None
     
