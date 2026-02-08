@@ -779,12 +779,17 @@ class AFOLU:
         self.modvar_frst_biomass_consumed_fire_tropical = "Fire Biomass Consumption for Tropical Forests"
         self.modvar_frst_biomass_growth_rate = "Forest Above Ground Biomass Growth Rate"
         self.modvar_frst_biomass_growth_rate_young_secondary = "Young Secondary Forest Above Ground Biomass Growth Rate"
-        self.modvar_frst_c_stock = "Above Ground C Stock in Forests"
+        self.modvar_frst_c_stock_ag = "Above Ground C Stock in Forests"
+        self.modvar_frst_c_stock_bg = "Below Ground C Stock in Forests"
+        self.modvar_frst_c_stock_decomposition = "C Stock Lost to Decomposition"
+        self.modvar_frst_c_stock_removals = "Total C Stock Removals"
+        self.modvar_frst_c_stock_total = "Total C Stock in Forests"
         self.modvar_frst_ef_co2_fires = ":math:\\text{CO}_2 Forest Fire Emission Factor"
         self.modvar_frst_ef_ch4 = ":math:\\text{CH}_4 Forest Methane Emissions"
+        self.modvar_frst_emissions_ch4 = ":math:\\text{CH}_4 Emissions from Forests"
         self.modvar_frst_emissions_co2_fires = ":math:\\text{CO}_2 Emissions from Forest Fires"
         self.modvar_frst_emissions_co2_hwp = ":math:\\text{CO}_2 Emissions from Harvested Wood Products"
-        self.modvar_frst_emissions_ch4 = ":math:\\text{CH}_4 Emissions from Forests"
+        self.modvar_frst_emissions_co2_decomposition = ":math:\\text{CO}_2 Emissions from Forest Biomass Decomposition"
         self.modvar_frst_emissions_co2_sequestration = ":math:\\text{CO}_2 Emissions from Forest Biomass Sequestration"
         self.modvar_frst_frac_c_converted_available = "Fraction of Forest Converted C Available for Use"
         self.modvar_frst_frac_c_per_dm = "Carbon Fraction Dry Matter"
@@ -795,7 +800,9 @@ class AFOLU:
         self.modvar_frst_frac_tropical = "Forest Fraction Tropical"
         self.modvar_frst_hwp_half_life_paper = "HWP Half Life Paper"
         self.modvar_frst_hwp_half_life_wood = "HWP Half Life Wood"
-        
+
+
+
         
         #additional lists
         self.modvar_list_frst_frac_temptrop = [
@@ -7194,7 +7201,13 @@ class AFOLU:
         )
 
         return ledger
+    
+    def extract_variables_from_ledger(self,#HEREHEREHEREHERE
+    ) -> pd.DataFrame:
+        """Retrieve key variables from the ledger, including:
 
+            * self.modvar_
+        """
 
         # update imports/exports for agriculture
         arr_agrc_exports_adj = sf.vec_bounds(

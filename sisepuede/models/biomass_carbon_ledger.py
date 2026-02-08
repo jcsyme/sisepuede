@@ -573,6 +573,10 @@ class BiomassCarbonLedger:
         * `arr_biomass_c_removed_from_forests_excluding_conversion` (T x 1)
             Total biomass removed from each forest type excluding conversions at
             time i.
+        
+        * `arr_biomass_c_total_growth` (T x N)
+            Total growth of biomass over time (above- and below-ground). Used to
+            represent sequestration in forests. 
             
         * `arr_orig_biomass_c_ag_average_per_area` (T x N)
             Average biomass Cin original forest per unit area are the start of
@@ -793,6 +797,36 @@ class BiomassCarbonLedger:
     
 
 
+    def _get_forest_c_total_growth(self,
+        i: int,
+    ) -> np.ndarray:
+        """In support of _update_forest_c_losses_and_growth_outputs(), get the 
+            total biomass growth for time period i - 1 -> i.
+        """
+
+        if i == 0:
+            return None
+        
+        # indices
+        ind_tp = i if i < self.n_tp - 1 else i - 1
+        ind_fs = self.ind_frst_secondary
+
+        # get some vectors
+        vec_area_remaining_orig = self.arr_area_remaining_from_orig_after_conversion_away[i - 1]
+        vec_area_young = self.arr_young_area_by_tp_planted[ind_tp]
+        vec_ratio_bg_to_ag = self.vec_biomass_c_bg_to_ag_ratio
+        vec_sf_adj_young = self.arr_young_sf_adjusted_by_tp_planted[ind_tp]
+        vec_seq = self.arr_orig_sf_adjusted[ind_tp]
+
+        # initialize, then add in young forest growth
+        vec_total_growth = vec_area_remaining_orig*vec_seq
+        vec_total_growth[ind_fs] += np.dot(vec_area_young, vec_sf_adj_young)
+        vec_total_growth *= vec_ratio_bg_to_ag
+
+        return vec_total_growth
+    
+
+
     def _get_sf_adjustment_factor(self,
         i: int,
         arr_stock: np.ndarray,
@@ -1000,6 +1034,7 @@ class BiomassCarbonLedger:
         arr_biomass_c_bg_lost_removals = np.zeros(shape_by_cat, )
         arr_biomass_c_removals_from_converted_land_allocation = np.zeros(shape_by_cat, )
         arr_biomass_c_removed_from_forests_excluding_conversion = np.zeros(shape_by_cat, )
+        arr_biomass_c_total_growth = np.zeros(shape_by_cat, )
 
         arr_orig_allocation_removals = np.zeros(shape_by_cat, )
         arr_orig_biomass_c_ag_average_per_area = np.zeros(shape_by_cat, )
@@ -1108,6 +1143,7 @@ class BiomassCarbonLedger:
         self.arr_biomass_c_bg_lost_removals = arr_biomass_c_bg_lost_removals
         self.arr_biomass_c_removals_from_converted_land_allocation = arr_biomass_c_removals_from_converted_land_allocation
         self.arr_biomass_c_removed_from_forests_excluding_conversion = arr_biomass_c_removed_from_forests_excluding_conversion
+        self.arr_biomass_c_total_growth = arr_biomass_c_total_growth
         self.arr_frac_biomass_buffer = arr_frac_biomass_buffer
         self.arr_frac_biomass_dead_storage = arr_frac_biomass_dead_storage
         self.arr_orig_allocation_removals = arr_orig_allocation_removals
@@ -1371,7 +1407,7 @@ class BiomassCarbonLedger:
         self._update_forest_c_removals(i, )
 
         # finally, add key losses of interest for emissions (incl conversion)
-        self._update_forest_c_losses(i, )
+        self._update_forest_c_losses_and_growth_outputs(i, )
         
         return None
     
@@ -1562,16 +1598,17 @@ class BiomassCarbonLedger:
     
 
     
-    def _update_forest_c_losses(self,
+    def _update_forest_c_losses_and_growth_outputs(self,
         i: int,
     ) -> None:
-        """Update additional system losses that need to be tracked for emission
-            inventories. Updates:
+        """Update additional system losses and growth that need to be tracked 
+            for emission inventories. Updates:
 
             * arr_biomass_c_ag_lost_conversion
             * arr_biomass_c_ag_lost_decomposition
             * arr_biomass_c_bg_lost_conversion
             * arr_biomass_c_bg_lost_removals
+            * arr_biomass_c_total_growth
             * vec_total_removals_met
             
         """
@@ -1644,16 +1681,36 @@ class BiomassCarbonLedger:
         self.arr_biomass_c_bg_lost_removals[i] = vec_c_bg_rmv
 
 
-        # 5. finally, get total removals met
+        # 5. total removals met
 
         self.vec_total_removals_met[i] = (
             removals_from_conv + c_removed_young + vec_c_ag_removed.sum()
         )
 
+
+        # 6. finally, add in total new biomass growth
+
+        if i > 0:
+            
+            # shortcuts
+            """Note: stock growth in the final time period for young forests may
+                be unreliable since conversion allocations from the previous
+                time period (t - 1) are calculate in time period t. 
+            """
+            
+            # assign total growth
+            vec_total_growth = self._get_forest_c_total_growth(i, )
+            self.arr_biomass_c_total_growth[i - 1] = vec_total_growth
+
+            # in final time step, repeat values
+            if i == self.n_tp - 1:
+                vec_total_growth = self._get_forest_c_total_growth(self.n_tp, )
+                self.arr_biomass_c_total_growth[i] = vec_total_growth
+
         
         return None
     
-
+    
 
     def _update_forest_c_removals(self,
         i: int, 
