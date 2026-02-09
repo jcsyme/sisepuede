@@ -7199,15 +7199,150 @@ class AFOLU:
             vec_area,
             n_tp = n_projection_time_periods,
         )
-
-        return ledger
+        
+        
+        #return ledger
     
-    def extract_variables_from_ledger(self,#HEREHEREHEREHERE
+    def evl_support_get_c_stock_mass_var_info(self,
+        ledger: bcl.BiomassCarbonLedger,
+        modvar: Union[str, 'ModelVariable'],
+    ) -> Tuple:
+        """In support of self.extract_variables_from_ledger(), get the 
+            ModelVariable, spawned array, and scalar (mass only) that maps
+            ledger units to output variable units. Returns a tuple of
+
+            (
+                array,
+                modvar,
+                scalar
+            )
+        """
+
+        matt = self.model_attributes
+        _, modvar_bcl_mass = self.get_bcl_modvars_for_unit_targets()
+
+        # get variable and scalar
+        modvar = matt.get_variable(self.modvar_frst_c_stock_ag, )
+        scalar = matt.get_variable_unit_conversion_factor(
+            modvar_bcl_mass,
+            modvar,
+        )
+
+        # spawn a df, then fill from ledger variable
+        arr_out = matt.extract_model_variable(
+            modvar.spawn_default_dataframe(
+                length = ledger.n_tp, 
+            ),
+            modvar,
+            expand_to_all_cats = True, 
+            return_type = "array_base",
+        )
+
+        out = (
+            arr_out,
+            modvar,
+            scalar,
+        )
+
+        return out
+    
+
+    def extract_variables_from_ledger(self,# HEREHEREHEREHERE
+        ledger: bcl.BiomassCarbonLedger,
     ) -> pd.DataFrame:
         """Retrieve key variables from the ledger, including:
 
-            * self.modvar_
+            * self.modvar_frst_c_stock_ag
+            * self.modvar_frst_c_stock_bg
+            * self.modvar_frst_c_stock_decomposition
+            * self.modvar_frst_c_stock_removals
+            * self.modvar_frst_c_stock_total
         """
+        
+        ##  INITIALIZATION
+
+        df_return = []
+        matt = self.model_attributes
+        modvar_bcl_area, modvar_bcl_mass = self.get_bcl_modvars_for_unit_targets()
+        
+
+        ##  TOTAL ABOVE GROUND C STOCK BY FOREST TYPE
+
+        (
+            arr_frst_c_stock_ag,
+            modvar_frst_c_stock_ag,
+            scalar_frst_c_stock_ag,
+        ) = self.evl_support_get_c_stock_mass_var_info(
+            ledger, 
+            self.modvar_frst_c_stock_ag, 
+        )
+
+        # get from ledger and scale
+        arr_frst_c_stock_ag[:, self.ind_frst_prim] = ledger.arr_total_biomass_c_ag_starting[:, 0]
+        arr_frst_c_stock_ag[:, self.ind_frst_scnd] = ledger.arr_total_biomass_c_ag_starting[:, 1]
+
+        # add to output data frame (scale here so array can be used for total)
+        df_return.append(
+            matt.array_to_df(
+                arr_frst_c_stock_ag*scalar_frst_c_stock_ag, 
+                modvar_frst_c_stock_ag,
+                reduce_from_all_cats_to_specified_cats = True,
+            )
+        )
+
+
+        ##  TOTAL BELOW GROUND C STOCK BY FOREST TYPE
+
+        (
+            arr_frst_c_stock_bg,
+            modvar_frst_c_stock_bg,
+            scalar_frst_c_stock_bg,
+        ) = self.evl_support_get_c_stock_mass_var_info(
+            ledger, 
+            self.modvar_frst_c_stock_bg, 
+        )
+
+        # get from ledger
+        arr_frst_c_stock_bg[:, self.ind_frst_prim] = ledger.arr_total_biomass_c_bg_starting[:, 0]
+        arr_frst_c_stock_bg[:, self.ind_frst_scnd] = ledger.arr_total_biomass_c_bg_starting[:, 1]
+
+        # add to output data frame (scale here so array can be used for total)
+        df_return.append(
+            matt.array_to_df(
+                arr_frst_c_stock_bg*scalar_frst_c_stock_bg, 
+                modvar_frst_c_stock_bg,
+                reduce_from_all_cats_to_specified_cats = True,
+            )
+        )
+
+
+        ##  TOTAL C STOCK AT START OF EACH PERIOD
+
+        (
+            _,
+            modvar_frst_c_stock_total,
+            scalar_frst_c_stock_total,
+        ) = self.evl_support_get_c_stock_mass_var_info(
+            ledger, 
+            self.modvar_frst_c_stock_total,
+        )
+
+        vec_total_c_stock = arr_frst_c_stock_ag.sum(axis = 1, ) + arr_frst_c_stock_bg.sum(axis = 1, )
+
+        # add to output data frame
+        df_return.append(
+            matt.array_to_df(
+                vec_total_c_stock, 
+                modvar_frst_c_stock_total,
+                reduce_from_all_cats_to_specified_cats = True,
+            )
+        )
+
+
+        self.modvar_frst_c_stock_decomposition
+        self.modvar_frst_c_stock_removals
+
+        return None
 
         # update imports/exports for agriculture
         arr_agrc_exports_adj = sf.vec_bounds(
