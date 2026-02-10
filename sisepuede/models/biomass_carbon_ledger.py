@@ -590,6 +590,10 @@ class BiomassCarbonLedger:
             Above-ground biomass C in original forest at the start of the time
             period.
         
+        * `arr_biomass_c_bg_lost_decomposition` (T x N)
+            Below-ground biomass C lost to decomposition in each forest type at 
+            time i
+        
         * `arr_biomass_c_bg_lost_removals` (T x N)
             Below-ground biomass C lost due to removals in each forest type at 
             time i
@@ -821,7 +825,7 @@ class BiomassCarbonLedger:
         # initialize, then add in young forest growth
         vec_total_growth = vec_area_remaining_orig*vec_seq
         vec_total_growth[ind_fs] += np.dot(vec_area_young, vec_sf_adj_young)
-        vec_total_growth *= vec_ratio_bg_to_ag
+        vec_total_growth *= (1 + vec_ratio_bg_to_ag)
 
         return vec_total_growth
     
@@ -1031,6 +1035,7 @@ class BiomassCarbonLedger:
         arr_biomass_c_ag_lost_conversion = np.zeros(shape_by_cat, )
         arr_biomass_c_ag_lost_decomposition = np.zeros(shape_by_cat, )
         arr_biomass_c_bg_lost_conversion = np.zeros(shape_by_cat, )
+        arr_biomass_c_bg_lost_decomposition = np.zeros(shape_by_cat, )
         arr_biomass_c_bg_lost_removals = np.zeros(shape_by_cat, )
         arr_biomass_c_removals_from_converted_land_allocation = np.zeros(shape_by_cat, )
         arr_biomass_c_removed_from_forests_excluding_conversion = np.zeros(shape_by_cat, )
@@ -1140,6 +1145,7 @@ class BiomassCarbonLedger:
         self.arr_biomass_c_ag_lost_conversion = arr_biomass_c_ag_lost_conversion
         self.arr_biomass_c_ag_lost_decomposition = arr_biomass_c_ag_lost_decomposition
         self.arr_biomass_c_bg_lost_conversion = arr_biomass_c_bg_lost_conversion
+        self.arr_biomass_c_bg_lost_decomposition = arr_biomass_c_bg_lost_decomposition
         self.arr_biomass_c_bg_lost_removals = arr_biomass_c_bg_lost_removals
         self.arr_biomass_c_removals_from_converted_land_allocation = arr_biomass_c_removals_from_converted_land_allocation
         self.arr_biomass_c_removed_from_forests_excluding_conversion = arr_biomass_c_removed_from_forests_excluding_conversion
@@ -1607,6 +1613,7 @@ class BiomassCarbonLedger:
             * arr_biomass_c_ag_lost_conversion
             * arr_biomass_c_ag_lost_decomposition
             * arr_biomass_c_bg_lost_conversion
+            * arr_biomass_c_bg_lost_decomposition
             * arr_biomass_c_bg_lost_removals
             * arr_biomass_c_total_growth
             * vec_total_removals_met
@@ -1652,11 +1659,16 @@ class BiomassCarbonLedger:
         # have to add in young decomp
         vec_c_ag_lost_decomp = frac_decomp*(vec_c_ag_starting - vec_c_ag_conv - vec_c_ag_removed)
         vec_c_ag_lost_decomp[ind_fs] += c_decomp_young
-        
         self.arr_biomass_c_ag_lost_decomposition[i] = vec_c_ag_lost_decomp
 
 
-        # 3. below-ground biomass lost from conversion: arr_biomass_c_bg_lost_conversion
+        # 3. below-ground biomass lost to deomposition: arr_biomass_c_bg_lost_decomposition
+
+        vec_c_bg_lost_decomp = vec_c_ag_lost_decomp*self.vec_biomass_c_bg_to_ag_ratio
+        self.arr_biomass_c_bg_lost_decomposition[i] = vec_c_bg_lost_decomp
+
+
+        # 4. below-ground biomass lost from conversion: arr_biomass_c_bg_lost_conversion
 
         vec_c_bg_conv = vec_c_ag_conv.copy() - vec_c_ag_conv_pres
         vec_c_bg_conv[ind_fs] += c_avail_conv_young 
@@ -1672,7 +1684,7 @@ class BiomassCarbonLedger:
         self.arr_biomass_c_bg_lost_conversion[i] = vec_c_bg_conv
         
 
-        # 4. below-ground biomass lost due to removals: arr_biomass_c_bg_lost_removals
+        # 5. below-ground biomass lost due to removals: arr_biomass_c_bg_lost_removals
         
         vec_c_bg_rmv = vec_c_ag_removed.copy()
         vec_c_bg_rmv[ind_fs] += c_removed_young
@@ -1681,17 +1693,17 @@ class BiomassCarbonLedger:
         self.arr_biomass_c_bg_lost_removals[i] = vec_c_bg_rmv
 
 
-        # 5. total removals met
+        # 6. total removals met
 
         self.vec_total_removals_met[i] = (
             removals_from_conv + c_removed_young + vec_c_ag_removed.sum()
         )
 
 
-        # 6. finally, add in total new biomass growth
+        # 7. finally, add in total new biomass growth
 
         if i > 0:
-            
+
             # shortcuts
             """Note: stock growth in the final time period for young forests may
                 be unreliable since conversion allocations from the previous
@@ -1940,10 +1952,7 @@ class BiomassCarbonLedger:
 
 
         # 2. update total below-ground biomass by type: arr_total_biomass_c_bg_starting
-        self.arr_total_biomass_c_bg_starting[i] = (
-            self.arr_orig_biomass_c_ag_starting[i]
-            * self.vec_biomass_c_bg_to_ag_ratio
-        )
+        self.arr_total_biomass_c_bg_starting[i] = vec_c_ag_total_update*self.vec_biomass_c_bg_to_ag_ratio
 
 
         # 3. array of biomass converted away (total including removals): arr_orig_biomass_c_ag_converted_away
