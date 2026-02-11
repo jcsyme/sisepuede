@@ -2509,18 +2509,22 @@ class AFOLU:
 
     def get_bcl(self,
         df_afolu_trajectories: pd.DataFrame,
+        mangroves: bool = False,
         **kwargs,
     ) -> None:
-        """Get the biomass carbon ledger
+        """Get the biomass carbon ledger. Set mangroves = True to build the 
+            ledger for mangroves.
         """
         # demands
         vec_demands = self.get_bcl_demand_removals(
             df_afolu_trajectories,
+            mangroves = mangroves,
         )
         
         # initial area
         vec_area_init = self.get_bcl_area_forests_initial(
             df_afolu_trajectories,
+            mangroves = mangroves,
         ) 
 
         # get growth rate and stocks
@@ -2530,6 +2534,7 @@ class AFOLU:
             vec_young_sf_curve_specification,
         ) = self.get_bcl_growth_rates_and_stocks(
             df_afolu_trajectories, 
+            mangroves = mangroves,
         )
         
         # other parameters
@@ -2538,6 +2543,7 @@ class AFOLU:
             vec_frac_biomass_from_conversion_available_for_use,
         ) = self.get_bcl_other_parameters(
             df_afolu_trajectories, 
+            mangroves = mangroves,
         )
 
         # removal thresholds
@@ -2675,6 +2681,7 @@ class AFOLU:
 
     def get_bcl_area_forests_initial(self,
         df_afolu_trajectories: pd.DataFrame,
+        mangroves: bool = False,
     ) -> pd.DataFrame:
         """Retrieve initial areas of land from existing output by combining surface 
             area with initial land use fractions. Returns a data frame named using
@@ -2686,14 +2693,23 @@ class AFOLU:
         
         Function Arguments
         ------------------
+        df_afolu_trajectories : pd.DataFrame
+            Input DataFrame
 
         Keyword Arguments
         -----------------
-    
+        mangroves : bool
+            Build for mangroves?
         """
         # initialization
         modvar_area_source = self.model_socioeconomic.modvar_gnrl_area
-        ind_lndu_fstp, ind_lndu_fsts = self.get_lndu_indices_fstp_fsts()
+        (
+            ind_lndu_fstm,
+            ind_lndu_fstp, 
+            ind_lndu_fsts,
+        ) = self.get_lndu_indices_fstp_fsts(
+            include_mangroves = True,
+        )
         modvar_area_target, _ = self.get_bcl_modvars_for_unit_targets()
         
         # get the area
@@ -2716,8 +2732,13 @@ class AFOLU:
             "area"
         )
 
+        # allow for mangroves to be specified; if so, set the primary initial area to 0
         arr_out *= scalar
-        vec_out = arr_out[0, [ind_lndu_fstp, ind_lndu_fsts]]
+        vec_out = (
+            arr_out[0, [ind_lndu_fstp, ind_lndu_fsts]]
+            if not mangroves
+            else np.array([0, arr_out[0, ind_lndu_fstm]])
+        )
     
         return vec_out
     
@@ -2808,6 +2829,7 @@ class AFOLU:
 
     def get_bcl_demand_removals(self,
         df_afolu_trajectories: pd.DataFrame,
+        mangroves: bool = False,
     ) -> np.ndarray:
         """Get the estimated demand for biomass removals
         """
@@ -2818,6 +2840,9 @@ class AFOLU:
         # Allow for biomass imports to avoid infeasibilities, but they should be expected to be small 
         #       (will have to account for those differently)
 
+        if mangroves:
+            return 0.0
+        
         print("TEMPORARY IMPLEMENTATION IN get_bcl_demand_removals(): DEMAND IS FOR DEMONSTRATION PURPOSES")
 
         n_tp = df_afolu_trajectories.shape[0]
@@ -2840,6 +2865,7 @@ class AFOLU:
     
     def get_bcl_growth_rates_and_stocks(self,
         df_afolu_trajectories: pd.DataFrame,
+        mangroves: bool = False,
         normalize_sfs: bool = True, 
         **kwargs,
     ) -> Tuple[np.ndarray]:
@@ -2861,6 +2887,8 @@ class AFOLU:
 
         Keyword Arguments
         -----------------
+        mangroves : bool
+            Get rate and stocks for mangroves?
         normalize_sfs : bool
             Normalize sequetration? If True, uses best fit NPP curve fit to
             estimate stock in equilibrium (x_est) from NPP curve and compares 
@@ -2875,7 +2903,6 @@ class AFOLU:
         # shortcuts
         matt = self.model_attributes
         modvar_lndu_stock_initial = self.modvar_lndu_biomass_stock_factor_ag
-        
         (modvar_targunits_area, modvar_targunits_mass, ) = self.get_bcl_modvars_for_unit_targets()
 
 
@@ -2884,6 +2911,7 @@ class AFOLU:
         # primary, secondary, and young sequestration factors
         factors_initial, vec_young_sf = self.get_bcl_sequestration_factors(
             df_afolu_trajectories, 
+            mangroves = mangroves,
             **kwargs,
         )
         
@@ -2912,19 +2940,27 @@ class AFOLU:
         )
 
         # indices
-        ind_fstp, ind_fsts = self.get_lndu_indices_fstp_fsts()
+        ind_fstm, ind_fstp, ind_fsts = self.get_lndu_indices_fstp_fsts(include_mangroves = True, )
+
+        # adjust for mangrove-based etimate?
+        if mangroves:
+            vec_scale = arr_stock_init[:, ind_fstm]/arr_stock_init[:, ind_fstp]
+            arr_stock_init = sf.do_array_mult(
+                arr_stock_init,
+                vec_scale,
+            )
 
         
         ##  GET NORM?
 
         if normalize_sfs:
+
             # get the stock implied by NPP
             vec_cm = bcl.calculate_cumulative_mass(vec_young_sf, frac_decomp, )
             stock_npp = vec_cm.max()
 
             # primary stock
             stock_primary = arr_stock_init[0, ind_fstp]
-
             scalar = stock_primary/stock_npp
 
             # adjust
@@ -2973,6 +3009,7 @@ class AFOLU:
 
     def get_bcl_other_parameters(self,
         df_afolu_trajectories: pd.DataFrame,
+        mangroves: bool = False,
         **kwargs,
     ) -> Dict[str, np.ndarray]:
         """Retrieve other parameters and format for BiomassCarbonLedger, 
@@ -2992,6 +3029,11 @@ class AFOLU:
         ------------------
         df_afolu_trajectories : pd.DataFrame
             DataFrame of input data
+        
+        Keyword Arguments
+        -----------------
+        mangroves : bool
+            Get for Mangroves?
         """
 
 
@@ -3001,7 +3043,13 @@ class AFOLU:
         attr_lndu = matt.get_attribute_table(matt.subsec_name_lndu, )
         
         # indices of forest classes in LNDU
-        ind_lndu_fstp, ind_lndu_fsts = self.get_lndu_indices_fstp_fsts()
+        (
+            ind_lndu_fstm,
+            ind_lndu_fstp, 
+            ind_lndu_fsts,
+        ) = self.get_lndu_indices_fstp_fsts(
+            include_mangroves = True,
+        )
         
         
         ##  GET OTHER PARAMETERS
@@ -3015,7 +3063,8 @@ class AFOLU:
             var_bounds = (0, np.inf),
         )
 
-        vec_biomass_c_bg_to_ag_ratio = array_lndu_ratio_bg_to_ag[0, [ind_lndu_fstp, ind_lndu_fsts]]
+        ind_second = ind_lndu_fsts if not mangroves else ind_lndu_fstm
+        vec_biomass_c_bg_to_ag_ratio = array_lndu_ratio_bg_to_ag[0, [ind_lndu_fstp, ind_second]]
 
 
         # fraction of converted biomass available for use
@@ -3147,6 +3196,7 @@ class AFOLU:
         field_ord_1: str = _FIELD_NPP_ORD_1,
         field_ord_2: str = _FIELD_NPP_ORD_2,
         field_ord_3: str = _FIELD_NPP_ORD_3,
+        mangroves: bool = False,
         maxiter: int = 1000,
         **kwargs,
     ) -> None:
@@ -3159,18 +3209,15 @@ class AFOLU:
         modvar_targunits_area, modvar_targunits_mass = self.get_bcl_modvars_for_unit_targets()
 
         
-        (
-            df_sf_groups,
-            arr_frst_sf,
-            _,
-        ) = self.get_npp_frst_sequestration_factor_vectors(
+        df_sf_groups = self.get_npp_frst_sequestration_factor_vectors(
             df_afolu_trajectories,
             field_ord_1 = field_ord_1,
             field_ord_2 = field_ord_2,
             field_ord_3 = field_ord_3,
+            mangroves = mangroves,
             modvar_to_correct_to_area = modvar_targunits_area,
             modvar_to_correct_to_mass = modvar_targunits_mass,
-            return_factors = True,
+            return_factors = False,
         )
         curve = self.curves_npp.get_curve(self.npp_curve, )
 
@@ -3219,6 +3266,7 @@ class AFOLU:
         vec_lndu_biomass_c_ratio_bg_to_ag: np.ndarray,
         scalar_int_area_to_bcl_area: float,
         scalar_int_mass_to_bcl_mass: float,
+        mangroves: bool = False,
     ) -> Tuple:
         """Get the ordered input arguments to ledger._update(). Includes units
             adjustments. 
@@ -3227,24 +3275,27 @@ class AFOLU:
         inds_lndu_frst = self.get_lndu_indices_fstp_fsts(include_mangroves = True, )
         ind_lndu_fstm, ind_lndu_fstp, ind_lndu_fsts = inds_lndu_frst
         inds_lndu_not_frst = [x for x in range(arr_transition_adj.shape[0]) if x not in inds_lndu_frst]
-        vec_lndu_area_0
+        
+        # get the index to use for secondary
+        ind_second = ind_lndu_fsts if not mangroves else ind_lndu_fstm
+
 
         ##  AREAS
 
         arr_transition_adj_area = (vec_lndu_area_0*arr_transition_adj.transpose()).transpose()
 
         # get area transitioning into forests newly
-        area_into_fsts = arr_transition_adj_area[inds_lndu_not_frst, ind_lndu_fsts].sum()
+        area_into_fsts = arr_transition_adj_area[inds_lndu_not_frst, ind_second].sum()
         area_into_fsts *= scalar_int_area_to_bcl_area
  
         # get areas converted AWAY from primary and secondary forest
         arr_transition_adj_frst_window = arr_transition_adj_area[
             np.ix_(
-                [ind_lndu_fstp, ind_lndu_fsts], 
+                [ind_lndu_fstp, ind_second], 
                 inds_lndu_not_frst,
             )
         ]
-
+        
         vec_area_converted_away_fsts = arr_transition_adj_frst_window.sum(axis = 1, )
         vec_area_converted_away_fsts *= scalar_int_area_to_bcl_area
 
@@ -3271,8 +3322,15 @@ class AFOLU:
         ).sum(axis = 1)
 
         # adjust as inputs to ledger
-        vec_area_protected_in_ledger = vec_lndu_area_protected[[ind_lndu_fstp, ind_lndu_fsts]]*scalar_int_area_to_bcl_area
-    
+        vec_area_protected_in_ledger = vec_lndu_area_protected[[ind_lndu_fstp, ind_second]]*scalar_int_area_to_bcl_area
+
+        # some specific overwrites if building the mangroves ledger
+        if mangroves:
+            vec_area_converted_away_fsts[0] = 0.0
+            vec_area_protected_in_ledger[0] = 0.0
+            vec_avg_stock_ag_in_targets_in_ledger[0] = 0.0
+            vec_avg_stock_bg_in_targets_in_ledger[0] = 0.0
+            
 
         out = (
             area_into_fsts,
@@ -5435,7 +5493,7 @@ class AFOLU:
             vec_widths = vec_widths[0:2]
 
         dict_out = {}
-        self.df_ordered_sequestration = df_ordered_sequestration
+
 
         ##  ITERATE OVER EACH GROUP TO BUILD PARAMETERS
         
@@ -5564,6 +5622,7 @@ class AFOLU:
         field_ord_1: str = _FIELD_NPP_ORD_1,
         field_ord_2: str = _FIELD_NPP_ORD_2,
         field_ord_3: str = _FIELD_NPP_ORD_3,
+        mangroves: bool = False,
         modvar_to_correct_to_area: Union['ModelVariable', str, None] = None,
         modvar_to_correct_to_mass: Union['ModelVariable', str, None] = None,
         return_factors: bool = False,
@@ -5582,7 +5641,15 @@ class AFOLU:
             )
 
             with sequestration factors in terms of (self.modvar_frst_biomass_growth_rate)
-            units of mass and self.model_socioeconomic.modvar_gnrl_area area
+            units of mass and self.model_socioeconomic.modvar_gnrl_area area.
+
+
+        Keyword Arguments
+        -----------------
+        mangroves : bool
+            Set to True to return values for mangroves. Mangroves are assumed to
+            have characteristics of primary forests, and all other inputs to NPP
+            fit curves (secondary and young biomass growth factors)  
         """
 
         ##  GET SEQUESTRATION FACTORS
@@ -5604,11 +5671,23 @@ class AFOLU:
             override_vector_for_single_mv_q = False, 
         )
         
-        #arr_frst_ef_sequestration_young *= self.model_attributes.get_variable_unit_conversion_factor(
-        #    self.modvar_frst_biomass_growth_rate_young_secondary,
-        #    self.modvar_frst_biomass_growth_rate,
-        #    "mass"
-        #)
+        # set mangroves as primary?
+        if mangroves:
+            vec_mang = arr_frst_ef_sequestration[:, self.ind_frst_mang]
+            vec_prim = arr_frst_ef_sequestration[:, self.ind_frst_scnd]
+            vec_scale = vec_mang/vec_prim
+
+            # adjust
+            arr_frst_ef_sequestration = sf.do_array_mult(
+                arr_frst_ef_sequestration,
+                vec_scale,
+            )
+
+            arr_frst_ef_sequestration_young = sf.do_array_mult(
+                arr_frst_ef_sequestration_young,
+                vec_scale,
+            )
+
         
         # build data frame that is ordered--use this for sorting and dropping duplicates
         field_tp = self.model_attributes.dim_time_period
@@ -5820,6 +5899,67 @@ class AFOLU:
             units_specifier = self.model_attributes.configuration.get(key_config, )
         
         return units_specifier
+    
+
+
+    def pil_update_ledgers(self,
+            i: int,
+            ledger: bcl.BiomassCarbonLedger,
+            ledger_mangroves: bcl.BiomassCarbonLedger,
+            arr_c_agb: np.ndarray,
+            arr_c_bgb: np.ndarray,
+            arr_transition_adj: np.ndarray,
+            vec_area_start_of_period: np.ndarray,
+            vec_c_lndu_agb: np.ndarray,
+            vec_c_lndu_ratio_bg_to_ag: np.ndarray,
+            vec_lndu_constraints_inf: np.ndarray,
+            scalar_int_area_to_bcl_area: float,
+            scalar_int_mass_to_bcl_mass: float,
+        ) -> Tuple[np.ndarray]:
+            """Update the standard + mangrove ledger and return
+
+                arr_emissions_agb_conv_matrix,
+                arr_emissions_bgb_conv_matrix 
+
+                in each case
+            """
+
+            ##  UPDATE STANDARD LEDGER
+
+            # get arguments in order
+            args_bcl = self.get_bcl_update_args(
+                arr_transition_adj,
+                vec_area_start_of_period,
+                vec_lndu_constraints_inf,
+                vec_c_lndu_agb,
+                vec_c_lndu_ratio_bg_to_ag,
+                scalar_int_area_to_bcl_area,
+                scalar_int_mass_to_bcl_mass,
+            )
+            ledger._update(i, *args_bcl, )
+
+            # get biomass loss from conversion
+            (
+                arr_emissions_agb_conv_matrix,
+                arr_emissions_bgb_conv_matrix,
+            ) = self.get_bcl_conversion_of_stock(
+                i,
+                ledger,
+                arr_transition_adj,
+                arr_c_agb, #arrs_c_agb[i],
+                arr_c_bgb, #arrs_c_bgb[i],
+                vec_area_start_of_period,                              # area of land at beginning of time period
+                vec_c_lndu_agb,
+                vec_c_lndu_ratio_bg_to_ag,
+                scalar_int_mass_to_bcl_mass,
+            )
+
+            out = (
+                arr_emissions_agb_conv_matrix,
+                arr_emissions_bgb_conv_matrix,
+            )
+
+            return out
 
 
 
@@ -6448,8 +6588,9 @@ class AFOLU:
         # other
         arrs_yields_per_livestock = np.array([arr_lndu_yield_by_lvst for k in range(n_tp)])
         
-        # initialize the ledger
+        # initialize the ledgers
         ledger = self.get_bcl(df_afolu_trajectories, )
+        ledger_mangroves = self.get_bcl(df_afolu_trajectories, mangroves = True, )
         
         # initialize biomass removals demand
         ##  HARVESTED WOOD PRODUCTS
@@ -6680,33 +6821,24 @@ class AFOLU:
 
             ##  CALCULATE FINAL LAND CONVERSION AND EMISSIONS 
 
-            # update the ledger
-            args_bcl = self.get_bcl_update_args(
-                arr_transition_adj,
-                x,
-                arr_lndu_constraints_inf[i],
-                arr_c_lndu_agb[i],
-                arr_c_lndu_ratio_bg_to_ag[i],
-                scalar_int_area_to_bcl_area,
-                scalar_int_mass_to_bcl_mass,
-            )
-            ledger._update(i, *args_bcl, )
-
-            # get biomass loss from conversion
             (
                 arr_emissions_agb_conv_matrix,
                 arr_emissions_bgb_conv_matrix,
-            ) = self.get_bcl_conversion_of_stock(
+            ) = self.pil_update_ledgers(
                 i,
                 ledger,
-                arr_transition_adj,
+                ledger_mangroves,
                 arrs_c_agb[i],
                 arrs_c_bgb[i],
-                x,                              # area of land at beginning of time period
+                arr_transition_adj,
+                x,
                 arr_c_lndu_agb[i],
                 arr_c_lndu_ratio_bg_to_ag[i],
+                arr_lndu_constraints_inf[i],
+                scalar_int_area_to_bcl_area,
                 scalar_int_mass_to_bcl_mass,
             )
+
 
             arr_land_conv = (arr_transition_adj.transpose()*x.transpose()).transpose()
             vec_emissions_conv = arr_emissions_agb_conv_matrix.sum(axis = 1)
