@@ -106,6 +106,16 @@ class AFOLU:
         period is compared to average annual sequestration factors that are 
         read from data. Only applies if `npp_curve` is specified as a valid 
         curve.
+    prohibit_forest_transitions : Union[bool, None]
+        Prohibit transitions between forests? If so, disallows:
+        - Mangroves to Secondary
+        - Mangroves to Primary
+        - Primary to Mangroves
+        - Primary to Secondary
+        - Secondary to Mangroves
+        - Secondary to Primary
+        These transitions are generally reasonable to avoid. If False, allows
+        specification of transitions between those forest classes to hold.
     """
 
     def __init__(self,
@@ -116,6 +126,7 @@ class AFOLU:
         npp_curve: Union[str, npp.NPPCurve, None] = None,
         npp_include_primary_forest: bool = False,
         npp_integration_windows: Union[list, tuple, np.ndarray] = _NPP_INTEGRATION_WINDOWS,
+        prohibit_forest_transitions: bool = True,
         **kwargs,
     ) -> None:
 
@@ -124,7 +135,9 @@ class AFOLU:
 
         self._initialize_subsector_names()
         self._initialize_input_output_components()
-        self._initialize_other_properties()
+        self._initialize_other_properties(
+            prohibit_forest_transitions = prohibit_forest_transitions,
+        )
 
 
         ##  SET MODEL FIELDS
@@ -611,6 +624,7 @@ class AFOLU:
 
 
     def _initialize_other_properties(self,
+        prohibit_forest_transitions: bool = True,
     ) -> None:
         """
         Initialize other properties that don't fit elsewhere. Sets the 
@@ -635,6 +649,13 @@ class AFOLU:
         # time variables
         time_periods, n_time_periods = self.model_attributes.get_time_periods()
 
+        # transitions between forests?
+        prohibit_forest_transitions = (
+            True 
+            if not isinstance(prohibit_forest_transitions, bool)
+            else prohibit_forest_transitions
+        )
+
 
         ##  SET PROPERTIES
 
@@ -644,6 +665,7 @@ class AFOLU:
         self.is_sisepuede_model_afolu = True
         self.time_periods = time_periods
         self.n_time_periods = n_time_periods
+        self.prohibit_forest_transitions = prohibit_forest_transitions
         self.time_dependence_stock_change = time_dependence_stock_change
 
         return None
@@ -2275,10 +2297,226 @@ class AFOLU:
     
 
 
+    def extract_lvars_c_stock_ag_by_type(self,
+        ind_m: int,
+        inds_ps: np.ndarray,
+        ledger: bcl.BiomassCarbonLedger,
+        ledger_mangroves: bcl.BiomassCarbonLedger,
+        vec_frst_frac_dm: np.ndarray,
+    ) -> pd.DataFrame:
+        """Extract total above ground C stock by type from each ledger
+        """
+        # get 
+        (
+            arr_frst_c_stock_ag,
+            modvar_frst_c_stock_ag,
+            scalar_frst_c_stock_ag,
+        ) = self.evl_support_get_c_stock_mass_var_info(
+            ledger, 
+            self.modvar_frst_c_stock_ag, 
+            vec_frst_frac_dm,
+        )
+
+        # assign to applicable rows
+        arr_frst_c_stock_ag[:, inds_ps] = ledger.arr_total_biomass_c_ag_starting.copy()
+        arr_frst_c_stock_ag[:, ind_m] = ledger_mangroves.arr_total_biomass_c_ag_starting[:, 1].copy()
+
+        # add to output data frame (scale here so array can be used for total)
+        df_out = self.model_attributes.array_to_df(
+            arr_frst_c_stock_ag*scalar_frst_c_stock_ag, 
+            modvar_frst_c_stock_ag,
+            reduce_from_all_cats_to_specified_cats = True,
+        )
+
+        out = (df_out,  arr_frst_c_stock_ag, )
+
+        return out
+
+
+
+    def extract_lvars_c_stock_bg_by_type(self,
+        ind_m: int,
+        inds_ps: np.ndarray,
+        ledger: bcl.BiomassCarbonLedger,
+        ledger_mangroves: bcl.BiomassCarbonLedger,
+        vec_frst_frac_dm: np.ndarray,
+    ) -> pd.DataFrame:
+        """Extract total above ground C stock by type from each ledger
+        """
+        (
+            arr_frst_c_stock_bg,
+            modvar_frst_c_stock_bg,
+            scalar_frst_c_stock_bg,
+        ) = self.evl_support_get_c_stock_mass_var_info(
+            ledger, 
+            self.modvar_frst_c_stock_bg, 
+            vec_frst_frac_dm,
+        )
+
+        # get from ledger
+        arr_frst_c_stock_bg[:, inds_ps] = ledger.arr_total_biomass_c_bg_starting.copy()
+        arr_frst_c_stock_bg[:, ind_m] = ledger_mangroves.arr_total_biomass_c_bg_starting[:, 1].copy()
+
+        # add to output data frame (scale here so array can be used for total)
+        df_out = self.model_attributes.array_to_df(
+            arr_frst_c_stock_bg*scalar_frst_c_stock_bg, 
+            modvar_frst_c_stock_bg,
+            reduce_from_all_cats_to_specified_cats = True,
+        )
+
+        out = (df_out,  arr_frst_c_stock_bg, )
+
+        return out
+    
+
+
+    def extract_lvars_c_stock_decomposition(self,
+        ind_m: int,
+        inds_ps: np.ndarray,
+        ledger: bcl.BiomassCarbonLedger,
+        ledger_mangroves: bcl.BiomassCarbonLedger,
+        vec_frst_frac_dm: np.ndarray,
+    ) -> pd.DataFrame:
+        """Extract total above ground C stock by type from each ledger
+        """
+        (
+            _,
+            modvar_frst_c_stock_decomposition,
+            scalar_frst_c_stock_decomposition,
+        ) = self.evl_support_get_c_stock_mass_var_info(
+            ledger, 
+            self.modvar_frst_c_stock_decomposition,
+            vec_frst_frac_dm,
+        )
+        
+        # build vector
+        vec_frst_c_stock_decomposition = ledger.arr_biomass_c_ag_lost_decomposition.sum(axis = 1, )
+        vec_frst_c_stock_decomposition += ledger.arr_biomass_c_bg_lost_decomposition.sum(axis = 1, )
+        vec_frst_c_stock_decomposition += ledger_mangroves.arr_biomass_c_ag_lost_decomposition[:, 1]
+        vec_frst_c_stock_decomposition += ledger_mangroves.arr_biomass_c_bg_lost_decomposition[:, 1]
+        vec_frst_c_stock_decomposition *= vec_frst_frac_dm
+
+        # add to output data frame
+        df_out = self.model_attributes.array_to_df(
+            vec_frst_c_stock_decomposition*scalar_frst_c_stock_decomposition, 
+            modvar_frst_c_stock_decomposition,
+        )
+        
+        return df_out
+    
+
+
+    def extract_lvars_c_stock_removals(self,
+        ind_m: int,
+        inds_ps: np.ndarray,
+        ledger: bcl.BiomassCarbonLedger,
+        ledger_mangroves: bcl.BiomassCarbonLedger,
+        vec_frst_frac_dm: np.ndarray,
+    ) -> pd.DataFrame:
+        """Extract total above ground C stock by type from each ledger
+        """
+        (
+            _,
+            modvar_frst_c_stock_removals,
+            scalar_frst_c_stock_removals,
+        ) = self.evl_support_get_c_stock_mass_var_info(
+            ledger, 
+            self.modvar_frst_c_stock_removals,
+            vec_frst_frac_dm,
+        )
+
+        # get from ledgers
+        vec_frst_c_stock_removals = ledger.vec_total_removals_met.copy()
+        vec_frst_c_stock_removals += ledger_mangroves.vec_total_removals_met.copy()
+
+        # add to output data frame
+        df_out = self.model_attributes.array_to_df(
+            vec_frst_c_stock_removals*scalar_frst_c_stock_removals,
+            modvar_frst_c_stock_removals,
+        )
+
+        return df_out
+    
+
+
+    def extract_lvars_c_stock_total(self,
+        arr_frst_c_stock_ag: np.ndarray,
+        arr_frst_c_stock_bg: np.ndarray,
+        ledger: bcl.BiomassCarbonLedger,
+        vec_frst_frac_dm: np.ndarray,
+    ) -> pd.DataFrame:
+        """Extract total above ground C stock by type from each ledger
+        """
+        (
+            _,
+            modvar_frst_c_stock_total,
+            scalar_frst_c_stock_total,
+        ) = self.evl_support_get_c_stock_mass_var_info(
+            ledger, 
+            self.modvar_frst_c_stock_total,
+            vec_frst_frac_dm,
+        )
+       
+        vec_total_c_stock = arr_frst_c_stock_ag.sum(axis = 1, ) + arr_frst_c_stock_bg.sum(axis = 1, )
+
+        # add to output data frame
+        df_out = self.model_attributes.array_to_df(
+            vec_total_c_stock*scalar_frst_c_stock_total, 
+            modvar_frst_c_stock_total,
+        )
+
+        return df_out
+    
+
+
+    def extract_lvars_emission_co2_decomposition(self,
+        ind_m: int,
+        inds_ps: np.ndarray,
+        ledger: bcl.BiomassCarbonLedger,
+        ledger_mangroves: bcl.BiomassCarbonLedger,
+        vec_frst_frac_dm: np.ndarray,
+    ) -> pd.DataFrame:
+        """Extract total above ground C stock by type from each ledger
+        """
+        (
+            arr_frst_emissions_co2_decomposition,
+            modvar_frst_emissions_co2_decomposition,
+            scalar_frst_emissions_co2_decomposition,
+        ) = self.evl_support_get_c_stock_mass_var_info(
+            ledger, 
+            self.modvar_frst_emissions_co2_decomposition,
+            vec_frst_frac_dm,
+        )
+
+        # get primary/secondary forest above- and below-ground from ledgers
+        arr_frst_emissions_co2_decomposition[:, inds_ps] = ledger.arr_biomass_c_ag_lost_decomposition.copy()
+        arr_frst_emissions_co2_decomposition[:, inds_ps] += ledger.arr_biomass_c_bg_lost_decomposition.copy()
+        arr_frst_emissions_co2_decomposition[:, ind_m] = ledger_mangroves.arr_biomass_c_bg_lost_decomposition[:, 1].copy()
+        arr_frst_emissions_co2_decomposition[:, ind_m] += ledger_mangroves.arr_biomass_c_bg_lost_decomposition[:, 1].copy()
+
+        # multiply by C fraction dry matter and then convert C to CO2
+        arr_frst_emissions_co2_decomposition = sf.do_array_mult(
+            arr_frst_emissions_co2_decomposition,
+            vec_frst_frac_dm,
+        )
+        scalar_apply = scalar_frst_emissions_co2_decomposition*self.factor_c_to_co2
+
+        # add to output data frame
+        df_out = self.model_attributes.array_to_df(
+            arr_frst_emissions_co2_decomposition*scalar_apply, 
+            modvar_frst_emissions_co2_decomposition,
+            reduce_from_all_cats_to_specified_cats = True,
+        )
+        
+        
+        return df_out
+    
+
+
     def extract_variables_from_ledger(self,
         df_afolu_trajectories: pd.DataFrame,
-        df_mangrove_overwrites: pd.DataFrame,
         ledger: bcl.BiomassCarbonLedger,
+        ledger_mangroves: bcl.BiomassCarbonLedger,
     ) -> pd.DataFrame:
         """Retrieve key variables from the ledger, including:
 
@@ -2294,15 +2532,17 @@ class AFOLU:
         ------------------
         df_afolu_trajectories : pd.DataFrame
             Input fields for AFOLU model
-        df_mangrove_overwrites : pd.DataFrame
             Pass fields for mangroves here (not dealt with in Ledger)
         ledger : BiomassCarbonLedger
-            BiomassCarbonLedger storing data for primary and secondary forest
+            ledger_mangroves storing data for primary and secondary forest
+        ledger : BiomassCarbonLedger
+            BiomassCarbonLedger storing data for mangrove forests
         """
         
         ##  INITIALIZATION
 
         df_return = []
+        ind_m = self.ind_frst_mang
         inds_ps = [self.ind_frst_prim, self.ind_frst_scnd]
         matt = self.model_attributes
         
@@ -2315,162 +2555,54 @@ class AFOLU:
             var_bounds = (0, 1),
         )
 
+        # some default args to pass to most functions
+        args_default = (
+            ind_m,
+            inds_ps,
+            ledger,
+            ledger_mangroves,
+            vec_frst_frac_dm,
+        )
 
-        ##  1. TOTAL ABOVE GROUND C STOCK BY FOREST TYPE
 
-        (
+        ##  BUILD IN ORDER
+
+        # 1. above ground C stock by type
+        df_ag_c, arr_frst_c_stock_ag = self.extract_lvars_c_stock_ag_by_type(*args_default, )
+        df_return.append(df_ag_c, )
+
+
+        # 2. below-ground C stock by type
+        df_bg_c, arr_frst_c_stock_bg = self.extract_lvars_c_stock_bg_by_type(*args_default, )
+        df_return.append(df_bg_c, )
+
+
+        # 3. total C stock at start of each period
+        df_c_total = self.extract_lvars_c_stock_total(
             arr_frst_c_stock_ag,
-            modvar_frst_c_stock_ag,
-            scalar_frst_c_stock_ag,
-        ) = self.evl_support_get_c_stock_mass_var_info(
-            ledger, 
-            self.modvar_frst_c_stock_ag, 
-            vec_frst_frac_dm,
-        )
-
-        # get from ledger and scale
-        arr_frst_c_stock_ag[:, inds_ps] = ledger.arr_total_biomass_c_ag_starting.copy()
-
-        # add to output data frame (scale here so array can be used for total)
-        df_return.append(
-            matt.array_to_df(
-                arr_frst_c_stock_ag*scalar_frst_c_stock_ag, 
-                modvar_frst_c_stock_ag,
-                reduce_from_all_cats_to_specified_cats = True,
-            )
-        )
-
-
-        ##  2. TOTAL BELOW GROUND C STOCK BY FOREST TYPE
-
-        (
             arr_frst_c_stock_bg,
-            modvar_frst_c_stock_bg,
-            scalar_frst_c_stock_bg,
-        ) = self.evl_support_get_c_stock_mass_var_info(
-            ledger, 
-            self.modvar_frst_c_stock_bg, 
+            ledger,
             vec_frst_frac_dm,
         )
-
-        # get from ledger
-        arr_frst_c_stock_bg[:, inds_ps] = ledger.arr_total_biomass_c_bg_starting.copy()
-
-        # add to output data frame (scale here so array can be used for total)
-        df_return.append(
-            matt.array_to_df(
-                arr_frst_c_stock_bg*scalar_frst_c_stock_bg, 
-                modvar_frst_c_stock_bg,
-                reduce_from_all_cats_to_specified_cats = True,
-            )
-        )
+        df_return.append(df_c_total, )
 
 
-        ##  3. TOTAL C STOCK AT START OF EACH PERIOD
-
-        (
-            _,
-            modvar_frst_c_stock_total,
-            scalar_frst_c_stock_total,
-        ) = self.evl_support_get_c_stock_mass_var_info(
-            ledger, 
-            self.modvar_frst_c_stock_total,
-            vec_frst_frac_dm,
-        )
-       
-        vec_total_c_stock = arr_frst_c_stock_ag.sum(axis = 1, ) + arr_frst_c_stock_bg.sum(axis = 1, )
-
-        # add to output data frame
-        df_return.append(
-            matt.array_to_df(
-                vec_total_c_stock*scalar_frst_c_stock_total, 
-                modvar_frst_c_stock_total,
-            )
-        )
+        # 4. total C stock loss from decomposition
+        df_c_decomp = self.extract_lvars_c_stock_decomposition(*args_default, )
+        df_return.append(df_c_decomp, )
 
 
-        ##  4. C LOSS FROM BIOMASS DECOMPOSITION
+        # 5. total CO2 emissions from decomposition
+        df_co2_decomp = self.extract_lvars_emission_co2_decomposition(*args_default, )
+        df_return.append(df_co2_decomp, )
+    
 
-        (
-            _,
-            modvar_frst_c_stock_decomposition,
-            scalar_frst_c_stock_decomposition,
-        ) = self.evl_support_get_c_stock_mass_var_info(
-            ledger, 
-            self.modvar_frst_c_stock_decomposition,
-            vec_frst_frac_dm,
-        )
+        # 6. total C stock removals met
+        df_c_removals = self.extract_lvars_c_stock_removals(*args_default, )
+        df_return.append(df_c_removals, )
+
         
-        vec_frst_c_stock_decomposition = ledger.arr_biomass_c_ag_lost_decomposition.sum(axis = 1, )
-        vec_frst_c_stock_decomposition += ledger.arr_biomass_c_bg_lost_decomposition.sum(axis = 1, )
-        vec_frst_c_stock_decomposition *= vec_frst_frac_dm
-
-        # add to output data frame
-        df_return.append(
-            matt.array_to_df(
-                vec_frst_c_stock_decomposition*scalar_frst_c_stock_decomposition, 
-                modvar_frst_c_stock_decomposition,
-            )
-        )
-
-
-        ##  5. CO2 EMISSIONS FROM DECOMPOSITION
-        print("Deal with Mangroves here and in seq (#6)")
-
-        (
-            arr_frst_emissions_co2_decomposition,
-            modvar_frst_emissions_co2_decomposition,
-            scalar_frst_emissions_co2_decomposition,
-        ) = self.evl_support_get_c_stock_mass_var_info(
-            ledger, 
-            self.modvar_frst_emissions_co2_decomposition,
-            vec_frst_frac_dm,
-        )
-
-        # get primary/secondary forest above- and below-ground from ledgers
-        arr_frst_emissions_co2_decomposition[:, inds_ps] = ledger.arr_biomass_c_ag_lost_decomposition.copy()
-        arr_frst_emissions_co2_decomposition[:, inds_ps] += ledger.arr_biomass_c_bg_lost_decomposition.copy()
-
-        # multiply by C fraction dry matter and then convert C to CO2
-        arr_frst_emissions_co2_decomposition = sf.do_array_mult(
-            arr_frst_emissions_co2_decomposition,
-            vec_frst_frac_dm,
-        )
-        scalar_apply = scalar_frst_emissions_co2_decomposition*self.factor_c_to_co2
-
-        # add to output data frame
-        df_return.append(
-            matt.array_to_df(
-                arr_frst_emissions_co2_decomposition*scalar_apply, 
-                modvar_frst_emissions_co2_decomposition,
-                reduce_from_all_cats_to_specified_cats = True,
-            )
-        )
-
-
-        ##  6. TOTAL C REMOVALS MET
-
-        (
-            _,
-            modvar_frst_c_stock_removals,
-            scalar_frst_c_stock_removals,
-        ) = self.evl_support_get_c_stock_mass_var_info(
-            ledger, 
-            self.modvar_frst_c_stock_removals,
-            vec_frst_frac_dm,
-        )
-
-        # get from ledger
-        vec_frst_c_stock_removals = ledger.vec_total_removals_met
-
-        # add to output data frame
-        df_return.append(
-            matt.array_to_df(
-                vec_frst_c_stock_removals*scalar_frst_c_stock_removals,
-                modvar_frst_c_stock_removals,
-            )
-        )
-
+        # 7. 
 
         ##  7. CO2 EMISSIONS FROM SEQUESTRATION (BIOMASS GROWTH)
 
@@ -6484,6 +6616,7 @@ class AFOLU:
         vec_lvst_scale_cc: np.ndarray,
         vec_gnrl_area: np.ndarray,
         n_tp: Union[int, None] = None,
+        prohibit_forest_transitions: Union[bool, None] = None,
     ) -> Tuple:
         """Integrated land use model, which performs required land use 
             transition adjustments.
@@ -6556,11 +6689,21 @@ class AFOLU:
         ------------------
         n_tp : int
             Number of time periods to run. If None, runs AFOLU.n_time_periods
+        prohibit_forest_transitions : Union[bool, None]
+            Prohibit transitions between forests? If so, disallows:
+            - Mangroves to Secondary
+            - Mangroves to Primary
+            - Primary to Mangroves
+            - Primary to Secondary
+            - Secondary to Mangroves
+            - Secondary to Primary
+            These transitions are generally reasonable to avoid. If None,
+            defaults to self.prohibit_forest_transitions.
 
-            
+        
         Returns
         -------
-        Tuple with 14 elements:
+        Tuple with 16 elements:
         - arr_agrc_change_to_net_imports_lost,
         - arr_agrc_frac_cropland,
         - arr_agrc_net_import_increase,
@@ -6574,6 +6717,8 @@ class AFOLU:
         - arrs_land_conv,
         - arrs_transitions_adj,
         - arrs_yields_per_livestock
+        - ledger
+        - ledger_mangroves
 
         """
         
@@ -6611,6 +6756,12 @@ class AFOLU:
             self.modvar_lndu_biomass_stock_factor_ag,
             modvar_bcl_mass,
             "mass",
+        )
+
+        prohibit_forest_transitions = (
+            self.prohibit_forest_transitions
+            if not isinstance(prohibit_forest_transitions, bool)
+            else prohibit_forest_transitions
         )
 
 
@@ -6832,6 +6983,7 @@ class AFOLU:
                 arr_lndu_constraints_inf[i],
                 arr_lndu_constraints_sup[i],
                 area = vec_gnrl_area[i],
+                prohibit_forest_transitions = prohibit_forest_transitions,
                 x_proj_unadj = x_proj_unadj,
                 solver = "quadprog",
             )
@@ -7083,6 +7235,7 @@ class AFOLU:
         vec_infimum_in: np.ndarray,
         vec_supremum_in: np.ndarray,
         area: Union[np.ndarray, None] = None,
+        prohibit_forest_transitions: bool = True,
         x_proj_unadj: Union[np.ndarray, None] = None,
         **kwargs,
     ) -> Dict:
@@ -7108,6 +7261,16 @@ class AFOLU:
         -----------------
         area : Union[np.ndarray, None]
             Optional specification of area for normalization
+        prohibit_forest_transitions : bool
+            Prohibit transitions between forests? If so, disallows:
+            - Mangroves to Secondary
+            - Mangroves to Primary
+            - Primary to Mangroves
+            - Primary to Secondary
+            - Secondary to Mangroves
+            - Secondary to Primary
+            These transitions are generally reasonable to avoid.
+
         x_proj_unadj : Union[np.ndarray, None]
             Unadjusted projected land use derived from exogenously specified 
             (unadjusted) transition matrix
@@ -7132,6 +7295,8 @@ class AFOLU:
             x_proj_unadj = x_proj_unadj,
         )
 
+        prohibited_transitions = self.qadj_get_prohibited_transitions(prohibit_forest_transitions, )
+        
         # run the optimization
         out = self.q_adjuster.solve(
             Q,
@@ -7141,6 +7306,7 @@ class AFOLU:
             vec_supremum,
             self.flag_ignore_constraint,
             costs_x = costs_x, # definitely don't want to forget the prevalence costs   np.zeros(x0.shape),#
+            prohibited_transitions = prohibited_transitions,
             #thresh_to_zero = 0.0001
             **kwargs,
         )
@@ -7221,6 +7387,23 @@ class AFOLU:
 
         return out
 
+
+
+    def qadj_get_prohibited_transitions(self,
+        prohibit_forest_transitions: bool,
+    ) -> Union[List[Tuple], None]:
+        """Get the specification of prohibited transitions to pass to QAdjuster.
+            If prohibit_forest_transitions, will prevent transitions between
+            all forest types.
+        """
+        
+        if not prohibit_forest_transitions:
+            return None
+        
+        inds_lndu_frst = self.get_lndu_indices_fstp_fsts(include_mangroves = True, )
+        prohibited_transitions = list(itertools.permutations(inds_lndu_frst, 2))
+
+        return prohibited_transitions
 
 
 

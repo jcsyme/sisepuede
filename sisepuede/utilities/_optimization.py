@@ -473,7 +473,7 @@ class QAdjuster:
     def get_constraint_coeffs_min_diag(self,
         matrix_0: np.ndarray,
         lb_diag_artificial: float,
-    ) -> np.ndarray:
+    ) -> Tuple[np.ndarray]:
         """Generate coefficients to promote a minimum value on the diagonal. 
             Prevents the solver from artificially reallocating entire land use
             classes.
@@ -525,7 +525,7 @@ class QAdjuster:
 
     def get_constraint_coeffs_preserve_zeros(self,
         matrix_0: np.ndarray,
-    ) -> np.ndarray:
+    ) -> Tuple[np.ndarray]:
         """Generate a matrix of coefficients used to ensure that values in
             matrix_0 that are 0 also zero in the solution. Returns a tuple in 
             the form of
@@ -557,11 +557,68 @@ class QAdjuster:
 
         return out
     
+
+
+    def get_constraint_coeffs_prohibited_transitions(self,
+        matrix_0: np.ndarray,
+        prohibited_transitions: Union[List[Tuple], None],
+    ) -> Tuple[np.ndarray]:
+        """Generate a matrix of coefficients used to ensure that any transitions
+            that are not allowed are not passed. Returns a tuple of the form
+
+            (
+                A,  # matrix with dims (n, n^2)
+                b,  # vector with dim (n, )
+            )
+
+        Function Arguments
+        ------------------
+        matrix_0 : np.ndarray
+            Initial transition matrix (n x n)
+        prohibited_transitions : Union[List[Tuple], None]
+            If specifying prohibited transitions from i -> j, specify here using
+            a list of tuples, e.g., [(i0, j0), (i1, j1), ...]. 
+        """
+
+        if not isinstance(prohibited_transitions, list):
+            return None
+        
+        # init
+        n = matrix_0.shape[0]
+        n_pt = len(prohibited_transitions)
+        G = np.zeros((n_pt, n**2))
+        h = np.zeros(n_pt, )
+        
+        k = 0
+        for tup in prohibited_transitions:
+
+            # some checks
+            if not isinstance(tup, tuple): continue
+            if len(tup) != 2: continue
+
+            ind = self.flat_index(*tup, n,)
+            G[k, ind] = 1
+            h[k] = 0
+
+            k += 1 
+
+        # if no specifications are successful, no constraint it set
+        if k == 0:
+            return None
+
+        # otherwise, return matrices for valid prohibitions
+        out = (
+            G[0:k],
+            h[0:k],
+        )
+
+        return out
+    
     
     
     def get_constraint_coeffs_row_stochastic(self,
         matrix_0: np.ndarray,
-    ) -> np.ndarray:
+    ) -> Tuple[np.ndarray]:
         """Generate a matrix of coefficients used to ensure that the resulting
             matrix is row-stochastic
 
@@ -791,6 +848,7 @@ class QAdjuster:
         vec_infima: np.ndarray,
         vec_suprema: np.ndarray,
         flag_ignore: float,
+        prohibited_transitions: Union[List[Tuple[int]], None] = None,
         **kwargs,
     ) -> Tuple:
         """Generate constraints for land use optimization QP. Returns a tuple in 
@@ -800,7 +858,9 @@ class QAdjuster:
                 A,
                 b,
                 G,
-                h,
+                h,      # 
+                v_0,    # vector of lower bounds
+                v_1,    # vector of upper bounds
             )
 
         Function Arguments
@@ -820,6 +880,9 @@ class QAdjuster:
 
         Keyword Arguments
         -----------------
+        prohibited_transitions : bool
+            Optional list of transitions from i -> j that are prohibited. If
+            None, no restriction is included.
         **kwargs : 
             Ignored
         """
@@ -830,7 +893,7 @@ class QAdjuster:
             matrix_0,
             x_0,
             vec_infima,
-            flag_ignore
+            flag_ignore,
         );
 
         constraint_max_area = self.get_constraint_coeffs_max_area(
@@ -842,7 +905,13 @@ class QAdjuster:
 
         constraint_row_stochastic = self.get_constraint_coeffs_row_stochastic(matrix_0, )
         constraint_preserve_zeros = self.get_constraint_coeffs_preserve_zeros(matrix_0, )
+        constraint_prohibited_transitions = self.get_constraint_coeffs_prohibited_transitions(
+            matrix_0,
+            prohibited_transitions,
+        )
 
+        global constraint_prohibited_transitions0
+        constraint_prohibited_transitions0 = constraint_prohibited_transitions
 
         ##  SET EQ CONSTRAINTS
 
@@ -858,14 +927,13 @@ class QAdjuster:
         constraint_list = [
             constraint_min_area,
             constraint_max_area,
-            constraint_preserve_zeros
+            constraint_preserve_zeros,
+            constraint_prohibited_transitions
         ]
 
 
         for i, constraint in enumerate(constraint_list):
-
-            if constraint is None:
-                continue
+            if constraint is None: continue
                 
             G.append(constraint[0])
             h.append(constraint[1])
@@ -980,6 +1048,7 @@ class QAdjuster:
         flag_ignore: float,
         *,
         #perturbation_diag: float = 0.000001,
+        prohibited_transitions: Union[List[Tuple[int]], None] = None,
         return_unadj_on_infeas: bool = True,
         solver: str = "quadprog",
         stop_on_error: bool = False,
@@ -1018,6 +1087,9 @@ class QAdjuster:
         perturbation_diag : float
             Perturbation to apply to the diagonal (positive) to ensure P is 
             positive definite, a requirement for some solvers.
+        prohibited_transitions : bool
+            Optional list of transitions from i -> j that are prohibited. If
+            None, no restriction is included.
         return_unadj_on_infeas : bool
             If both 
         solver : str
@@ -1052,6 +1124,7 @@ class QAdjuster:
                 vec_infima,
                 vec_suprema,
                 flag_ignore,
+                prohibited_transitions = prohibited_transitions,
                 **kwargs,
             )
 
