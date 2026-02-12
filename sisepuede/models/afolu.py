@@ -2754,26 +2754,44 @@ class AFOLU:
         vec_c_lndu_agb: np.ndarray,#arr_c_lndu_agb[i],
         vec_c_lndu_ratio_bg_to_ag: np.ndarray,#arr_c_lndu_agb[i],
         scalar_int_mass_to_bcl_mass: float,
+        mangroves: bool = False,
+        multiply_conv_by_area: bool = True,
     ) -> Tuple[np.ndarray]:
         """Get matrices of above-ground and below ground biomass emissions from 
             conversion from the BiomassCarbonLedger, adjusted transition 
             matrices, and above- and below-ground biomass stocks in each land 
             use class.
+
+        Keyword Arguments
+        -----------------
+        mangroves : bool
+            Set to True to use mangroves as the secondary forest class
+        multiply_conv_by_area : bool
+            Set to False to pass arr_conv_agb and arr_conv_bgb as carbon stock 
+            totals, not carbon stock factors (mass per area). Used if passing 
+            
         """
+
+        ##  INITIALIZATION
 
         inds_lndu_frst = self.get_lndu_indices_fstp_fsts(include_mangroves = True, )
         ind_lndu_fstm, ind_lndu_fstp, ind_lndu_fsts = inds_lndu_frst
         inds_lndu_not_frst = [x for x in range(arr_transition_adj.shape[0]) if x not in inds_lndu_frst]
+
+        # which index are we using for mangroves?
+        ind_second = ind_lndu_fsts if not mangroves else ind_lndu_fstm
         
+
+        ##  GET AVERAGES FROM LEDGER
+
         # get average biomass stock for each forest t
         vec_avg_biomass_ag_stock_factor = ledger.arr_orig_biomass_c_ag_average_per_area[i]
-        vec_avg_biomass_bg_stock_factor = vec_avg_biomass_ag_stock_factor*vec_c_lndu_ratio_bg_to_ag[[ind_lndu_fstp, ind_lndu_fsts]]
+        vec_avg_biomass_bg_stock_factor = vec_avg_biomass_ag_stock_factor*vec_c_lndu_ratio_bg_to_ag[[ind_lndu_fstp, ind_second]]
 
         # get areas converted (long--j to i), then transpose areas converted matrix back to original (i -> j)
         arr_area_transitions = vec_area_0*arr_transition_adj.transpose()
-        arr_converted = arr_area_transitions[:, [ind_lndu_fstp, ind_lndu_fsts]]
+        arr_converted = arr_area_transitions[:, [ind_lndu_fstp, ind_second]]
         arr_area_transitions = arr_area_transitions.transpose()
-        # arr_converted *= scalar_int_area_to_bcl_area
 
         # get difference between biomass 
         arr_biomass_ag_diff_from_target_stocks = vec_c_lndu_agb*np.ones((2, vec_c_lndu_agb.shape[0]))
@@ -2810,12 +2828,21 @@ class AFOLU:
         arr_alloc_biomass_to_target_stocks_bg *= vec_biomass_converted_bg
         
         # get total biomass converted from basic matrix
-        arr_conv_agb_out = arr_conv_agb * arr_area_transitions
-        arr_conv_bgb_out = arr_conv_bgb * arr_area_transitions
+        mult = arr_area_transitions if multiply_conv_by_area else 1.0
+        arr_conv_agb_out = arr_conv_agb.copy() * mult
+        arr_conv_bgb_out = arr_conv_bgb.copy() * mult
 
-        # finally, over write basic matrix for primary and secondary forest with allocated totals from ledger
-        arr_conv_agb_out[[ind_lndu_fstp, ind_lndu_fsts], :] = arr_alloc_biomass_to_target_stocks_ag.transpose()
-        arr_conv_bgb_out[[ind_lndu_fstp, ind_lndu_fsts], :] = arr_alloc_biomass_to_target_stocks_bg.transpose()
+
+        ##  OVERWRITE BASE MATRIX TO SET OUTPUT MATRICES
+        
+        # if mangroves, only overwrite the mangroves row
+        if not mangroves:
+            arr_conv_agb_out[[ind_lndu_fstp, ind_lndu_fsts], :] = arr_alloc_biomass_to_target_stocks_ag.transpose()
+            arr_conv_bgb_out[[ind_lndu_fstp, ind_lndu_fsts], :] = arr_alloc_biomass_to_target_stocks_bg.transpose()
+
+        else:
+            arr_conv_agb_out[ind_lndu_fstm, :] = arr_alloc_biomass_to_target_stocks_ag[:, 1]#.transpose()
+            arr_conv_bgb_out[ind_lndu_fstm, :] = arr_alloc_biomass_to_target_stocks_bg[:, 1]#.transpose()
 
 
         out = (
@@ -5903,63 +5930,97 @@ class AFOLU:
 
 
     def pil_update_ledgers(self,
-            i: int,
-            ledger: bcl.BiomassCarbonLedger,
-            ledger_mangroves: bcl.BiomassCarbonLedger,
-            arr_c_agb: np.ndarray,
-            arr_c_bgb: np.ndarray,
-            arr_transition_adj: np.ndarray,
-            vec_area_start_of_period: np.ndarray,
-            vec_c_lndu_agb: np.ndarray,
-            vec_c_lndu_ratio_bg_to_ag: np.ndarray,
-            vec_lndu_constraints_inf: np.ndarray,
-            scalar_int_area_to_bcl_area: float,
-            scalar_int_mass_to_bcl_mass: float,
-        ) -> Tuple[np.ndarray]:
-            """Update the standard + mangrove ledger and return
+        i: int,
+        ledger: bcl.BiomassCarbonLedger,
+        ledger_mangroves: bcl.BiomassCarbonLedger,
+        arr_c_agb: np.ndarray,
+        arr_c_bgb: np.ndarray,
+        arr_transition_adj: np.ndarray,
+        vec_area_start_of_period: np.ndarray,
+        vec_c_lndu_agb: np.ndarray,
+        vec_c_lndu_ratio_bg_to_ag: np.ndarray,
+        vec_lndu_constraints_inf: np.ndarray,
+        scalar_int_area_to_bcl_area: float,
+        scalar_int_mass_to_bcl_mass: float,
+    ) -> Tuple[np.ndarray]:
+        """Update the standard + mangrove ledger and return
 
-                arr_emissions_agb_conv_matrix,
-                arr_emissions_bgb_conv_matrix 
+            arr_emissions_agb_conv_matrix,
+            arr_emissions_bgb_conv_matrix 
 
-                in each case
-            """
+            in each case
+        """
 
-            ##  UPDATE STANDARD LEDGER
+        ##  UPDATE STANDARD LEDGER
 
-            # get arguments in order
-            args_bcl = self.get_bcl_update_args(
-                arr_transition_adj,
-                vec_area_start_of_period,
-                vec_lndu_constraints_inf,
-                vec_c_lndu_agb,
-                vec_c_lndu_ratio_bg_to_ag,
-                scalar_int_area_to_bcl_area,
-                scalar_int_mass_to_bcl_mass,
-            )
-            ledger._update(i, *args_bcl, )
+        # get arguments in order
+        args_bcl = self.get_bcl_update_args(
+            arr_transition_adj,
+            vec_area_start_of_period,
+            vec_lndu_constraints_inf,
+            vec_c_lndu_agb,
+            vec_c_lndu_ratio_bg_to_ag,
+            scalar_int_area_to_bcl_area,
+            scalar_int_mass_to_bcl_mass,
+        )
+        ledger._update(i, *args_bcl, )
 
-            # get biomass loss from conversion
-            (
-                arr_emissions_agb_conv_matrix,
-                arr_emissions_bgb_conv_matrix,
-            ) = self.get_bcl_conversion_of_stock(
-                i,
-                ledger,
-                arr_transition_adj,
-                arr_c_agb, #arrs_c_agb[i],
-                arr_c_bgb, #arrs_c_bgb[i],
-                vec_area_start_of_period,                              # area of land at beginning of time period
-                vec_c_lndu_agb,
-                vec_c_lndu_ratio_bg_to_ag,
-                scalar_int_mass_to_bcl_mass,
-            )
+        # get biomass loss from conversion
+        (
+            arr_emissions_agb_conv_matrix,
+            arr_emissions_bgb_conv_matrix,
+        ) = self.get_bcl_conversion_of_stock(
+            i,
+            ledger,
+            arr_transition_adj,
+            arr_c_agb, #arrs_c_agb[i],
+            arr_c_bgb, #arrs_c_bgb[i],
+            vec_area_start_of_period,                              # area of land at beginning of time period
+            vec_c_lndu_agb,
+            vec_c_lndu_ratio_bg_to_ag,
+            scalar_int_mass_to_bcl_mass,
+        )
 
-            out = (
-                arr_emissions_agb_conv_matrix,
-                arr_emissions_bgb_conv_matrix,
-            )
 
-            return out
+        ##  UPDATE MANGROVES LEDGER
+
+        # get arguments in order
+        args_bcl_mangroves = self.get_bcl_update_args(
+            arr_transition_adj,
+            vec_area_start_of_period,
+            vec_lndu_constraints_inf,
+            vec_c_lndu_agb,
+            vec_c_lndu_ratio_bg_to_ag,
+            scalar_int_area_to_bcl_area,
+            scalar_int_mass_to_bcl_mass,
+            mangroves = True,
+        )
+        ledger_mangroves._update(i, *args_bcl_mangroves, )
+
+        # get biomass loss from conversion
+        (
+            arr_emissions_agb_conv_matrix,
+            arr_emissions_bgb_conv_matrix,
+        ) = self.get_bcl_conversion_of_stock(
+            i,
+            ledger_mangroves,
+            arr_transition_adj,
+            arr_emissions_agb_conv_matrix, #arrs_c_agb[i],
+            arr_emissions_bgb_conv_matrix, #arrs_c_bgb[i],
+            vec_area_start_of_period,                              # area of land at beginning of time period
+            vec_c_lndu_agb,
+            vec_c_lndu_ratio_bg_to_ag,
+            scalar_int_mass_to_bcl_mass,
+            mangroves = True,
+            multiply_conv_by_area = False,
+        )
+
+        out = (
+            arr_emissions_agb_conv_matrix,
+            arr_emissions_bgb_conv_matrix,
+        )
+
+        return out
 
 
 
@@ -6839,7 +6900,6 @@ class AFOLU:
                 scalar_int_mass_to_bcl_mass,
             )
 
-
             arr_land_conv = (arr_transition_adj.transpose()*x.transpose()).transpose()
             vec_emissions_conv = arr_emissions_agb_conv_matrix.sum(axis = 1)
             vec_emissions_conv += arr_emissions_bgb_conv_matrix.sum(axis = 1)
@@ -6872,37 +6932,24 @@ class AFOLU:
             i += 1
 
 
-
-
-
         # add on final time step by repeating the transition matrix
-        trans_adj = arrs_transitions_adj[i - 1]
+        # trans_adj = arrs_transitions_adj[i - 1]
 
-        # update the ledger
-        args_bcl = self.get_bcl_update_args(
-            trans_adj,
-            x,
-            arr_lndu_constraints_inf[i],
-            arr_c_lndu_agb[i],
-            arr_c_lndu_ratio_bg_to_ag[i],
-            scalar_int_area_to_bcl_area,
-            scalar_int_mass_to_bcl_mass,
-        )
-        ledger._update(i, *args_bcl, )
-
-        # get biomass loss from conversion
         (
             arr_emissions_agb_conv_matrix,
             arr_emissions_bgb_conv_matrix,
-        ) = self.get_bcl_conversion_of_stock(
+        ) = self.pil_update_ledgers(
             i,
             ledger,
-            arr_transition_adj,
+            ledger_mangroves,
             arrs_c_agb[i],
             arrs_c_bgb[i],
-            x,                              # area of land at beginning of time period
+            arr_transition_adj,  # trans_adj,
+            x,
             arr_c_lndu_agb[i],
             arr_c_lndu_ratio_bg_to_ag[i],
+            arr_lndu_constraints_inf[i],
+            scalar_int_area_to_bcl_area,
             scalar_int_mass_to_bcl_mass,
         )
 
@@ -6919,7 +6966,7 @@ class AFOLU:
         arr_emissions_conv_agb_matrices[i] = arr_emissions_agb_conv_matrix
         arr_emissions_conv_bgb_matrices[i] = arr_emissions_bgb_conv_matrix
         arrs_land_conv[i] = arr_land_conv
-        arrs_transitions_adj[i] = trans_adj
+        arrs_transitions_adj[i] = arr_transition_adj  # trans_adj
 
 
         out = (
@@ -6938,6 +6985,7 @@ class AFOLU:
             arrs_transitions_adj,
             arrs_yields_per_livestock,
             ledger,
+            ledger_mangroves,
         )
         
         return out
@@ -7598,6 +7646,7 @@ class AFOLU:
             arrs_lndu_q_adj,
             self.yields_per_livestock,
             ledger,
+            ledger_mangroves,
         ) = self.project_integrated_land_use(
             df_afolu_trajectories,
             vec_modvar_lndu_initial_area,
@@ -7625,6 +7674,8 @@ class AFOLU:
         
         
         #return ledger
+        self.arr_land_use = arr_land_use
+        self.arrs_lndu_land_conv = arrs_lndu_land_conv
 
         # get some output variables
         #df_out += self.extract_variables_from_ledger(
@@ -7633,7 +7684,7 @@ class AFOLU:
             None,#df_mangrove_overwrites: pd.DataFrame,
             ledger,
         )
-        return out, ledger
+        return out, ledger, ledger_mangroves
 
         # update imports/exports for agriculture
         arr_agrc_exports_adj = sf.vec_bounds(

@@ -1657,6 +1657,10 @@ class BiomassCarbonLedger:
         # 2. above-ground biomass lost to decomposition: arr_biomass_c_ag_lost_decomposition
         
         # have to add in young decomp
+        if i == 11:
+            print(f"vec_c_ag_starting = {vec_c_ag_starting}")
+            print(f"vec_c_ag_conv = {vec_c_ag_conv}")
+            print(f"vec_c_ag_removed = {vec_c_ag_removed}")
         vec_c_ag_lost_decomp = frac_decomp*(vec_c_ag_starting - vec_c_ag_conv - vec_c_ag_removed)
         vec_c_ag_lost_decomp[ind_fs] += c_decomp_young
         self.arr_biomass_c_ag_lost_decomposition[i] = vec_c_ag_lost_decomp
@@ -1830,10 +1834,15 @@ class BiomassCarbonLedger:
         #    - vec_orig_biomass_c_accessible_pool
         vec_alloc_adjusted = vec_removals_alloc*vec_frac_satisfiable
         alloc_total = vec_alloc_adjusted.sum()
-
+        vec_allocation_removals = np.nan_to_num(
+            vec_alloc_adjusted/alloc_total,
+            nan = 0.0,
+            posinf = 0.0,
+        )
+        
         self.arr_orig_biomass_c_allocation_adjusted[i] = vec_alloc_adjusted
         self.vec_orig_biomass_c_accessible_pool[i] = alloc_total
-        self.arr_orig_allocation_removals[i] = vec_alloc_adjusted/alloc_total
+        self.arr_orig_allocation_removals[i] = vec_allocation_removals
 
 
         return None
@@ -1881,12 +1890,14 @@ class BiomassCarbonLedger:
         vec_seq = self.arr_orig_sf_adjusted[i]
         vec_stock_prev = self.arr_orig_biomass_c_ag_starting[i - 1]
 
-        vec_stock = (
+        vec_stock = np.clip(
             vec_stock_prev
             - vec_conv_prev
             - vec_decomp_prev
             - vec_removals_prev
-            + vec_seq*vec_area_remaining_orig
+            + vec_seq*vec_area_remaining_orig,
+            0,
+            np.inf,
         )
 
         # update array
@@ -1900,6 +1911,8 @@ class BiomassCarbonLedger:
             nan = 0.0,
             posinf = 0.0,
         )
+
+        vec_avg = np.clip(vec_avg, 0, np.inf, )
 
         self.arr_orig_biomass_c_ag_average_per_area[i] = vec_avg
         self.arr_orig_biomass_c_ag_average_per_area_no_ds[i] = np.clip(
@@ -1948,6 +1961,8 @@ class BiomassCarbonLedger:
         # 1. update total above-ground biomass by type: arr_total_biomass_c_ag_starting
         vec_c_ag_total_update = vec_c_ag_total.copy()
         vec_c_ag_total_update[ind_fs] += self.vec_young_biomass_c_ag_starting[i]
+        vec_c_ag_total_update = np.clip(vec_c_ag_total_update, 0, np.inf, )
+
         self.arr_total_biomass_c_ag_starting[i] = vec_c_ag_total_update
 
 
