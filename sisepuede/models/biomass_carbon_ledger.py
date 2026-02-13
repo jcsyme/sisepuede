@@ -22,143 +22,9 @@ class ShapeError(Exception):
 
 
 
-
-
-
-
-"""
-FOR USE IN AFOLU WRAPPER
-
-# Initialization Arguments
-    
-    n_tp : int
-        Number of time periods to use
-    model_attributes : ModelAttributes
-        ModelAttributes for some initialization
-    cat_frst_secondary : str
-        Secondary forest category
-    cats_lndu_frst : List[str]
-        List of forest land use categories
-    cats_lndu_track : Union[List[str], None]
-        Land use categories to track
-    dict_lndu_to_frst: Dict[str, str]
-        Dictionary mapping land use categories to associated forest categories
-    modvar_frst_frac_c_converted_available: Union['ModelVariable', str]
-        ModelVariable that stores the fraction of C converted that is available
-        for use
-    modvar_frst_frac_max_degradation : Union[ModelVariable, str]
-        ModelVariable giving maximum degredation fraction (by land use category)
-    vec_c_removals_demanded: Union[np.ndarray, None],
-        Vector (n_time_periods) of exogenous demands for removals (from fuelwood
-        and harvested wood products). If None, sets to 0.
-    vec_init_by_cat_area : np.ndarray
-        Vector (length n_cats) of initial areas, ordered by cats_lndu_track
-    vec_init_by_cat_c_stock_per_area : np.ndarray
-        Vector (length n_cats) of initial C stock per unit area, ordered by 
-        cats_lndu_track
-    vec_init_by_cat_seq_per_area : np.ndarray
-        Vector (length n_cats) of initial C sequestration per unit area, 
-        ordered by cats_lndu_track
-    vec_sequestration_per_tp_new : np.ndarray
-        Vector storing sequestration rates (mass C/area/time_period) for new
-        growth. Can be derived from NPP curve.
-
-
-
-
-        
-        model_attributes: 'ModelAttributes',
-        cat_frst_secondary: str,
-        cats_lndu_track: Union[List[str], None],
-        dict_lndu_to_frst: Dict[str, str],
-        modvar_frst_frac_c_converted_available: Union['ModelVariable', str],
-        modvar_frst_frac_max_degradation: Union['ModelVariable', str],
-
-
-
-        model_attributes: 'ModelAttributes',
-        modvar_frst_frac_c_converted_available: Union['ModelVariable', str],
-        modvar_frst_frac_max_degradation: Union['ModelVariable', str],
-        cat_frst_secondary: str,
-        cats_lndu_track: Union[List[str], None],    
-        dict_lndu_to_frst: Dict[str, str],
-
-
-        def _initialize_attributes(self,
-        
-        n_tp: int,
-    ) -> None:
-        Initialize key attributes used to manage land use classes
-        
-
-        attr_lndu = model_attributes.get_attribute_table(
-            model_attributes.subsec_name_lndu,
-        )
-        # some dictionaries
-        dict_frst_to_lndu = sf.reverse_dict(dict_lndu_to_frst,)
-
-
-        # set categories
-        cats_lndu_frst = [x for x in attr_lndu.key_values if (x in dict_lndu_to_frst.keys())]
-        
-        cats_lndu_track = (
-            [x for x in attr_lndu.key_values if (x in cats_lndu_track) and (x in cats_lndu_frst)]
-            if sf.islistlike(cats_lndu_track)
-            else cats_lndu_frst
-        )
-        cats_frst_track = [dict_lndu_to_frst.get(x) for x in cats_lndu_track]
-
-        # check for secondary forest
-        if cat_frst_secondary not in cats_frst_track:
-            raise RuntimeError(f"Error: secondary forest category '{cat_frst_secondary}' must be associated with a land use class to track.")
-        
-        ind_frst_secondary = cats_frst_track.index(cat_frst_secondary)
-        cat_lndu_fsts = dict_frst_to_lndu.get(cat_frst_secondary)
-
-
-        # pycategory for landuse
-        pycat_lndu = model_attributes.get_subsector_attribute(
-            model_attributes.subsec_name_lndu,
-            "pycategory_primary_element"
-        )
-
-
-        # get some model variables
-        modvar_frst_frac_c_converted_available = model_attributes.get_variable(
-            modvar_frst_frac_c_converted_available,
-        )
-        modvar_frst_frac_max_degradation = model_attributes.get_variable(
-            modvar_frst_frac_max_degradation,
-        )
-
-        if not sf.isnumber(n_tp, integer = True, ):
-            raise TypeError(f"n_tp must be an integer")
-
-
-
-        ##  SET PROPERTIES
-
-        self.attr_lndu = attr_lndu
-        self.cat_frst_secondary = cat_frst_secondary
-        self.cat_lndu_fsts = cat_lndu_fsts
-        self.cats_frst_track = cats_frst_track
-        self.cats_lndu_frst = cats_lndu_frst
-        self.cats_lndu_track = cats_lndu_track
-        self.dict_frst_to_lndu = dict_frst_to_lndu
-        self.dict_lndu_to_frst = dict_lndu_to_frst
-        self.ind_frst_secondary = ind_frst_secondary
-        self.model_attributes = model_attributes
-        self.modvar_frst_frac_c_converted_available = modvar_frst_frac_c_converted_available
-        self.modvar_frst_frac_max_degradation = modvar_frst_frac_max_degradation
-        self.n_tp = n_tp
-        self.pycat_lndu = pycat_lndu
-
-        return None
-""";
-
-
-
-
+####################################
+#    BUILD PRIMARY LEDGER CLASS    #
+####################################
 
 class BiomassCarbonLedger:
     """The CarbonLedger is a simplified dynamic model of forest carbon 
@@ -1657,10 +1523,6 @@ class BiomassCarbonLedger:
         # 2. above-ground biomass lost to decomposition: arr_biomass_c_ag_lost_decomposition
         
         # have to add in young decomp
-        if i == 11:
-            print(f"vec_c_ag_starting = {vec_c_ag_starting}")
-            print(f"vec_c_ag_conv = {vec_c_ag_conv}")
-            print(f"vec_c_ag_removed = {vec_c_ag_removed}")
         vec_c_ag_lost_decomp = frac_decomp*(vec_c_ag_starting - vec_c_ag_conv - vec_c_ag_removed)
         vec_c_ag_lost_decomp[ind_fs] += c_decomp_young
         self.arr_biomass_c_ag_lost_decomposition[i] = vec_c_ag_lost_decomp

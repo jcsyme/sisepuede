@@ -884,8 +884,10 @@ class AFOLU:
         self.modvar_lndu_constraint_area_max = "Maximum Area"
         self.modvar_lndu_constraint_area_min = "Minimum Area"
         # self.modvar_lndu_ef_co2_conv = ":math:\\text{CO}_2 Land Use Conversion Emission Factor"
-        self.modvar_lndu_emissions_conv = ":math:\\text{CO}_2 Emissions from Land Use Conversion"
-        self.modvar_lndu_emissions_conv_away = ":math:\\text{CO}_2 Emissions from Conversion Away from Land Use Type"
+        self.modvar_lndu_emissions_conv_ag = ":math:\\text{CO}_2 Emissions from Above Ground Biomass Land Use Conversion"
+        self.modvar_lndu_emissions_conv_bg = ":math:\\text{CO}_2 Emissions from Below Ground Biomass Land Use Conversion"
+        self.modvar_lndu_emissions_conv_ag_away = ":math:\\text{CO}_2 Emissions from Above Ground Biomass Conversion Away from Land Use Type"
+        self.modvar_lndu_emissions_conv_bg_away = ":math:\\text{CO}_2 Emissions from Below Ground Biomass Conversion Away from Land Use Type"
         self.modvar_lndu_emissions_ch4_from_wetlands = ":math:\\text{CH}_4 Emissions from Wetlands"
         self.modvar_lndu_emissions_co2_sequestration = ":math:\\text{CO}_2 Emissions from Land Use Biomass Sequestration" #NEW
         self.modvar_lndu_emissions_co2_drained_organic_soils = ":math:\\text{CO}_2 Emissions from Drained Organic Soils"
@@ -1685,9 +1687,10 @@ class AFOLU:
 
 
 
-    def convert_fuelwood_to_c_equivalent(self,
+    def convert_fuelwood_to_biomass_equivalent(self,
         df_afolu_trajectories: pd.DataFrame,
         vec_energy_demand_fuelwood: Union[float, np.ndarray],
+        convert_to_c: bool = False,
         modvar_frac_c: Union['ModelVariable', None] = None,
         units_energy: Union['ModelVariable', str, None] = None,
         units_mass: Union['ModelVariable', str, None] = None,
@@ -1704,6 +1707,8 @@ class AFOLU:
 
         Keyword Arguments
         -----------------
+        convert_to_c : bool
+            Convert to C total? If True, multiplies by C fraction per biomass
         modvar_frac_c : Union['ModelVariable', None]
             Optional model variable to use to specify fraction of C that makes
             up mass. If None, defaults to `self.modvar_frst_frac_c_per_dm`
@@ -1746,15 +1751,6 @@ class AFOLU:
             return_type = "array_base",
         )
 
-        # c fraction
-        vec_frst_c_frac = self.model_attributes.extract_model_variable(
-            df_afolu_trajectories,
-            modvar_c_per_dm,
-            override_vector_for_single_mv_q = False,
-            return_type = "array_base",
-            var_bounds = (0, 1),
-        )
-
         
         ##  CONVERT
         
@@ -1768,7 +1764,6 @@ class AFOLU:
             modvar_ged.attribute("unit_energy"),
             units_energy,
         )
-
         #   
         arr_enfu_ged /= um_mass.convert(
             modvar_ged.attribute("unit_mass"),
@@ -1778,7 +1773,19 @@ class AFOLU:
         # get biomass as 
         vec_ged_biomass = arr_enfu_ged[:, ind_biomass]
         vec_mass_biomass = vec_energy_demand_fuelwood/vec_ged_biomass
-        vec_mass_c = vec_mass_biomass*vec_frst_c_frac
+
+        # get c fraction?
+        if convert_to_c:
+            vec_frst_c_frac = self.model_attributes.extract_model_variable(
+                df_afolu_trajectories,
+                modvar_c_per_dm,
+                override_vector_for_single_mv_q = False,
+                return_type = "array_base",
+                var_bounds = (0, 1),
+            )
+            
+            vec_mass_c = vec_mass_biomass*vec_frst_c_frac
+
 
         return vec_mass_c
 
@@ -1973,10 +1980,11 @@ class AFOLU:
     
 
 
-    def estimate_c_demand_fuelwood_noag(self,
+    def estimate_biomass_demand_fuelwood_noag(self,
         df_afolu_trajectories: pd.DataFrame,
         df_ippu_production: pd.DataFrame,
-        convert_to_c: bool = True,
+        convert_to_c: bool = False,
+        unit_spec_mass: Union[str, 'ModelVariable', None] = None,
         **kwargs,
     ) -> np.ndarray:
         """Estimate the specified demand fir mass of c removals in term of a 
@@ -2007,9 +2015,13 @@ class AFOLU:
         -----------------
         convert_to_c : bool
             Set to True to convert output to C. If True, can pass units via 
-            kwargs to convert_fuelwood_to_c_equivalent()
+            kwargs to convert_fuelwood_to_biomass_equivalent()
+        unit_spec_mass : Union[str, 'ModelVariable', None]
+            Optional ModelVariable (MUST be a ModelVariable, not a string) or
+            unit (str) to use for target mass units. If None, defaults to 
+            configuration defaults
         kwargs :
-            Passed to convert_fuelwood_to_c_equivalent()
+            Passed to convert_fuelwood_to_biomass_equivalent()
         """
         ##  INITIALIZATION
 
@@ -2078,6 +2090,7 @@ class AFOLU:
             )
 
             # convert to config units for now
+
             arr_fuel_demand *= self.model_attributes.get_scalar(
                 modvar, 
                 return_type = "energy",
@@ -2101,10 +2114,12 @@ class AFOLU:
         
         
         # convert to C and return
-        vec_c_demand = self.convert_fuelwood_to_c_equivalent(
+        vec_c_demand = self.convert_fuelwood_to_biomass_equivalent(
             df_afolu_trajectories,
             vec_fuel_demand_biomass_out,
+            convert_to_c = convert_to_c,
             modvar_frac_c = self.modvar_frst_frac_c_per_dm,
+            units_mass = unit_spec_mass,
             **kwargs,
         )
 
@@ -2112,10 +2127,11 @@ class AFOLU:
     
 
 
-    def estimate_c_demand_from_hwp_and_removals(self,
+    def estimate_biommass_demand_for_hwp_and_removals(self,
         df_afolu_trajectories: pd.DataFrame,
         vec_rates_gdp: np.ndarray,
         #dict_check_integrated_variables: dict,
+        convert_to_c: bool = False,
         units_mass_out: Union['ModelVariable', str, None] = None,
         **kwargs,
     ) -> Tuple[np.ndarray, np.ndarray]:
@@ -2144,11 +2160,13 @@ class AFOLU:
 
         Keyword Arguments
         -----------------
+        convert_to_c : bool
+            Optional conversion to C equivalent
         units_mass_out : Union['ModelVariable', str, None]
             Units of mass for vec_frst_c_paper and vec_frst_c_wood. If None, it
             is assumed that the units are configuration units.
         **kwargs :
-            Passed to estimate_c_demand_fuelwood_noag()
+            Passed to estimate_biomass_demand_fuelwood_noag()
         """
         ## 
 
@@ -2187,20 +2205,21 @@ class AFOLU:
             return_type = "array_base", 
         )
 
-        vec_frst_harvested_wood_industrial_paper = arr_frst_harvested_wood_industrial[:, ind_paper]
-        vec_frst_harvested_wood_industrial_wood = arr_frst_harvested_wood_industrial[:, ind_wood]
+        vec_frst_c_paper = arr_frst_harvested_wood_industrial[:, ind_paper]
+        vec_frst_c_wood = arr_frst_harvested_wood_industrial[:, ind_wood]
 
         print(f"vec_frst_harvested_wood_industrial_paper = {vec_frst_harvested_wood_industrial_paper}")
 
         # get C fraction of HWP
-        vec_frst_ef_c = self.model_attributes.extract_model_variable(#
-            df_afolu_trajectories,
-            self.modvar_frst_frac_c_per_hwp,
-            return_type = "array_base",
-            var_bounds = (0, np.inf),
-        )
-        vec_frst_c_paper = vec_frst_harvested_wood_industrial_paper*vec_frst_ef_c
-        vec_frst_c_wood = vec_frst_harvested_wood_industrial_wood*vec_frst_ef_c
+        if convert_to_c:
+            vec_frst_ef_c = self.model_attributes.extract_model_variable(#
+                df_afolu_trajectories,
+                self.modvar_frst_frac_c_per_hwp,
+                return_type = "array_base",
+                var_bounds = (0, np.inf),
+            )
+            vec_frst_c_paper = vec_frst_c_paper*vec_frst_ef_c
+            vec_frst_c_wood = vec_frst_c_wood*vec_frst_ef_c
 
 
         ##  DO UNIT CONVERSION
@@ -2220,7 +2239,7 @@ class AFOLU:
 
         ##  GET REMOVALS OF FUELWOOD
 
-        vec_frst_c_fuel = self.estimate_c_demand_fuelwood_noag(
+        vec_frst_c_fuel = self.estimate_biomass_demand_fuelwood_noag(
             df_afolu_trajectories,
             dfs_ippu_harvested_wood[2],
             units_mass = units_mass_out,
@@ -2469,6 +2488,56 @@ class AFOLU:
     
 
 
+
+    def extract_lvars_emission_co2_conversion(self,
+        arrs_conversion: np.ndarray,
+        modvar_target: Union[str, 'ModelVariable'],
+        vec_frst_frac_dm: np.ndarray,
+    ) -> pd.DataFrame:
+        """Extract total above ground C stock by type from each ledger
+        """
+        scalar = self.extract_lvars_support_get_scalar(modvar_target, )
+        
+        # multiply each array by dry matter fraction C, the C -> CO2 factor, and the units scalar
+        arrs_out = arrs_conversion.copy()*self.factor_c_to_co2*scalar
+        for i in range(arrs_out.shape[0]):
+            arrs_out[i] *= vec_frst_frac_dm[i]
+       
+        df_out = self.format_transition_matrix_as_input_dataframe(
+            arrs_out,
+            exclude_time_period = True,
+            modvar = modvar_target,
+        )
+        
+        return df_out
+    
+
+
+    def extract_lvars_emission_co2_conversion_away(self,
+        arr_conversion_away: np.ndarray,
+        modvar_target: Union[str, 'ModelVariable'],
+        vec_frst_frac_dm: np.ndarray,
+    ) -> pd.DataFrame:
+        """Extract total above ground C stock by type from each ledger
+        """
+        scalar = self.extract_lvars_support_get_scalar(modvar_target, )
+        
+        # multiply the array by dry matter fraction C, the C -> CO2 factor, and the units scalar
+        arrs_out = self.factor_c_to_co2*scalar*sf.do_array_mult(
+            arr_conversion_away,
+            vec_frst_frac_dm,
+        )
+
+        df_out = self.model_attributes.array_to_df(
+            arrs_out,
+            modvar_target,
+            reduce_from_all_cats_to_specified_cats = True,
+        )
+        
+        return df_out
+    
+
+
     def extract_lvars_emission_co2_decomposition(self,
         ind_m: int,
         inds_ps: np.ndarray,
@@ -2513,8 +2582,83 @@ class AFOLU:
     
 
 
+    def extract_lvars_emission_co2_sequestration(self,
+        ind_m: int,
+        inds_ps: np.ndarray,
+        ledger: bcl.BiomassCarbonLedger,
+        ledger_mangroves: bcl.BiomassCarbonLedger,
+        vec_frst_frac_dm: np.ndarray,
+    ) -> pd.DataFrame:
+        """Extract total above ground C stock by type from each ledger
+        """
+        (
+            arr_frst_emissions_co2_sequestration,
+            modvar_frst_emissions_co2_sequestration,
+            scalar_frst_emissions_co2_sequestration,
+        ) = self.evl_support_get_c_stock_mass_var_info(
+            ledger, 
+            self.modvar_frst_emissions_co2_sequestration,
+            vec_frst_frac_dm,
+        )
+        
+        # get from ledger
+        arr_frst_emissions_co2_sequestration[:, inds_ps] = ledger.arr_biomass_c_total_growth.copy()
+        arr_frst_emissions_co2_sequestration[:, ind_m] = ledger_mangroves.arr_biomass_c_total_growth[:, 1].copy()
+
+        # multiply by C fraction dry matter and then convert C to CO2
+        arr_frst_emissions_co2_sequestration = sf.do_array_mult(
+            arr_frst_emissions_co2_sequestration,
+            vec_frst_frac_dm,
+        )
+        scalar_apply = scalar_frst_emissions_co2_sequestration*self.factor_c_to_co2
+
+        # add to output data frame; multiply negative one to represent CO2 squestration/removal
+        df_out = self.model_attributes.array_to_df(
+            -1*arr_frst_emissions_co2_sequestration*scalar_apply, 
+            modvar_frst_emissions_co2_sequestration,
+            reduce_from_all_cats_to_specified_cats = True,
+        )
+        
+        
+        return df_out
+    
+
+
+    def extract_lvars_support_get_scalar(self,
+        modvar_target: Union[str, 'ModelVariable'],
+    ) -> float:
+        """Get units scalar for extract_lvars_emission_co2_conversion() and
+            extract_lvars_emission_co2_conversion_away() functions.
+        """
+        # get model variables and units of mass for target
+        modvar_units_source = self.get_lndu_integrated_target_mass_modvar()
+        modvar_target = self.model_attributes.get_variable(modvar_target, )
+        units_mass = modvar_target.attribute("unit_mass")
+
+        if units_mass is None:
+            scalar = self.model_attributes.get_scalar(
+                modvar_units_source,
+                "mass",
+            )
+
+            return scalar
+        
+        scalar = self.model_attributes.get_variable_unit_conversion_factor(
+            modvar_units_source,
+            modvar_target,
+            "mass",
+        )
+
+        return scalar
+    
+
+
     def extract_variables_from_ledger(self,
         df_afolu_trajectories: pd.DataFrame,
+        arrs_lndu_land_conv_agb: np.ndarray,
+        arrs_lndu_land_conv_bgb: np.ndarray,
+        arrs_lndu_emissions_conv_agb_matrices: np.ndarray,
+        arrs_lndu_emissions_conv_bgb_matrices: np.ndarray,
         ledger: bcl.BiomassCarbonLedger,
         ledger_mangroves: bcl.BiomassCarbonLedger,
     ) -> pd.DataFrame:
@@ -2533,6 +2677,20 @@ class AFOLU:
         df_afolu_trajectories : pd.DataFrame
             Input fields for AFOLU model
             Pass fields for mangroves here (not dealt with in Ledger)
+        arrs_lndu_land_conv_agb: np.ndarray
+            Arrays of above-ground biomass conversion totals (T x N), where each 
+            column are total biomass loss from converting away from that type
+        arrs_lndu_land_conv_bgb: np.ndarray
+            Arrays of below-ground biomass conversion totals (T x N), where each 
+            column are total biomass loss from converting away from that type
+        arrs_lndu_emissions_conv_agb_matrice: np.ndarrays
+            Arrays of biomass conversion totals (T x N x N), where each entry is
+            a matrix and the value at i, j is the total above-ground biomass 
+            loss from converting from i to j
+        arrs_lndu_emissions_conv_bgb_matrices: np.ndarray
+            Arrays of biomass conversion totals (T x N x N), where each entry is
+            a matrix and the value at i, j is the total below-ground biomass 
+            loss from converting from i to j
         ledger : BiomassCarbonLedger
             ledger_mangroves storing data for primary and secondary forest
         ledger : BiomassCarbonLedger
@@ -2602,38 +2760,46 @@ class AFOLU:
         df_return.append(df_c_removals, )
 
         
-        # 7. 
+        # 7. get CO2 sequestration in new biomass
+        df_co2_seq = self.extract_lvars_emission_co2_sequestration(*args_default, )
+        df_return.append(df_co2_seq, )
 
-        ##  7. CO2 EMISSIONS FROM SEQUESTRATION (BIOMASS GROWTH)
 
-        (
-            arr_frst_emissions_co2_sequestration,
-            modvar_frst_emissions_co2_sequestration,
-            scalar_frst_emissions_co2_sequestration,
-        ) = self.evl_support_get_c_stock_mass_var_info(
-            ledger, 
-            self.modvar_frst_emissions_co2_sequestration,
+        # 8. get CO2 conversion emissions in above-grouind biomass
+        df_co2_conv_agb = self.extract_lvars_emission_co2_conversion(
+            arrs_lndu_emissions_conv_agb_matrices,
+            self.modvar_lndu_emissions_conv_ag,   
             vec_frst_frac_dm,
         )
+        df_return.append(df_co2_conv_agb, )
+
+
+        # 9. get CO2 conversion emissions in above-grouind biomass
+        df_co2_conv_bgb = self.extract_lvars_emission_co2_conversion(
+            arrs_lndu_emissions_conv_bgb_matrices,
+            self.modvar_lndu_emissions_conv_bg,
+            vec_frst_frac_dm,
+        )
+        df_return.append(df_co2_conv_bgb, )
+
+
+        # 10. get CO2 conversion emissions in above-grouind biomass
+        df_co2_conv_away_agb = self.extract_lvars_emission_co2_conversion_away(
+            arrs_lndu_land_conv_agb,
+            self.modvar_lndu_emissions_conv_ag_away,
+            vec_frst_frac_dm,
+        )
+        df_return.append(df_co2_conv_away_agb, )
+
+
+        # 11. get CO2 conversion emissions in above-grouind biomass
+        df_co2_conv_away_bgb = self.extract_lvars_emission_co2_conversion_away(
+            arrs_lndu_land_conv_bgb,
+            self.modvar_lndu_emissions_conv_bg_away,
+            vec_frst_frac_dm,
+        )
+        df_return.append(df_co2_conv_away_bgb, )
         
-        # get from ledger
-        arr_frst_emissions_co2_sequestration[:, inds_ps] = ledger.arr_biomass_c_total_growth.copy()
-
-        # multiply by C fraction dry matter and then convert C to CO2
-        arr_frst_emissions_co2_sequestration = sf.do_array_mult(
-            arr_frst_emissions_co2_sequestration,
-            vec_frst_frac_dm,
-        )
-        scalar_apply = scalar_frst_emissions_co2_sequestration*self.factor_c_to_co2
-
-        # add to output data frame; multiply negative one to represent CO2 squestration/removal
-        df_return.append(
-            matt.array_to_df(
-                -1*arr_frst_emissions_co2_sequestration*scalar_apply, 
-                modvar_frst_emissions_co2_sequestration,
-                reduce_from_all_cats_to_specified_cats = True,
-            )
-        )
 
         return df_return
     
@@ -4001,313 +4167,6 @@ class AFOLU:
         )
 
         return arr_frst_ef_methane
-    
-
-    
-    def get_frst_sequestration_and_land_use_conversion_emission(self,
-        df_afolu_trajectories: pd.DataFrame,
-        arrs_lndu_conversion: np.ndarray,
-        arrs_lndu_conversion_emissions: np.ndarray,
-        arr_lndu_areas: np.ndarray,
-        arr_frst_areas: np.ndarray,
-        **kwargs,
-    ) -> Tuple[np.ndarray]:
-        """Get forest sequestration and land use conversion emissions.
-        """
-        if self.npp_curve is None:
-
-            out = self.get_frst_sequestration_static(
-                df_afolu_trajectories,
-                arr_frst_areas,
-            )
-
-            scalar = 1.0
-
-        else:
-            out, scalar = self.get_frst_sequestration_from_npp(
-                df_afolu_trajectories,
-                arrs_lndu_conversion,
-                arr_lndu_areas,
-                arr_frst_areas,
-                **kwargs
-            )
-
-        # scale conversion estimates based on secondary forest biomass growth (scaled) and add to output list
-        df_lndu_emissions_conversion = self.format_lndu_conversion_emissions_and_scale_secondary_forest(
-            arrs_lndu_conversion_emissions, 
-            scalar_secondary_forest_conversions = scalar,
-        )
-
-        out.append(df_lndu_emissions_conversion)
-
-        return out
-    
-    
-
-    def get_frst_sequestration_from_npp(self,
-        df_afolu_trajectories: pd.DataFrame,
-        arrs_lndu_conversion: np.ndarray,
-        arr_lndu_areas: np.ndarray, #arr_land_use
-        arr_frst_areas: np.ndarray,
-        attr_lndu: Union[AttributeTable, None] = None,
-        field_sfv_secondary: str = _FIELD_NPP_ORD_2,
-        key_cmf: str = "cmf",
-        key_params: str = "params",
-        npp_curve: Union[str, None] = None,
-        **kwargs,
-    ) -> Tuple[np.ndarray]:
-        """Calculate forest sequestration using NPP.
-
-        NOTE: all secondary sequestration at time t = 0 is assumed to use the
-            average specified sequestration factor.
-
-        
-        Function Arguments
-        ------------------
-        df_afolu_trajectories : pd.DataFrame
-            data frame containing input trajectories
-        arrs_lndu_conversion : np.ndarray
-            arrays of converted areas in terms of self.modvar_lndu_area_by_cat
-        arr_lndu_areas : np.ndarray
-            Array (by lndu category) of land use prevalence long by time period
-            
-
-        Keyword Arguments
-        ------------------
-        attr_lndu : Union[AttributeTable, None]
-            optional land use attribute table
-        field_sfv_secondary : str
-            field to use for standard secondary factor
-        key_cmf : str
-            key in curve group subdicts storing cmf
-        key_params : str
-            key in curve group subdicts storing parameter results
-        npp_curve : Union[str, None]
-            curve to use? If None, use self.npp_curve
-        kwargs :
-            passed to the following methods:
-            * get_npp_frst_sequestration_factor_vectors()
-            * get_npp_biomass_sequestration_curves()
-        """
-        
-        ##  SOME INIT
-
-        attr_lndu = (
-            self.model_attributes.get_attribute_table(self.model_attributes.subsec_name_lndu)
-            if attr_lndu is None
-            else attr_lndu
-        )
-
-        # stick to using the name
-        npp_curve = self.npp_curve if (npp_curve is None) else npp_curve
-
-        # 
-        # get groups of sequestration factors and NPP curves
-        (
-            df_sf_groups,
-            arr_frst_sf,
-            _,
-        ) = self.get_npp_frst_sequestration_factor_vectors(
-            df_afolu_trajectories,
-            field_ord_2 = field_sfv_secondary, 
-            return_factors = True,
-            **kwargs,
-        )
-
-        dict_curves = self.get_npp_biomass_sequestration_curves(
-            df_sf_groups,
-            key_cmf = key_cmf,
-            key_params = key_params,
-            **kwargs,
-        )
-        
-        # get CH4 factors
-        arr_frst_ef_methane = self.model_attributes.extract_model_variable(#
-            df_afolu_trajectories, 
-            self.modvar_frst_ef_ch4, 
-            override_vector_for_single_mv_q = True, 
-            return_type = "array_units_corrected",
-        )
-        arr_frst_ef_methane *= self.model_attributes.get_variable_unit_conversion_factor(
-            self.model_socioeconomic.modvar_gnrl_area,
-            self.modvar_frst_ef_ch4,
-            "area"
-        )
-
-
-        # get an array to collapse
-        field_cmf = "cumulative_mass"
-        field_tp = self.model_attributes.dim_time_period
-        tps = df_afolu_trajectories[field_tp].to_numpy()
-        n_tp = len(tps)
-
-        # arrs to collapse: if the area of secondary forests declines, then assume that pre-existing forest was cut into first
-        #    - arr_area_to_collapse:                areas converted in by year
-        #    - arr_cumulative_mass_to_collapse:     cumulative mass by year for new forests; used to scale conversion factors 
-        #    - arr_sequestration_to_collapse:       sequestration totals by year
-        arr_area_to_collapse = np.zeros((n_tp, n_tp))
-        arr_cumulative_mass_to_collapse = np.zeros((n_tp, n_tp))
-        arr_sequestration_to_collapse = np.zeros((n_tp, n_tp))
-
-        # initialize the tp, curve tuple and the curve
-        tup_call = None 
-        curve = self.curves_npp.get_curve(npp_curve, )
-
-
-        ##  GET SEQUESTRATION BY YEAR
-        
-        sf_frst_secondary_init = arr_frst_sf[0, self.ind_frst_scnd]
-
-        # ACCOUNTING VECTORS
-        #    - vec_area_secondary_remaining_from_original:  stores the area of secondary forest that was initialized that remains after convesions occur 
-        #    - vec_area_converted_from_total:               area in each time period of forest converted away from secondary forests
-        #    - vec_area_converted_from_original:            area in each time period of forest converted away from secondary forests from original stock
-        #    - vec_area_new_total:                          total area converted to new w/o removing losses 
-        vec_area_secondary_remaining_from_original = np.ones(n_tp)*arr_lndu_areas[0, self.ind_lndu_fsts]
-        vec_area_converted_from_total = np.zeros(n_tp)
-        vec_area_new_total = np.zeros(n_tp)
-        
-        # 
-        area_converted_from_total = 0
-        area_converted_to_total = 0
-
-        for (i, arr) in enumerate(arrs_lndu_conversion):
-
-            tp = tps[i]
-            tup = (tp, npp_curve)
-            area_to, area_from, area_remaining = self.get_lndu_areas_to_from_remaining(arr, self.ind_lndu_fsts, )
-
-            # this should always initialize the tuple since the first time period will have variables
-            if tup in dict_curves.keys():
-
-                tup_call = tup
-                dict_cur = dict_curves.get(tup_call, )
-                
-                # ensure cmf and parameters are defined
-                arr_cmf = dict_cur.get(key_cmf, )
-                params = dict_cur.get(key_params, )
-                if (params is None) | (arr_cmf is None):
-                    continue 
-
-                arr_cmf = self._get_frst_sequestration_from_npp_build_cmf_df(
-                    df_afolu_trajectories,
-                    arr_cmf,
-                    field_cmf,
-                    field_tp,
-                    return_type = "array",
-                )
-
-            
-            # safety check
-            if tup_call is None:
-                continue
-
-
-            # get area to use original sequestration factor for; then remove land converted away for NEXT iteration
-            vec_area_secondary_remaining_from_original[i] -= area_converted_from_total
-            vec_area_converted_from_total[i] = area_from
-            vec_area_new_total[i] = area_converted_to_total
-
-            # update aggreate areas
-            area_converted_from_total += area_from
-            area_converted_to_total += area_to
-
-            # get the domain and add to the sequestration total
-            vec_t = tps[i:] - tps[i]
-            arr_area_to_collapse[i:, i] = area_to
-            """
-            NOTE: This approach of iteratively pushing the cmf down (1 by 1) 
-            assumes that time periods are implemented correctly as 
-            t, t + 1, t + 2, etc. with no gaps
-
-            NOTE: the value of arr_sequestration_to_collapse at time i is 0, so
-                area_to doesn't apply until i + 1. This means that sequestration
-                factors (and biomass conversion scalars) aren't affected until
-                t = i + 1
-            """
-        
-            arr_sequestration_to_collapse[i:, i] = curve(vec_t, *params.x)*area_to
-            if i < n_tp - 1:
-                arr_cumulative_mass_to_collapse[(i + 1):, i] = arr_cmf[0:(n_tp - i - 1), 1]*area_to
-
-
-        # set area removed from new as any excess over "original" secondary
-        vec_area_secondary_remaining_from_original = sf.vec_bounds(
-            vec_area_secondary_remaining_from_original,
-            (0, np.inf)
-        )
-        vec_area_converted_from_original = sf.vec_bounds(
-            vec_area_converted_from_total,
-            [(0, x) for x in vec_area_secondary_remaining_from_original]
-        )
-        vec_area_converted_from_new = vec_area_converted_from_total - vec_area_converted_from_original
-
-        # new forest is total inflow, bounded above by area of forest
-        vec_area_new_total_capped = sf.vec_bounds(
-            vec_area_new_total,
-            [(0, x) for x in arr_lndu_areas[:, self.ind_lndu_fsts]]
-        )
-        
-
-        ##  CALCULATE OUTPUTS
-        #   Assumes that conversions out of secondary hit older secondary forests first.
-        #    - get secondary forest sequestration
-        #    - get average biomass conversion scalar
-
-        # get base sequestration
-        arr_sequestration = arr_frst_areas*arr_frst_sf
-
-        # total secondary is scaled by how much is actually near 
-        vec_sequestration_secondary = arr_sequestration_to_collapse.sum(axis = 1)
-        vec_sequestration_secondary *= np.nan_to_num(
-            vec_area_new_total_capped/vec_area_new_total, 
-            nan = 0.0, 
-            posinf = 0.0, 
-        )
-        vec_sequestration_secondary += vec_area_secondary_remaining_from_original*sf_frst_secondary_init
-        arr_sequestration[:, self.ind_frst_scnd] = vec_sequestration_secondary
-
-        # get the scalar for land use conversion to apply
-        vec_frac_area_converted_from_new = vec_area_converted_from_new/vec_area_converted_from_total
-        vec_conversion_scalar = arr_cumulative_mass_to_collapse.sum(axis = 1)/vec_area_new_total # weighted average of 
-        vec_conversion_scalar *= vec_frac_area_converted_from_new
-        vec_conversion_scalar += 1 - vec_frac_area_converted_from_new
-        vec_conversion_scalar = np.nan_to_num(vec_conversion_scalar, nan = 1.0, posinf = 1.0, )
-
-        # get methane emissions
-        arr_frst_ef_methane = self.get_frst_methane_factors(df_afolu_trajectories, )
-        arr_frst_emission_methane = arr_frst_areas*arr_frst_ef_methane
-
-        # this seris:
-        #    1. normalizes the cumulative mass curve per unit new
-        #    2. multiplies by total new area
-        #    3. adds "1" * area of secondary remaining from original
-        #    4. divides by total area of f
-        vec_frst_prevalence_scalar = arr_cumulative_mass_to_collapse.sum(axis = 1)/vec_area_new_total
-        vec_frst_prevalence_scalar *= vec_area_new_total_capped
-        vec_frst_prevalence_scalar += vec_area_secondary_remaining_from_original
-        vec_frst_prevalence_scalar /= arr_lndu_areas[:, self.ind_lndu_fsts]
-        vec_frst_prevalence_scalar = np.nan_to_num(vec_frst_prevalence_scalar, nan = 1.0, posinf = 1.0, )
-        
-        vec_frst_ef_ch4_secondary = arr_frst_ef_methane[:, self.ind_frst_scnd]*vec_frst_prevalence_scalar
-        arr_frst_emission_methane[:, self.ind_frst_scnd] = arr_frst_areas[:, self.ind_frst_scnd]*vec_frst_ef_ch4_secondary
-
-
-        # convert to dataframes and return
-        out = [
-            self.model_attributes.array_to_df(
-                -1*arr_sequestration, 
-                self.modvar_frst_emissions_co2_sequestration
-            ),
-            self.model_attributes.array_to_df(
-                arr_frst_emission_methane, 
-                self.modvar_frst_emissions_ch4
-            )
-        ]
-
-        out = (out, vec_conversion_scalar,)
-
-        return out
 
 
 
@@ -4603,6 +4462,19 @@ class AFOLU:
         """
         out = self.model_attributes.get_variable(
             self.model_socioeconomic.modvar_gnrl_area,
+        )
+
+        return out
+    
+
+
+    def get_lndu_integrated_target_mass_modvar(self,
+    ) -> 'ModelVariable':
+        """Get the standard ModelVariable to use for the target units for the 
+            integrated land use model.
+        """
+        out = self.model_attributes.get_variable(
+            self.modvar_lndu_biomass_stock_factor_ag,
         )
 
         return out
@@ -6703,23 +6575,26 @@ class AFOLU:
         
         Returns
         -------
-        Tuple with 16 elements:
-        - arr_agrc_change_to_net_imports_lost,
-        - arr_agrc_frac_cropland,
-        - arr_agrc_net_import_increase,
-        - arr_agrc_yield,
-        - arr_emissions_conv,
-        - arr_emissions_conv_agb_matrices,
-        - arr_land_use,
-        - arr_lvst_change_to_net_imports_lost,
-        - arr_lvst_net_import_increase,
-        - arr_lvst_pop_ardj,
-        - arrs_land_conv,
-        - arrs_transitions_adj,
-        - arrs_yields_per_livestock
-        - ledger
-        - ledger_mangroves
-
+        Tuple with 17 elements:
+        (
+            arr_agrc_change_to_net_imports_lost,
+            arr_agrc_frac_cropland,
+            arr_agrc_net_import_increase,
+            arr_agrc_yield,
+            arr_emissions_conv_ag,
+            arr_emissions_conv_bg,
+            arr_emissions_conv_agb_matrices,
+            arr_emissions_conv_bgb_matrices,
+            arr_land_use,
+            arr_lvst_change_to_net_imports_lost,
+            arr_lvst_net_import_increase,
+            arr_lvst_pop_adj,
+            arrs_land_conv,
+            arrs_transitions_adj,
+            arrs_yields_per_livestock,
+            ledger,
+            ledger_mangroves,
+        )
         """
         
         ##  BASE INITIALIZATION
@@ -6753,7 +6628,7 @@ class AFOLU:
         )
 
         scalar_int_mass_to_bcl_mass = self.model_attributes.get_variable_unit_conversion_factor(
-            self.modvar_lndu_biomass_stock_factor_ag,
+            self.get_lndu_integrated_target_mass_modvar(),
             modvar_bcl_mass,
             "mass",
         )
@@ -6781,7 +6656,8 @@ class AFOLU:
             for k in range(n_tp)
         ])
         
-        arr_emissions_conv = np.zeros((n_tp, attr_lndu.n_key_values))
+        arr_emissions_conv_ag = np.zeros((n_tp, attr_lndu.n_key_values))
+        arr_emissions_conv_bg = np.zeros((n_tp, attr_lndu.n_key_values))
         arr_emissions_conv_agb_matrices = np.zeros(arrs_transitions.shape)
         arr_emissions_conv_bgb_matrices = np.zeros(arrs_transitions.shape)
         arr_land_use = np.array([vec_initial_area for k in range(n_tp)])
@@ -7053,8 +6929,8 @@ class AFOLU:
             )
 
             arr_land_conv = (arr_transition_adj.transpose()*x.transpose()).transpose()
-            vec_emissions_conv = arr_emissions_agb_conv_matrix.sum(axis = 1)
-            vec_emissions_conv += arr_emissions_bgb_conv_matrix.sum(axis = 1)
+            vec_emissions_conv_ag = arr_emissions_agb_conv_matrix.sum(axis = 1)
+            vec_emissions_conv_bg = arr_emissions_bgb_conv_matrix.sum(axis = 1)
                         
             if i + 1 < n_tp:
 
@@ -7072,7 +6948,8 @@ class AFOLU:
             # non-ag arrays
             rng_put = np.arange((i)*attr_lndu.n_key_values, (i + 1)*attr_lndu.n_key_values)
             np.put(arr_land_use, rng_put, x)
-            np.put(arr_emissions_conv, rng_put, vec_emissions_conv)
+            np.put(arr_emissions_conv_ag, rng_put, vec_emissions_conv_ag)
+            np.put(arr_emissions_conv_bg, rng_put, vec_emissions_conv_bg)
 
             arr_emissions_conv_agb_matrices[i] = arr_emissions_agb_conv_matrix
             arr_emissions_conv_bgb_matrices[i] = arr_emissions_bgb_conv_matrix
@@ -7106,13 +6983,14 @@ class AFOLU:
         )
 
         arr_land_conv = (arr_transition_adj.transpose()*x.transpose()).transpose()
-        vec_emissions_conv = arr_emissions_agb_conv_matrix.sum(axis = 1)
-        vec_emissions_conv += arr_emissions_bgb_conv_matrix.sum(axis = 1)
+        vec_emissions_conv_ag = arr_emissions_agb_conv_matrix.sum(axis = 1)
+        vec_emissions_conv_bg = arr_emissions_bgb_conv_matrix.sum(axis = 1)
 
         # add to tables
         rng_put = np.arange((i)*attr_lndu.n_key_values, (i + 1)*attr_lndu.n_key_values)
         np.put(arr_land_use, rng_put, x)
-        np.put(arr_emissions_conv, rng_put, vec_emissions_conv)
+        np.put(arr_emissions_conv_ag, rng_put, vec_emissions_conv_ag)
+        np.put(arr_emissions_conv_bg, rng_put, vec_emissions_conv_bg)
 
         # update matrix lists
         arr_emissions_conv_agb_matrices[i] = arr_emissions_agb_conv_matrix
@@ -7126,7 +7004,8 @@ class AFOLU:
             arr_agrc_frac_cropland,
             arr_agrc_net_import_increase,
             arr_agrc_yield,
-            arr_emissions_conv,
+            arr_emissions_conv_ag,
+            arr_emissions_conv_bg,
             arr_emissions_conv_agb_matrices,
             arr_emissions_conv_bgb_matrices,
             arr_land_use,
@@ -7151,9 +7030,8 @@ class AFOLU:
         n_tp: Union[int, None] = None,
     ) -> Tuple:
 
-        """
-        Basic version of project_land_use_integrated() that only projects
-            land use dynamics (performing Markov forward linear algebra 
+        """Basic version of project_land_use_integrated() that only projects
+            land use dynamics (performing Markov Chain forward linear algebra 
             arithmetic)
 
         Function Arguments
@@ -7718,6 +7596,7 @@ class AFOLU:
             n_tp = n_projection_time_periods,
             return_c_stock_conversion_factors = True,
             modvar_target_units_area = self.get_lndu_integrated_target_area_modvar(),
+            modvar_target_units_mass = self.get_lndu_integrated_target_mass_modvar(),
         )
 
         (
@@ -7818,7 +7697,8 @@ class AFOLU:
             arr_agrc_frac_cropland,
             arr_agrc_net_import_increase,
             arr_agrc_yield,
-            arr_lndu_emissions_conv,
+            arr_emissions_conv_ag,
+            arr_emissions_conv_bg,
             arrs_lndu_emissions_conv_agb_matrices,
             arrs_lndu_emissions_conv_bgb_matrices,
             arr_land_use,                             # note: this is in terms of modvar_gnrl_area (Area of Region)
@@ -7864,8 +7744,12 @@ class AFOLU:
         #df_out += self.extract_variables_from_ledger(
         out = self.extract_variables_from_ledger(
             df_afolu_trajectories,
-            None,#df_mangrove_overwrites: pd.DataFrame,
+            arr_emissions_conv_ag,
+            arr_emissions_conv_bg,
+            arrs_lndu_emissions_conv_agb_matrices,
+            arrs_lndu_emissions_conv_bgb_matrices,
             ledger,
+            ledger_mangroves,
         )
         return out, ledger, ledger_mangroves
 
@@ -8081,7 +7965,7 @@ class AFOLU:
         arr_lndu_ef_sequestration *= self.model_attributes.get_variable_unit_conversion_factor(
             self.model_socioeconomic.modvar_gnrl_area,
             self.modvar_lndu_biomass_growth_rate,
-            "area"
+            "area",
         )
         
         # get land use sequestration in biomass
@@ -8089,7 +7973,7 @@ class AFOLU:
         arr_lndu_sequestration_co2e *= self.model_attributes.get_variable_unit_conversion_factor(
             self.modvar_lndu_biomass_growth_rate,
             self.modvar_lndu_emissions_co2_sequestration,
-            "mass"
+            "mass",
         )
 
         # get CH4 emissions from wetlands
@@ -8097,12 +7981,12 @@ class AFOLU:
             df_afolu_trajectories, 
             self.modvar_lndu_ef_ch4_boc, 
             override_vector_for_single_mv_q = True, 
-            return_type = "array_units_corrected"
+            return_type = "array_units_corrected",
         )
         arr_lndu_ef_ch4_boc *= self.model_attributes.get_variable_unit_conversion_factor(
             self.model_socioeconomic.modvar_gnrl_area,
             self.modvar_lndu_ef_ch4_boc,
-            "area"
+            "area",
         )
 
         fields_lndu_for_ch4_boc = self.model_attributes.build_target_variable_fields_from_source_variable_categories(
@@ -8212,18 +8096,6 @@ class AFOLU:
         ##################
 
         arr_area_frst = self.get_frst_area_from_df(df_land_use, attr_frst, )
-
-        # TEMPTEMPTEMP
-        list_frst_ests = self.get_frst_sequestration_and_land_use_conversion_emission(
-            df_afolu_trajectories,
-            arrs_lndu_land_conv,
-            arrs_lndu_emissions_conv_agb_matrices,
-            arr_land_use,
-            arr_area_frst,
-        )
-
-        df_out += list_frst_ests
-
         
         ##  FOREST FIRES
 
@@ -8269,6 +8141,7 @@ class AFOLU:
             self.modvar_frst_biomass_consumed_fire_tropical, 
             expand_to_all_cats = True, 
             override_vector_for_single_mv_q = True, 
+
             return_type = "array_base", 
             var_bounds = (0, 1),
         )
