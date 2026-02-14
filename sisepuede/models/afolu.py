@@ -7148,6 +7148,12 @@ class AFOLU:
         # add on final time step by repeating the transition matrix
         # trans_adj = arrs_transitions_adj[i - 1]
 
+        vec_additional_biomass_removals = self.estimate_energy_demand_agrc_lvst(
+            df_afolu_trajectories.iloc[0:(i + 1)],
+            arr_agrc_yield[0:(i + 1), :],
+            vec_lvst_aggregate_animal_mass[0:(i + 1)],
+        )
+    
         (
             arr_emissions_agb_conv_matrix,
             arr_emissions_bgb_conv_matrix,
@@ -7164,6 +7170,7 @@ class AFOLU:
             arr_lndu_constraints_inf[i],
             scalar_int_area_to_bcl_area,
             scalar_int_mass_to_bcl_mass,
+            c_removals_additional = vec_additional_biomass_removals[-1], 
         )
 
         arr_land_conv = (arr_transition_adj.transpose()*x.transpose()).transpose()

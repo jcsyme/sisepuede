@@ -168,8 +168,7 @@ def transformation_general(
     regions_apply: Union[List[str], None] = None,
     strategy_id: Union[int, None] = None,
 ) -> pd.DataFrame:
-    """
-    Generalized function to implement some common transformations. Many other
+    """Generalized function to implement some common transformations. Many other
         transformation functions are wrappers for this function.
 
     Function Arguments
@@ -643,32 +642,43 @@ def transformation_general_shift_fractions_from_modvars(
     regions_apply: Union[List[str], None] = None,
     strategy_id: Union[int, None] = None,
 ) -> pd.DataFrame:
-    """
-    Implement fractional swap transformations
+    """Implement fractional swap transformations
 
     Function Arguments
     ------------------
-    - df_input: input data frame containing baseline trajectories
-    - magnitude: target magnitude of mixture (summed across target categories)
-    - modvars: list of model variables used to constitute fractions
-    - dict_modvar_specs: dictionary of targets modvars to shift into (assumes
-        that will take from others). Maps from modvar to fraction of magnitude.
-        Sum of values must == 1.
-    - vec_ramp: ramp vec used for implementation
-    - model_attributes: ModelAttributes object used to call strategies/variables
+    df_input : pd.DataFrame
+        Input data frame containing baseline trajectories
+    magnitude : float
+        Target magnitude of mixture (summed across target categories)
+    modvars : List[str]
+        List of model variables used to constitute fractions
+    dict_modvar_specs : Dict[str, float]
+        Dictionary of targets modvars to shift into (assumes that will take from 
+        others). Maps from modvar to fraction of magnitude. Sum of values 
+        must == 1.
+    vec_ramp : np.ndarray
+        Ramp vector used for implementation
+    model_attributes : ModelAttributes 
+        ModelAttributes object used to call strategies/variables
 
     Keyword Arguments
     -----------------
-    - categories: categories to apply transformation to
-    - epsilon: acceptance threshold for closeness to 1
-    - field_region: field in df_input that specifies the region
-    - magnitude_relative_to_baseline: apply the magnitude relative to baseline?
-    - preserve_modvar_domain_sum: preserve sum of modvars observed in data? If 
-        false, caps at one
-    - regions_apply: optional set of regions to use to define strategy. If None,
-        applies to all regions.
-    - strategy_id: optional specification of strategy id to add to output
-        dataframe (only added if integer)
+    categories : Union[List[str], None]
+        Categories to apply transformation to
+    epsilon : float
+        Acceptance threshold for closeness to 1
+    field_region : str
+        Field in df_input that specifies the region
+    magnitude_relative_to_baseline : bool
+        Apply the magnitude relative to baseline?
+    preserve_modvar_domain_sum : bool
+        Preserve sum of modvars observed in data? If false, caps at one
+    regions_apply : Union[List[str], None]
+        Optional set of regions to use to define strategy. If None, applies to 
+        all regions.
+    strategy_id : Union[int, None]
+        Optional specification of strategy id to add to output DataFrame (only 
+        added if integer)
     """
 
     # check modvars
