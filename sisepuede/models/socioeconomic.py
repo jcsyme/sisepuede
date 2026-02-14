@@ -283,18 +283,22 @@ class Socioeconomic:
         df_se_trajectories: pd.DataFrame,
         ignore_time_periods: bool = False,
         project_for_internal: bool = True,
+        return_merged: bool = False,
     ) -> Union[pd.DataFrame, Tuple[pd.DataFrame, pd.DataFrame]]:
-        """
+        """Project SISEPUEDE Socioeconomic (root note) variables.
+
         Function Arguments
         ------------------
-        - df_se_trajectories: pd.DataFrame with input variable trajectories for 
-            the Socioeconomic model.
+        df_se_trajectories: pd.DataFrame 
+            DataFrame with input variable trajectories for the Socioeconomic 
+            model.
 
         Keyword Arguments
         -----------------
-        - ignore_time_periods: If True, will project independent of time period
-            restrictions. Should generally be left as False
-        - project_for_internal: 
+        ignore_time_periods : bool 
+            If True, will project independent of time period restrictions. 
+            Should generally be left as False
+        project_for_internal : bool
             
             * If True, returns a tuple with the following ordered elements:
 
@@ -308,6 +312,9 @@ class Socioeconomic:
                 i to time i + 1.
 
             * If False, returns only the variables calculated in SE 
+        return_merged : bool
+            If `project_for_internal == True`, then return merged data frame 
+            instead of Tuple
         """
         # check fields ands get some properties
         self.check_df_fields(df_se_trajectories)
@@ -440,7 +447,14 @@ class Socioeconomic:
                 how = "left"
             )
 
-            out = (df_se_trajectories, df_se_internal_shared_variables)
+            out = (
+                pd.merge(
+                    df_se_trajectories, 
+                    df_se_internal_shared_variables,
+                )
+                if return_merged
+                else (df_se_trajectories, df_se_internal_shared_variables)
+            )
 
         self.cols = list(df_se_trajectories.columns)
 
