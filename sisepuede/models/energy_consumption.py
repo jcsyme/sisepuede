@@ -128,6 +128,22 @@ class EnergyConsumption:
     #    FUNCTIONS FOR MODEL ATTRIBUTE DIMENSIONS    #
     ##################################################
 
+    def build_dict_inen_fuel_frac_to_eff_cat(self,
+    ) -> Dict:
+        """Build the dictionary of fuel fractions to efficiency categories
+        """
+        # build dictionary for projection 
+        dict_inen_fuel_frac_to_eff_cat = self.dict_inen_fuel_categories_to_fuel_variables.copy()
+        for k in dict_inen_fuel_frac_to_eff_cat.keys():
+            val = dict_inen_fuel_frac_to_eff_cat[k]["fuel_fraction"]
+            dict_inen_fuel_frac_to_eff_cat.update({k: val})
+            
+        dict_inen_fuel_frac_to_eff_cat = sf.reverse_dict(dict_inen_fuel_frac_to_eff_cat)
+
+        return dict_inen_fuel_frac_to_eff_cat
+    
+
+
     def check_df_fields(self,
         df_neenergy_trajectories: pd.DataFrame,
         subsector: str = "All",
@@ -870,6 +886,10 @@ class EnergyConsumption:
 
     def get_agrc_lvst_prod_and_intensity(self,
         df_neenergy_trajectories: pd.DataFrame,
+        arr_inen_agrc_prod: Union[np.ndarray, None] = None,
+        arr_inen_lvst_prod: Union[np.ndarray, None] = None,
+        modvar_mass_units_agrc: Union['ModelVariable', None] = None,
+        modvar_mass_units_lvst: Union['ModelVariable', None] = None,
     ) -> Tuple:
         """Retrieve agriculture and livstock production (total mass) and initial 
             energy consumption, then calculate energy intensity (in terms of 
@@ -888,25 +908,68 @@ class EnergyConsumption:
         ------------------
         df_neenergy_trajectories : pd.DataFrame
             Model input DataFrame
+
+        Keyword Arguments
+        -----------------
+        arr_inen_agrc_prod : Union[np.ndarray, None]
+            Optional specification of AGRC production array. UNSAFE (no checks).
+            Used for calls in AFOLU.
+        arr_inen_lvst_prod : Union[np.ndarray, None]
+            Optional specification of LVST production mass total array. UNSAFE 
+            (no checks). Used for calls in AFOLU.
+        modvar_mass_units_agrc : Union[ModelVariable, None]
+            Optional specification of a ModelVariable to use for source mass
+            units in AGRC. If None, defaults to self.modvar_agrc_yield
+        modvar_mass_units_lvst : Union[ModelVariable, None]
+            Optional specification of a ModelVariable to use for source mass
+            units in LVST. If None, defaults to self.modvar_agrc_yield
         """
+    
+        ##  INITIALIZATION
 
         attr_inen = self.model_attributes.get_attribute_table(self.subsec_name_inen)
 
-        # add agricultural and livestock production to scale initial energy consumption
-        modvar_inen_agrc_prod, arr_inen_agrc_prod = self.model_attributes.get_optional_or_integrated_standard_variable(
-            df_neenergy_trajectories,
-            self.modvar_agrc_yield,
-            None,
-            override_vector_for_single_mv_q = True,
-            return_type = "array_base"
+        # get mass units variable for AGRC
+        modvar_mass_units_agrc = self.model_attributes.get_variable(modvar_mass_units_agrc, )
+        modvar_mass_units_agrc = (
+            self.modvar_agrc_yield 
+            if modvar_mass_units_agrc is None
+            else modvar_mass_units_agrc
         )
-        modvar_inen_lvst_prod, arr_inen_lvst_prod = self.model_attributes.get_optional_or_integrated_standard_variable(
-            df_neenergy_trajectories,
-            self.modvar_lvst_total_animal_mass,
-            None,
-            override_vector_for_single_mv_q = True,
-            return_type = "array_base",
+
+        # get mass units variable for LVST
+        modvar_mass_units_lvst = self.model_attributes.get_variable(modvar_mass_units_lvst, )
+        modvar_mass_units_lvst = (
+            self.modvar_lvst_total_animal_mass
+            if modvar_mass_units_lvst is None
+            else modvar_mass_units_lvst
         )
+
+
+        ##  GET AGRC/LVST TOTAL MASSES
+
+        if not isinstance(arr_inen_agrc_prod, np.ndarray):
+            modvar_inen_agrc_prod, arr_inen_agrc_prod = self.model_attributes.get_optional_or_integrated_standard_variable(
+                df_neenergy_trajectories,
+                self.modvar_agrc_yield,
+                None,
+                override_vector_for_single_mv_q = True,
+                return_type = "array_base"
+            )
+        else:
+            modvar_inen_agrc_prod = "dummy"
+        
+        if not isinstance(arr_inen_lvst_prod, np.ndarray):
+            modvar_inen_lvst_prod, arr_inen_lvst_prod = self.model_attributes.get_optional_or_integrated_standard_variable(
+                df_neenergy_trajectories,
+                self.modvar_lvst_total_animal_mass,
+                None,
+                override_vector_for_single_mv_q = True,
+                return_type = "array_base",
+            )
+        else:
+            modvar_inen_lvst_prod = "dummy"
+
 
         # get initial energy consumption for agrc/lvst and then ensure unit are set
         arr_inen_init_energy_consumption_agrc = self.model_attributes.extract_model_variable(#
@@ -928,23 +991,21 @@ class EnergyConsumption:
         if modvar_inen_agrc_prod is not None:
             # if agricultural production is defined, convert to industrial production units and add to total output mass
             arr_inen_agrc_prod *= self.model_attributes.get_variable_unit_conversion_factor(
-                self.modvar_agrc_yield,
+                modvar_mass_units_agrc,
                 self.model_ippu.modvar_ippu_qty_total_production,
                 "mass"
             )
-            vec_inen_prod_agrc_lvst += arr_inen_agrc_prod
+            vec_inen_prod_agrc_lvst += arr_inen_agrc_prod.sum(axis = 1, )
 
         if (modvar_inen_lvst_prod is not None):
             # if livestock production is defined, convert to industrial production units and add
             arr_inen_lvst_prod *= self.model_attributes.get_variable_unit_conversion_factor(
-                self.modvar_lvst_total_animal_mass,
+                modvar_mass_units_lvst,
                 self.model_ippu.modvar_ippu_qty_total_production,
                 "mass"
             )
-            vec_inen_prod_agrc_lvst += arr_inen_lvst_prod
+            vec_inen_prod_agrc_lvst += arr_inen_lvst_prod.sum(axis = 1, )
 
-        # collapse to vector
-        vec_inen_prod_agrc_lvst = np.sum(vec_inen_prod_agrc_lvst, axis = 1)
 
         # get energy intensity
         index_inen_agrc = attr_inen.get_key_value_index(self.cat_inen_agricultural)
@@ -958,7 +1019,7 @@ class EnergyConsumption:
         # return index + vectors
         tup_out = (
             index_inen_agrc, 
-            vec_inen_energy_intensity_agrc_lvst, 
+            vec_inen_energy_intensity_agrc_lvst[0], 
             vec_inen_prod_agrc_lvst, 
         )
 
@@ -1830,16 +1891,15 @@ class EnergyConsumption:
         dict_fuel_fracs: dict,
         dict_fuel_frac_to_fuel_cat: dict,
     ) -> Union[np.ndarray, None]:
-        """
-        Project energy consumption--in terms of units of the input vector
+        """Project energy consumption--in terms of units of the input vector
             vec_consumption_initial--given changing demand fractions and
             efficiency factors.  
 
         Returns a tuple of the form
 
             (
-                arr_demand, # array of point of use demand
-                dict_consumption_by_fuel_out # dictionary of consumption by fuel
+                arr_demand,                     # array of point of use demand
+                dict_consumption_by_fuel_out    # dictionary of consumption by fuel
             )
 
             or None if model variables are incorrectly specified. 
@@ -2771,6 +2831,8 @@ class EnergyConsumption:
 
         ##  GET ENERGY INTENSITIES
 
+        dict_inen_fuel_frac_to_eff_cat = self.build_dict_inen_fuel_frac_to_eff_cat()
+
         # get production-based emissions - start with industrial production, energy demand
         arr_inen_prod = self.model_attributes.extract_model_variable(#
             df_neenergy_trajectories, 
@@ -2796,14 +2858,6 @@ class EnergyConsumption:
         ) = self.get_agrc_lvst_prod_and_intensity(df_neenergy_trajectories, )
 
         arr_inen_prod[:, index_inen_agrc] += vec_inen_prod_agrc_lvst
-
-        # build dictionary for projection 
-        dict_inen_fuel_frac_to_eff_cat = self.dict_inen_fuel_categories_to_fuel_variables.copy()
-        for k in dict_inen_fuel_frac_to_eff_cat.keys():
-            val = dict_inen_fuel_frac_to_eff_cat[k]["fuel_fraction"]
-            dict_inen_fuel_frac_to_eff_cat.update({k: val})
-            
-        dict_inen_fuel_frac_to_eff_cat = sf.reverse_dict(dict_inen_fuel_frac_to_eff_cat)
 
         # energy consumption at time 0 due to production in terms of units modvar_ippu_qty_total_production
         arr_inen_energy_consumption_intensity_prod = arr_inen_prod_energy_intensity*self.model_attributes.get_variable_unit_conversion_factor(
