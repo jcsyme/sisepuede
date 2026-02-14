@@ -1196,6 +1196,7 @@ class BiomassCarbonLedger:
         vec_area_protected: Union[list, np.ndarray],
         vec_biomass_c_average_ag_stock_in_conversion_targets: Union[list, np.ndarray],
         vec_biomass_c_average_bg_stock_in_conversion_targets: Union[list, np.ndarray],
+        biomass_c_removals_adjustment: Union[float, None] = None,
         unsafe: bool = False,
     ) -> None:
         """Update the ledger with land use lose
@@ -1225,6 +1226,9 @@ class BiomassCarbonLedger:
 
         Keyword Arguments
         -----------------
+        biomass_c_removals_adjustment : Union[float, None]
+            Optional modification to base demand performed at beginning of time
+            step i
         unsafe : bool
             Set to True to remove checks on vector shapes
         """
@@ -1233,12 +1237,14 @@ class BiomassCarbonLedger:
 
         # verify input types and convert to numpy arrays if necessary
         (
+            biomass_c_removals_adjustment,
             vec_area_converted_away,
             vec_area_protected,
             vec_biomass_c_average_ag_stock_in_conversion_targets,
         ) = self._validate_update_types(
             i,
             area_new_forest, 
+            biomass_c_removals_adjustment,
             vec_area_converted_away,
             vec_area_protected,
             vec_biomass_c_average_ag_stock_in_conversion_targets,
@@ -1251,6 +1257,12 @@ class BiomassCarbonLedger:
 
 
         ##  PERFORM UPDATES IN ORDER
+
+        # update removals first since everything downstream depends on them
+        self._update_additional_biomass_removals(
+            i, 
+            biomass_c_removals_adjustment, 
+        )
 
         # update other inputs, including average stock in target classes
         self._update_other_inputs(
@@ -1283,6 +1295,23 @@ class BiomassCarbonLedger:
         
         return None
     
+
+
+    def _update_additional_biomass_removals(self,
+        i: int,
+        biomass_c_removals_adjustment: float,
+    ) -> None:
+        """Add new demands to the specified removals demands at time i. Can be
+            used to adjust up or down.
+        """
+
+        val = self.vec_total_removals_demanded[i]
+        new_val = max(val + biomass_c_removals_adjustment, 0.0, )
+
+        self.vec_total_removals_demanded[i] = new_val
+
+        return None
+
 
 
     def _update_areas(self,
@@ -2326,6 +2355,7 @@ class BiomassCarbonLedger:
     def _validate_update_types(self,
         i: int,
         area_new_forest: float,
+        biomass_c_removals_adjustment: Union[float, None],
         vec_area_converted_away: Union[list, np.ndarray],
         vec_area_protected: Union[list, np.ndarray],
         vec_biomass_c_average_ag_stock_in_conversion_targets: Union[list, np.ndarray],
@@ -2346,6 +2376,9 @@ class BiomassCarbonLedger:
         area_new_forest : float
             Area of new (planted or regenerated) forest entering the young 
             secondary pipeline
+        biomass_c_removals_adjustment : Union[float, None]
+            Optional modification to base demand performed at beginning of time
+            step i
         vec_area_converted_away : Union[list, np.ndarray]
             Ordered vector of total land use area converted away from tracked 
             land use types
@@ -2367,6 +2400,13 @@ class BiomassCarbonLedger:
         if not sf.isnumber(area_new_forest, ):
             tp = type(area_new_forest)
             raise TypeError(f"invalid type found for area_new_forest: {tp}. Must be a number.")
+
+        # check biomass removals demand addition
+        biomass_c_removals_adjustment = (
+            0.0 
+            if not sf.isnumber(biomass_c_removals_adjustment, ) 
+            else biomass_c_removals_adjustment
+        )
 
         # verify conversion vector and convert to numpy array if checks are passed
         sf.check_type(
@@ -2394,6 +2434,7 @@ class BiomassCarbonLedger:
 
         # setup return
         out = (
+            biomass_c_removals_adjustment,
             vec_area_converted_away,
             vec_area_protected,
             vec_biomass_c_average_ag_stock_in_conversion_targets,
