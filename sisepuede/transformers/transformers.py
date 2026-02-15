@@ -1399,6 +1399,15 @@ class Transformers:
         all_transformers.append(self.enfu_adjust_exports)
 
 
+        self.enfu_adjust_prices = Transformer(
+            f"{_MODULE_CODE_SIGNATURE}:ENFU:ADJ_PRICES", 
+            self._trfunc_enfu_adjust_prices,
+            attr_transformer_code
+        )
+        all_transformers.append(self.enfu_adjust_prices)
+
+
+
         ##  ENTC
 
         self.entc_clean_hydrogen = Transformer(
@@ -1753,10 +1762,10 @@ class Transformers:
         Shortcut function to clean up a common operation; bounds magnitude
             if specify as a float, otherwise reverts to default
         """
-        out = (
-            default
-            if not sf.isnumber(magnitude) 
-            else max(min(float(magnitude), bounds[1]), bounds[0])
+        out = sf.bounded_real_magnitude(
+            magnitude,
+            default,
+            bounds = bounds,
         )
 
         return out
@@ -2951,7 +2960,6 @@ class Transformers:
 
         self.categories_entc_max_investment_ramp = categories_entc_max_investment_ramp
 
-
         ##  AFOLU BASE
 
         # set land use reallocation factor
@@ -2988,7 +2996,6 @@ class Transformers:
         # NEW ADDITION (2023-09-27): ALLOW FOR BASELINE INCREASE IN RENEWABLE ADOPTION
 
         target_renewables_value_min = sum(dict_entc_renewable_target_msp_baseline.values())
-
 
         # apply transformation
         df_out = tbe.transformation_entc_renewable_target(
@@ -5540,22 +5547,27 @@ class Transformers:
 
     def _trfunc_enfu_adjust_exports(self,
         df_input: Union[pd.DataFrame, None] = None,
-        magnitude: float = 0.8,
-        magnitude_type: str = "scalar",
+        magnitude: Union[dict, float] = 1.5,
+        magnitude_type: str = "baseline_scalar",
+        return_magnitude: bool = False,
         strat: Union[int, None] = None,
         vec_implementation_ramp: Union[np.ndarray, Dict[str, int], None] = None,
     ) -> pd.DataFrame:
-        """Implement the "Adjust Exports" ENFU transformer on input DataFrame df_input (decrease by 20%). Allows for increases in exports (positive magnitude) or decreases (negative magnitude).
+        """Implement the "Adjust Exports" ENFU transformer on input DataFrame df_input (decrease by 20%). Allows for increases in exports (> 1) or decreases (< 1).
 
         Parameters
         ----------
+        cats_enfu : Union[List[str], None]
+            Optional list of ENFU categories to apply to.
         df_input : pd.DataFrame
             Optional data frame containing trajectories to modify
         magnitude : float
-            Magnitude of decrease in exports--e.g., a 20% decrease is entered as 0.8. If using the default value of `magnitude_type == "scalar"`, this magnitude will scale the final time value downward by this factor. 
+            Magnitude of decrease in exports--e.g., a 20% decrease is entered as 0.8. If using the default value of `magnitude_type == "scalar"`, this magnitude will scale the final time value downward by this factor. If entered as a dictionary, keys are fuels and values are magnitudes to apply.
             NOTE: If magnitude_type changes, then the behavior of the transformation will change.
         magnitude_type : str
             Type of magnitude, as specified in `transformers.lib.general.transformations_general`. See `?transformers.lib.general.transformations_general` for more information on the specification of magnitude_type for general transformer values. 
+        return_magnitude : bool
+            Return the magnitude dictionary only? NOTE: DO NOT SPECIFY IN CONFIGURATION YAMLS
         strat : int
             Optional strategy value to specify for the transformation
         vec_implementation_ramp : Union[np.ndarray, Dict[str, int], None]
@@ -5568,12 +5580,61 @@ class Transformers:
             else df_input
         )
 
-        # set bounds
-        bounds = (0.0, np.inf)
-        magnitude = self.bounded_real_magnitude(
-            magnitude, 
-            0.8,
-            bounds = bounds,
+        # check implementation ramp
+        vec_implementation_ramp = self.check_implementation_ramp(
+            vec_implementation_ramp,
+            df_input,
+        )
+
+        df_out = tbe.transformation_enfu_adjust_exports(
+            df_input,
+            magnitude,
+            vec_implementation_ramp,
+            self.model_attributes,
+            self.model_enercons,
+            field_region = self.key_region,
+            magnitude_type = magnitude_type,
+            return_magnitude = return_magnitude,
+            strategy_id = strat,
+        )
+        
+        return df_out
+    
+
+
+    def _trfunc_enfu_adjust_prices(self,
+        df_input: Union[pd.DataFrame, None] = None,
+        magnitude: float = 1.2,
+        magnitude_type: str = "baseline_scalar",
+        return_magnitude: bool = False,
+        strat: Union[int, None] = None,
+        vec_implementation_ramp: Union[np.ndarray, Dict[str, int], None] = None,
+    ) -> pd.DataFrame:
+        """Implement the "Adjust Prices" ENFU transformer on input DataFrame df_input (default decreases by 20%). Allows for increases in prices (> 1) or decreases (< 1).
+
+        Parameters
+        ----------
+        cats_enfu : Union[List[str], None]
+            Optional list of ENFU categories to apply to.
+        df_input : pd.DataFrame
+            Optional data frame containing trajectories to modify
+        magnitude : float
+            Magnitude of decrease in exports--e.g., a 20% decrease is entered as 0.8. If using the default value of `magnitude_type == "scalar"`, this magnitude will scale the final time value downward by this factor. If entered as a dictionary, keys are fuels and values are magnitudes to apply.
+            NOTE: If magnitude_type changes, then the behavior of the transformation will change.
+        magnitude_type : str
+            Type of magnitude, as specified in `transformers.lib.general.transformations_general`. See `?transformers.lib.general.transformations_general` for more information on the specification of magnitude_type for general transformer values. 
+        return_magnitude : bool
+            Return the magnitude dictionary only? NOTE: DO NOT SPECIFY IN CONFIGURATION YAMLS
+        strat : int
+            Optional strategy value to specify for the transformation
+        vec_implementation_ramp : Union[np.ndarray, Dict[str, int], None]
+            Optional vector or dictionary specifying the implementation scalar ramp for the transformation. If None, defaults to a uniform ramp that starts at the time specified in the configuration.
+        """
+        # check input dataframe
+        df_input = (
+            self.baseline_inputs
+            if not isinstance(df_input, pd.DataFrame) 
+            else df_input
         )
 
         # check implementation ramp
@@ -5581,24 +5642,21 @@ class Transformers:
             vec_implementation_ramp,
             df_input,
         )
-
-
-        df_out = tbg.transformation_general(
+        
+        # get output
+        out = tbe.transformation_enfu_adjust_prices(
             df_input,
+            magnitude,
+            vec_implementation_ramp,
             self.model_attributes,
-            {
-                self.model_enercons.modvar_enfu_exports_fuel: {
-                    "bounds": bounds,
-                    "magnitude": magnitude,
-                    "magnitude_type": magnitude_type,
-                    "vec_ramp": self.vec_implementation_ramp
-                },
-            },
+            self.model_enercons,
             field_region = self.key_region,
+            magnitude_type = magnitude_type,
+            return_magnitude = return_magnitude,
             strategy_id = strat,
         )
         
-        return df_out
+        return out
     
 
 
@@ -5873,16 +5931,17 @@ class Transformers:
         )
 
         # renewable categories
+        force_re_techs_from_dict = isinstance(categories_entc_renewable, list)
         categories_entc_renewable = self.get_entc_cats_renewable(
             categories_entc_renewable, 
         )
-
         
         # dictionary mapping to target minimum shares of production
         dict_entc_renewable_target_msp = self.get_entc_dict_renewable_target_msp(
             cats_renewable = categories_entc_renewable,
             dict_entc_renewable_target_msp = dict_entc_renewable_target_msp,
         )
+
 
         # characteristics for MSP ramp 
         (
@@ -5904,6 +5963,7 @@ class Transformers:
             self.model_enerprod,
             dict_cats_entc_max_investment = dict_entc_renewable_target_cats_max_investment,
             field_region = self.key_region,
+            force_re_techs_from_dict = force_re_techs_from_dict,
             magnitude_renewables = dict_entc_renewable_target_msp,
             scale_non_renewables_to_match_surplus_msp = scale_non_renewables_to_match_surplus_msp,
             strategy_id = strat,
