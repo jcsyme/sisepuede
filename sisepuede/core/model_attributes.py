@@ -28,6 +28,9 @@ class InvalidModelUnits(Exception):
 class InvalidTimePeriods(Exception):
     pass
 
+class InvalidVariableField(Exception):
+    pass
+
 class KeySymmetryWarning(Exception):
     pass
 
