@@ -212,6 +212,24 @@ def back_project_array(
     
 
 
+def bounded_real_magnitude(
+    magnitude: Union[float, int],
+    default: Union[float, int],
+    bounds: Tuple = (0.0, 1.0),
+) -> float:
+    """Shortcut function to clean up a common operation; bounds magnitude
+        if specify as a float, otherwise reverts to default
+    """
+    out = (
+        default
+        if not isnumber(magnitude) 
+        else max(min(float(magnitude), bounds[1]), bounds[0])
+    )
+
+    return out
+
+
+
 def build_dict(
     df_in: pd.DataFrame,
     dims = None,
@@ -1563,20 +1581,22 @@ def get_args(
 def get_csv_subset(
     fp_table: Union[str, None],
     dict_subset: Union[Dict[str, List], None],
-    fields_extract: Union[List[str], None] = None,
     chunk_size: int = 100000,
+    drop_duplicates: bool = True,
+    fields_extract: Union[List[str], None] = None,
+    force_column_order: bool = True,
     max_iter: Union[int, None] = None,
-    drop_duplicates: bool = True
 ) -> pd.DataFrame:
-    """
-    Return a subset of a CSV written in persistent storage without loading
+    """Return a subset of a CSV written in persistent storage without loading
         the entire file into memory (see PyTables for potential speed
         improvement).
 
     Function Arguments
     ------------------
-    - fp_table: file path to CSV to read in
-    - dict_subset: dictionary of fields to subset on, e.g.,
+    fp_table : Union[str, None]
+        File path to CSV to read in
+    dict_subset : Union[Dict[str, List], None]
+        Dictionary of fields to subset on, e.g.,
 
         dict_subset = {
             field_a = [v_a1, v_a2, ..., v_am)],
@@ -1588,21 +1608,23 @@ def get_csv_subset(
 
         * NOTE: only accepts discrete values
 
-    Optional Arguments
-    ------------------
-    - fields_extract: fields to extract from the data frame.
-        * If None, extracts all fields
-
     Keyword Arguments
     -----------------
-    - fields_extract: fields to extract from the data frame.
-    - chunk_size: get_csv_subset operates as an iterator, reading in
-        chunks of data of length `chunk_size`. Larger values may be more
-        efficient on machines with higher memory.
-    - max_iter: optional specification of a maximum number of iterations.
-        Only should be used for sampling data or when the structure of rows
-        is known.
-    - drop_duplicates: drop duplicates in table?
+    chunk_size : int
+        get_csv_subset operates as an iterator, reading in chunks of data of 
+        length `chunk_size`. Larger values may be more efficient on machines 
+        with higher memory
+    drop_duplicates : bool
+        Drop duplicates in table?
+    fields_extract : Union[List[str], None]
+        Fields to extract from the data frame.
+        * If None, extracts all fields
+    force_column_order : bool
+        Ensure that output columns are in the same order as specified?
+    max_iter : int
+        Optional specification of a maximum number of iterations. Only should be 
+        used for sampling data or when the structure of rows is known.
+    
     """
 
     df_obj = pd.read_csv(
@@ -1610,7 +1632,7 @@ def get_csv_subset(
         iterator = True,
         chunksize = chunk_size,
         engine = "c",
-        usecols = fields_extract
+        usecols = fields_extract,
     )
 
     df_out = []
@@ -1639,7 +1661,14 @@ def get_csv_subset(
         keep_going = False if (df_chunk is None) else keep_going
         keep_going = keep_going & (True if (max_iter is None) else (i < max_iter))
 
-    df_out = pd.concat(df_out, axis = 0).reset_index(drop = True) if (len(df_out) > 0) else None
+    # return None if no elements were found
+    if len(df_out) == 0:
+        return None
+    
+    # some things to do if a dataframe
+    df_out = _concat_df(df_out, )
+    if force_column_order and islistlike(fields_extract):
+        df_out = df_out[fields_extract]
 
     return df_out
 
@@ -4755,6 +4784,69 @@ def wrap_quote(
     """Wrap val in a quote
     """
     return f"{char_quote}{val}{char_quote}"
+
+
+
+def _write_csv(
+    df: pd.DataFrame,
+    path_out: Union[pathlib.Path, str],
+    makedir: bool = False,
+    overwrite: bool = True,
+    **kwargs,
+) -> bool:
+    """Write a CSV to a location without an index and with encoding = "UTF-8".
+        Checks to make sure that path_out has a suffix.
+
+    Function Arguments
+    ------------------
+    df : pd.DataFrame
+        DataFrame to export to CSV
+    path_out : Union[pathlib.Path, str]
+        Path to write CSV to
+
+    Keyword Arguments
+    -----------------
+    makedir : bool = False
+        If the parent directory isn't found, make the directory?
+    overwrite : bool = True
+        Overwrite the file if it exists?
+    **kwargs :
+        Passed to pd.DataFrame.to_csv
+    """
+
+    # ensure type is a pathlib.Path
+    if not isinstance(path_out, pathlib.Path):
+        try:
+            path_out = pathlib.Path(path_out)
+        
+        except Exception as e:
+            raise RuntimeError(f"Unable able to convert path_out '{path_out}' to Path: {e}")
+
+    # verify path
+    if (path_out.suffix == ""):
+        raise TypeError(f"Invalid path suffix '{path_out.suffix}' found: must be a file extension.")
+    
+    if not path_out.parents[0].is_dir():
+        if not makedir:
+            msg = f"""Unable to write to CSV: path '{path_out.parents[0]}' not found. 
+            Set makedir = True to make the directory on writing."""
+            raise RuntimeError(msg)
+
+        path_out.parents[0].mkdir(exist_ok = True, )
+
+
+    # finally, write
+    if path_out.is_file() and not overwrite:
+        return None
+    
+    df.to_csv(
+        path_out,
+        encoding = "UTF-8",
+        index = None,
+        **kwargs,
+    )
+
+    return True
 
 
 
