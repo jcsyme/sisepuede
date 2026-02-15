@@ -1166,7 +1166,7 @@ class Transformations:
 
         # get codes
         transformations_iterate = (
-            [self.get_transformer(x) for x in self.all_transformation_codes]
+            [self.get_transformation(x) for x in self.all_transformation_codes]
             if not sf.islistlike(transformations_include)
             else transformations_include
         )
