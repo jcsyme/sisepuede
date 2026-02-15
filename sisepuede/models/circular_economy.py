@@ -548,7 +548,7 @@ class CircularEconomy:
         """
         sf._optional_log(self.logger, msg, type_log = type_log, **kwargs)
 
-
+        return None
 
 
 
@@ -564,6 +564,7 @@ class CircularEconomy:
         vec_ddocm_factors: np.ndarray,
         array_k: np.ndarray,
         vec_mcf: np.ndarray,
+        convert_to_co2e: bool = True,
         vec_oxf: np.ndarray = 0.0,
         vec_frac_captured: np.ndarray = 0.0,
     ) -> Tuple[np.ndarray, np.ndarray]:
@@ -586,6 +587,8 @@ class CircularEconomy:
 
         Keyword Arguments
         -----------------
+        convert_to_co2e : bool
+            Convert to CO2e?
         vec_frac_captured : np.ndarray
             Vector of fraction of biogas captured
         vec_oxf : np.ndarray 
@@ -632,22 +635,34 @@ class CircularEconomy:
         m, n = array_waso_waste.shape
         array_ddocm_accumulated = np.zeros(array_waso_waste.shape)
         array_ddocm_decomposed = np.zeros(array_waso_waste.shape)
-        np.put(array_ddocm_accumulated, np.arange(0, len(array_ddocm_accumulated[0])), array_waso_waste[0])
+
+        # initialize ddom accumualted
+        array_ddocm_accumulated[0, :] = array_waso_waste[0]*vec_ddocm_factors*vec_mcf[0]
 
         # loop to update arrays
         for i in range(1, len(array_waso_waste)):
+            # estimate ddocm deposited by type (see Equation V5, Equation 3.2)
+            ddocm_deposited = array_waso_waste[i]*vec_ddocm_factors*vec_mcf[i]
+
             # use k from the previous time step if k changes (e.g., due to climate change); it represents that decay factor for waste deposited during that year
             vec_k = np.exp(-array_k[i - 1])
-            vec_ddocm_accumulated_cur = array_waso_waste[i] + array_ddocm_accumulated[i - 1]*vec_k
+            vec_ddocm_accumulated_cur = ddocm_deposited + array_ddocm_accumulated[i - 1]*vec_k
             vec_ddocm_decomposed_cur = array_ddocm_accumulated[i - 1]*(1 - vec_k)
-            
-            # update arrays with accumulated and decomposed waste
-            inds = i*n + np.arange(0, n)
-            np.put(array_ddocm_accumulated, inds, vec_ddocm_accumulated_cur)
-            np.put(array_ddocm_decomposed, inds, vec_ddocm_decomposed_cur)
 
+            # update arrays with accumulated and decomposed waste (see V4 Equations 3.3 and 3.5)
+            #inds = i*n + np.arange(0, n)
+            #np.put(array_ddocm_accumulated, inds, vec_ddocm_accumulated_cur)
+            #np.put(array_ddocm_decomposed, inds, vec_ddocm_decomposed_cur)
+            array_ddocm_accumulated[i, :] = vec_ddocm_accumulated_cur
+            array_ddocm_decomposed[i, :] = vec_ddocm_decomposed_cur
+
+        #self.array_ddocm_decomposed = array_ddocm_decomposed
+        #print(array_ddocm_accumulated)
         # adjust for recovery + oxidisation
         array_ch4_total = array_ddocm_decomposed*self.factor_molecular_weight_ch4*self.landfill_gas_frac_methane
+        if convert_to_co2e:
+            array_ch4_total *= self.model_attributes.get_gwp("ch4")
+
         array_ch4_captured = (array_ch4_total.transpose()*vec_frac_captured).transpose()
         array_ch4_total -= array_ch4_captured
         array_ch4_total = (array_ch4_total.transpose()*(1 - vec_oxf)).transpose()
@@ -1104,7 +1119,7 @@ class CircularEconomy:
             override_vector_for_single_mv_q = True, 
             return_type = "array_units_corrected",
         )[0, :]
-        vec_wali_bod_percap_init*= self.model_attributes.configuration.get("days_per_year")
+        vec_wali_bod_percap_init *= self.model_attributes.configuration.get("days_per_year")
 
         vec_wali_bod_correction = self.model_attributes.extract_model_variable(#
             df_ce_trajectories, 
@@ -1149,11 +1164,11 @@ class CircularEconomy:
             override_vector_for_single_mv_q = True, 
             return_type = "array_base",
         )
-
+        
         # scale per capita volume and bod/person (representing increases)
         array_wali_bod_percap = (array_wali_bod_percap.transpose()*vec_wali_scale_percapita_dem).transpose()
         array_wali_vol_domww_percap = (array_wali_vol_domww_percap.transpose()*vec_wali_scale_percapita_dem).transpose()
-
+        
         # total bod (kg), cod (tonne), and wastewater (m3) generated
         array_wali_bod_total = (array_wali_bod_percap.transpose()*array_pop.transpose()).transpose()
         array_wali_domww_total = (array_wali_vol_domww_percap.transpose()*array_pop.transpose()).transpose()
@@ -1185,7 +1200,7 @@ class CircularEconomy:
         array_trww_total_ww_cod_by_pathway = array_trww_total_bod_by_pathway.copy()
 
         ##  GET TOTALS BY TREATMENT PATHWAY
-
+       
         # domestic
         for cdw in cats_dom_ww:
             # get population category
@@ -1240,7 +1255,9 @@ class CircularEconomy:
             array_trww_total_cod_by_pathway += (array_pathways.transpose()*vec_cod)
             array_trww_total_ww_cod_by_pathway += (array_pathways.transpose()*vec_ww)
 
-        # total bod (kg -> tonne), cod (tonne), and ww vol (m3) -- get factor, which is applied only to the data frame (to presreve array_trww_total_bod_by_pathway in units of emissions mass for downstream calculations)
+        # total bod (kg -> tonne), cod (tonne), and ww vol (m3) -- get factor, which is applied 
+        # only to the data frame (to presreve array_trww_total_bod_by_pathway in units of 
+        # emissions mass for downstream calculations)
         factor_trww_emissions_mass_to_tow_mass = self.model_attributes.get_mass_equivalent(
             self.model_attributes.configuration.get("emissions_mass").lower(),
              self.model_attributes.get_variable_characteristic(
@@ -1348,7 +1365,7 @@ class CircularEconomy:
         array_trww_emissions_ch4_cod = ((array_trww_tow_cod_not_removed*array_trww_mcf).transpose()*vec_wali_cod_max_bo).transpose()
         array_trww_bod_equivalent_removed_sludge = array_trww_tow_bod_removed_sludge + (array_trww_tow_cod_removed_sludge.transpose()*(vec_wali_cod_max_bo/vec_wali_bod_max_bo)).transpose()
         array_trww_emissions_ch4_treatment = array_trww_emissions_ch4_bod + array_trww_emissions_ch4_cod
-        
+
         # get fraction of ch4 captures
         array_trww_frac_ch4_recovered = self.model_attributes.extract_model_variable(#
             df_ce_trajectories, 
@@ -1740,7 +1757,7 @@ class CircularEconomy:
         array_waso_total_by_category = array_waso_isw_total_by_category + array_waso_msw_total_by_category
         array_waso_frac_isw_total_by_cat = np.nan_to_num(array_waso_isw_total_by_category/array_waso_total_by_category, nan = 0.0, )
         array_waso_frac_msw_total_by_cat = np.nan_to_num(array_waso_msw_total_by_category/array_waso_total_by_category, nan = 0.0, )
-        
+
         # add to output data frame
         df_out += [
             self.model_attributes.array_to_df(
@@ -1990,9 +2007,10 @@ class CircularEconomy:
 
 
 
-        ##  SOLID WASTE DISPOSAL (LANDFILLS AND OPEN DUMPING)
+        ##  FIRST ORDER DECAY SOLID WASTE DISPOSAL (LANDFILLS AND OPEN DUMPING)
 
-        # "back project" waste from previous years to estimate deposits, which contribute to emissions (in absence of historical)
+        # "back project" waste from previous years to estimate deposits, 
+        # which contribute to emissions (in absence of historical data)
         n_periods_bp = self.model_attributes.configuration.get("historical_back_proj_n_periods")
         factor_waso_historical_bp_gr = self.model_attributes.extract_model_variable(#
             df_ce_trajectories, 
@@ -2001,7 +2019,7 @@ class CircularEconomy:
         )[0]
 
         (
-            rowind_waso_hist_periods_landfill, 
+            _, 
             rowind_waso_model_periods_landfill, 
             array_waso_waste_landfill
         ) = self.get_waso_historical_solid_waste(
@@ -2012,7 +2030,7 @@ class CircularEconomy:
         )
 
         (
-            rowind_waso_hist_periods_open_dump, 
+            _, 
             rowind_waso_model_periods_open_dump, 
             array_waso_waste_open_dump
         ) = self.get_waso_historical_solid_waste(
@@ -2064,7 +2082,8 @@ class CircularEconomy:
         array_waso_k = sf.prepend_first_element(array_waso_k, n_periods_bp)
         vec_waso_ddocm = vec_waso_cat_attr_doc_content_as_fraction_wet_waste*vec_waso_cat_attr_docf_degradable
 
-        ##  Landfills
+
+        ##  LANDFILLS
 
         # use the first-order decay model for landfills
         array_waso_emissions_ch4_landfill, vec_waso_landfill_gas_recovered = self.fod(
@@ -2072,9 +2091,12 @@ class CircularEconomy:
             vec_waso_ddocm,
             array_waso_k,
             vec_waso_mcf_landfill,
+            convert_to_co2e = True,
             vec_frac_captured = vec_waso_avg_frac_landfill_gas_capture,
             vec_oxf = vec_waso_oxf_landfill,
         )
+
+
         # convert units
         array_waso_emissions_ch4_landfill *= factor_waso_mass_to_emission_mass
         vec_waso_landfill_gas_recovered *= self.model_attributes.get_mass_equivalent(
@@ -2101,11 +2123,13 @@ class CircularEconomy:
         ##  OPEN DUMPING
 
         # use the first-order decay model for open dumping
+        self.vec_waso_mcf_open_dump = vec_waso_mcf_open_dump
         array_waso_emissions_ch4_open_dump, vec_waso_open_dump_gas_recovered = self.fod(
             array_waso_waste_open_dump,
             vec_waso_ddocm,
             array_waso_k,
             vec_waso_mcf_open_dump,
+            convert_to_co2e = True,
             vec_frac_captured = 0.0,
             vec_oxf = 0.0,
         )
