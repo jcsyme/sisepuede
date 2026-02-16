@@ -4040,30 +4040,33 @@ class ModelAttributes:
         output_cats: Union[list, None] = None,
         output_subsec: Union[str, None] = None,
     ) -> np.ndarray:
-        """
-        Reformat a partial category array (with partical categories along 
+        """Reformat a partial category array (with partical categories along 
             columns) to place columns appropriately for a full category array. 
             Useful for simplifying matrix operations between variables.
 
         Function Arguments
         ------------------
-        - array_vals: input array of data with column categories
-        - modvar: the variable associated with the *input* array. This is used 
-            to identify which categories are represented in the array's columns. 
-            If None, then output_cats and output_subsec must be specified.
+        array_vals : np.ndarray
+            Input array of data with column categories
+        modvar : Union[str, mv.ModelVariable]
+            The variable associated with the *input* array. This is used to 
+            identify which categories are represented in the array's columns. If 
+            None, then output_cats and output_subsec must be specified.
         
         Keyword Arguments
         -----------------
-        - missing_vals: values to set for categories not in array_vals. If None,
-            uses modvar.default_value if modvar is available OR 0.0 if no modvar
+        missing_vals : Union[float, None]
+            Values to set for categories not in array_vals. If None, uses 
+            modvar.default_value if modvar is available OR 0.0 if no modvar
             is specified. 
-        - output_cats: vector of categories associated with the output variable. 
-            Only used if modvar == None. The combination of 
-            output_cats + output_subsec provide a manual override to the modvar 
-            option.
-        - output_subsec: output subsector. Default is None. Only used if 
-            modvar is None. The combination of output_cats + output_subsec 
+        output_cats: Union[list, None]
+            Vector of categories associated with the output variable. Only used 
+            if modvar is None. The combination of output_cats + output_subsec 
             provide a manual override to the modvar option.
+        output_subsec : Union[str, None]
+            Output subsector. Default is None. Only used if modvar is None. The 
+            combination of output_cats + output_subsec provide a manual override 
+            to the modvar option.
         """
 
         # check inputs
@@ -6222,27 +6225,32 @@ class ModelAttributes:
         force_sum_equality: bool = False,
         msg_append: str = "",
         stop_on_error: bool = True,
+        **kwargs,
     ) -> dict:
-        """
-        Retrive multiple variables that, across categories, must sum to some 
+        """Retrive multiple variables that, across categories, must sum to some 
             value. Gives a correction threshold to allow for small errors.
 
         Function Arguments
         ------------------
-        - df_in: data frame containing input variables
-        - modvars: variables to sum over and restrict; may be entered as a name,
+        df_in : pd.DataFrame
+            DataFrame containing input variables
+        modvars : Union[str, mv.ModelVariable, List[Union[str, mv.ModelVariable]]]
+            Variables to sum over and restrict; may be entered as a name,
             ModelVariable, or list of either of those
-        - sum_restriction: maximium sum that array may equal
+        sum_restriction : float
+            Maximium sum that array may equal
 
         Keyword Arguments
         -----------------
-        - correction_threshold: tolerance for correcting categories that exceed
-            the sum restriction
-        - force_sum_equality: default is False. If True, will force the sum to
-            equal one (overrides correction_threshold)
-        - msg_append: use to passage an additional error message to support
-            troubleshooting
-
+        correction_threshold : float
+            Tolerance for correcting categories that exceed the sum restriction
+        force_sum_equality : bool
+            If True, will force the sum to equal one (overrides 
+            correction_threshold)
+        msg_append : str
+            Use to pass an additional error message to support troubleshooting
+        **kwargs : 
+            Passed to extract_model_variable()
         """
         # retrieve arrays
         arr = 0
@@ -6288,6 +6296,7 @@ class ModelAttributes:
                 modvar, 
                 override_vector_for_single_mv_q = True, 
                 return_type = "array_base",
+                **kwargs,
             )
 
             arr_cur = (

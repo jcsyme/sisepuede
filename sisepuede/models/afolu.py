@@ -44,6 +44,143 @@ class InvalidBufferThreshold(Exception):
 
 
 
+######################################################
+#    ARRAY CLASSES TO ORGANIZE CALCULATION ARRAYS    #
+######################################################
+
+class ArraysAGRC:
+    """Store arrays for AGRC Calculations
+    """
+
+    def __init__(self,
+        df_afolu_trajectories: pd.DataFrame,
+        model_attributes: 'ModelAttributes'
+    ) -> None:
+        
+        return None
+    
+
+
+    def _initialize_arrays_x(self,
+    ) -> None:
+        """Initialize some arrays
+        """
+
+        return None
+    
+
+
+class ArraysFRST:
+    """Store arrays for AGRC Calculations
+    """
+
+    def __init__(self,
+        df_afolu_trajectories: pd.DataFrame,
+        model_attributes: 'ModelAttributes'
+    ) -> None:
+        
+        return None
+    
+
+
+    def _initialize_arrays_x(self,
+    ) -> None:
+        """Initialize some arrays
+        """
+
+        return None
+    
+
+
+
+class ArraysLNDU:
+    """Store arrays for AGRC Calculations
+    """
+
+    def __init__(self,
+        df_afolu_trajectories: pd.DataFrame,
+        model_attributes: 'ModelAttributes'
+    ) -> None:
+        
+        return None
+
+
+    def _initialize_arrays_x(self,
+    ) -> None:
+        """Initialize some arrays
+        """
+
+        return None
+
+
+
+class ArraysLSMM:
+    """Store arrays for AGRC Calculations
+    """
+
+    def __init__(self,
+        df_afolu_trajectories: pd.DataFrame,
+        model_attributes: 'ModelAttributes'
+    ) -> None:
+        
+        return None
+    
+
+
+    def _initialize_arrays_x(self,
+    ) -> None:
+        """Initialize some arrays
+        """
+
+        return None
+
+
+
+class ArraysLVST:
+    """Store arrays for AGRC Calculations
+    """
+
+    def __init__(self,
+        df_afolu_trajectories: pd.DataFrame,
+        model_attributes: 'ModelAttributes'
+    ) -> None:
+        
+        return None
+    
+
+
+    def _initialize_arrays_x(self,
+    ) -> None:
+        """Initialize some arrays
+        """
+
+        return None
+    
+
+
+class ArraysSOIL:
+    """Store arrays for AGRC Calculations
+    """
+
+    def __init__(self,
+        df_afolu_trajectories: pd.DataFrame,
+        model_attributes: 'ModelAttributes'
+    ) -> None:
+        
+        return None
+    
+
+
+    def _initialize_arrays_x(self,
+    ) -> None:
+        """Initialize some arrays
+        """
+
+        return None
+    
+
+
+    
 ##########################
 ###                    ###
 ###     AFOLU MODEL    ###
@@ -719,6 +856,7 @@ class AFOLU:
         self.modvar_agrc_area_prop_calc = "Cropland Area Proportion"
         self.modvar_agrc_area_prop_init = "Initial Cropland Area Proportion"
         self.modvar_agrc_area_crop = "Crop Area"
+        self.modvar_agrc_bagasse_yield_factor = "Bagasse Yield Factor"
         self.modvar_agrc_changes_to_net_imports_lost = "Changes to Agriculture Net Imports Lost"
         self.modvar_agrc_combustion_factor = "AGRC Combustion Factor"
         self.modvar_agrc_demand_crops = "Crop Demand"
@@ -741,11 +879,12 @@ class AFOLU:
         self.modvar_agrc_frac_no_till = "No Till Crop Fraction"
         self.modvar_agrc_frac_production_lost = "Fraction of Food Produced Lost Before Consumption"
         self.modvar_agrc_frac_production_loss_to_msw = "Fraction of Food Loss Sent to Municipal Solid Waste"
-        self.modvar_agrc_frac_residues_removed = "Fraction of Residues Removed"
+        self.modvar_agrc_frac_residues_removed_for_energy = "Fraction of Residues Removed for Energy"
         self.modvar_agrc_frac_residues_burned = "Fraction of Residues Burned"
         self.modvar_agrc_frac_temperate = "Agriculture Fraction Temperate"
         self.modvar_agrc_frac_tropical = "Agriculture Fraction Tropical"
         self.modvar_agrc_frac_wet = "Agriculture Fraction Wet"
+        self.modvar_agrc_ged_residues = "Gravimetric Energy Density of Residues"
         self.modvar_agrc_n_content_of_above_ground_residues = "N Content of Above Ground Residues"
         self.modvar_agrc_n_content_of_below_ground_residues = "N Content of Below Ground Residues"
         self.modvar_agrc_ratio_above_ground_residue_to_harvested_yield = "Ratio of Above Ground Residue to Harvested Yield"
@@ -768,7 +907,7 @@ class AFOLU:
         ]
         self.modvar_list_agrc_frac_residues_removed_burned = [
             self.modvar_agrc_frac_residues_burned,
-            self.modvar_agrc_frac_residues_removed
+            self.modvar_agrc_frac_residues_removed_for_energy
         ]
 
         # some key categories
@@ -2928,6 +3067,108 @@ class AFOLU:
     
 
 
+    def get_agrc_residue_vars(self,
+        df_afolu_trajectories: pd.DataFrame,
+    ) -> Tuple[np.ndarray]:
+        """Get arrays used to estimate crop residues. Returns a tuple of the 
+            form:
+
+            (
+                arr_agrc_regression_b,
+                arr_agrc_regression_m,
+                dict_agrc_frac_residues_removed_burned,
+                scalar_area_to_m,
+                scalar_yield_to_m,
+                vec_agrc_bagasse_yf,
+            )
+
+        """
+
+        _, modvar_bcl_target_mass = self.get_bcl_modvars_for_unit_targets()
+
+        # get the regression information
+        arr_agrc_regression_m = self.model_attributes.extract_model_variable(#
+            df_afolu_trajectories, 
+            self.modvar_agrc_regression_m_above_ground_residue, 
+            expand_to_all_cats = True,
+            override_vector_for_single_mv_q = True, 
+            return_type = "array_base", 
+        )
+
+        arr_agrc_regression_b = self.model_attributes.extract_model_variable(#
+            df_afolu_trajectories, 
+            self.modvar_agrc_regression_b_above_ground_residue,
+            expand_to_all_cats = True,
+            override_vector_for_single_mv_q = True, 
+            return_type = "array_base", 
+        )
+
+        arr_agrc_regression_b *= self.model_attributes.get_variable_unit_conversion_factor(
+            self.modvar_agrc_regression_b_above_ground_residue,
+            self.modvar_agrc_regression_m_above_ground_residue,
+            "mass",
+        )
+
+        arr_agrc_regression_b /= self.model_attributes.get_variable_unit_conversion_factor(
+            self.modvar_agrc_regression_b_above_ground_residue,
+            self.modvar_agrc_regression_m_above_ground_residue,
+            "area",
+        )
+
+        # get the bagasse yield factor
+        vec_agrc_bagasse_yf = self.model_attributes.extract_model_variable(
+            df_afolu_trajectories,
+            self.modvar_agrc_bagasse_yield_factor,
+            return_type = "array_base",
+        )
+
+        # get fraction removed/burned
+        dict_agrc_frac_residues_removed_burned = self.model_attributes.get_multivariables_with_bounded_sum_by_category(
+            df_afolu_trajectories,
+            self.modvar_list_agrc_frac_residues_removed_burned,
+            1,
+            force_sum_equality = False,
+            msg_append = "Agriculture crop residue fractions by exceed 1. See definition of dict_agrc_frac_residues_removed_burned."
+        )
+
+        
+        ##  GET SOME SCALARS
+
+        scalar_agrc_area_to_m = self.model_attributes.get_variable_unit_conversion_factor(
+            self.model_socioeconomic.modvar_gnrl_area,
+            self.modvar_agrc_regression_m_above_ground_residue,
+            "area"
+        )
+
+        scalar_agrc_yield_to_m = self.model_attributes.get_variable_unit_conversion_factor(
+            self.modvar_agrc_yield,
+            self.modvar_agrc_regression_m_above_ground_residue,
+            "mass"
+        )
+
+        scalar_mass_m_to_bcl = self.model_attributes.get_variable_unit_conversion_factor(
+            self.modvar_agrc_regression_m_above_ground_residue,
+            modvar_bcl_target_mass,
+            "mass"
+        )
+
+        
+        ##  SET OUTPUT
+
+        out = (
+            arr_agrc_regression_b,
+            arr_agrc_regression_m,
+            dict_agrc_frac_residues_removed_burned,
+            scalar_agrc_area_to_m,
+            scalar_agrc_yield_to_m,
+            scalar_mass_m_to_bcl,
+            vec_agrc_bagasse_yf,
+        )
+
+        return out
+    
+
+
     def get_bcl(self,
         df_afolu_trajectories: pd.DataFrame,
         mangroves: bool = False,
@@ -4708,7 +4949,7 @@ class AFOLU:
             cropland
         - dict_fracs_residues_removed_burned: dictionary with keys 
             self.modvar_agrc_frac_residues_burned and 
-            self.modvar_agrc_frac_residues_removed
+            self.modvar_agrc_frac_residues_removed_for_energy
 
         Keyword Arguments
         -----------------
@@ -4778,7 +5019,7 @@ class AFOLU:
 
         # get fraction removed/burned
         vec_agrc_frac_residue_burned = dict_fracs_residues_removed_burned.get(self.modvar_agrc_frac_residues_burned).flatten()
-        vec_agrc_frac_residue_removed = dict_fracs_residues_removed_burned.get(self.modvar_agrc_frac_residues_removed).flatten()
+        vec_agrc_frac_residue_removed = dict_fracs_residues_removed_burned.get(self.modvar_agrc_frac_residues_removed_for_energy).flatten()
         vec_agrc_frac_residue_inputs = 1 - vec_agrc_frac_residue_burned - vec_agrc_frac_residue_removed
         
         # calculate the input componen
@@ -6614,7 +6855,8 @@ class AFOLU:
         factor_lndu_init_avg_consumption_pstr: float,
         arr_lvst_annual_dry_matter_consumption_per_capita: np.ndarray,
         arr_lvst_dem: np.ndarray,
-        arr_lvst_weight_per_animal: np.ndarray,
+        arr_lvst_mass_per_animal: np.ndarray,
+        tup_residue_info: Tuple[np.ndarray],
         vec_agrc_frac_cropland_area: np.ndarray,
         vec_lndu_yrf: np.ndarray,
         vec_lvst_scale_cc: np.ndarray,
@@ -6689,9 +6931,11 @@ class AFOLU:
                 * UNITS : pasture yield factor/head
         arr_lvst_dem : np.ndarray
             Array of livestock production requiremenets (unadjusted)
-        arr_lvst_weight_per_animal : np.ndarray
+        arr_lvst_mass_per_animal : np.ndarray
             Array of weight per animal for livestock. Needed to estimate energy
             demands for biomass.
+        tup_residue_info : Tuple[np.ndarray]
+            Tuple output of self.get_agrc_residue_vars()
         vec_agrc_frac_cropland_area : np.ndarray
             Vector of fractions of agricultural area fractions by classes
         vec_lndu_yrf : np.ndarray
@@ -6785,10 +7029,32 @@ class AFOLU:
         )
 
 
+        # get some information used to estimate residues, which have to be included in-line 
+        (
+            arr_agrc_regression_b,
+            arr_agrc_regression_m,
+            dict_agrc_frac_residues_removed_burned,
+            scalar_agrc_area_to_m,
+            scalar_agrc_yield_to_m,
+            vec_agrc_bagasse_yf,
+        ) = tup_residue_info
+
+        
+        
+        #arr_soil_yield = arr_agrc_yield*scalar_agrc_yield_to_m
+        #arr_soil_crop_area = arr_agrc_crop_area*scalar_agrc_area_to_m
+
+        
+        #HERE123
+
+        
+
 
         ##  INITIALIZE OUTPUT ARRAYS AND VARIABLES
 
         # intilize land use, land converted, emissions, and adjusted transitions
+        arr_agrc_crop_drymatter_above_ground = np.zeros((n_tp, attr_agrc.n_key_values))
+        arr_agrc_crop_drymatter_per_unit = np.zeros((n_tp, attr_agrc.n_key_values))
         arr_agrc_frac_cropland = np.array([vec_agrc_frac_cropland_area for k in range(n_tp)])
         arr_agrc_net_import_increase = np.zeros((n_tp, attr_agrc.n_key_values))
         arr_agrc_change_to_net_imports_lost = np.zeros((n_tp, attr_agrc.n_key_values))
@@ -6821,7 +7087,7 @@ class AFOLU:
         arrs_yields_per_livestock = np.array([arr_lndu_yield_by_lvst for k in range(n_tp)])
 
         vec_lvst_aggregate_animal_mass = np.zeros(n_tp, )
-        vec_lvst_aggregate_animal_mass[0] = (arr_lvst_dem[0] * arr_lvst_weight_per_animal[0]).sum()
+        vec_lvst_aggregate_animal_mass[0] = (arr_lvst_dem[0] * arr_lvst_mass_per_animal[0]).sum()
         vec_lvst_dem_gr_iterator = np.ones(len(arr_lvst_dem[0]))
 
 
@@ -7052,7 +7318,7 @@ class AFOLU:
 
             # update output arrays
             arr_lvst_pop_adj[i + 1] = np.round(vec_lvst_pop_adj).astype(int)
-            vec_lvst_aggregate_animal_mass[i + 1] = np.dot(arr_lvst_weight_per_animal[i + 1], arr_lvst_pop_adj[i + 1])
+            vec_lvst_aggregate_animal_mass[i + 1] = np.dot(arr_lvst_mass_per_animal[i + 1], arr_lvst_pop_adj[i + 1])
 
 
             ##  AGRC 
@@ -7086,16 +7352,33 @@ class AFOLU:
                 arr_lvst_change_to_net_imports_lost[i + 1] = vec_lvst_unmet_demand_lost
                 arr_lvst_net_import_increase[i + 1] = np.round(vec_lvst_net_import_increase).astype(int)
 
-            #estimate_energy_demand_agrc_lvst(self,
-            #    df_afolu_trajectories.iloc[0:i],
-            #    arr_agrc_yield: np.ndarray,
-            #    vec_lvst_aggregate_animal_mass: np.ndarray,
-            #)
+
+            ##  ESTIMATE BIOMASS REMOVAL DEMANDS
+            
+            #== FUNCTIONALIZE
+            # get area and yield in terms of units needed to use regression for biomass
+            vec_agrc_crop_area_m = vec_agrc_cropareas_adj*scalar_agrc_area_to_m
+            vec_agrc_yield_units_m = vec_agrc_yield_adj*scalar_agrc_yield_to_m
+            arr_agrc_crop_drymatter_per_unit = np.nan_to_num(
+                vec_agrc_yield_units_m/vec_agrc_crop_area_m, 
+                nan = 0.0, 
+                posinf = 0.0, 
+            )
+
+            # calculate drymatter per unit and assign to arrays
+            vec_agrc_crop_drymatter_per_unit = arr_agrc_regression_m[i]*arr_agrc_crop_drymatter_per_unit[i] + arr_agrc_regression_b[i]
+            vec_agrc_crop_drymatter_above_ground = vec_agrc_crop_drymatter_per_unit*vec_agrc_crop_area_m
+            arr_agrc_crop_drymatter_above_ground[i] = vec_agrc_crop_drymatter_above_ground
+            arr_agrc_crop_drymatter_per_unit[i] = vec_agrc_crop_drymatter_per_unit
+
+            # get additional removal demands from AGRC/LVST
             vec_additional_biomass_removals = self.estimate_energy_demand_agrc_lvst(
                 df_afolu_trajectories.iloc[0:(i + 1)],
                 arr_agrc_yield[0:(i + 1), :],
                 vec_lvst_aggregate_animal_mass[0:(i + 1)],
             )
+            #== FUNCTIONALIZE
+
 
             ##  CALCULATE FINAL LAND CONVERSION AND EMISSIONS 
 
@@ -7192,6 +7475,8 @@ class AFOLU:
         
         out = (
             arr_agrc_change_to_net_imports_lost,
+            arr_agrc_crop_drymatter_above_ground,
+            arr_agrc_crop_drymatter_per_unit,
             arr_agrc_frac_cropland,
             arr_agrc_net_import_increase,
             arr_agrc_yield,
@@ -7755,6 +8040,38 @@ class AFOLU:
 
 
 
+        #################################
+        #    SOME AGRICULTURE ARRAYS    #
+        #################################
+
+        tup_residue_info = self.get_agrc_residue_vars(
+            df_afolu_trajectories, 
+        )
+        
+        """
+        (
+            arr_agrc_regression_b,
+            arr_agrc_regression_m,
+            dict_agrc_frac_residues_removed_burned,
+            scalar_agrc_area_to_m,
+            scalar_agrc_yield_to_m,
+            vec_agrc_bagasse_yf,
+        ) = tup_residue_info
+
+        
+
+        arr_soil_yield = arr_agrc_yield*scalar_agrc_yield_to_m
+        arr_soil_crop_area = arr_agrc_crop_area*scalar_agrc_area_to_m
+
+        
+        #HERE123
+
+        arr_agrc_crop_drymatter_per_unit = np.nan_to_num(arr_soil_yield/arr_soil_crop_area, nan = 0.0, posinf = 0.0, )
+        arr_agrc_crop_drymatter_per_unit = arr_agrc_regression_m*arr_agrc_crop_drymatter_per_unit + arr_agrc_regression_b
+        arr_agrc_crop_drymatter_above_ground = arr_agrc_crop_drymatter_per_unit*arr_soil_crop_area
+        """;
+
+
         ########################################
         #    LAND USE - UNADJUSTED VARIABLES   #
         ########################################
@@ -7853,7 +8170,7 @@ class AFOLU:
         ##  SOME LIVESTOCK VARIABLES 
 
         # used to estimate total mass of livestock, which drives energy demands
-        arr_lvst_animal_weight = self.model_attributes.extract_model_variable(#
+        arr_lvst_animal_mass = self.model_attributes.extract_model_variable(#
             df_afolu_trajectories, 
             self.modvar_lvst_animal_weight,
             expand_to_all_cats = True,
@@ -7862,7 +8179,7 @@ class AFOLU:
         )
 
         # convert to same units as crop yield for use in integrated land use projection; this way they can be combined
-        arr_lvst_animal_weight *=self.model_attributes.get_variable_unit_conversion_factor(
+        arr_lvst_animal_mass *=self.model_attributes.get_variable_unit_conversion_factor(
             self.modvar_lvst_animal_weight,
             self.modvar_agrc_yf,
             "mass"
@@ -7908,6 +8225,8 @@ class AFOLU:
         # get land use projections (np arrays) - note, arrs_land_conv returns a list of matrices for troubleshooting
         (
             arr_agrc_change_to_net_imports_lost,
+            arr_agrc_crop_drymatter_above_ground,
+            arr_agrc_crop_drymatter_per_unit,
             arr_agrc_frac_cropland,
             arr_agrc_net_import_increase,
             arr_agrc_yield,
@@ -7943,7 +8262,8 @@ class AFOLU:
             factor_lndu_init_avg_consumption_pstr,
             arr_lvst_annual_dry_matter_consumption_per_capita,
             arr_lvst_domestic_production_unadj,
-            arr_lvst_animal_weight,
+            arr_lvst_animal_mass,
+            tup_residue_info,
             vec_agrc_frac_cropland_area,
             vec_lndu_reallocation_factor,
             vec_lvst_carry_capacity_scale,
@@ -9082,70 +9402,30 @@ class AFOLU:
 
         ##  F_CR - CROP RESIDUES
 
-        arr_soil_yield = arr_agrc_yield*self.model_attributes.get_variable_unit_conversion_factor(
-            self.modvar_agrc_yield,
-            self.modvar_agrc_regression_m_above_ground_residue,
-            "mass"
-        )
-        arr_soil_crop_area = arr_agrc_crop_area*self.model_attributes.get_variable_unit_conversion_factor(
-            self.model_socioeconomic.modvar_gnrl_area,
-            self.modvar_agrc_regression_m_above_ground_residue,
-            "area"
-        )
-
-        # get the regression information
-        arr_agrc_regression_m = self.model_attributes.extract_model_variable(#
+        (
+            arr_agrc_regression_b,
+            arr_agrc_regression_m,
+            dict_agrc_frac_residues_removed_burned,
+            scalar_agrc_area_to_m,
+            scalar_agrc_yield_to_m,
+        ) = self.get_agrc_residue_vars(
             df_afolu_trajectories, 
-            self.modvar_agrc_regression_m_above_ground_residue, 
-            expand_to_all_cats = True,
-            override_vector_for_single_mv_q = True, 
-            return_type = "array_base", 
         )
 
-        arr_agrc_regression_b = self.model_attributes.extract_model_variable(#
-            df_afolu_trajectories, 
-            self.modvar_agrc_regression_b_above_ground_residue,
-            expand_to_all_cats = True,
-            override_vector_for_single_mv_q = True, 
-            return_type = "array_base", 
-        )
 
-        arr_agrc_regression_b *= self.model_attributes.get_variable_unit_conversion_factor(
-            self.modvar_agrc_regression_b_above_ground_residue,
-            self.modvar_agrc_regression_m_above_ground_residue,
-            "mass",
-        )
+        arr_soil_yield = arr_agrc_yield*scalar_agrc_yield_to_m
+        arr_soil_crop_area = arr_agrc_crop_area*scalar_agrc_area_to_m
 
-        arr_agrc_regression_b /= self.model_attributes.get_variable_unit_conversion_factor(
-            self.modvar_agrc_regression_b_above_ground_residue,
-            self.modvar_agrc_regression_m_above_ground_residue,
-            "area",
-        )
-
-        # get crop dry matter
-        arr_agrc_crop_frac_dry_matter = self.model_attributes.extract_model_variable(#
-            df_afolu_trajectories, 
-            self.modvar_agrc_frac_dry_matter_in_crop, 
-            expand_to_all_cats = True,
-            override_vector_for_single_mv_q = True, 
-            return_type = "array_base", 
-            var_bounds = (0, 1),
-        )
+        
+        #HERE123
 
         arr_agrc_crop_drymatter_per_unit = np.nan_to_num(arr_soil_yield/arr_soil_crop_area, nan = 0.0, posinf = 0.0, )
         arr_agrc_crop_drymatter_per_unit = arr_agrc_regression_m*arr_agrc_crop_drymatter_per_unit + arr_agrc_regression_b
         arr_agrc_crop_drymatter_above_ground = arr_agrc_crop_drymatter_per_unit*arr_soil_crop_area
         
-        # get fraction removed/burned
-        dict_agrc_frac_residues_removed_burned = self.model_attributes.get_multivariables_with_bounded_sum_by_category(
-            df_afolu_trajectories,
-            self.modvar_list_agrc_frac_residues_removed_burned,
-            1,
-            force_sum_equality = False,
-            msg_append = "Agriculture crop residue fractions by exceed 1. See definition of dict_agrc_frac_residues_removed_burned."
-        )
+        
         vec_agrc_frac_residue_burned = dict_agrc_frac_residues_removed_burned.get(self.modvar_agrc_frac_residues_burned).flatten()
-        vec_agrc_frac_residue_removed = dict_agrc_frac_residues_removed_burned.get(self.modvar_agrc_frac_residues_removed).flatten()
+        vec_agrc_frac_residue_removed = dict_agrc_frac_residues_removed_burned.get(self.modvar_agrc_frac_residues_removed_for_energy).flatten()
         arr_agrc_combustion_factor = self.model_attributes.extract_model_variable(#
             df_afolu_trajectories, 
             self.modvar_agrc_combustion_factor,
@@ -9177,8 +9457,21 @@ class AFOLU:
         # get total n HERE IS TOTAL N BURNED FROM CROP RESIDUE (in terms of modvar_agrc_regression_m_above_ground_residue)
         vec_agrc_total_n_residue_burned = np.sum(arr_agrc_crop_drymatter_above_ground*arr_agrc_n_content_ag_residues, axis = 1)*vec_agrc_frac_residue_burned
         arr_agrc_total_n_residue_removed = (arr_agrc_crop_drymatter_above_ground*arr_agrc_n_content_ag_residues).transpose()*vec_agrc_frac_residue_removed
-        arr_agrc_total_n_above_ground_residues_burncomponent = (arr_agrc_crop_drymatter_above_ground*arr_agrc_combustion_factor*arr_agrc_n_content_ag_residues).transpose()*vec_agrc_frac_residue_burned
-        arr_agrc_total_n_above_ground_residues = (arr_agrc_crop_drymatter_above_ground*arr_agrc_n_content_ag_residues).transpose() - arr_agrc_total_n_residue_removed - arr_agrc_total_n_above_ground_residues_burncomponent
+        
+        arr_agrc_total_n_above_ground_residues_burncomponent = (
+            arr_agrc_crop_drymatter_above_ground
+            *arr_agrc_combustion_factor
+            *arr_agrc_n_content_ag_residues
+        ).transpose()*vec_agrc_frac_residue_burned
+
+        arr_agrc_total_n_above_ground_residues = (
+            (
+                arr_agrc_crop_drymatter_above_ground*arr_agrc_n_content_ag_residues
+            )
+            .transpose() 
+            - arr_agrc_total_n_residue_removed 
+            - arr_agrc_total_n_above_ground_residues_burncomponent
+        )
         
         # get dry/wet and rice residuces
         vec_agrc_total_n_above_ground_residues_rice = arr_agrc_total_n_above_ground_residues[ind_rice, :].copy()
