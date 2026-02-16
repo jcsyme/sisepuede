@@ -23,7 +23,7 @@ Input,Agriculture Fraction Tropical," | Used to calculate :math:`\text{N}_2\text
 Input,Agriculture Fraction Wet," | Used to calculate :math:`\text{N}_2\text{O}` emissions from fertilizer application
  | 
  | Agriculture Fraction Dry and Agriculture Fraction Wet must sum to 1",``frac_agrc_$CAT-AGRICULTURE$_cl2_wet``,all,,0,1,1,1,0,``wet_climate``,,,
-Input,Bagasse Yield Factor,Ratio of sugarcane yield to dry-matter weight of bagasse,``factor_agrc_bagasse_ratio_$CAT-AGRICULTURE$``,``sugarcane``,,0.3,0.9,1.1,,0,none,,,Default value of 0.3 from https://www.sciencedirect.com/science/article/pii/S096195341200284X
+Input,Bagasse Yield Factor,Ratio of sugar cane yield to dry-matter weight of bagasse,``factor_agrc_bagasse_ratio_$CAT-AGRICULTURE$``,``sugar_cane``,,0.3,0.9,1.1,,0,none,,,Default value of 0.3 from https://www.sciencedirect.com/science/article/pii/S096195341200284X
 Input,Crop Demand Income Elasticity,"Elasticity of demand for crop in category ``$CAT-AGRICULTURE$`` to the changes in income, whose proxy is gdp/capita",``elasticity_agrc_$CAT-AGRICULTURE$_demand_to_income``,all,,0,0.8,1.2,,0,none,,,See the `USDSA Commodity and Food Elasticities Database <https://www.ers.usda.gov/data-products/commodity-and-food-elasticities/>`_ for baseline elasticies by country.
 Input,Crop Fraction Animal Feed,"Proportion of the crop yield that is used for animal feed. Used to adjust demand for crops in response to changing animal populations. Demands for non-animal feed are driven by gdp/capita. Trivial proportions (e.g., radish tops) can be ignored. ",``frac_agrc_initial_yield_feed_$CAT-AGRICULTURE$``,all,,0,1,1,,0,none,,,"Loose proportions dervied from `Statista <https://www.statista.com/statistics/1099196/brazil-corn-animal-feed/>`_ (quantity of Maize yield used for livestock feed), `FAO <https://www.fao.org/faostat/en/#data/QCL>`_ (total yield), and `VOX <https://www.vox.com/2014/8/21/6053187/cropland-map-food-fuel-animal-feed>`_ (conceptual importance)."
 Input,Crop Ratio of Below Ground Biomass to Above Ground Biomass,,``ratio_agrc_below_ground_to_above_ground_biomass_$CAT-AGRICULTURE$``,``cereals``|``other_annual``|``pulses``|``rice``|``tubers``,,0,1,1,,0,none,,,
@@ -32,15 +32,28 @@ Input,Dry Matter Fraction of Harvested Crop,See :math:`DRY` in Equation 11.7 in 
 Input,Fraction of Agriculture Demand Imported," | Fraction of total demand for crop products that is met by imports.
  | 
  | Conceptually, represented as the % of demand for total crop products that would be needed to produce all consumed crop products.",``frac_agrc_crop_demand_imported_$CAT-AGRICULTURE$``,all,,0,1,1,,0,none,,,
+Input,Fraction of Crop Residues Burned," | Fraction of residues burned.
+ | 
+ |**Behavioral Note**: whatever is not removed or burned is assumed to be left as inputs to crops. Includes bagasse/sugar cane tops (sugar cane residue).
+ | 
+ |**Behavioral Note**: Total of **Fraction of Crop Residues Burned**, **Fraction of Crop Residues Removed for Energy**, and **Fraction of Crop Residues Removed for Livestock Feed** must be less than or equal to 1.",``frac_agrc_crop_residues_burned_$CAT-AGRICULTURE$``,``cereals``|``other_annual``|``pulses``|``rice``|``sugar_cane``|``tubers``,,0,1,1,,0,none,,,
+Input,Fraction of Crop Residues Removed for Energy," | Fraction of residues removed for energy use in electricity production. 
+ | 
+ |**Behavioral Note**: if residues removed for energy are removed in excess of the amount required to satisfy electrictal production, they are sent to the solid waste stream.
+ | 
+ |**Behavioral Note**: whatever is not removed or burned is assumed to be left as inputs to crops. Includes bagasse/sugar cane tops (sugar cane residue).
+ | 
+ |**Behavioral Note**: Total of **Fraction of Crop Residues Burned**, **Fraction of Crop Residues Removed for Energy**, and **Fraction of Crop Residues Removed for Livestock Feed** must be less than or equal to 1.",``frac_agrc_crop_residues_removed_for_energy_$CAT-AGRICULTURE$````,``cereals``|``other_annual``|``pulses``|``rice``|``sugar_cane``|``tubers``,,0,1,1,,0,none,,,
+Input,Fraction of Crop Residues Removed for Livestock Feed," | Fraction of residues removed for livestock feed. 
+ | 
+ |**Behavioral Note**: if residues removed for livestock feed are removed in excess of the amount required to satisfy the maximum amount possible for livestock, they are sent to the solid waste stream.
+ | 
+ |**Behavioral Note**: whatever is not removed or burned is assumed to be left as inputs to crops. Includes bagasse/sugar cane tops (sugar cane residue).
+ | 
+ |**Behavioral Note**: Total of **Fraction of Crop Residues Burned**, **Fraction of Crop Residues Removed for Energy**, and **Fraction of Crop Residues Removed for Livestock Feed** must be less than or equal to 1.",``frac_agrc_crop_residues_removed_for_livestock_feed_$CAT-AGRICULTURE$````,``cereals``|``other_annual``|``pulses``|``rice``|``sugar_cane``|``tubers``,,0,1,1,,0,none,,,
 Input,Fraction of Food Loss Sent to Municipal Solid Waste,Use this variable to represent  food lost in the supply chain that is sent to municipal solid waste streams. Includes *pre-consumer*--such as waste by distributors and retailers--waste (integrated with waste model). ,``frac_agrc_production_lost_sent_to_msw``,none,,0,1,1,,0,none,,,
 Input,Fraction of Food Produced Lost Before Consumption,Fraction of food that is produced that is lost or wasted before selling. This fraction represents production-side waste (post-yield) and does not include waste by consumers.,``frac_agrc_agriculture_production_lost``,none,,0,1,1,,0,none,,,
-Input,Fraction of Residues Burned," | Fraction of residues burned. NOTE: whatever is not removed or burned is assumed to be left as inputs to crops.
- | 
- | Total of Fraction of Residues Removed and Fraction of Residues Burned must be less than or equal to 1.",``frac_agrc_crop_residues_burned_$CAT-AGRICULTURE$``,``cereals``|``other_annual``|``pulses``|``rice``|``sugarcane``|``tubers``,,0,1,1,,0,none,,,
-Input,Fraction of Residues Removed for Energy," | Fraction of residues removed. NOTE: whatever is not removed or burned is assumed to be left as inputs to crops.
- | 
- | Total of Fraction of Residues Removed and Fraction of Residues Burned must be less than or equal to 1.",``frac_agrc_crop_residues_removed_for_energy_$CAT-AGRICULTURE$````,``cereals``|``other_annual``|``pulses``|``rice``|``sugarcane``|``tubers``,,0,1,1,,0,none,,,
-Input,Gravimetric Energy Density of Residues,"Lower-heating value (LHV) of crop residues, **including bagasse**. Used to estimate use in biomass substitution.","``energydensity_gravimetric_agrc_residues_$UNIT-ENERGY$_per_$UNIT-MASS$_$CAT-AGRICULTURE$`` (``$UNIT-MASS$ = kg``, ``$UNIT-ENERGY$ = mj``)",``cereals``|``other_annual``|``pulses``|``rice``|``sugarcane``|``tubers``,,10,0.8,1.2,,0,none,,,
+Input,Gravimetric Energy Density of Residues,"Lower-heating value (LHV) of crop residues, **including bagasse**. Used to estimate use in biomass substitution.","``energydensity_gravimetric_agrc_residues_$UNIT-ENERGY$_per_$UNIT-MASS$_$CAT-AGRICULTURE$`` (``$UNIT-MASS$ = kg``, ``$UNIT-ENERGY$ = mj``)",``cereals``|``other_annual``|``pulses``|``rice``|``sugar_cane``|``tubers``,,10,0.8,1.2,,0,none,,,
 Input,Initial Cropland Area Proportion,"Proportion of total **crop** area (%/100), where crop area is calculated as the product of the country's area (``area_country_ha``) and the fraction of land use that is devoted to crop land (``frac_lu_cropland``)",``frac_agrc_initial_area_cropland_$CAT-AGRICULTURE$``,all,,0,1,1,3,0,none,,,
 Input,N Content of Above Ground Residues,See :math:`N_{AG(T)}` in Equation 11.6 in IPCC GNGHGI and Table 11.1A (2019R),``frac_agrc_n_in_above_ground_residue_$CAT-AGRICULTURE$``,``cereals``|``other_annual``|``pulses``|``rice``|``tubers``,,0,1,1,,0,none,,,
 Input,N Content of Below Ground Residues,See :math:`N_{BG(T)}` in Equation 11.6 in IPCC GNGHGI and Table 11.1A (2019R),``frac_agrc_n_in_below_ground_residue_$CAT-AGRICULTURE$``,``cereals``|``other_annual``|``pulses``|``rice``|``tubers``,,0,1,1,,0,none,,,

@@ -879,8 +879,9 @@ class AFOLU:
         self.modvar_agrc_frac_no_till = "No Till Crop Fraction"
         self.modvar_agrc_frac_production_lost = "Fraction of Food Produced Lost Before Consumption"
         self.modvar_agrc_frac_production_loss_to_msw = "Fraction of Food Loss Sent to Municipal Solid Waste"
-        self.modvar_agrc_frac_residues_removed_for_energy = "Fraction of Residues Removed for Energy"
-        self.modvar_agrc_frac_residues_burned = "Fraction of Residues Burned"
+        self.modvar_agrc_frac_residues_burned = "Fraction of Crop Residues Burned"
+        self.modvar_agrc_frac_residues_removed_for_energy = "Fraction of Crop Residues Removed for Energy"
+        self.modvar_agrc_frac_residues_removed_for_feed = "Fraction of Crop Residues Removed for Livestock Feed"
         self.modvar_agrc_frac_temperate = "Agriculture Fraction Temperate"
         self.modvar_agrc_frac_tropical = "Agriculture Fraction Tropical"
         self.modvar_agrc_frac_wet = "Agriculture Fraction Wet"
@@ -907,7 +908,8 @@ class AFOLU:
         ]
         self.modvar_list_agrc_frac_residues_removed_burned = [
             self.modvar_agrc_frac_residues_burned,
-            self.modvar_agrc_frac_residues_removed_for_energy
+            self.modvar_agrc_frac_residues_removed_for_energy,
+            self.modvar_agrc_frac_residues_removed_for_feed
         ]
 
         # some key categories
@@ -6715,6 +6717,7 @@ class AFOLU:
             (0, np.inf)
         )
         
+
         # split out livestock demands and human consumption
         vec_agrc_domestic_demand_init_lvstfeed = vec_agrc_domestic_demand_init*arr_agrc_frac_feed[0]
         vec_agrc_domestic_demand_init_nonlvstfeed = vec_agrc_domestic_demand_init - vec_agrc_domestic_demand_init_lvstfeed
@@ -6963,9 +6966,11 @@ class AFOLU:
         
         Returns
         -------
-        Tuple with 17 elements:
+        Tuple with 19 elements:
         (
             arr_agrc_change_to_net_imports_lost,
+            arr_agrc_crop_drymatter_above_ground,       # total drymatter residue in terms of modvar_agrc_regression_m_above_ground_residue
+            arr_agrc_crop_drymatter_per_unit,           # total drymatter residue per unit area in terms of modvar_agrc_regression_m_above_ground_residue                               
             arr_agrc_frac_cropland,
             arr_agrc_net_import_increase,
             arr_agrc_yield,
@@ -7040,14 +7045,6 @@ class AFOLU:
         ) = tup_residue_info
 
         
-        
-        #arr_soil_yield = arr_agrc_yield*scalar_agrc_yield_to_m
-        #arr_soil_crop_area = arr_agrc_crop_area*scalar_agrc_area_to_m
-
-        
-        #HERE123
-
-        
 
 
         ##  INITIALIZE OUTPUT ARRAYS AND VARIABLES
@@ -7067,7 +7064,7 @@ class AFOLU:
             for k in range(n_tp)
         ])
         
-        # land ue variables
+        # land use variables
         arr_emissions_conv_ag = np.zeros((n_tp, attr_lndu.n_key_values))
         arr_emissions_conv_bg = np.zeros((n_tp, attr_lndu.n_key_values))
         arr_emissions_conv_agb_matrices = np.zeros(arrs_transitions.shape)
@@ -7407,8 +7404,6 @@ class AFOLU:
             
 
             ##  UPDATE ARRAYS
-
-            
 
             # non-ag arrays
             rng_put = np.arange((i)*attr_lndu.n_key_values, (i + 1)*attr_lndu.n_key_values)
@@ -8058,7 +8053,6 @@ class AFOLU:
             vec_agrc_bagasse_yf,
         ) = tup_residue_info
 
-        
 
         arr_soil_yield = arr_agrc_yield*scalar_agrc_yield_to_m
         arr_soil_crop_area = arr_agrc_crop_area*scalar_agrc_area_to_m
@@ -8290,6 +8284,7 @@ class AFOLU:
             ledger,
             ledger_mangroves,
         )
+
         return out, ledger, ledger_mangroves
 
         # update imports/exports for agriculture
