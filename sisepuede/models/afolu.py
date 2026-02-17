@@ -1144,6 +1144,7 @@ class AFOLU:
         self.modvar_lvst_emissions_ch4_ef = ":math:\\text{CH}_4 Emissions from Livestock Enteric Fermentation"
         self.modvar_lvst_equivalent_exports = "Livestock Equivalent Exports"
         self.modvar_lvst_frac_demand_imported = "Fraction of Livestock Demand Imported"
+        self.modvar_lvst_frac_diet_grazing = "Grazing Fraction of Diet"
         self.modvar_lvst_frac_exc_n_in_dung = "Fraction Nitrogen Excretion in Dung"
         self.modvar_lvst_frac_mm_anaerobic_digester = "Livestock Manure Management Fraction Anaerobic Digester"
         self.modvar_lvst_frac_mm_anaerobic_lagoon = "Livestock Manure Management Fraction Anaerobic Lagoon"
@@ -5129,17 +5130,25 @@ class AFOLU:
         df_afolu_trajectories: pd.DataFrame,
         vec_lndu_area_initial: np.ndarray,
     ) -> np.ndarray:
-        """
-        Get initial maximum feasible yield and carrying capacity vector. Ensures 
-            that the specified maximum yield doesn't conflict with assumptions 
-            from exogenous specification of livestock population, dry matter 
-            consumption, and consumption per head of livestock.
+        """Get initial maximum feasible yield and carrying capacity vector. 
+            Ensures that the specified maximum yield doesn't conflict with 
+            assumptions from exogenous specification of livestock population, 
+            dry matter consumption, and consumption per head of livestock.
 
             out = (
-                arr_lvst_annual_dry_matter_consumption, # annual dry matter consumption per head of lvst
-                vec_max_yf, # maximum feasible yield factor for pastures in mass/area
-                vec_carrying_capacity_scalar, # maximum feasible scalar applied to pasture yields
-                factor_lndu_init_avg_consumption_pstr, # initial average estimate of consumption mass per area
+                arr_lvst_annual_dry_matter_consumption, # annual dry matter 
+                                                          consumption per head 
+                                                          of lvst
+                vec_max_yf,                             # maximum feasible yield 
+                                                          factor for pastures in 
+                                                          mass/area
+                vec_carrying_capacity_scalar,           # maximum feasible 
+                                                          scalar applied to 
+                                                          pasture yields
+                factor_lndu_init_avg_consumption_pstr,  # initial average 
+                                                          estimate of 
+                                                          consumption mass per 
+                                                          area
             )
 
         Returns consumption in terms of 
@@ -5150,15 +5159,16 @@ class AFOLU:
         
         Function Arguments
         ------------------
-        - df_afolu_trajectories: data frame containing AFOLU trajectory inputs
-            to use in modeling
-        - vec_lndu_area_initial: n x 1, where n is number of land use 
-            categories. Vector giving initial areas of each land use category. 
-            Area is in terms of input area of region.
+        df_afolu_trajectories: pd.DataFrame
+            DataFrame containing AFOLU trajectory inputs to use in modeling
+        vec_lndu_area_initial : np.ndarray 
+            n x 1, where n is number of land use categories. Vector giving 
+            initial areas of each land use category. Area is in terms of input 
+            area of region.
 
         NOTE
         ----
-        - The maximum feasible carrying capacity is defined using the pasture 
+        The maximum feasible carrying capacity is defined using the pasture 
             "Maximum Pasture Dry Matter Yield Factor" in combination with the 
             pasture area. If the initial consumption by livestock implied by 
             total heads and dry matter consumption per head exceeds this, the 
@@ -5268,8 +5278,7 @@ class AFOLU:
         factor_lndu_init_avg_consumption_pstr: float,
         scalar_lvst_cc: float # vec_lvst_carry_capacity_scale[i]s
     ) -> np.ndarray:
-        """
-        Get the number of lvst that can be support
+        """Get the number of lvst that can be supported
 
         NOTE: DOES NOT PERFORM UNITS CORRECTION, ASSUMES UNITS ARE PROPERLY 
             FORMATTED
@@ -6494,18 +6503,20 @@ class AFOLU:
         vec_pop: np.ndarray,
         vec_rates_gdp_per_capita: np.ndarray,
     ) -> tuple:
-        """
-        Calculate agricultural and livestock demands, imports, exports, and 
+        """Calculate agricultural and livestock demands, imports, exports, and 
             production. Agriculture and Livestock demands are related through 
             feed demands, requiring integration.
 
         Function Arguments
         ------------------
-        - df_afolu_trajectories: data frame containing input variables
-        - vec_modvar_lndu_initial_area: vector (long by category) of initial
-            areas by land use class
-        - vec_pop: vector of population
-        - vec_rates_gdp_per_capita: vector of gdp/capita growth rates
+        df_afolu_trajectories : pd.DataFrame
+            DataFrame containing input variables
+        vec_modvar_lndu_initial_area : np.ndarray
+            Vector (long by category) of initial areas by land use class
+        vec_pop : np.ndarray
+            Vector of population
+        vec_rates_gdp_per_capita : np.ndarray
+            Vector of gdp/capita growth rates
 
         Notes
         -----
@@ -6531,21 +6542,28 @@ class AFOLU:
         ###########################
 
         # get variables requried to estimate demand - start with exports
-        arr_lvst_exports_unadj = self.model_attributes.extract_model_variable(#
+        arr_lvst_exports_unadj = self.model_attributes.extract_model_variable(
             df_afolu_trajectories,
             self.modvar_lvst_equivalent_exports,
             return_type = "array_base",
             var_bounds = (0, np.inf),
         )
 
-        arr_lvst_frac_imported = self.model_attributes.extract_model_variable(#
+        arr_lvst_frac_imported = self.model_attributes.extract_model_variable(
             df_afolu_trajectories,
             self.modvar_lvst_frac_demand_imported,
             return_type = "array_base",
             var_bounds = (0, 1),
         )
 
-        arr_lvst_elas_demand = self.model_attributes.extract_model_variable(#
+        arr_lvst_frac_diet_grazing = self.model_attributes.extract_model_variable(
+            df_afolu_trajectories,
+            self.modvar_lvst_frac_diet_grazing,
+            return_type = "array_base",
+            var_bounds = (0, 1),
+        )
+        
+        arr_lvst_elas_demand = self.model_attributes.extract_model_variable(
             df_afolu_trajectories,
             self.modvar_lvst_elas_lvst_demand,
             expand_to_all_cats = True, # should already be expanded
@@ -6614,7 +6632,8 @@ class AFOLU:
 
         vec_lvst_feed_allocation_weights = vec_lvst_production_init*vec_lvst_base_graze_weights
         vec_lvst_feed_allocation_weights /= np.dot(vec_lvst_production_init, vec_lvst_base_graze_weights)
-        
+        self.vec_modvar_lndu_initial_area = vec_modvar_lndu_initial_area
+
         # get carrying capacity scalar, adjusted for maximum dry matter production and scaled to ensure first element is 1
         (
             arr_lvst_annual_dry_matter_consumption_per_capita,
@@ -6716,13 +6735,23 @@ class AFOLU:
             ), 
             (0, np.inf)
         )
-        
+        # total_dm_demand: number_of_animals*dry_matter_constump
+        # dm_pasture_demand = total_dm_demand*frac_food_from_pastures
+        # dm_crop_systems_demand = total_dm_demand - dm_pasture_demand
+        # 
+        # pro
 
         # split out livestock demands and human consumption
         vec_agrc_domestic_demand_init_lvstfeed = vec_agrc_domestic_demand_init*arr_agrc_frac_feed[0]
         vec_agrc_domestic_demand_init_nonlvstfeed = vec_agrc_domestic_demand_init - vec_agrc_domestic_demand_init_lvstfeed
         vec_agrc_production_init_lvstfeed = vec_agrc_domestic_demand_init_lvstfeed*(1 - arr_agrc_frac_imported[0])
         
+        # total initial dry matter demand for live
+        vec_lvst_demand_dm = vec_lvst_production_init[0]*arr_lvst_annual_dry_matter_consumption_per_capita
+        vec_lvst_demand_dm_pastures = vec_lvst_demand_dm*arr_lvst_frac_diet_grazing[0]
+        vec_lvst_demand_dm_crop_systems = vec_lvst_demand_dm - vec_lvst_demand_dm_pastures
+        HERE123
+
         # project domestic demand
         arr_agrc_domestic_demand_nonfeed_unadj = self.project_per_capita_demand(
             vec_agrc_domestic_demand_init_nonlvstfeed,
@@ -7041,6 +7070,7 @@ class AFOLU:
             dict_agrc_frac_residues_removed_burned,
             scalar_agrc_area_to_m,
             scalar_agrc_yield_to_m,
+            scalar_mass_m_to_bcl,
             vec_agrc_bagasse_yf,
         ) = tup_residue_info
 
@@ -7356,14 +7386,15 @@ class AFOLU:
             # get area and yield in terms of units needed to use regression for biomass
             vec_agrc_crop_area_m = vec_agrc_cropareas_adj*scalar_agrc_area_to_m
             vec_agrc_yield_units_m = vec_agrc_yield_adj*scalar_agrc_yield_to_m
-            arr_agrc_crop_drymatter_per_unit = np.nan_to_num(
+            vec_agrc_crop_drymatter_per_unit = np.nan_to_num(
                 vec_agrc_yield_units_m/vec_agrc_crop_area_m, 
                 nan = 0.0, 
                 posinf = 0.0, 
             )
 
+
             # calculate drymatter per unit and assign to arrays
-            vec_agrc_crop_drymatter_per_unit = arr_agrc_regression_m[i]*arr_agrc_crop_drymatter_per_unit[i] + arr_agrc_regression_b[i]
+            vec_agrc_crop_drymatter_per_unit = arr_agrc_regression_m[i]*vec_agrc_crop_drymatter_per_unit + arr_agrc_regression_b[i]
             vec_agrc_crop_drymatter_above_ground = vec_agrc_crop_drymatter_per_unit*vec_agrc_crop_area_m
             arr_agrc_crop_drymatter_above_ground[i] = vec_agrc_crop_drymatter_above_ground
             arr_agrc_crop_drymatter_per_unit[i] = vec_agrc_crop_drymatter_per_unit
@@ -8058,7 +8089,6 @@ class AFOLU:
         arr_soil_crop_area = arr_agrc_crop_area*scalar_agrc_area_to_m
 
         
-        #HERE123
 
         arr_agrc_crop_drymatter_per_unit = np.nan_to_num(arr_soil_yield/arr_soil_crop_area, nan = 0.0, posinf = 0.0, )
         arr_agrc_crop_drymatter_per_unit = arr_agrc_regression_m*arr_agrc_crop_drymatter_per_unit + arr_agrc_regression_b
