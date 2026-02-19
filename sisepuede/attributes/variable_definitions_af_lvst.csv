@@ -2,9 +2,11 @@ Variable Type,Variable,Information,Variable Schema,Categories,Reference,Default 
 Input,:math:`\text{CH}_4` Enteric Fermentation Emission Factor,"This represents emissions from enteric fermentation, primarily occuring in multigastric ruminant livestock (including buffalo, camels, cattle, goats, and sheep)","``ef_lvst_entferm_$CAT-LIVESTOCK$_$UNIT-MASS$_$EMISSION-GAS$_$UNIT-POPULATION$`` (``$EMISSION-GAS$ = ch4``, ``$UNIT-POPULATION$ = head``, ``$UNIT-MASS$ = kg``)",all,| `FAO Enteric Fermentation <https://www.fao.org/faostat/en/#data/GE (Enteric Fermentation/Emissions CH4)>`_,0,1,1,,0,0,none,,," | Default values taken from V4 C10, Table 10.10 (non cattle/buffalo livestock) and 10.11 (cattle and buffalo) of IPCC GNGHGI 2019R using a default mean between low and high productivity systems.
  | 
  | Uncertainty ranges set by using mean in conjunction with low productivity and high end ranges. Default ranges for no information were constrained relative to similar animal types."
-Input,Animal Weight,Average weight of a single animal,``avgmass_lvst_animal_$CAT-LIVESTOCK$_$UNIT-MASS$`` (``$UNIT-MASS$ = kg``),all,,0,1,1,,0,0,none,,,
+Input,Animal Mass,Average mass of a single animal,``avgmass_lvst_animal_$CAT-LIVESTOCK$_$UNIT-MASS$`` (``$UNIT-MASS$ = kg``),all,,0,1,1,,0,0,none,,,
 Input,Carrying Capacity Scalar,This scalar represents changes to the number of livestock/hectare. Advanced grazing techniques or pasture restoration could scale this.,``scalar_lvst_carrying_capacity``,none,,0,0.8,1.2,,0,0,none,,,
-Input,Daily Dry Matter Consumption,"Used to allocate grassland to grazing animals and estimate carrying capacity under the assumption that the distribution of livestock across grazelands is uniform, grasslands are homogenous, and that there is no mixed grazing (though this could be implemented as a policy parameter). Model parameter that should be constant (only first year is used). Livestock that are non-grazing (e.g. pigs and chickens) should have a value of 0 for this variable. ",``qty_lvst_daily_dry_matter_consumed_$CAT-LIVESTOCK$_$UNIT-MASS$`` (``$UNIT-MASS$ = kg``),all,"Numbers in pounds from Table 5, `Holechek 1988 <https://journals.uair.arizona.edu/index.php/rangelands/article/download/10362/9633>`_. Estimated conversion of 2.2 lbs/kg used to estimate kg.",0,1,1,,0,0,none,,,
+Input,Daily Feed to Mass Factor," | Ratio of daily feed required to average mass of an animal. 
+ | 
+ | Used to allocate pastures and livestock feed crops; ed and estimate carrying capacity under the assumption that the distribution of livestock across grazelands is uniform, grasslands are homogenous, and that there is no mixed grazing (though this could be implemented as a policy parameter). ",``factor_lvst_daily_feed_consumed_to_mass_$CAT-LIVESTOCK$``,all,"Numbers in pounds from Table 5, `Holechek 1988 <https://journals.uair.arizona.edu/index.php/rangelands/article/download/10362/9633>`_. Estimated conversion of 2.2 lbs/kg used to estimate kg.",0,1,1,,0,0,none,,,
 Input,Daily Nitrogen Generation Factor,,``genfactor_lvst_daily_nitrogen_$CAT-LIVESTOCK$``,all,,0,1,1,,0,0,none,,," | Unitless weight factor that represents how much nitrogen is generated per weight of animal. Used to estimate :math:`Nex_{(T)}` in Equation 10.34 (V4C10 IPCC GNGHGI 2019R). 
  | 
  | See Table 10.19 for default factors."
@@ -14,7 +16,6 @@ Input,Fraction Nitrogen Excretion in Dung,Fraction of nitrogen :math:`F_{N-DUNG}
 Input,Fraction of Livestock Demand Imported," | Fraction of total demand for livestock products that is met by imports.
  | 
  | Conceptually, represented as the % of demand for total livestock that would be needed to produce all consumed animal products.",``frac_lvst_livestock_demand_imported_$CAT-LIVESTOCK$``,all,,0,1,1,,0,0,none,,,
-Input,Grazing Fraction of Diet,Fraction of diet that comes from grazing. Used to estimate demand for pastures. Changes to this will shift demands to crops and residuals (if available).,``frac_lvst_diet_from_grazing_$CAT-LIVESTOCK$``,all,"Fraction of diet, by livestock category, that is met by grazing. Must be :math:`\leq 1`",0,1,1,,0,0,none,,,
 Input,Initial Livestock Head Count,Initial population of animal; note that only the first value (associated with t = 0) will be used. Future animal populations are estimated using demand elasticities from GDP/Capita.,``pop_lvst_initial_$CAT-LIVESTOCK$``,all,`FAO - Head Count <https://www.fao.org/faostat/en/#data/QCL (Crops and livestock products/stocks)>`_,0,1,1,,0,0,none,,,FAO: This variable indicates the number of animals of the species present in the country at the time of enumeration.
 Input,Livestock Equivalent Exports,Exports of livestock equivalent products (head of livestock),``exports_lvst_$CAT-LIVESTOCK$``,all,,0,1,1,,0,0,none,,,
 Input,Livestock Manure Management Fraction Anaerobic Digester,,``frac_lvst_mm_$CAT-LIVESTOCK$_anaerobic_digester``,all," | `FAO Manure Management (CH4) <https://www.fao.org/faostat/en/#data/GM (Manure Management /Emissions CH4)>`_
@@ -50,7 +51,51 @@ Input,Livestock Manure Management Fraction Poultry Manure,,``frac_lvst_mm_$CAT-L
 Input,Livestock Manure Management Fraction Solid Storage,,``frac_lvst_mm_$CAT-LIVESTOCK$_solid_storage``,all," | `FAO Manure Management (CH4) <https://www.fao.org/faostat/en/#data/GM (Manure Management /Emissions CH4)>`_
  | 
  | `FAO Manure Management (N2O) <https://www.fao.org/faostat/en/#data/GM>`_",0,1,1,1,0,1,``storage_solid``,,,| Default values taken from IPCC GNGHGI V4 Table 10A.10
+Input,Maximum Fraction of Diet from Crop Residuals," | Maximum fraction of diet that can come from crop residuals. This is used to estimate, based on crop and land use mixes, what fraction of diet comes from pastures, crops, and residues.
+ | 
+ | Residue availability are governed by how much are left after accounting for what is left on the field intentionally and what is burned.
+ |
+ | Must be :math:`\leq 1` and greater than **Minimum Fraction of Diet from Crop Residues**
+ |  
+ | Sum of the four maximum value constraints must exceed 1.",``frac_lvst_max_diet_from_crop_residuals_$CAT-LIVESTOCK$``,all,,0.1,1,1,,0,0,none,,,
+Input,Maximum Fraction of Diet from Crops Cereal," | Maximum fraction of diet that can come from **cereal** crops. This is used to estimate, based on crop and land use mixes, what fraction of diet comes from pastures, crops, and residues.
+ |
+ | Must be :math:`\leq 1` and greater than **Minimum Fraction of Diet from Crops Cereal**
+ |  
+ | Sum of the four maximum value constraints must exceed 1.",``frac_lvst_max_diet_from_crops_cereal_$CAT-LIVESTOCK$``,all,,0,1,1,,0,0,none,,,
+Input,Maximum Fraction of Diet from Crops Non Cereal," | Maximum fraction of diet that can come from **non-cereal** crops. This is used to estimate, based on crop and land use mixes, what fraction of diet comes from pastures, crops, and residues.
+ |
+ | Must be :math:`\leq 1` and greater than **Minimum Fraction of Diet from Crops Non Cereal**
+ |  
+ | Sum of the four maximum value constraints must exceed 1.",``frac_lvst_max_diet_from_crops_non_cereal_$CAT-LIVESTOCK$``,all,,0,1,1,,0,0,none,,,
+Input,Maximum Fraction of Diet from Pastures," | Maximum fraction of diet that can come from pastures and grazing. This is used to estimate, based on crop and land use mixes, what fraction of diet comes from pastures. 
+ |
+ | Must be :math:`\leq 1` and greater than **Minimum Fraction of Diet from Pastures**
+ |  
+ | Sum of the four maximum value constraints must exceed 1.",``frac_lvst_max_diet_from_pastures_$CAT-LIVESTOCK$``,all,,0,1,1,,0,0,none,,,
 Input,Maximum Manure :math:`\text{CH}_4` Generation Capacity,,"``physparam_lvst_bo_$CAT-LIVESTOCK$_$UNIT-MASS$_$EMISSION-GAS$_$UNIT-MASS$_manure`` (``$EMISSION-GAS$ = ch4``, ``$UNIT-MASS$ = kg``)",all,| Default values taken from IPCC GNGHGI V4 Table 10A.16,0,1,1,,0,0,none,,,
+Input,Minimum Fraction of Diet from Crop Residuals," | Minimum fraction of diet that can come from crop residuals. This is used to estimate, based on crop and land use mixes, what fraction of diet comes from pastures, crops, and residues.
+ | 
+ | Residue availability are governed by how much are left after accounting for what is left on the field intentionally and what is burned.
+ |
+ | Must be :math:`\leq 1` and less than **Maximum Fraction of Diet from Crop Residues**
+ |  
+ | Sum of the four maximum value constraints must exceed 1.",``frac_lvst_min_diet_from_crop_residuals_$CAT-LIVESTOCK$``,all,,0,1,1,,0,0,none,,,
+Input,Minimum Fraction of Diet from Crops Cereal," | Minimum fraction of diet that can come from **cereal** crops. This is used to estimate, based on crop and land use mixes, what fraction of diet comes from pastures, crops, and residues.
+ |
+ | Must be :math:`\leq 1` and less than **Maximum Fraction of Diet from Crops Cereal**
+ |  
+ | Sum of the four maximum value constraints must exceed 1.",``frac_lvst_min_diet_from_crops_cereal_$CAT-LIVESTOCK$``,all,,0,1,1,,0,0,none,,,
+Input,Minimum Fraction of Diet from Crops Non Cereal," | Minimum fraction of diet that can come from **non-cereal** crops. This is used to estimate, based on crop and land use mixes, what fraction of diet comes from pastures, crops, and residues.
+ |
+ | Must be :math:`\leq 1` and less than **Maximum Fraction of Diet from Crops Non Cereal**
+ |  
+ | Sum of the four maximum value constraints must exceed 1.",``frac_lvst_min_diet_from_crops_non_cereal_$CAT-LIVESTOCK$``,all,,0,1,1,,0,0,none,,,
+Input,Minimum Fraction of Diet from Pastures," | Minimum fraction of diet that can come from pastures and grazing. This is used to estimate, based on crop and land use mixes, what fraction of diet comes from pastures. 
+ |
+ | Must be :math:`\leq 1` and less than **Maximum Fraction of Diet from Pastures**
+ |  
+ | Sum of the four maximum value constraints must exceed 1.",``frac_lvst_min_diet_from_pastures_$CAT-LIVESTOCK$``,all,,0,1,1,,0,0,none,,,
 Output,:math:`\text{CH}_4` Emissions from Livestock Enteric Fermentation,Methane emissions from enteric fermentation,``emission_co2e_$EMISSION-GAS$_lvst_entferm_$CAT-LIVESTOCK$`` (``$EMISSION-GAS$ = ch4``),all,,0,1,1,,1,0,none,,,
 Output,Adjusted Livestock Equivalent Exports,,``exportsadj_lvst_$CAT-LIVESTOCK$``,all,,0,1,1,,0,0,none,,,
 Output,Adjusted Livestock Equivalent Imports,,``importssadj_lvst_$CAT-LIVESTOCK$``,all,,0,1,1,,0,0,none,,,

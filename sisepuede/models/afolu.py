@@ -1134,7 +1134,7 @@ class AFOLU:
         # livestock model variables
         self.modvar_lvst_adjusted_equivalent_exports = "Adjusted Livestock Equivalent Exports"
         self.modvar_lvst_adjusted_equivalent_imports = "Adjusted Livestock Equivalent Imports"
-        self.modvar_lvst_animal_weight = "Animal Weight"
+        self.modvar_lvst_animal_mass = "Animal Mass"
         self.modvar_lvst_carrying_capacity_scalar = "Carrying Capacity Scalar"
         self.modvar_lvst_changes_to_net_imports_lost = "Changes to Livestock Net Imports Lost"
         self.modvar_lvst_demand_livestock = "Livestock Demand"
@@ -1144,7 +1144,14 @@ class AFOLU:
         self.modvar_lvst_emissions_ch4_ef = ":math:\\text{CH}_4 Emissions from Livestock Enteric Fermentation"
         self.modvar_lvst_equivalent_exports = "Livestock Equivalent Exports"
         self.modvar_lvst_frac_demand_imported = "Fraction of Livestock Demand Imported"
-        self.modvar_lvst_frac_diet_grazing = "Grazing Fraction of Diet"
+        self.modvar_lvst_frac_diet_max_crops_cereals = "Maximum Fraction of Diet from Crops Cereal"
+        self.modvar_lvst_frac_diet_max_crops_non_cereals = "Maximum Fraction of Diet from Crops Non Cereal"
+        self.modvar_lvst_frac_diet_max_from_pastures = "Maximum Fraction of Diet from Pastures"
+        self.modvar_lvst_frac_diet_max_from_residuals = "Maximum Fraction of Diet from Crop Residuals"
+        self.modvar_lvst_frac_diet_min_crops_cereals = "Maximum Fraction of Diet from Crops Cereal"
+        self.modvar_lvst_frac_diet_min_crops_non_cereals = "Maximum Fraction of Diet from Crops Non Cereal"
+        self.modvar_lvst_frac_diet_min_from_pastures = "Maximum Fraction of Diet from Pastures"
+        self.modvar_lvst_frac_diet_min_from_residuals = "Maximum Fraction of Diet from Crop Residuals"
         self.modvar_lvst_frac_exc_n_in_dung = "Fraction Nitrogen Excretion in Dung"
         self.modvar_lvst_frac_mm_anaerobic_digester = "Livestock Manure Management Fraction Anaerobic Digester"
         self.modvar_lvst_frac_mm_anaerobic_lagoon = "Livestock Manure Management Fraction Anaerobic Lagoon"
@@ -5126,6 +5133,90 @@ class AFOLU:
 
 
 
+    def get_lvst_feed_demand(self,
+        df_afolu_trajectories: pd.DataFrame,
+        arr_mass_avg: Union[np.ndarray, None] = None,
+        arr_pop: Union[np.ndarray, None] = None,
+        arr_ratio_mass_to_diet: Union[np.ndarray, None] = None,
+        per_head: bool = False,
+        units_out_mass: Union[str, 'ModelVariable', None] = None,
+    ) -> np.ndarray:
+        """Retrieve the feed demand. Note that, if all arrays are passed in
+            keyword arguments, they can be the same shape (e.g., vectors).
+
+        Keyword Arguments
+        -----------------
+        arr_mass_avg : Union[np.ndarray, None]
+            Optional vector (length is number of livestock categories) 
+            specifying animal mass.
+        arr_pop : Union[np.ndarray, None]
+            Optional vector (length is number of livestock categories) 
+            specifying populations.
+        arr_ratio_mass_to_diet : Union[np.ndarray, None]
+            Optional vector (length is number of livestock categories) 
+            specifying ratio of livestock average mass to daily feed demand.
+        per_head : bool
+            Return the demand per head?
+        units_out_mass : Union[str, 'ModelVariable', None]
+
+        """
+
+        modvar_mass = self.model_attributes.get_variable(
+            self.modvar_lvst_animal_mass,
+        )
+        
+        # get 
+        if not isinstance(arr_mass_avg, np.ndarray, ):
+            arr_lvst_animal_mass = self.model_attributes.extract_model_variable(#
+                df_afolu_trajectories, 
+                modvar_mass,
+                expand_to_all_cats = True,
+                override_vector_for_single_mv_q = True,
+                return_type = "array_base",
+            )
+
+        if not isinstance(arr_pop, np.ndarray, ):
+            arr_lvst_pop = self.model_attributes.extract_model_variable(#
+                df_afolu_trajectories, 
+                self.modvar_lvst_pop_init,
+                expand_to_all_cats = True,
+                override_vector_for_single_mv_q = True,
+                return_type = "array_base",
+            )
+
+        if not isinstance(arr_pop, np.ndarray, ):
+            arr_ratio_mass_to_diet = self.model_attributes.extract_model_variable(#
+                df_afolu_trajectories, 
+                self.modvar_lvst_pop_init,
+                expand_to_all_cats = True,
+                override_vector_for_single_mv_q = True,
+                return_type = "array_base",
+            )
+
+        # get output
+        arr_out = arr_lvst_animal_mass*arr_ratio_mass_to_diet
+        if not per_head:
+            arr_out *= arr_lvst_pop
+
+        # convert units if needed
+        if units_out_mass is not None:
+            units_out_mass = self.get_units_from_specification(
+                units_out_mass,
+                "mass",
+            )
+
+            um_energy = self.model_attributes.get_unit("mass")
+            scalar = um_energy.convert(
+                modvar_mass.attribute("unit_mass"),
+                units_out_mass,
+            )
+
+            arr_out *= scalar
+        
+        return 
+    
+
+
     def get_lvst_pasture_max_yield_and_carrying_capacity(self,
         df_afolu_trajectories: pd.DataFrame,
         vec_lndu_area_initial: np.ndarray,
@@ -6496,6 +6587,70 @@ class AFOLU:
         return out
 
 
+    def get_lvst_demands_for_feed_and_land(self,
+        df_afolu_trajectories: pd.DataFrame,
+        vec_agrc_frac_for_lvst: np.ndarray,
+        vec_agrc_yf: np.ndarray,
+        vec_lvst_frac_from_crops: np.ndarray,
+        **kwargs,
+    ) -> Tuple[np.ndarray]:
+        """
+
+        NOTE: If not passing vectors to get_lvst_feed_demand(), each vec should
+            be an array.
+
+        Function Arguments
+        ------------------
+        df_afolu_trajectories : pd.DataFrame
+            DataFrame containing input variables
+        vec_agrc_frac_for_lvst : np.ndarray
+            Vector (long by agrc category) of fraction of crop yield that is 
+            available for livestock
+        vec_agrc_yf : np.ndarray
+            Vector (long by agrc category) of yield factors for each crop type
+        vec_lvst_frac_from_crops : np.ndarray
+            Vector (long by lvst category) of diet fraction from crops
+        
+        Keyword Arguments
+        -----------------
+        **kwargs :
+            Passed to get_lvst_feed_demand(). Can be used to pass input vectors
+            directly to the function. 
+
+        """
+
+        arr_lvst_feed_demand = self.get_lvst_feed_demand(
+            df_afolu_trajectories,
+            **kwargs,
+        )
+
+        # demand, by animal, for crops
+        arr_lvst_crop_demand = vec_lvst_frac_from_crops*arr_lvst_feed_demand
+
+        # get average yield factor for livestock per unit area
+        agrc_avg_yf_for_lvst = np.dot(
+            vec_agrc_yf, 
+            vec_agrc_frac_for_lvst,
+        )
+        agrc_avg_yf_for_lvst /= len(vec_agrc_yf)
+
+        # get total feed demand and associated area
+        total_crops_demanded = (
+            arr_lvst_crop_demand.sum(axis = 1, )
+            if len(arr_lvst_crop_demand.shape) == 2
+            else arr_lvst_crop_demand.sum()
+        )
+
+        area_crops_demanded_to_satisfy_lvst = total_crops_demanded/agrc_avg_yf_for_lvst
+
+
+
+
+
+        
+
+
+
 
     def project_agrc_lvst_integrated_demands(self,
         df_afolu_trajectories: pd.DataFrame,
@@ -6541,28 +6696,7 @@ class AFOLU:
         #    LIVESTOCK DEMANDS    #
         ###########################
 
-        # get variables requried to estimate demand - start with exports
-        arr_lvst_exports_unadj = self.model_attributes.extract_model_variable(
-            df_afolu_trajectories,
-            self.modvar_lvst_equivalent_exports,
-            return_type = "array_base",
-            var_bounds = (0, np.inf),
-        )
-
-        arr_lvst_frac_imported = self.model_attributes.extract_model_variable(
-            df_afolu_trajectories,
-            self.modvar_lvst_frac_demand_imported,
-            return_type = "array_base",
-            var_bounds = (0, 1),
-        )
-
-        arr_lvst_frac_diet_grazing = self.model_attributes.extract_model_variable(
-            df_afolu_trajectories,
-            self.modvar_lvst_frac_diet_grazing,
-            return_type = "array_base",
-            var_bounds = (0, 1),
-        )
-        
+        # get variables requried to estimate demand - start with elasticities
         arr_lvst_elas_demand = self.model_attributes.extract_model_variable(
             df_afolu_trajectories,
             self.modvar_lvst_elas_lvst_demand,
@@ -6570,6 +6704,44 @@ class AFOLU:
             return_type = "array_base",
         )
 
+        # exports
+        arr_lvst_exports_unadj = self.model_attributes.extract_model_variable(
+            df_afolu_trajectories,
+            self.modvar_lvst_equivalent_exports,
+            return_type = "array_base",
+            var_bounds = (0, np.inf),
+        )
+
+        # dietary fraction from crops
+        arr_lvst_max_frac_diet_crops = self.model_attributes.extract_model_variable(
+            df_afolu_trajectories,
+            self.modvar_lvst_max_frac_diet_crops,
+            return_type = "array_base",
+            var_bounds = (0, 1),
+        )
+
+        # maximum dietary fraction from crop residuals
+        arr_lvst_frac_diet_max_from_residuals = self.model_attributes.extract_model_variable(
+            df_afolu_trajectories,
+            self.modvar_lvst_frac_diet_max_from_residuals,
+            return_type = "array_base",
+            var_bounds = (0, 1),
+        )
+
+        # import fraction
+        arr_lvst_frac_imported = self.model_attributes.extract_model_variable(
+            df_afolu_trajectories,
+            self.modvar_lvst_frac_demand_imported,
+            return_type = "array_base",
+            var_bounds = (0, 1),
+        )
+
+        # get feed demanded in terms of self.modvar_lvst_animal_mass
+        vec_lvst_feed_demanded = self.get_lvst_feed_demand(
+            df_afolu_trajectories, 
+        )[0]
+
+        # fraction of population eating red meat (or fraction of average )
         vec_gnrl_frac_eating_red_meat = self.model_attributes.extract_model_variable(#
             df_afolu_trajectories,
             self.model_socioeconomic.modvar_gnrl_frac_eating_red_meat,
@@ -6641,7 +6813,7 @@ class AFOLU:
             vec_lvst_carry_capacity_scale,
             factor_lndu_init_avg_consumption_pstr,
         ) = self.get_lvst_pasture_max_yield_and_carrying_capacity(
-            df_afolu_trajectories,
+            df_afolu_trajectories,#HERE123
             vec_modvar_lndu_initial_area,
         )
 
@@ -6700,7 +6872,9 @@ class AFOLU:
         vec_agrc_yield_init = arr_agrc_yf[0]*vec_agrc_cropland_area
 
 
-        ##  2. get dietary demand scalar for crop demand (increases based on reduction in red meat demand) - depends on how many people eat red meat (vec_gnrl_frac_eating_red_meat)
+        ##  2. get dietary demand scalar for crop demand 
+        #      - increases based on reduction in red meat demand 
+        #      - depends on how many people eat red meat (vec_gnrl_frac_eating_red_meat)
         
         vec_agrc_diet_exchange_scalar = self.model_attributes.extract_model_variable(#
             df_afolu_trajectories,
@@ -6723,7 +6897,9 @@ class AFOLU:
         arr_agrc_demscale = arr_agrc_demscale + np.outer(np.ones(len(vec_agrc_demscale)), 1 - vec_agrc_scale_demands_for_veg)
 
 
-        ##  3. Calculate crop demands split into yield for livestock feed (responsive to changes in domestic livestock population) and yield for consumption and export (nonlvstfeed)
+        ##  3. Calculate crop demands split into yield for livestock feed 
+        #      - responsive to changes in domestic livestock population and 
+        #        yield for consumption and export (nonlvstfeed)
         
         vec_agrc_domestic_demand_init = sf.vec_bounds(vec_agrc_yield_init - arr_agrc_exports_unadj[0], (0, np.inf))
         vec_agrc_domestic_demand_init /= (1 - arr_agrc_frac_imported[0])
@@ -6741,16 +6917,17 @@ class AFOLU:
         # 
         # pro
 
-        # split out livestock demands and human consumption
+        # split out livestock demands and human consumption HERE123
         vec_agrc_domestic_demand_init_lvstfeed = vec_agrc_domestic_demand_init*arr_agrc_frac_feed[0]
         vec_agrc_domestic_demand_init_nonlvstfeed = vec_agrc_domestic_demand_init - vec_agrc_domestic_demand_init_lvstfeed
         vec_agrc_production_init_lvstfeed = vec_agrc_domestic_demand_init_lvstfeed*(1 - arr_agrc_frac_imported[0])
         
         # total initial dry matter demand for live
-        vec_lvst_demand_dm = vec_lvst_production_init[0]*arr_lvst_annual_dry_matter_consumption_per_capita
+        vec_lvst_demand_dm = vec_lvst_production_init[0]*arr_lvst_annual_dry_matter_consumption_per_capita[0]
         vec_lvst_demand_dm_pastures = vec_lvst_demand_dm*arr_lvst_frac_diet_grazing[0]
         vec_lvst_demand_dm_crop_systems = vec_lvst_demand_dm - vec_lvst_demand_dm_pastures
-        HERE123
+        
+        # get frac here
 
         # project domestic demand
         arr_agrc_domestic_demand_nonfeed_unadj = self.project_per_capita_demand(
@@ -8196,7 +8373,7 @@ class AFOLU:
         # used to estimate total mass of livestock, which drives energy demands
         arr_lvst_animal_mass = self.model_attributes.extract_model_variable(#
             df_afolu_trajectories, 
-            self.modvar_lvst_animal_weight,
+            self.modvar_lvst_animal_mass,
             expand_to_all_cats = True,
             override_vector_for_single_mv_q = True,
             return_type = "array_base",
@@ -8204,7 +8381,7 @@ class AFOLU:
 
         # convert to same units as crop yield for use in integrated land use projection; this way they can be combined
         arr_lvst_animal_mass *=self.model_attributes.get_variable_unit_conversion_factor(
-            self.modvar_lvst_animal_weight,
+            self.modvar_lvst_animal_mass,
             self.modvar_agrc_yf,
             "mass"
         )
@@ -8265,7 +8442,7 @@ class AFOLU:
             arrs_lndu_land_conv,
             arrs_lndu_q_adj,
             arr_lvst_yields_per_livestock,
-            vec_lvst_aggregate_animal_mass,           # in terms of self.modvar_lvst_animal_weight
+            vec_lvst_aggregate_animal_mass,           # in terms of self.modvar_lvst_animal_mass
             ledger,
             ledger_mangroves,
         ) = self.project_integrated_land_use(
@@ -8879,7 +9056,7 @@ class AFOLU:
 
         ##  MANURE MANAGEMENT DATA
 
-        # nitrogen and volative solids generated (passed to manure management--unitless, so they take the mass of modvar_lvst_animal_weight)
+        # nitrogen and volative solids generated (passed to manure management--unitless, so they take the mass of modvar_lvst_animal_mass)
         arr_lvst_nitrogen = self.model_attributes.extract_model_variable(#
             df_afolu_trajectories, 
             self.modvar_lvst_genfactor_nitrogen,
@@ -9018,7 +9195,7 @@ class AFOLU:
         # convert bedding/co-digestates to animal weight masses
         arr_lsmm_n_from_bedding *= self.model_attributes.get_variable_unit_conversion_factor(
             self.modvar_lsmm_n_from_bedding,
-            self.modvar_lvst_animal_weight,
+            self.modvar_lvst_animal_mass,
             "mass"
         )
 
@@ -9068,7 +9245,7 @@ class AFOLU:
             arr_lsmm_biogas_recovered[:, index_cat_lsmm] = np.sum(arr_lsmm_biogas_recovered_cur, axis = 1)
             
             # adjust
-            arr_lsmm_emissions_ch4_cur *= self.model_attributes.get_scalar(self.modvar_lvst_animal_weight, "mass")
+            arr_lsmm_emissions_ch4_cur *= self.model_attributes.get_scalar(self.modvar_lvst_animal_mass, "mass")
             arr_lsmm_emission_ch4[:, index_cat_lsmm] = np.sum(arr_lsmm_emissions_ch4_cur, axis = 1)
 
 
@@ -9116,7 +9293,7 @@ class AFOLU:
 
                     vec_lsmm_volatile_solids_incinerated = np.sum(arr_lvst_volatile_solids*arr_lsmm_fracs_by_lvst, axis = 1)
                     vec_lsmm_volatile_solids_incinerated *= self.model_attributes.get_variable_unit_conversion_factor(
-                        self.modvar_lvst_animal_weight,
+                        self.modvar_lvst_animal_mass,
                         self.modvar_lsmm_dung_incinerated,
                         "mass"
                     )
@@ -9128,7 +9305,7 @@ class AFOLU:
                     # get incinerated N in dung - not used yet
                     vec_lsmm_nitrogen_to_incinerator = vec_lsmm_nitrogen_available*vec_lsmm_frac_n_in_dung
                     vec_lsmm_nitrogen_to_incinerator *= self.model_attributes.get_variable_unit_conversion_factor(
-                        self.modvar_lvst_animal_weight,
+                        self.modvar_lvst_animal_mass,
                         self.modvar_lsmm_dung_incinerated,
                         "mass"
                     )
@@ -9155,42 +9332,42 @@ class AFOLU:
 
         # biogas recovery
         arr_lsmm_biogas_recovered *= self.model_attributes.get_variable_unit_conversion_factor(
-            self.modvar_lvst_animal_weight,
+            self.modvar_lvst_animal_mass,
             self.modvar_lsmm_recovered_biogas,
             "mass"
         )
         # total nitrogen available for fertilizer by pathway
         arr_lsmm_nitrogen_available *= self.model_attributes.get_variable_unit_conversion_factor(
-            self.modvar_lvst_animal_weight,
+            self.modvar_lvst_animal_mass,
             self.modvar_lsmm_n_to_fertilizer,
             "mass"
         )
         # total nitrogen available for other uses by pathway
         vec_lsmm_nitrogen_to_other *= self.model_attributes.get_variable_unit_conversion_factor(
-            self.modvar_lvst_animal_weight,
+            self.modvar_lvst_animal_mass,
             self.modvar_lsmm_n_to_other_use,
             "mass"
         )
         # total nitrogen sent to pasture
         vec_lsmm_nitrogen_to_pasture *= self.model_attributes.get_variable_unit_conversion_factor(
-            self.modvar_lvst_animal_weight,
+            self.modvar_lvst_animal_mass,
             self.modvar_lsmm_n_to_pastures,
             "mass"
         )
         # nitrogen available from dung/urea
         vec_lsmm_nitrogen_to_fertilizer_dung *= self.model_attributes.get_variable_unit_conversion_factor(
-            self.modvar_lvst_animal_weight,
+            self.modvar_lvst_animal_mass,
             self.modvar_lsmm_n_to_fertilizer_agg_dung,
             "mass"
         )
         vec_lsmm_nitrogen_to_fertilizer_urine *= self.model_attributes.get_variable_unit_conversion_factor(
-            self.modvar_lvst_animal_weight,
+            self.modvar_lvst_animal_mass,
             self.modvar_lsmm_n_to_fertilizer_agg_urine,
             "mass"
         )
         # n2o emissions - direct and indirect
         scalar_lsmm_n2o_di = self.model_attributes.get_scalar(self.modvar_lsmm_emissions_direct_n2o, "gas")
-        scalar_lsmm_n2o_di *= self.model_attributes.get_scalar(self.modvar_lvst_animal_weight, "mass")
+        scalar_lsmm_n2o_di *= self.model_attributes.get_scalar(self.modvar_lvst_animal_mass, "mass")
         arr_lsmm_emission_n2o_direct *= scalar_lsmm_n2o_di
         arr_lsmm_emission_n2o_indirect *= scalar_lsmm_n2o_di
 
