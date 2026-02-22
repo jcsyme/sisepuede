@@ -1395,11 +1395,26 @@ class LivestockDietEstimator:
         [3] crop residues
         [4] crop imports, cereals
         [5] crop imports, non-cereals
-        [6] slack (imported outside of system)
+        [6] slack (imported outside of system, very high cost)
 
     Uses a Minimum Cost approach to prioritize dietary pathways over others 
         while constraining dietary fractions for livestock.
     
+    NOTE: All constraint arrays A are oriented as 
+
+        n_lvst x n_pathways = m x n
+
+              |  p_0  |  p_1  |  ...  |  p_n-1  |
+        ----
+        l_0   |  a_00 |  a_01 |  ...  |  a_0n-1 |
+
+        l_1   |  a_10 |  a_11 |  ...  |  a10n-1 |
+
+        ...
+
+        The vector of unknowns is x \in \mathbb{R}^{mn}.
+
+
     Initialization Arguments
     ------------------------
     n_livstock_categories : int
@@ -1477,6 +1492,19 @@ class LivestockDietEstimator:
         )
 
         return out
+    
+
+
+    def _initialize_arrays(self,
+    ) -> None:
+        """Initialize arrays that are filled and cleared. Initializes the
+            following properties:
+
+        """
+        return None
+
+
+
 
 
 
@@ -1497,6 +1525,7 @@ class LivestockDietEstimator:
         # set matrix dimensions
         self.m = n_livstock_categories
         self.n = 7
+        self.mn = self.m*self.n
 
         
         # check contraints
@@ -1607,6 +1636,73 @@ class LivestockDietEstimator:
         return out
 
 
+
+
+    def get_constraint_coeffs_eq_lvst_feed_balance(self,
+        vec_demands: np.ndarray,
+        **kwargs,
+    ) -> Tuple[np.ndarray, np.ndarray, np.ndarray]:
+        """Generate a matrix of coefficients used to ensure that, for each 
+            livestock class, feed demands are met. Returns
+
+            (
+                mat_coeffs,     # m x mn matrix
+                vec_demands,    # m x 1
+            )
+
+
+        Function Arguments
+        ------------------
+        vec_demands : np.ndarray
+            Vector of feed demands, in mass, by livestock category
+
+        Keyword Arguments
+        -----------------
+        """
+
+        A = np.zeros((self.m, self.mn))
+        for i in range(self.m):
+            inds = range(i*self.n, (i+1)*self.n)
+            A[i, inds] = 1
+        
+        out = (A, vec_demands, )
+
+        return out
+    
+
+
+    def get_constraint_coeffs_leq_lvst_feed_supply(self,
+        vec_supplies: np.ndarray,
+        **kwargs,
+    ) -> Tuple[np.ndarray, np.ndarray, np.ndarray]:
+        """Generate a matrix of coefficients used to ensure that, for each 
+            feed pathway, feed availability is not exceeded. Returns
+
+            (
+                mat_coeffs, # n x n^2 matrix
+                vec_supplies,
+            )
+
+
+        Function Arguments
+        ------------------
+        vec_supplies : np.ndarray
+            Vector of feed availability, in mass, by feed pathway. Only applies
+            to categories 0, 1, 2, 3, 4, 5 (the slack category is not bounded)
+
+        Keyword Arguments
+        -----------------
+        """
+
+        A = np.zeros((self.n - 1, self.mn))
+        for i in range(self.n - 1):
+            inds = np.arange(self.m)*self.n + i
+            A[i, inds] = 1
+        
+        out = (A, vec_supplies, )
+
+        return out
+    
 
 
     def get_constraint_coeffs_error(self,

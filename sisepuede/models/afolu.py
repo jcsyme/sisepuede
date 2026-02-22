@@ -1143,6 +1143,7 @@ class AFOLU:
         self.modvar_lvst_elas_lvst_demand = "Elasticity of Livestock Demand to GDP per Capita"
         self.modvar_lvst_emissions_ch4_ef = ":math:\\text{CH}_4 Emissions from Livestock Enteric Fermentation"
         self.modvar_lvst_equivalent_exports = "Livestock Equivalent Exports"
+        self.modvar_lvst_factor_feed_to_mass = "Daily Feed to Mass Factor"
         self.modvar_lvst_frac_demand_imported = "Fraction of Livestock Demand Imported"
         self.modvar_lvst_frac_diet_max_crops_cereals = "Maximum Fraction of Diet from Crops Cereal"
         self.modvar_lvst_frac_diet_max_crops_non_cereals = "Maximum Fraction of Diet from Crops Non Cereal"
