@@ -25,6 +25,9 @@ class InvalidModelVariable(Exception):
 class InvalidModelUnits(Exception):
     pass
 
+class InvalidSubsector(Exception):
+    pass
+
 class InvalidTimePeriods(Exception):
     pass
 
@@ -35,6 +38,9 @@ class KeySymmetryWarning(Exception):
     pass
 
 class MissingAttribute(Exception):
+    pass
+
+class VariableCodeError(Exception):
     pass
 
 
@@ -61,13 +67,18 @@ _DIM_TIME_PERIOD = "time_period"
 # some fields
 _FIELD_DIM_YEAR = "year"
 _FIELD_PRIMARY_CATEGORY = "primary_category"
+_FIELD_SUBSECTOR_VARIABLE_CODE = "subsector_variable_code"
 _FIELD_VARIABLE = "variable"
 _FIELD_VARIABLE_FIELD = "variable_field"
 
 # keys
 _KEY_ATTRIBUTE = "attribute"
-_KEY_VARIABLE_DEFINITION3S = "variable_definitions"
+_KEY_VARIABLE_DEFINITIONS = "variable_definitions"
 
+# variable components
+_PREFIX_ARRAYS = "arr"
+_PREFIX_MODEL_VARIABLES = "modvar"
+_PREFIX_VECTORS = "vec"
 
 
 
@@ -614,7 +625,7 @@ class ModelAttributes:
 
         return None
 
-
+        
 
     def _initialize_basic_dimensions_of_analysis(self,
     ) -> None:
@@ -700,7 +711,7 @@ class ModelAttributes:
         key_variable_definitions = (
             file_prefix_variable_definitions
             if isinstance(file_prefix_variable_definitions, str)
-            else _KEY_VARIABLE_DEFINITION3S
+            else _KEY_VARIABLE_DEFINITIONS
         )
 
         if key_attribute == key_variable_definitions:
@@ -2390,6 +2401,90 @@ class ModelAttributes:
 
 
 
+    def _verify_variable_codes(self,
+        attr_subsec: Union[str, AttributeTable],      
+        field_variable_code: str = _FIELD_SUBSECTOR_VARIABLE_CODE,
+        field_variable_name: str = _FIELD_VARIABLE,
+        stop_on_error: bool = False,       
+    ) -> Union[Dict[str, str], None]:
+        """Check that variable codes within a sector are specified correctly.
+            If verification fails, returns None; otherwise, returns a dictionary
+            mapping the code to the variable name.
+
+        Function Arguments
+        ------------------
+        attr_subsec : Union[str, AttributeTable]
+            Subsec name or attribute table
+
+        Keyword Arguments
+        -----------------
+        field_variable_code : str
+            Field in attribute storing the variable code to use
+        stop_on_error : bool
+            Stop on an error if unable to assign?
+        """
+        # get the subsec variable definition table
+        subsec = (
+            self.get_attribute_table(
+                attr_subsec, 
+                table_type = _KEY_VARIABLE_DEFINITIONS,
+            )
+            if not is_attribute_table(attr_subsec)
+            else attr_subsec
+        )
+
+        if subsec is None:
+            return None
+        
+        # get the table and check that the field is present
+        table = subsec.table
+        all_codes = table.get(field_variable_code, )
+        if all_codes is None:
+            if stop_on_error:
+                raise VariableCodeError(f"Field {field_variable_code} not found in table.")
+            
+            return None
+        
+        # if available, see if unique
+        if len(all_codes.unique()) != table.shape[0]:
+            if stop_on_error:
+                raise VariableCodeError(f"Invalid variable codes found in subsector: variable codes must be unique.")
+
+            return None
+        
+        # check specification
+        dict_out = {}
+
+        for i, code in enumerate(all_codes):
+
+            # clean it and check that it remains unchanged
+            code_test = sf.clean_field_names(code, )
+            error_q = code[0].isnumeric()
+            error_q |= code != code_test
+
+            if error_q:
+                msg = f"""Invalid variable code '{code}' found in subsector. Codes must: 
+                    * be lower case
+                    * have the _ (underscore) character separating terms
+                    * not contain spaces or special characters
+                    * not contain whitespaces more than one character in length
+                    * not start with a number or whitespace
+
+                Variable Codes will not be assigned.
+                """
+                if stop_on_error:
+                    raise VariableCodeError(msg)
+
+                return None
+            
+            # get the variable name and add to dictionary
+            varname = str(table[field_variable_name].iloc[i])
+            dict_out.update({code: varname, })
+            
+
+        return dict_out
+
+
 
 
 
@@ -2960,6 +3055,9 @@ class ModelAttributes:
                 subsector
             * "variable_definitions"
         """
+
+        if is_attribute_table(subsector, ):
+            return subsector
 
         # check input type
         valid_types = {
@@ -3622,12 +3720,13 @@ class ModelAttributes:
     ) -> Union[AttributeTable, None]:
         """Retrieve the subsector attribute table.
         """
+        
         # retrieve some dictionaries
-        dict_other = self.dict_attributes.get(self.attribute_group_key_other)
+        dict_other = self.dict_attributes.get(self.attribute_group_key_other, )
         if dict_other is None:
             return None
 
-        attr_subsector = dict_other.get(self.table_name_attr_subsector)
+        attr_subsector = dict_other.get(self.table_name_attr_subsector, )
         
         return attr_subsector
     
@@ -5453,7 +5552,117 @@ class ModelAttributes:
             dict_vals_unassigned.update({dict_out_key: vals_unassigned})
 
         return dict_out, dict_vals_unassigned
+    
 
+
+    def assign_subsector_variable_names_from_varcodes(self,
+        obj: Any,
+        subsector: str,
+        field_variable_code: str = _FIELD_SUBSECTOR_VARIABLE_CODE,
+        prefix_modvar: str = _PREFIX_MODEL_VARIABLES,  
+        set_as_model_variable: bool = True,
+        stop_on_error: bool = False,
+    ) -> None:
+        """Assign subsector variable properties from variable codes in subsector
+            attribute tables. Assigns variable names in the form:
+
+            {prefix_modvar}_{subsec_abrev}_{variable_code}
+        
+            
+        Function Arguments
+        ------------------
+        obj : Any
+            Any object to assign properties to. 
+        subsector : str
+            Subsector name or abbreviation to assign properties to
+
+        Keyword Arguments
+        -----------------
+        field_variable_code : str
+            Field in attribute storing the variable code to use
+        prefix_modvar : str
+            Prefix to use for assigning ModelVariable names
+        set_as_model_variable : bool
+            If True, sets the property as the model variable itself instead of
+            the variable name
+        stop_on_error : bool
+            Stop on an error if unable to assign?
+        """
+
+        # 
+        subsec_abv = self.get_subsector_attribute(subsector, "abv_subsector", )
+        subsec = self.get_attribute_table(
+            subsector, 
+            table_type = _KEY_VARIABLE_DEFINITIONS, 
+        )
+
+        if subsec is None:
+            return None
+        
+        # otherwise, check for field
+        if field_variable_code not in subsec.table.columns:
+            msg = f"""Unable to assign variables in subsector {subsector}: 
+                required column '{field_variable_code}' not found in the attribute 
+                table. No assignments were completed.
+                """
+            
+            if stop_on_error:
+                raise VariableCodeError(msg)
+
+            warnings.warn(msg, )
+
+            return None
+        
+        
+        # check the codes and table
+        dict_codes_verified = self._verify_variable_codes(
+            subsec,
+            field_variable_code = field_variable_code,
+            stop_on_error = stop_on_error,
+        )
+        if dict_codes_verified is None:
+            return None
+
+        # assign
+        for code, var_name in dict_codes_verified.items():
+            
+            prop_name = self.build_property_name_for_object_assignment(
+                prefix_modvar, 
+                subsec_abv,
+                code,
+            )
+
+            # check if assigned
+            if hasattr(obj, prop_name, ):
+                if stop_on_error:
+                    raise KeyError(f"Unable to assign property {prop_name} to object: property already exists.") 
+                continue
+
+            # otherwise, set
+            modvar = (
+                self.get_variable(var_name, )
+                if set_as_model_variable
+                else var_name
+            )
+
+            setattr(obj, prop_name, modvar, )
+        
+        return None
+
+        
+
+    def build_property_name_for_object_assignment(self,
+        prefix: str,
+        subsec_abrv: str,
+        variable_code: str,
+    ) -> str:
+        """Build the name of the 
+        """
+        out = f"{prefix}_{subsec_abrv}_{variable_code}"
+        out = sf.clean_field_names(out, )
+
+        return out
+            
 
 
     def get_vars_by_assigned_class_from_akaf(self,
@@ -6214,6 +6423,65 @@ class ModelAttributes:
             )
 
         return vars_in, vars_out
+
+
+
+    def get_modvar_code_components_from_modvar(self,
+        modvar: Union[str, 'ModelVariable'],
+        build_varname_property: bool = False,
+        prefix: str = _PREFIX_MODEL_VARIABLES,
+        stop_on_error: bool = False, 
+    ) -> Union[str, Tuple[str], None]:
+        """Get the subsector and subsector variable code associated 
+            with a ModelVariable. Returns None if the ModelVariable
+            is invalid OR if no code is found.
+
+        NOTE: if build_varname_property == True, then will return a 
+            fully built varname property.
+
+            
+        Function Arguments
+        ------------------
+        modvar : Union[str, ModelVariable]
+            ModelVarable for which to retrieve variable code.
+        
+        Keyword Arguments
+        -----------------
+        build_varname_property : bool
+            Return the full name of the variable name property?
+            * True: returns string
+            * False: returns Tuple of form (subsec_abv, code, )
+        prefix : str
+            Optional prefix to use for code componets (could be
+            used to return arr_*** name instead)
+        stop_on_error : bool
+            Raise an error if any issues arise?
+        """
+        # try retrieving the variable
+        modvar = self.get_variable(
+            modvar, 
+            stop_on_missing = stop_on_error,
+        )
+        if modvar is None:
+            return None
+
+        # get necessary information
+        subsec = self.get_variable_subsector(modvar, )
+        subsec_abv = self.get_subsector_attribute(subsec, "abv_subsector", )
+        code = self.get_variable_attribute(modvar, _FIELD_SUBSECTOR_VARIABLE_CODE, )
+
+        if not build_varname_property:
+            out = (subsec_abv, code, )
+            return out
+
+        # get the name
+        out = self.build_property_name_for_object_assignment(
+            prefix,
+            subsec_abv,
+            code,
+        )
+        
+        return out
 
 
 
@@ -7147,6 +7415,149 @@ class ModelAttributes:
         self._initialize_config(self.fp_config, )
 
         return None
+
+
+
+
+
+
+class SubsectorArraysCollection:
+    """Initialize a collection arrays for a subsector.
+    """
+
+    def __init__(self,
+        model_attributes: 'ModelAttributes',
+        subsec: str,
+    ) -> None:
+        
+        self._initialize_attributes(
+            model_attributes,
+            subsec,
+        )
+
+        return None
+    
+
+
+    def _initialize_attributes(self,
+        model_attributes: 'ModelAttributes',
+        subsec: str,
+    ) -> None:
+        """Initialize model variable names, model attributes, default number of
+            time periods, and more.
+        """
+
+        # verify type
+        if not is_model_attributes(model_attributes):
+            raise TypeError(f"Unable to initialize ArraysCollection: model_attributes must be a ModelAttributes object.")
+        
+        # try to get some attributes
+        subsec_abv = model_attributes.get_subsector_attribute(subsec, "abv_subsector")
+        if subsec_abv is None:
+            return InvalidSubsector(f"Subsector '{subsec}' not found.")
+        
+        # assign variabless
+        model_attributes.assign_subsector_variable_names_from_varcodes(
+            self,
+            subsec,
+            stop_on_error = True, 
+        )
+
+        # get a default number of time periods
+        default_n_tp = (
+            model_attributes
+            .get_dimensional_attribute_table(model_attributes.dim_time_period, )
+            .table
+            .shape[0]
+        )
+
+
+        ##  SET PROPERTIES
+
+        self.default_n_tp = default_n_tp
+        self.model_attributes = model_attributes
+        self.subsec = subsec
+        self.subsec_abv = subsec_abv
+
+        return None
+
+
+    
+    ###################################
+    #    SOME BASIC SHARED METHODS    #
+    ###################################
+
+    def get_modvar_array(self,
+        df_trajectories: pd.DataFrame,
+        modvar: Union[str, 'ModelVariable'],
+        expand_to_all_cats: bool = False,
+        **kwargs,
+    ) -> np.ndarray:
+        """Systemic option for retrieving a variable array OR instantiating a
+            blank variable from the modvar. 
+        """
+
+        df_extract = df_trajectories
+
+        if not isinstance(df_trajectories, pd.DataFrame):
+            df_extract = modvar.spawn_default_dataframe(
+                length = self.default_n_tp,
+            )
+            
+        
+        arr_out = self.model_attributes.extract_model_variable(
+            df_extract,
+            modvar,
+            expand_to_all_cats = expand_to_all_cats,
+            return_type = "array_base",
+            **kwargs,
+        )
+
+
+        return arr_out
+        
+
+
+    def get_property_name_array(self,
+        modvar: Union[str, 'ModelVariable'],
+    ) -> str:
+        """Get an array name for a variable (only for direct extraction)
+        """
+
+        out = (
+            self
+            .model_attributes
+            .get_modvar_code_components_from_modvar(
+                modvar,
+                build_varname_property = True, 
+                prefix = _PREFIX_ARRAYS,
+            )
+        )
+
+        return out
+    
+
+
+    def get_property_name_modvar(self,
+        modvar: Union[str, 'ModelVariable'],
+    ) -> str:
+        """Get the modvar property name associated with a variable (only for 
+            direct extraction)
+        """
+
+        out = (
+            self
+            .model_attributes
+            .get_modvar_code_components_from_modvar(
+                modvar,
+                build_varname_property = True, 
+            )
+        )
+
+        return out
+    
+
+
 
 
 

@@ -21,6 +21,7 @@ import sisepuede.utilities._npp_curves as npp
 import sisepuede.utilities._optimization as suo
 import sisepuede.utilities._toolbox as sf
 
+import sisepuede.models._arrays._afolu as arrs_afolu
 
 
 ##########################
@@ -47,136 +48,6 @@ class InvalidBufferThreshold(Exception):
 ######################################################
 #    ARRAY CLASSES TO ORGANIZE CALCULATION ARRAYS    #
 ######################################################
-
-class ArraysAGRC:
-    """Store arrays for AGRC Calculations
-    """
-
-    def __init__(self,
-        df_afolu_trajectories: pd.DataFrame,
-        model_attributes: 'ModelAttributes'
-    ) -> None:
-        
-        return None
-    
-
-
-    def _initialize_arrays_x(self,
-    ) -> None:
-        """Initialize some arrays
-        """
-
-        return None
-    
-
-
-class ArraysFRST:
-    """Store arrays for AGRC Calculations
-    """
-
-    def __init__(self,
-        df_afolu_trajectories: pd.DataFrame,
-        model_attributes: 'ModelAttributes'
-    ) -> None:
-        
-        return None
-    
-
-
-    def _initialize_arrays_x(self,
-    ) -> None:
-        """Initialize some arrays
-        """
-
-        return None
-    
-
-
-
-class ArraysLNDU:
-    """Store arrays for AGRC Calculations
-    """
-
-    def __init__(self,
-        df_afolu_trajectories: pd.DataFrame,
-        model_attributes: 'ModelAttributes'
-    ) -> None:
-        
-        return None
-
-
-    def _initialize_arrays_x(self,
-    ) -> None:
-        """Initialize some arrays
-        """
-
-        return None
-
-
-
-class ArraysLSMM:
-    """Store arrays for AGRC Calculations
-    """
-
-    def __init__(self,
-        df_afolu_trajectories: pd.DataFrame,
-        model_attributes: 'ModelAttributes'
-    ) -> None:
-        
-        return None
-    
-
-
-    def _initialize_arrays_x(self,
-    ) -> None:
-        """Initialize some arrays
-        """
-
-        return None
-
-
-
-class ArraysLVST:
-    """Store arrays for AGRC Calculations
-    """
-
-    def __init__(self,
-        df_afolu_trajectories: pd.DataFrame,
-        model_attributes: 'ModelAttributes'
-    ) -> None:
-        
-        return None
-    
-
-
-    def _initialize_arrays_x(self,
-    ) -> None:
-        """Initialize some arrays
-        """
-
-        return None
-    
-
-
-class ArraysSOIL:
-    """Store arrays for AGRC Calculations
-    """
-
-    def __init__(self,
-        df_afolu_trajectories: pd.DataFrame,
-        model_attributes: 'ModelAttributes'
-    ) -> None:
-        
-        return None
-    
-
-
-    def _initialize_arrays_x(self,
-    ) -> None:
-        """Initialize some arrays
-        """
-
-        return None
     
 
 
@@ -300,6 +171,7 @@ class AFOLU:
         )
 
         self._initialize_integrated_variables()
+        self._initialize_array_classes(None, )
         
 
         self._initialize_uuid()
@@ -471,6 +343,23 @@ class AFOLU:
             set_missing = list(set(check_fields) - set(df_afolu_trajectories.columns))
             set_missing = sf.format_print_list(set_missing)
             raise KeyError(f"AFOLU projection cannot proceed: The fields {set_missing} are missing.")
+
+        return None
+
+
+
+    def _initialize_array_classes(self,
+        df_afolu_trajectories: Union[pd.DataFrame, None],
+    ) -> None:
+        """Initialize array classes that are stored 
+        """
+
+        ##  SET PROPERTIES
+
+        self.arrays_lvst = arrs_afolu.ArraysLVST(
+            df_afolu_trajectories, 
+            self.model_attributes, 
+        )
 
         return None
 
@@ -1131,6 +1020,14 @@ class AFOLU:
             * self.modvar_lvst_****
             * self.modvar_dict_lvst_****
         """
+        # assign names
+        self.model_attributes.assign_subsector_variable_names_from_varcodes(
+            self,
+            self.model_attributes.subsec_name_lvst,
+            stop_on_error = True, 
+        )
+
+        """
         # livestock model variables
         self.modvar_lvst_adjusted_equivalent_exports = "Adjusted Livestock Equivalent Exports"
         self.modvar_lvst_adjusted_equivalent_imports = "Adjusted Livestock Equivalent Imports"
@@ -1145,14 +1042,14 @@ class AFOLU:
         self.modvar_lvst_equivalent_exports = "Livestock Equivalent Exports"
         self.modvar_lvst_factor_feed_to_mass = "Daily Feed to Mass Factor"
         self.modvar_lvst_frac_demand_imported = "Fraction of Livestock Demand Imported"
-        self.modvar_lvst_frac_diet_max_crops_cereals = "Maximum Fraction of Diet from Crops Cereal"
-        self.modvar_lvst_frac_diet_max_crops_non_cereals = "Maximum Fraction of Diet from Crops Non Cereal"
+        self.modvar_lvst_frac_diet_max_from_crops_cereals = "Maximum Fraction of Diet from Crops Cereal"
+        self.modvar_lvst_frac_diet_max_from_crops_non_cereals = "Maximum Fraction of Diet from Crops Non Cereal"
         self.modvar_lvst_frac_diet_max_from_pastures = "Maximum Fraction of Diet from Pastures"
-        self.modvar_lvst_frac_diet_max_from_residuals = "Maximum Fraction of Diet from Crop Residuals"
-        self.modvar_lvst_frac_diet_min_crops_cereals = "Maximum Fraction of Diet from Crops Cereal"
-        self.modvar_lvst_frac_diet_min_crops_non_cereals = "Maximum Fraction of Diet from Crops Non Cereal"
+        self.modvar_lvst_frac_diet_max_from_residues = "Maximum Fraction of Diet from Crop Residuals"
+        self.modvar_lvst_frac_diet_min_from_crops_cereals = "Maximum Fraction of Diet from Crops Cereal"
+        self.modvar_lvst_frac_diet_min_from_crops_non_cereals = "Maximum Fraction of Diet from Crops Non Cereal"
         self.modvar_lvst_frac_diet_min_from_pastures = "Maximum Fraction of Diet from Pastures"
-        self.modvar_lvst_frac_diet_min_from_residuals = "Maximum Fraction of Diet from Crop Residuals"
+        self.modvar_lvst_frac_diet_min_from_residues = "Maximum Fraction of Diet from Crop Residuals"
         self.modvar_lvst_frac_exc_n_in_dung = "Fraction Nitrogen Excretion in Dung"
         self.modvar_lvst_frac_mm_anaerobic_digester = "Livestock Manure Management Fraction Anaerobic Digester"
         self.modvar_lvst_frac_mm_anaerobic_lagoon = "Livestock Manure Management Fraction Anaerobic Lagoon"
@@ -1171,7 +1068,7 @@ class AFOLU:
         self.modvar_lvst_pop = "Livestock Head Count"
         self.modvar_lvst_pop_init = "Initial Livestock Head Count"
         self.modvar_lvst_total_animal_mass = "Total Domestic Animal Mass"
-
+        """
         # dictionaries and list variables
         tup = self.get_lvst_dict_lsmm_categories_to_lvst_fraction_variables()
         modvar_list_lvst_mm_fractions = [v.get("mm_fraction") for v in tup[0].values()]
@@ -1179,7 +1076,20 @@ class AFOLU:
 
         self.dict_lsmm_categories_to_lvst_fraction_variables = tup[0]
         self.dict_lsmm_categories_to_unassigned_variables = tup[1]
+
+        # set some lists
         self.modvar_list_lvst_mm_fractions = modvar_list_lvst_mm_fractions
+        self.modvar_list_lvst_dietary_bounds_ordered = [
+            self.modvar_lvst_frac_diet_max_from_crop_residues,
+            self.modvar_lvst_frac_diet_max_from_crops_cereals,
+            self.modvar_lvst_frac_diet_max_from_crops_non_cereals,
+            self.modvar_lvst_frac_diet_max_from_pastures,
+            self.modvar_lvst_frac_diet_min_from_crop_residues,
+            self.modvar_lvst_frac_diet_min_from_crops_cereals,
+            self.modvar_lvst_frac_diet_min_from_crops_non_cereals,
+            self.modvar_lvst_frac_diet_min_from_pastures
+        ]
+
         """
         self.modvar_list_lvst_mm_fractions = [
             self.modvar_lvst_frac_mm_anaerobic_digester,
@@ -3076,6 +2986,7 @@ class AFOLU:
 
         return df_return
     
+
 
 
     def get_agrc_residue_vars(self,
@@ -6724,7 +6635,7 @@ class AFOLU:
         # maximum dietary fraction from crop residuals
         arr_lvst_frac_diet_max_from_residuals = self.model_attributes.extract_model_variable(
             df_afolu_trajectories,
-            self.modvar_lvst_frac_diet_max_from_residuals,
+            self.modvar_lvst_frac_diet_max_from_residues,
             return_type = "array_base",
             var_bounds = (0, 1),
         )
@@ -8242,6 +8153,12 @@ class AFOLU:
 
         df_out = [df_afolu_trajectories[self.required_dimensions].copy()]
 
+
+        ##  SETUP SOME ARRAYS
+
+        self.arrays_lvst._initialize_arrays(
+            df_afolu_trajectories, 
+        )
 
 
         #################################
