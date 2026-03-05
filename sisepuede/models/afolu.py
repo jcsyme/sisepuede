@@ -4141,6 +4141,63 @@ class AFOLU:
 
         return list_dfs_out
     
+    
+
+    def get_lde(self,
+        i: int = 0,
+    ) -> 'LivestockDietEstimator':
+        """Get the LivestockDietEstimator used to allocate feed sources, a
+            critical component of using residuals and the integrated biomass/
+            energy system.
+        """
+
+        ##  SOME INIT
+        
+        attr_lvst = (
+            self
+            .model_attributes
+            .get_attribute_table(
+                self.model_attributes.subsec_name_lvst,
+            )
+        )
+        
+
+        ##  GET ORDERED ARGUMENTS
+        
+        args_ordered = [attr_lvst.n_key_values]
+        #args_ordered += get_lde_dietary_bounds(model_afolu, i = i, )
+        args_ordered = tuple(args_ordered)
+
+
+        ##  BUILD ESTIMATOR 
+
+        lde = suo.LivestockDietEstimator(*args_ordered, )
+
+        return lde
+    
+
+
+    def get_lde_dietary_bounds(self,
+        i: int = 0,
+    ) -> List[np.ndarray]:
+        """Get dietary bound vectors for the LDE. Uses self.arrays_lvst
+        """
+
+        arrs_lvst = self.arrays_lvst
+        
+        vecs_out = [
+            arrs_lvst.arr_lvst_frac_diet_max_from_crop_residues[i],
+            arrs_lvst.arr_lvst_frac_diet_max_from_crops_cereals[i],
+            arrs_lvst.arr_lvst_frac_diet_max_from_crops_non_cereals[i],
+            arrs_lvst.arr_lvst_frac_diet_max_from_pastures[i],
+            arrs_lvst.arr_lvst_frac_diet_min_from_crop_residues[i],
+            arrs_lvst.arr_lvst_frac_diet_min_from_crops_cereals[i],
+            arrs_lvst.arr_lvst_frac_diet_min_from_crops_non_cereals[i],
+            arrs_lvst.arr_lvst_frac_diet_min_from_pastures[i],
+        ]
+
+        return vecs_out
+    
 
 
     def format_lndu_conversion_emissions_and_scale_secondary_forest(self,
