@@ -19,7 +19,7 @@ from sisepuede.core.model_variable import *
 #################################
 
 class ArraysLVST(ma.SubsectorArraysCollection):
-    """Store arrays for AGRC Calculations
+    """Store arrays for LVST Calculations
     """
 
     def __init__(self,
@@ -47,19 +47,65 @@ class ArraysLVST(ma.SubsectorArraysCollection):
     def _initialize_arrays(self,
         df_trajectories: pd.DataFrame,
     ) -> None:
-        """Initialize LVST arrays that are carried through
+        """Initialize LVST arrays that are carried through. 
         """
         
+        self._initialize_arrays_lvst_demand_and_trade(df_trajectories, )
         self._initialize_arrays_lvst_diet(df_trajectories, )
         
-
         return None
+
+
+
+    def _initialize_arrays_lvst_demand_and_trade(self,
+        df_trajectories: pd.DataFrame,
+    ) -> None:
+        """Initialize livestock demand, export, import, and production related 
+            arrays. Initializes:
+        """
+
+        # elasticities of LVST demand to gdp/gapita
+        self.get_modvar_array(
+            df_trajectories,
+            self.modvar_lvst_elas_demand,
+            expand_to_all_cats = True,
+            set_property = True,
+            var_bounds = (0, 1), 
+        )
+
+        # exports, unadjusted 
+        self.get_modvar_array(
+            df_trajectories,
+            self.modvar_lvst_equivalent_exports,
+            set_property = True,
+            var_bounds = (0, np.inf),
+        )
+
+        # import fraction
+        self.get_modvar_array(
+            df_trajectories,
+            self.modvar_lvst_frac_demand_imported,
+            set_property = True,
+            var_bounds = (0, 1),
+        )
+
+        # population, initial
+        self.get_modvar_array(
+            df_trajectories,
+            self.modvar_lvst_pop_init,
+            set_property = True,
+            var_bounds = (0, np.inf),
+        )
+
+        
+        return None
+
 
 
     def _initialize_arrays_lvst_diet(self,
         df_trajectories: pd.DataFrame,
     ) -> None:
-        """Initialize livestock diet related arrays
+        """Initialize livestock diet related arrays.
         """
 
         ##  GET DIETARY BOUNDS
@@ -127,19 +173,20 @@ class ArraysLVST(ma.SubsectorArraysCollection):
 
         ##  GET FEED TO MASS RATIOS
 
-        arr_lvst_factor_feed_to_mass = self.get_modvar_array(
+        self.get_modvar_array(
             df_trajectories,
             self.modvar_lvst_factor_feed_to_mass,
             expand_to_all_cats = True,
+            set_property = True,
             var_bounds = (0, 1), 
         )
 
 
         # get name and set
-        name_property = self.get_property_name_array(
-            self.modvar_lvst_factor_feed_to_mass,
-        )
-        setattr(self, name_property, arr_lvst_factor_feed_to_mass, )
+        # name_property = self.get_property_name_array(
+        #     self.modvar_lvst_factor_feed_to_mass,
+        # )
+        # setattr(self, name_property, arr_lvst_factor_feed_to_mass, )
 
         return None
 

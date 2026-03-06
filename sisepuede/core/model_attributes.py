@@ -2824,6 +2824,10 @@ class ModelAttributes:
             """
             raise ValueError(msg)
         
+        # throw error if requested
+        if (out is None) and throw_error_on_missing_fields:
+            raise KeyError(f"Unable to extract {modvar.name} from DataFrame: one or more fields not found.")
+        
         # convert to array
         out = out.to_numpy().astype(return_num_type)
         out = (
@@ -7422,7 +7426,11 @@ class ModelAttributes:
 
 
 class SubsectorArraysCollection:
-    """Initialize a collection arrays for a subsector.
+    """Initialize a collection arrays for a subsector. By default, this only is
+        used to initialize arrays associated with ModelVariables. Inidiviaul 
+        subclasses can be used to define specified parameters (bounds, all 
+        categories, etc.) and any special arrays that are based on units 
+        conversion etc.
     """
 
     def __init__(self,
@@ -7491,10 +7499,18 @@ class SubsectorArraysCollection:
         df_trajectories: pd.DataFrame,
         modvar: Union[str, 'ModelVariable'],
         expand_to_all_cats: bool = False,
+        return_type: str = "array_base",
+        set_property: bool = False,
+        stop_on_error: bool = True,
         **kwargs,
-    ) -> np.ndarray:
+    ) -> Union[np.ndarray, None]:
         """Systemic option for retrieving a variable array OR instantiating a
             blank variable from the modvar. 
+            
+        Keyword Arguments
+        -----------------
+        set_property : bool 
+            Set to True to set as as a property. Returns None in this case.
         """
 
         df_extract = df_trajectories
@@ -7504,17 +7520,24 @@ class SubsectorArraysCollection:
                 length = self.default_n_tp,
             )
             
-        
+        # get the array
         arr_out = self.model_attributes.extract_model_variable(
             df_extract,
             modvar,
             expand_to_all_cats = expand_to_all_cats,
-            return_type = "array_base",
+            return_type = return_type,
+            throw_error_on_missing_fields = stop_on_error,
             **kwargs,
         )
 
+        if not set_property:
+            return arr_out
+        
+        # get name and set
+        name_property = self.get_property_name_array(modvar, )
+        setattr(self, name_property, arr_out, )
 
-        return arr_out
+        return None
         
 
 
