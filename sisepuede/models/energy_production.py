@@ -5606,8 +5606,7 @@ class EnergyProduction:
         attribute_time_period: Union[AttributeTable, None] = None,
         regions: Union[List[str], None] = None,
     ) -> pd.DataFrame:
-        """
-        Format the EmissionsActivityRatio input table for NemoMod based on 
+        """Format the EmissionsActivityRatio input table for NemoMod based on 
             SISEPUEDE configuration parameters, input variables, integrated 
             model outputs, and reference tables.
 
@@ -5645,7 +5644,7 @@ class EnergyProduction:
         )
 
         # get technology info and cat to fuel dictionary
-        dict_tech_info = self.get_tech_info_dict(attribute_fuel = attribute_fuel)
+        dict_tech_info = self.get_tech_info_dict(attribute_fuel = attribute_fuel, )
         dict_techs_to_fuel = self.model_attributes.get_ordered_category_attribute(
             self.model_attributes.subsec_name_entc,
             f"electricity_generation_{pycat_enfu}",
@@ -5697,6 +5696,7 @@ class EnergyProduction:
             arr_enfu_tmp *= self.model_attributes.get_scalar(modvar, "mass")
             arr_enfu_tmp /= self.get_nemomod_energy_scalar(modvar)
             dict_enfu_arrs_efs_scaled_to_nemomod.update({modvar: arr_enfu_tmp})
+
             # get ordered indices for each fuel associated with a generation tech
             arr_enfu_tmp = arr_enfu_tmp[:, inds_enfu_extract]
             
@@ -5720,6 +5720,20 @@ class EnergyProduction:
             )
 
             arr_entc_tmp *= arr_enfu_scalar
+            
+            # incorporate efficiency of technology
+            arr_entc_eff_techs = self.model_attributes.extract_model_variable(
+                df_elec_trajectories,
+                self.modvar_entc_efficiency_factor_technology,
+                all_cats_missing_val = 1.0,
+                expand_to_all_cats = True,
+                return_type = "array_base", 
+                var_bounds = (0, 1), 
+            )
+
+            # divide by efficiency to ensure emissions are reflected 
+            arr_entc_tmp /= arr_entc_eff_techs
+
 
 
             ##  FORMAT AS DATA FRAME
