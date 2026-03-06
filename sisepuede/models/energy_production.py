@@ -5721,6 +5721,19 @@ class EnergyProduction:
 
             arr_entc_tmp *= arr_enfu_scalar
 
+            # incorporate efficiency of technology
+            arr_entc_eff_techs = self.model_attributes.extract_model_variable(
+                df_elec_trajectories,
+                self.modvar_entc_efficiency_factor_technology,
+                all_cats_missing_val = 1.0,
+                expand_to_all_cats = True,
+                return_type = "array_base", 
+                var_bounds = (0, 1), 
+            )
+
+            # divide by efficiency to ensure emissions are reflected 
+            arr_entc_tmp /= arr_entc_eff_techs
+
 
             ##  FORMAT AS DATA FRAME
 
