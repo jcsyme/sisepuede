@@ -766,52 +766,13 @@ class AFOLU:
             * self.modvar_dict_agrc_****
             * self.modvar_list_agrc_****
         """
-        # agricultural model variables
-        self.modvar_agrc_adjusted_equivalent_exports = "Adjusted Agriculture Equivalent Exports"
-        self.modvar_agrc_adjusted_equivalent_imports = "Adjusted Agriculture Equivalent Imports"
-        self.modvar_agrc_area_prop_calc = "Cropland Area Proportion"
-        self.modvar_agrc_area_prop_init = "Initial Cropland Area Proportion"
-        self.modvar_agrc_area_crop = "Crop Area"
-        self.modvar_agrc_bagasse_yield_factor = "Bagasse Yield Factor"
-        self.modvar_agrc_changes_to_net_imports_lost = "Changes to Agriculture Net Imports Lost"
-        self.modvar_agrc_combustion_factor = "AGRC Combustion Factor"
-        self.modvar_agrc_demand_crops = "Crop Demand"
-        self.modvar_agrc_ef_ch4_crop_decomposition = ":math:\\text{CH}_4 Crop Anaerobic Decomposition Emission Factor"
-        self.modvar_agrc_ef_ch4_burning = ":math:\\text{CH}_4 Crop Biomass Burning Emission Factor"
-        self.modvar_agrc_ef_co2_biomass = ":math:\\text{CO}_2 Crop Biomass Emission Factor"
-        self.modvar_agrc_ef_n2o_burning = ":math:\\text{N}_2\\text{O} Crop Biomass Burning Emission Factor"
-        self.modvar_agrc_ef_n2o_fertilizer = ":math:\\text{N}_2\\text{O} Crop Fertilizer and Lime Emission Factor"
-        self.modvar_agrc_elas_crop_demand_income = "Crop Demand Income Elasticity"
-        self.modvar_agrc_emissions_ch4_biomass_burning = ":math:\\text{CH}_4 Emissions from Biomass Burning"
-        self.modvar_agrc_emissions_ch4_rice = ":math:\\text{CH}_4 Emissions from Rice"
-        self.modvar_agrc_emissions_co2_biomass = ":math:\\text{CO}_2 Emissions from Biomass Carbon Stock Changes"
-        self.modvar_agrc_emissions_n2o_biomass_burning = ":math:\\text{N}_2\\text{O} Emissions from Biomass Burning"
-        self.modvar_agrc_emissions_n2o_crop_residues = ":math:\\text{N}_2\\text{O} Emissions from Crop Residues"
-        self.modvar_agrc_equivalent_exports = "Agriculture Equivalent Exports"
-        self.modvar_agrc_frac_animal_feed = "Crop Fraction Animal Feed"
-        self.modvar_agrc_frac_demand_imported = "Fraction of Agriculture Demand Imported"
-        self.modvar_agrc_frac_dry = "Agriculture Fraction Dry"
-        self.modvar_agrc_frac_dry_matter_in_crop = "Dry Matter Fraction of Harvested Crop"
-        self.modvar_agrc_frac_no_till = "No Till Crop Fraction"
-        self.modvar_agrc_frac_production_lost = "Fraction of Food Produced Lost Before Consumption"
-        self.modvar_agrc_frac_production_loss_to_msw = "Fraction of Food Loss Sent to Municipal Solid Waste"
-        self.modvar_agrc_frac_residues_burned = "Fraction of Crop Residues Burned"
-        self.modvar_agrc_frac_residues_removed_for_energy = "Fraction of Crop Residues Removed for Energy"
-        self.modvar_agrc_frac_residues_removed_for_feed = "Fraction of Crop Residues Removed for Livestock Feed"
-        self.modvar_agrc_frac_temperate = "Agriculture Fraction Temperate"
-        self.modvar_agrc_frac_tropical = "Agriculture Fraction Tropical"
-        self.modvar_agrc_frac_wet = "Agriculture Fraction Wet"
-        self.modvar_agrc_ged_residues = "Gravimetric Energy Density of Residues"
-        self.modvar_agrc_n_content_of_above_ground_residues = "N Content of Above Ground Residues"
-        self.modvar_agrc_n_content_of_below_ground_residues = "N Content of Below Ground Residues"
-        self.modvar_agrc_ratio_above_ground_residue_to_harvested_yield = "Ratio of Above Ground Residue to Harvested Yield"
-        self.modvar_agrc_ratio_below_ground_biomass_to_above_ground_biomass = "Crop Ratio of Below Ground Biomass to Above Ground Biomass"
-        self.modvar_agrc_regression_m_above_ground_residue = "Above Ground Residue Dry Matter Slope"
-        self.modvar_agrc_regression_b_above_ground_residue = "Above Ground Residue Dry Matter Intercept"
-        self.modvar_agrc_total_food_lost_in_ag = "Total Food Produced Lost Before Consumption"
-        self.modvar_agrc_total_food_lost_in_ag_to_msw = "Total Food Loss Sent to Municipal Solid Waste"
-        self.modvar_agrc_yf = "Crop Yield Factor"
-        self.modvar_agrc_yield = "Crop Yield"
+
+        # assign from attribute variable codes
+        self.model_attributes.assign_subsector_variable_names_from_varcodes(
+            self,
+            self.model_attributes.subsec_name_agrc,
+            stop_on_error = True, 
+        )
         
         # additional lists
         self.modvar_list_agrc_frac_drywet = [
@@ -828,11 +789,26 @@ class AFOLU:
             self.modvar_agrc_frac_residues_removed_for_feed
         ]
 
-        # some key categories
+
+        ##  SOME KEY CATEGORIES
+
+        self.cat_agrc_cereals = self.model_attributes.filter_keys_by_attribute(
+            self.subsec_name_agrc, 
+            {"cereals_category": 1}
+        )[0]
+
         self.cat_agrc_rice = self.model_attributes.filter_keys_by_attribute(
             self.subsec_name_agrc, 
             {"rice_category": 1}
         )[0]
+
+        # some inds
+        attr_agrc = self.model_attributes.get_attribute_table(
+            self.model_attributes.subsec_name_agrc,
+        )
+
+        self.ind_agrc_cereals = attr_agrc.get_key_value_index(self.cat_agrc_cereals, )
+        self.ind_agrc_rice = attr_agrc.get_key_value_index(self.cat_agrc_rice, )
 
         return None
 
@@ -4149,6 +4125,64 @@ class AFOLU:
     
 
 
+    def get_lde_vector_demand(self,
+        vec_lvst_factor_feed: np.ndarray,
+        vec_lvst_mass_per_head: np.ndarray,
+        vec_lvst_pop: np.ndarray,
+    ) -> np.ndarray:
+        """Get the supplies to pass to the LivestockDietaryEstimator
+        """
+        vec_demand = vec_lvst_pop*vec_lvst_mass_per_head
+        vec_demand *= vec_lvst_factor_feed
+
+        return vec_demand
+    
+
+    
+    def get_lde_vector_supply(self,
+        factor_pasture_yield: float,
+        vec_agrc_area: np.ndarray,
+        vec_agrc_genfactor_residues: np.ndarray,
+        vec_agrc_frac_lvst: np.ndarray,
+        vec_agrc_yf: np.ndarray,
+        vec_lndu_area: np.ndarray,
+    ) -> np.ndarray:
+        """Get the supplies to pass to the LivestockDietaryEstimator. Assume
+            everything is in correct units.
+        """
+        # get yield available for pastures
+        yield_pastures = vec_lndu_area[self.ind_lndu_pstr]*factor_pasture_yield
+        
+        # total yield + residues available
+        vec_agrc_yield = vec_agrc_area*vec_agrc_yf
+        total_residues = np.dot(vec_agrc_yield, vec_agrc_genfactor_residues)
+        
+        
+        # get 
+        vec_agrc_yield_lvst = vec_agrc_yield*vec_agrc_frac_lvst
+        yield_for_lvst_cereals = vec_agrc_yield_lvst[self.ind_agrc_cereals]
+        yield_for_lvst_non_cereals = vec_agrc_yield.sum() - yield_for_lvst_cereals
+
+        # set up supplies
+        vec_supply = np.array(
+            [
+                total_residues,
+                yield_for_lvst_cereals,
+                yield_for_lvst_non_cereals,
+                yield_pastures,
+                np.inf,
+                np.inf,
+                np.inf,
+                0.0,
+                0.0,
+                np.inf,
+            ]
+        )
+
+        return vec_supply
+    
+
+
     def format_lndu_conversion_emissions_and_scale_secondary_forest(self,
         arrs_lndu_emissions_conv_agb_matrices: np.ndarray,
         scalar_secondary_forest_conversions: Union[np.ndarray, float] = 1.0,
@@ -6610,11 +6644,9 @@ class AFOLU:
 
         """
 
-        ###########################
-        #    LIVESTOCK DEMANDS    #
-        ###########################
+        
 
-        # get variables requried to estimate demand - start with elasticities
+        # get variables requried to estimate demand 
         arr_lvst_elas_demand = self.arrays_lvst.arr_lvst_elas_demand
         arr_lvst_exports_unadj = self.arrays_lvst.arr_lvst_equivalent_exports
         arr_lvst_frac_imported = self.arrays_lvst.arr_lvst_frac_demand_imported
@@ -6631,6 +6663,9 @@ class AFOLU:
         )
 
 
+        ###########################
+        #    LIVESTOCK DEMANDS    #
+        ###########################
 
         ##  1. CALCULATE DOMESTIC DEMAND
         
@@ -6691,45 +6726,10 @@ class AFOLU:
         arr_agrc_frac_feed = self.arrays_agrc.arr_agrc_frac_animal_feed 
         arr_agrc_frac_imported = self.arrays_agrc.arr_agrc_frac_demand_imported 
         arr_agrc_yf = self.arrays_agrc.arr_agrc_yf 
-        vec_agrc_diet_exchange_scalar = self.arrays_agrc.arr_lndu_vdes 
 
-        """
-        arr_agrc_elas_crop_demand = self.model_attributes.extract_model_variable(
-            df_afolu_trajectories,
-            self.modvar_agrc_elas_crop_demand_income,
-            return_type = "array_base",
-        )
-        arr_agrc_exports_unadj = self.model_attributes.extract_model_variable(
-            df_afolu_trajectories,
-            self.modvar_agrc_equivalent_exports,
-            return_type = "array_base",
-            var_bounds = (0, np.inf),
-        )
-        arr_agrc_frac_feed = self.model_attributes.extract_model_variable(
-            df_afolu_trajectories,
-            self.modvar_agrc_frac_animal_feed,
-            return_type = "array_base",
-            var_bounds = (0, 1),
-        )
-        arr_agrc_frac_imported = self.model_attributes.extract_model_variable(
-            df_afolu_trajectories,
-            self.modvar_agrc_frac_demand_imported,
-            return_type = "array_base",
-            var_bounds = (0, 1),
-        )
-        arr_agrc_yf = self.model_attributes.extract_model_variable(
-            df_afolu_trajectories,
-            self.modvar_agrc_yf,
-            return_type = "array_base",
-            var_bounds = (0, np.inf),
-        )
-        vec_agrc_diet_exchange_scalar = self.model_attributes.extract_model_variable(#
-            df_afolu_trajectories,
-            self.modvar_lndu_vdes,
-            return_type = "array_base",
-            var_bounds = (0, np.inf),
-        )
-        """
+        vec_lndu_diet_exchange_scalar = self.arrays_lndu.arr_lndu_vdes 
+        vec_agrc_frac_production_wasted = self.arrays_agrc.arr_agrc_frac_production_lost
+       
         # do some unit conversion--important not to use *= operater to avoid modifying arrays in obj
         arr_agrc_exports_unadj = arr_agrc_exports_unadj*self.model_attributes.get_variable_unit_conversion_factor(
             self.modvar_agrc_equivalent_exports,
@@ -6754,7 +6754,7 @@ class AFOLU:
         ##  2. get dietary demand scalar for crop demand 
         #      - increases based on reduction in red meat demand 
         #      - depends on how many people eat red meat (vec_gnrl_frac_eating_red_meat)
-        vec_agrc_demscale = vec_gnrl_frac_eating_red_meat + vec_agrc_diet_exchange_scalar - vec_gnrl_frac_eating_red_meat*vec_agrc_diet_exchange_scalar
+        vec_agrc_demscale = vec_gnrl_frac_eating_red_meat + vec_lndu_diet_exchange_scalar - vec_gnrl_frac_eating_red_meat*vec_lndu_diet_exchange_scalar
         vec_agrc_demscale = np.nan_to_num(
             vec_agrc_demscale/vec_agrc_demscale[0], 
             nan = 1.0, 
@@ -6773,7 +6773,7 @@ class AFOLU:
         arr_agrc_demscale = arr_agrc_demscale + np.outer(np.ones(len(vec_agrc_demscale)), 1 - vec_agrc_scale_demands_for_veg)
 
 
-        ##  3. Calculate crop demands split into yield for livestock feed 
+        ##  2. Calculate crop demands split into yield for livestock feed 
         #      - responsive to changes in domestic livestock population and 
         #        yield for consumption and export (nonlvstfeed)
         
@@ -6782,69 +6782,52 @@ class AFOLU:
         vec_agrc_domestic_demand_init = sf.vec_bounds(
             np.nan_to_num(
                 vec_agrc_domestic_demand_init, 
-                nan = 0.0, 
+                nan = 0.0,
                 posinf = 0.0,
             ), 
             (0, np.inf)
         )
-        # total_dm_demand: number_of_animals*dry_matter_constump
-        # dm_pasture_demand = total_dm_demand*frac_food_from_pastures
-        # dm_crop_systems_demand = total_dm_demand - dm_pasture_demand
-        # 
-        # pro
-
-        # split out livestock demands and human consumption HERE123
+  
+        # split out livestock demands and human consumption 
         vec_agrc_domestic_demand_init_lvstfeed = vec_agrc_domestic_demand_init*arr_agrc_frac_feed[0]
+        vec_agrc_init_imports_feed_unadj = vec_agrc_domestic_demand_init_lvstfeed*arr_agrc_frac_imported[0]
         vec_agrc_domestic_demand_init_nonlvstfeed = vec_agrc_domestic_demand_init - vec_agrc_domestic_demand_init_lvstfeed
-        vec_agrc_production_init_lvstfeed = vec_agrc_domestic_demand_init_lvstfeed*(1 - arr_agrc_frac_imported[0])
-        
-        # total initial dry matter demand for live
-        vec_lvst_demand_dm = vec_lvst_production_init[0]*arr_lvst_annual_dry_matter_consumption_per_capita[0]
-        vec_lvst_demand_dm_pastures = vec_lvst_demand_dm*arr_lvst_frac_diet_grazing[0]
-        vec_lvst_demand_dm_crop_systems = vec_lvst_demand_dm - vec_lvst_demand_dm_pastures
-        
-        # get frac here
 
-        # project domestic demand
+        # project domestic demand for crops
         arr_agrc_domestic_demand_nonfeed_unadj = self.project_per_capita_demand(
             vec_agrc_domestic_demand_init_nonlvstfeed,
             vec_pop,
             vec_rates_gdp_per_capita,
             arr_agrc_elas_crop_demand,
             arr_agrc_demscale,
-            float
+            float,
         )
-        arr_agrc_imports_unadj = arr_agrc_domestic_demand_nonfeed_unadj*arr_agrc_frac_imported
-        arr_agrc_production_nonfeed_unadj = arr_agrc_domestic_demand_nonfeed_unadj - arr_agrc_imports_unadj + arr_agrc_exports_unadj
+        arr_agrc_imports_nonfeed_unadj = arr_agrc_domestic_demand_nonfeed_unadj*arr_agrc_frac_imported
+        arr_agrc_production_nonfeed_unadj = arr_agrc_domestic_demand_nonfeed_unadj - arr_agrc_imports_nonfeed_unadj + arr_agrc_exports_unadj
  
 
-        ##  4. Apply production wasted scalar to projected supply requirements, then re-calculate demand (reducing domestic production loss will drop future demands)
+        ##  3. Apply production wasted scalar to projected supply requirements, then re-calculate demand (reducing domestic production loss will drop future demands)
         
-        vec_agrc_frac_production_wasted = self.model_attributes.extract_model_variable(#
-            df_afolu_trajectories,
-            self.modvar_agrc_frac_production_lost,
-            return_type = "array_base",
-            var_bounds = (0, 1),
-        )
         vec_agrc_frac_production_wasted_scalar = np.nan_to_num(
             (1 - vec_agrc_frac_production_wasted[0])/(1 - vec_agrc_frac_production_wasted), 
             nan = 0.0, 
             posinf = 0.0,
         )
-       
+
         arr_agrc_production_nonfeed_unadj = (arr_agrc_production_nonfeed_unadj.transpose()*vec_agrc_frac_production_wasted_scalar).transpose()
-        arr_agrc_domestic_demand_nonfeed_unadj = arr_agrc_production_nonfeed_unadj + arr_agrc_imports_unadj
+        arr_agrc_domestic_demand_nonfeed_unadj = arr_agrc_production_nonfeed_unadj + arr_agrc_imports_nonfeed_unadj
         
         
         out = (
             # agrc vars
             arr_agrc_domestic_demand_nonfeed_unadj,
             arr_agrc_exports_unadj,
-            arr_agrc_imports_unadj,
+            arr_agrc_imports_nonfeed_unadj,
             arr_agrc_production_nonfeed_unadj,
             arr_agrc_yf,
             vec_agrc_frac_cropland_area,
             vec_agrc_frac_production_wasted,
+            vec_agrc_init_imports_feed_unadj,
             # lvst vars
             arr_lvst_annual_dry_matter_consumption_per_capita,
             arr_lvst_domestic_demand_unadj,

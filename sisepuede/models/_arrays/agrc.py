@@ -50,20 +50,6 @@ class ArraysAGRC(ma.SubsectorArraysCollection):
         """Initialize AGRC arrays that are carried through
         """
 
-        self._initialize_arrays_agrc_demand_and_trade(df_trajectories, )
-        self._initialize_arrays_agrc_yield(df_trajectories, )
-
-        return None
-
-
-
-    def _initialize_arrays_agrc_demand_and_trade(self,
-        df_trajectories: pd.DataFrame,
-    ) -> None:
-        """Initialize agriculture demand, export, import, and production related 
-            arrays.
-        """
-
         # elasticities of AGRC demand to gdp/gapita
         self.get_modvar_array(
             df_trajectories,
@@ -95,25 +81,13 @@ class ArraysAGRC(ma.SubsectorArraysCollection):
             var_bounds = (0, 1),
         )
 
-        # vegetarian dietary exchange scalar
+        # production fraction lost
         self.get_modvar_array(
             df_trajectories,
-            self.modvar_lndu_vdes,
-            return_type = "array_base",
-            var_bounds = (0, np.inf),
+            self.modvar_agrc_frac_production_lost,
+            set_property = True,
+            var_bounds = (0, 1),
         )
-
-
-        return None
-
-
-
-    def _initialize_arrays_agrc_yield(self,
-        df_trajectories: pd.DataFrame,
-    ) -> None:
-        """Initialize agriculture demand, export, import, and production related 
-            arrays.
-        """
 
         # yield factors
         self.get_modvar_array(
@@ -121,9 +95,9 @@ class ArraysAGRC(ma.SubsectorArraysCollection):
             self.modvar_agrc_yf,
             set_property = True,
         )
-        
-        return None
 
+
+        return None
 
 
 

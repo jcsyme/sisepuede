@@ -50,14 +50,14 @@ class ArraysLVST(ma.SubsectorArraysCollection):
         """Initialize LVST arrays that are carried through. 
         """
         
-        self._initialize_arrays_lvst_demand_and_trade(df_trajectories, )
-        self._initialize_arrays_lvst_diet(df_trajectories, )
+        self._initialize_arrays_lvst_arrays_standard(df_trajectories, )
+        self._initialize_arrays_lvst_diet_bounds(df_trajectories, )
         
         return None
 
 
 
-    def _initialize_arrays_lvst_demand_and_trade(self,
+    def _initialize_arrays_lvst_arrays_standard(self,
         df_trajectories: pd.DataFrame,
     ) -> None:
         """Initialize livestock demand, export, import, and production related 
@@ -81,6 +81,16 @@ class ArraysLVST(ma.SubsectorArraysCollection):
             var_bounds = (0, np.inf),
         )
 
+        ##  GET FEED TO MASS RATIOS
+
+        self.get_modvar_array(
+            df_trajectories,
+            self.modvar_lvst_factor_feed_to_mass,
+            expand_to_all_cats = True,
+            set_property = True,
+            var_bounds = (0, 1), 
+        )
+
         # import fraction
         self.get_modvar_array(
             df_trajectories,
@@ -102,7 +112,7 @@ class ArraysLVST(ma.SubsectorArraysCollection):
 
 
 
-    def _initialize_arrays_lvst_diet(self,
+    def _initialize_arrays_lvst_diet_bounds(self,
         df_trajectories: pd.DataFrame,
     ) -> None:
         """Initialize livestock diet related arrays.
@@ -170,23 +180,6 @@ class ArraysLVST(ma.SubsectorArraysCollection):
             name_property = self.get_property_name_array(k, )
             setattr(self, name_property, v, )
         
-
-        ##  GET FEED TO MASS RATIOS
-
-        self.get_modvar_array(
-            df_trajectories,
-            self.modvar_lvst_factor_feed_to_mass,
-            expand_to_all_cats = True,
-            set_property = True,
-            var_bounds = (0, 1), 
-        )
-
-
-        # get name and set
-        # name_property = self.get_property_name_array(
-        #     self.modvar_lvst_factor_feed_to_mass,
-        # )
-        # setattr(self, name_property, arr_lvst_factor_feed_to_mass, )
 
         return None
 

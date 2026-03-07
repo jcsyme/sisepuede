@@ -51,16 +51,32 @@ class ArraysLNDU(ma.SubsectorArraysCollection):
         """
         
 
+        # pasture yield, average
+        self.get_modvar_array(
+            df_trajectories,
+            self.modvar_lndu_yf_pasture_avg,
+            return_type = "array_base",
+            var_bounds = (0, np.inf),
+        )
+
+        # pasture yield, supremum
+        self.get_modvar_array(
+            df_trajectories,
+            self.modvar_lndu_yf_pasture_sup,
+            return_type = "array_base",
+            var_bounds = (0, np.inf),
+        )
+
+        # vegetarian dietary exchange scalar
+        self.get_modvar_array(
+            df_trajectories,
+            self.modvar_lndu_vdes,
+            return_type = "array_base",
+            var_bounds = (0, np.inf),
+        )
+
         return None
 
-
-    def _initialize_arrays_lndu_(self,
-        df_trajectories: pd.DataFrame,
-    ) -> None:
-        """Initialize land use...
-        """
-
-        return None
 
 
 

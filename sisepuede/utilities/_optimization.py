@@ -1389,16 +1389,16 @@ class LivestockDietEstimator:
     """Estimate how livestock split their diet based on crop, residue, and 
         pasture availability. Solves for 10 potential pathways (by index):
 
-        [0] crop residues (existing)
-        [1] crops, cereals (existing)
-        [2] crops, non-cereals (existing)
-        [3] pastures (existing)
-        [4] crops, cereals (new)
-        [5] crops, non-cereals (new)
-        [6] pastures (new)
-        [7] crop imports, cereals
-        [8] crop imports, non-cereals
-        [9] slack (imported outside of system, very high cost)
+        [0] crop residues               (existing)
+        [1] crops, cereals              (existing)
+        [2] crops, non-cereals          (existing)
+        [3] pastures                    (existing)
+        [4] crops, cereals              (new)
+        [5] crops, non-cereals          (new)
+        [6] pastures                    (new)
+        [7] crop imports, cereals       (func of planted crops and import frac)
+        [8] crop imports, non-cereals   (func of planted crops and import frac)
+        [9] slack (lfi)                 (very high cost, out of system)
 
     Uses a Minimum Cost approach to prioritize dietary pathways over others 
         while constraining dietary fractions for livestock.
@@ -1725,6 +1725,68 @@ class LivestockDietEstimator:
 
 
 
+    def get_constraint_coeffs_eq_imports(self,
+        vec_import_frac: np.ndarray,
+    ) -> Tuple[np.ndarray, np.ndarray]:
+        """Imports are a fraction of total consumption; this constraint sets
+            crop imports to be a function of production. Returns a tuple of the
+            form 
+
+            (
+                A,
+                b,
+            )
+        
+        Function Arguments
+        ------------------
+        vec_import_frac : np.ndarray
+            Vector of import fractions of cereals and non-cereals. Used to 
+            adjust import supply availability if new crops are planted.
+
+        Keyword Arguments
+        -----------------
+        """
+
+        ##  ADD IN IMPORT AVAILABILITY BASED ON IMPORT FRACTION
+
+        n_rows = len(self.dict_ind_to_imp_ind)
+        A = np.zeros(n_rows, self.mn, )
+        b = np.zeros(n_rows)
+
+        # get import fractions by type
+        dict_ind_imp_fracs = {
+            self.ind_crops_cereals: vec_import_frac[0],
+            self.ind_crops_non_cereals: vec_import_frac[1],
+        }
+
+        i = 0
+
+        # update with reduction to import suppply constraint commensurate with growth
+        for k, v in self.dict_ind_to_imp_ind.items():
+            
+            # imports and new crops
+            ind_new = self.dict_ind_to_new_ind.get(k, )         # index associated with new crop type
+            
+            inds_imports = self.flat_indices_col(v, )           # column indices associated with imported crop type
+            inds_new_crop = self.flat_indices_col(ind_new, )    # column indices associated with new crop type being planted
+            inds_orig_crop = self.flat_indices_col(k, )         # column indices associated with original crops
+            
+            f = dict_ind_imp_fracs.get(k, )                     # import fraction for crop type
+
+            # imports are equal to import fraction applied to new and orig crops
+            A[i, inds_imports] = 1
+            A[i, inds_new_crop] = -f/(1 - f)   
+            A[i, inds_orig_crop] = -f/(1 - f)     
+
+            i += 1
+        
+
+        out = (A, b, )
+
+        return out
+    
+
+
     def get_constraint_coeffs_eq_lvst_feed_balance(self,
         vec_demands: np.ndarray,
         **kwargs,
@@ -1882,7 +1944,6 @@ class LivestockDietEstimator:
 
 
     def get_constraint_coeffs_leq_lvst_feed_supply(self,
-        vec_import_frac: np.ndarray,
         vec_residue_generation_factor: np.ndarray,
         vec_supplies: np.ndarray,
         **kwargs,
@@ -1914,17 +1975,30 @@ class LivestockDietEstimator:
         """
         # initialize some indices
         ind_cr = self.ind_crop_residues
-        inds_cc_imp = self.flat_indices_col(self.ind_crop_imports_cereals, )
         inds_cc_new = self.flat_indices_col(self.ind_crops_cereals_new, )
-        inds_cnc_imp = self.flat_indices_col(self.ind_crop_imports_non_cereals, )
         inds_cnc_new = self.flat_indices_col(self.ind_crops_non_cereals_new, )
 
-        # build the matrix with basic constratins
-        A = np.zeros((self.n - 1, self.mn))
-        for j in range(self.n - 1):
+
+        ##  SETUP CONSTRAINED INDICES
+
+        # imports are not constrained because they are a function of how much
+        # is planted in original/new croplands
+        inds_skip = [
+            self.ind_crop_imports_cereals,
+            self.ind_crop_imports_non_cereals,
+            self.ind_livestock_feed_imports
+        ]
+        inds_constrained = [x for x in range(self.n) if x not in inds_skip]
+        
+        # initialize the matrix with basic constraints for each supply and output 
+        A = np.zeros((self.n, self.mn))
+
+        # assign summation
+        for j in inds_constrained:
             inds = self.flat_indices_col(j, )
             A[j, inds] = 1
         
+
         ##  ADD IN AVAILABILITY OF RESIDUES FROM NEW CROP CLASSES
 
         # get factors for residue generation
@@ -1936,29 +2010,14 @@ class LivestockDietEstimator:
         A[ind_cr, inds_cnc_new] = -rho_cnc
 
 
-        ##  ADD IN IMPORT AVAILABILITY BASED ON IMPORT FRACTION
-
-        # get import fractions by type
-        dict_ind_imp_fracs = {
-            self.ind_crops_cereals: vec_import_frac[0],
-            self.ind_crops_non_cereals: vec_import_frac[1],
-        }
-        frac_imp_non_cer = vec_import_frac[1]
-
-        # update with reduction to import suppply constraint commensurate with growth
-        for k, v in self.dict_ind_to_imp_ind.items():
-            
-            ind_new = self.dict_ind_to_new_ind.get(k, )     # index associated with new crop type
-            inds = self.flat_indices_col(ind_new, )         # column indices associated with new crop type being planted
-            f = dict_ind_imp_fracs.get(k, )                 # import fraction for crop type
-
-            A[v, inds] = -f/(1 - f)                         # effectively inflate import supply for crop based on new 
-                                                            # values planted to maintain consistency of import fraction
-
-        out = (A, vec_supplies, )
+        # setup output
+        out = (
+            A[inds_constrained, :],
+            vec_supplies[inds_constrained], 
+        )
 
         return out
-    
+
 
 
     def get_constraint_coeffs_leq_new_lands_lb(self,                   
@@ -2009,8 +2068,11 @@ class LivestockDietEstimator:
     def get_costs(self,
         vec_costs: np.ndarray,
         allow_new: bool = False, 
+        override_import_costs: bool = False,
     ) -> np.ndarray:
-        """Reformat costs for use in program
+        """Reformat costs for use in program. Ensures that crop imports have 0 
+            cost (they are a function of planting for livestock domestic demand 
+            and import fraction)
 
         Function Arguments
         ------------------
@@ -2022,9 +2084,18 @@ class LivestockDietEstimator:
         allow_new : bool
             Allow new crop/pastures? If True, ensures that costs are set
             between existing and 
+        override_import_costs : bool
+            If True, will not force import costs to be same as crop costs.
         """
 
         vec_out = vec_costs.copy()
+
+        # ensure costs are correct for imports by setting to 0 (depend only on 
+        # planting decisions)
+        if not override_import_costs:
+            for v in self.dict_ind_to_imp_ind.values():
+                vec_out[v] = 0
+
 
         # check costs
         if allow_new:
@@ -2147,7 +2218,7 @@ class LivestockDietEstimator:
         )
 
 
-        ##  GET CONSTRAINTS
+        ##  GET EQUALITY CONSTRAINTS
 
         # totals must equal demanded
         A_fb, b_fb = self.get_constraint_coeffs_eq_lvst_feed_balance(
@@ -2155,6 +2226,16 @@ class LivestockDietEstimator:
         )
         G.append(A_fb, )
         h.append(b_fb, )
+
+        # import values as a function of existing + new crop plants
+        A_imp, b_imp = self.get_constraint_coeffs_eq_imports(
+            vec_import_frac.astype(float),
+        )
+        G.append(A_imp, )
+        h.append(b_imp, )
+
+
+        ##  GET INEQUALITY CONSTRATINTS
 
         # dietary fractions
         A_df, b_df = self.get_constraint_coeffs_leq_lvst_dietary_fractions(
@@ -2166,7 +2247,6 @@ class LivestockDietEstimator:
 
         # supply balance
         A_sb, b_sb = self.get_constraint_coeffs_leq_lvst_feed_supply(
-            vec_import_frac.astype(float),
             vec_residue_generation_factor.astype(float),
             vec_supply.astype(float), 
         )
