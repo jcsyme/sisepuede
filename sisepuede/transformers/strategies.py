@@ -1844,6 +1844,21 @@ class Strategies:
         keys = self.attribute_table.key_values
         id_new = max(self.attribute_table.key_values)
 
+        build_ids = not sf.islistlike(ids)
+        if not build_ids:
+            ids = [x for x in ids if x not in keys]
+            build_ids = len(ids) != len(codes_iter)
+        elif sf.isnumber(ids, integer = True, ):
+            max_id = max(max_id, ids - 1, )
+                
+
+        ids = (
+            list(range(max_id + 1, max_id + len(codes_iter) + 1))
+            if build_ids
+            else ids
+        )
+
+        # initialize outputs to dataframe
         codes_new = []
         ids_new = []
         names_new = []
@@ -1858,7 +1873,7 @@ class Strategies:
         )
 
         # 
-        for code in codes_iter:
+        for i, code in enumerate(codes_iter):
             
             transformation = self.transformations.get_transformation(code)
             
@@ -1879,10 +1894,9 @@ class Strategies:
             # new code and id
             code_new = f"{code_prepend}{delim_code}{code}"
             name_new = f"Add {code} to {strat.name}"
-            id_new += 1
             
             codes_new.append(code_new, )
-            ids_new.append(id_new, )
+            ids_new.append(ids[i], )
             names_new.append(name_new, )
             specs_new.append(spec_new, )
 
