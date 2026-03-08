@@ -1758,6 +1758,7 @@ class Strategies:
         code_prependages_skip: Union[str, List[str]] = "PFLO",
         delim: Union[str, None] = None,
         delim_code: str = ":",
+        ids: Union[None, List[int]] = None,
         max_length_intersection: Union[int, None] = 0, 
         strategy_stress: Union[int, str, None] = None,
         **kwargs,
@@ -1778,6 +1779,13 @@ class Strategies:
             Delimiter used to split transformation specifications
         delim_code : str
             Delimiter used to track transformation code hierarchy 
+        ids : Union[None, List[int]]
+            Optional specification of IDs. 
+            * int:          Specify the base id explicitly. Will take the 
+                            maximum between this value and max(existing_ids) + 1
+            * List[int]:    Specify ids explicitly. Must be of correct length.
+            * None:         Automatically start at 1 above the highest defined 
+                            strategy id.
         max_length_intersection : Union[int, None]
             Optional specification of maximum size of intersection between 
             strategy_base and potential strategies
@@ -1842,7 +1850,7 @@ class Strategies:
         ##  GET STRATEGY CODES TO ITERATE OVER
 
         keys = self.attribute_table.key_values
-        id_new = max(self.attribute_table.key_values)
+        max_id = max(self.attribute_table.key_values)
 
         build_ids = not sf.islistlike(ids)
         if not build_ids:
