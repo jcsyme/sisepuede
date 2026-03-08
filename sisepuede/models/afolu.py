@@ -2257,7 +2257,7 @@ class AFOLU:
         modvar_inen_prod_intensity = self.model_enercons.modvar_inen_en_prod_intensity_factor
         modvar_inen_prod_intensity = self.model_attributes.get_variable(modvar_inen_prod_intensity, )
 
-        _, modvar_target_mass = self.get_bcl_modvars_for_unit_targets()
+        _, modvar_target_mass = self.get_modvars_for_unit_targets_bcl()
 
         # extract arrays of fuel fractions
         dict_arrs_inen_frac_energy = self.model_attributes.get_multivariables_with_bounded_sum_by_category(
@@ -2383,7 +2383,7 @@ class AFOLU:
         """
 
         matt = self.model_attributes
-        _, modvar_bcl_mass = self.get_bcl_modvars_for_unit_targets()
+        _, modvar_bcl_mass = self.get_modvars_for_unit_targets_bcl()
 
         # get variable and scalar
         modvar = matt.get_variable(modvar, )
@@ -2932,7 +2932,7 @@ class AFOLU:
 
         """
 
-        _, modvar_bcl_target_mass = self.get_bcl_modvars_for_unit_targets()
+        _, modvar_bcl_target_mass = self.get_modvars_for_unit_targets_bcl()
 
         # get the regression information
         arr_agrc_regression_m = self.model_attributes.extract_model_variable(#
@@ -3222,7 +3222,7 @@ class AFOLU:
         ) = self.get_lndu_indices_fstp_fsts(
             include_mangroves = True,
         )
-        modvar_area_target, _ = self.get_bcl_modvars_for_unit_targets()
+        modvar_area_target, _ = self.get_modvars_for_unit_targets_bcl()
         
         # get the area
         vec_area = self.model_attributes.extract_model_variable(
@@ -3386,7 +3386,7 @@ class AFOLU:
         
 
         # get target mass
-        _, modvar_target_mass = self.get_bcl_modvars_for_unit_targets()
+        _, modvar_target_mass = self.get_modvars_for_unit_targets_bcl()
         self.modvar_target_mass = modvar_target_mass
 
         # check if growth rate needs to be inferred
@@ -3476,7 +3476,7 @@ class AFOLU:
         # shortcuts
         matt = self.model_attributes
         modvar_lndu_stock_initial = self.modvar_lndu_biomass_stock_factor_ag
-        (modvar_targunits_area, modvar_targunits_mass, ) = self.get_bcl_modvars_for_unit_targets()
+        (modvar_targunits_area, modvar_targunits_mass, ) = self.get_modvars_for_unit_targets_bcl()
 
 
         ##  GET BIOMASS GROWTH RATES AND DECOMP
@@ -3554,30 +3554,6 @@ class AFOLU:
         
         return out
 
-
-
-    def get_bcl_modvars_for_unit_targets(self,
-    ) -> Tuple['ModelVariable']:
-        """Get ModelVariables to use for target units of area and mass. Returns
-            a tuple of the form:
-
-                (modvar_area, modvar_mass, )
-        """
-        # area
-        modvar_area = self.model_attributes.get_variable(
-            self.modvar_ledger_target_units_area, 
-            stop_on_missing = True, 
-        )
-
-        modvar_mass = self.model_attributes.get_variable(
-            self.modvar_ledger_target_units_mass, 
-            stop_on_missing = True, 
-        )
-        
-        out = (modvar_area, modvar_mass, )
-
-        return out
-    
 
 
     def get_bcl_other_parameters(self,
@@ -3779,7 +3755,7 @@ class AFOLU:
         ##  BUILD SF CURVE
 
         # get target units
-        modvar_targunits_area, modvar_targunits_mass = self.get_bcl_modvars_for_unit_targets()
+        modvar_targunits_area, modvar_targunits_mass = self.get_modvars_for_unit_targets_bcl()
 
         
         df_sf_groups = self.get_npp_frst_sequestration_factor_vectors(
@@ -5169,35 +5145,24 @@ class AFOLU:
     
 
 
-    def get_lvst_pasture_max_yield_and_carrying_capacity(self,
-        df_afolu_trajectories: pd.DataFrame,
+    def get_init_lvst_pasture_and_feed_vars(self,
         vec_lndu_area_initial: np.ndarray,
     ) -> np.ndarray:
-        """Get initial maximum feasible yield and carrying capacity vector. 
-            Ensures that the specified maximum yield doesn't conflict with 
-            assumptions from exogenous specification of livestock population, 
-            dry matter consumption, and consumption per head of livestock.
+        """Get some data related 
 
             out = (
-                arr_lvst_annual_dry_matter_consumption, # annual dry matter 
-                                                          consumption per head 
-                                                          of lvst
-                vec_max_yf,                             # maximum feasible yield 
-                                                          factor for pastures in 
-                                                          mass/area
-                vec_carrying_capacity_scalar,           # maximum feasible 
-                                                          scalar applied to 
-                                                          pasture yields
-                factor_lndu_init_avg_consumption_pstr,  # initial average 
-                                                          estimate of 
-                                                          consumption mass per 
-                                                          area
+                arr_lvst_annual_feed_per_capita,
+                total_yield_init_lndu_pasture_avg,
+                total_yield_init_lndu_pasture_sup,
+                vec_lndu_yf_pasture_avg,
+                vec_lndu_yf_pasture_sup,
+                vec_lvst_production_init,
+                vec_lvst_total_feed_required,
             )
 
-        Returns consumption in terms of 
+        Returns consumption (area, mass) in terms of modvars returns by
 
-            MASS: self.modvar_lndu_yf_pasture_sup
-            AREA: self.model_socioeconomic.modvar_gnrl_area
+            self.get_modvars_for_unit_targets_ilu()
 
         
         Function Arguments
@@ -5218,96 +5183,96 @@ class AFOLU:
             threshold is changed to reflect the initial state.
         """
 
+        modvar_targ_area, modvar_targ_mass = self.get_modvars_for_unit_targets_ilu()
+
 
         ##  GET SPECIFIED MAXIMUM YIELD
         
         # get initial pasture area and maximum feasible production
         area_lndu_pasture_init = vec_lndu_area_initial[self.ind_lndu_pstr]
+        dpy = self.model_attributes.configuration.get("days_per_year")
 
-        # get upper bound of annual dry matter production and convert area
-        vec_lndu_yf_pasture_sup = self.model_attributes.extract_model_variable(#
-            df_afolu_trajectories,
-            self.modvar_lndu_yf_pasture_sup,
-            return_type = "array_base",
-            var_bounds = (0, np.inf),
+        # some arrays
+        arr_lvst_annual_feed_per_capita = (
+            self.arrays_lvst.arr_lvst_animal_mass
+            * self.arrays_lvst.arr_lvst_factor_feed_to_mass
+            * dpy
         )
 
-        vec_lndu_yf_pasture_sup /= self.model_attributes.get_variable_unit_conversion_factor(
+        # get upper bound of annual dry matter production and convert area
+        vec_lndu_yf_pasture_avg = self.arrays_lndu.arr_lndu_yf_pasture_avg
+        vec_lndu_yf_pasture_sup = self.arrays_lndu.arr_lndu_yf_pasture_sup
+        vec_lvst_production_init = self.arrays_lvst.arrr_lvst_pop_init[0]
+
+
+        ##  UNIT CONVERSIONS
+        
+        # get scalars
+        scalar_lndu_ddm_to_yf = self.model_attributes.get_variable_unit_conversion_factor(
+            self.modvar_lvst_animal_mass,
+            modvar_targ_mass,
+            "mass",
+        )
+
+        scalar_lndu_yf_avg_to_targ_mass = self.model_attributes.get_variable_unit_conversion_factor(
+            self.modvar_lndu_yf_pasture_avg,
+            modvar_targ_mass,
+            "mass",
+        )
+
+        scalar_lndu_yf_avg_to_targ_area = self.model_attributes.get_variable_unit_conversion_factor(
+            self.modvar_lndu_yf_pasture_avg, 
+            modvar_targ_area, 
+            "area",
+        )
+
+        scalar_lndu_yf_sup_to_targ_mass = self.model_attributes.get_variable_unit_conversion_factor(
+            self.modvar_lndu_yf_pasture_sup,
+            modvar_targ_mass,
+            "mass",
+        )
+
+        scalar_lndu_yf_sup_to_targ_area = self.model_attributes.get_variable_unit_conversion_factor(
             self.modvar_lndu_yf_pasture_sup, 
-            self.model_socioeconomic.modvar_gnrl_area, 
-            "area"
+            modvar_targ_area, 
+            "area",
+        )
+
+        # convert units to align with ILU targets
+        arr_lvst_annual_feed_per_capita = arr_lvst_annual_feed_per_capita*scalar_lndu_ddm_to_yf
+
+        vec_lndu_yf_pasture_avg = (
+            vec_lndu_yf_pasture_avg
+            *scalar_lndu_yf_avg_to_targ_mass
+            /scalar_lndu_yf_avg_to_targ_area
+        )
+
+        vec_lndu_yf_pasture_sup = (
+            vec_lndu_yf_pasture_sup
+            *scalar_lndu_yf_sup_to_targ_mass
+            /scalar_lndu_yf_sup_to_targ_area
         )
 
         # total yield supremum at time 0
-        total_yield_lndu_pasture_sup = area_lndu_pasture_init*vec_lndu_yf_pasture_sup[0]
+        total_yield_init_lndu_pasture_avg = area_lndu_pasture_init*vec_lndu_yf_pasture_avg[0]
+        total_yield_init_lndu_pasture_sup = area_lndu_pasture_init*vec_lndu_yf_pasture_sup[0]
 
 
         ##  CALCULATE TOTAL DRY MATTER REQUIRED FOR INITIAL POPULATION
-        
-        dpy = self.model_attributes.configuration.get("days_per_year")
-
-        vec_lvst_production_init = self.model_attributes.extract_model_variable(#
-            df_afolu_trajectories,
-            self.modvar_lvst_pop_init,
-            override_vector_for_single_mv_q = True,
-            return_type = "array_base",
-            var_bounds = (0, np.inf),
-        )[0]
-
-        arr_lvst_annual_dry_matter_consumption_per_capita = self.model_attributes.extract_model_variable(#
-            df_afolu_trajectories,
-            self.modvar_lvst_dry_matter_consumption,
-            override_vector_for_single_mv_q = True,
-            return_type = "array_base",
-        )
-
-        scalar_lndu_ddm_to_yf = self.model_attributes.get_variable_unit_conversion_factor(
-            self.modvar_lvst_dry_matter_consumption,
-            self.modvar_lndu_yf_pasture_sup,
-            "mass"
-        )
-
-        arr_lvst_annual_dry_matter_consumption_per_capita *= dpy*scalar_lndu_ddm_to_yf
 
         # set annual total required by livestock category in terms of yield supremum
-        lvst_total_dry_matter_required = vec_lvst_production_init*arr_lvst_annual_dry_matter_consumption_per_capita[0]
-        lvst_total_dry_matter_required = lvst_total_dry_matter_required.sum()
+        vec_lvst_total_feed_required = vec_lvst_production_init*arr_lvst_annual_feed_per_capita[0]
 
-
-        ##  GET ADJUSTED MAXIMUM FEASIBLE YIELD AND CARRYING CAPACITY SCALAR
-        
-        factor_lndu_init_avg_consumption_pstr = lvst_total_dry_matter_required/area_lndu_pasture_init
-
-        # total feasible maximum yield
-        vec_lndu_yf_pasture_sup_adj = sf.vec_bounds(
-            vec_lndu_yf_pasture_sup, 
-            (factor_lndu_init_avg_consumption_pstr, np.inf), 
-        )
-
-        # carrying capacity is capped at ratio from output to implicit bound
-        vec_lvst_carry_capacity_scale = self.model_attributes.extract_model_variable(#
-            df_afolu_trajectories,
-            self.modvar_lvst_carrying_capacity_scalar,
-            return_type = "array_base",
-            var_bounds = (0, np.inf),
-        )
-        vec_lvst_carry_capacity_scale = np.nan_to_num(
-            vec_lvst_carry_capacity_scale/vec_lvst_carry_capacity_scale[0],
-            nan = 1.0,
-            posinf = 1.0,
-        )
-        
-        vec_lvst_carry_capacity_scale = sf.vec_bounds(
-            vec_lvst_carry_capacity_scale,
-            [(0.0, x) for x in vec_lndu_yf_pasture_sup_adj/factor_lndu_init_avg_consumption_pstr]
-        )
 
         # output tuple
         out = (
-            arr_lvst_annual_dry_matter_consumption_per_capita,
-            vec_lndu_yf_pasture_sup_adj,
-            vec_lvst_carry_capacity_scale,
-            factor_lndu_init_avg_consumption_pstr,
+            arr_lvst_annual_feed_per_capita,
+            total_yield_init_lndu_pasture_avg,
+            total_yield_init_lndu_pasture_sup,
+            vec_lndu_yf_pasture_avg,
+            vec_lndu_yf_pasture_sup,
+            vec_lvst_production_init,
+            vec_lvst_total_feed_required,
         )
         
         return out
@@ -5338,7 +5303,7 @@ class AFOLU:
         - scalar_lvst_cc: scalar to apply to 
         """
         # average yield per ha of pasture
-        # - NOTE: comes from output of self.get_lvst_pasture_max_yield_and_carrying_capacity, so it's already controlled
+        # - NOTE: comes from output of self.get_init_lvst_pasture_and_feed_vars, so it's already controlled
         vec_lndu_total_yield_pstr_unadj = factor_lndu_init_avg_consumption_pstr*scalar_lvst_cc
         vec_lndu_total_yield_pstr_unadj *= area_pstr_proj
 
@@ -5843,6 +5808,55 @@ class AFOLU:
         arrs_delta = arrs_delta_soc_target - arrs_delta_soc_source
 
         return arrs_delta, vec_soil_ef1_soc_est
+    
+
+
+    def get_modvars_for_unit_targets_bcl(self,
+    ) -> Tuple['ModelVariable']:
+        """Get ModelVariables to use for target units of area and mass. Returns
+            a tuple of the form:
+
+                (modvar_area, modvar_mass, )
+        """
+        # area
+        modvar_area = self.model_attributes.get_variable(
+            self.modvar_ledger_target_units_area, 
+            stop_on_missing = True, 
+        )
+
+
+        modvar_mass = self.model_attributes.get_variable(
+            self.modvar_ledger_target_units_mass, 
+            stop_on_missing = True, 
+        )
+        
+        out = (modvar_area, modvar_mass, )
+
+        return out
+    
+
+
+    def get_modvars_for_unit_targets_ilu(self,
+    ) -> Tuple['ModelVariable']:
+        """Get ModelVariables to use for target units of area and mass in the 
+            Integrated Land Use model. Returns a tuple of the form:
+
+                (modvar_area, modvar_mass, )
+        """
+        # area
+        modvar_area = self.model_attributes.get_variable(
+            self.model_socioeconomic.modvar_gnrl_area, 
+            stop_on_missing = True, 
+        )
+
+        modvar_mass = self.model_attributes.get_variable(
+            self.modvar_agrc_yf, 
+            stop_on_missing = True, 
+        )
+        
+        out = (modvar_area, modvar_mass, )
+
+        return out
     
 
 
@@ -6594,14 +6608,13 @@ class AFOLU:
         )
 
         area_crops_demanded_to_satisfy_lvst = total_crops_demanded/agrc_avg_yf_for_lvst
+        #HEREHEREHRE
+
+    
 
 
-
-
-
-        
-
-
+    
+    
 
 
     def project_agrc_lvst_integrated_demands(self, # MODIFY HERE
@@ -6643,15 +6656,24 @@ class AFOLU:
             M = (P - E)/(1 - F) : Domestic Demand
 
         """
-
         
+        ##  INITIALIZE SOME VARIABLE SHORTCUTS
+        
+        # AGRC arrays required for demand
+        arr_agrc_elas_crop_demand = self.arrays_agrc.arr_agrc_elas_crop_demand_income 
+        arr_agrc_exports_unadj = self.arrays_agrc.arr_agrc_equivalent_exports 
+        arr_agrc_frac_feed = self.arrays_agrc.arr_agrc_frac_animal_feed 
+        arr_agrc_frac_imported = self.arrays_agrc.arr_agrc_frac_demand_imported 
+        arr_agrc_yf = self.arrays_agrc.arr_agrc_yf 
 
-        # get variables requried to estimate demand 
+        # LVST arrays requried to estimate demand 
         arr_lvst_elas_demand = self.arrays_lvst.arr_lvst_elas_demand
         arr_lvst_exports_unadj = self.arrays_lvst.arr_lvst_equivalent_exports
         arr_lvst_frac_imported = self.arrays_lvst.arr_lvst_frac_demand_imported
-        
-        # some vectors
+
+        # vectors 
+        vec_agrc_frac_production_wasted = self.arrays_agrc.arr_agrc_frac_production_lost
+        vec_lndu_diet_exchange_scalar = self.arrays_lndu.arr_lndu_vdes 
         vec_lvst_production_init = self.arrays_lvst.arr_lvst_pop_init[0]
 
         # fraction of population eating red meat (or fraction of average )
@@ -6660,6 +6682,21 @@ class AFOLU:
             self.model_socioeconomic.modvar_gnrl_frac_eating_red_meat,
             return_type = "array_base",
             var_bounds = (0, 1),
+        )
+
+
+        ##  UNIT CONVERSION
+
+        # do some unit conversion--important not to use *= operater to avoid modifying arrays in obj
+        arr_agrc_exports_unadj = arr_agrc_exports_unadj*self.model_attributes.get_variable_unit_conversion_factor(
+            self.modvar_agrc_equivalent_exports,
+            self.modvar_agrc_yf,
+            "mass"
+        )
+        arr_agrc_yf = arr_agrc_yf*self.model_attributes.get_variable_unit_conversion_factor(
+            self.modvar_agrc_yf,
+            self.model_socioeconomic.modvar_gnrl_area,
+            "area",
         )
 
 
@@ -6685,7 +6722,7 @@ class AFOLU:
             (0, np.inf),
         )
         
-        # project aggregate domestic demand forward
+        # project LVST aggregate domestic demand forward
         vec_gnrl_frac_eating_red_meat_scalar = sf.vec_bounds(vec_gnrl_frac_eating_red_meat/vec_gnrl_frac_eating_red_meat[0], (0, 1))
         arr_lvst_domestic_demand_unadj = self.project_per_capita_demand(
             vec_lvst_domestic_demand_init,
@@ -6702,6 +6739,7 @@ class AFOLU:
         arr_lvst_domestic_production_unadj = arr_lvst_domestic_production_for_domestic_demand_unadj + arr_lvst_exports_unadj
 
 
+
         ##  2. get weights for allocating grazing area and feed requirement to animals - based on first year only
       
         # get carrying capacity scalar, adjusted for maximum dry matter production and scaled to ensure first element is 1
@@ -6710,7 +6748,7 @@ class AFOLU:
             vec_lndu_yf_pasture_sup_adj, # in terms of pasture yield factor/LNDU initial area
             vec_lvst_carry_capacity_scale,
             factor_lndu_init_avg_consumption_pstr,
-        ) = self.get_lvst_pasture_max_yield_and_carrying_capacity(
+        ) = self.get_init_lvst_pasture_and_feed_vars(
             df_afolu_trajectories,#HERE123
             vec_modvar_lndu_initial_area,
         )
@@ -6720,27 +6758,9 @@ class AFOLU:
         #    AGRICULTURE DEMANDS    #
         #############################
 
-        # variables required for demand
-        arr_agrc_elas_crop_demand = self.arrays_agrc.arr_agrc_elas_crop_demand_income 
-        arr_agrc_exports_unadj = self.arrays_agrc.arr_agrc_equivalent_exports 
-        arr_agrc_frac_feed = self.arrays_agrc.arr_agrc_frac_animal_feed 
-        arr_agrc_frac_imported = self.arrays_agrc.arr_agrc_frac_demand_imported 
-        arr_agrc_yf = self.arrays_agrc.arr_agrc_yf 
+        
 
-        vec_lndu_diet_exchange_scalar = self.arrays_lndu.arr_lndu_vdes 
-        vec_agrc_frac_production_wasted = self.arrays_agrc.arr_agrc_frac_production_lost
-       
-        # do some unit conversion--important not to use *= operater to avoid modifying arrays in obj
-        arr_agrc_exports_unadj = arr_agrc_exports_unadj*self.model_attributes.get_variable_unit_conversion_factor(
-            self.modvar_agrc_equivalent_exports,
-            self.modvar_agrc_yf,
-            "mass"
-        )
-        arr_agrc_yf = arr_agrc_yf*self.model_attributes.get_variable_unit_conversion_factor(
-            self.modvar_agrc_yf,
-            self.model_socioeconomic.modvar_gnrl_area,
-            "area",
-        )
+        
 
 
 
@@ -7075,7 +7095,7 @@ class AFOLU:
         m = attr_lndu.n_key_values
 
         # scalar to convert input area values to biomass carbon ledger values
-        modvar_bcl_area, modvar_bcl_mass = self.get_bcl_modvars_for_unit_targets() 
+        modvar_bcl_area, modvar_bcl_mass = self.get_modvars_for_unit_targets_bcl() 
         scalar_int_area_to_bcl_area = self.model_attributes.get_variable_unit_conversion_factor(
             self.get_lndu_integrated_target_area_modvar(),
             modvar_bcl_area,

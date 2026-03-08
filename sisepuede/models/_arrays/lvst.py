@@ -56,13 +56,29 @@ class ArraysLVST(ma.SubsectorArraysCollection):
         return None
 
 
-
     def _initialize_arrays_lvst_arrays_standard(self,
         df_trajectories: pd.DataFrame,
     ) -> None:
         """Initialize livestock demand, export, import, and production related 
             arrays. Initializes:
         """
+        
+    def _initialize_arrays_lvst_arrays_standard(self,
+        df_trajectories: pd.DataFrame,
+    ) -> None:
+        """Initialize livestock demand, export, import, and production related 
+            arrays. Initializes:
+        """
+
+        # average animal mass
+        self.get_modvar_array(
+            df_trajectories,
+            self.modvar_lvst_animal_mass,
+            expand_to_all_cats = True,
+            override_vector_for_single_mv_q = True,
+            return_type = "array_base",
+            var_bounds = (0, np.inf),
+        )
 
         # elasticities of LVST demand to gdp/gapita
         self.get_modvar_array(
@@ -81,8 +97,7 @@ class ArraysLVST(ma.SubsectorArraysCollection):
             var_bounds = (0, np.inf),
         )
 
-        ##  GET FEED TO MASS RATIOS
-
+        # feed to animal mass ratios
         self.get_modvar_array(
             df_trajectories,
             self.modvar_lvst_factor_feed_to_mass,
