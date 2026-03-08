@@ -67,6 +67,7 @@ def build_default_general_config_dict(
     dict_update = spawn_args_dict(
         transformers._trfunc_baseline,
         args_ignore = [
+            "magnitude_lurf",
             "n_tp_ramp",
             "tp_0_ramp",
             "vec_implementation_ramp",
