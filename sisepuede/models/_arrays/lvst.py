@@ -56,13 +56,7 @@ class ArraysLVST(ma.SubsectorArraysCollection):
         return None
 
 
-    def _initialize_arrays_lvst_arrays_standard(self,
-        df_trajectories: pd.DataFrame,
-    ) -> None:
-        """Initialize livestock demand, export, import, and production related 
-            arrays. Initializes:
-        """
-        
+
     def _initialize_arrays_lvst_arrays_standard(self,
         df_trajectories: pd.DataFrame,
     ) -> None:
@@ -76,7 +70,7 @@ class ArraysLVST(ma.SubsectorArraysCollection):
             self.modvar_lvst_animal_mass,
             expand_to_all_cats = True,
             override_vector_for_single_mv_q = True,
-            return_type = "array_base",
+            set_property = True,
             var_bounds = (0, np.inf),
         )
 

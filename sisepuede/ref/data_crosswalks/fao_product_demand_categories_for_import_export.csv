@@ -1,515 +1,516 @@
-fao_category,sisepuede_demand_subsector,sisepuede_demand_category,agg_to_fao_category
-Chocolate products nes,agrc,bevs_and_spices,
-Cinnamon (cannella),agrc,bevs_and_spices,
-Cloves,agrc,bevs_and_spices,
-"Cocoa, beans",agrc,bevs_and_spices,
-"Cocoa, butter",agrc,bevs_and_spices,
-"Cocoa, paste",agrc,bevs_and_spices,
-"Cocoa, powder & cake",agrc,bevs_and_spices,
-"Coffee, extracts",agrc,bevs_and_spices,
-"Coffee, green",agrc,bevs_and_spices,
-"Coffee, husks and skins",agrc,bevs_and_spices,
-"Coffee, roasted",agrc,bevs_and_spices,
-"Coffee, substitutes containing coffee",agrc,bevs_and_spices,
-Maté,agrc,bevs_and_spices,
-Mate,agrc,bevs_and_spices,
-"Nutmeg, mace and cardamoms",agrc,bevs_and_spices,
-Pepper (piper spp.),agrc,bevs_and_spices,
-Spices nes,agrc,bevs_and_spices,
-Tea,agrc,bevs_and_spices,
-"Tea, mate extracts",agrc,bevs_and_spices,
-Vermouths & similar,agrc,bevs_and_spices,
-Alcoholic Beverages,agrc,cereals,
-Barley,agrc,cereals,
-"Barley, pearled",agrc,cereals,
-Beer of barley,agrc,cereals,
-"Bran, maize",agrc,cereals,
-"Bran, sorghum",agrc,cereals,
-"Bran, wheat",agrc,cereals,
-Bread,agrc,cereals,
-Buckwheat,agrc,cereals,
-Bulgur,agrc,cereals,
-"Cake, maize",agrc,cereals,
-Canary seed,agrc,cereals,
-Cereal preparations,agrc,cereals,
-Cereal preparations nes,agrc,cereals,
-Cereals,agrc,cereals,
-Cereals nes,agrc,cereals,
-"Cereals, breakfast",agrc,cereals,
-"Cereals, Total",agrc,cereals,
-"Feed and meal, gluten",agrc,cereals,
-Fibre crops nes,agrc,cereals,
-Flax fibre and tow,agrc,cereals,
-"Flour, cereals",agrc,cereals,
-"Flour, maize",agrc,cereals,
-"Flour, mixed grain",agrc,cereals,
-"Flour, wheat",agrc,cereals,
-Fonio,agrc,cereals,
-"Food preparations, flour, malt extract",agrc,cereals,
-"Germ, maize",agrc,cereals,
-"Grain, mixed",agrc,cereals,
-Macaroni,agrc,cereals,
-Maize,agrc,cereals,
-"Maize, green",agrc,cereals,
-Malt,agrc,cereals,
-Millet,agrc,cereals,
-Oats,agrc,cereals,
-Oats rolled,agrc,cereals,
-"Oil, maize",agrc,cereals,
-Quinoa,agrc,cereals,
-Rye,agrc,cereals,
-Sorghum,agrc,cereals,
-Sweet corn frozen,agrc,cereals,
-Sweet corn prep or preserved,agrc,cereals,
-Triticale,agrc,cereals,
-Wheat,agrc,cereals,
-Agave fibres nes,agrc,fibers,
-"Bastfibres, other",agrc,fibers,
-Cotton lint,agrc,fibers,
-Cotton linter,agrc,fibers,
-Cotton waste,agrc,fibers,
-"Cotton, carded, combed",agrc,fibers,
-Flax fibre raw,agrc,fibers,
-Hemp tow waste,agrc,fibers,
-Jute,agrc,fibers,
-Manila fibre (abaca),agrc,fibers,
-Ramie,agrc,fibers,
-Seed cotton,agrc,fibers,
-Textile Fibres,agrc,fibers,
-Apples,agrc,fruits,
-Apricots,agrc,fruits,
-"Apricots, dry",agrc,fruits,
-Avocados,agrc,fruits,
-Bananas,agrc,fruits,
-Berries nes,agrc,fruits,
-Blueberries,agrc,fruits,
-"Cake, copra",agrc,fruits,
-Carobs,agrc,fruits,
-Cashewapple,agrc,fruits,
-Cherries,agrc,fruits,
-"Cherries, sour",agrc,fruits,
-Cider etc,agrc,fruits,
-"Citrus Fruit, Total",agrc,fruits,
-Coconuts,agrc,fruits,
-"Coconuts, desiccated",agrc,fruits,
-Coir,agrc,fruits,
-Copra,agrc,fruits,
-Cranberries,agrc,fruits,
-Currants,agrc,fruits,
-Dates,agrc,fruits,
-"Feed, pulp of fruit",agrc,fruits,
-Figs,agrc,fruits,
-Figs dried,agrc,fruits,
-Forage products,agrc,fruits,
-Fruit,agrc,fruits,
-Fruit Primary,agrc,fruits,
-"Fruit, citrus nes",agrc,fruits,
-"Fruit, cooked, homogenized preparations",agrc,fruits,
-"Fruit, dried nes",agrc,fruits,
-"Fruit, fresh nes",agrc,fruits,
-"Fruit, pome nes",agrc,fruits,
-"Fruit, prepared nes",agrc,fruits,
-"Fruit, stone nes",agrc,fruits,
-"Fruit, tropical fresh nes",agrc,fruits,
-Gooseberries,agrc,fruits,
-Grapefruit (inc. pomelos),agrc,fruits,
-Grapes,agrc,fruits,
-"Juice, apple, concentrated",agrc,fruits,
-"Juice, apple, single strength",agrc,fruits,
-"Juice, citrus, concentrated",agrc,fruits,
-"Juice, citrus, single strength",agrc,fruits,
-"Juice, fruit nes",agrc,fruits,
-"Juice, grape",agrc,fruits,
-"Juice, grapefruit",agrc,fruits,
-"Juice, grapefruit, concentrated",agrc,fruits,
-"Juice, lemon, concentrated",agrc,fruits,
-"Juice, lemon, single strength",agrc,fruits,
-"Juice, orange, concentrated",agrc,fruits,
-"Juice, orange, single strength",agrc,fruits,
-"Juice, pineapple",agrc,fruits,
-"Juice, pineapple, concentrated",agrc,fruits,
-Kapok fruit,agrc,fruits,
-Kiwi fruit,agrc,fruits,
-Lemons and limes,agrc,fruits,
-"Mangoes, mangosteens, guavas",agrc,fruits,
-Maple sugar and syrups,agrc,fruits,
-"Oil, coconut (copra)",agrc,fruits,
-"Oil, olive residues",agrc,fruits,
-"Oil, olive, virgin",agrc,fruits,
-Olives,agrc,fruits,
-Olives preserved,agrc,fruits,
-Oranges,agrc,fruits,
-Papayas,agrc,fruits,
-Peaches and nectarines,agrc,fruits,
-Pears,agrc,fruits,
-Persimmons,agrc,fruits,
-Pineapples,agrc,fruits,
-Pineapples canned,agrc,fruits,
-Plantains and others,agrc,fruits,
-Plums and sloes,agrc,fruits,
-Plums dried (prunes),agrc,fruits,
-Quinces,agrc,fruits,
-Raisins,agrc,fruits,
-Raspberries,agrc,fruits,
-Strawberries,agrc,fruits,
-"Tangerines, mandarins, clementines, satsumas",agrc,fruits,
-Wine,agrc,fruits,
-"Anise, badian, fennel, coriander",agrc,herbs_and_other_perennial_crops,
-Chicory roots,agrc,herbs_and_other_perennial_crops,
-"Flour, mustard",agrc,herbs_and_other_perennial_crops,
-Ginger,agrc,herbs_and_other_perennial_crops,
-Hops,agrc,herbs_and_other_perennial_crops,
-Mustard seed,agrc,herbs_and_other_perennial_crops,
-"Oil, essential nes",agrc,herbs_and_other_perennial_crops,
-Peppermint,agrc,herbs_and_other_perennial_crops,
-"Pyrethrum, dried",agrc,herbs_and_other_perennial_crops,
-"Pyrethrum, extraction",agrc,herbs_and_other_perennial_crops,
-Sisal,agrc,herbs_and_other_perennial_crops,
-Vanilla,agrc,herbs_and_other_perennial_crops,
-"Meat, other rodents",agrc,NONE,
-Almonds shelled,agrc,nuts,
-"Almonds, with shell",agrc,nuts,
-Areca nuts,agrc,nuts,
-"Brazil nuts, shelled",agrc,nuts,
-"Brazil nuts, with shell",agrc,nuts,
-"Cake, groundnuts",agrc,nuts,
-"Cashew nuts, shelled",agrc,nuts,
-"Cashew nuts, with shell",agrc,nuts,
-Chestnut,agrc,nuts,
-"Groundnuts, prepared",agrc,nuts,
-"Groundnuts, shelled",agrc,nuts,
-"Groundnuts, with shell",agrc,nuts,
-"Hazelnuts, shelled",agrc,nuts,
-"Hazelnuts, with shell",agrc,nuts,
-Jojoba seed,agrc,nuts,
-Karite nuts (sheanuts),agrc,nuts,
-Kola nuts,agrc,nuts,
-Nuts,agrc,nuts,
-Nuts nes,agrc,nuts,
-"Nuts, prepared (exc. groundnuts)",agrc,nuts,
-Peanut butter,agrc,nuts,
-Pistachios,agrc,nuts,
-"Treenuts, Total",agrc,nuts,
-Tung nuts,agrc,nuts,
-"Walnuts, shelled",agrc,nuts,
-"Walnuts, with shell",agrc,nuts,
-"Cake, cottonseed",agrc,other_annual,
-"Cake, hempseed",agrc,other_annual,
-"Cake, safflower",agrc,other_annual,
-"Cake, sesame seed",agrc,other_annual,
-"Cake, soybeans",agrc,other_annual,
-"Cake, sunflower",agrc,other_annual,
-Cigarettes,agrc,other_annual,
-"Cigars, cheroots",agrc,other_annual,
-Cottonseed,agrc,other_annual,
-Hempseed,agrc,other_annual,
-Linseed,agrc,other_annual,
-Melonseed,agrc,other_annual,
-"Oil, citronella",agrc,other_annual,
-"Oil, linseed",agrc,other_annual,
-"Oil, rapeseed",agrc,other_annual,
-"Oil, safflower",agrc,other_annual,
-"Oil, soybean",agrc,other_annual,
-"Oil, sunflower",agrc,other_annual,
-Oilcrops,agrc,other_annual,
-"Oilcrops, Oil Equivalent",agrc,other_annual,
-Poppy seed,agrc,other_annual,
-Rapeseed,agrc,other_annual,
-Safflower seed,agrc,other_annual,
-Sesame seed,agrc,other_annual,
-Soya paste,agrc,other_annual,
-Soya sauce,agrc,other_annual,
-Soybeans,agrc,other_annual,
-Tobacco,agrc,other_annual,
-Tobacco products nes,agrc,other_annual,
-"Tobacco, unmanufactured",agrc,other_annual,
-"Cake, linseed",agrc,other_woody_perennial,
-"Cake, palm kernel",agrc,other_woody_perennial,
-"Cake, rapeseed",agrc,other_woody_perennial,
-Castor oil seed,agrc,other_woody_perennial,
-Natural Rubber,agrc,other_woody_perennial,
-Oil palm fruit,agrc,other_woody_perennial,
-"Oil, castor beans",agrc,other_woody_perennial,
-"Oil, cottonseed",agrc,other_woody_perennial,
-"Oil, groundnut",agrc,other_woody_perennial,
-"Oil, palm",agrc,other_woody_perennial,
-"Oil, palm kernel",agrc,other_woody_perennial,
-"Oil, sesame",agrc,other_woody_perennial,
-"Oilcrops, Cake Equivalent",agrc,other_woody_perennial,
-Oilseeds,agrc,other_woody_perennial,
-Oilseeds nes,agrc,other_woody_perennial,
-Palm kernels,agrc,other_woody_perennial,
-Rubber natural dry,agrc,other_woody_perennial,
-"Rubber, natural",agrc,other_woody_perennial,
-Tallow,agrc,other_woody_perennial,
-Tallowtree seed,agrc,other_woody_perennial,
-Vegetable Oil and Fat,agrc,other_woody_perennial,
-Alfalfa meal and pellets,agrc,pulses,
-Bambara beans,agrc,pulses,
-"Beans, dry",agrc,pulses,
-"Beans, green",agrc,pulses,
-"Broad beans, horse beans, dry",agrc,pulses,
-Chick peas,agrc,pulses,
-"Cow peas, dry",agrc,pulses,
-"Flour, pulses",agrc,pulses,
-Lentils,agrc,pulses,
-Lupins,agrc,pulses,
-"Peas, dry",agrc,pulses,
-"Peas, green",agrc,pulses,
-Pigeon peas,agrc,pulses,
-Pulses,agrc,pulses,
-Pulses nes,agrc,pulses,
-"Pulses, Total",agrc,pulses,
-Vetches,agrc,pulses,
-"Beverages, fermented rice",agrc,rice,
-"Cake, rice bran",agrc,rice,
-"Flour, rice",agrc,rice,
-"Oil, rice bran",agrc,rice,
-"Rice, broken",agrc,rice,
-"Rice, husked",agrc,rice,
-"Rice, milled",agrc,rice,
-"Rice, milled/husked",agrc,rice,
-"Rice, paddy",agrc,rice,
-"Rice, paddy (rice milled equivalent)",agrc,rice,
-Molasses,agrc,sugar_cane,
-Sugar cane,agrc,sugar_cane,
-Sugar confectionery,agrc,sugar_cane,
-Sugar crops nes,agrc,sugar_cane,
-Sugar nes,agrc,sugar_cane,
-Sugar non-centrifugal,agrc,sugar_cane,
-Sugar Raw Centrifugal,agrc,sugar_cane,
-Sugar refined,agrc,sugar_cane,
-Cassava,agrc,tubers,
-Cassava dried,agrc,tubers,
-"Flour, cassava",agrc,tubers,
-"Flour, potatoes",agrc,tubers,
-"Flour, roots and tubers nes",agrc,tubers,
-Potato offals,agrc,tubers,
-Potatoes,agrc,tubers,
-"Potatoes, frozen",agrc,tubers,
-Roots and Tubers,agrc,tubers,
-Roots and tubers nes,agrc,tubers,
-"Roots and Tubers, Total",agrc,tubers,
-"Starch, cassava",agrc,tubers,
-Sugar beet,agrc,tubers,
-Sweet potatoes,agrc,tubers,
-Taro (cocoyam),agrc,tubers,
-Yams,agrc,tubers,
-Yautia (cocoyam),agrc,tubers,
-Artichokes,agrc,vegetables_and_vines,
-Asparagus,agrc,vegetables_and_vines,
-Beet pulp,agrc,vegetables_and_vines,
-Cabbages and other brassicas,agrc,vegetables_and_vines,
-Carrots and turnips,agrc,vegetables_and_vines,
-Cassava leaves,agrc,vegetables_and_vines,
-Cauliflowers and broccoli,agrc,vegetables_and_vines,
-"Chillies and peppers, dry",agrc,vegetables_and_vines,
-"Chillies and peppers, green",agrc,vegetables_and_vines,
-Cucumbers and gherkins,agrc,vegetables_and_vines,
-Eggplants (aubergines),agrc,vegetables_and_vines,
-"Feed, vegetable products nes",agrc,vegetables_and_vines,
-Garlic,agrc,vegetables_and_vines,
-"Juice, tomato",agrc,vegetables_and_vines,
-"Leeks, other alliaceous vegetables",agrc,vegetables_and_vines,
-Lettuce and chicory,agrc,vegetables_and_vines,
-"Margarine, short",agrc,vegetables_and_vines,
-"Melons, other (inc.cantaloupes)",agrc,vegetables_and_vines,
-Mushrooms and truffles,agrc,vegetables_and_vines,
-"Mushrooms, canned",agrc,vegetables_and_vines,
-"Oil, vegetable origin nes",agrc,vegetables_and_vines,
-Okra,agrc,vegetables_and_vines,
-"Onions, dry",agrc,vegetables_and_vines,
-"Onions, shallots, green",agrc,vegetables_and_vines,
-"Pumpkins, squash and gourds",agrc,vegetables_and_vines,
-Spinach,agrc,vegetables_and_vines,
-String beans,agrc,vegetables_and_vines,
-Sunflower seed,agrc,vegetables_and_vines,
-Tomatoes,agrc,vegetables_and_vines,
-"Tomatoes, paste",agrc,vegetables_and_vines,
-"Tomatoes, peeled",agrc,vegetables_and_vines,
-Vegetables,agrc,vegetables_and_vines,
-Vegetables in vinegar,agrc,vegetables_and_vines,
-Vegetables Primary,agrc,vegetables_and_vines,
-"Vegetables, dehydrated",agrc,vegetables_and_vines,
-"Vegetables, fresh nes",agrc,vegetables_and_vines,
-"Vegetables, fresh or dried products nes",agrc,vegetables_and_vines,
-"Vegetables, frozen",agrc,vegetables_and_vines,
-"Vegetables, homogenized preparations",agrc,vegetables_and_vines,
-"Vegetables, leguminous nes",agrc,vegetables_and_vines,
-"Vegetables, preserved nes",agrc,vegetables_and_vines,
-"Vegetables, preserved, frozen",agrc,vegetables_and_vines,
-"Vegetables, temporarily preserved",agrc,vegetables_and_vines,
-Watermelons,agrc,vegetables_and_vines,
-Waxes vegetable,agrc,vegetables_and_vines,
-Buffaloes,lvst,buffalo,
-"Fat, buffaloes",lvst,buffalo,
-"Hides, buffalo, fresh",lvst,buffalo,"Hides, buffalo, fresh"
-"Hides, buffalo, wet salted",lvst,buffalo,"Hides, buffalo, fresh"
-"Meat, buffalo",lvst,buffalo,
-"Offals, edible, buffaloes",lvst,buffalo,
-Beef and Buffalo Meat,lvst,cattle_dairy,"Meat, cattle"
-Bovine Meat,lvst,cattle_dairy,"Meat, cattle"
-Butter and Ghee,lvst,cattle_dairy,Butter and Ghee
-"Butter, cow milk",lvst,cattle_dairy,Butter and Ghee
-"Buttermilk, curdled, acidified milk",lvst,cattle_dairy,Butter and Ghee
-"Cheese, processed",lvst,cattle_dairy,"Cheese, whole cow milk"
-"Cheese, skimmed cow milk",lvst,cattle_dairy,"Cheese, whole cow milk"
-"Cheese, whole cow milk",lvst,cattle_dairy,"Cheese, whole cow milk"
-Cream fresh,lvst,cattle_dairy,
-Dairy Products,lvst,cattle_dairy,
-Evaporat&Condensed Milk,lvst,cattle_dairy,
-Ice cream and edible ice,lvst,cattle_dairy,
-Lactose,lvst,cattle_dairy,
-"Margarine, liquid",lvst,cattle_dairy,Butter and Ghee
-"Milk, dry buttermilk",lvst,cattle_dairy,"Milk, whole dried"
-"Milk, products of natural constituents nes",lvst,cattle_dairy,
-"Milk, reconstituted",lvst,cattle_dairy,"Milk, whole dried"
-"Milk, skimmed cow",lvst,cattle_dairy,"Milk, whole fresh cow"
-"Milk, skimmed dried",lvst,cattle_dairy,"Milk, whole dried"
-"Milk, whole condensed",lvst,cattle_dairy,Evaporat&Condensed Milk
-"Milk, whole dried",lvst,cattle_dairy,"Milk, whole dried"
-"Milk, whole evaporated",lvst,cattle_dairy,Evaporat&Condensed Milk
-"Milk, whole fresh cow",lvst,cattle_dairy,"Milk, whole fresh cow"
-"Skim Milk&Buttermilk,Dry",lvst,cattle_dairy,"Milk, whole dried"
-"Whey, condensed",lvst,cattle_dairy,
-"Whey, dry",lvst,cattle_dairy,
-Yoghurt,lvst,cattle_dairy,Yoghurt
-"Yoghurt, concentrated or not",lvst,cattle_dairy,Yoghurt
-Cattle,lvst,cattle_nondairy,
-"Fat, cattle",lvst,cattle_nondairy,"Fat, cattle"
-"Fat, liver prepared (foie gras)",lvst,cattle_nondairy,"Fat, cattle"
-"Ghee, butteroil of cow milk",lvst,cattle_dairy,Butter and Ghee
-Hides and skins,lvst,cattle_nondairy,
-"Hides, cattle, fresh",lvst,cattle_nondairy,"Hides, cattle, fresh"
-"Hides, cattle, wet salted",lvst,cattle_nondairy,"Hides, cattle, fresh"
-"Meat, beef and veal sausages",lvst,cattle_nondairy,"Meat, cattle"
-"Meat, beef, preparations",lvst,cattle_nondairy,"Meat, cattle"
-"Meat, cattle",lvst,cattle_nondairy,"Meat, cattle"
-"Meat, cattle, boneless (beef & veal)",lvst,cattle_nondairy,"Meat, cattle"
-"Offals, edible, cattle",lvst,cattle_nondairy,
-"Oils, fats of animal nes",lvst,cattle_nondairy,
-"Skins, calve, wet salted",lvst,cattle_nondairy,"Hides, cattle, fresh"
-Chickens,lvst,chickens,
-Ducks,lvst,chickens,
-Eggs,lvst,chickens,Eggs
-Eggs Primary,lvst,chickens,Eggs
-"Eggs, dried",lvst,chickens,
-"Eggs, hen, in shell",lvst,chickens,Eggs
-"Eggs, hen, in shell (number)",lvst,chickens,"Eggs, hen, in shell (number)"
-"Eggs, liquid",lvst,chickens,
-"Eggs, other bird, in shell",lvst,chickens,Eggs
-"Eggs, other bird, in shell (number)",lvst,chickens,"Eggs, hen, in shell (number)"
-"Meat, chicken",lvst,chickens,"Meat, Poultry"
-"Meat, chicken, canned",lvst,chickens,"Meat, Poultry"
-"Meat, duck",lvst,chickens,"Meat, Poultry"
-"Meat, goose and guinea fowl",lvst,chickens,"Meat, Poultry"
-"Meat, Poultry",lvst,chickens,"Meat, Poultry"
-"Meat, turkey",lvst,chickens,"Meat, Poultry"
-"Offals, liver chicken",lvst,chickens,
-"Offals, liver duck",lvst,chickens,
-"Offals, liver geese",lvst,chickens,
-Poultry Meat,lvst,chickens,"Meat, Poultry"
-Turkeys,lvst,chickens,
-"Cheese, goat milk",lvst,goats,
-"Fat, goats",lvst,goats,
-Goats,lvst,goats,
-"Hair, goat, coarse",lvst,goats,
-"Meat, goat",lvst,goats,
-"Milk, whole fresh goat",lvst,goats,
-"Offals, edible, goats",lvst,goats,
-"Skins, goat, fresh",lvst,goats,
-"Skins, goat, wet salted",lvst,goats,
-"Camelids, other",lvst,horses,
-Camels,lvst,horses,
-"Hides, horse, dry salted",lvst,horses,
-Horses,lvst,horses,
-"Meat, horse",lvst,horses,"Meat, horse"
-"Meat, other camelids",lvst,horses,"Meat, horse"
-"Offals, edible, camels",lvst,horses,"Offals, horses"
-"Offals, horses",lvst,horses,"Offals, horses"
-Asses,lvst,mules,
-"Meat, ass",lvst,mules,"Meat, ass"
-"Meat, mule",lvst,mules,"Meat, ass"
-Mules,lvst,mules,
-Bacon and ham,lvst,pigs,
-"Fat, pigs",lvst,pigs,
-Lard,lvst,pigs,
-"Meat, pig",lvst,pigs,"Meat, pig"
-"Meat, pig sausages",lvst,pigs,"Meat, pig"
-"Meat, pig, preparations",lvst,pigs,"Meat, pig"
-"Meat, pork",lvst,pigs,"Meat, pig"
-"Offals, pigs, edible",lvst,pigs,
-Pigmeat,lvst,pigs,
-Pigs,lvst,pigs,
-"Cheese, sheep milk",lvst,sheep,
-"Fat, sheep",lvst,sheep,
-Grease incl. lanolin wool,lvst,sheep,
-"Meat, sheep",lvst,sheep,
-"Milk, whole fresh sheep",lvst,sheep,
-"Offals, sheep,edible",lvst,sheep,
-Sheep,lvst,sheep,
-Sheep and Goat Meat,lvst,sheep,
-"Skins, sheep, dry salted",lvst,sheep,
-"Skins, sheep, fresh",lvst,sheep,
-"Skins, sheep, wet salted",lvst,sheep,
-"Skins, sheep, with wool",lvst,sheep,
-"Wool, degreased",lvst,sheep,
-"Wool, greasy",lvst,sheep,
-"Wool, hair waste",lvst,sheep,
-Animal Fats and Oils (excl. Butter),NONE,NONE,
-Animals live nes,NONE,NONE,
-Beehives,NONE,NONE,
-Beeswax,NONE,NONE,
-Beverages,NONE,NONE,
-"Beverages, distilled alcoholic",NONE,NONE,
-"Beverages, non alcoholic",NONE,NONE,
-Cheese (All Kinds),NONE,NONE,
-"Cocoons, unreelable & waste",NONE,NONE,
-Crude materials,NONE,NONE,
-Crude Materials nes,NONE,NONE,
-"Dregs from brewing, distillation",NONE,NONE,
-"Fat nes, prepared",NONE,NONE,
-Fatty acids,NONE,NONE,
-Fatty substance residues,NONE,NONE,
-Feed minerals,NONE,NONE,
-Feed supplements,NONE,NONE,
-"Feed, compound nes",NONE,NONE,
-Fibre Crops Primary,NONE,NONE,
-Flax tow waste,NONE,NONE,
-Fodder and Feeding Stuff,NONE,NONE,
-Food prep nes,NONE,NONE,
-Food wastes,NONE,NONE,
-"Forage and silage, grasses nes",NONE,NONE,
-"Fructose and syrup, other",NONE,NONE,
-Glucose and dextrose,NONE,NONE,
-"Hair, fine",NONE,NONE,
-"Hay (clover, lucerne,etc)",NONE,NONE,
-Hay (unspecified),NONE,NONE,
-Hides nes,NONE,NONE,
-"Honey, natural",NONE,NONE,
-Infant food,NONE,NONE,
-"Meal, meat",NONE,NONE,
-Meat nes,NONE,NONE,
-"Meat, dried nes",NONE,NONE,
-"Meat, game",NONE,NONE,
-"Meat, rabbit",NONE,NONE,
-"Meat, Total",NONE,NONE,
-"Milk, Total",NONE,NONE,
-Mixes and doughs,NONE,NONE,
-Non-alcoholic Beverages,NONE,NONE,
-"Oil, boiled etc",NONE,NONE,
-Other food,NONE,NONE,
-Other food nes,NONE,NONE,
-Other Meat,NONE,NONE,
-Pastry,NONE,NONE,
-Pet food,NONE,NONE,
-Rabbits and hares,NONE,NONE,
-"Rodents, other",NONE,NONE,
-"Silk-worm cocoons, reelable",NONE,NONE,
-"Silk, raw",NONE,NONE,
-Straw husks,NONE,NONE,
-Sugar and Honey,NONE,NONE,
-Sugar Crops Primary,NONE,NONE,
-Vitamins,NONE,NONE,
-Wafers,NONE,NONE,
-"Waters,ice etc",NONE,NONE,
+fao_category,sisepuede_demand_subsector,sisepuede_demand_category,agg_to_fao_category,aggregate_fao_crop
+Chocolate products nes,agrc,bevs_and_spices,,0
+Cinnamon (cannella),agrc,bevs_and_spices,,0
+Cloves,agrc,bevs_and_spices,,0
+"Cocoa, beans",agrc,bevs_and_spices,,0
+"Cocoa, butter",agrc,bevs_and_spices,,0
+"Cocoa, paste",agrc,bevs_and_spices,,0
+"Cocoa, powder & cake",agrc,bevs_and_spices,,0
+"Coffee, extracts",agrc,bevs_and_spices,,0
+"Coffee, green",agrc,bevs_and_spices,,0
+"Coffee, husks and skins",agrc,bevs_and_spices,,0
+"Coffee, roasted",agrc,bevs_and_spices,,0
+"Coffee, substitutes containing coffee",agrc,bevs_and_spices,,0
+Maté,agrc,bevs_and_spices,,0
+Mate,agrc,bevs_and_spices,,0
+"Nutmeg, mace and cardamoms",agrc,bevs_and_spices,,0
+Pepper (piper spp.),agrc,bevs_and_spices,,0
+Spices nes,agrc,bevs_and_spices,,0
+Tea,agrc,bevs_and_spices,,0
+"Tea, mate extracts",agrc,bevs_and_spices,,0
+Vermouths & similar,agrc,bevs_and_spices,,0
+Alcoholic Beverages,agrc,cereals,,0
+Barley,agrc,cereals,,0
+"Barley, pearled",agrc,cereals,,0
+Beer of barley,agrc,cereals,,0
+"Bran, maize",agrc,cereals,,0
+"Bran, sorghum",agrc,cereals,,0
+"Bran, wheat",agrc,cereals,,0
+Bread,agrc,cereals,,0
+Buckwheat,agrc,cereals,,0
+Bulgur,agrc,cereals,,0
+"Cake, maize",agrc,cereals,,0
+Canary seed,agrc,cereals,,0
+Cereal preparations,agrc,cereals,,0
+Cereal preparations nes,agrc,cereals,,0
+Cereals,agrc,cereals,,0
+Cereals nes,agrc,cereals,,0
+"Cereals, breakfast",agrc,cereals,,0
+Cereals - Excluding Beer,agrc,cereals,,1
+"Cereals, Total",agrc,cereals,,1
+"Feed and meal, gluten",agrc,cereals,,0
+Fibre crops nes,agrc,cereals,,0
+Flax fibre and tow,agrc,cereals,,0
+"Flour, cereals",agrc,cereals,,0
+"Flour, maize",agrc,cereals,,0
+"Flour, mixed grain",agrc,cereals,,0
+"Flour, wheat",agrc,cereals,,0
+Fonio,agrc,cereals,,0
+"Food preparations, flour, malt extract",agrc,cereals,,0
+"Germ, maize",agrc,cereals,,0
+"Grain, mixed",agrc,cereals,,0
+Macaroni,agrc,cereals,,0
+Maize,agrc,cereals,,0
+"Maize, green",agrc,cereals,,0
+Malt,agrc,cereals,,0
+Millet,agrc,cereals,,0
+Oats,agrc,cereals,,0
+Oats rolled,agrc,cereals,,0
+"Oil, maize",agrc,cereals,,0
+Quinoa,agrc,cereals,,0
+Rye,agrc,cereals,,0
+Sorghum,agrc,cereals,,0
+Sweet corn frozen,agrc,cereals,,0
+Sweet corn prep or preserved,agrc,cereals,,0
+Triticale,agrc,cereals,,0
+Wheat,agrc,cereals,,0
+Agave fibres nes,agrc,fibers,,0
+"Bastfibres, other",agrc,fibers,,0
+Cotton lint,agrc,fibers,,0
+Cotton linter,agrc,fibers,,0
+Cotton waste,agrc,fibers,,0
+"Cotton, carded, combed",agrc,fibers,,0
+Flax fibre raw,agrc,fibers,,0
+Hemp tow waste,agrc,fibers,,0
+Jute,agrc,fibers,,0
+Manila fibre (abaca),agrc,fibers,,0
+Ramie,agrc,fibers,,0
+Seed cotton,agrc,fibers,,0
+Textile Fibres,agrc,fibers,,0
+Apples,agrc,fruits,,0
+Apricots,agrc,fruits,,0
+"Apricots, dry",agrc,fruits,,0
+Avocados,agrc,fruits,,0
+Bananas,agrc,fruits,,0
+Berries nes,agrc,fruits,,0
+Blueberries,agrc,fruits,,0
+"Cake, copra",agrc,fruits,,0
+Carobs,agrc,fruits,,0
+Cashewapple,agrc,fruits,,0
+Cherries,agrc,fruits,,0
+"Cherries, sour",agrc,fruits,,0
+Cider etc,agrc,fruits,,0
+"Citrus Fruit, Total",agrc,fruits,,1
+Coconuts,agrc,fruits,,0
+"Coconuts, desiccated",agrc,fruits,,0
+Coir,agrc,fruits,,0
+Copra,agrc,fruits,,0
+Cranberries,agrc,fruits,,0
+Currants,agrc,fruits,,0
+Dates,agrc,fruits,,0
+"Feed, pulp of fruit",agrc,fruits,,0
+Figs,agrc,fruits,,0
+Figs dried,agrc,fruits,,0
+Forage products,agrc,fruits,,0
+Fruit,agrc,fruits,,0
+Fruit Primary,agrc,fruits,,0
+"Fruit, citrus nes",agrc,fruits,,0
+"Fruit, cooked, homogenized preparations",agrc,fruits,,0
+"Fruit, dried nes",agrc,fruits,,0
+"Fruit, fresh nes",agrc,fruits,,0
+"Fruit, pome nes",agrc,fruits,,0
+"Fruit, prepared nes",agrc,fruits,,0
+"Fruit, stone nes",agrc,fruits,,0
+"Fruit, tropical fresh nes",agrc,fruits,,0
+Gooseberries,agrc,fruits,,0
+Grapefruit (inc. pomelos),agrc,fruits,,0
+Grapes,agrc,fruits,,0
+"Juice, apple, concentrated",agrc,fruits,,0
+"Juice, apple, single strength",agrc,fruits,,0
+"Juice, citrus, concentrated",agrc,fruits,,0
+"Juice, citrus, single strength",agrc,fruits,,0
+"Juice, fruit nes",agrc,fruits,,0
+"Juice, grape",agrc,fruits,,0
+"Juice, grapefruit",agrc,fruits,,0
+"Juice, grapefruit, concentrated",agrc,fruits,,0
+"Juice, lemon, concentrated",agrc,fruits,,0
+"Juice, lemon, single strength",agrc,fruits,,0
+"Juice, orange, concentrated",agrc,fruits,,0
+"Juice, orange, single strength",agrc,fruits,,0
+"Juice, pineapple",agrc,fruits,,0
+"Juice, pineapple, concentrated",agrc,fruits,,0
+Kapok fruit,agrc,fruits,,0
+Kiwi fruit,agrc,fruits,,0
+Lemons and limes,agrc,fruits,,0
+"Mangoes, mangosteens, guavas",agrc,fruits,,0
+Maple sugar and syrups,agrc,fruits,,0
+"Oil, coconut (copra)",agrc,fruits,,0
+"Oil, olive residues",agrc,fruits,,0
+"Oil, olive, virgin",agrc,fruits,,0
+Olives,agrc,fruits,,0
+Olives preserved,agrc,fruits,,0
+Oranges,agrc,fruits,,0
+Papayas,agrc,fruits,,0
+Peaches and nectarines,agrc,fruits,,0
+Pears,agrc,fruits,,0
+Persimmons,agrc,fruits,,0
+Pineapples,agrc,fruits,,0
+Pineapples canned,agrc,fruits,,0
+Plantains and others,agrc,fruits,,0
+Plums and sloes,agrc,fruits,,0
+Plums dried (prunes),agrc,fruits,,0
+Quinces,agrc,fruits,,0
+Raisins,agrc,fruits,,0
+Raspberries,agrc,fruits,,0
+Strawberries,agrc,fruits,,0
+"Tangerines, mandarins, clementines, satsumas",agrc,fruits,,0
+Wine,agrc,fruits,,0
+"Anise, badian, fennel, coriander",agrc,herbs_and_other_perennial_crops,,0
+Chicory roots,agrc,herbs_and_other_perennial_crops,,0
+"Flour, mustard",agrc,herbs_and_other_perennial_crops,,0
+Ginger,agrc,herbs_and_other_perennial_crops,,0
+Hops,agrc,herbs_and_other_perennial_crops,,0
+Mustard seed,agrc,herbs_and_other_perennial_crops,,0
+"Oil, essential nes",agrc,herbs_and_other_perennial_crops,,0
+Peppermint,agrc,herbs_and_other_perennial_crops,,0
+"Pyrethrum, dried",agrc,herbs_and_other_perennial_crops,,0
+"Pyrethrum, extraction",agrc,herbs_and_other_perennial_crops,,0
+Sisal,agrc,herbs_and_other_perennial_crops,,0
+Vanilla,agrc,herbs_and_other_perennial_crops,,0
+"Meat, other rodents",agrc,NONE,,0
+Almonds shelled,agrc,nuts,,0
+"Almonds, with shell",agrc,nuts,,0
+Areca nuts,agrc,nuts,,0
+"Brazil nuts, shelled",agrc,nuts,,0
+"Brazil nuts, with shell",agrc,nuts,,0
+"Cake, groundnuts",agrc,nuts,,0
+"Cashew nuts, shelled",agrc,nuts,,0
+"Cashew nuts, with shell",agrc,nuts,,0
+Chestnut,agrc,nuts,,0
+"Groundnuts, prepared",agrc,nuts,,0
+"Groundnuts, shelled",agrc,nuts,,0
+"Groundnuts, with shell",agrc,nuts,,0
+"Hazelnuts, shelled",agrc,nuts,,0
+"Hazelnuts, with shell",agrc,nuts,,0
+Jojoba seed,agrc,nuts,,0
+Karite nuts (sheanuts),agrc,nuts,,0
+Kola nuts,agrc,nuts,,0
+Nuts,agrc,nuts,,0
+Nuts nes,agrc,nuts,,0
+"Nuts, prepared (exc. groundnuts)",agrc,nuts,,0
+Peanut butter,agrc,nuts,,0
+Pistachios,agrc,nuts,,0
+"Treenuts, Total",agrc,nuts,,1
+Tung nuts,agrc,nuts,,0
+"Walnuts, shelled",agrc,nuts,,0
+"Walnuts, with shell",agrc,nuts,,0
+"Cake, cottonseed",agrc,other_annual,,0
+"Cake, hempseed",agrc,other_annual,,0
+"Cake, safflower",agrc,other_annual,,0
+"Cake, sesame seed",agrc,other_annual,,0
+"Cake, soybeans",agrc,other_annual,,0
+"Cake, sunflower",agrc,other_annual,,0
+Cigarettes,agrc,other_annual,,0
+"Cigars, cheroots",agrc,other_annual,,0
+Cottonseed,agrc,other_annual,,0
+Hempseed,agrc,other_annual,,0
+Linseed,agrc,other_annual,,0
+Melonseed,agrc,other_annual,,0
+"Oil, citronella",agrc,other_annual,,0
+"Oil, linseed",agrc,other_annual,,0
+"Oil, rapeseed",agrc,other_annual,,0
+"Oil, safflower",agrc,other_annual,,0
+"Oil, soybean",agrc,other_annual,,0
+"Oil, sunflower",agrc,other_annual,,0
+Oilcrops,agrc,other_annual,,0
+"Oilcrops, Oil Equivalent",agrc,other_annual,,0
+Poppy seed,agrc,other_annual,,0
+Rapeseed,agrc,other_annual,,0
+Safflower seed,agrc,other_annual,,0
+Sesame seed,agrc,other_annual,,0
+Soya paste,agrc,other_annual,,0
+Soya sauce,agrc,other_annual,,0
+Soybeans,agrc,other_annual,,0
+Tobacco,agrc,other_annual,,0
+Tobacco products nes,agrc,other_annual,,0
+"Tobacco, unmanufactured",agrc,other_annual,,0
+"Cake, linseed",agrc,other_woody_perennial,,0
+"Cake, palm kernel",agrc,other_woody_perennial,,0
+"Cake, rapeseed",agrc,other_woody_perennial,,0
+Castor oil seed,agrc,other_woody_perennial,,0
+Natural Rubber,agrc,other_woody_perennial,,0
+Oil palm fruit,agrc,other_woody_perennial,,0
+"Oil, castor beans",agrc,other_woody_perennial,,0
+"Oil, cottonseed",agrc,other_woody_perennial,,0
+"Oil, groundnut",agrc,other_woody_perennial,,0
+"Oil, palm",agrc,other_woody_perennial,,0
+"Oil, palm kernel",agrc,other_woody_perennial,,0
+"Oil, sesame",agrc,other_woody_perennial,,0
+"Oilcrops, Cake Equivalent",agrc,other_woody_perennial,,0
+Oilseeds,agrc,other_woody_perennial,,0
+Oilseeds nes,agrc,other_woody_perennial,,0
+Palm kernels,agrc,other_woody_perennial,,0
+Rubber natural dry,agrc,other_woody_perennial,,0
+"Rubber, natural",agrc,other_woody_perennial,,0
+Tallow,agrc,other_woody_perennial,,0
+Tallowtree seed,agrc,other_woody_perennial,,0
+Vegetable Oil and Fat,agrc,other_woody_perennial,,0
+Alfalfa meal and pellets,agrc,pulses,,0
+Bambara beans,agrc,pulses,,0
+"Beans, dry",agrc,pulses,,0
+"Beans, green",agrc,pulses,,0
+"Broad beans, horse beans, dry",agrc,pulses,,0
+Chick peas,agrc,pulses,,0
+"Cow peas, dry",agrc,pulses,,0
+"Flour, pulses",agrc,pulses,,0
+Lentils,agrc,pulses,,0
+Lupins,agrc,pulses,,0
+"Peas, dry",agrc,pulses,,0
+"Peas, green",agrc,pulses,,0
+Pigeon peas,agrc,pulses,,0
+Pulses,agrc,pulses,,0
+Pulses nes,agrc,pulses,,0
+"Pulses, Total",agrc,pulses,,1
+Vetches,agrc,pulses,,0
+"Beverages, fermented rice",agrc,rice,,0
+"Cake, rice bran",agrc,rice,,0
+"Flour, rice",agrc,rice,,0
+"Oil, rice bran",agrc,rice,,0
+"Rice, broken",agrc,rice,,0
+"Rice, husked",agrc,rice,,0
+"Rice, milled",agrc,rice,,0
+"Rice, milled/husked",agrc,rice,,0
+"Rice, paddy",agrc,rice,,0
+"Rice, paddy (rice milled equivalent)",agrc,rice,,0
+Molasses,agrc,sugar_cane,,0
+Sugar cane,agrc,sugar_cane,,0
+Sugar confectionery,agrc,sugar_cane,,0
+Sugar crops nes,agrc,sugar_cane,,0
+Sugar nes,agrc,sugar_cane,,0
+Sugar non-centrifugal,agrc,sugar_cane,,0
+Sugar Raw Centrifugal,agrc,sugar_cane,,0
+Sugar refined,agrc,sugar_cane,,0
+Cassava,agrc,tubers,,0
+Cassava dried,agrc,tubers,,0
+"Flour, cassava",agrc,tubers,,0
+"Flour, potatoes",agrc,tubers,,0
+"Flour, roots and tubers nes",agrc,tubers,,0
+Potato offals,agrc,tubers,,0
+Potatoes,agrc,tubers,,0
+"Potatoes, frozen",agrc,tubers,,0
+Roots and Tubers,agrc,tubers,,0
+Roots and tubers nes,agrc,tubers,,0
+"Roots and Tubers, Total",agrc,tubers,,1
+"Starch, cassava",agrc,tubers,,0
+Sugar beet,agrc,tubers,,0
+Sweet potatoes,agrc,tubers,,0
+Taro (cocoyam),agrc,tubers,,0
+Yams,agrc,tubers,,0
+Yautia (cocoyam),agrc,tubers,,0
+Artichokes,agrc,vegetables_and_vines,,0
+Asparagus,agrc,vegetables_and_vines,,0
+Beet pulp,agrc,vegetables_and_vines,,0
+Cabbages and other brassicas,agrc,vegetables_and_vines,,0
+Carrots and turnips,agrc,vegetables_and_vines,,0
+Cassava leaves,agrc,vegetables_and_vines,,0
+Cauliflowers and broccoli,agrc,vegetables_and_vines,,0
+"Chillies and peppers, dry",agrc,vegetables_and_vines,,0
+"Chillies and peppers, green",agrc,vegetables_and_vines,,0
+Cucumbers and gherkins,agrc,vegetables_and_vines,,0
+Eggplants (aubergines),agrc,vegetables_and_vines,,0
+"Feed, vegetable products nes",agrc,vegetables_and_vines,,0
+Garlic,agrc,vegetables_and_vines,,0
+"Juice, tomato",agrc,vegetables_and_vines,,0
+"Leeks, other alliaceous vegetables",agrc,vegetables_and_vines,,0
+Lettuce and chicory,agrc,vegetables_and_vines,,0
+"Margarine, short",agrc,vegetables_and_vines,,0
+"Melons, other (inc.cantaloupes)",agrc,vegetables_and_vines,,0
+Mushrooms and truffles,agrc,vegetables_and_vines,,0
+"Mushrooms, canned",agrc,vegetables_and_vines,,0
+"Oil, vegetable origin nes",agrc,vegetables_and_vines,,0
+Okra,agrc,vegetables_and_vines,,0
+"Onions, dry",agrc,vegetables_and_vines,,0
+"Onions, shallots, green",agrc,vegetables_and_vines,,0
+"Pumpkins, squash and gourds",agrc,vegetables_and_vines,,0
+Spinach,agrc,vegetables_and_vines,,0
+String beans,agrc,vegetables_and_vines,,0
+Sunflower seed,agrc,vegetables_and_vines,,0
+Tomatoes,agrc,vegetables_and_vines,,0
+"Tomatoes, paste",agrc,vegetables_and_vines,,0
+"Tomatoes, peeled",agrc,vegetables_and_vines,,0
+Vegetables,agrc,vegetables_and_vines,,0
+Vegetables in vinegar,agrc,vegetables_and_vines,,0
+Vegetables Primary,agrc,vegetables_and_vines,,0
+"Vegetables, dehydrated",agrc,vegetables_and_vines,,0
+"Vegetables, fresh nes",agrc,vegetables_and_vines,,0
+"Vegetables, fresh or dried products nes",agrc,vegetables_and_vines,,0
+"Vegetables, frozen",agrc,vegetables_and_vines,,0
+"Vegetables, homogenized preparations",agrc,vegetables_and_vines,,0
+"Vegetables, leguminous nes",agrc,vegetables_and_vines,,0
+"Vegetables, preserved nes",agrc,vegetables_and_vines,,0
+"Vegetables, preserved, frozen",agrc,vegetables_and_vines,,0
+"Vegetables, temporarily preserved",agrc,vegetables_and_vines,,0
+Watermelons,agrc,vegetables_and_vines,,0
+Waxes vegetable,agrc,vegetables_and_vines,,0
+Buffaloes,lvst,buffalo,,0
+"Fat, buffaloes",lvst,buffalo,,0
+"Hides, buffalo, fresh",lvst,buffalo,"Hides, buffalo, fresh",0
+"Hides, buffalo, wet salted",lvst,buffalo,"Hides, buffalo, fresh",0
+"Meat, buffalo",lvst,buffalo,,0
+"Offals, edible, buffaloes",lvst,buffalo,,0
+Beef and Buffalo Meat,lvst,cattle_dairy,"Meat, cattle",0
+Bovine Meat,lvst,cattle_dairy,"Meat, cattle",0
+Butter and Ghee,lvst,cattle_dairy,Butter and Ghee,0
+"Butter, cow milk",lvst,cattle_dairy,Butter and Ghee,0
+"Buttermilk, curdled, acidified milk",lvst,cattle_dairy,Butter and Ghee,0
+"Cheese, processed",lvst,cattle_dairy,"Cheese, whole cow milk",0
+"Cheese, skimmed cow milk",lvst,cattle_dairy,"Cheese, whole cow milk",0
+"Cheese, whole cow milk",lvst,cattle_dairy,"Cheese, whole cow milk",0
+Cream fresh,lvst,cattle_dairy,,0
+Dairy Products,lvst,cattle_dairy,,0
+Evaporat&Condensed Milk,lvst,cattle_dairy,,0
+Ice cream and edible ice,lvst,cattle_dairy,,0
+Lactose,lvst,cattle_dairy,,0
+"Margarine, liquid",lvst,cattle_dairy,Butter and Ghee,0
+"Milk, dry buttermilk",lvst,cattle_dairy,"Milk, whole dried",0
+"Milk, products of natural constituents nes",lvst,cattle_dairy,,0
+"Milk, reconstituted",lvst,cattle_dairy,"Milk, whole dried",0
+"Milk, skimmed cow",lvst,cattle_dairy,"Milk, whole fresh cow",0
+"Milk, skimmed dried",lvst,cattle_dairy,"Milk, whole dried",0
+"Milk, whole condensed",lvst,cattle_dairy,Evaporat&Condensed Milk,0
+"Milk, whole dried",lvst,cattle_dairy,"Milk, whole dried",0
+"Milk, whole evaporated",lvst,cattle_dairy,Evaporat&Condensed Milk,0
+"Milk, whole fresh cow",lvst,cattle_dairy,"Milk, whole fresh cow",0
+"Skim Milk&Buttermilk,Dry",lvst,cattle_dairy,"Milk, whole dried",0
+"Whey, condensed",lvst,cattle_dairy,,0
+"Whey, dry",lvst,cattle_dairy,,0
+Yoghurt,lvst,cattle_dairy,Yoghurt,0
+"Yoghurt, concentrated or not",lvst,cattle_dairy,Yoghurt,0
+Cattle,lvst,cattle_nondairy,,0
+"Fat, cattle",lvst,cattle_nondairy,"Fat, cattle",0
+"Fat, liver prepared (foie gras)",lvst,cattle_nondairy,"Fat, cattle",0
+"Ghee, butteroil of cow milk",lvst,cattle_dairy,Butter and Ghee,0
+Hides and skins,lvst,cattle_nondairy,,0
+"Hides, cattle, fresh",lvst,cattle_nondairy,"Hides, cattle, fresh",0
+"Hides, cattle, wet salted",lvst,cattle_nondairy,"Hides, cattle, fresh",0
+"Meat, beef and veal sausages",lvst,cattle_nondairy,"Meat, cattle",0
+"Meat, beef, preparations",lvst,cattle_nondairy,"Meat, cattle",0
+"Meat, cattle",lvst,cattle_nondairy,"Meat, cattle",0
+"Meat, cattle, boneless (beef & veal)",lvst,cattle_nondairy,"Meat, cattle",0
+"Offals, edible, cattle",lvst,cattle_nondairy,,0
+"Oils, fats of animal nes",lvst,cattle_nondairy,,0
+"Skins, calve, wet salted",lvst,cattle_nondairy,"Hides, cattle, fresh",0
+Chickens,lvst,chickens,,0
+Ducks,lvst,chickens,,0
+Eggs,lvst,chickens,Eggs,0
+Eggs Primary,lvst,chickens,Eggs,0
+"Eggs, dried",lvst,chickens,,0
+"Eggs, hen, in shell",lvst,chickens,Eggs,0
+"Eggs, hen, in shell (number)",lvst,chickens,"Eggs, hen, in shell (number)",0
+"Eggs, liquid",lvst,chickens,,0
+"Eggs, other bird, in shell",lvst,chickens,Eggs,0
+"Eggs, other bird, in shell (number)",lvst,chickens,"Eggs, hen, in shell (number)",0
+"Meat, chicken",lvst,chickens,"Meat, Poultry",0
+"Meat, chicken, canned",lvst,chickens,"Meat, Poultry",0
+"Meat, duck",lvst,chickens,"Meat, Poultry",0
+"Meat, goose and guinea fowl",lvst,chickens,"Meat, Poultry",0
+"Meat, Poultry",lvst,chickens,"Meat, Poultry",0
+"Meat, turkey",lvst,chickens,"Meat, Poultry",0
+"Offals, liver chicken",lvst,chickens,,0
+"Offals, liver duck",lvst,chickens,,0
+"Offals, liver geese",lvst,chickens,,0
+Poultry Meat,lvst,chickens,"Meat, Poultry",0
+Turkeys,lvst,chickens,,0
+"Cheese, goat milk",lvst,goats,,0
+"Fat, goats",lvst,goats,,0
+Goats,lvst,goats,,0
+"Hair, goat, coarse",lvst,goats,,0
+"Meat, goat",lvst,goats,,0
+"Milk, whole fresh goat",lvst,goats,,0
+"Offals, edible, goats",lvst,goats,,0
+"Skins, goat, fresh",lvst,goats,,0
+"Skins, goat, wet salted",lvst,goats,,0
+"Camelids, other",lvst,horses,,0
+Camels,lvst,horses,,0
+"Hides, horse, dry salted",lvst,horses,,0
+Horses,lvst,horses,,0
+"Meat, horse",lvst,horses,"Meat, horse",0
+"Meat, other camelids",lvst,horses,"Meat, horse",0
+"Offals, edible, camels",lvst,horses,"Offals, horses",0
+"Offals, horses",lvst,horses,"Offals, horses",0
+Asses,lvst,mules,,0
+"Meat, ass",lvst,mules,"Meat, ass",0
+"Meat, mule",lvst,mules,"Meat, ass",0
+Mules,lvst,mules,,0
+Bacon and ham,lvst,pigs,,0
+"Fat, pigs",lvst,pigs,,0
+Lard,lvst,pigs,,0
+"Meat, pig",lvst,pigs,"Meat, pig",0
+"Meat, pig sausages",lvst,pigs,"Meat, pig",0
+"Meat, pig, preparations",lvst,pigs,"Meat, pig",0
+"Meat, pork",lvst,pigs,"Meat, pig",0
+"Offals, pigs, edible",lvst,pigs,,0
+Pigmeat,lvst,pigs,,0
+Pigs,lvst,pigs,,0
+"Cheese, sheep milk",lvst,sheep,,0
+"Fat, sheep",lvst,sheep,,0
+Grease incl. lanolin wool,lvst,sheep,,0
+"Meat, sheep",lvst,sheep,,0
+"Milk, whole fresh sheep",lvst,sheep,,0
+"Offals, sheep,edible",lvst,sheep,,0
+Sheep,lvst,sheep,,0
+Sheep and Goat Meat,lvst,sheep,,0
+"Skins, sheep, dry salted",lvst,sheep,,0
+"Skins, sheep, fresh",lvst,sheep,,0
+"Skins, sheep, wet salted",lvst,sheep,,0
+"Skins, sheep, with wool",lvst,sheep,,0
+"Wool, degreased",lvst,sheep,,0
+"Wool, greasy",lvst,sheep,,0
+"Wool, hair waste",lvst,sheep,,0
+Animal Fats and Oils (excl. Butter),NONE,NONE,,0
+Animals live nes,NONE,NONE,,0
+Beehives,NONE,NONE,,0
+Beeswax,NONE,NONE,,0
+Beverages,NONE,NONE,,0
+"Beverages, distilled alcoholic",NONE,NONE,,0
+"Beverages, non alcoholic",NONE,NONE,,0
+Cheese (All Kinds),NONE,NONE,,0
+"Cocoons, unreelable & waste",NONE,NONE,,0
+Crude materials,NONE,NONE,,0
+Crude Materials nes,NONE,NONE,,0
+"Dregs from brewing, distillation",NONE,NONE,,0
+"Fat nes, prepared",NONE,NONE,,0
+Fatty acids,NONE,NONE,,0
+Fatty substance residues,NONE,NONE,,0
+Feed minerals,NONE,NONE,,0
+Feed supplements,NONE,NONE,,0
+"Feed, compound nes",NONE,NONE,,0
+Fibre Crops Primary,NONE,NONE,,0
+Flax tow waste,NONE,NONE,,0
+Fodder and Feeding Stuff,NONE,NONE,,0
+Food prep nes,NONE,NONE,,0
+Food wastes,NONE,NONE,,0
+"Forage and silage, grasses nes",NONE,NONE,,0
+"Fructose and syrup, other",NONE,NONE,,0
+Glucose and dextrose,NONE,NONE,,0
+"Hair, fine",NONE,NONE,,0
+"Hay (clover, lucerne,etc)",NONE,NONE,,0
+Hay (unspecified),NONE,NONE,,0
+Hides nes,NONE,NONE,,0
+"Honey, natural",NONE,NONE,,0
+Infant food,NONE,NONE,,0
+"Meal, meat",NONE,NONE,,0
+Meat nes,NONE,NONE,,0
+"Meat, dried nes",NONE,NONE,,0
+"Meat, game",NONE,NONE,,0
+"Meat, rabbit",NONE,NONE,,0
+"Meat, Total",NONE,NONE,,1
+"Milk, Total",NONE,NONE,,1
+Mixes and doughs,NONE,NONE,,0
+Non-alcoholic Beverages,NONE,NONE,,0
+"Oil, boiled etc",NONE,NONE,,0
+Other food,NONE,NONE,,0
+Other food nes,NONE,NONE,,0
+Other Meat,NONE,NONE,,0
+Pastry,NONE,NONE,,0
+Pet food,NONE,NONE,,0
+Rabbits and hares,NONE,NONE,,0
+"Rodents, other",NONE,NONE,,0
+"Silk-worm cocoons, reelable",NONE,NONE,,0
+"Silk, raw",NONE,NONE,,0
+Straw husks,NONE,NONE,,0
+Sugar and Honey,NONE,NONE,,0
+Sugar Crops Primary,NONE,NONE,,0
+Vitamins,NONE,NONE,,0
+Wafers,NONE,NONE,,0
+"Waters,ice etc",NONE,NONE,,0

@@ -108,14 +108,74 @@ class ArraysLNDU(ma.SubsectorArraysCollection):
         """Initialize LNDU arrays that are carried through
         """
         
+        # ratio of below-ground to above-ground biomass
+        self.get_modvar_array(
+            df_trajectories,
+            self.modvar_lndu_biomass_stock_ratio_bg_to_ag,
+            expand_to_all_cats = True,
+            var_bounds = (0, np.inf),
+        )
+
+        # area constraint (upper)
+        self.get_modvar_array(
+            df_trajectories,
+            self.modvar_lndu_constraint_area_max,
+            set_property = True,
+            var_bounds = (0, np.inf), 
+        )
+
+        # area constraint (lower)
+        self.get_modvar_array(
+            df_trajectories,
+            self.modvar_lndu_constraint_area_min,
+            set_property = True,
+            var_bounds = (0, np.inf), 
+        )
+
+        # fraction of increasing net exports met
+        self.get_modvar_array(
+            df_trajectories,
+            self.modvar_lndu_frac_increasing_net_exports_met,
+            expand_to_all_cats = True,
+            set_property = True,
+            var_bounds = (0, 1),
+        )
+
+        # fraction of increasing net imports met
+        self.get_modvar_array(
+            df_trajectories,
+            self.modvar_lndu_frac_increasing_net_imports_met,
+            expand_to_all_cats = True,
+            set_property = True,
+            var_bounds = (0, 1),
+        )
+
+        # initial land use shares
+        self.get_modvar_array(
+            df_trajectories, 
+            self.modvar_lndu_initial_frac, 
+            set_property = True,
+            var_bounds = (0, 1),
+        )
+
+        # land use reallocation factor
+        self.get_modvar_array(
+            df_trajectories,
+            self.modvar_lndu_reallocation_factor,
+            set_property = True,
+            var_bounds = (0, 1),
+        )
+
         # vegetarian dietary exchange scalar
         self.get_modvar_array(
             df_trajectories,
             self.modvar_lndu_vdes,
-            return_type = "array_base",
             set_property = True,
             var_bounds = (0, np.inf),
         )
+
+        
+
 
         return None
 

@@ -361,7 +361,12 @@ class AFOLU:
             df_afolu_trajectories, 
             self.model_attributes, 
         )
-
+        
+        self.arrays_frst = coll_arrays.ArraysFRST(
+            df_afolu_trajectories, 
+            self.model_attributes, 
+        )
+        
         self.arrays_lndu = coll_arrays.ArraysLNDU(
             df_afolu_trajectories, 
             self.model_attributes, 
@@ -384,6 +389,7 @@ class AFOLU:
 
         # call initialization functions
         self.arrays_agrc._initialize_arrays(df_afolu_trajectories, )
+        self.arrays_frst._initialize_arrays(df_afolu_trajectories, )
         self.arrays_lndu._initialize_arrays(df_afolu_trajectories, )
         self.arrays_lvst._initialize_arrays(df_afolu_trajectories, )
 
@@ -393,8 +399,7 @@ class AFOLU:
 
     def _initialize_input_output_components(self,
     ) -> None:
-        """
-        Set a range of input components, including required dimensions, 
+        """Set a range of input components, including required dimensions, 
             subsectors, input and output fields, and integration variables.
             Sets the following properties:
 
@@ -432,8 +437,7 @@ class AFOLU:
 
     def _initialize_integrated_variables(self
     ) -> None:
-        """
-        Initialize variables required for integration. Sets the following 
+        """Initialize variables required for integration. Sets the following 
             properties:
 
             * self.dict_integration_variables_by_subsector
@@ -576,10 +580,13 @@ class AFOLU:
         if n_tp_ng_error:
             raise TypeError(f"n_tps_no_withdrawals_new_growth must be a positive integer ")
         
+        # initialize the Livestock Dietary Estimator
+        lde = self.get_lde()
 
         ##  SET PROPERTIES
 
         self.curves_npp = curves_npp
+        self.lde = lde
         self.ledger = None
         self.modvar_ledger_target_units_area = self.modvar_lndu_biomass_stock_factor_ag
         self.modvar_ledger_target_units_mass = self.modvar_lndu_biomass_stock_factor_ag
@@ -2740,7 +2747,7 @@ class AFOLU:
             extract_lvars_emission_co2_conversion_away() functions.
         """
         # get model variables and units of mass for target
-        modvar_units_source = self.get_lndu_integrated_target_mass_modvar()
+        _, modvar_units_source = self.get_modvars_for_unit_targets_ilu()
         modvar_target = self.model_attributes.get_variable(modvar_target, )
         units_mass = modvar_target.attribute("unit_mass")
 
@@ -2935,23 +2942,13 @@ class AFOLU:
         _, modvar_bcl_target_mass = self.get_modvars_for_unit_targets_bcl()
 
         # get the regression information
-        arr_agrc_regression_m = self.model_attributes.extract_model_variable(#
-            df_afolu_trajectories, 
-            self.modvar_agrc_regression_m_above_ground_residue, 
-            expand_to_all_cats = True,
-            override_vector_for_single_mv_q = True, 
-            return_type = "array_base", 
-        )
+        arr_agrc_regression_b = self.arrays_agrc.arr_agrc_regression_b_above_ground_residue
+        arr_agrc_regression_m = self.arrays_agrc.arr_agrc_regression_m_above_ground_residue
+        vec_agrc_bagasse_yf = self.arrays_agrc.arr_agrc_bagasse_yield_factor
 
-        arr_agrc_regression_b = self.model_attributes.extract_model_variable(#
-            df_afolu_trajectories, 
-            self.modvar_agrc_regression_b_above_ground_residue,
-            expand_to_all_cats = True,
-            override_vector_for_single_mv_q = True, 
-            return_type = "array_base", 
-        )
 
-        arr_agrc_regression_b *= self.model_attributes.get_variable_unit_conversion_factor(
+
+        arr_agrc_regression_b = self.model_attributes.get_variable_unit_conversion_factor(
             self.modvar_agrc_regression_b_above_ground_residue,
             self.modvar_agrc_regression_m_above_ground_residue,
             "mass",
@@ -2961,13 +2958,6 @@ class AFOLU:
             self.modvar_agrc_regression_b_above_ground_residue,
             self.modvar_agrc_regression_m_above_ground_residue,
             "area",
-        )
-
-        # get the bagasse yield factor
-        vec_agrc_bagasse_yf = self.model_attributes.extract_model_variable(
-            df_afolu_trajectories,
-            self.modvar_agrc_bagasse_yield_factor,
-            return_type = "array_base",
         )
 
         # get fraction removed/burned
@@ -3054,7 +3044,6 @@ class AFOLU:
             vec_biomass_c_bg_to_ag_ratio,
             vec_frac_biomass_from_conversion_available_for_use,
         ) = self.get_bcl_other_parameters(
-            df_afolu_trajectories, 
             mangroves = mangroves,
         )
 
@@ -3557,7 +3546,6 @@ class AFOLU:
 
 
     def get_bcl_other_parameters(self,
-        df_afolu_trajectories: pd.DataFrame,
         mangroves: bool = False,
         **kwargs,
     ) -> Dict[str, np.ndarray]:
@@ -3589,8 +3577,6 @@ class AFOLU:
         # get attribute for land use
         matt = self.model_attributes
 
-        attr_lndu = matt.get_attribute_table(matt.subsec_name_lndu, )
-        
         # indices of forest classes in LNDU
         (
             ind_lndu_fstm,
@@ -3604,26 +3590,13 @@ class AFOLU:
         ##  GET OTHER PARAMETERS
 
         # land use below ground to above ground stock ratio
-        array_lndu_ratio_bg_to_ag = matt.extract_model_variable(
-            df_afolu_trajectories,
-            self.modvar_lndu_biomass_stock_ratio_bg_to_ag,
-            expand_to_all_cats = True,
-            return_type = "array_base",
-            var_bounds = (0, np.inf),
-        )
-
+        array_lndu_ratio_bg_to_ag = self.arrays_lndu.arr_lndu_biomass_stock_ratio_bg_to_ag 
         ind_second = ind_lndu_fsts if not mangroves else ind_lndu_fstm
-        vec_biomass_c_bg_to_ag_ratio = array_lndu_ratio_bg_to_ag[0, [ind_lndu_fstp, ind_second]]
-
+        vec_biomass_c_bg_to_ag_ratio = array_lndu_ratio_bg_to_ag[0, [ind_lndu_fstp, ind_second]].copy()
 
         # fraction of converted biomass available for use
-        vec_frac_biomass_from_conversion_available_for_use = matt.extract_model_variable(
-            df_afolu_trajectories,
-            self.modvar_frst_frac_c_converted_available,
-            return_type = "array_base",
-            var_bounds = (0, 1),
-        )
-
+        vec_frac_biomass_from_conversion_available_for_use = self.arrays_frst.arr_frst_frac_c_converted_available
+       
         out = (
             vec_biomass_c_bg_to_ag_ratio,
             vec_frac_biomass_from_conversion_available_for_use,
@@ -4046,7 +4019,6 @@ class AFOLU:
     
 
     def get_lde(self,
-        i: int = 0,
     ) -> 'LivestockDietEstimator':
         """Get the LivestockDietEstimator used to allocate feed sources, a
             critical component of using residuals and the integrated biomass/
@@ -4076,6 +4048,44 @@ class AFOLU:
 
         return lde
     
+
+
+    def get_lde_costs(self,
+        lurf: float,
+    ) -> np.ndarray:
+        """
+
+        Function Arguments
+        ------------------
+        lurf : float
+            Land Use Reallocation Factor value. If > 0, used to 
+            
+        """
+
+        #  costs
+        lurf_active = lurf > 0
+        costs_new_crops = 9 if not lurf_active else 3
+        costs_new_pastures = 9 if not lurf_active else 3
+        
+        dict_costs = {
+            "crop_residues": 2,                             # look at crops residues and crops at same lvel
+            "crops_cereals": 1,                             # look at crops after patures
+            "crops_non_cereals": 1,                         # ""  "" 
+            "pastures": 0,                                  # always leverage pastures if available
+            "crops_cereals_new": costs_new_crops,           # new crops are off-limits if running without LURF; otherwise, they should be before imports (since they will be adjusted later)
+            "crops_non_cereals_new": costs_new_crops,       # ""  ""
+            "pastures_new": costs_new_pastures,             # ""  ""
+            "crop_imports_cereals": 0,                      # Crop Imports are a function of planted values
+            "crop_imports_non_cereals": 0,                  # ""  ""
+            "livestock_feed_imports": 10                    # always available, but as a last resort
+        }
+
+        vec_out = np.array(
+            [dict_costs.get(x) for x in self.lde.label_cols]
+        )
+
+        return vec_out
+
 
 
     def get_lde_dietary_bounds(self,
@@ -4633,7 +4643,6 @@ class AFOLU:
 
 
     def get_lndu_class_bounds(self,
-        df_afolu_trajectories: pd.DataFrame,
         vec_lndu_area_init: np.ndarray,
         modvar_area_target: Union[str, 'ModelVariable', None] = None,
     ) -> Tuple[np.ndarray, np.ndarray]:
@@ -4662,38 +4671,34 @@ class AFOLU:
             ModelVariable to use for output units. If not properly specified as 
             a varable name or model variable, defaults to
             AFOLU.model_socioeconomic.modvar_gnrl_area
-        """
+        """ 
+        ##  INITIALIZE
+
+        # get the target units
+        modvar_at_area, _ = self.get_modvars_for_unit_targets_ilu()
+
+        # check specification
         modvar_area_target = self.model_attributes.get_variable(modvar_area_target)
         modvar_area_target = (
-            self.get_lndu_integrated_target_area_modvar()
+            modvar_at_area
             if modvar_area_target is None
             else modvar_area_target
         )
 
         # get the supremum
-        arr_constraint_sup = self.model_attributes.extract_model_variable(#
-            df_afolu_trajectories,
-            self.modvar_lndu_constraint_area_max,
-            return_type = "array_base",
-        )
-
-        arr_constraint_sup *= self.model_attributes.get_variable_unit_conversion_factor(
+        arr_constraint_sup = self.arrays_lndu.arr_lndu_constraint_area_max
+        arr_constraint_sup = arr_constraint_sup*self.model_attributes.get_variable_unit_conversion_factor(
             self.modvar_lndu_constraint_area_max, 
             modvar_area_target, 
-            "area"
+            "area",
         )
 
         # get the infimum
-        arr_constraint_inf = self.model_attributes.extract_model_variable(#
-            df_afolu_trajectories,
-            self.modvar_lndu_constraint_area_min,
-            return_type = "array_base",
-        )
-
-        arr_constraint_inf *= self.model_attributes.get_variable_unit_conversion_factor(
+        arr_constraint_inf = self.arrays_lndu.arr_lndu_constraint_area_min
+        arr_constraint_inf = arr_constraint_inf*self.model_attributes.get_variable_unit_conversion_factor(
             self.modvar_lndu_constraint_area_min, 
             modvar_area_target, 
-            "area"
+            "area",
         )
 
         
@@ -4720,7 +4725,7 @@ class AFOLU:
         arr_constraint_inf[0] = np.array(arr_constraint_inf_first)
 
         # prep output and return
-        tuple_out = (arr_constraint_inf, arr_constraint_sup)
+        tuple_out = (arr_constraint_inf, arr_constraint_sup, )
 
         return tuple_out
 
@@ -4753,32 +4758,6 @@ class AFOLU:
         
         # otherwise, get ordered indices
         out = tuple([attr_lndu.get_key_value_index(x, ) for x in out])
-
-        return out
-    
-
-
-    def get_lndu_integrated_target_area_modvar(self,
-    ) -> 'ModelVariable':
-        """Get the standard ModelVariable to use for the target units for the 
-            integrated land use model.
-        """
-        out = self.model_attributes.get_variable(
-            self.model_socioeconomic.modvar_gnrl_area,
-        )
-
-        return out
-    
-
-
-    def get_lndu_integrated_target_mass_modvar(self,
-    ) -> 'ModelVariable':
-        """Get the standard ModelVariable to use for the target units for the 
-            integrated land use model.
-        """
-        out = self.model_attributes.get_variable(
-            self.modvar_lndu_biomass_stock_factor_ag,
-        )
 
         return out
 
@@ -5202,7 +5181,7 @@ class AFOLU:
         # get upper bound of annual dry matter production and convert area
         vec_lndu_yf_pasture_avg = self.arrays_lndu.arr_lndu_yf_pasture_avg
         vec_lndu_yf_pasture_sup = self.arrays_lndu.arr_lndu_yf_pasture_sup
-        vec_lvst_production_init = self.arrays_lvst.arrr_lvst_pop_init[0]
+        vec_lvst_production_init = self.arrays_lvst.arr_lvst_pop_init[0]
 
 
         ##  UNIT CONVERSIONS
@@ -5389,9 +5368,9 @@ class AFOLU:
 
         # get fields that are needed
         dict_mv_to_fields = self.model_attributes.dict_model_variables_to_variable_fields
-        fields_agb = dict_mv_to_fields.get(self.modvar_lndu_biomass_stock_factor_ag, )
-        fields_bgb = dict_mv_to_fields.get(self.modvar_lndu_biomass_stock_ratio_bg_to_ag, )
-        fields_pij = dict_mv_to_fields.get(self.modvar_lndu_prob_transition, )
+        fields_agb = dict_mv_to_fields.get(self.modvar_lndu_biomass_stock_factor_ag.name, )
+        fields_bgb = dict_mv_to_fields.get(self.modvar_lndu_biomass_stock_ratio_bg_to_ag.name, )
+        fields_pij = dict_mv_to_fields.get(self.modvar_lndu_prob_transition.name, )
         
         # return None?
         return_none = fields_pij is None
@@ -5415,7 +5394,7 @@ class AFOLU:
         arr_pr = arr_pr.reshape((n_tp, n_cats, n_cats))
         if not return_c_stock_conversion_factors:
             return arr_pr
-
+        
 
         ##  GET C CONVERSION FACTORS
 
@@ -5850,7 +5829,7 @@ class AFOLU:
         )
 
         modvar_mass = self.model_attributes.get_variable(
-            self.modvar_agrc_yf, 
+            self.modvar_lndu_biomass_stock_factor_ag, 
             stop_on_missing = True, 
         )
         
@@ -6658,6 +6637,8 @@ class AFOLU:
         """
         
         ##  INITIALIZE SOME VARIABLE SHORTCUTS
+
+        modvar_ilu_area, modvar_ilu_mass = self.get_modvars_for_unit_targets_ilu()
         
         # AGRC arrays required for demand
         arr_agrc_elas_crop_demand = self.arrays_agrc.arr_agrc_elas_crop_demand_income 
@@ -6690,12 +6671,17 @@ class AFOLU:
         # do some unit conversion--important not to use *= operater to avoid modifying arrays in obj
         arr_agrc_exports_unadj = arr_agrc_exports_unadj*self.model_attributes.get_variable_unit_conversion_factor(
             self.modvar_agrc_equivalent_exports,
-            self.modvar_agrc_yf,
+            modvar_ilu_mass,
             "mass"
         )
         arr_agrc_yf = arr_agrc_yf*self.model_attributes.get_variable_unit_conversion_factor(
             self.modvar_agrc_yf,
-            self.model_socioeconomic.modvar_gnrl_area,
+            modvar_ilu_mass,
+            "mass",
+        )
+        arr_agrc_yf = arr_agrc_yf*self.model_attributes.get_variable_unit_conversion_factor(
+            modvar_ilu_area,
+            self.modvar_agrc_yf,
             "area",
         )
 
@@ -6743,13 +6729,15 @@ class AFOLU:
         ##  2. get weights for allocating grazing area and feed requirement to animals - based on first year only
       
         # get carrying capacity scalar, adjusted for maximum dry matter production and scaled to ensure first element is 1
-        (
-            arr_lvst_annual_dry_matter_consumption_per_capita,
-            vec_lndu_yf_pasture_sup_adj, # in terms of pasture yield factor/LNDU initial area
-            vec_lvst_carry_capacity_scale,
-            factor_lndu_init_avg_consumption_pstr,
+        out = (
+            arr_lvst_annual_feed_per_capita,
+            total_yield_init_lndu_pasture_avg,
+            total_yield_init_lndu_pasture_sup,
+            vec_lndu_yf_pasture_avg,
+            vec_lndu_yf_pasture_sup,
+            vec_lvst_production_init,
+            vec_lvst_total_feed_required,
         ) = self.get_init_lvst_pasture_and_feed_vars(
-            df_afolu_trajectories,#HERE123
             vec_modvar_lndu_initial_area,
         )
 
@@ -6757,12 +6745,6 @@ class AFOLU:
         #############################
         #    AGRICULTURE DEMANDS    #
         #############################
-
-        
-
-        
-
-
 
         ##   1. get initial cropland areas and yields
         
@@ -6788,17 +6770,19 @@ class AFOLU:
                 "apply_vegetarian_exchange_scalar"
             )
         )
-
         arr_agrc_demscale = np.outer(vec_agrc_demscale, vec_agrc_scale_demands_for_veg)
         arr_agrc_demscale = arr_agrc_demscale + np.outer(np.ones(len(vec_agrc_demscale)), 1 - vec_agrc_scale_demands_for_veg)
 
 
-        ##  2. Calculate crop demands split into yield for livestock feed 
+        ##  3. Calculate crop demands split into yield for livestock feed 
         #      - responsive to changes in domestic livestock population and 
         #        yield for consumption and export (nonlvstfeed)
         
-        vec_agrc_domestic_demand_init = sf.vec_bounds(vec_agrc_yield_init - arr_agrc_exports_unadj[0], (0, np.inf))
-        vec_agrc_domestic_demand_init /= (1 - arr_agrc_frac_imported[0])
+        # get production for domestic purposes + production for lvst feed
+        vec_agrc_domestic_production_init = sf.vec_bounds(vec_agrc_yield_init - arr_agrc_exports_unadj[0], (0, np.inf))
+        
+        # get demand for each
+        vec_agrc_domestic_demand_init = vec_agrc_domestic_production_init/(1 - arr_agrc_frac_imported[0])
         vec_agrc_domestic_demand_init = sf.vec_bounds(
             np.nan_to_num(
                 vec_agrc_domestic_demand_init, 
@@ -6811,6 +6795,8 @@ class AFOLU:
         # split out livestock demands and human consumption 
         vec_agrc_domestic_demand_init_lvstfeed = vec_agrc_domestic_demand_init*arr_agrc_frac_feed[0]
         vec_agrc_init_imports_feed_unadj = vec_agrc_domestic_demand_init_lvstfeed*arr_agrc_frac_imported[0]
+        vec_agrc_init_domestic_production_feed = vec_agrc_domestic_demand_init_lvstfeed - vec_agrc_init_imports_feed_unadj
+
         vec_agrc_domestic_demand_init_nonlvstfeed = vec_agrc_domestic_demand_init - vec_agrc_domestic_demand_init_lvstfeed
 
         # project domestic demand for crops
@@ -6836,8 +6822,8 @@ class AFOLU:
 
         arr_agrc_production_nonfeed_unadj = (arr_agrc_production_nonfeed_unadj.transpose()*vec_agrc_frac_production_wasted_scalar).transpose()
         arr_agrc_domestic_demand_nonfeed_unadj = arr_agrc_production_nonfeed_unadj + arr_agrc_imports_nonfeed_unadj
-        
-        
+    
+            
         out = (
             # agrc vars
             arr_agrc_domestic_demand_nonfeed_unadj,
@@ -6847,16 +6833,21 @@ class AFOLU:
             arr_agrc_yf,
             vec_agrc_frac_cropland_area,
             vec_agrc_frac_production_wasted,
+            vec_agrc_init_domestic_production_feed,
             vec_agrc_init_imports_feed_unadj,
+            # lndu vars
+            total_yield_init_lndu_pasture_avg,
+            total_yield_init_lndu_pasture_sup,
+            vec_lndu_yf_pasture_avg,
+            vec_lndu_yf_pasture_sup,
             # lvst vars
-            arr_lvst_annual_dry_matter_consumption_per_capita,
+            arr_lvst_annual_feed_per_capita,
             arr_lvst_domestic_demand_unadj,
             arr_lvst_exports_unadj,
             arr_lvst_imports_unadj,
             arr_lvst_domestic_production_unadj,
-            vec_lvst_carry_capacity_scale,
-            vec_lndu_yf_pasture_sup_adj,
-            factor_lndu_init_avg_consumption_pstr,
+            vec_lvst_production_init,
+            vec_lvst_total_feed_required,
         )
 
         return out
@@ -6926,20 +6917,16 @@ class AFOLU:
         vec_initial_area: np.ndarray,
         arrs_transitions: np.ndarray,
         arr_c_lndu_agb: np.ndarray,
-        arr_c_lndu_ratio_bg_to_ag: np.ndarray,
         arrs_c_agb: np.ndarray,
         arrs_c_bgb: np.ndarray,
         arr_agrc_production_nonfeed_unadj: np.ndarray,
         arr_agrc_yield_factors: np.ndarray,
         arr_lndu_constraints_inf: np.ndarray,
         arr_lndu_constraints_sup: np.ndarray,
-        arr_lndu_frac_increasing_net_exports_met: np.ndarray,
-        arr_lndu_frac_increasing_net_imports_met: np.ndarray,
-        arr_lndu_yield_by_lvst: np.ndarray,
-        factor_lndu_init_avg_consumption_pstr: float,
-        arr_lvst_annual_dry_matter_consumption_per_capita: np.ndarray,
+        # arr_lndu_yield_by_lvst: np.ndarray,
+        # factor_lndu_init_avg_consumption_pstr: float,
+        arr_lvst_annual_feed_per_capita: np.ndarray,
         arr_lvst_dem: np.ndarray,
-        arr_lvst_mass_per_animal: np.ndarray,
         tup_residue_info: Tuple[np.ndarray],
         vec_agrc_frac_cropland_area: np.ndarray,
         vec_lndu_yrf: np.ndarray,
@@ -7010,9 +6997,9 @@ class AFOLU:
             Per unit area of pasture initial consumption by livestock 
             (estimated). Estimated as proxy for production of dry matter.
                 * UNITS : pasture yield factor/gnrl area
-        arr_lvst_annual_dry_matter_consumption_per_capita : np.ndarray
-            Annual dry matter consumption per head of livestock
-                * UNITS : pasture yield factor/head
+        arr_lvst_annual_feed_per_capita : np.ndarray
+            Annual feed requirement per head of liveosck
+                * UNITS : modvar_ilu_mass/head
         arr_lvst_dem : np.ndarray
             Array of livestock production requiremenets (unadjusted)
         arr_lvst_mass_per_animal : np.ndarray
@@ -7096,14 +7083,16 @@ class AFOLU:
 
         # scalar to convert input area values to biomass carbon ledger values
         modvar_bcl_area, modvar_bcl_mass = self.get_modvars_for_unit_targets_bcl() 
+        modvar_ilu_area, modvar_ilu_mass = self.get_modvars_for_unit_targets_ilu()
+
         scalar_int_area_to_bcl_area = self.model_attributes.get_variable_unit_conversion_factor(
-            self.get_lndu_integrated_target_area_modvar(),
+            modvar_ilu_area,
             modvar_bcl_area,
             "area",
         )
 
         scalar_int_mass_to_bcl_mass = self.model_attributes.get_variable_unit_conversion_factor(
-            self.get_lndu_integrated_target_mass_modvar(),
+            modvar_ilu_mass,
             modvar_bcl_mass,
             "mass",
         )
@@ -7137,8 +7126,6 @@ class AFOLU:
         arr_agrc_frac_cropland = np.array([vec_agrc_frac_cropland_area for k in range(n_tp)])
         arr_agrc_net_import_increase = np.zeros((n_tp, attr_agrc.n_key_values))
         arr_agrc_change_to_net_imports_lost = np.zeros((n_tp, attr_agrc.n_key_values))
-        
-        # 
 
         # get yield
         arr_agrc_yield = np.array([
@@ -7163,7 +7150,7 @@ class AFOLU:
         arr_lvst_net_import_increase = np.zeros((n_tp, attr_lvst.n_key_values))
         arr_lvst_change_to_net_imports_lost = np.zeros((n_tp, attr_lvst.n_key_values))
 
-        arrs_yields_per_livestock = np.array([arr_lndu_yield_by_lvst for k in range(n_tp)])
+        arrs_yields_per_livestock = np.array([arr_lvst_annual_feed_per_capita for k in range(n_tp)])
 
         vec_lvst_aggregate_animal_mass = np.zeros(n_tp, )
         vec_lvst_aggregate_animal_mass[0] = (arr_lvst_dem[0] * arr_lvst_mass_per_animal[0]).sum()
@@ -7182,18 +7169,22 @@ class AFOLU:
             vec_rates_gdp = vec_rates_gdp, 
         )
         
-        # initialize biomass removals demand
-        ##  HARVESTED WOOD PRODUCTS
-
-        # GET DEMANDS HERE
         
-
-        ##  
-
         ##  INITIALIZE VARIABLES
 
-        
+        arr_c_lndu_ratio_bg_to_ag = self.arrays_lndu.arr_lndu_biomass_stock_ratio_bg_to_ag
+        arr_lndu_frac_increasing_net_exports_met = self.arrays_lndu.arr_lndu_frac_increasing_net_exports_met
+        arr_lndu_frac_increasing_net_imports_met = self.arrays_lndu.arr_lndu_frac_increasing_net_imports_met
 
+        # livestock
+        arr_lvst_mass_per_animal = (
+            self.arrays_lvst.arr_lvst_animal_mass
+            * self.model_attributes.get_variable_unit_conversion_factor(
+                self.modvar_lvst_animal_mass,
+                modvar_ilu_mass,
+                "mass",
+            )
+        )
 
         """
         Rough note on the transition adjustment process:
@@ -7250,6 +7241,9 @@ class AFOLU:
             area_pstr_cur = x[self.ind_lndu_pstr]
             area_pstr_proj = x_proj_unadj[self.ind_lndu_pstr]
 
+            #HERE123
+            lurf = vec_lndu_yrf[i]
+            vec_costs = self.get_lde_costs(lurf, )
 
             # check areas where lvst has 0 pop
             inds_lvst_where_pop_noncc = np.where(arr_lvst_annual_dry_matter_consumption_per_capita[i + 1] == 0)[0]
@@ -8155,6 +8149,9 @@ class AFOLU:
         #    LAND USE - UNADJUSTED VARIABLES   #
         ########################################
 
+        # get target integreated land use unit variables
+        modvar_ilu_area, modvar_ilu_mass = self.get_modvars_for_unit_targets_ilu()
+        
         # area of the country + the applicable scalar used to convert outputs
         vec_area = self.model_attributes.extract_model_variable(#
             df_afolu_trajectories,
@@ -8168,100 +8165,34 @@ class AFOLU:
         )
 
 
-        ##  INITIAL LAND DISTRIBUTION
-
-        vec_modvar_lndu_initial_frac = self.model_attributes.extract_model_variable(#
-            df_afolu_trajectories, 
-            self.modvar_lndu_initial_frac, 
-            return_type = "array_base",
-        )[0]
-
+        # initial land use area in terms of 
         area_init = vec_area[0]
+        vec_modvar_lndu_initial_frac = self.arrays_lndu.arr_lndu_initial_frac[0]
         vec_modvar_lndu_initial_area = vec_modvar_lndu_initial_frac*area_init
 
-
-        ##  TRANSITION MATRICES AND CARBON FACTORS
-
-        tup = self.get_markov_matrices(
-            df_afolu_trajectories, 
-            n_tp = n_projection_time_periods,
-            return_c_stock_conversion_factors = True,
-            modvar_target_units_area = self.get_lndu_integrated_target_area_modvar(),
-            modvar_target_units_mass = self.get_lndu_integrated_target_mass_modvar(),
-        )
-
+        # transition matrices and carbon factors
         (
             arrs_lndu_q_unadj,
             arrs_lndu_c_agb, 
             arrs_lndu_c_bgb,
             arr_lndu_c_init_agb,
-        ) = tup
-
-        # land use below ground to above ground stock ratio
-        array_lndu_ratio_bg_to_ag = self.model_attributes.extract_model_variable(
-            df_afolu_trajectories,
-            self.modvar_lndu_biomass_stock_ratio_bg_to_ag,
-            expand_to_all_cats = True,
-            return_type = "array_base",
-            var_bounds = (0, np.inf),
+        ) = self.get_markov_matrices(
+            df_afolu_trajectories, 
+            n_tp = n_projection_time_periods,
+            return_c_stock_conversion_factors = True,
+            modvar_target_units_area = modvar_ilu_area,
+            modvar_target_units_mass = modvar_ilu_mass,
         )
 
-        
-        ##  REALLOCATION FACTOR
+        # land use reallocation factor
+        vec_lndu_reallocation_factor = self.arrays_lndu.arr_lndu_reallocation_factor
 
-        vec_lndu_reallocation_factor = self.model_attributes.extract_model_variable(#
-            df_afolu_trajectories,
-            self.modvar_lndu_reallocation_factor,
-            return_type = "array_base",
-        )
-
-
-        ##  AREA CONSTRAINTS BY CLASS
-
+        # area constraints by class
         (
             arr_lndu_constraints_inf,
             arr_lndu_constraints_sup,
         ) = self.get_lndu_class_bounds(
-            df_afolu_trajectories,
             vec_modvar_lndu_initial_area,
-        )
-
-
-        ##  FRACTIONS OF INCREASING NET IMPORTS/EXPORTS MET
-
-        arr_lndu_frac_increasing_net_exports_met = self.model_attributes.extract_model_variable(#
-            df_afolu_trajectories,
-            self.modvar_lndu_frac_increasing_net_exports_met,
-            expand_to_all_cats = True,
-            return_type = "array_base",
-            var_bounds = (0, 1),
-        )
-
-        arr_lndu_frac_increasing_net_imports_met = self.model_attributes.extract_model_variable(#
-            df_afolu_trajectories,
-            self.modvar_lndu_frac_increasing_net_imports_met,
-            expand_to_all_cats = True,
-            return_type = "array_base",
-            var_bounds = (0, 1),
-        )
-
-
-        ##  SOME LIVESTOCK VARIABLES 
-
-        # used to estimate total mass of livestock, which drives energy demands
-        arr_lvst_animal_mass = self.model_attributes.extract_model_variable(#
-            df_afolu_trajectories, 
-            self.modvar_lvst_animal_mass,
-            expand_to_all_cats = True,
-            override_vector_for_single_mv_q = True,
-            return_type = "array_base",
-        )
-
-        # convert to same units as crop yield for use in integrated land use projection; this way they can be combined
-        arr_lvst_animal_mass *=self.model_attributes.get_variable_unit_conversion_factor(
-            self.modvar_lvst_animal_mass,
-            self.modvar_agrc_yf,
-            "mass"
         )
 
 
@@ -8272,20 +8203,26 @@ class AFOLU:
             # agrc vars
             arr_agrc_domestic_demand_nonfeed_unadj,
             arr_agrc_exports_unadj,
-            arr_agrc_imports_unadj,
+            arr_agrc_imports_nonfeed_unadj,
             arr_agrc_production_nonfeed_unadj,
             arr_agrc_yf,
             vec_agrc_frac_cropland_area,
             vec_agrc_frac_production_wasted,
+            vec_agrc_init_domestic_production_feed,
+            vec_agrc_init_imports_feed_unadj,
+            # lndu vars
+            total_yield_init_lndu_pasture_avg,
+            total_yield_init_lndu_pasture_sup,
+            vec_lndu_yf_pasture_avg,
+            vec_lndu_yf_pasture_sup,
             # lvst vars
-            arr_lvst_annual_dry_matter_consumption_per_capita,
+            arr_lvst_annual_feed_per_capita,
             arr_lvst_domestic_demand_unadj,
             arr_lvst_exports_unadj,
             arr_lvst_imports_unadj,
             arr_lvst_domestic_production_unadj,
-            vec_lvst_carry_capacity_scale,
-            vec_lndu_yf_pasture_sup_adj,
-            factor_lndu_init_avg_consumption_pstr,
+            vec_lvst_production_init,
+            vec_lvst_total_feed_required,
         ) = self.project_agrc_lvst_integrated_demands(
             df_afolu_trajectories,
             vec_modvar_lndu_initial_area,
@@ -8326,24 +8263,20 @@ class AFOLU:
             vec_modvar_lndu_initial_area,
             arrs_lndu_q_unadj,
             arr_lndu_c_init_agb,
-            array_lndu_ratio_bg_to_ag,
             arrs_lndu_c_agb,
             arrs_lndu_c_bgb,
             arr_agrc_production_nonfeed_unadj,
             arr_agrc_yf,
             arr_lndu_constraints_inf,
             arr_lndu_constraints_sup,
-            arr_lndu_frac_increasing_net_exports_met,
-            arr_lndu_frac_increasing_net_imports_met,
-            arr_lndu_yield_i_reqd_lvst_j_init,
-            factor_lndu_init_avg_consumption_pstr,
-            arr_lvst_annual_dry_matter_consumption_per_capita,
+            # arr_lndu_yield_i_reqd_lvst_j_init,
+            # factor_lndu_init_avg_consumption_pstr,
+            arr_lvst_annual_feed_per_capita,
             arr_lvst_domestic_production_unadj,
-            arr_lvst_animal_mass,
             tup_residue_info,
             vec_agrc_frac_cropland_area,
             vec_lndu_reallocation_factor,
-            vec_lvst_carry_capacity_scale,
+            # vec_lvst_carry_capacity_scale,
             vec_area,
             n_tp = n_projection_time_periods,
             vec_rates_gdp = vec_rates_gdp,

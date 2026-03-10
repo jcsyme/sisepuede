@@ -44,11 +44,96 @@ class ArraysAGRC(ma.SubsectorArraysCollection):
 
     
 
+
+
+    
     def _initialize_arrays(self,
         df_trajectories: pd.DataFrame,
     ) -> None:
         """Initialize AGRC arrays that are carried through
         """
+
+        self._initialize_arrays_residue_removal_pathways(
+            df_trajectories, 
+        )
+
+        self._initialize_arrays_standard(
+            df_trajectories, 
+        )
+
+        return None
+
+
+
+    def _initialize_arrays_residue_removal_pathways(self,
+        df_trajectories: pd.DataFrame,
+    ) -> None:
+        """Initialize livestock diet related arrays.
+        """
+
+        ##  GET DIETARY BOUNDS
+        
+        modvars_agrc_residue_pathways = [
+            self.modvar_agrc_frac_residues_burned,
+            self.modvar_agrc_frac_residues_removed_for_energy,
+            self.modvar_agrc_frac_residues_removed_for_feed
+        ]
+
+        if not isinstance(df_trajectories, pd.DataFrame):
+
+            ##  BUILD EMPTY DEFAULTS
+
+            dict_residue_pathways = dict(
+                (
+                    k,
+                    self.get_modvar_array(
+                        df_trajectories,
+                        k,
+                        expand_to_all_cats = True,
+                    )
+                )
+                for k in modvars_agrc_residue_pathways
+            )
+        
+        else:
+            # get maximum bound variables
+            dict_residue_pathways = (
+                self
+                .model_attributes
+                .get_multivariables_with_bounded_sum_by_category(
+                    df_trajectories,
+                    modvars_agrc_residue_pathways,
+                    1.0,
+                    expand_to_all_cats = True,
+                    force_sum_equality = False,
+                    msg_append = "in assigning dietary fraction bound variables.",
+                )
+            )
+
+        
+        # set properties for these arrays
+        for k, v in dict_residue_pathways.items():
+            name_property = self.get_property_name_array(k, )
+            setattr(self, name_property, v, )
+        
+        self.dict_residue_pathways = dict_residue_pathways
+
+        return None
+    
+
+
+    def _initialize_arrays_standard(self,
+        df_trajectories: pd.DataFrame,
+    ) -> None:
+        """Initialize AGRC arrays that are carried through
+        """
+
+        # residue production, bagasse
+        self.get_modvar_array(
+            df_trajectories,
+            self.modvar_agrc_bagasse_yield_factor,
+            set_property = True,
+        )
 
         # elasticities of AGRC demand to gdp/gapita
         self.get_modvar_array(
@@ -87,6 +172,24 @@ class ArraysAGRC(ma.SubsectorArraysCollection):
             self.modvar_agrc_frac_production_lost,
             set_property = True,
             var_bounds = (0, 1),
+        )
+
+        # residue production regression b
+        self.get_modvar_array(
+            df_trajectories, 
+            self.modvar_agrc_regression_b_above_ground_residue, 
+            expand_to_all_cats = True,
+            override_vector_for_single_mv_q = True, 
+            set_property = True,
+        )
+
+        # residue production regression m
+        self.get_modvar_array(
+            df_trajectories, 
+            self.modvar_agrc_regression_m_above_ground_residue, 
+            expand_to_all_cats = True,
+            override_vector_for_single_mv_q = True, 
+            set_property = True,
         )
 
         # yield factors
