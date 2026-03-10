@@ -113,6 +113,7 @@ class ArraysLNDU(ma.SubsectorArraysCollection):
             df_trajectories,
             self.modvar_lndu_biomass_stock_ratio_bg_to_ag,
             expand_to_all_cats = True,
+            set_property = True,
             var_bounds = (0, np.inf),
         )
 

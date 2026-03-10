@@ -46,7 +46,7 @@ class ArraysAGRC(ma.SubsectorArraysCollection):
 
 
 
-    
+
     def _initialize_arrays(self,
         df_trajectories: pd.DataFrame,
     ) -> None:
@@ -104,7 +104,6 @@ class ArraysAGRC(ma.SubsectorArraysCollection):
                     df_trajectories,
                     modvars_agrc_residue_pathways,
                     1.0,
-                    expand_to_all_cats = True,
                     force_sum_equality = False,
                     msg_append = "in assigning dietary fraction bound variables.",
                 )

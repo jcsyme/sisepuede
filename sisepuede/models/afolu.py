@@ -4081,7 +4081,7 @@ class AFOLU:
         }
 
         vec_out = np.array(
-            [dict_costs.get(x) for x in self.lde.label_cols]
+            [dict_costs.get(x) for x in self.lde.labels_col]
         )
 
         return vec_out
@@ -7153,7 +7153,6 @@ class AFOLU:
         arrs_yields_per_livestock = np.array([arr_lvst_annual_feed_per_capita for k in range(n_tp)])
 
         vec_lvst_aggregate_animal_mass = np.zeros(n_tp, )
-        vec_lvst_aggregate_animal_mass[0] = (arr_lvst_dem[0] * arr_lvst_mass_per_animal[0]).sum()
         vec_lvst_dem_gr_iterator = np.ones(len(arr_lvst_dem[0]))
 
 
@@ -7185,6 +7184,8 @@ class AFOLU:
                 "mass",
             )
         )
+
+        vec_lvst_aggregate_animal_mass[0] = np.dot(arr_lvst_dem[0], arr_lvst_mass_per_animal[0])
 
         """
         Rough note on the transition adjustment process:
