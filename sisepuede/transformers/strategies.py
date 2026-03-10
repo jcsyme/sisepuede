@@ -40,6 +40,9 @@ _FLAG_EXPORT_TO_TRANSFORMATIONS = "transformations"
 # module id
 _MODULE_UUID = "BEE85F6C-6BA3-4382-9A8C-5C2D8691DE4E" 
 
+# default prefixes for whirlpool and tornado types
+_PREFIX_DEFAULT_TORNADO = "TORNADO"
+_PREFIX_DEFAULT_WHIRLPOOL = "WHIRLPOOL"
 
 ##  ERROR CLASSES
 class UndefinedStrategy(Exception):
@@ -356,7 +359,7 @@ class Strategy:
         self._uuid = _MODULE_UUID
 
         return None
-    
+
 
 
     def get_transformation_list(self,
@@ -1094,6 +1097,39 @@ class Strategies:
 
 
 
+    def format_codes_for_tornado_whirlpool(self,
+        strat: 'Strategy',
+        code_transformation: str,
+        run_type: str,
+        code_prepend: Union[str, None] = None,
+    ) -> str:
+        """Build the new code for a 'tornado' or 'whirlpool' strategy 
+            (run_type). Option to specify a prefix using 'code_prepend', which
+            will overwrite the run_type default 
+        """
+
+        if isinstance(code_prepend, str):
+            prefix = sf.clean_field_names(code_prepend)
+        else:
+            dict_prefix = {
+                "tornado": _PREFIX_DEFAULT_TORNADO,
+                "whirlpool": _PREFIX_DEFAULT_WHIRLPOOL,
+            }
+
+            prefix = dict_prefix.get(str(run_type).lower())
+            if prefix is None:
+                raise RuntimeError(f"Invalid run_type {run_type} specified. Must be 'tornado' or 'whirlpool'.")
+        
+        prefix = prefix.upper()
+
+        code_new = strat.code.replace(":", "_")
+        code_new = f"{prefix}_{code_new}"
+        code_new = f"{code_new}:{code_transformation}"
+
+        return code_new
+    
+
+
     def get_attribute_table(self,
         fp: Union[str, pathlib.Path],
         baseline_id: int,
@@ -1754,7 +1790,7 @@ class Strategies:
 
     def build_tornado_strategies(self,
         strategy_base: Union[int, str, None],
-        code_prepend: str = "TORNADO",
+        code_prepend: str = _PREFIX_DEFAULT_TORNADO,
         code_prependages_skip: Union[str, List[str]] = "PFLO",
         delim: Union[str, None] = None,
         delim_code: str = ":",
@@ -1900,7 +1936,11 @@ class Strategies:
             spec_new = delim.join(spec_new)
             
             # new code and id
-            code_new = f"{code_prepend}{delim_code}{code}"
+            code_new = self.format_codes_for_tornado_whirlpool(
+                strat,
+                code,
+                "tornado",
+            )
             name_new = f"Add {code} to {strat.name}"
             
             codes_new.append(code_new, )
@@ -1924,12 +1964,12 @@ class Strategies:
         df_out = df_out[self.attribute_table.table.columns]
 
         return df_out
-    
+
 
 
     def build_whirlpool_strategies(self,
         strategy: Union[int, str, None],
-        code_prepend: str = "WHIRLPOOL",
+        code_prepend: str = _PREFIX_DEFAULT_WHIRLPOOL,
         delim: Union[str, None] = None,
         ids: Union[None, List[int]] = None,
         **kwargs,
@@ -1988,7 +2028,11 @@ class Strategies:
         for i, code in enumerate(codes):
             
             # verify that the new code and name are unique
-            code_new = f"{code_prepend}:{code}"
+            code_new = self.format_codes_for_tornado_whirlpool(
+                strat,
+                code,
+                "whirlpool",
+            )
             name_new = f"Remove {code} from {strat.name}"
 
             continue_q = (code_new in all_codes + trans_code) 

@@ -3858,15 +3858,34 @@ class AFOLU:
             (0, np.inf),
         )
         
+        ##  TEMPORARY SOLUTION--WILL BE FIXED IN 2.0 UPDATE
         # project aggregate domestic demand forward
         vec_gnrl_frac_eating_red_meat_scalar = sf.vec_bounds(vec_gnrl_frac_eating_red_meat/vec_gnrl_frac_eating_red_meat[0], (0, 1))
+        cats_apply = ["cattle_dairy", "cattle_nondairy"]
+        attr_lvst = self.model_attributes.get_attribute_table(
+            self.model_attributes.subsec_name_lvst
+        )
+        arr_gnrl_frac_eating_red_meat_scalar = np.ones(
+            (attr_lvst.n_key_values, vec_gnrl_frac_eating_red_meat_scalar.shape[0]),
+        )
+
+        for cat in cats_apply:
+            ind = attr_lvst.get_key_value_index(cat, )
+            if ind is None:
+                raise RuntimeError(f"Category {cat} not found! Unable to update arr_gnrl_frac_eating_red_meat_scalar")
+
+            arr_gnrl_frac_eating_red_meat_scalar[ind] = vec_gnrl_frac_eating_red_meat_scalar
+        
+        arr_gnrl_frac_eating_red_meat_scalar = arr_gnrl_frac_eating_red_meat_scalar.transpose()
+
+        # apply adjustment
         arr_lvst_domestic_demand_unadj = self.project_per_capita_demand(
             vec_lvst_domestic_demand_init,
             vec_pop,
             vec_rates_gdp_per_capita,
             arr_lvst_elas_demand,
-            vec_gnrl_frac_eating_red_meat_scalar,
-            int
+            dem_pc_scalar_exog = arr_gnrl_frac_eating_red_meat_scalar,
+            return_type = int,
         )
 
         # get imports, domestic production for domestic demand (unadj), and domestic production
@@ -4000,8 +4019,8 @@ class AFOLU:
             vec_pop,
             vec_rates_gdp_per_capita,
             arr_agrc_elas_crop_demand,
-            arr_agrc_demscale,
-            float
+            dem_pc_scalar_exog = arr_agrc_demscale,
+            return_type = float,
         )
         arr_agrc_imports_unadj = arr_agrc_domestic_demand_nonfeed_unadj*arr_agrc_frac_imported
         arr_agrc_production_nonfeed_unadj = arr_agrc_domestic_demand_nonfeed_unadj - arr_agrc_imports_unadj + arr_agrc_exports_unadj
