@@ -1,5 +1,5 @@
-munch==2.5.0
-numpy==1.23.5
+munch==4.0.0
+numpy==2.2.2
 pandas==2.2.1
 PyYAML==6.0
 sphinx_rtd_theme
