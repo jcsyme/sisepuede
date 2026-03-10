@@ -34,9 +34,9 @@ Canary seed,agrc,cereals,,0
 Cereal preparations,agrc,cereals,,0
 Cereal preparations nes,agrc,cereals,,0
 Cereals,agrc,cereals,,0
+Cereals - Excluding Beer,agrc,cereals,,1
 Cereals nes,agrc,cereals,,0
 "Cereals, breakfast",agrc,cereals,,0
-Cereals - Excluding Beer,agrc,cereals,,1
 "Cereals, Total",agrc,cereals,,1
 "Feed and meal, gluten",agrc,cereals,,0
 Fibre crops nes,agrc,cereals,,0
@@ -313,7 +313,6 @@ Garlic,agrc,vegetables_and_vines,,0
 "Juice, tomato",agrc,vegetables_and_vines,,0
 "Leeks, other alliaceous vegetables",agrc,vegetables_and_vines,,0
 Lettuce and chicory,agrc,vegetables_and_vines,,0
-"Margarine, short",agrc,vegetables_and_vines,,0
 "Melons, other (inc.cantaloupes)",agrc,vegetables_and_vines,,0
 Mushrooms and truffles,agrc,vegetables_and_vines,,0
 "Mushrooms, canned",agrc,vegetables_and_vines,,0
@@ -359,9 +358,11 @@ Butter and Ghee,lvst,cattle_dairy,Butter and Ghee,0
 Cream fresh,lvst,cattle_dairy,,0
 Dairy Products,lvst,cattle_dairy,,0
 Evaporat&Condensed Milk,lvst,cattle_dairy,,0
+"Ghee, butteroil of cow milk",lvst,cattle_dairy,Butter and Ghee,0
 Ice cream and edible ice,lvst,cattle_dairy,,0
 Lactose,lvst,cattle_dairy,,0
 "Margarine, liquid",lvst,cattle_dairy,Butter and Ghee,0
+"Margarine, short",lvst,cattle_dairy,,0
 "Milk, dry buttermilk",lvst,cattle_dairy,"Milk, whole dried",0
 "Milk, products of natural constituents nes",lvst,cattle_dairy,,0
 "Milk, reconstituted",lvst,cattle_dairy,"Milk, whole dried",0
@@ -379,7 +380,6 @@ Yoghurt,lvst,cattle_dairy,Yoghurt,0
 Cattle,lvst,cattle_nondairy,,0
 "Fat, cattle",lvst,cattle_nondairy,"Fat, cattle",0
 "Fat, liver prepared (foie gras)",lvst,cattle_nondairy,"Fat, cattle",0
-"Ghee, butteroil of cow milk",lvst,cattle_dairy,Butter and Ghee,0
 Hides and skins,lvst,cattle_nondairy,,0
 "Hides, cattle, fresh",lvst,cattle_nondairy,"Hides, cattle, fresh",0
 "Hides, cattle, wet salted",lvst,cattle_nondairy,"Hides, cattle, fresh",0
