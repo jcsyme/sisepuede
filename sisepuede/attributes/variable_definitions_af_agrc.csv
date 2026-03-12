@@ -8,7 +8,7 @@ Input,:math:`\text{N}_2\text{O}` Crop Biomass Burning Emission Factor,ef_n2o_bur
  | 
  | See V4, C2, Equation 2.27 and Table 2.5 for equation and default emission factors.",``ef_agrc_biomass_burning_$EMISSION-GAS$`` (``$EMISSION-GAS$ = n2o``),none,,0,1,1,,0,none,,,
 Input,Above Ground Residue Dry Matter Intercept,regression_b_above_ground_residue,,"``regressionb_agrc_above_ground_residue_$CAT-AGRICULTURE$_$UNIT-MASS$_per_$UNIT-AREA$`` (``$UNIT-MASS$ = kg``, ``$UNIT-AREA$ = ha``)",``cereals``|``other_annual``|``pulses``|``rice``|``tubers``,,0,1,1,,0,none,,,
-Input,Above Ground Residue Dry Matter Slope,regression_m_above_ground_residue,,"``regressionm_agrc_above_ground_residue_$CAT-AGRICULTURE$_$UNIT-MASS$_per_$UNIT-AREA$`` (``$UNIT-MASS$ = kg``, ``$UNIT-AREA$ = ha``)",``cereals``|``other_annual``|``pulses``|``rice``|``tubers``,,0,1,1,,0,none,,,
+Input,Above Ground Residue Dry Matter Slope,regression_m_above_ground_residue,,``regressionm_agrc_above_ground_residue_$CAT-AGRICULTURE$``,``cereals``|``other_annual``|``pulses``|``rice``|``tubers``,,0,1,1,,0,none,,,
 Input,AGRC Combustion Factor,combustion_factor,"The combustion factor :math:`C_f` gives the ""proportion of prefire fuel biomass consumed"" by fires. See Table 2.6, IPCC GNGHGI (2019R). ",``frac_agrc_combustion_factor_$CAT-AGRICULTURE$``,``cereals``|``other_annual``|``pulses``|``rice``|``tubers``,,0,1,1,,0,none,,,
 Input,Agriculture Equivalent Exports,equivalent_exports,Exports of agricultural equivalent products (mass of crops).,``exports_agrc_$CAT-AGRICULTURE$_$UNIT-MASS$`` (``$UNIT-MASS$ = tonne``),all,,0,1,1,,0,none,,,
 Input,Agriculture Fraction Dry,frac_dry," | Used to calculate :math:`\text{N}_2\text{O}` emissions from fertilizer application. 

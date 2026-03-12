@@ -148,6 +148,8 @@ class AFOLU:
             prohibit_forest_transitions = prohibit_forest_transitions,
         )
 
+        self._initialize_attribute_tables()
+
 
         ##  SET MODEL FIELDS
 
@@ -172,9 +174,8 @@ class AFOLU:
 
         self._initialize_integrated_variables()
         self._initialize_array_classes(None, )
-        # NOTE: may initialize this, leaving out for now
-        
 
+        # other init
         self._initialize_uuid()
 
         return None
@@ -227,7 +228,7 @@ class AFOLU:
             mapping forests to their land use category
         """
 
-        attr_lndu = self.model_attributes.get_attribute_table(self.subsec_name_lndu)
+        attr_lndu = self.attr_lndu
         pycat_frst = self.model_attributes.get_subsector_attribute(
             self.subsec_name_frst, 
             "pycategory_primary_element"
@@ -395,6 +396,34 @@ class AFOLU:
 
         return None
     
+
+
+    def _initialize_attribute_tables(self,
+    ) -> None:
+        """Initialize some commonly used attribute tables
+        """
+
+        attr_agrc = self.model_attributes.get_attribute_table(self.subsec_name_agrc, )
+        attr_frst = self.model_attributes.get_attribute_table(self.subsec_name_frst, )
+        attr_lndu = self.model_attributes.get_attribute_table(self.subsec_name_lndu, )
+        attr_lsmm = self.model_attributes.get_attribute_table(self.subsec_name_lsmm, )
+        attr_lvst = self.model_attributes.get_attribute_table(self.subsec_name_lvst, )
+        attr_soil = self.model_attributes.get_attribute_table(self.subsec_name_soil, )
+        
+        
+        ##  SET PROPERTIES
+
+        self.attr_agrc = attr_agrc
+        self.attr_frst = attr_frst
+        self.attr_lndu = attr_lndu
+        self.attr_lsmm = attr_lsmm
+        self.attr_lvst = attr_lvst
+        self.attr_soil = attr_soil
+
+        return None
+
+        
+
 
 
     def _initialize_input_output_components(self,
@@ -743,20 +772,7 @@ class AFOLU:
             subsec_name = attr_subsec.get_attribute(subsec, "subsector")
             attr_name = f"subsec_name_{subsec}"
             setattr(self, attr_name, subsec_name, )
-        """
-        # some subector reference variables
-        self.subsec_name_agrc = "Agriculture"
-        self.subsec_name_econ = "Economy"
-        self.subsec_name_enfu = "Energy Fuels"
-        self.subsec_name_frst = "Forest"
-        self.subsec_name_gnrl = "General"
-        self.subsec_name_ippu = "IPPU"
-        self.subsec_name_lndu = "Land Use"
-        self.subsec_name_lsmm = "Livestock Manure Management"
-        self.subsec_name_lvst = "Livestock"
-        self.subsec_name_scoe = "Stationary Combustion and Other Energy"
-        self.subsec_name_soil = "Soil Management"
-        """
+
         return None
 
 
@@ -809,13 +825,13 @@ class AFOLU:
             {"rice_category": 1}
         )[0]
 
-        # some inds
-        attr_agrc = self.model_attributes.get_attribute_table(
-            self.model_attributes.subsec_name_agrc,
-        )
 
-        self.ind_agrc_cereals = attr_agrc.get_key_value_index(self.cat_agrc_cereals, )
-        self.ind_agrc_rice = attr_agrc.get_key_value_index(self.cat_agrc_rice, )
+        self.ind_agrc_cereals = self.attr_agrc.get_key_value_index(self.cat_agrc_cereals, )
+        self.ind_agrc_rice = self.attr_agrc.get_key_value_index(self.cat_agrc_rice, )
+        self.inds_agrc_non_cereal = [
+            x for x in range(self.attr_agrc.n_key_values) 
+            if x != self.ind_agrc_cereals
+        ]
 
         return None
 
@@ -887,13 +903,9 @@ class AFOLU:
         )[0]
 
         # assign indicies
-        attr_frst = self.model_attributes.get_attribute_table(
-            self.model_attributes.subsec_name_frst,
-        )
-
-        self.ind_frst_mang = attr_frst.get_key_value_index(self.cat_frst_mang, )
-        self.ind_frst_prim = attr_frst.get_key_value_index(self.cat_frst_prim, )
-        self.ind_frst_scnd = attr_frst.get_key_value_index(self.cat_frst_scnd, )
+        self.ind_frst_mang = self.attr_frst.get_key_value_index(self.cat_frst_mang, )
+        self.ind_frst_prim = self.attr_frst.get_key_value_index(self.cat_frst_prim, )
+        self.ind_frst_scnd = self.attr_frst.get_key_value_index(self.cat_frst_scnd, )
 
         return None
 
@@ -1411,7 +1423,7 @@ class AFOLU:
         ##  INITIALIZATION
 
         if not is_attribute_table(attr_lndu):
-            attr_lndu = self.model_attributes.get_attribute_table(self.subsec_name_lndu)
+            attr_lndu = self.attr_lndu
         
         # get variables
         modvar_bmass_ag = self.model_attributes.get_variable(
@@ -1659,7 +1671,7 @@ class AFOLU:
             project_land_use
         """
         # get land use info
-        attr_lndu = self.model_attributes.get_attribute_table(self.subsec_name_lndu)
+        attr_lndu = self.attr_lndu
 
         if len(arrs.shape) < 3:
             msg = f"""
@@ -2924,6 +2936,8 @@ class AFOLU:
 
     def get_agrc_residue_vars(self,
         df_afolu_trajectories: pd.DataFrame,
+        modvar_target_area: Union['ModelVariable', None] = None,
+        modvar_target_mass: Union['ModelVariable', None] = None,
     ) -> Tuple[np.ndarray]:
         """Get arrays used to estimate crop residues. Returns a tuple of the 
             form:
@@ -2938,57 +2952,61 @@ class AFOLU:
             )
 
         """
+        ##  INITIALIZATION OF TARGET UNIT MODEL VARIABLES
 
+        modvar_ilu_area, modvar_ilu_mass = self.get_modvars_for_unit_targets_ilu()
+
+        # try target area
+        modvar_target_area = self.model_attributes.get_variable(modvar_target_area)
+        modvar_target_area = (
+            modvar_ilu_area
+            if modvar_target_area is None
+            else modvar_target_area
+        )
+
+        # try target mass
+        modvar_target_mass = self.model_attributes.get_variable(modvar_target_mass)
+        modvar_target_mass = (
+            modvar_ilu_mass
+            if modvar_target_mass is None
+            else modvar_target_mass
+        )
+
+        # get BCL variables
         _, modvar_bcl_target_mass = self.get_modvars_for_unit_targets_bcl()
+
+
+        ##  GET ARRAYS, VECS, AND DICTS
 
         # get the regression information
         arr_agrc_regression_b = self.arrays_agrc.arr_agrc_regression_b_above_ground_residue
         arr_agrc_regression_m = self.arrays_agrc.arr_agrc_regression_m_above_ground_residue
-        vec_agrc_bagasse_yf = self.arrays_agrc.arr_agrc_bagasse_yield_factor
 
-
-
-        arr_agrc_regression_b = self.model_attributes.get_variable_unit_conversion_factor(
-            self.modvar_agrc_regression_b_above_ground_residue,
-            self.modvar_agrc_regression_m_above_ground_residue,
-            "mass",
-        )
-
-        arr_agrc_regression_b /= self.model_attributes.get_variable_unit_conversion_factor(
-            self.modvar_agrc_regression_b_above_ground_residue,
-            self.modvar_agrc_regression_m_above_ground_residue,
-            "area",
-        )
-
-        # get fraction removed/burned
-        dict_agrc_frac_residues_removed_burned = self.model_attributes.get_multivariables_with_bounded_sum_by_category(
-            df_afolu_trajectories,
-            self.modvar_list_agrc_frac_residues_removed_burned,
-            1,
-            force_sum_equality = False,
-            msg_append = "Agriculture crop residue fractions by exceed 1. See definition of dict_agrc_frac_residues_removed_burned."
-        )
+        # get residue pathways
+        dict_agrc_frac_residues_removed_burned = self.arrays_agrc.dict_residue_pathways
 
         
         ##  GET SOME SCALARS
 
-        scalar_agrc_area_to_m = self.model_attributes.get_variable_unit_conversion_factor(
-            self.model_socioeconomic.modvar_gnrl_area,
-            self.modvar_agrc_regression_m_above_ground_residue,
-            "area"
+        scalar_agrc_regression_b = self.model_attributes.get_variable_unit_conversion_factor(
+            self.modvar_agrc_regression_b_above_ground_residue,
+            modvar_target_mass,
+            "mass",
         )
 
-        scalar_agrc_yield_to_m = self.model_attributes.get_variable_unit_conversion_factor(
-            self.modvar_agrc_yield,
-            self.modvar_agrc_regression_m_above_ground_residue,
-            "mass"
+        scalar_agrc_regression_b /= self.model_attributes.get_variable_unit_conversion_factor(
+            self.modvar_agrc_regression_b_above_ground_residue,
+            modvar_target_area,
+            "area",
         )
 
-        scalar_mass_m_to_bcl = self.model_attributes.get_variable_unit_conversion_factor(
-            self.modvar_agrc_regression_m_above_ground_residue,
+        scalar_agrc_mass_b_to_bcl = self.model_attributes.get_variable_unit_conversion_factor(
+            self.modvar_agrc_regression_b_above_ground_residue,
             modvar_bcl_target_mass,
-            "mass"
+            "mass",
         )
+
+        arr_agrc_regression_b = arr_agrc_regression_b*scalar_agrc_regression_b
 
         
         ##  SET OUTPUT
@@ -2997,10 +3015,8 @@ class AFOLU:
             arr_agrc_regression_b,
             arr_agrc_regression_m,
             dict_agrc_frac_residues_removed_burned,
-            scalar_agrc_area_to_m,
-            scalar_agrc_yield_to_m,
-            scalar_mass_m_to_bcl,
-            vec_agrc_bagasse_yf,
+            scalar_agrc_mass_b_to_bcl,
+            scalar_agrc_regression_b,
         )
 
         return out
@@ -3091,7 +3107,7 @@ class AFOLU:
         
         # get attribute for land use
         matt = self.model_attributes
-        attr_lndu = matt.get_attribute_table(matt.subsec_name_lndu, )
+        attr_lndu = self.attr_lndu
         
         # indices of forest classes in LNDU
         ind_lndu_fstp, ind_lndu_fsts = self.get_lndu_indices_fstp_fsts()
@@ -4025,25 +4041,14 @@ class AFOLU:
             energy system.
         """
 
-        ##  SOME INIT
-        
-        attr_lvst = (
-            self
-            .model_attributes
-            .get_attribute_table(
-                self.model_attributes.subsec_name_lvst,
-            )
-        )
-        
+        # get attribute table
+        attr_lvst = self.attr_lvst
 
-        ##  GET ORDERED ARGUMENTS
-        
+        # ordered input arguments
         args_ordered = [attr_lvst.n_key_values]
         args_ordered = tuple(args_ordered)
 
-
-        ##  BUILD ESTIMATOR 
-
+        # get the estimator
         lde = suo.LivestockDietEstimator(*args_ordered, )
 
         return lde
@@ -4062,10 +4067,13 @@ class AFOLU:
             
         """
 
+        cost_lfi = 10**8
+        cost_new_high = 9000
+
         #  costs
         lurf_active = lurf > 0
-        costs_new_crops = 9 if not lurf_active else 3
-        costs_new_pastures = 9 if not lurf_active else 3
+        costs_new_crops = cost_new_high if not lurf_active else 10
+        costs_new_pastures = cost_new_high if not lurf_active else 10
         
         dict_costs = {
             "crop_residues": 2,                             # look at crops residues and crops at same lvel
@@ -4077,7 +4085,7 @@ class AFOLU:
             "pastures_new": costs_new_pastures,             # ""  ""
             "crop_imports_cereals": 0,                      # Crop Imports are a function of planted values
             "crop_imports_non_cereals": 0,                  # ""  ""
-            "livestock_feed_imports": 10                    # always available, but as a last resort
+            "livestock_feed_imports": cost_lfi              # always available, but as a last resort
         }
 
         vec_out = np.array(
@@ -4111,17 +4119,116 @@ class AFOLU:
     
 
 
+    def get_lde_crop_import_fracs(self,
+        i: int,
+        arr_agrc_yield: np.ndarray,         
+    ) -> np.ndarray:
+        """Get the import fractions of cereals and non-cereals. Returns a (2, )
+            numpy vector.
+        """
+        # set some vecs
+        vec_frac_feed = self.arrays_agrc.arr_agrc_frac_animal_feed[i]
+        vec_frac_imports = self.arrays_agrc.arr_agrc_frac_demand_imported[i]
+        vec_yield = arr_agrc_yield[i]
+
+        # non-cereal indices
+        inds_nc = self.inds_agrc_non_cereal
+
+        # get weights for non-cereal imports
+        vec_weights = (vec_yield*vec_frac_feed)[inds_nc]
+        vec_weights /= vec_weights.sum()
+        frac_imports_nc = np.dot(vec_weights, vec_frac_imports[inds_nc])
+
+        # output
+        out = np.array(
+            [
+                vec_frac_imports[self.ind_agrc_cereals],
+                frac_imports_nc
+            ]
+        )
+
+        return out
+
+
+
     def get_lde_vector_demand(self,
-        vec_lvst_factor_feed: np.ndarray,
-        vec_lvst_mass_per_head: np.ndarray,
+        vec_lvst_feed_per_head: np.ndarray,
         vec_lvst_pop: np.ndarray,
     ) -> np.ndarray:
         """Get the supplies to pass to the LivestockDietaryEstimator
         """
-        vec_demand = vec_lvst_pop*vec_lvst_mass_per_head
-        vec_demand *= vec_lvst_factor_feed
+        vec_demand = vec_lvst_pop*vec_lvst_feed_per_head
 
         return vec_demand
+    
+
+
+    def get_lde_vector_residue_genfactors(self,
+        vec_bagasse_factor: np.ndarray,
+        vec_frac_dm: np.ndarray,
+        vec_frac_feed: np.ndarray,
+        vec_regression_b: np.ndarray,
+        vec_regression_m: np.ndarray,
+        vec_yf: np.ndarray,
+    ) -> Tuple[np.ndarray]:
+        """Get the residue generation factor for the given time step. Returns a
+            tuple of the form 
+        
+            (
+                vec_residue_gfs,            # genfactors by crop
+                vec_residue_gfs_for_lde,    # genfactors reduced to cereals and
+                                            # non-cereals
+            )
+
+        Keyword Arguments
+        -----------------
+        generate_lde_input : bool
+            * True:     Generates the residue generation factors for cereals and 
+                        non-cereals based on crop fractions
+            * False:    Returns the vector of generation factors for each crop
+                        type
+        """
+        # get the residues total
+        vec_residue_gfs = vec_regression_m*vec_yf + vec_regression_b
+        vec_residue_gfs *= vec_frac_dm
+
+        # now, divide by yield factors
+        vec_residue_gfs = np.nan_to_num(
+            vec_residue_gfs/vec_yf,
+            nan = 0.0,
+            posinf = 0.0,
+        )
+
+        # finally, replace bagasse generation factor--cats are mutually 
+        # exclusive, so can simply add here
+        vec_residue_gfs += vec_bagasse_factor
+
+        
+        ##  REDUCE VECTORS
+
+        # non-cereal indices
+        inds_nc = self.inds_agrc_non_cereal
+        
+        # get weights for non-cereal imports
+        vec_weights = (vec_yf*vec_frac_feed)[inds_nc]
+        vec_weights /= vec_weights.sum()
+        frac_imports_nc = np.dot(vec_weights, vec_residue_gfs[inds_nc])
+
+        vec_residue_gfs_for_lde = np.array(
+            [
+                vec_residue_gfs[self.ind_agrc_cereals],
+                frac_imports_nc
+            ]
+        )
+
+
+        # build output tuple
+        out = (
+            vec_residue_gfs,
+            vec_residue_gfs_for_lde,
+        )
+
+        return out
     
 
     
@@ -4147,7 +4254,7 @@ class AFOLU:
         # get 
         vec_agrc_yield_lvst = vec_agrc_yield*vec_agrc_frac_lvst
         yield_for_lvst_cereals = vec_agrc_yield_lvst[self.ind_agrc_cereals]
-        yield_for_lvst_non_cereals = vec_agrc_yield.sum() - yield_for_lvst_cereals
+        yield_for_lvst_non_cereals = vec_agrc_yield_lvst.sum() - yield_for_lvst_cereals
 
         # set up supplies
         vec_supply = np.array(
@@ -4247,7 +4354,7 @@ class AFOLU:
                     length)
                 * range(len(mat)) otherwise
         """
-        attr_lndu = self.model_attributes.get_attribute_table(self.subsec_name_lndu)
+        attr_lndu = self.attr_lndu
         field_time_period = self.model_attributes.dim_time_period
         attr_time_period = self.model_attributes.get_dimensional_attribute_table(field_time_period)
         
@@ -4390,9 +4497,7 @@ class AFOLU:
         ##  INITIALIZE SOME MODEL ATTRIBUTES ELEMENTS
 
         # land use attribute table and land use pyategory element
-        attr_lndu = self.model_attributes.get_attribute_table(
-            self.model_attributes.subsec_name_lndu, 
-        )
+        attr_lndu = self.attr_lndu
         pycat_lndu = self.model_attributes.get_subsector_attribute(
             self.model_attributes.subsec_name_lndu,
             "pycategory_primary_element",
@@ -4738,11 +4843,7 @@ class AFOLU:
         """Get the indices of primary forest and secondary forest in
             Land Use.
         """
-        attr_lndu = self.model_attributes.get_attribute_table(
-            self
-            .model_attributes
-            .subsec_name_lndu
-        )
+        attr_lndu = self.attr_lndu
         
         cat_lndu_fstm = self.dict_cats_frst_to_cats_lndu.get(self.cat_frst_mang, )
         cat_lndu_fstp = self.dict_cats_frst_to_cats_lndu.get(self.cat_frst_prim, )
@@ -4796,7 +4897,7 @@ class AFOLU:
                 case
         """
         attribute_land_use = (
-            self.model_attributes.get_attribute_table(self.subsec_name_lndu) 
+            self.attr_lndu
             if (attribute_land_use is None) 
             else attribute_land_use
         )
@@ -5187,7 +5288,7 @@ class AFOLU:
         ##  UNIT CONVERSIONS
         
         # get scalars
-        scalar_lndu_ddm_to_yf = self.model_attributes.get_variable_unit_conversion_factor(
+        scalar_lndu_ddm_to_targ_mass = self.model_attributes.get_variable_unit_conversion_factor(
             self.modvar_lvst_animal_mass,
             modvar_targ_mass,
             "mass",
@@ -5218,7 +5319,7 @@ class AFOLU:
         )
 
         # convert units to align with ILU targets
-        arr_lvst_annual_feed_per_capita = arr_lvst_annual_feed_per_capita*scalar_lndu_ddm_to_yf
+        arr_lvst_annual_feed_per_capita = arr_lvst_annual_feed_per_capita*scalar_lndu_ddm_to_targ_mass
 
         vec_lndu_yf_pasture_avg = (
             vec_lndu_yf_pasture_avg
@@ -5362,7 +5463,7 @@ class AFOLU:
             this transformation
         """
         
-        attr_lndu = self.model_attributes.get_attribute_table(self.subsec_name_lndu)
+        attr_lndu = self.attr_lndu
         n_cats = attr_lndu.n_key_values
         n_tp = n_tp if sf.isnumber(n_tp, integer = True) else self.n_time_periods
 
@@ -5631,10 +5732,10 @@ class AFOLU:
         """
 
         # get attribute tables
-        attr_agrc = self.model_attributes.get_attribute_table(self.subsec_name_agrc, )
-        attr_frst = self.model_attributes.get_attribute_table(self.subsec_name_frst, )
-        attr_lndu = self.model_attributes.get_attribute_table(self.subsec_name_lndu, )
-        attr_soil = self.model_attributes.get_attribute_table(self.subsec_name_soil, )
+        attr_agrc = self.attr_agrc
+        attr_frst = self.attr_frst
+        attr_lndu = self.attr_lndu
+        attr_soil = self.attr_soil
 
         # initialize SOC transition arrays
         n_tp = len(arr_agrc_crop_area)
@@ -6251,9 +6352,7 @@ class AFOLU:
         """
         
         # get attribute table
-        attr_lndu = self.model_attributes.get_attribute_table(
-            self.model_attributes.subsec_name_lndu
-        )
+        attr_lndu = self.attr_lndu
         
         return_df = not isinstance(df_transition, pd.DataFrame)
         return_df |= (
@@ -7070,9 +7169,9 @@ class AFOLU:
         self.check_markov_shapes(arrs_c_bgb, "arrs_efs", )
 
         # get attributes
-        attr_agrc = self.model_attributes.get_attribute_table(self.subsec_name_agrc, )
-        attr_lndu = self.model_attributes.get_attribute_table(self.subsec_name_lndu, )
-        attr_lvst = self.model_attributes.get_attribute_table(self.subsec_name_lvst, )
+        attr_agrc = self.attr_agrc
+        attr_lndu = self.attr_lndu
+        attr_lvst = self.attr_lvst
 
         # set some commonly called attributes and indices in arrays
         inds_frst = [
@@ -7106,13 +7205,11 @@ class AFOLU:
 
         # get some information used to estimate residues, which have to be included in-line 
         (
-            arr_agrc_regression_b,
-            arr_agrc_regression_m,
-            dict_agrc_frac_residues_removed_burned,
-            scalar_agrc_area_to_m,
-            scalar_agrc_yield_to_m,
-            scalar_mass_m_to_bcl,
-            vec_agrc_bagasse_yf,
+            arr_agrc_regression_b,      # intercept (mass/area)
+            arr_agrc_regression_m,      # slope (dimensionless)
+            dict_agrc_residue_pathways, # where residues go
+            scalar_agrc_mass_b_to_bcl,  # convert agrc mass to bcl
+            scalar_agrc_regression_b,   # into ILU units (mass/area)
         ) = tup_residue_info
 
         
@@ -7171,7 +7268,10 @@ class AFOLU:
         
         ##  INITIALIZE VARIABLES
 
+        arr_agrc_bagasse_factor = self.arrays_agrc.arr_agrc_bagasse_yield_factor
+        arr_agrc_frac_feed = self.arrays_agrc.arr_agrc_frac_animal_feed
         arr_c_lndu_ratio_bg_to_ag = self.arrays_lndu.arr_lndu_biomass_stock_ratio_bg_to_ag
+        arr_dm_frac_crops = self.arrays_agrc.arr_agrc_frac_dry_matter_in_crop
         arr_lndu_frac_increasing_net_exports_met = self.arrays_lndu.arr_lndu_frac_increasing_net_exports_met
         arr_lndu_frac_increasing_net_imports_met = self.arrays_lndu.arr_lndu_frac_increasing_net_imports_met
 
@@ -7598,7 +7698,7 @@ class AFOLU:
         self.check_markov_shapes(arrs_efs, "arrs_efs")
 
         # get land use info
-        attr_lndu = self.model_attributes.get_attribute_table(self.subsec_name_lndu)
+        attr_lndu = self.attr_lndu
 
         # intilize the land use and conversion emissions array
         shp_init = (n_tp, attr_lndu.n_key_values)
@@ -7856,9 +7956,7 @@ class AFOLU:
         
         # get the attribute table and initialize values
         attr_lndu = (
-            self.model_attributes.get_attribute_table(
-                self.model_attributes.subsec_name_lndu,
-            )
+            self.attr_lndu
             if attr_lndu is None
             else attr_lndu
         )
@@ -8067,12 +8165,12 @@ class AFOLU:
         )
         
         # attribute tables
-        attr_agrc = self.model_attributes.get_attribute_table(self.subsec_name_agrc)
-        attr_frst = self.model_attributes.get_attribute_table(self.subsec_name_frst)
-        attr_lndu = self.model_attributes.get_attribute_table(self.subsec_name_lndu)
-        attr_lsmm = self.model_attributes.get_attribute_table(self.subsec_name_lsmm)
-        attr_lvst = self.model_attributes.get_attribute_table(self.subsec_name_lvst)
-        attr_soil = self.model_attributes.get_attribute_table(self.subsec_name_soil)
+        attr_agrc = self.attr_agrc
+        attr_frst = self.attr_frst
+        attr_lndu = self.attr_lndu
+        attr_lsmm = self.attr_lsmm
+        attr_lvst = self.attr_lvst
+        attr_soil = self.attr_soil
 
 
         ##  ECON/GNRL VECTOR AND ARRAY INITIALIZATION
@@ -9418,8 +9516,8 @@ class AFOLU:
             arr_agrc_regression_b,
             arr_agrc_regression_m,
             dict_agrc_frac_residues_removed_burned,
-            scalar_agrc_area_to_m,
-            scalar_agrc_yield_to_m,
+            scalar_agrc_mass_b_to_bcl,
+            scalar_agrc_regression_b,
         ) = self.get_agrc_residue_vars(
             df_afolu_trajectories, 
         )

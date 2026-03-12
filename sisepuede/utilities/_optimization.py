@@ -1750,7 +1750,7 @@ class LivestockDietEstimator:
         ##  ADD IN IMPORT AVAILABILITY BASED ON IMPORT FRACTION
 
         n_rows = len(self.dict_ind_to_imp_ind)
-        A = np.zeros(n_rows, self.mn, )
+        A = np.zeros((n_rows, self.mn, ))
         b = np.zeros(n_rows)
 
         # get import fractions by type
@@ -1876,14 +1876,14 @@ class LivestockDietEstimator:
         ##  BUILD MIN AND MAX CONSTRAINTS INSIDE THE SAME LOOP
 
         for i in range(self.m):
-            for j in range(n_vf):
+            for ind_j_lde in range(n_vf):
                 
-                ind_j_lde = ordered_for_vecs_inds_lde[j]
+                j = ordered_for_vecs_inds_lde[ind_j_lde]
                 ind_import = self.dict_ind_to_imp_ind.get(j, )
                 ind_new = self.dict_ind_to_new_ind.get(j, )
 
                 # get some output indices
-                base = i*n_vf + j
+                base = i*n_vf + ind_j_lde
                 row_min_cr = 2*base
                 row_max_cr = 2*base + 1
                 
@@ -2033,6 +2033,21 @@ class LivestockDietEstimator:
             )
 
 
+        let:
+            S  = supply
+            x  = use of crop x
+            x* = new crops
+
+            Note that 
+                x* >= x_c - Sc 
+
+            i.e., that new crop reductions cannot go below the slack between
+            available supply and how much was actually used. This gives
+
+            x_c - x* <= Sc
+
+
+
         Function Arguments
         ------------------
         vec_supplies : np.ndarray
@@ -2047,14 +2062,17 @@ class LivestockDietEstimator:
         dict_iter = self.dict_ind_to_new_ind
         n_cons = len(dict_iter)
 
-        # build the matrix with basic constratins
+        # build the matrix with basic constraints
         A = np.zeros((n_cons, self.mn))
         b = np.zeros(n_cons, )
 
         i = 0
         for j, j_new in dict_iter.items():
-            inds = self.flat_indices_col(j_new, ) 
-            A[i, inds] = -1            # negative of total mass produced from new area
+            inds_orig = self.flat_indices_col(j, ) 
+            inds_new = self.flat_indices_col(j_new, ) 
+
+            A[i, inds_orig] = 1        # + total mass produced from original area 
+            A[i, inds_new] = -1        # - total mass produced from new area
             b[i] = vec_supplies[j]     # supply associated with current area
 
             i += 1                     # next row of constraint
@@ -2069,6 +2087,7 @@ class LivestockDietEstimator:
         vec_costs: np.ndarray,
         allow_new: bool = False, 
         override_import_costs: bool = False,
+        **kwargs,
     ) -> np.ndarray:
         """Reformat costs for use in program. Ensures that crop imports have 0 
             cost (they are a function of planting for livestock domestic demand 
@@ -2086,6 +2105,8 @@ class LivestockDietEstimator:
             between existing and 
         override_import_costs : bool
             If True, will not force import costs to be same as crop costs.
+        kwargs : 
+            Ignored
         """
 
         vec_out = vec_costs.copy()

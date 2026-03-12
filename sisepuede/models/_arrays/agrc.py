@@ -131,6 +131,7 @@ class ArraysAGRC(ma.SubsectorArraysCollection):
         self.get_modvar_array(
             df_trajectories,
             self.modvar_agrc_bagasse_yield_factor,
+            expand_to_all_cats = True,
             set_property = True,
         )
 
@@ -145,6 +146,7 @@ class ArraysAGRC(ma.SubsectorArraysCollection):
         self.get_modvar_array(
             df_trajectories,
             self.modvar_agrc_equivalent_exports,
+            expand_to_all_cats = True,
             set_property = True,
             var_bounds = (0, np.inf),
         )
@@ -153,6 +155,7 @@ class ArraysAGRC(ma.SubsectorArraysCollection):
         self.get_modvar_array(
             df_trajectories,
             self.modvar_agrc_frac_animal_feed,
+            expand_to_all_cats = True,
             set_property = True,
             var_bounds = (0, 1),
         )
@@ -161,6 +164,16 @@ class ArraysAGRC(ma.SubsectorArraysCollection):
         self.get_modvar_array(
             df_trajectories,
             self.modvar_agrc_frac_demand_imported,
+            expand_to_all_cats = True,
+            set_property = True,
+            var_bounds = (0, 1),
+        )
+
+        # dry matter fraction of crops
+        self.get_modvar_array(
+            df_trajectories,
+            self.modvar_agrc_frac_dry_matter_in_crop,
+            expand_to_all_cats = True,
             set_property = True,
             var_bounds = (0, 1),
         )
