@@ -1396,9 +1396,11 @@ class LivestockDietEstimator:
         [4] crops, cereals              (new)
         [5] crops, non-cereals          (new)
         [6] pastures                    (new)
-        [7] crop imports, cereals       (func of planted crops and import frac)
-        [8] crop imports, non-cereals   (func of planted crops and import frac)
-        [9] slack (lfi)                 (very high cost, out of system)
+        [7] crop imports, cereals       (used to satisfy slack)
+        [8] crop imports, non-cereals   (used to satisfy slack)
+        [9] pasture imports             (e.g., alfalfa, hay--used to satisfy 
+                                            slack if present. Generally, this is
+                                            higher cost than crop imports)
 
     Uses a Minimum Cost approach to prioritize dietary pathways over others 
         while constraining dietary fractions for livestock.
@@ -1523,28 +1525,30 @@ class LivestockDietEstimator:
         """
 
         # set some names
+        nm_crop_imports_cereals = "crop_imports_cereals"
+        nm_crop_imports_non_cereals = "crop_imports_non_cereals"
         nm_crop_residues = "crop_residues"
+        nm_crop_residues_new = "crop_residues_new"
         nm_crops_cereals = "crops_cereals"
         nm_crops_cereals_new = "crops_cereals_new"
         nm_crops_non_cereals = "crops_non_cereals"
         nm_crops_non_cereals_new = "crops_non_cereals_new"
+        nm_pasture_imports = "pasture_imports"
         nm_pastures = "pastures"
         nm_pastures_new = "pastures_new"
-        nm_crop_imports_cereals = "crop_imports_cereals"
-        nm_crop_imports_non_cereals = "crop_imports_non_cereals"
-        nm_livestock_feed_imports = "livestock_feed_imports"
         
         labels_col = [
             nm_crop_residues,
             nm_crops_cereals,
             nm_crops_non_cereals,
             nm_pastures,
+            nm_crop_residues_new,
             nm_crops_cereals_new,
             nm_crops_non_cereals_new,
             nm_pastures_new,
             nm_crop_imports_cereals,
             nm_crop_imports_non_cereals,
-            nm_livestock_feed_imports
+            nm_pasture_imports
         ]
 
         # map to index
@@ -1556,10 +1560,13 @@ class LivestockDietEstimator:
         # map indices to associated import indices
         ind_crop_imports_cereals = dict_types_to_inds.get(nm_crop_imports_cereals)
         ind_crop_imports_non_cereals = dict_types_to_inds.get(nm_crop_imports_non_cereals)
+        ind_crop_residues = dict_types_to_inds.get(nm_crop_residues)
+        ind_crop_residues_new = dict_types_to_inds.get(nm_crop_residues_new)
         ind_crops_cereals = dict_types_to_inds.get(nm_crops_cereals)
         ind_crops_cereals_new = dict_types_to_inds.get(nm_crops_cereals_new)
         ind_crops_non_cereals = dict_types_to_inds.get(nm_crops_non_cereals)
         ind_crops_non_cereals_new = dict_types_to_inds.get(nm_crops_non_cereals_new)
+        ind_pasture_imports = dict_types_to_inds.get(nm_pasture_imports)
         ind_pastures = dict_types_to_inds.get(nm_pastures)
         ind_pastures_new = dict_types_to_inds.get(nm_pastures_new)
 
@@ -1567,10 +1574,12 @@ class LivestockDietEstimator:
         dict_ind_to_imp_ind = {
             ind_crops_cereals: ind_crop_imports_cereals,
             ind_crops_non_cereals: ind_crop_imports_non_cereals,
+            ind_pastures: ind_pasture_imports,
         }
 
         # map the standard index to "new" index
         dict_ind_to_new_ind = {
+            ind_crop_residues: ind_crop_residues_new,
             ind_crops_cereals: ind_crops_cereals_new,
             ind_crops_non_cereals: ind_crops_non_cereals_new,
             ind_pastures: ind_pastures_new,
@@ -1602,11 +1611,12 @@ class LivestockDietEstimator:
         self.nm_crop_imports_cereals = nm_crop_imports_cereals
         self.nm_crop_imports_non_cereals = nm_crop_imports_non_cereals
         self.nm_crop_residues = nm_crop_residues
+        self.nm_crop_residues_new = nm_crop_residues_new
         self.nm_crops_cereals = nm_crops_cereals
         self.nm_crops_cereals_new = nm_crops_cereals_new
         self.nm_crops_non_cereals = nm_crops_non_cereals
         self.nm_crops_non_cereals_new = nm_crops_non_cereals_new
-        self.nm_livestock_feed_imports = nm_livestock_feed_imports
+        self.nm_pasture_imports = nm_pasture_imports
         self.nm_pastures = nm_pastures
         self.nm_pastures_new = nm_pastures_new
 
@@ -1655,6 +1665,34 @@ class LivestockDietEstimator:
     #######################
     #    KEY FUNCTIONS    #
     #######################
+
+    def check_import_frac(self,
+        vec_import_frac: Any,          
+    ) -> bool:
+        """Chcek if the import fraction specification is useful for implementing
+            the forced import fraction constraint.
+        """
+        # add the import fraction constraint?
+        imp_constraint = isinstance(vec_import_frac, np.ndarray)
+        imp_constraint &= (
+            vec_import_frac.shape[0] == len(self.dict_ind_to_imp_ind)
+            if imp_constraint
+            else False
+        )
+
+        return imp_constraint
+    
+
+
+    def display_as_matrix(self,
+        x: np.ndarray,
+    ) -> np.ndarray:
+        """Take a vector of free variables (or coefficients) and reshape to
+            properly-sized matrix.
+        """
+        out = x.reshape((self.m, self.n))
+        return out
+
 
 
     def flat_index(self,
@@ -1706,7 +1744,7 @@ class LivestockDietEstimator:
             Base vector of costs for 1:n
 
         Keyword Arguments
-        -----------------
+        -----------------s
         """
         vec_bounds_lower = np.zeros(self.mn, )
         vec_bounds_upper = np.inf*np.ones(self.mn, )
@@ -1714,9 +1752,9 @@ class LivestockDietEstimator:
         # update upper bounds if not allowed
         if not allow_new:
             vec_bounds_upper[self.inds_flat_new_classes] = 0.0
-        else:
-            # NOTE: additional constraint needed to prevent exceeding existing area
-            vec_bounds_lower[self.inds_flat_new_classes] = -np.inf
+        #else:
+        #    # NOTE: additional constraint needed to prevent exceeding existing area
+        #    vec_bounds_lower[self.inds_flat_new_classes] = -np.inf
         
         # turn into a list of tuples
         out = list(zip(vec_bounds_lower, vec_bounds_upper, ))
@@ -1725,7 +1763,7 @@ class LivestockDietEstimator:
 
 
 
-    def get_constraint_coeffs_eq_imports(self,
+    def get_constraint_coeffs_eq_agrc_imports(self,
         vec_import_frac: np.ndarray,
     ) -> Tuple[np.ndarray, np.ndarray]:
         """Imports are a fraction of total consumption; this constraint sets
@@ -1757,6 +1795,7 @@ class LivestockDietEstimator:
         dict_ind_imp_fracs = {
             self.ind_crops_cereals: vec_import_frac[0],
             self.ind_crops_non_cereals: vec_import_frac[1],
+            self.ind_pastures: vec_import_frac[2],
         }
 
         i = 0
@@ -1771,12 +1810,21 @@ class LivestockDietEstimator:
             inds_new_crop = self.flat_indices_col(ind_new, )    # column indices associated with new crop type being planted
             inds_orig_crop = self.flat_indices_col(k, )         # column indices associated with original crops
             
+
             f = dict_ind_imp_fracs.get(k, )                     # import fraction for crop type
+            
+            # check value
+            set_inf = not sf.isnumber(f)
+            set_inf |= ((f > 1) | (f < 0)) if not set_inf else set_inf
+            
+            # by setting to inf, the constraint will be removed by the routine 
+            # self.reduce_matrices_with_inf()
+            cons = (-f/(1 - f)) if not set_inf else np.inf
 
             # imports are equal to import fraction applied to new and orig crops
             A[i, inds_imports] = 1
-            A[i, inds_new_crop] = -f/(1 - f)   
-            A[i, inds_orig_crop] = -f/(1 - f)     
+            A[i, inds_new_crop] = cons
+            A[i, inds_orig_crop] = cons
 
             i += 1
         
@@ -1820,6 +1868,58 @@ class LivestockDietEstimator:
     
 
 
+    def get_constraint_coeffs_eq_lvst_new_residues(self,
+        vec_residue_generation_factor: np.ndarray,
+        **kwargs,
+    ) -> Tuple[np.ndarray, np.ndarray, np.ndarray]:
+        """Generate a matrix of coefficients used to ensure that, for each 
+            livestock class, feed demands are met. Returns
+
+            (
+                mat_coeffs,     # m x mn matrix
+                vec_demands,    # m x 1
+            )
+
+
+        Function Arguments
+        ------------------
+        vec_residue_generation_factor : np.ndarray
+            For new crop classes, vector (2, ), ordered as 
+            Crops - Cereals, Crops - Non-Cereals, storing rates at which 
+            residues are available for livestock feed as a proportion of yield
+
+        Keyword Arguments
+        -----------------
+        """
+
+        ##  ADD IN AVAILABILITY OF RESIDUES FROM NEW CROP CLASSES
+
+        # initialize some indices
+        ind_cr = self.ind_crop_residues
+        ind_cr_new = self.dict_ind_to_new_ind.get(ind_cr, )
+        inds_cc_new = self.flat_indices_col(self.ind_crops_cereals_new, )
+        inds_cnc_new = self.flat_indices_col(self.ind_crops_non_cereals_new, )
+
+        # get factors for residue generation
+        rho_cc = vec_residue_generation_factor[0]
+        rho_cnc = vec_residue_generation_factor[1]
+
+        # update with reduction
+        A = np.zeros((1, self.mn))
+        b = np.zeros(1, )
+        
+        # force new crop residuals to be equal to generation by new crops
+        # using generation factor
+        A[0, ind_cr_new] = 1
+        A[0, inds_cc_new] = -rho_cc
+        A[0, inds_cnc_new] = -rho_cnc
+
+        out = (A, b, )
+        
+        return out
+    
+
+
     def get_constraint_coeffs_leq_lvst_dietary_fractions(self,
         vec_demands: np.ndarray,
         vec_max_crop_residues_fraction: np.ndarray,
@@ -1855,7 +1955,6 @@ class LivestockDietEstimator:
         ind_cc = self.ind_crops_cereals
         ind_cnc = self.ind_crops_non_cereals
         ind_cr = self.ind_crop_residues
-        ind_l = self.ind_livestock_feed_imports
         ind_p = self.ind_pastures
         
         
@@ -1896,7 +1995,8 @@ class LivestockDietEstimator:
                 
                 # min constraint
                 arr_base[i, j] = -1
-                arr_base[i, ind_l] = -1*frac_min
+                # arr_base[i, ind_l] = -1*frac_min    # this would be in place if using generic Livestock Feed Imports
+
 
                 # any imports or new area
                 if ind_import is not None:
@@ -1920,7 +2020,7 @@ class LivestockDietEstimator:
                 
                 # min constraint
                 arr_base[i, j] = 1
-                arr_base[i, ind_l] = frac_max
+                # arr_base[i, ind_l] = frac_max   # this would be in place if using generic Livestock Feed Imports
 
                 # any imports or new area
                 if ind_import is not None:
@@ -1944,8 +2044,8 @@ class LivestockDietEstimator:
 
 
     def get_constraint_coeffs_leq_lvst_feed_supply(self,
-        vec_residue_generation_factor: np.ndarray,
         vec_supplies: np.ndarray,
+        vec_import_frac: Union[np.ndarray, None] = None,
         **kwargs,
     ) -> Tuple[np.ndarray, np.ndarray, np.ndarray]:
         """Generate a matrix of coefficients used to ensure that, for each 
@@ -1959,13 +2059,6 @@ class LivestockDietEstimator:
 
         Function Arguments
         ------------------
-        vec_import_frac : np.ndarray
-            Vector of import fractions of cereals and non-cereals. Used to 
-            adjust import supply availability if new crops are planted.
-        vec_residue_generation_factor : np.ndarray
-            For new crop classes, vector (2, ), ordered as 
-            Crops - Cereals, Crops - Non-Cereals, storing rates at which 
-            residues are available for livestock feed as a proportion of yield
         vec_supplies : np.ndarray
             Vector of feed availability, in mass, by feed pathway. Only applies
             to categories 0 -- (n - 1) (the slack category is not bounded)
@@ -1973,21 +2066,22 @@ class LivestockDietEstimator:
         Keyword Arguments
         -----------------
         """
-        # initialize some indices
-        ind_cr = self.ind_crop_residues
-        inds_cc_new = self.flat_indices_col(self.ind_crops_cereals_new, )
-        inds_cnc_new = self.flat_indices_col(self.ind_crops_non_cereals_new, )
-
 
         ##  SETUP CONSTRAINED INDICES
 
         # imports are not constrained because they are a function of how much
         # is planted in original/new croplands
         inds_skip = [
-            self.ind_crop_imports_cereals,
-            self.ind_crop_imports_non_cereals,
-            self.ind_livestock_feed_imports
+            self.ind_crop_residues_new
         ]
+
+        if self.check_import_frac(vec_import_frac, ):
+            inds_skip += [
+                self.ind_crop_imports_cereals,
+                self.ind_crop_imports_non_cereals,
+                self.ind_pasture_imports
+            ]
+
         inds_constrained = [x for x in range(self.n) if x not in inds_skip]
         
         # initialize the matrix with basic constraints for each supply and output 
@@ -1997,19 +2091,7 @@ class LivestockDietEstimator:
         for j in inds_constrained:
             inds = self.flat_indices_col(j, )
             A[j, inds] = 1
-        
-
-        ##  ADD IN AVAILABILITY OF RESIDUES FROM NEW CROP CLASSES
-
-        # get factors for residue generation
-        rho_cc = vec_residue_generation_factor[0]
-        rho_cnc = vec_residue_generation_factor[1]
-
-        # update with reduction
-        A[ind_cr, inds_cc_new] = -rho_cc
-        A[ind_cr, inds_cnc_new] = -rho_cnc
-
-
+      
         # setup output
         out = (
             A[inds_constrained, :],
@@ -2087,6 +2169,7 @@ class LivestockDietEstimator:
         vec_costs: np.ndarray,
         allow_new: bool = False, 
         override_import_costs: bool = False,
+        vec_import_frac: Union[np.ndarray, None] = None, # HERE123--deal with this
         **kwargs,
     ) -> np.ndarray:
         """Reformat costs for use in program. Ensures that crop imports have 0 
@@ -2105,6 +2188,13 @@ class LivestockDietEstimator:
             between existing and 
         override_import_costs : bool
             If True, will not force import costs to be same as crop costs.
+        vec_import_frac : Union[np.ndarray, None]
+            Optional vector of import fractions of cereals and non-cereals. Used 
+            to adjust import supply availability if new crops are planted. 
+                * If NumPy vector:  Uses the ratio of imports as a hard 
+                                    constraint. Can only be used if allowing new
+                * Otherwise:        Allows for imports to be a free variable.
+                                    Generally the case if allow_new = False
         kwargs : 
             Ignored
         """
@@ -2113,11 +2203,14 @@ class LivestockDietEstimator:
 
         # ensure costs are correct for imports by setting to 0 (depend only on 
         # planting decisions)
-        if not override_import_costs:
+        set_zero_imp_costs = not override_import_costs
+        set_zero_imp_costs &= self.check_import_frac(vec_import_frac, )
+        if set_zero_imp_costs:
             for v in self.dict_ind_to_imp_ind.values():
                 vec_out[v] = 0
 
 
+        """
         # check costs
         if allow_new:
 
@@ -2141,6 +2234,7 @@ class LivestockDietEstimator:
                 c_new = (c_existing + c_upper)/2
         
                 vec_out[k] = c_new
+        """
 
         # apply to each row in the matrix
         c = np.ones((self.m, self.n))*vec_out
@@ -2173,9 +2267,10 @@ class LivestockDietEstimator:
         return inds_flat
 
     
+    
     def get_problem_components_constraints(self,
+        allow_new: bool,
         vec_demand: np.ndarray,
-        vec_import_frac: np.ndarray, 
         vec_max_crop_residues_fraction: np.ndarray,
         vec_max_crops_cereals_fraction: np.ndarray,
         vec_max_crops_non_cereals_fraction: np.ndarray,
@@ -2186,6 +2281,7 @@ class LivestockDietEstimator:
         vec_min_pastures_fraction: np.ndarray,
         vec_residue_generation_factor: np.ndarray,
         vec_supply: np.ndarray,
+        vec_import_frac: Union[np.ndarray, None] = None,
     ) -> Tuple:
         """Generate constraints for livestock dietary estimation optimization 
             LP. Returns a tuple in the following form:
@@ -2199,11 +2295,11 @@ class LivestockDietEstimator:
 
         Function Arguments
         ------------------
+        allow_new : bool
+            Allow new land use classes? If False and forcing vec_import_frac,
+            this can cause infeasibilities.
         vec_demand : np.ndarray
             Vector of demand for livestock
-        vec_import_frac : np.ndarray
-            Vector of import fractions of cereals and non-cereals. Used to 
-            adjust import supply availability if new crops are planted.
         vec_residue_generation_factor : np.ndarray
             For new crop classes, vector (2, ), ordered as 
             Crops - Cereals, Crops - Non-Cereals, storing rates at which 
@@ -2214,6 +2310,13 @@ class LivestockDietEstimator:
         
         Keyword Arguments
         -----------------
+        vec_import_frac : Union[np.ndarray, None]
+            Optional vector of import fractions of cereals and non-cereals. Used to 
+            adjust import supply availability if new crops are planted. 
+                * If NumPy vector:  Uses the ratio of imports as a hard 
+                                    constraint. Can only be used if allowing new
+                * Otherwise:        Allows for imports to be a free variable.
+                                    Generally the case if allow_new = False
         **kwargs : 
             Ignored
         """
@@ -2237,7 +2340,7 @@ class LivestockDietEstimator:
             vec_min_crops_non_cereals_fraction,
             vec_min_pastures_fraction,
         )
-
+    
 
         ##  GET EQUALITY CONSTRAINTS
 
@@ -2248,12 +2351,30 @@ class LivestockDietEstimator:
         G.append(A_fb, )
         h.append(b_fb, )
 
-        # import values as a function of existing + new crop plants
-        A_imp, b_imp = self.get_constraint_coeffs_eq_imports(
-            vec_import_frac.astype(float),
+        # add the new crop residue forcing constraint
+        A_cr, b_cr = self.get_constraint_coeffs_eq_lvst_new_residues(
+            vec_residue_generation_factor,
         )
-        G.append(A_imp, )
-        h.append(b_imp, )
+        G.append(A_cr, )
+        h.append(b_cr, )
+
+        # add the import fraction forcing constraint?
+        if self.check_import_frac(vec_import_frac, ):
+
+            # import values as a function of existing + new crop plants
+            A_imp, b_imp = self.get_constraint_coeffs_eq_agrc_imports(
+                vec_import_frac.astype(float),
+            )
+            G.append(A_imp, )
+            h.append(b_imp, )
+
+            if not allow_new:
+                msg = f"""Note: allow_new if False and import fractions are 
+                    fixed. This can cause infeasibilities if enough feed is not
+                    provided.
+                """
+                warnings.warn(msg)
+
 
 
         ##  GET INEQUALITY CONSTRATINTS
@@ -2268,8 +2389,8 @@ class LivestockDietEstimator:
 
         # supply balance
         A_sb, b_sb = self.get_constraint_coeffs_leq_lvst_feed_supply(
-            vec_residue_generation_factor.astype(float),
             vec_supply.astype(float), 
+            vec_import_frac = vec_import_frac,
         )
         A.append(A_sb, )
         b.append(b_sb, )
@@ -2409,7 +2530,6 @@ class LivestockDietEstimator:
     def solve(self,
         vec_costs: np.ndarray,
         vec_demand: np.ndarray,
-        vec_import_frac: np.ndarray,
         vec_max_crop_residues_fraction: np.ndarray,
         vec_max_crops_cereals_fraction: np.ndarray,
         vec_max_crops_non_cereals_fraction: np.ndarray,
@@ -2423,6 +2543,7 @@ class LivestockDietEstimator:
         *,
         allow_new: bool = False,
         stop_on_error: bool = False,
+        vec_import_frac: Union[np.ndarray, None] = None,
         **kwargs,
     ) -> np.ndarray:
         """Solve for estimated dietary consumption based on available land use
@@ -2440,9 +2561,6 @@ class LivestockDietEstimator:
         vec_demand : np.ndarray
             Vector (n_livstock_categories x 1) of total feed demands from each
             livetock type
-        vec_import_frac : np.ndarray
-            Vector of import fractions of cereals and non-cereals. Used to 
-            adjust import supply availability if new crops are planted.
         vec_max_crop_residues_fraction : np.ndarray
             Vector (n_livstock_categories x 1) of maximum dietary fractions from 
             crop residues
@@ -2481,6 +2599,13 @@ class LivestockDietEstimator:
             Allow sourcing from new classes? 
         stop_on_error : bool
             Stop if errors occur in solutions?
+        vec_import_frac : Union[np.ndarray, None]
+            Optional vector of import fractions of cereals and non-cereals. Used to 
+            adjust import supply availability if new crops are planted. 
+                * If NumPy vector:  Uses the ratio of imports as a hard 
+                                    constraint. Can only be used if allowing new
+                * Otherwise:        Allows for imports to be a free variable.
+                                    Generally the case if allow_new = False
         **kwargs :
             Passed to sco.linprog()
         """
@@ -2502,19 +2627,20 @@ class LivestockDietEstimator:
             c = self.get_costs(
                 vec_costs,
                 allow_new = allow_new,
+                vec_import_frac = vec_import_frac,
                 **kwargs,
             )
 
         except Exception as e:
             msg = f"Error retrieving costs values in {class_name}: {e}"
             raise RuntimeError(msg)
-        
+
 
         # try to retrieve constraint components
         try:
             A, b, G, h = self.get_problem_components_constraints(
+                allow_new,
                 vec_demand,
-                vec_import_frac,
                 vec_max_crop_residues_fraction,
                 vec_max_crops_cereals_fraction,
                 vec_max_crops_non_cereals_fraction,
@@ -2525,6 +2651,7 @@ class LivestockDietEstimator:
                 vec_min_pastures_fraction,
                 vec_residue_generation_factor,
                 vec_supply,
+                vec_import_frac = vec_import_frac,
             )
 
         except Exception as e:
@@ -2563,138 +2690,6 @@ class LivestockDietEstimator:
             """
         return sol
 
-
-
-
-
-
-    def solve_sco_min(self,
-        Q: np.ndarray,
-        x_0: np.ndarray, 
-        x_target: np.ndarray, 
-        A: np.ndarray,
-        b: np.ndarray,
-        G: np.ndarray,
-        h: np.ndarray,
-        false_area: float = 10000.,
-        flag_ignore: Union[float, None] = None,
-        min_diag: Union[float, None] = None,
-        verbose: bool = False,
-        **kwargs,
-    ) -> np.ndarray:
-        """Call scipy.optimize.minimize to attempt to solve the problem. 
-
-        Function Arguments
-        ------------------
-        Q : np.ndarray
-            Unadjusted transition matrix (2-d, n x n)
-        x_0 : np.ndarray
-            Initial prevalence (1-d, n x 1)
-        x_target : np.ndarray
-            Next-step prevalence vector (can ignore classes; 1-d, n x 1)
-        A : np.ndarray
-            EQUALITY constraint matrix (Ax == b)
-        b : np.ndarray
-            EQUALITY constraints (Ax == b)
-        G : np.ndarray
-            INEQUALITY constraint matrix (Gx <= h)
-        h : np.ndarray
-            INEQUALITY constraints (Gx <= h)
-        flag_ignore : float
-            Flag in vector_bounds used 
-
-        Keyword Arguments
-        -----------------
-        false_area : float
-            Dummy area to use to inflate target vectors for numerical precision
-        flag_ignore : Union[float, None]
-            Flag in vector_bounds used 
-        min_diag : Union[float, None]
-            Minimum diagonal attributable to solver change; if an existing 
-            (unadjusted) diagonlal transition is below this level, then that is 
-            used as the minimum. If None, defaults to 
-            self.min_solveable_diagonal
-        verbose : bool
-            Print all output? (CURRENTLY NOT PASSED)
-        **kwargs : 
-            Passed to sco.minimimze()
-        """
-
-        ##  INITIALIZATION
-
-        min_diag = (
-            self.min_solveable_diagonal 
-            if not sf.isnumber(min_diag) 
-            else min(max(min_diag, 0.0), 1.0)
-        )
-
-        # prepare prevalence vectors
-        x_0_cur = false_area*x_0
-        x_target_cur = x_target.copy()
-        x_target_cur[x_target_cur != flag_ignore] *= false_area
-
-        # define functions to pass
-        def _obj_func_cur(
-            x: np.ndarray,
-        ) -> float:
-            """Passable function to sco.minimize for current iteration.
-            """
-            
-            out = self.f_obj_mce(
-                x,
-                x_0_cur,
-                x_target_cur,
-                flag_ignore = flag_ignore,
-            )
-            
-            return out
-        
-
-
-        def _obj_grad_cur(
-            x: np.ndarray
-        ) -> float:
-            """Passable function to sco.minimize for current iteration. 
-            """
-            out = self.grad_mce(
-                x,
-                x_0_cur,
-                x_target_cur,
-                flag_ignore = flag_ignore,
-            )
-            
-            return out
-        
-
-
-        ##  GET SOME CONSTRAINTS
-        
-        # add the min diag
-        G_md, h_md = self.get_constraint_coeffs_min_diag(Q, min_diag, )
-        G_new = np.concatenate([G, G_md])
-        h_new = np.concatenate([h, h_md])
-
-        n = x_0.shape[0]**2
-        constraints = [
-            sco.LinearConstraint(G_new, ub = h_new, ),
-            sco.LinearConstraint(A, lb = b, ub = b, ),
-            sco.LinearConstraint(np.identity(n), lb = np.zeros(n), ub = np.ones(n), )
-        ]
-
-
-        ##  FINALLY, CALL MINIMIZE
-        
-        sol = sco.minimize(
-            _obj_func_cur,
-            Q.flatten(),
-            constraints = constraints,
-            jac = _obj_grad_cur,
-            **kwargs,
-        )
-
-        out = sol.x if sol.success else None
-
-        return out
 
 
 

@@ -4069,23 +4069,32 @@ class AFOLU:
 
         cost_lfi = 10**8
         cost_new_high = 9000
-
-        #  costs
-        lurf_active = lurf > 0
-        costs_new_crops = cost_new_high if not lurf_active else 10
-        costs_new_pastures = cost_new_high if not lurf_active else 10
         
+        #
+        # costs
+        # lurf_active = lurf > 0
+        # costs_imports_crops = 3
+        # costs_new_crops = cost_new_high if not lurf_active else 10
+        # costs_new_pastures = cost_new_high if not lurf_active else 10
+        #
+        # CONSISTENT
+        # 1. Pastures always 0
+        # 2. existing crops are 1
+        # 3. imports are 2 (bounded)
+        # 4. "new" 
+
         dict_costs = {
-            "crop_residues": 2,                             # look at crops residues and crops at same lvel
+            "crop_residues": 1,                             # look at crops residues and crops at same lvel
             "crops_cereals": 1,                             # look at crops after patures
             "crops_non_cereals": 1,                         # ""  "" 
-            "pastures": 0,                                  # always leverage pastures if available
-            "crops_cereals_new": costs_new_crops,           # new crops are off-limits if running without LURF; otherwise, they should be before imports (since they will be adjusted later)
-            "crops_non_cereals_new": costs_new_crops,       # ""  ""
-            "pastures_new": costs_new_pastures,             # ""  ""
-            "crop_imports_cereals": 0,                      # Crop Imports are a function of planted values
-            "crop_imports_non_cereals": 0,                  # ""  ""
-            "livestock_feed_imports": cost_lfi              # always available, but as a last resort
+            "pastures": 1,                                  # always leverage pastures if available
+            "crop_residues_new": 3,                         # new crops + residues are always last
+            "crops_cereals_new": 3,                         # ""  ""
+            "crops_non_cereals_new": 3,                     # ""  ""
+            "pastures_new": 3,                              # ""  ""
+            "crop_imports_cereals": 2,                      # If lurf > 0, imports are fixed; otherwise, they are the slack
+            "crop_imports_non_cereals": 2,                  # ""  ""
+            "pasture_imports": 2                            # ""  ""
         }
 
         vec_out = np.array(
@@ -4122,9 +4131,17 @@ class AFOLU:
     def get_lde_crop_import_fracs(self,
         i: int,
         arr_agrc_yield: np.ndarray,         
-    ) -> np.ndarray:
+    ) -> Tuple[np.ndarray]:
         """Get the import fractions of cereals and non-cereals. Returns a (2, )
-            numpy vector.
+            tuple of the form
+
+            (
+                vec_import_fracs,       # vector of import fractions for cereals
+                                        # and non-cereals
+                vec_imports,            # vector of import totals for cereals
+                                        # and non-cereals
+
+            )
         """
         # set some vecs
         vec_frac_feed = self.arrays_agrc.arr_agrc_frac_animal_feed[i]
@@ -4139,12 +4156,31 @@ class AFOLU:
         vec_weights /= vec_weights.sum()
         frac_imports_nc = np.dot(vec_weights, vec_frac_imports[inds_nc])
 
-        # output
-        out = np.array(
+        imports_total_nc = vec_yield[inds_nc].sum()
+
+        
+        ##  SET OUTPUTS
+        
+        # fractions of imports
+        vec_frac_imports = np.array(
             [
                 vec_frac_imports[self.ind_agrc_cereals],
                 frac_imports_nc
             ]
+        )
+
+        # import totals
+        vec_imports = np.array(
+            [
+                vec_yield[self.ind_agrc_cereals],
+                imports_total_nc,
+                0, # pasture imports
+            ]
+        )
+
+        out = (
+            vec_frac_imports,
+            vec_imports,
         )
 
         return out
@@ -4237,8 +4273,10 @@ class AFOLU:
         vec_agrc_area: np.ndarray,
         vec_agrc_genfactor_residues: np.ndarray,
         vec_agrc_frac_lvst: np.ndarray,
+        vec_agrc_import_totals: np.ndarray,
         vec_agrc_yf: np.ndarray,
         vec_lndu_area: np.ndarray,
+        vec_bounds_new: Union[np.ndarray, None] = None,
     ) -> np.ndarray:
         """Get the supplies to pass to the LivestockDietaryEstimator. Assume
             everything is in correct units.
@@ -4250,27 +4288,31 @@ class AFOLU:
         vec_agrc_yield = vec_agrc_area*vec_agrc_yf
         total_residues = np.dot(vec_agrc_yield, vec_agrc_genfactor_residues)
         
-        
-        # get 
+        # get key constraints
         vec_agrc_yield_lvst = vec_agrc_yield*vec_agrc_frac_lvst
         yield_for_lvst_cereals = vec_agrc_yield_lvst[self.ind_agrc_cereals]
         yield_for_lvst_non_cereals = vec_agrc_yield_lvst.sum() - yield_for_lvst_cereals
 
-        # set up supplies
-        vec_supply = np.array(
-            [
-                total_residues,
-                yield_for_lvst_cereals,
-                yield_for_lvst_non_cereals,
-                yield_pastures,
-                np.inf,
-                np.inf,
-                np.inf,
-                0.0,
-                0.0,
-                np.inf,
-            ]
+        # bounds on new lands + residues
+        bounds_new = (
+            list(vec_bounds_new) 
+            if isinstance(vec_bounds_new, np.ndarray) 
+            else [np.inf for x in range(4)]
         )
+
+        # initialize the supply
+        vec_supply = [
+            total_residues,
+            yield_for_lvst_cereals,
+            yield_for_lvst_non_cereals,
+            yield_pastures
+        ]
+
+        # add in bounds on new lands + imports
+        vec_supply += bounds_new
+        vec_supply += list(vec_agrc_import_totals)
+        vec_supply = np.array(vec_supply)
+
 
         return vec_supply
     
