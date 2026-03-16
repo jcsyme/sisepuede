@@ -4130,7 +4130,7 @@ class AFOLU:
 
     def get_lde_crop_import_fracs(self,
         i: int,
-        arr_agrc_yield: np.ndarray,         
+        vec_agrc_yield: np.ndarray,         
     ) -> Tuple[np.ndarray]:
         """Get the import fractions of cereals and non-cereals. Returns a (2, )
             tuple of the form
@@ -4142,21 +4142,25 @@ class AFOLU:
                                         # and non-cereals
 
             )
+
+        Function Arguments
+        ------------------
+        vec_agrc_yield : np.ndarray
+            Vector of the expected yield
         """
         # set some vecs
         vec_frac_feed = self.arrays_agrc.arr_agrc_frac_animal_feed[i]
         vec_frac_imports = self.arrays_agrc.arr_agrc_frac_demand_imported[i]
-        vec_yield = arr_agrc_yield[i]
 
         # non-cereal indices
         inds_nc = self.inds_agrc_non_cereal
 
         # get weights for non-cereal imports
-        vec_weights = (vec_yield*vec_frac_feed)[inds_nc]
+        vec_weights = (vec_agrc_yield*vec_frac_feed)[inds_nc]
         vec_weights /= vec_weights.sum()
         frac_imports_nc = np.dot(vec_weights, vec_frac_imports[inds_nc])
 
-        imports_total_nc = vec_yield[inds_nc].sum()
+        imports_total_nc = vec_agrc_yield[inds_nc].sum()
 
         
         ##  SET OUTPUTS
@@ -4172,7 +4176,7 @@ class AFOLU:
         # import totals
         vec_imports = np.array(
             [
-                vec_yield[self.ind_agrc_cereals],
+                vec_agrc_yield[self.ind_agrc_cereals],
                 imports_total_nc,
                 0, # pasture imports
             ]
@@ -4190,10 +4194,14 @@ class AFOLU:
     def get_lde_vector_demand(self,
         vec_lvst_feed_per_head: np.ndarray,
         vec_lvst_pop: np.ndarray,
+        mass_balance_adjutment: float = 1.0,
     ) -> np.ndarray:
-        """Get the supplies to pass to the LivestockDietaryEstimator
+        """Get the supplies to pass to the LivestockDietaryEstimator. The 
+            mass_balance_adjutment can be used to pass the needed adjustment 
+            to ensure mass balance of diets in the baseline. 
         """
         vec_demand = vec_lvst_pop*vec_lvst_feed_per_head
+        vec_demand *= mass_balance_adjutment
 
         return vec_demand
     
@@ -7327,7 +7335,14 @@ class AFOLU:
             )
         )
 
-        vec_lvst_aggregate_animal_mass[0] = np.dot(arr_lvst_dem[0], arr_lvst_mass_per_animal[0])
+        # adjustment to population mass to ensure that mass balance can be met in first time step
+        factor_dietary_mass_balance_adjustment = 1.0
+
+        # total animal mass
+        vec_lvst_aggregate_animal_mass[0] = np.dot(
+            arr_lvst_dem[0], 
+            arr_lvst_mass_per_animal[0]
+        )
 
         """
         Rough note on the transition adjustment process:
@@ -7386,7 +7401,11 @@ class AFOLU:
 
             #HERE123
             lurf = vec_lndu_yrf[i]
-            vec_costs = self.get_lde_costs(lurf, )
+
+
+            #
+            #    GET LAND USE DEMANDS FOR LVST
+            #
 
             # check areas where lvst has 0 pop
             inds_lvst_where_pop_noncc = np.where(arr_lvst_annual_dry_matter_consumption_per_capita[i + 1] == 0)[0]
@@ -8079,6 +8098,118 @@ class AFOLU:
             np.put(arr_lu_derived.transpose(), rng, arr_dem_based[:, w])
 
         return arr_lu_derived
+    
+
+
+    def run_lde(self,
+        i: int,
+        lurf: float, 
+        vec_agrc_area: np.ndarray,
+        vec_agrc_regression_b: np.ndarray,
+        vec_agrc_regression_m: np.ndarray,
+        vec_agrc_yield_factors: np.ndarray,
+        vec_lndu_area: np.ndarray,
+        vec_lndu_yf_pasture_avg: np.ndarray,
+        vec_lvst_annual_feed_per_capita: np.ndarray,
+        vec_lvst_pop_target: np.ndarray,
+        allow_new: bool = True,
+        iter_step: int = 100,
+        mass_balance_adjutment: float = 1.0,
+        method: str = "highs",
+        verbose: bool = False,
+    ) -> Tuple['sco.OptimizeResult', float]:
+        """Run the LivetockDietaryEstimator.
+
+        Keyword Arguments
+        -----------------
+        allow_new : bool 
+            If False, will scale to fit within constraints of available 
+            feed. Otherwise, will produce 
+        iter_step : int
+            Step size (1/iter_step) for reducing mass of livestock demands,
+            which is interpreted as a change to average animal mass. Only
+            takes effect if allow_new is False. 
+        """
+
+        # shortcuts
+        arr_agrc_bagasse_factor = self.arrays_agrc.arr_agrc_bagasse_yield_factor
+        arr_agrc_frac_feed = self.arrays_agrc.arr_agrc_frac_animal_feed
+        arr_dm_frac_crops = self.arrays_agrc.arr_agrc_frac_dry_matter_in_crop
+
+
+        ##  INITIALIZE INPUTS 
+        
+        vec_costs = self.get_lde_costs(lurf,)
+        
+        # get residue generation factors
+        vec_agrc_genfactor_residues, vec_lde_genfactor_residues = self.get_lde_vector_residue_genfactors(
+            arr_agrc_bagasse_factor[i],
+            arr_dm_frac_crops[i],
+            arr_agrc_frac_feed[i],
+            vec_agrc_regression_b,     # arr_agrc_regression_b[i]
+            vec_agrc_regression_m,     # arr_agrc_regression_m[i]
+            vec_agrc_yield_factors,    # arr_agrc_yield_factors[i],
+        )
+        
+        vec_lvst_feed_demands = self.get_lde_vector_demand(
+            vec_lvst_annual_feed_per_capita,     # arr_lvst_annual_feed_per_capita[i],
+            vec_lvst_pop_target,                 # arr_lvst_pop_adj[i]
+            mass_balance_adjutment = mass_balance_adjutment,
+        )
+        
+        # get the imports
+        _, vec_lde_imports = self.get_lde_crop_import_fracs(
+            i, 
+            vec_agrc_area*vec_agrc_yield_factors, 
+        )
+        #vec_lde_import_fracs = np.concat([vec_lde_import_fracs, np.array([0])])
+        
+        vec_lde_supply = self.get_lde_vector_supply(
+            vec_lndu_yf_pasture_avg[i],   #
+            vec_agrc_area,                # vec_agrc_cropland_area_proj,
+            vec_agrc_genfactor_residues,  #
+            arr_agrc_frac_feed[i],        #
+            vec_lde_imports,              #
+            vec_agrc_yield_factors,       # arr_agrc_yield_factors[i],
+            vec_lndu_area,
+        )
+        
+        args_bounds = self.get_lde_dietary_bounds(i = i, )
+
+
+        ##  RUN MODEL
+
+        sol = None
+        j = 0
+
+        while sol is None:
+            
+            factor = (1 - j/iter_step)
+
+            attempt = self.lde.solve(
+                vec_costs,
+                vec_lvst_feed_demands*factor,
+                *args_bounds,
+                vec_lde_genfactor_residues,
+                vec_lde_supply,
+                allow_new = allow_new,
+                method = method,
+                options = {"disp": verbose, },
+                stop_on_error = True,
+            )
+        
+            j += 1
+            sol = attempt.x
+                
+        j -= 1
+        
+        # return solution and scaling factor
+        out = (
+            attempt,
+            factor,
+        )
+
+        return out
     
 
 

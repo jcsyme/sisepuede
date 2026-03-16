@@ -1684,6 +1684,18 @@ class LivestockDietEstimator:
     
 
 
+    def collapse_into_categories(self,
+        mat: np.ndarray,
+    ) -> np.ndarray:
+        """Collapse imports and new into base categories of crop residues,
+            crop cereals, crop non-cereals, and pastures.
+        """
+
+
+        return None
+
+
+
     def display_as_matrix(self,
         x: np.ndarray,
     ) -> np.ndarray:
