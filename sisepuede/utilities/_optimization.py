@@ -1691,8 +1691,57 @@ class LivestockDietEstimator:
             crop cereals, crop non-cereals, and pastures.
         """
 
+        ##  CHECKS
 
-        return None
+        if not isinstance(mat, np.ndarray):
+            return None
+        
+        # check if only passing a vector
+        return_first_row = False
+        if len(mat.shape) == 1:
+            return_first_row = True
+            mat = np.array([mat])
+
+
+        ##  INITIALIZE SHORTCUTS
+
+        ind_cc = self.ind_crops_cereals
+        ind_cnc = self.ind_crops_non_cereals
+        ind_cr = self.ind_crop_residues
+        ind_p = self.ind_pastures
+
+        ordered_inds = [
+            ind_cr,
+            ind_cc,
+            ind_cnc,
+            ind_p
+        ]
+
+        A = np.zeros((mat.shape[0], len(ordered_inds)))
+
+        
+        ##  ITERATE
+
+        for j, ind in enumerate(ordered_inds):
+            
+            vec = mat[:, ind].copy()
+
+            # try to get imports
+            ind_imp = self.dict_ind_to_imp_ind.get(ind, )
+            if ind_imp is not None:
+                vec += mat[:, ind_imp]
+
+            # try to get new
+            ind_new = self.dict_ind_to_new_ind.get(ind, )
+            if ind_new is not None:
+                vec += mat[:, ind_new]
+
+            # add to output
+            A[:, j] = vec
+
+        A = A[0] if return_first_row else A
+
+        return A
 
 
 
@@ -2057,6 +2106,7 @@ class LivestockDietEstimator:
 
     def get_constraint_coeffs_leq_lvst_feed_supply(self,
         vec_supplies: np.ndarray,
+        vec_residue_generation_factor: np.ndarray,
         vec_import_frac: Union[np.ndarray, None] = None,
         **kwargs,
     ) -> Tuple[np.ndarray, np.ndarray, np.ndarray]:
@@ -2071,6 +2121,10 @@ class LivestockDietEstimator:
 
         Function Arguments
         ------------------
+        vec_residue_generation_factor : np.ndarray
+            For new crop classes, vector (2, ), ordered as 
+            Crops - Cereals, Crops - Non-Cereals, storing rates at which 
+            residues are available for livestock feed as a proportion of yield
         vec_supplies : np.ndarray
             Vector of feed availability, in mass, by feed pathway. Only applies
             to categories 0 -- (n - 1) (the slack category is not bounded)
@@ -2080,6 +2134,12 @@ class LivestockDietEstimator:
         """
 
         ##  SETUP CONSTRAINED INDICES
+
+        # initialize some indices
+        ind_cr = self.ind_crop_residues
+        ind_cr_new = self.dict_ind_to_new_ind.get(ind_cr, )
+        inds_cc_new = self.flat_indices_col(self.ind_crops_cereals_new, )
+        inds_cnc_new = self.flat_indices_col(self.ind_crops_non_cereals_new, )
 
         # imports are not constrained because they are a function of how much
         # is planted in original/new croplands
@@ -2103,7 +2163,19 @@ class LivestockDietEstimator:
         for j in inds_constrained:
             inds = self.flat_indices_col(j, )
             A[j, inds] = 1
-      
+
+
+        ##  ADD IN CROP RESIDUE AVAILABILITY
+
+        # get factors for residue generation
+        rho_cc = vec_residue_generation_factor[0]
+        rho_cnc = vec_residue_generation_factor[1]
+        
+        # crop residuals supplies are increased by these factors*new yields
+        A[ind_cr, inds_cc_new] = -rho_cc
+        A[ind_cr, inds_cnc_new] = -rho_cnc
+
+
         # setup output
         out = (
             A[inds_constrained, :],
@@ -2260,14 +2332,11 @@ class LivestockDietEstimator:
     ) -> np.ndarray:
         """
         """
-        inds_new = [
-            self.ind_crops_cereals_new,          # self.ind_crops_cereals_new,
-            self.ind_crops_non_cereals_new,      # self.ind_crops_non_cereals_new,
-            self.ind_pastures_new,               # self.ind_pastures_new
-        ]
+        inds_new = sorted(
+            list(self.dict_ind_to_new_ind.values())
+        )
 
         # get indices associated with "new"
-
         inds_flat = []
         for ind in inds_new:
             inds_flat.extend(
@@ -2363,12 +2432,14 @@ class LivestockDietEstimator:
         G.append(A_fb, )
         h.append(b_fb, )
 
+        """
         # add the new crop residue forcing constraint
         A_cr, b_cr = self.get_constraint_coeffs_eq_lvst_new_residues(
             vec_residue_generation_factor,
         )
         G.append(A_cr, )
         h.append(b_cr, )
+        """;
 
         # add the import fraction forcing constraint?
         if self.check_import_frac(vec_import_frac, ):
@@ -2402,6 +2473,7 @@ class LivestockDietEstimator:
         # supply balance
         A_sb, b_sb = self.get_constraint_coeffs_leq_lvst_feed_supply(
             vec_supply.astype(float), 
+            vec_residue_generation_factor.astype(float),
             vec_import_frac = vec_import_frac,
         )
         A.append(A_sb, )
@@ -2633,7 +2705,7 @@ class LivestockDietEstimator:
             msg = f"Error retrieving bounds in {class_name}: {e}"
             raise RuntimeError(msg)
         
-
+      
         # try to retrieve objective components
         try:
             c = self.get_costs(
@@ -2669,8 +2741,6 @@ class LivestockDietEstimator:
         except Exception as e:
             msg = f"Error retrieving constraints in {class_name}: {e}"
             raise RuntimeError(msg)
-
-     
 
         try:
             sol = sco.linprog(

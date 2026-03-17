@@ -2256,6 +2256,75 @@ class AFOLU:
 
         return out
     
+    
+
+    def estimate_lde_carrying_capacity_lvst(self,
+        sol: Union['sco.OptimizeResult', np.ndarray],
+        vec_lde_supply: np.ndarray,
+        vec_lvst_pop_base: np.ndarray,
+        bound_scalar_at_one: bool = True,
+    ) -> np.ndarray:
+        """Get a vector of the estimated carrying capacity of livestock
+            given a dietary solution from the LDE. Can
+
+
+        Function Arguments
+        ------------------
+        sol : Union[sco.OptimizeResult, np.ndarray]
+            Solution from LDE. Can be specified as an OptimizeResult or 
+            a matrix (lde.m x lde.n)
+        vec_lde_supply : np.ndarray
+            Vector of LDE supply feed bounds (mass)
+        vec_lvst_pop_base : np.ndarray
+            Vector of population demands use to solve LDE
+
+        Keyword Arguments
+        -----------------
+        bound_scalar_at_one : bool
+            Bound the scalar at one if carrying capacity is greater than 
+            what is sourced? Prevents populations greater than what is 
+            specified in original problem. If False, can allow for 
+            carrying capacities to be greater than the problem 
+            specification
+        """
+        ##  CHECK INPUT
+
+        lde = self.lde
+        mat_sol = self.get_lde_mat_from_sol(sol, )
+        
+        
+        # get supply requested in the model
+        vec_supply_requested = (
+            lde
+            .collapse_into_categories(mat_sol, )
+            .sum(axis = 0, )
+        )
+        
+        # get the supply available--ensure "new" are set to 0
+        inds_new = list(lde.dict_ind_to_new_ind.values())
+        vec_lde_supply_avail = vec_lde_supply.copy()
+        vec_lde_supply_avail[inds_new] = 0
+        vec_lde_supply_avail = lde.collapse_into_categories(vec_lde_supply_avail, )
+        
+        # 
+        vec_ratio_requested_to_avail = np.nan_to_num(
+            vec_supply_requested/vec_lde_supply_avail,
+            nan = 1.0,
+        )
+
+        # get population scalar
+        scalar_pop = vec_ratio_requested_to_avail.max()
+        scalar_pop = (
+            max(scalar_pop, 1, )
+            if bound_scalar_at_one
+            else scalar_pop
+        )
+
+        scalar_pop = 1/scalar_pop
+        vec_out = vec_lvst_pop_base*scalar_pop
+
+        return vec_out
+
 
 
     def estimate_energy_demand_agrc_lvst(self,
@@ -4056,7 +4125,6 @@ class AFOLU:
 
 
     def get_lde_costs(self,
-        lurf: float,
     ) -> np.ndarray:
         """
 
@@ -4103,29 +4171,6 @@ class AFOLU:
 
         return vec_out
 
-
-
-    def get_lde_dietary_bounds(self,
-        i: int = 0,
-    ) -> List[np.ndarray]:
-        """Get dietary bound vectors for the LDE. Uses self.arrays_lvst
-        """
-
-        arrs_lvst = self.arrays_lvst
-        
-        vecs_out = [
-            arrs_lvst.arr_lvst_frac_diet_max_from_crop_residues[i],
-            arrs_lvst.arr_lvst_frac_diet_max_from_crops_cereals[i],
-            arrs_lvst.arr_lvst_frac_diet_max_from_crops_non_cereals[i],
-            arrs_lvst.arr_lvst_frac_diet_max_from_pastures[i],
-            arrs_lvst.arr_lvst_frac_diet_min_from_crop_residues[i],
-            arrs_lvst.arr_lvst_frac_diet_min_from_crops_cereals[i],
-            arrs_lvst.arr_lvst_frac_diet_min_from_crops_non_cereals[i],
-            arrs_lvst.arr_lvst_frac_diet_min_from_pastures[i],
-        ]
-
-        return vecs_out
-    
 
 
     def get_lde_crop_import_fracs(self,
@@ -4188,20 +4233,240 @@ class AFOLU:
         )
 
         return out
+    
 
+
+    def get_lde_dietary_bounds(self,
+        i: int = 0,
+    ) -> List[np.ndarray]:
+        """Get dietary bound vectors for the LDE. Uses self.arrays_lvst
+        """
+
+        arrs_lvst = self.arrays_lvst
+        
+        vecs_out = [
+            arrs_lvst.arr_lvst_frac_diet_max_from_crop_residues[i],
+            arrs_lvst.arr_lvst_frac_diet_max_from_crops_cereals[i],
+            arrs_lvst.arr_lvst_frac_diet_max_from_crops_non_cereals[i],
+            arrs_lvst.arr_lvst_frac_diet_max_from_pastures[i],
+            arrs_lvst.arr_lvst_frac_diet_min_from_crop_residues[i],
+            arrs_lvst.arr_lvst_frac_diet_min_from_crops_cereals[i],
+            arrs_lvst.arr_lvst_frac_diet_min_from_crops_non_cereals[i],
+            arrs_lvst.arr_lvst_frac_diet_min_from_pastures[i],
+        ]
+
+        return vecs_out
+    
+
+
+    def get_lde_lvst_land_demands(self,
+        i: int,
+        factor_carrying_capacity: float,
+        lurf: float, 
+        vec_agrc_area: np.ndarray,
+        vec_agrc_regression_b: np.ndarray,
+        vec_agrc_regression_m: np.ndarray,
+        vec_agrc_yield_factors: np.ndarray,
+        vec_lndu_area: np.ndarray,
+        vec_lndu_yf_pasture_avg: np.ndarray,
+        vec_lvst_annual_feed_per_capita: np.ndarray,
+        vec_lvst_demand: np.ndarray,
+        lvst_dietary_mass_factor: float = 1.0,   
+        **kwargs,
+    ) -> Tuple:
+        """Using the LivestockDietaryEstimator, get demands for land use.
+            Follows these steps:
+
+            (A) Run the LDE with *no reallocation* in initial period. Use
+                this to determine feed demands and the dietary mass factor
+                that will apply for future runs. 
+
+            (B) In other runs, do the following:
+                1. Run with LURF == 1/allowing new allocations of feed with
+                    LVST demand (D)
+                2. Get feed allocations by livestock type
+                3. Determine maximum carrying capacity (C) for fixed land 
+                    (LURF = 0) based on solved feed allocations
+                4. Use LURF (r) to find target population T as 
+                    T = rD + (1 - r)C
+                5. Solve problem with new allocations allowed and target
+                    population
+                6. New allocations are then passed to the QAdjuster as 
+                    targets
+                7. Using available land from the QAdjuter, calculate
+                    available population
+                    
+            (3) After solving, use carrying capacity estimate to generate
+                final population.
+
+        Returns a tuple of the following form:
+
+            (
+                sol_new,  
+                factor_dmf, 
+                vec_lde_supply, 
+                ratio_yield, 
+            )
+        """
+
+        ##  B.1: - PRELIMINARY RUN OF LDE
+
+        # if initializing, run without allowing new to determine the 
+        # scaling factors needed to actually support the livestock
+        # population; this will be carried forth through the rest of
+        # the runs
+
+        # if initializing, *do not allow new*
+        allow_new = (i != 0)
+        
+        (
+            sol, 
+            factor_dmf, 
+            vec_lde_supply,
+        ) = self.run_lde(
+            i,
+            vec_agrc_area,
+            vec_agrc_regression_b,
+            vec_agrc_regression_m,
+            vec_agrc_yield_factors,
+            vec_lndu_area,
+            vec_lndu_yf_pasture_avg,
+            vec_lvst_annual_feed_per_capita,
+            vec_lvst_demand,
+            allow_new = allow_new,
+            mass_balance_adjustment = lvst_dietary_mass_factor,
+            **kwargs,
+        )
+
+        ratio_yield = self.get_lde_pasture_yield_ratio(
+            sol,
+            vec_lde_supply,
+        )
+        
+            
+        # on first iteration, just have to return this info
+        if i == 0:
+            out = (
+                sol_new, 
+                factor_dmf, 
+                vec_lde_supply, 
+                ratio_yield, 
+            )
+            return out
+
+
+        ##  B.2-5: - GET CARRYING CAPACITY, DETERMINE TARGET POP, SOLVE AGAIN
+
+        # b2 and 3--feed shares (internal) and carrying capacity
+        vec_pop_carrying_capacity = self.estimate_lde_carrying_capacity_lvst(
+            sol, 
+            vec_lde_supply, 
+            vec_lvst_demand, 
+        )
+
+        # b4--target population is determined by reallocation factor
+        vec_pop_target = (
+            lurf*vec_lvst_demand
+            + (1 - lurf)*vec_pop_carrying_capacity
+        )
+
+        # b5--solve again with target population, 
+        (
+            sol_new, 
+            factor_dmf,
+            vec_lde_supply, 
+        ) = self.run_lde(
+            i,
+            vec_agrc_area,
+            vec_agrc_regression_b,
+            vec_agrc_regression_m,
+            vec_agrc_yield_factors,
+            vec_lndu_area,
+            vec_lndu_yf_pasture_avg,
+            vec_lvst_annual_feed_per_capita,
+            vec_pop_target,                   # note: - set target pop here
+            allow_new = True,                 #       - ensure allow_new is True
+            mass_balance_adjustment = lvst_dietary_mass_factor,
+            **kwargs,
+        )
+        
+        out = (
+            sol_new, 
+            factor_dmf, 
+            vec_lde_supply, 
+            ratio_yield, 
+        )
+        
+        return out
+    
+
+
+    def get_lde_mat_from_sol(self,
+        sol: Union['sco.OptimizeResult', np.ndarray], 
+    ) -> Union[np.ndarray, None]:
+        """Pass a solution, vector of results (dim self.mn), or matrix with dim
+            (self.m, self.n) to return matrix. Returns None if otherwise 
+            invalid.
+        """
+
+        lde = self.lde
+        mat_sol = sol
+
+        # checks on input specification
+        if isinstance(sol, suo.sco.OptimizeResult):
+            if sol.x is None:
+                return None
+            mat_sol = lde.display_as_matrix(sol.x, )
+
+        # check that type is numpy
+        if not isinstance(mat_sol, np.ndarray):
+            return None
+        
+        # reshape if set as a vector
+        if mat_sol.shape == (lde.mn, ):
+            mat_sol_tmp = mat_sol.reshape((lde.m, lde.n, ))
+            mat_sol = mat_sol_tmp
+
+        # verify shape
+        if mat_sol.shape != (lde.m, lde.n):
+            return None
+        
+        return mat_sol
+    
+
+
+    def get_lde_pasture_yield_ratio(self,
+        sol: Union['sco.OptimizeResult', np.ndarray],
+        vec_lde_supply: np.ndarray,
+    ) -> np.ndarray:
+        """Get the ratio of yield used to available yield in
+            existing pastures. This is used to set land use demands
+            for future growth. 
+        """
+
+        mat_sol = self.get_lde_mat_from_sol(sol, )
+        ind_p = self.lde.ind_pastures
+
+        yield_consumed = mat_sol[:, ind_p].sum()
+        yield_available = vec_lde_supply[self.lde.ind_pastures]
+
+        out = 0 if (yield_available == 0) else yield_consumed/yield_available
+        
+        return out
+    
 
 
     def get_lde_vector_demand(self,
         vec_lvst_feed_per_head: np.ndarray,
         vec_lvst_pop: np.ndarray,
-        mass_balance_adjutment: float = 1.0,
+        mass_balance_adjustment: float = 1.0,
     ) -> np.ndarray:
         """Get the supplies to pass to the LivestockDietaryEstimator. The 
-            mass_balance_adjutment can be used to pass the needed adjustment 
+            mass_balance_adjustment can be used to pass the needed adjustment 
             to ensure mass balance of diets in the baseline. 
         """
         vec_demand = vec_lvst_pop*vec_lvst_feed_per_head
-        vec_demand *= mass_balance_adjutment
+        vec_demand *= mass_balance_adjustment
 
         return vec_demand
     
@@ -8090,7 +8355,7 @@ class AFOLU:
         if arr_lu_derived.shape != arr_dem_based.shape:
             raise ValueError(f"Error in reassign_pops_from_proj_to_carry: array dimensions do not match: arr_lu_derived = {arr_lu_derived.shape}, arr_dem_based = {arr_dem_based.shape}.")
 
-        cols = np.where(arr_lu_derived[0] < 0)[0]
+        cols = np.where(arr_lu_derived[ 0] < 0)[0]
         n_row, n_col = arr_lu_derived.shape
 
         for w in cols:
@@ -8103,7 +8368,6 @@ class AFOLU:
 
     def run_lde(self,
         i: int,
-        lurf: float, 
         vec_agrc_area: np.ndarray,
         vec_agrc_regression_b: np.ndarray,
         vec_agrc_regression_m: np.ndarray,
@@ -8114,11 +8378,17 @@ class AFOLU:
         vec_lvst_pop_target: np.ndarray,
         allow_new: bool = True,
         iter_step: int = 100,
-        mass_balance_adjutment: float = 1.0,
+        mass_balance_adjustment: float = 1.0,
         method: str = "highs",
         verbose: bool = False,
-    ) -> Tuple['sco.OptimizeResult', float]:
-        """Run the LivetockDietaryEstimator.
+    ) -> Tuple['sco.OptimizeResult', float, np.ndarray]:
+        """Run the LivetockDietaryEstimator. Returns a tuple of the form:
+
+            (
+                solution,
+                mass_adjustment_factor,
+                vec_lde_supply,
+            )
 
         Keyword Arguments
         -----------------
@@ -8139,8 +8409,8 @@ class AFOLU:
 
         ##  INITIALIZE INPUTS 
         
-        vec_costs = self.get_lde_costs(lurf,)
-        
+        vec_costs = self.get_lde_costs()
+
         # get residue generation factors
         vec_agrc_genfactor_residues, vec_lde_genfactor_residues = self.get_lde_vector_residue_genfactors(
             arr_agrc_bagasse_factor[i],
@@ -8154,7 +8424,7 @@ class AFOLU:
         vec_lvst_feed_demands = self.get_lde_vector_demand(
             vec_lvst_annual_feed_per_capita,     # arr_lvst_annual_feed_per_capita[i],
             vec_lvst_pop_target,                 # arr_lvst_pop_adj[i]
-            mass_balance_adjutment = mass_balance_adjutment,
+            mass_balance_adjustment = mass_balance_adjustment,
         )
         
         # get the imports
@@ -8162,8 +8432,8 @@ class AFOLU:
             i, 
             vec_agrc_area*vec_agrc_yield_factors, 
         )
-        #vec_lde_import_fracs = np.concat([vec_lde_import_fracs, np.array([0])])
         
+        # get supply
         vec_lde_supply = self.get_lde_vector_supply(
             vec_lndu_yf_pasture_avg[i],   #
             vec_agrc_area,                # vec_agrc_cropland_area_proj,
@@ -8173,17 +8443,17 @@ class AFOLU:
             vec_agrc_yield_factors,       # arr_agrc_yield_factors[i],
             vec_lndu_area,
         )
-        
+
         args_bounds = self.get_lde_dietary_bounds(i = i, )
 
 
-        ##  RUN MODEL
+        ##  RUN MODEL UNDER ASSUMPTION
 
         sol = None
         j = 0
 
         while sol is None:
-            
+
             factor = (1 - j/iter_step)
 
             attempt = self.lde.solve(
@@ -8197,6 +8467,10 @@ class AFOLU:
                 options = {"disp": verbose, },
                 stop_on_error = True,
             )
+
+            if j == 0:
+                global att
+                att = attempt
         
             j += 1
             sol = attempt.x
@@ -8207,6 +8481,7 @@ class AFOLU:
         out = (
             attempt,
             factor,
+            vec_lde_supply,
         )
 
         return out
