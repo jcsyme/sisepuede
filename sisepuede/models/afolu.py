@@ -4261,7 +4261,6 @@ class AFOLU:
 
     def get_lde_lvst_land_demands(self,
         i: int,
-        factor_carrying_capacity: float,
         lurf: float, 
         vec_agrc_area: np.ndarray,
         vec_agrc_regression_b: np.ndarray,
@@ -4347,7 +4346,7 @@ class AFOLU:
         # on first iteration, just have to return this info
         if i == 0:
             out = (
-                sol_new, 
+                sol, 
                 factor_dmf, 
                 vec_lde_supply, 
                 ratio_yield, 
