@@ -2349,10 +2349,17 @@ class Strategies:
             ]
 
             # merge
-            df_merge = pd.merge(
-                df_match_tornado,
-                df_match_whirlpool,
-                on = field_code,
+            df_merge = (
+                pd.merge(
+                    df_match_tornado,
+                    df_match_whirlpool,
+                    on = field_code,
+                )
+                .rename(
+                    columns = {
+                        field_code: self.transformations.field_attr_code,
+                    }
+                )
             )
             
             df_merge[key_name_out] = strat_cur.id_num
