@@ -2232,6 +2232,186 @@ class Strategies:
         out = None if (strat is None) else strat.id_num
 
         return out
+    
+
+
+    def get_tornado_whirlpool_id_map(self,
+        attribute_primary: Union[AttributeTable, pd.DataFrame, None] = None,
+        prefix_field_out_base: str = "base",
+        prefix_tornado: str = _PREFIX_DEFAULT_TORNADO,
+        prefix_whirlpool: str = _PREFIX_DEFAULT_WHIRLPOOL,
+    ) -> pd.DataFrame:
+        """Generate a map of tornado primary_id values to whirlpool
+            primary_id values.
+
+        Function Arguments
+        ------------------
+
+        Keyword Arguments
+        -----------------
+        prefix_field_out_base : str
+            Prefix to apply to output strategy id field that stores the base 
+            strategy against which tornado and whirlpool transformations are 
+            sourced
+        prefix_tornado : str
+            Strategy code prefix for tornado runs to match on
+        prefix_whirlpool : str
+            Strategy code prefix for whirlpool runs to match on
+        """
+
+        ##  INITIALIZATION
+
+        # shortcuts
+        df_tab = self.attribute_table.table
+        key = self.attribute_table.key
+        key_name_out = f"{prefix_field_out_base}_{key}"
+        key_primary = self.model_attributes.dim_primary_id
+
+        # some fields
+        field_code = self.field_strategy_code
+        field_tornado = prefix_tornado.lower()
+        field_tornado_primary = f"{key_primary}_{field_tornado}"
+        field_tornado = f"{key}_{field_tornado}"
+        
+        field_whirlpool = prefix_whirlpool.lower()
+        field_whirlpool_primary = f"{key_primary}_{field_whirlpool}"
+        field_whirlpool = f"{key}_{field_whirlpool}"
+                
+
+        # get all runs of each type
+        all_codes = df_tab[field_code].to_numpy()
+
+        # get some shared variables for dataframe operations below
+        fields_base_retrieve = [field_code, key]
+        dict_repl_t = {key: field_tornado, }
+        dict_repl_w = {key: field_whirlpool, }
+
+
+        
+        ##  ITERATE OVER EACH STRATEGY TO CHECK
+
+        df_out = []
+        strat_base = self.get_strategy(
+            self.baseline_id, 
+        )
+        
+        for strat in self.all_strategies:
+            # skip base
+            if strat == self.baseline_id: continue
+                
+            strat_cur = self.get_strategy(strat, )
+            
+            prefix_tornado_cur_strat = (
+                self
+                .format_codes_for_tornado_whirlpool(
+                    strat_base,
+                    "",
+                    prefix_tornado,
+                )
+            )
+            
+            prefix_whirlpool_cur_strat = (
+                self
+                .format_codes_for_tornado_whirlpool(
+                    strat_cur,
+                    "",
+                    prefix_whirlpool,
+                )
+            )
+
+            # get strategies that match in each case
+            inds_match_tornado = [x.startswith(prefix_tornado_cur_strat) for x in all_codes]
+            inds_match_whirlpool = [x.startswith(prefix_whirlpool_cur_strat) for x in all_codes]
+            
+
+            ##  BUILD DATAFRAMES TO MERGE
+
+            # tornado--filter and clean fields to merge on
+            df_match_tornado = (
+                df_tab[inds_match_tornado]
+                .get(fields_base_retrieve)
+                .rename(columns = dict_repl_t, )
+            )
+            df_match_tornado[field_code] = [
+                x.replace(prefix_tornado_cur_strat, "") 
+                for x in df_match_tornado[field_code].to_numpy()
+            ]
+
+            # whirlpool--do the same
+            df_match_whirlpool = (
+                df_tab[inds_match_whirlpool]
+                .get(fields_base_retrieve)
+                .rename(columns = dict_repl_w, )
+            )
+            df_match_whirlpool[field_code] = [
+                x.replace(prefix_whirlpool_cur_strat, "") 
+                for x in df_match_whirlpool[field_code].to_numpy()
+            ]
+
+            # merge
+            df_merge = pd.merge(
+                df_match_tornado,
+                df_match_whirlpool,
+                on = field_code,
+            )
+            
+            df_merge[key_name_out] = strat_cur.id_num
+
+            df_out.append(df_merge)
+
+        df_out = pd.concat(df_out, )
+        
+        
+        ##  DEAL WITH PRIMARY ID
+
+        # check that it's valid
+        ret = not isinstance(attribute_primary, pd.DataFrame)
+        ret &= not is_attribute_table(attribute_primary)
+        if ret:
+            return df_out
+        
+        # otherwise, start here
+        df_att = (
+            attribute_primary.table 
+            if is_attribute_table(attribute_primary) 
+            else attribute_primary
+        )
+
+        # split out before merging 
+        df_p_tornado = (
+            df_att[[key_primary, key]]
+            .rename(
+                columns = {
+                    key: field_tornado,
+                    key_primary: field_tornado_primary,
+                }
+            )
+        )
+
+        df_p_whirlpool = (
+            df_att[[key_primary, key]]
+            .rename(
+                columns = {
+                    key: field_whirlpool,
+                    key_primary: field_whirlpool_primary,
+                }
+            )
+        )
+
+        # join twice
+        df_out = pd.merge(
+            df_p_tornado,
+            df_out,
+            how = "inner",
+        )
+
+        df_out = pd.merge(
+            df_p_whirlpool,
+            df_out,
+            how = "inner",
+        )
+
+        return df_out
 
     
 
