@@ -2301,17 +2301,19 @@ class AFOLU:
         )
         
         # get the supply available--ensure "new" are set to 0
+        inds_imp = list(lde.dict_ind_to_imp_ind.values())
         inds_new = list(lde.dict_ind_to_new_ind.values())
+
         vec_lde_supply_avail = vec_lde_supply.copy()
         vec_lde_supply_avail[inds_new] = 0
         vec_lde_supply_avail = lde.collapse_into_categories(vec_lde_supply_avail, )
-        
+
         # 
         vec_ratio_requested_to_avail = np.nan_to_num(
             vec_supply_requested/vec_lde_supply_avail,
             nan = 1.0,
         )
-
+        
         # get population scalar
         scalar_pop = vec_ratio_requested_to_avail.max()
         scalar_pop = (
@@ -2319,11 +2321,23 @@ class AFOLU:
             if bound_scalar_at_one
             else scalar_pop
         )
-
+        
+        # get estimates of population and supply used
         scalar_pop = 1/scalar_pop
-        vec_out = vec_lvst_pop_base*scalar_pop
+        vec_out_pop = vec_lvst_pop_base*scalar_pop
 
-        return vec_out
+        # get the supply used for carrying capacity scaling
+        vec_out_cc_supply = vec_lde_supply.copy()
+        vec_out_cc_supply[inds_imp] = 0
+        vec_out_cc_supply[inds_new] = 0
+        vec_out_cc_supply = vec_out_cc_supply*scalar_pop
+
+        out = (
+            vec_out_pop,
+            vec_out_cc_supply,
+        )
+
+        return out
 
 
 
@@ -4256,18 +4270,91 @@ class AFOLU:
         ]
 
         return vecs_out
+
+
+
+    def get_lde_est_area_reqd_from_yield(self,
+        area_cur: float, 
+        j: int,
+        mat_sol: np.ndarray,
+        vec_yield_supply_carrying_capacity: np.ndarray, # vec_lde_supply_carrying_capacity
+        vec_yield_supply_constraint: np.ndarray,
+        yield_factor: Union[float, None] = None,
+    ) -> float:
+        """
+
+        Function Arguments
+        ------------------
+        area_cur : float
+            Current area of land use/agrc categorization 
+        j : float
+            Column index in LDE of base (not import or new) land 
+            feed source type
+        lurf : float
+            Land Use Reallocation Factor
+        mat_sol : np.ndarray
+            (LDE.m, LDE.n) array storing feed allocation by livestock/
+            source type
+        vec_yield_supply_carrying_capacity : np.ndarray
+            Constraint vector giving the supply available (i.e., maximum
+            yield utilization for livestock feed in type j)
+        vec_yield_supply_constraint : np.ndarray
+            Constraint vector giving the supply available (i.e., maximum
+            yield utilization for livestock feed in type j)
+
+        Keyword Arguments
+        -----------------
+        yield_factor : Union[float, None]
+            Optional specification of a yield factor. If specified, area_cur is
+            ignored and the yield factor is used to calculate the area required.
+        """
+
+        # get the original yield available + the total calculated in LDE
+        j_new = self.lde.dict_ind_to_new_ind.get(j, )
+        yield_supply_orig = vec_yield_supply_constraint[j]
+        yield_lde = mat_sol[:, [j, j_new]].sum()
+
+        # get the ratio; note that the allocation factor is dependent on whether 
+        # the ratio is > 1 
+        # - ratio > 1: The model accounts for LURF in the demands that are 
+        #               provided 
+        # - ratio < 1: Land use areas are fixed, and demands are based on shifts 
+        #               in LVST demands. In this case, lurf is needed to 
+        #               allocate between current supply base of land and what 
+        #               would be required to satisfy minimal demands
+
+        ratio = yield_lde/yield_supply_orig
+        if ratio < 1:
+            ratio = min(
+                yield_lde/vec_yield_supply_carrying_capacity[j],
+                1,
+            )
+
+        # get the target area for the feed source
+        if not sf.isnumber(yield_factor):
+            area_total_required = area_cur*ratio
+            return area_total_required
+        
+
+        # reset ratio if using yield factor
+        # - the "carrying capacity" base is assumed to be at full, based on
+        #   unadjusted land use; we scale this by the solved 
+        ratio = yield_lde/vec_yield_supply_carrying_capacity[j]
+        area_total_required = vec_yield_supply_constraint[j]*ratio/yield_factor
+     
+        return area_total_required
     
 
 
     def get_lde_lvst_land_demands(self,
         i: int,
+        factor_lndu_yf_pasture_avg: float,
         lurf: float, 
         vec_agrc_area: np.ndarray,
         vec_agrc_regression_b: np.ndarray,
         vec_agrc_regression_m: np.ndarray,
         vec_agrc_yield_factors: np.ndarray,
         vec_lndu_area: np.ndarray,
-        vec_lndu_yf_pasture_avg: np.ndarray,
         vec_lvst_annual_feed_per_capita: np.ndarray,
         vec_lvst_demand: np.ndarray,
         lvst_dietary_mass_factor: float = 1.0,   
@@ -4301,10 +4388,13 @@ class AFOLU:
         Returns a tuple of the following form:
 
             (
+                sol_init,
                 sol_new,  
                 factor_dmf, 
-                vec_lde_supply, 
-                ratio_yield, 
+                ratio_yield,
+                vec_carrying_capacity,
+                vec_supply_carrying_capacity,
+                vec_lde_supply,  
             )
         """
 
@@ -4319,17 +4409,17 @@ class AFOLU:
         allow_new = (i != 0)
         
         (
-            sol, 
+            sol_init, 
             factor_dmf, 
             vec_lde_supply,
         ) = self.run_lde(
             i,
+            factor_lndu_yf_pasture_avg,
             vec_agrc_area,
             vec_agrc_regression_b,
             vec_agrc_regression_m,
             vec_agrc_yield_factors,
             vec_lndu_area,
-            vec_lndu_yf_pasture_avg,
             vec_lvst_annual_feed_per_capita,
             vec_lvst_demand,
             allow_new = allow_new,
@@ -4338,7 +4428,7 @@ class AFOLU:
         )
 
         ratio_yield = self.get_lde_pasture_yield_ratio(
-            sol,
+            sol_init,
             vec_lde_supply,
         )
         
@@ -4346,10 +4436,13 @@ class AFOLU:
         # on first iteration, just have to return this info
         if i == 0:
             out = (
-                sol, 
+                sol_init,
+                None, 
                 factor_dmf, 
+                ratio_yield,
+                vec_lvst_demand,        # at init, feeds are scaled so that this is met
                 vec_lde_supply, 
-                ratio_yield, 
+                vec_lde_supply,  
             )
             return out
 
@@ -4357,8 +4450,11 @@ class AFOLU:
         ##  B.2-5: - GET CARRYING CAPACITY, DETERMINE TARGET POP, SOLVE AGAIN
 
         # b2 and 3--feed shares (internal) and carrying capacity
-        vec_pop_carrying_capacity = self.estimate_lde_carrying_capacity_lvst(
-            sol, 
+        (
+            vec_pop_carrying_capacity,
+            vec_supply_carrying_capacity,
+        ) = self.estimate_lde_carrying_capacity_lvst(
+            sol_init, 
             vec_lde_supply, 
             vec_lvst_demand, 
         )
@@ -4376,12 +4472,12 @@ class AFOLU:
             vec_lde_supply, 
         ) = self.run_lde(
             i,
+            factor_lndu_yf_pasture_avg,
             vec_agrc_area,
             vec_agrc_regression_b,
             vec_agrc_regression_m,
             vec_agrc_yield_factors,
             vec_lndu_area,
-            vec_lndu_yf_pasture_avg,
             vec_lvst_annual_feed_per_capita,
             vec_pop_target,                   # note: - set target pop here
             allow_new = True,                 #       - ensure allow_new is True
@@ -4390,10 +4486,13 @@ class AFOLU:
         )
         
         out = (
+            sol_init,
             sol_new, 
             factor_dmf, 
-            vec_lde_supply, 
             ratio_yield, 
+            vec_pop_carrying_capacity,
+            vec_supply_carrying_capacity,
+            vec_lde_supply, 
         )
         
         return out
@@ -4431,6 +4530,91 @@ class AFOLU:
             return None
         
         return mat_sol
+    
+
+
+    def estimate_lde_lvst_new_lndu_demands(self,
+        sol: Union['sco.OptimizeResult', np.ndarray],
+        factor_lndu_yf_pasture_avg: float, 
+        vec_agrc_area: np.ndarray, 
+        vec_agrc_crop_fraction_lvst: np.ndarray,
+        vec_lde_supply: np.ndarray,
+        vec_lde_supply_cc: np.ndarray,
+    ) -> np.ndarray:
+        """Estimate new demands for land based on the results
+            of the LDE
+
+        Function Arguments
+        ------------------
+        sol : Union['sco.OptimizeResult', np.ndarray]
+            Solution from the LDE with 
+        """
+
+        ##  INITIALIZATION
+
+        lde = self.lde
+        
+        # some shortcuts--lde inds
+        ind_cc = lde.ind_crops_cereals
+        ind_cnc = lde.ind_crops_non_cereals
+        ind_cr = lde.ind_crop_residues
+        ind_p = lde.ind_pastures
+
+        # agrc inds
+        ind_agrc_c = self.ind_agrc_cereals
+        inds_agrc_nc = self.inds_agrc_non_cereal
+        ind_lndu_p = self.ind_lndu_pstr
+        
+        # get the solution matrix and other derivatives
+        mat_sol = self.get_lde_mat_from_sol(sol, )
+        vec_agrc_area_feed = vec_agrc_area*vec_agrc_crop_fraction_lvst
+
+        
+        ##  GET TOTAL AREA TARGET
+
+        vec_agrc_area_target_for_lvst = np.zeros(self.attr_agrc.n_key_values, )
+        
+        # cereals area
+        area_target_cereals = self.get_lde_est_area_reqd_from_yield(
+            vec_agrc_area_feed[ind_agrc_c], 
+            ind_cc,
+            mat_sol,
+            vec_lde_supply_cc, # vec_lde_supply_carrying_capacity
+            vec_lde_supply,
+        )
+
+        # non-cereals area
+        vec_area_target_non_cereals = self.get_lde_est_area_reqd_from_yield(
+            vec_agrc_area_feed[inds_agrc_nc], 
+            ind_cnc,
+            mat_sol,
+            vec_lde_supply_cc, 
+            vec_lde_supply,
+        )
+
+        # pastures
+        area_target_pastures = self.get_lde_est_area_reqd_from_yield(
+            None,
+            ind_p,
+            mat_sol,
+            vec_lde_supply_cc,
+            vec_lde_supply,
+            yield_factor = factor_lndu_yf_pasture_avg,
+        )
+
+        # update output vector
+        vec_agrc_area_target_for_lvst[ind_agrc_c] = area_target_cereals
+        vec_agrc_area_target_for_lvst[inds_agrc_nc] = vec_area_target_non_cereals
+
+
+        
+        # set out
+        out = (
+            area_target_pastures,
+            vec_agrc_area_target_for_lvst
+        )
+
+        return out
     
 
 
@@ -8367,12 +8551,12 @@ class AFOLU:
 
     def run_lde(self,
         i: int,
+        factor_lndu_yf_pasture_avg: float,
         vec_agrc_area: np.ndarray,
         vec_agrc_regression_b: np.ndarray,
         vec_agrc_regression_m: np.ndarray,
         vec_agrc_yield_factors: np.ndarray,
         vec_lndu_area: np.ndarray,
-        vec_lndu_yf_pasture_avg: np.ndarray,
         vec_lvst_annual_feed_per_capita: np.ndarray,
         vec_lvst_pop_target: np.ndarray,
         allow_new: bool = True,
@@ -8434,7 +8618,7 @@ class AFOLU:
         
         # get supply
         vec_lde_supply = self.get_lde_vector_supply(
-            vec_lndu_yf_pasture_avg[i],   #
+            factor_lndu_yf_pasture_avg,   #
             vec_agrc_area,                # vec_agrc_cropland_area_proj,
             vec_agrc_genfactor_residues,  #
             arr_agrc_frac_feed[i],        #
