@@ -1796,6 +1796,7 @@ class LivestockDietEstimator:
 
     def get_bounds(self,
         allow_new: bool = False, 
+        for_carrying_capacity: bool = False, 
     ) -> np.ndarray:
         """Reformat costs for use in program
 
@@ -1805,10 +1806,15 @@ class LivestockDietEstimator:
             Base vector of costs for 1:n
 
         Keyword Arguments
-        -----------------s
+        -----------------
+        for_carrying_capacity : bool
+            Set to True to build the constraint for the carrying capacity 
+            problem, which scales a population up or down to meet land use 
+            availability.
         """
-        vec_bounds_lower = np.zeros(self.mn, )
-        vec_bounds_upper = np.inf*np.ones(self.mn, )
+        N = self.mn if not for_carrying_capacity else self.mn + 1
+        vec_bounds_lower = np.zeros(N, )
+        vec_bounds_upper = np.inf*np.ones(N, )
 
         # update upper bounds if not allowed
         if not allow_new:
@@ -1898,6 +1904,7 @@ class LivestockDietEstimator:
 
     def get_constraint_coeffs_eq_lvst_feed_balance(self,
         vec_demands: np.ndarray,
+        for_carrying_capacity: bool = False,
         **kwargs,
     ) -> Tuple[np.ndarray, np.ndarray, np.ndarray]:
         """Generate a matrix of coefficients used to ensure that, for each 
@@ -1916,6 +1923,10 @@ class LivestockDietEstimator:
 
         Keyword Arguments
         -----------------
+        for_carrying_capacity : bool
+            Set to True to build the constraint for the carrying capacity 
+            problem, which scales a population up or down to meet land use 
+            availability.
         """
 
         A = np.zeros((self.m, self.mn))
@@ -1923,7 +1934,25 @@ class LivestockDietEstimator:
             inds = range(i*self.n, (i+1)*self.n)
             A[i, inds] = 1
         
-        out = (A, vec_demands, )
+        if not for_carrying_capacity:
+            out = (A, vec_demands, )
+            return out
+        
+        
+        ##  ADD AN EXTRA COLUMN IF RUNNING FOR CARRYING CAPACITY
+
+        A_cc = np.zeros((self.m, self.mn + 1))
+        A_cc[:,0:-1] = np.nan_to_num(
+            (A.transpose()/vec_demands).transpose(),
+            nan = 1.0,
+            pos_inf = 1.0,
+        )
+
+        # add in the scalar
+        A_cc[:, -1] = -1*np.sign(vec_demands, )
+        b_cc = np.zeros(vec_demands.shape[0], )
+
+        out = (A_cc, b_cc, )
 
         return out
     
@@ -1991,6 +2020,7 @@ class LivestockDietEstimator:
         vec_min_crops_cereals_fraction: np.ndarray,
         vec_min_crops_non_cereals_fraction: np.ndarray,
         vec_min_pastures_fraction: np.ndarray,
+        for_carrying_capacity: bool = False,
     ) -> Tuple[np.ndarray]:
         """Get the inquality constraints for dietary fractions.
         """
@@ -2021,8 +2051,12 @@ class LivestockDietEstimator:
         
         # initialize bounds (which have to take into account LFI) and an inner array
         arr_base = np.zeros((self.m, self.n), )
-        A = np.zeros((2*n_vf*self.m, self.mn), )
         b = np.zeros(2*n_vf*self.m)
+
+        # A will be dependent on whether the carrying capacity estimation is being conducted
+        ncol_a = self.mn if not for_carrying_capacity else self.mn + 1
+        A = np.zeros((2*n_vf*self.m, ncol_a), )
+        
         
         # ordered indices in LDE--use index names
         ordered_for_vecs_inds_lde = [
@@ -2065,12 +2099,21 @@ class LivestockDietEstimator:
 
                 if ind_new is not None:
                     arr_base[i, ind_new] = -1
-                    
-                bound_1 = -1*vec_demands[i]*frac_min
-            
+                
+                factor_dem_min = vec_demands[i]*frac_min
+
                 # assign
-                A[row_min_cr] = arr_base.flatten().copy()
-                b[row_min_cr] = bound_1
+                if not for_carrying_capacity:
+                    A[row_min_cr] = arr_base.flatten().copy()
+                    b[row_min_cr] = -1*factor_dem_min
+
+                else:
+                    # adjust A; b remains 0 in this case
+                    arr_base /= factor_dem_min if (factor_dem_min > 0) else 1
+                    A[row_min_cr, 0:-1] = arr_base.flatten().copy()
+                    A[row_min_cr, -1] = float(factor_dem_min > 0)
+
+                    
             
                 
                 ##  MAX CONSTRAINT
@@ -2090,12 +2133,19 @@ class LivestockDietEstimator:
                 if ind_new is not None:
                     arr_base[i, ind_new] = 1
 
-                bound_0 = vec_demands[i]*frac_max
-            
-                # assign
-                A[row_max_cr] = arr_base.flatten().copy()
-                b[row_max_cr] = bound_0
 
+                factor_dem_max = vec_demands[i]*frac_max
+
+                # assign
+                if not for_carrying_capacity:
+                    A[row_min_cr] = arr_base.flatten().copy()
+                    b[row_min_cr] = factor_dem_max
+
+                else:
+                    # adjust A; b remains 0 in this case
+                    arr_base /= factor_dem_max if (factor_dem_max > 0) else 1
+                    A[row_max_cr, 0:-1] = arr_base.flatten().copy()
+                    A[row_max_cr, -1] = -1*float(factor_dem_max > 0)
 
         # return
         out = (A, b, )
@@ -2107,6 +2157,7 @@ class LivestockDietEstimator:
     def get_constraint_coeffs_leq_lvst_feed_supply(self,
         vec_supplies: np.ndarray,
         vec_residue_generation_factor: np.ndarray,
+        for_carrying_capacity: bool = False,
         vec_import_frac: Union[np.ndarray, None] = None,
         **kwargs,
     ) -> Tuple[np.ndarray, np.ndarray, np.ndarray]:
@@ -2131,6 +2182,11 @@ class LivestockDietEstimator:
 
         Keyword Arguments
         -----------------
+        for_carrying_capacity : bool
+            Set to True to build the constraint for the carrying capacity 
+            problem, which scales a population up or down to meet land use 
+            availability.
+
         """
 
         ##  SETUP CONSTRAINED INDICES
@@ -2175,6 +2231,9 @@ class LivestockDietEstimator:
         A[ind_cr, inds_cc_new] = -rho_cc
         A[ind_cr, inds_cnc_new] = -rho_cnc
 
+        # add extra column for Y if running carrying capacity model
+        if for_carrying_capacity:
+            A = self.format_matrix_for_carrying_capacity(A, )
 
         # setup output
         out = (
@@ -2252,6 +2311,7 @@ class LivestockDietEstimator:
     def get_costs(self,
         vec_costs: np.ndarray,
         allow_new: bool = False, 
+        for_carrying_capacity: bool = False,
         override_import_costs: bool = False,
         vec_import_frac: Union[np.ndarray, None] = None, # HERE123--deal with this
         **kwargs,
@@ -2263,13 +2323,19 @@ class LivestockDietEstimator:
         Function Arguments
         ------------------
         vec_costs : np.ndarray
-            Base vector of costs for 1:n
-
+            Base vector of costs for 1:n. 
+            NOTE: If running with `for_carrying_capacity = True`, this is 
+                ignored, as a cost of 1 is specified for increasing the 
+                population scalar Y.
+        
         Keyword Arguments
         -----------------
         allow_new : bool
-            Allow new crop/pastures? If True, ensures that costs are set
-            between existing and 
+            Allow new crop/pastures? 
+        for_carrying_capacity : bool
+            Set to True to build the constraint for the carrying capacity 
+            problem, which scales a population up or down to meet land use 
+            availability.
         override_import_costs : bool
             If True, will not force import costs to be same as crop costs.
         vec_import_frac : Union[np.ndarray, None]
@@ -2283,6 +2349,13 @@ class LivestockDietEstimator:
             Ignored
         """
 
+        # return costs for carrying capacity approach
+        if for_carrying_capacity:
+            c = np.zeros(self.mn + 1, )
+            c[-1] = 1
+            return c
+
+
         vec_out = vec_costs.copy()
 
         # ensure costs are correct for imports by setting to 0 (depend only on 
@@ -2292,33 +2365,6 @@ class LivestockDietEstimator:
         if set_zero_imp_costs:
             for v in self.dict_ind_to_imp_ind.values():
                 vec_out[v] = 0
-
-
-        """
-        # check costs
-        if allow_new:
-
-            c_lfi = vec_costs[-1]
-
-            for k, v in self.dict_new_ind_to_ind_existing.items():
-
-                ind_imp = self.dict_ind_to_imp_ind.get(v, )
-
-                # check some costs
-                c_imp = vec_costs[ind_imp] if isinstance(ind_imp, int) else None
-                c_new = vec_costs[k]
-                c_existing = vec_costs[v]
-
-                nm = self.labels_col[v]
-                # print(f"\nnm:{nm}")
-                # print(f"c_imp: {c_imp}\nc_new: {c_new}\nc_existing: {c_existing}")
-
-                # make sure it's bounded
-                c_upper = c_imp if c_imp is not None else c_lfi
-                c_new = (c_existing + c_upper)/2
-        
-                vec_out[k] = c_new
-        """
 
         # apply to each row in the matrix
         c = np.ones((self.m, self.n))*vec_out
@@ -2362,6 +2408,7 @@ class LivestockDietEstimator:
         vec_min_pastures_fraction: np.ndarray,
         vec_residue_generation_factor: np.ndarray,
         vec_supply: np.ndarray,
+        for_carrying_capacity: bool = False,
         vec_import_frac: Union[np.ndarray, None] = None,
     ) -> Tuple:
         """Generate constraints for livestock dietary estimation optimization 
@@ -2391,6 +2438,10 @@ class LivestockDietEstimator:
         
         Keyword Arguments
         -----------------
+        for_carrying_capacity : bool
+            Set to True to build the constraint for the carrying capacity 
+            problem, which scales a population up or down to meet land use 
+            availability.
         vec_import_frac : Union[np.ndarray, None]
             Optional vector of import fractions of cereals and non-cereals. Used to 
             adjust import supply availability if new crops are planted. 
@@ -2428,6 +2479,7 @@ class LivestockDietEstimator:
         # totals must equal demanded
         A_fb, b_fb = self.get_constraint_coeffs_eq_lvst_feed_balance(
             vec_demand,
+            for_carrying_capacity = for_carrying_capacity, 
         )
         G.append(A_fb, )
         h.append(b_fb, )
@@ -2448,6 +2500,9 @@ class LivestockDietEstimator:
             A_imp, b_imp = self.get_constraint_coeffs_eq_agrc_imports(
                 vec_import_frac.astype(float),
             )
+            if for_carrying_capacity:
+                A_imp = self.format_matrix_for_carrying_capacity(A_imp, )
+
             G.append(A_imp, )
             h.append(b_imp, )
 
@@ -2466,6 +2521,7 @@ class LivestockDietEstimator:
         A_df, b_df = self.get_constraint_coeffs_leq_lvst_dietary_fractions(
             vec_demand,
             *args,
+            for_carrying_capacity = for_carrying_capacity, 
         )
         A.append(A_df, )
         b.append(b_df, )
@@ -2474,6 +2530,7 @@ class LivestockDietEstimator:
         A_sb, b_sb = self.get_constraint_coeffs_leq_lvst_feed_supply(
             vec_supply.astype(float), 
             vec_residue_generation_factor.astype(float),
+            for_carrying_capacity = for_carrying_capacity, 
             vec_import_frac = vec_import_frac,
         )
         A.append(A_sb, )
@@ -2483,6 +2540,9 @@ class LivestockDietEstimator:
         A_ab, b_ab = self.get_constraint_coeffs_leq_new_lands_lb(
             vec_supply.astype(float), 
         )
+        if for_carrying_capacity:
+            A_ab = self.format_matrix_for_carrying_capacity(A_ab, )
+
         A.append(A_ab, )
         b.append(b_ab, )
 
@@ -2586,6 +2646,20 @@ class LivestockDietEstimator:
         return out
     
 
+    
+    def format_matrix_for_carrying_capacity(self,
+        mat: np.ndarray,
+    ) -> np.ndarray:
+        """Format a coefficient matrix that is otherwise unchanged to fit with 
+            the carrying capacity problem. Adds a column to the right. 
+        """
+        m, n = mat.shape
+        mat_out = np.zeroes((m, n + 1), )
+        mat_out[:, 0:-1] = mat
+
+        return mat_out
+
+
 
     def reduce_matrices_with_inf(self,
         A: np.ndarray,
@@ -2626,6 +2700,7 @@ class LivestockDietEstimator:
         vec_supply: np.ndarray,
         *,
         allow_new: bool = False,
+        for_carrying_capacity: bool = False,
         stop_on_error: bool = False,
         vec_import_frac: Union[np.ndarray, None] = None,
         **kwargs,
@@ -2681,6 +2756,10 @@ class LivestockDietEstimator:
         -----------------
         allow_new : bool
             Allow sourcing from new classes? 
+        for_carrying_capacity : bool
+            Set to True to build the constraint for the carrying capacity 
+            problem, which scales a population up or down to meet land use 
+            availability.
         stop_on_error : bool
             Stop if errors occur in solutions?
         vec_import_frac : Union[np.ndarray, None]
@@ -2699,7 +2778,10 @@ class LivestockDietEstimator:
         
         # try to get bounds
         try:
-            list_bounds = self.get_bounds(allow_new = allow_new, )
+            list_bounds = self.get_bounds(
+                allow_new = allow_new, 
+                for_carrying_capacity = for_carrying_capacity,
+            )
 
         except Exception as e:
             msg = f"Error retrieving bounds in {class_name}: {e}"
@@ -2711,6 +2793,7 @@ class LivestockDietEstimator:
             c = self.get_costs(
                 vec_costs,
                 allow_new = allow_new,
+                for_carrying_capacity = for_carrying_capacity,
                 vec_import_frac = vec_import_frac,
                 **kwargs,
             )
@@ -2735,6 +2818,7 @@ class LivestockDietEstimator:
                 vec_min_pastures_fraction,
                 vec_residue_generation_factor,
                 vec_supply,
+                for_carrying_capacity = for_carrying_capacity,
                 vec_import_frac = vec_import_frac,
             )
 
