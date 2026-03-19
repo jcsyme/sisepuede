@@ -1751,7 +1751,13 @@ class LivestockDietEstimator:
         """Take a vector of free variables (or coefficients) and reshape to
             properly-sized matrix.
         """
-        out = x.reshape((self.m, self.n))
+        
+        if x.shape == (self.mn, ):
+            out = x.reshape((self.m, self.n))
+        elif x.shape == (self.mn + 1, ):
+            out = x[:-1].reshape((self.m, self.n))
+            
+
         return out
 
 
@@ -1944,8 +1950,8 @@ class LivestockDietEstimator:
         A_cc = np.zeros((self.m, self.mn + 1))
         A_cc[:,0:-1] = np.nan_to_num(
             (A.transpose()/vec_demands).transpose(),
-            nan = 1.0,
-            pos_inf = 1.0,
+            nan = 0.0,
+            posinf = 1.0,
         )
 
         # add in the scalar
@@ -2325,7 +2331,7 @@ class LivestockDietEstimator:
         vec_costs : np.ndarray
             Base vector of costs for 1:n. 
             NOTE: If running with `for_carrying_capacity = True`, this is 
-                ignored, as a cost of 1 is specified for increasing the 
+                ignored, as a cost of -1 is specified for increasing the 
                 population scalar Y.
         
         Keyword Arguments
@@ -2352,7 +2358,7 @@ class LivestockDietEstimator:
         # return costs for carrying capacity approach
         if for_carrying_capacity:
             c = np.zeros(self.mn + 1, )
-            c[-1] = 1
+            c[-1] = -1
             return c
 
 
@@ -2654,7 +2660,7 @@ class LivestockDietEstimator:
             the carrying capacity problem. Adds a column to the right. 
         """
         m, n = mat.shape
-        mat_out = np.zeroes((m, n + 1), )
+        mat_out = np.zeros((m, n + 1), )
         mat_out[:, 0:-1] = mat
 
         return mat_out
@@ -2772,7 +2778,8 @@ class LivestockDietEstimator:
         **kwargs :
             Passed to sco.linprog()
         """
-        # some init
+        # some init--not that the carrying capacity run cannot allow new
+        allow_new &= not for_carrying_capacity
         class_name = str(self.__class__).split(".")[-1].split("'")[0]
         sol = None
         

@@ -40,7 +40,15 @@ _MODULE_UUID = "53E0A234-5674-47C8-B950-5A419EEAAF00"
 _NPP_INTEGRATION_WINDOWS = [20, 480, 1000]
 
 # error classes
+class InfeasibleError(Exception):
+    pass
+
+
 class InvalidBufferThreshold(Exception):
+    pass
+
+
+class IterationLimitError(Exception):
     pass
 
 
@@ -2259,13 +2267,83 @@ class AFOLU:
     
 
     def estimate_lde_carrying_capacity_lvst(self,
+        i: int,
+        factor_lndu_yf_pasture_avg: float,
+        vec_agrc_area: np.ndarray,
+        vec_agrc_regression_b: np.ndarray,
+        vec_agrc_regression_m: np.ndarray,
+        vec_agrc_yield_factors: np.ndarray,
+        vec_lndu_area: np.ndarray,
+        vec_lvst_annual_feed_per_capita: np.ndarray,
+        vec_lvst_dem: np.ndarray,
+        iter_step: int = 100,
+        mass_balance_adjustment: float = 1.0,
+        method: str = "highs",
+        vec_agrc_frac_imports_for_lvst: Union[np.ndarray, None] = None,
+        verbose: bool = False,
+    ) -> np.ndarray:
+        """Get a vector of the estimated carrying capacity of livestock
+            given a dietary solution from the LDE. NOTE: DEPRECATED, REPLACED
+            BY LP SOLUTION TO MAX POP. See self.run_lde() for a description of
+            function and keyword arguments
+        """
+        ##  CHECK INPUT
+        
+        try:
+            (
+                sol, 
+                _, 
+                _,
+            ) = self.run_lde(
+                i,
+                factor_lndu_yf_pasture_avg,
+                vec_agrc_area,
+                vec_agrc_regression_b,
+                vec_agrc_regression_m,
+                vec_agrc_yield_factors,
+                vec_lndu_area,
+                vec_lvst_annual_feed_per_capita,
+                vec_lvst_dem,
+                allow_new = False,
+                iter_step = iter_step,
+                for_carrying_capacity = True, 
+                mass_balance_adjustment = mass_balance_adjustment,
+                method = method,
+                vec_agrc_frac_imports_for_lvst = vec_agrc_frac_imports_for_lvst,
+                verbose = verbose,
+            )
+
+        except Exception as e:
+            raise InfeasibleError(f"Unable to find solution for carrying capacity: {e}")
+
+        global S
+        S = sol
+        ##  GET SCALING FACTOR FOR BASE POP
+
+        scale_factor = sol.x[-1]
+        vec_pop_cc = vec_lvst_dem*scale_factor
+
+        mat = self.lde.display_as_matrix(sol.x, )
+        vec_supply_cc = mat.sum(axis = 0, )
+
+        out = (
+            vec_pop_cc,
+            vec_supply_cc,
+        )
+
+        return out
+    
+
+
+    def estimate_lde_carrying_capacity_lvst_deprecated(self,
         sol: Union['sco.OptimizeResult', np.ndarray],
         vec_lde_supply: np.ndarray,
         vec_lvst_pop_base: np.ndarray,
         bound_scalar_at_one: bool = True,
     ) -> np.ndarray:
         """Get a vector of the estimated carrying capacity of livestock
-            given a dietary solution from the LDE. Can
+            given a dietary solution from the LDE. NOTE: DEPRECATED, REPLACED
+            BY LP SOLUTION TO MAX POP.
 
 
         Function Arguments
@@ -4358,6 +4436,7 @@ class AFOLU:
         vec_lvst_annual_feed_per_capita: np.ndarray,
         vec_lvst_demand: np.ndarray,
         lvst_dietary_mass_factor: float = 1.0,   
+        vec_agrc_frac_imports_for_lvst: Union[np.ndarray, None] = None,
         **kwargs,
     ) -> Tuple:
         """Using the LivestockDietaryEstimator, get demands for land use.
@@ -4391,7 +4470,11 @@ class AFOLU:
                 sol_init,
                 sol_new,  
                 factor_dmf, 
-                ratio_yield,
+                ratio_yield,                    # ratio of yield used to total
+                                                # available; used in first time
+                                                # period
+                vec_import_fracs_for_lvst,      # fraction of imports available
+                                                # used for feed
                 vec_carrying_capacity,
                 vec_supply_carrying_capacity,
                 vec_lde_supply,  
@@ -4407,12 +4490,8 @@ class AFOLU:
 
         # if initializing, *do not allow new*
         allow_new = (i != 0)
-        
-        (
-            sol_init, 
-            factor_dmf, 
-            vec_lde_supply,
-        ) = self.run_lde(
+        # setup shared arguments (ordered, starting)
+        args_base = (
             i,
             factor_lndu_yf_pasture_avg,
             vec_agrc_area,
@@ -4421,13 +4500,26 @@ class AFOLU:
             vec_agrc_yield_factors,
             vec_lndu_area,
             vec_lvst_annual_feed_per_capita,
+        )
+
+
+        (
+            sol_init, 
+            factor_dmf, 
+            vec_lde_supply,
+        ) = self.run_lde(
+            *args_base,
             vec_lvst_demand,
             allow_new = allow_new,
             mass_balance_adjustment = lvst_dietary_mass_factor,
+            vec_agrc_frac_imports_for_lvst = vec_agrc_frac_imports_for_lvst,
             **kwargs,
         )
 
-        ratio_yield = self.get_lde_pasture_yield_ratio(
+        (
+            ratio_yield,
+            vec_import_fracs_for_lvst,
+        ) = self.get_lde_use_adjustment_ratios(
             sol_init,
             vec_lde_supply,
         )
@@ -4440,6 +4532,7 @@ class AFOLU:
                 None, 
                 factor_dmf, 
                 ratio_yield,
+                vec_import_fracs_for_lvst,
                 vec_lvst_demand,        # at init, feeds are scaled so that this is met
                 vec_lde_supply, 
                 vec_lde_supply,  
@@ -4454,9 +4547,11 @@ class AFOLU:
             vec_pop_carrying_capacity,
             vec_supply_carrying_capacity,
         ) = self.estimate_lde_carrying_capacity_lvst(
-            sol_init, 
-            vec_lde_supply, 
-            vec_lvst_demand, 
+            *args_base,
+            vec_lvst_demand,
+            mass_balance_adjustment = lvst_dietary_mass_factor,
+            vec_agrc_frac_imports_for_lvst = vec_agrc_frac_imports_for_lvst,
+            **kwargs,
         )
 
         # b4--target population is determined by reallocation factor
@@ -4471,17 +4566,11 @@ class AFOLU:
             factor_dmf,
             vec_lde_supply, 
         ) = self.run_lde(
-            i,
-            factor_lndu_yf_pasture_avg,
-            vec_agrc_area,
-            vec_agrc_regression_b,
-            vec_agrc_regression_m,
-            vec_agrc_yield_factors,
-            vec_lndu_area,
-            vec_lvst_annual_feed_per_capita,
+            *args_base,
             vec_pop_target,                   # note: - set target pop here
             allow_new = True,                 #       - ensure allow_new is True
             mass_balance_adjustment = lvst_dietary_mass_factor,
+            vec_agrc_frac_imports_for_lvst = vec_agrc_frac_imports_for_lvst,
             **kwargs,
         )
         
@@ -4490,6 +4579,7 @@ class AFOLU:
             sol_new, 
             factor_dmf, 
             ratio_yield, 
+            vec_import_fracs_for_lvst,
             vec_pop_carrying_capacity,
             vec_supply_carrying_capacity,
             vec_lde_supply, 
@@ -4618,23 +4708,45 @@ class AFOLU:
     
 
 
-    def get_lde_pasture_yield_ratio(self,
+    def get_lde_use_adjustment_ratios(self,
         sol: Union['sco.OptimizeResult', np.ndarray],
         vec_lde_supply: np.ndarray,
     ) -> np.ndarray:
-        """Get the ratio of yield used to available yield in
-            existing pastures. This is used to set land use demands
-            for future growth. 
+        """Get the ratio of 
+            (1) yield used to available yield in existing pastures and
+            (2) import used to available imports
+        
+            These are used to set land use demands for future growth (after 
+            initialization)
         """
 
         mat_sol = self.get_lde_mat_from_sol(sol, )
         ind_p = self.lde.ind_pastures
 
+        # yields
         yield_consumed = mat_sol[:, ind_p].sum()
         yield_available = vec_lde_supply[self.lde.ind_pastures]
+        ratio_yield = (
+            0 
+            if (yield_available == 0) 
+            else yield_consumed/yield_available
+        )
 
-        out = 0 if (yield_available == 0) else yield_consumed/yield_available
+        # import ratios
+        inds_imps = sorted(list(self.lde.dict_ind_to_imp_ind.values()))
+        vec_total_imps_used = mat_sol[:, inds_imps].sum(axis = 0, )
+        vec_import_fracs_for_lvst = np.nan_to_num(
+            vec_total_imps_used/vec_lde_supply[inds_imps],
+            nan = 0.0,
+            posinf = 0.0,
+        )
         
+
+        out = (
+            ratio_yield,
+            vec_import_fracs_for_lvst,
+        )
+
         return out
     
 
@@ -8560,9 +8672,11 @@ class AFOLU:
         vec_lvst_annual_feed_per_capita: np.ndarray,
         vec_lvst_pop_target: np.ndarray,
         allow_new: bool = True,
+        for_carrying_capacity: bool = False, 
         iter_step: int = 100,
         mass_balance_adjustment: float = 1.0,
         method: str = "highs",
+        vec_agrc_frac_imports_for_lvst: Union[np.ndarray, None] = None,
         verbose: bool = False,
     ) -> Tuple['sco.OptimizeResult', float, np.ndarray]:
         """Run the LivetockDietaryEstimator. Returns a tuple of the form:
@@ -8577,12 +8691,18 @@ class AFOLU:
         -----------------
         allow_new : bool 
             If False, will scale to fit within constraints of available 
-            feed. Otherwise, will produce 
+            feed. Otherwise, will find new sources 
+        for_carrying_capacity : bool
+            Set to True to build the constraint for the carrying capacity 
+            problem, which scales a population up or down to meet land use 
+            availability.
         iter_step : int
             Step size (1/iter_step) for reducing mass of livestock demands,
             which is interpreted as a change to average animal mass. Only
             takes effect if allow_new is False. 
         """
+        # cannot allow new if running for carrying capacity
+        allow_new &= not for_carrying_capacity
 
         # shortcuts
         arr_agrc_bagasse_factor = self.arrays_agrc.arr_agrc_bagasse_yield_factor
@@ -8610,11 +8730,13 @@ class AFOLU:
             mass_balance_adjustment = mass_balance_adjustment,
         )
         
-        # get the imports
+        # get the imports; adjust with a fraction available for LVST if provided
         _, vec_lde_imports = self.get_lde_crop_import_fracs(
             i, 
             vec_agrc_area*vec_agrc_yield_factors, 
         )
+        if isinstance(vec_agrc_frac_imports_for_lvst, np.ndarray):
+            vec_lde_imports = vec_lde_imports*vec_agrc_frac_imports_for_lvst
         
         # get supply
         vec_lde_supply = self.get_lde_vector_supply(
@@ -8646,6 +8768,7 @@ class AFOLU:
                 vec_lde_genfactor_residues,
                 vec_lde_supply,
                 allow_new = allow_new,
+                for_carrying_capacity = for_carrying_capacity,
                 method = method,
                 options = {"disp": verbose, },
                 stop_on_error = True,
@@ -8657,7 +8780,11 @@ class AFOLU:
         
             j += 1
             sol = attempt.x
-                
+            
+            if j > iter_step:
+                raise IterationLimitError(f"Unable to solve; iteration limit of {iter_step} reached.")
+
+
         j -= 1
         
         # return solution and scaling factor
