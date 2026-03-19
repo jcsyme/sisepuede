@@ -4424,6 +4424,29 @@ class AFOLU:
     
 
 
+    def get_lde_fraction_residues_for_feed(self,
+        i: Union[int, None] = None,
+    ) -> np.ndarray:
+        """Get the array storing the fraction of crop residues generated that
+            are available for livestock feed. Optional specification of row i
+            through kwarg
+        """
+        # copy to avoid modifying in place
+        arr_out = (
+            self.arrays_agrc
+            .dict_residue_pathways.get(
+                self.modvar_agrc_frac_residues_removed_for_feed.name,
+            )
+            .copy()
+        )
+
+        if sf.isnumber(i, integer = True, ):
+            arr_out = arr_out[i]
+
+        return arr_out
+    
+
+
     def get_lde_lvst_land_demands(self,
         i: int,
         factor_lndu_yf_pasture_avg: float,
@@ -4589,40 +4612,6 @@ class AFOLU:
     
 
 
-    def get_lde_mat_from_sol(self,
-        sol: Union['sco.OptimizeResult', np.ndarray], 
-    ) -> Union[np.ndarray, None]:
-        """Pass a solution, vector of results (dim self.mn), or matrix with dim
-            (self.m, self.n) to return matrix. Returns None if otherwise 
-            invalid.
-        """
-
-        lde = self.lde
-        mat_sol = sol
-
-        # checks on input specification
-        if isinstance(sol, suo.sco.OptimizeResult):
-            if sol.x is None:
-                return None
-            mat_sol = lde.display_as_matrix(sol.x, )
-
-        # check that type is numpy
-        if not isinstance(mat_sol, np.ndarray):
-            return None
-        
-        # reshape if set as a vector
-        if mat_sol.shape == (lde.mn, ):
-            mat_sol_tmp = mat_sol.reshape((lde.m, lde.n, ))
-            mat_sol = mat_sol_tmp
-
-        # verify shape
-        if mat_sol.shape != (lde.m, lde.n):
-            return None
-        
-        return mat_sol
-    
-
-
     def estimate_lde_lvst_new_lndu_demands(self,
         sol: Union['sco.OptimizeResult', np.ndarray],
         factor_lndu_yf_pasture_avg: float, 
@@ -4708,6 +4697,40 @@ class AFOLU:
     
 
 
+    def get_lde_mat_from_sol(self,
+        sol: Union['sco.OptimizeResult', np.ndarray], 
+    ) -> Union[np.ndarray, None]:
+        """Pass a solution, vector of results (dim self.mn), or matrix with dim
+            (self.m, self.n) to return matrix. Returns None if otherwise 
+            invalid.
+        """
+
+        lde = self.lde
+        mat_sol = sol
+
+        # checks on input specification
+        if isinstance(sol, suo.sco.OptimizeResult):
+            if sol.x is None:
+                return None
+            mat_sol = lde.display_as_matrix(sol.x, )
+
+        # check that type is numpy
+        if not isinstance(mat_sol, np.ndarray):
+            return None
+        
+        # reshape if set as a vector
+        if mat_sol.shape == (lde.mn, ):
+            mat_sol_tmp = mat_sol.reshape((lde.m, lde.n, ))
+            mat_sol = mat_sol_tmp
+
+        # verify shape
+        if mat_sol.shape != (lde.m, lde.n):
+            return None
+        
+        return mat_sol
+    
+
+
     def get_lde_use_adjustment_ratios(self,
         sol: Union['sco.OptimizeResult', np.ndarray],
         vec_lde_supply: np.ndarray,
@@ -4765,12 +4788,13 @@ class AFOLU:
 
         return vec_demand
     
-
+    
 
     def get_lde_vector_residue_genfactors(self,
+        vec_agrc_area: np.ndarray,
         vec_bagasse_factor: np.ndarray,
         vec_frac_dm: np.ndarray,
-        vec_frac_feed: np.ndarray,
+        vec_frac_residues_for_feed: np.ndarray,
         vec_regression_b: np.ndarray,
         vec_regression_m: np.ndarray,
         vec_yf: np.ndarray,
@@ -4792,16 +4816,19 @@ class AFOLU:
             * False:    Returns the vector of generation factors for each crop
                         type
         """
+        
+    
         # get the residues total
         vec_residue_gfs = vec_regression_m*vec_yf + vec_regression_b
         vec_residue_gfs *= vec_frac_dm
 
-        # now, divide by yield factors
+        # now, divide by yield factors and multiply by how much is actually available for feed
         vec_residue_gfs = np.nan_to_num(
             vec_residue_gfs/vec_yf,
             nan = 0.0,
             posinf = 0.0,
         )
+        vec_residue_gfs *= vec_frac_residues_for_feed
 
         # finally, replace bagasse generation factor--cats are mutually 
         # exclusive, so can simply add here
@@ -4813,15 +4840,15 @@ class AFOLU:
         # non-cereal indices
         inds_nc = self.inds_agrc_non_cereal
         
-        # get weights for non-cereal imports
-        vec_weights = (vec_yf*vec_frac_feed)[inds_nc]
+        # get weights for non-cereal crops
+        vec_weights = (vec_yf*vec_agrc_area)[inds_nc]
         vec_weights /= vec_weights.sum()
-        frac_imports_nc = np.dot(vec_weights, vec_residue_gfs[inds_nc])
+        gen_factor_avg_nc = np.dot(vec_weights, vec_residue_gfs[inds_nc])
 
         vec_residue_gfs_for_lde = np.array(
             [
                 vec_residue_gfs[self.ind_agrc_cereals],
-                frac_imports_nc
+                gen_factor_avg_nc
             ]
         )
 
@@ -8708,6 +8735,7 @@ class AFOLU:
         arr_agrc_bagasse_factor = self.arrays_agrc.arr_agrc_bagasse_yield_factor
         arr_agrc_frac_feed = self.arrays_agrc.arr_agrc_frac_animal_feed
         arr_dm_frac_crops = self.arrays_agrc.arr_agrc_frac_dry_matter_in_crop
+        vec_agrc_frac_residue_for_feed = self.get_lde_fraction_residues_for_feed(i, )
 
 
         ##  INITIALIZE INPUTS 
@@ -8716,13 +8744,15 @@ class AFOLU:
 
         # get residue generation factors
         vec_agrc_genfactor_residues, vec_lde_genfactor_residues = self.get_lde_vector_residue_genfactors(
+            vec_agrc_area,
             arr_agrc_bagasse_factor[i],
             arr_dm_frac_crops[i],
-            arr_agrc_frac_feed[i],
-            vec_agrc_regression_b,     # arr_agrc_regression_b[i]
-            vec_agrc_regression_m,     # arr_agrc_regression_m[i]
-            vec_agrc_yield_factors,    # arr_agrc_yield_factors[i],
+            vec_agrc_frac_residue_for_feed, # WAS arr_agrc_frac_feed[i],
+            vec_agrc_regression_b,          # arr_agrc_regression_b[i]
+            vec_agrc_regression_m,          # arr_agrc_regression_m[i]
+            vec_agrc_yield_factors,         # arr_agrc_yield_factors[i],
         )
+        
         
         vec_lvst_feed_demands = self.get_lde_vector_demand(
             vec_lvst_annual_feed_per_capita,     # arr_lvst_annual_feed_per_capita[i],
@@ -8773,10 +8803,6 @@ class AFOLU:
                 options = {"disp": verbose, },
                 stop_on_error = True,
             )
-
-            if j == 0:
-                global att
-                att = attempt
         
             j += 1
             sol = attempt.x

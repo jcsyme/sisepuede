@@ -920,8 +920,6 @@ class QAdjuster:
             prohibited_transitions,
         )
 
-        global constraint_prohibited_transitions0
-        constraint_prohibited_transitions0 = constraint_prohibited_transitions
 
         ##  SET EQ CONSTRAINTS
 
@@ -2119,9 +2117,7 @@ class LivestockDietEstimator:
                     A[row_min_cr, 0:-1] = arr_base.flatten().copy()
                     A[row_min_cr, -1] = float(factor_dem_min > 0)
 
-                    
-            
-                
+
                 ##  MAX CONSTRAINT
             
                 # clear array and get some shortcuts
@@ -2144,8 +2140,8 @@ class LivestockDietEstimator:
 
                 # assign
                 if not for_carrying_capacity:
-                    A[row_min_cr] = arr_base.flatten().copy()
-                    b[row_min_cr] = factor_dem_max
+                    A[row_max_cr] = arr_base.flatten().copy()
+                    b[row_max_cr] = factor_dem_max
 
                 else:
                     # adjust A; b remains 0 in this case
