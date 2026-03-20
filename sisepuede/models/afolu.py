@@ -5277,42 +5277,41 @@ class AFOLU:
     
 
 
-    def get_ilu_lvst_unmet_demand_vars(self,
-        arr_lndu_frac_increasing_net_imports_met: np.ndarray,
-        arr_lndu_frac_increasing_net_exports_met: np.ndarray,
-        arr_lvst_dem: np.ndarray,
-        vec_lvst_pop_final: np.ndarray,
+    def get_ilu_unmet_demand_vars(self,
+        frac_increasing_net_imports_met: np.ndarray,
+        frac_increasing_net_exports_met: np.ndarray,
+        vec_dem: np.ndarray,
+        vec_prod: np.ndarray,
     ) -> Tuple[np.ndarray]:
-        """Get the unmet demand lost and change to net imports from LVST
+        """Get the unmet demand lost and change to net imports from LVST or AGRC
             results. Returns a tuple of the form
 
             (
-                vec_lvst_net_import_increase,
-                vec_lvst_unmet_demand_lost,
+                vec_net_import_increase,
+                vec_unmet_demand_lost,
             )
         """
 
-        vec_lvst_unmet_demand = np.nan_to_num(
-            arr_lvst_dem[i + 1] - vec_lvst_pop_final,
+        vec_unmet_demand = np.nan_to_num(
+            vec_dem - vec_prod,
             nan = 0.0,
             posinf = 0.0,
         )
 
-        vec_lvst_unmet_demand_to_impexp = (
-            sf.vec_bounds(vec_lvst_unmet_demand, (0, np.inf))
-            *arr_lndu_frac_increasing_net_imports_met[i + 1, self.ind_lndu_pstr]
+        vec_unmet_demand_to_impexp = (
+            sf.vec_bounds(vec_unmet_demand, (0, np.inf))
+            *frac_increasing_net_imports_met
         )
-        vec_lvst_unmet_demand_to_impexp += (
-            sf.vec_bounds(vec_lvst_unmet_demand, (-np.inf, 0))
-            *arr_lndu_frac_increasing_net_exports_met[i + 1, self.ind_lndu_pstr]
+        vec_unmet_demand_to_impexp += (
+            sf.vec_bounds(vec_unmet_demand, (-np.inf, 0))
+            *frac_increasing_net_exports_met
         )
 
-        vec_lvst_unmet_demand_lost = vec_lvst_unmet_demand - vec_lvst_unmet_demand_to_impexp
-        vec_lvst_net_import_increase = vec_lvst_unmet_demand_to_impexp
+        vec_unmet_demand_lost = vec_unmet_demand - vec_unmet_demand_to_impexp
 
         out = (
-            vec_lvst_net_import_increase,
-            vec_lvst_unmet_demand_lost,
+            vec_unmet_demand_to_impexp,
+            vec_unmet_demand_lost,
         )
 
         return out
@@ -8329,9 +8328,9 @@ class AFOLU:
 
             (
                 vec_agrc_area_target_nonfeed,
-                vec_agrc_net_imports_increase, 
-                vec_agrc_reallocation_target,
-                vec_agrc_unmet_demand_yields_lost,
+                _, 
+                _,
+                _,
             ) = self.get_ilu_agrc_area_target_nonfeed(
                 i,
                 lurf,
@@ -8343,8 +8342,8 @@ class AFOLU:
             )
 
             # get total crop area required
-            vec_agrc_cropareas_adj = vec_agrc_area_target_nonfeed + vec_agrc_area_target_for_lvst
-            area_target_crop = vec_agrc_cropareas_adj.sum()
+            vec_agrc_cropareas_target = vec_agrc_area_target_nonfeed + vec_agrc_area_target_for_lvst
+            area_target_crop = vec_agrc_cropareas_target.sum()
 
 
             ##  DO TRANSITION ADJUSTMENT (CALL OPTIMIZATION)
@@ -8378,8 +8377,8 @@ class AFOLU:
             ##########################################################################################
 
             # get vector of available crops
-            vec_agrc_cropareas_final = vec_agrc_cropareas_adj/vec_agrc_cropareas_adj.sum()
-            vec_agrc_cropareas_final *= x_next[self.ind_lndu_crop]
+            vec_agrc_cropfracs_final = vec_agrc_cropareas_target/vec_agrc_cropareas_target.sum()
+            vec_agrc_cropareas_final = x_next[self.ind_lndu_crop]*vec_agrc_cropfracs_final
 
             ##  LVST LDE 
             #   - run LDE again with target pop as demand
@@ -8422,10 +8421,10 @@ class AFOLU:
             (
                 vec_lvst_net_import_increase,
                 vec_lvst_unmet_demand_lost,
-            ) = self.get_ilu_lvst_unmet_demand_vars(
-                arr_lndu_frac_increasing_net_imports_met,
-                arr_lndu_frac_increasing_net_exports_met,
-                arr_lvst_dem,
+            ) = self.get_ilu_unmet_demand_vars(
+                arr_lndu_frac_increasing_net_imports_met[i + 1, self.ind_lndu_pstr],
+                arr_lndu_frac_increasing_net_exports_met[i + 1, self.ind_lndu_pstr],
+                arr_lvst_dem[i + 1],
                 vec_lvst_pop_final,
             )
 
@@ -8436,18 +8435,19 @@ class AFOLU:
 
             ##  AGRC 
 
-            (
+            vec_agrc_yield_dem = vec_agrc_cropareas_target*arr_agrc_yield_factors[i + 1]
+            vec_agrc_yield_prod = vec_agrc_cropareas_final*arr_agrc_yield_factors[i + 1]
 
-            ) = self.get_ilu_agrc_unmet_demand_vars(
-                area_target_crop,
-                vec_agrc_reallocation_target,
-                vec_agrc_total_dem_yield,
-                vec_agrc_yield_factors_adj,
-                x_next,
+            (
+                vec_agrc_net_imports_increase,
+                vec_agrc_unmet_demand_yields_lost,
+            ) = self.get_ilu_unmet_demand_vars(
+                arr_lndu_frac_increasing_net_imports_met[i + 1, self.ind_lndu_crop],
+                arr_lndu_frac_increasing_net_exports_met[i + 1, self.ind_lndu_crop],
+                vec_agrc_yield_dem,
+                vec_agrc_yield_prod,
             )
 
-        
-        
 
             # update AGRC and LVST arrays
             if i + 1 < n_tp:
@@ -8455,9 +8455,9 @@ class AFOLU:
                 # update agriculture arrays
                 rng_agrc = list(range((i + 1)*attr_agrc.n_key_values, (i + 2)*attr_agrc.n_key_values))
                 np.put(arr_agrc_change_to_net_imports_lost, rng_agrc, vec_agrc_unmet_demand_yields_lost)
-                np.put(arr_agrc_frac_cropland, rng_agrc, vec_agrc_cropareas_adj/sum(vec_agrc_cropareas_adj))
+                np.put(arr_agrc_frac_cropland, rng_agrc, vec_agrc_cropfracs_final)
                 np.put(arr_agrc_net_import_increase, rng_agrc, np.round(vec_agrc_net_imports_increase), 2)
-                np.put(arr_agrc_yield, rng_agrc, vec_agrc_yield_adj)
+                np.put(arr_agrc_yield, rng_agrc, vec_agrc_yield_prod)
 
                 # update livestock arrays
                 arr_lvst_change_to_net_imports_lost[i + 1] = vec_lvst_unmet_demand_lost
