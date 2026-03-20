@@ -186,6 +186,16 @@ class ArraysAGRC(ma.SubsectorArraysCollection):
             var_bounds = (0, 1),
         )
 
+        # gravimetric energy density of different residue types
+        self.get_modvar_array(
+            df_trajectories,
+            self.modvar_agrc_ged_residues,
+            expand_to_all_cats = True,
+            set_property = True,
+            var_bounds = (0, np.inf),
+        )
+        
+
         # residue production regression b
         self.get_modvar_array(
             df_trajectories, 
