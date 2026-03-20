@@ -7876,7 +7876,7 @@ class AFOLU:
 
         arrs_land_conv = np.zeros((n_tp, attr_lndu.n_key_values, attr_lndu.n_key_values))
         arrs_transitions_adj = np.zeros(arrs_transitions.shape)
-        
+
 
         # livestock variables
         arr_lvst_dem_adj = arr_lvst_dem.copy().astype(int)
@@ -7903,7 +7903,7 @@ class AFOLU:
         )
         
         
-        ##  INITIALIZE VARIABLES
+        ##  INITIALIZE SOME INPUT VARIABLES
 
         arr_agrc_bagasse_factor = self.arrays_agrc.arr_agrc_bagasse_yield_factor
         arr_agrc_frac_feed = self.arrays_agrc.arr_agrc_frac_animal_feed
@@ -7911,6 +7911,13 @@ class AFOLU:
         arr_dm_frac_crops = self.arrays_agrc.arr_agrc_frac_dry_matter_in_crop
         arr_lndu_frac_increasing_net_exports_met = self.arrays_lndu.arr_lndu_frac_increasing_net_exports_met
         arr_lndu_frac_increasing_net_imports_met = self.arrays_lndu.arr_lndu_frac_increasing_net_imports_met
+
+        # land use
+        vec_lndu_yf_pasture_avg = np.clip(
+            self.arrays_lndu.arr_lndu_yf_pasture_avg,
+            0,
+            self.arrays_lndu.arr_lndu_yf_pasture_sup,
+        )
 
         # livestock
         arr_lvst_mass_per_animal = (
@@ -7922,14 +7929,22 @@ class AFOLU:
             )
         )
 
-        # adjustment to population mass to ensure that mass balance can be met in first time step
-        factor_dietary_mass_balance_adjustment = 1.0
+
+        # initialize some factors that are solved for by the LDE
+        factor_lvst_dietary_mass_balance_adjustment = 1.0   # adjustment to population mass to ensure that mass balance can be met in first time step
+        factor_lvst_graze_rate = 1.0                        # use rate of pastures; this is inferred from assumptions around feed. carrying capacity can increase this
+        vec_agrc_frac_imports_for_lvst = None               # fraction of 
+
+        
+        factor_lvst_dietary_mass_balance_adjustment
 
         # total animal mass
         vec_lvst_aggregate_animal_mass[0] = np.dot(
             arr_lvst_dem[0], 
             arr_lvst_mass_per_animal[0]
         )
+
+        
 
         """
         Rough note on the transition adjustment process:
@@ -7980,7 +7995,7 @@ class AFOLU:
             # crop values
             area_crop_cur = x[self.ind_lndu_crop]
             area_crop_proj = x_proj_unadj[self.ind_lndu_crop]
-            vec_agrc_cropland_area_proj = area_crop_proj*arr_agrc_frac_cropland[i]
+            vec_agrc_cropland_area_proj = area_crop_proj*arr_agrc_frac_cropland[i + 1]
 
             # pasture values
             area_pstr_cur = x[self.ind_lndu_pstr]
@@ -7990,10 +8005,53 @@ class AFOLU:
             lurf = vec_lndu_yrf[i]
 
 
-            #
-            #    GET LAND USE DEMANDS FOR LVST
-            #
+            #######################################
+            #    GET LAND USE DEMANDS FOR LVST    #
+            #######################################
+            
+            # get demands for land and feed using the LDE
+            (
+                sol_init,
+                sol_new,
+                lvst_dietary_mass_factor, 
+                ratio_yield,
+                vec_import_fracs_for_lvst,
+                vec_lde_carrying_capacity,
+                vec_lde_supply_carrying_capacity,
+                vec_lde_supply, 
+            ) = self.modvar_soil_demscalar_fertilizer.get_lde_lvst_land_demands(
+                i,
+                vec_lndu_yf_pasture_avg[i]*factor_lvst_graze_rate,
+                lurf,
+                vec_agrc_cropland_area_proj,
+                arr_agrc_regression_b[i],
+                arr_agrc_regression_m[i],
+                arr_agrc_yield_factors[i],
+                x,
+                arr_lvst_annual_feed_per_capita[i],
+                arr_lvst_dem[i],
+                lvst_dietary_mass_factor = 1.0,     
+                vec_agrc_frac_imports_for_lvst = vec_agrc_frac_imports_for_lvst,
+            )
 
+            # update 
+            sol = sol_new
+            if i == 0:
+                factor_lvst_graze_rate = ratio_yield
+                sol = sol_init
+                vec_agrc_frac_imports_for_lvst = vec_import_fracs_for_lvst
+
+            # get target areas for pastures and crops for lvst
+            area_target_pstr, vec_agrc_area_target_for_lvst = self.estimate_lde_lvst_new_lndu_demands(
+                sol,
+                vec_lndu_yf_pasture_avg[i]*factor_lvst_graze_rate, 
+                vec_agrc_cropland_area_proj,
+                arr_agrc_frac_feed[i],
+                vec_lde_supply,
+                vec_lde_supply_carrying_capacity,
+            )
+
+            """
             # check areas where lvst has 0 pop
             inds_lvst_where_pop_noncc = np.where(arr_lvst_annual_dry_matter_consumption_per_capita[i + 1] == 0)[0]
             vec_lvst_prod_supported_pre_realloc = self.get_lvst_production_supported(
@@ -8040,7 +8098,7 @@ class AFOLU:
                 factor_lndu_init_avg_consumption_pstr*vec_lvst_scale_cc[i + 1],
             )
             area_target_pstr = area_pstr_proj + area_lndu_pstr_increase_0
-
+            """
 
             ##  AGRICULTURE - calculate demand increase in crops, which is a 
             #                 function of gdp/capita (exogenous) and livestock 
