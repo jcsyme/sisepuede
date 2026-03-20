@@ -4447,6 +4447,60 @@ class AFOLU:
     
 
 
+    def get_lde_lndu_initial_adjustment_factors(self,
+        *args,
+        **kwargs,
+    ) -> Tuple:
+        """Get adjustment factors that represent physical/economic
+            characteristics of the system, including:
+
+            * ratio_yield:
+                Use rate of available pasture land. This represents how 
+                much available pasture is used. Lower average use rates are
+                associated with lower intensity grazing, but may induce
+                higher demands for land. Higher average use rates may do
+                the opposite
+            * vec_agrc_frac_imports_for_lvst:
+                Fraction of imports available that are used for livestock.
+                Used to set availability of imports in LDE.
+
+        Wrapper for self.get_lde_lvst_land_demands(). Returns a tuple of the 
+            form:   
+                out = (
+                    sol_init,
+                    lvst_dietary_mass_factor,
+                    ratio_yield,
+                    vec_import_fracs_for_lvst,
+                )
+        """
+        # get demands for land and feed using the LDE
+        (
+            sol_init,
+            _,
+            lvst_dietary_mass_factor, 
+            ratio_yield,
+            vec_import_fracs_for_lvst,
+            _,
+            _,
+            _,
+            _, 
+        ) = self.get_lde_lvst_land_demands(
+            *args,
+            lvst_dietary_mass_factor = 1.0,     
+            vec_agrc_frac_imports_for_lvst = None,
+        )
+
+        out = (
+            sol_init,
+            lvst_dietary_mass_factor,
+            ratio_yield,
+            vec_import_fracs_for_lvst,
+        )
+        
+        return out
+    
+
+
     def get_lde_lvst_land_demands(self,
         i: int,
         factor_lndu_yf_pasture_avg: float,
@@ -4557,7 +4611,8 @@ class AFOLU:
                 ratio_yield,
                 vec_import_fracs_for_lvst,
                 vec_lvst_demand,        # at init, feeds are scaled so that this is met
-                vec_lde_supply, 
+                vec_lvst_demand,
+                vec_lde_supply,
                 vec_lde_supply,  
             )
             return out
@@ -4604,6 +4659,7 @@ class AFOLU:
             ratio_yield, 
             vec_import_fracs_for_lvst,
             vec_pop_carrying_capacity,
+            vec_pop_target,
             vec_supply_carrying_capacity,
             vec_lde_supply, 
         )
@@ -5105,6 +5161,161 @@ class AFOLU:
         )
 
         return df_out
+    
+
+
+    def get_ilu_agrc_area_target_nonfeed(self,
+        i: int,
+        lurf: float,
+        arr_agrc_yield_factors: np.ndarray,
+        arr_lndu_frac_increasing_net_exports_met: np.ndarray,
+        arr_lndu_frac_increasing_net_imports_met: np.ndarray,
+        arr_agrc_production_nonfeed_unadj: np.ndarray,
+        vec_agrc_cropland_area_proj: np.ndarray,
+    ) -> Tuple[np.ndarray]:
+        """Estimate target area by crop for non-feed purposes (human 
+            consumption and fuels etc.). EXCLUDES estimates for feed, which
+            are taken from self.estimate_lde_lvst_new_lndu_demands()
+        """
+
+        # some init
+        vec_agrc_frac_feed = self.arrays_agrc.arr_agrc_frac_animal_feed[i]
+        vec_agrc_total_dem_yield = arr_agrc_production_nonfeed_unadj[i + 1]
+
+        # calculate net surplus for yields
+        vec_agrc_proj_yields = (
+            vec_agrc_cropland_area_proj
+            *(1 - vec_agrc_frac_feed)
+            *arr_agrc_yield_factors[i + 1]
+        )
+
+        vec_agrc_unmet_demand_yields = vec_agrc_total_dem_yield - vec_agrc_proj_yields
+        vec_agrc_unmet_demand_yields_to_impexp = (
+            sf.vec_bounds(
+                vec_agrc_unmet_demand_yields, 
+                (0, np.inf)
+            )
+            *arr_lndu_frac_increasing_net_imports_met[i + 1, self.ind_lndu_crop]
+        )
+        vec_agrc_unmet_demand_yields_to_impexp += (
+            sf.vec_bounds(
+                vec_agrc_unmet_demand_yields, (-np.inf, 0)
+            )
+            *arr_lndu_frac_increasing_net_exports_met[i + 1, self.ind_lndu_crop]
+        )
+        vec_agrc_unmet_demand_yields_lost = vec_agrc_unmet_demand_yields - vec_agrc_unmet_demand_yields_to_impexp
+
+        # adjust yields for import/export scalar
+        vec_agrc_proj_yields_adj = vec_agrc_proj_yields + vec_agrc_unmet_demand_yields_lost
+        vec_agrc_yield_factors_adj = np.nan_to_num(
+            vec_agrc_proj_yields_adj/vec_agrc_cropland_area_proj, 
+            nan = 0.0, 
+            posinf = 0.0,
+        ) # replaces arr_agrc_yield_factors[i + 1] below
+        vec_agrc_total_dem_yield = vec_agrc_proj_yields_adj + vec_agrc_unmet_demand_yields_to_impexp
+
+        # now, generate modified crop areas and net surplus of crop areas
+        vec_agrc_dem_cropareas = np.nan_to_num(
+            vec_agrc_total_dem_yield/vec_agrc_yield_factors_adj, 
+            nan = 0.0, 
+            posinf = 0.0,
+        )
+        vec_agrc_unmet_demand = vec_agrc_dem_cropareas - vec_agrc_cropland_area_proj
+        vec_agrc_reallocation_target = vec_agrc_unmet_demand*lurf
+
+        # get surplus yield (increase to net imports)
+        vec_agrc_net_imports_increase = (vec_agrc_unmet_demand - vec_agrc_reallocation_target)*vec_agrc_yield_factors_adj
+        vec_agrc_cropareas_adj = vec_agrc_cropland_area_proj + vec_agrc_reallocation_target
+
+        # add outputs here
+        out = (
+            vec_agrc_cropareas_adj,
+            vec_agrc_net_imports_increase,
+            vec_agrc_reallocation_target,
+            vec_agrc_unmet_demand_yields_lost,
+        )
+
+        return out
+    
+
+
+    def get_ilu_agrc_unmet_demand_vars(self,
+        area_target_crop: np.ndarray,
+        vec_agrc_reallocation_target: np.ndarray,
+        vec_agrc_total_dem_yield: np.ndarray,
+        vec_agrc_yield_factors_adj: np.ndarray,
+        vec_lndu_next: np.ndarray, # 
+    ) -> Tuple[np.ndarray]:
+        """Get the unmet demand lost and change to net imports from LVST
+            results. Returns a tuple of the form
+
+            (
+                vec_lvst_net_import_increase,
+                vec_lvst_unmet_demand_lost,
+            )
+        """
+        # calculate how much area in surplus exists, then adjust yields down and add extra to net imports
+        vec_agrc_net_imports_increase_adjustment = np.nan_to_num(
+            (area_target_crop - vec_lndu_next[self.ind_lndu_crop])/vec_agrc_reallocation_target.sum(),
+            nan = 0.0,
+            posinf = 0.0,
+            neginf = 0.0,
+        )
+        vec_agrc_net_imports_increase_adjustment *= vec_agrc_yield_factors_adj
+
+        # add the increase to the imports 
+        vec_agrc_net_imports_increase += vec_agrc_net_imports_increase_adjustment
+        vec_agrc_cropareas_adj = vec_agrc_cropareas_adj/vec_agrc_cropareas_adj.sum()
+        vec_agrc_cropareas_adj *= vec_lndu_next[self.ind_lndu_crop]
+        vec_agrc_yield_adj = vec_agrc_total_dem_yield - vec_agrc_net_imports_increase
+
+        out = (
+
+        )
+
+        return out
+    
+
+
+    def get_ilu_lvst_unmet_demand_vars(self,
+        arr_lndu_frac_increasing_net_imports_met: np.ndarray,
+        arr_lndu_frac_increasing_net_exports_met: np.ndarray,
+        arr_lvst_dem: np.ndarray,
+        vec_lvst_pop_final: np.ndarray,
+    ) -> Tuple[np.ndarray]:
+        """Get the unmet demand lost and change to net imports from LVST
+            results. Returns a tuple of the form
+
+            (
+                vec_lvst_net_import_increase,
+                vec_lvst_unmet_demand_lost,
+            )
+        """
+
+        vec_lvst_unmet_demand = np.nan_to_num(
+            arr_lvst_dem[i + 1] - vec_lvst_pop_final,
+            nan = 0.0,
+            posinf = 0.0,
+        )
+
+        vec_lvst_unmet_demand_to_impexp = (
+            sf.vec_bounds(vec_lvst_unmet_demand, (0, np.inf))
+            *arr_lndu_frac_increasing_net_imports_met[i + 1, self.ind_lndu_pstr]
+        )
+        vec_lvst_unmet_demand_to_impexp += (
+            sf.vec_bounds(vec_lvst_unmet_demand, (-np.inf, 0))
+            *arr_lndu_frac_increasing_net_exports_met[i + 1, self.ind_lndu_pstr]
+        )
+
+        vec_lvst_unmet_demand_lost = vec_lvst_unmet_demand - vec_lvst_unmet_demand_to_impexp
+        vec_lvst_net_import_increase = vec_lvst_unmet_demand_to_impexp
+
+        out = (
+            vec_lvst_net_import_increase,
+            vec_lvst_unmet_demand_lost,
+        )
+
+        return out
     
 
 
@@ -7929,15 +8140,6 @@ class AFOLU:
             )
         )
 
-
-        # initialize some factors that are solved for by the LDE
-        factor_lvst_dietary_mass_balance_adjustment = 1.0   # adjustment to population mass to ensure that mass balance can be met in first time step
-        factor_lvst_graze_rate = 1.0                        # use rate of pastures; this is inferred from assumptions around feed. carrying capacity can increase this
-        vec_agrc_frac_imports_for_lvst = None               # fraction of 
-
-        
-        factor_lvst_dietary_mass_balance_adjustment
-
         # total animal mass
         vec_lvst_aggregate_animal_mass[0] = np.dot(
             arr_lvst_dem[0], 
@@ -7977,6 +8179,33 @@ class AFOLU:
         x = vec_initial_area
         i = 0
 
+        # initialize some factors for LDE
+        #   factor_lvst_dietary_mass_balance_adjustment:
+        #       adjustment to population mass to ensure that mass balance can be 
+        #       met in first time step
+        #   factor_lvst_graze_rate:
+        #       use rate of pastures; this is inferred from assumptions around 
+        #       feed. carrying capacity can increase this
+        #   vec_agrc_frac_imports_for_lvst:
+        #       estimated fraction of imports that are used for feed
+        (
+            sol_init,
+            factor_lvst_dietary_mass_balance_adjustment,
+            factor_lvst_graze_rate,
+            vec_agrc_frac_imports_for_lvst,
+        ) = self.get_lde_lndu_initial_adjustment_factors(
+            i,
+            vec_lndu_yf_pasture_avg[i]*factor_lvst_graze_rate,
+            lurf,
+            vec_agrc_cropland_area_proj,
+            arr_agrc_regression_b[i],
+            arr_agrc_regression_m[i],
+            arr_agrc_yield_factors[i],
+            x,
+            arr_lvst_annual_feed_per_capita[i],
+            arr_lvst_dem[i],
+        )
+
         while i < n_tp - 1:
 
             # check transition matrix index
@@ -8001,52 +8230,46 @@ class AFOLU:
             area_pstr_cur = x[self.ind_lndu_pstr]
             area_pstr_proj = x_proj_unadj[self.ind_lndu_pstr]
 
-            #HERE123
-            lurf = vec_lndu_yrf[i]
+            # land use reallocation factor
+            lurf = vec_lndu_yrf[i + 1]
 
 
-            #######################################
-            #    GET LAND USE DEMANDS FOR LVST    #
-            #######################################
-            
-            # get demands for land and feed using the LDE
+            ################################################
+            #    GET LAND USE DEMANDS FOR LVST AND AGRC    #
+            ################################################
+
+            # demands for livestock
             (
                 sol_init,
-                sol_new,
-                lvst_dietary_mass_factor, 
-                ratio_yield,
-                vec_import_fracs_for_lvst,
+                sol,
+                _, 
+                _,
+                _,
                 vec_lde_carrying_capacity,
+                vec_lde_lvst_pop_target,
                 vec_lde_supply_carrying_capacity,
                 vec_lde_supply, 
-            ) = self.modvar_soil_demscalar_fertilizer.get_lde_lvst_land_demands(
-                i,
-                vec_lndu_yf_pasture_avg[i]*factor_lvst_graze_rate,
+            ) = self.get_lde_lvst_land_demands(
+                i + 1,
+                vec_lndu_yf_pasture_avg[i + 1]*factor_lvst_graze_rate,
                 lurf,
                 vec_agrc_cropland_area_proj,
-                arr_agrc_regression_b[i],
-                arr_agrc_regression_m[i],
-                arr_agrc_yield_factors[i],
-                x,
-                arr_lvst_annual_feed_per_capita[i],
-                arr_lvst_dem[i],
-                lvst_dietary_mass_factor = 1.0,     
+                arr_agrc_regression_b[i + 1],
+                arr_agrc_regression_m[i + 1],
+                arr_agrc_yield_factors[i + 1],
+                x_proj_unadj,
+                arr_lvst_annual_feed_per_capita[i + 1],
+                arr_lvst_dem[i + 1],
+                lvst_dietary_mass_factor = factor_lvst_dietary_mass_balance_adjustment,     
                 vec_agrc_frac_imports_for_lvst = vec_agrc_frac_imports_for_lvst,
             )
-
-            # update 
-            sol = sol_new
-            if i == 0:
-                factor_lvst_graze_rate = ratio_yield
-                sol = sol_init
-                vec_agrc_frac_imports_for_lvst = vec_import_fracs_for_lvst
 
             # get target areas for pastures and crops for lvst
             area_target_pstr, vec_agrc_area_target_for_lvst = self.estimate_lde_lvst_new_lndu_demands(
                 sol,
-                vec_lndu_yf_pasture_avg[i]*factor_lvst_graze_rate, 
+                vec_lndu_yf_pasture_avg[i + 1]*factor_lvst_graze_rate, 
                 vec_agrc_cropland_area_proj,
-                arr_agrc_frac_feed[i],
+                arr_agrc_frac_feed[i + 1],
                 vec_lde_supply,
                 vec_lde_supply_carrying_capacity,
             )
@@ -8103,49 +8326,24 @@ class AFOLU:
             ##  AGRICULTURE - calculate demand increase in crops, which is a 
             #                 function of gdp/capita (exogenous) and livestock 
             #                 demand (used for feed)
-                        
-            vec_agrc_feed_dem_yield = sum((arr_lndu_yield_by_lvst*vec_lvst_dem_gr_iterator).transpose())
-            vec_agrc_total_dem_yield = (arr_agrc_production_nonfeed_unadj[i + 1] + vec_agrc_feed_dem_yield)
 
-            # calculate net surplus for yields
-            vec_agrc_proj_yields = vec_agrc_cropland_area_proj*arr_agrc_yield_factors[i + 1]
-            vec_agrc_unmet_demand_yields = vec_agrc_total_dem_yield - vec_agrc_proj_yields
-            vec_agrc_unmet_demand_yields_to_impexp = (
-                sf.vec_bounds(
-                    vec_agrc_unmet_demand_yields, 
-                    (0, np.inf)
-                )
-                *arr_lndu_frac_increasing_net_imports_met[i + 1, self.ind_lndu_crop]
+            (
+                vec_agrc_area_target_nonfeed,
+                vec_agrc_net_imports_increase, 
+                vec_agrc_reallocation_target,
+                vec_agrc_unmet_demand_yields_lost,
+            ) = self.get_ilu_agrc_area_target_nonfeed(
+                i,
+                lurf,
+                arr_agrc_yield_factors,
+                arr_lndu_frac_increasing_net_exports_met,
+                arr_lndu_frac_increasing_net_imports_met,
+                arr_agrc_production_nonfeed_unadj,
+                vec_agrc_cropland_area_proj,
             )
-            vec_agrc_unmet_demand_yields_to_impexp += (
-                sf.vec_bounds(
-                    vec_agrc_unmet_demand_yields, (-np.inf, 0)
-                )
-                *arr_lndu_frac_increasing_net_exports_met[i + 1, self.ind_lndu_crop]
-            )
-            vec_agrc_unmet_demand_yields_lost = vec_agrc_unmet_demand_yields - vec_agrc_unmet_demand_yields_to_impexp
 
-            # adjust yields for import/export scalar
-            vec_agrc_proj_yields_adj = vec_agrc_proj_yields + vec_agrc_unmet_demand_yields_lost
-            vec_agrc_yield_factors_adj = np.nan_to_num(
-                vec_agrc_proj_yields_adj/vec_agrc_cropland_area_proj, 
-                nan = 0.0, 
-                posinf = 0.0,
-            ) # replaces arr_agrc_yield_factors[i + 1] below
-            vec_agrc_total_dem_yield = vec_agrc_proj_yields_adj + vec_agrc_unmet_demand_yields_to_impexp
-
-            # now, generate modified crop areas and net surplus of crop areas
-            vec_agrc_dem_cropareas = np.nan_to_num(
-                vec_agrc_total_dem_yield/vec_agrc_yield_factors_adj, 
-                nan = 0.0, 
-                posinf = 0.0,
-            )
-            vec_agrc_unmet_demand = vec_agrc_dem_cropareas - vec_agrc_cropland_area_proj
-            vec_agrc_reallocation_target = vec_agrc_unmet_demand*vec_lndu_yrf[i + 1]
-
-            # get surplus yield (increase to net imports)
-            vec_agrc_net_imports_increase = (vec_agrc_unmet_demand - vec_agrc_reallocation_target)*vec_agrc_yield_factors_adj
-            vec_agrc_cropareas_adj = vec_agrc_cropland_area_proj + vec_agrc_reallocation_target
+            # get total crop area required
+            vec_agrc_cropareas_adj = vec_agrc_area_target_nonfeed + vec_agrc_area_target_for_lvst
             area_target_crop = vec_agrc_cropareas_adj.sum()
 
 
@@ -8161,8 +8359,8 @@ class AFOLU:
                 arrs_transitions[i_tr],
                 x,
                 dict_area_targets_exog,
-                arr_lndu_constraints_inf[i],
-                arr_lndu_constraints_sup[i],
+                arr_lndu_constraints_inf[i + 1],
+                arr_lndu_constraints_sup[i + 1],
                 area = vec_gnrl_area[i],
                 prohibit_forest_transitions = prohibit_forest_transitions,
                 x_proj_unadj = x_proj_unadj,
@@ -8179,44 +8377,77 @@ class AFOLU:
             ###                                                                                    ###
             ##########################################################################################
 
-            ##  LVST
+            # get vector of available crops
+            vec_agrc_cropareas_final = vec_agrc_cropareas_adj/vec_agrc_cropareas_adj.sum()
+            vec_agrc_cropareas_final *= x_next[self.ind_lndu_crop]
 
-            # livestock - calculate how much area extra is provided ()
-            vec_lvst_net_imports_increase_adjustment = np.nan_to_num(
-                (area_target_pstr - x_next[self.ind_lndu_pstr])/area_lndu_pstr_increase_0,
-                nan = 0.0,
-                posinf = 0.0,
-                neginf = 0.0,
+            ##  LVST LDE 
+            #   - run LDE again with target pop as demand
+            #   - use "for_carrying_capacity" and cap the carrying capacity 
+            #       scalar at 1
+            #   - this will get as close as possible to the target pop and 
+            #       obtain it if the land use reallocation successfully met 
+            #       target areas. If not (e.g., due to constraints), target pop
+            #       may be low
+            (
+                sol_init,
+                sol,
+                _, 
+                _,
+                _,
+                vec_lvst_pop_final,
+                _,
+                vec_lde_supply_carrying_capacity,
+                vec_lde_supply, 
+            ) = self.get_lde_lvst_land_demands(
+                i + 1,
+                vec_lndu_yf_pasture_avg[i + 1]*factor_lvst_graze_rate,
+                lurf,                               # unused in carrying capacity context
+                vec_agrc_cropareas_final,           # use solved crop areas
+                arr_agrc_regression_b[i + 1],       
+                arr_agrc_regression_m[i + 1],
+                arr_agrc_yield_factors[i + 1],
+                x_next,                             # use solved land use areas
+                arr_lvst_annual_feed_per_capita[i + 1],
+                vec_lde_lvst_pop_target,            # use target LVST population
+                for_carrying_capacity = True,
+                lvst_dietary_mass_factor = factor_lvst_dietary_mass_balance_adjustment,     
+                sup_carrying_capacity_scalar = 1.0,
+                vec_agrc_frac_imports_for_lvst = vec_agrc_frac_imports_for_lvst,
             )
-            vec_lvst_net_imports_increase_adjustment *= vec_lvst_reallocation_target
 
-            # adjust the lvst reallocation value and calculate net imports
-            vec_lvst_reallocation = vec_lvst_reallocation_target - vec_lvst_net_imports_increase_adjustment
-            vec_lvst_net_import_increase = vec_lvst_unmet_demand - vec_lvst_reallocation # demand for livestock met by increasing net imports (neg => net exports)
-            vec_lvst_pop_adj += vec_lvst_reallocation
-            vec_lvst_dem_gr_iterator = np.nan_to_num(vec_lvst_pop_adj/arr_lvst_dem[0], nan = 1.0, posinf = 1.0, )
+
+            ##  CALCULATE NET SURPLUSES
+
+            (
+                vec_lvst_net_import_increase,
+                vec_lvst_unmet_demand_lost,
+            ) = self.get_ilu_lvst_unmet_demand_vars(
+                arr_lndu_frac_increasing_net_imports_met,
+                arr_lndu_frac_increasing_net_exports_met,
+                arr_lvst_dem,
+                vec_lvst_pop_final,
+            )
 
             # update output arrays
-            arr_lvst_pop_adj[i + 1] = np.round(vec_lvst_pop_adj).astype(int)
+            arr_lvst_pop_adj[i + 1] = np.round(vec_lvst_pop_final).astype(int)
             vec_lvst_aggregate_animal_mass[i + 1] = np.dot(arr_lvst_mass_per_animal[i + 1], arr_lvst_pop_adj[i + 1])
 
 
             ##  AGRC 
 
-            # calculate how much area in surplus exists, then adjust yields down and add extra to net imports
-            vec_agrc_net_imports_increase_adjustment = np.nan_to_num(
-                (area_target_crop - x_next[self.ind_lndu_crop])/vec_agrc_reallocation_target.sum(),
-                nan = 0.0,
-                posinf = 0.0,
-                neginf = 0.0,
-            )
-            vec_agrc_net_imports_increase_adjustment *= vec_agrc_yield_factors_adj
+            (
 
-            # add the increase to the imports 
-            vec_agrc_net_imports_increase += vec_agrc_net_imports_increase_adjustment
-            vec_agrc_cropareas_adj = vec_agrc_cropareas_adj/vec_agrc_cropareas_adj.sum()
-            vec_agrc_cropareas_adj *= x_next[self.ind_lndu_crop]
-            vec_agrc_yield_adj = vec_agrc_total_dem_yield - vec_agrc_net_imports_increase
+            ) = self.get_ilu_agrc_unmet_demand_vars(
+                area_target_crop,
+                vec_agrc_reallocation_target,
+                vec_agrc_total_dem_yield,
+                vec_agrc_yield_factors_adj,
+                x_next,
+            )
+
+        
+        
 
             # update AGRC and LVST arrays
             if i + 1 < n_tp:
@@ -8236,6 +8467,7 @@ class AFOLU:
             ##  ESTIMATE BIOMASS REMOVAL DEMANDS
             
             #== FUNCTIONALIZE
+
             # get area and yield in terms of units needed to use regression for biomass
             vec_agrc_crop_area_m = vec_agrc_cropareas_adj*scalar_agrc_area_to_m
             vec_agrc_yield_units_m = vec_agrc_yield_adj*scalar_agrc_yield_to_m
@@ -8761,6 +8993,7 @@ class AFOLU:
         iter_step: int = 100,
         mass_balance_adjustment: float = 1.0,
         method: str = "highs",
+        sup_carrying_capacity_scalar: float = np.inf,
         vec_agrc_frac_imports_for_lvst: Union[np.ndarray, None] = None,
         verbose: bool = False,
     ) -> Tuple['sco.OptimizeResult', float, np.ndarray]:
@@ -8785,6 +9018,9 @@ class AFOLU:
             Step size (1/iter_step) for reducing mass of livestock demands,
             which is interpreted as a change to average animal mass. Only
             takes effect if allow_new is False. 
+        sup_carrying_capacity_scalar : float
+            Maximum value of the carrying capacity scalar. Can be used to ensure
+            carrying capacities don't exceed demand.
         """
         # cannot allow new if running for carrying capacity
         allow_new &= not for_carrying_capacity
@@ -8860,6 +9096,7 @@ class AFOLU:
                 method = method,
                 options = {"disp": verbose, },
                 stop_on_error = True,
+                sup_carrying_capacity_scalar = sup_carrying_capacity_scalar,
             )
         
             j += 1

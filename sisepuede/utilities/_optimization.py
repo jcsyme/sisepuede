@@ -1801,6 +1801,7 @@ class LivestockDietEstimator:
     def get_bounds(self,
         allow_new: bool = False, 
         for_carrying_capacity: bool = False, 
+        sup_carrying_capacity_scalar: float = np.inf,
     ) -> np.ndarray:
         """Reformat costs for use in program
 
@@ -1815,6 +1816,9 @@ class LivestockDietEstimator:
             Set to True to build the constraint for the carrying capacity 
             problem, which scales a population up or down to meet land use 
             availability.
+        sup_carrying_capacity_scalar : float
+            Maximum value of the carrying capacity scalar. Can be used to ensure
+            carrying capacities don't exceed demand.
         """
         N = self.mn if not for_carrying_capacity else self.mn + 1
         vec_bounds_lower = np.zeros(N, )
@@ -1823,9 +1827,10 @@ class LivestockDietEstimator:
         # update upper bounds if not allowed
         if not allow_new:
             vec_bounds_upper[self.inds_flat_new_classes] = 0.0
-        #else:
-        #    # NOTE: additional constraint needed to prevent exceeding existing area
-        #    vec_bounds_lower[self.inds_flat_new_classes] = -np.inf
+        
+        # cap the scalar for carrying capacity runs
+        if for_carrying_capacity:
+            vec_bounds_upper[-1] = sup_carrying_capacity_scalar
         
         # turn into a list of tuples
         out = list(zip(vec_bounds_lower, vec_bounds_upper, ))
@@ -2704,6 +2709,7 @@ class LivestockDietEstimator:
         allow_new: bool = False,
         for_carrying_capacity: bool = False,
         stop_on_error: bool = False,
+        sup_carrying_capacity_scalar: float = np.inf,
         vec_import_frac: Union[np.ndarray, None] = None,
         **kwargs,
     ) -> np.ndarray:
@@ -2764,6 +2770,9 @@ class LivestockDietEstimator:
             availability.
         stop_on_error : bool
             Stop if errors occur in solutions?
+        sup_carrying_capacity_scalar : float
+            Maximum value of the carrying capacity scalar. Can be used to ensure
+            carrying capacities don't exceed demand.
         vec_import_frac : Union[np.ndarray, None]
             Optional vector of import fractions of cereals and non-cereals. Used to 
             adjust import supply availability if new crops are planted. 
@@ -2784,6 +2793,7 @@ class LivestockDietEstimator:
             list_bounds = self.get_bounds(
                 allow_new = allow_new, 
                 for_carrying_capacity = for_carrying_capacity,
+                sup_carrying_capacity_scalar = sup_carrying_capacity_scalar,
             )
 
         except Exception as e:
