@@ -510,7 +510,16 @@ class EnergyConsumption:
             * self.modvar_enfu_****
             * self.modvars_enfu_****
         """
+
+        # assign from attribute variable codes
+        self.model_attributes.assign_subsector_variable_names_from_varcodes(
+            self,
+            self.model_attributes.subsec_name_enfu,
+            stop_on_error = True, 
+        )
+        
         # Energy Fuel model variables
+        """
         self.modvar_enfu_energy_density_volumetric = "Volumetric Energy Density"
         self.modvar_enfu_ef_combustion_co2 = ":math:\\text{CO}_2 Combustion Emission Factor"
         self.modvar_enfu_ef_combustion_mobile_ch4 = ":math:\\text{CH}_4 Mobile Combustion Emission Factor"
@@ -546,7 +555,7 @@ class EnergyConsumption:
         self.modvar_enfu_value_of_fuel_inen = "Value of Fuel Consumed in Industrial Energy"
         self.modvar_enfu_value_of_fuel_scoe = "Value of Fuel Consumed in SCOE"
         self.modvar_enfu_value_of_fuel_trns = "Value of Fuel Consumed in Transportation"
-
+        """
         # list of key variables - total energy demands by fuel
         self.modvars_enfu_energy_demands_total = [
             self.modvar_enfu_energy_demand_by_fuel_ccsq,
