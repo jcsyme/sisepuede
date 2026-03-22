@@ -214,6 +214,34 @@ class ArraysAGRC(ma.SubsectorArraysCollection):
             set_property = True,
         )
 
+        # residue final use -- burned
+        self.get_modvar_array(
+            None,
+            self.modvar_agrc_residue_final_use_burned,
+            set_property = True,
+        )
+
+        # residue final use -- energy
+        self.get_modvar_array(
+            None,
+            self.modvar_agrc_residue_final_use_energy,
+            set_property = True,
+        )
+
+        # residue final use -- feed
+        self.get_modvar_array(
+            None,
+            self.modvar_agrc_residue_final_use_feed,
+            set_property = True,
+        )
+
+        # residue final use -- field
+        self.get_modvar_array(
+            None,
+            self.modvar_agrc_residue_final_use_field,
+            set_property = True,
+        )
+
         # yield factors
         self.get_modvar_array(
             df_trajectories,

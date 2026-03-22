@@ -2000,13 +2000,21 @@ class AFOLU:
         convert_to_c: bool = False,
         unit_spec_mass: Union[str, 'ModelVariable', None] = None,
         **kwargs,
-    ) -> np.ndarray:
+    ) -> Tuple[np.ndarray]:
         """Estimate the specified demand fir mass of c removals in term of a 
             target model variable. Later gets adjusted if stock is not 
             available.
         
         Combines biomass energy demands from SCOE, INEN, and ENTC (as estimated) 
-            and combines those
+            and combines those. Returns a tuple of the form
+
+            (
+                vec_c_demand,                       # SCOE, INEN, and ENTC
+                vec_c_demand_entc,                  # ENTC alone
+                dict_subsec_to_fuel_demand_biomass, # estimate of biomass demand 
+                                                    # by subsector in 
+                                                    # configuration units
+            )
 
         NOTE:
             - emissions from AG/LVST industrial use are estimated using GDP. 
@@ -2071,7 +2079,7 @@ class AFOLU:
             fill_value = 0.0,
         )     
 
-        # try to run the model 
+        # try to run the energy consumption model 
         try:
             df_energy_cons_out = self.model_enercons(df_for_enercons, )
 
@@ -2081,18 +2089,37 @@ class AFOLU:
         
         ##  GET ENERGY DEMANDS--WILL REQUIRE ESTIMATING ELECTRICITY DEMANDS FROM BIOMASS
 
-        modvars = [
-            self.model_enercons.modvar_enfu_energy_demand_by_fuel_ccsq,
-            self.model_enercons.modvar_enfu_energy_demand_by_fuel_inen,
-            self.model_enercons.modvar_enfu_energy_demand_by_fuel_scoe,
-            self.model_enercons.modvar_enfu_energy_demand_by_fuel_trns,
-        ] 
+        dict_subsec_to_modvar = dict(
+            (k, v.get("energy_demand"))
+            for k, v in (
+                self
+                .model_enercons
+                .get_enfu_dict_subsectors_to_energy_variables()[0]
+                .items()
+            )
+        )
+        # modvars = [
+        #     self.model_enercons.modvar_enfu_energy_demand_by_fuel_ccsq,
+        #     self.model_enercons.modvar_enfu_energy_demand_by_fuel_inen,
+        #     self.model_enercons.modvar_enfu_energy_demand_by_fuel_scoe,
+        #     self.model_enercons.modvar_enfu_energy_demand_by_fuel_trns,
+        # ] 
+
 
         # initialize fuel demands
+        dict_demand_out = {}
         vec_fuel_demand_biomass = 0
         vec_fuel_demand_electricity = 0
 
-        for modvar in modvars:
+        for subsec_abv, modvar in dict_subsec_to_modvar.items():
+            
+            # check subsec; skip ENTC (estimated separately)
+            subsec = self.model_attributes.get_subsector_attribute(
+                subsec_abv, 
+                "subsector", 
+            )
+            if (subsec == self.model_attributes.subsec_name_entc): continue
+
             # get energy demand for fuels
             arr_fuel_demand = self.model_attributes.extract_model_variable(#
                 df_energy_cons_out,
@@ -2112,13 +2139,21 @@ class AFOLU:
             vec_fuel_demand_biomass += arr_fuel_demand[:, ind_enfu_biomass]
             vec_fuel_demand_electricity += arr_fuel_demand[:, ind_enfu_electricity]
 
+            # add to output dictionary
+            dict_demand_out.update({subsec: vec_fuel_demand_biomass, })
     
-        # estimate any specified ENTC demand
+
+        ##  NEXT< GET ENTC AND DO CONVERSIONS
+
+        # estimate ENTC and add to output dictionary
         vec_fuel_demand_biomass_entc = self.estimate_biomass_demand_entc(
             df_for_enercons,
             vec_fuel_demand_electricity,
             **kwargs,
         )
+        dict_demand_out.update({
+            self.model_attributes.subsec_name_entc: vec_fuel_demand_biomass_entc, 
+        })
 
         # get biomass demand and return if not converting to C
         vec_fuel_demand_biomass_out = vec_fuel_demand_biomass + vec_fuel_demand_biomass_entc
@@ -2133,7 +2168,23 @@ class AFOLU:
             **kwargs,
         )
 
-        return vec_c_demand
+        # convert to C and return
+        vec_c_demand_entc = self.convert_fuelwood_to_biomass_equivalent(
+            df_afolu_trajectories,
+            vec_fuel_demand_biomass_entc,
+            convert_to_c = convert_to_c,
+            modvar_frac_c = self.modvar_frst_frac_c_per_dm,
+            units_mass = unit_spec_mass,
+            **kwargs,
+        )
+
+        out = (
+            vec_c_demand,
+            vec_c_demand_entc,
+            dict_demand_out,
+        )
+
+        return out
     
 
 
@@ -2153,9 +2204,16 @@ class AFOLU:
         Returns a Tuple of the form
         
             (
-                vec_frst_c_fuel,
+                vec_frst_c_fuel,                    # includes INEN, ENTC, and 
+                                                    #  SCOE
+                vec_frst_c_fuel_entc,               # ENTC only
                 vec_frst_c_paper,
                 vec_frst_c_wood,
+                dict_subsec_to_fuel_demand_biomass, # estimate of energy demand 
+                                                    #  for biomass in 
+                                                    #  configuration units by 
+                                                    #  energy consumption 
+                                                    #  subsector
             )
 
         Function Arguments
@@ -2248,7 +2306,11 @@ class AFOLU:
 
         ##  GET REMOVALS OF FUELWOOD
 
-        vec_frst_c_fuel = self.estimate_biomass_demand_fuelwood_noag(
+        (
+            vec_frst_c_fuel,
+            vec_frst_c_fuel_entc,
+            dict_subsec_to_fuel_demand_biomass,
+        ) = self.estimate_biomass_demand_fuelwood_noag(
             df_afolu_trajectories,
             dfs_ippu_harvested_wood[2],
             unit_spec_mass = units_mass_out,
@@ -2258,8 +2320,10 @@ class AFOLU:
 
         out = (
             vec_frst_c_fuel,
+            vec_frst_c_fuel_entc,
             vec_frst_c_paper,
             vec_frst_c_wood,
+            dict_subsec_to_fuel_demand_biomass,
         )
 
         return out
@@ -3194,7 +3258,11 @@ class AFOLU:
             ledger for mangroves.
         """
         # demands
-        vec_demands = self.get_bcl_demand_removals(
+        (
+            vec_c_fuel_entc,
+            vec_c_fuel_total,
+            dict_subsec_to_fuel_demand_biomass,
+        ) = self.get_bcl_demand_removals(
             df_afolu_trajectories,
             mangroves = mangroves,
             vec_gdp_growth = vec_rates_gdp,
@@ -3233,13 +3301,20 @@ class AFOLU:
             df_afolu_trajectories, 
             **kwargs,
         )
+
+        # get demands (0 if mangroves)
+        vec_demands = (
+            np.zeros(vec_c_fuel_total.shape, )
+            if mangroves
+            else vec_c_fuel_total
+        )
         
         # build the ledger
         ledger = bcl.BiomassCarbonLedger(
             df_afolu_trajectories.shape[0],
             arr_frac_biomass_buffer,
             arr_frac_biomass_dead_storage,
-            vec_area_init, #[10000, 250000],
+            vec_area_init,
             vec_biomass_c_ag_init_stst_storage,
             vec_biomass_c_bg_to_ag_ratio,
             vec_frac_biomass_adjustment_threshold,
@@ -3248,6 +3323,14 @@ class AFOLU:
             vec_demands,
             vec_young_sf_curve_specification,
             n_tps_no_withdrawals_new_growth = self.n_tps_no_withdrawals_new_growth,
+        )
+
+        # return the ledger and the demands
+        out = (
+            ledger,
+            dict_subsec_to_fuel_demand_biomass,
+            vec_c_fuel_entc,
+            vec_c_fuel_total,
         )
         
         return ledger
@@ -3536,8 +3619,8 @@ class AFOLU:
         df_afolu_trajectories: pd.DataFrame,
         mangroves: bool = False,
         vec_gdp_growth: Union[np.ndarray, None] = None,
-    ) -> np.ndarray:
-        """Get the estimated demand for biomass removals
+    ) -> Tuple[np.ndarray]:
+        """Get the estimated demand for biomass removals. 
         """
         # approach:
         # estimate demand
@@ -3567,8 +3650,10 @@ class AFOLU:
 
         (
             vec_fuel,
+            vec_c_fuel_entc,
             vec_paper,
             vec_wood,
+            dict_subsec_to_fuel_demand_biomass,     # configuration units for energy by energy consumption subsec
         ) = self.estimate_biommass_demand_for_hwp_and_removals(
             df_afolu_trajectories,
             vec_gdp_growth,
@@ -3596,9 +3681,95 @@ class AFOLU:
         dem = dem[0:n_tp]
         """
 
-        dem = vec_fuel + vec_paper + vec_wood
+        vec_c_total = vec_fuel + vec_paper + vec_wood
+        
+        out = (
+            vec_c_fuel_entc,
+            vec_c_total,
+            dict_subsec_to_fuel_demand_biomass,
+        )
 
-        return dem
+        return out
+    
+
+
+    def get_bcl_energy_equivalient_from_residues(self,
+        i: int,
+        ged_enfu_biomass_unscaled: float,
+        vec_agrc_residues_avail_for_energy: np.ndarray, 
+    ) -> np.ndarray:
+        """Using crop residues available for energy, convert residues to 
+            energy units, then use this energy level to convert back to 
+            BCL mass for stock removals.
+
+        This adjustment is then used to reduce demands for forest stock 
+            removals.
+
+        Returns fuelwood equivalent mass in 
+
+
+        Function Arguments
+        ------------------
+        ged_enfu_biomass_unscaled : float
+            Unscaled (raw retrieval) gravimetric energy density of 
+            biomass (fuelwood)
+        """
+        # get modvars used for units
+        modvar_bcl_area, modvar_bcl_mass = self.get_modvars_for_unit_targets_bcl()
+        modvar_ilu_area, modvar_ilu_mass = self.get_modvars_for_unit_targets_ilu()
+        modvar_ged_enfu = self.model_enercons.modvar_enfu_energy_density_gravimetric
+
+        # get some model variables
+        modvar_ged_residues = self.modvar_agrc_ged_residues
+        modvar_ged_residues = self.modvar_agrc_ged_residues
+        vec_ged_residues = self.arrays_agrc.arr_agrc_ged_residues[i].copy()
+
+        
+        ##  GET SCALARS
+
+        # convert to per BCL mass units (per mass)
+        scalar_ged_enfu_to_bcl_mass = self.model_attributes.get_variable_unit_conversion_factor(
+            modvar_ged_enfu,
+            modvar_bcl_mass,
+            "mass",
+        )
+
+        # convert to per BCL mass units (per mass)
+        scalar_ged_res_to_bcl_mass = self.model_attributes.get_variable_unit_conversion_factor(
+            modvar_ged_residues,
+            modvar_bcl_mass,
+            "mass",
+        )
+
+        # convert residue GED to ENFU GED
+        scalar_ged_res_to_ged_enfu_energy = self.model_attributes.get_variable_unit_conversion_factor(
+            modvar_ged_residues,
+            modvar_ged_enfu,
+            "energy",
+        )
+
+        # ILU units to BCL mass units
+        scalar_ilu_to_bcl_mass = self.model_attributes.get_variable_unit_conversion_factor(
+            modvar_ilu_mass,
+            modvar_bcl_mass,
+            "mass",
+        )
+
+        
+        ##  APPLY SCALARS 
+        #
+        # put variables in terms of:
+        #   - energy:   ged_enfu
+        #   - mass:     BCL mass
+        ged_enfu_biomass_scaled = ged_enfu_biomass_unscaled/scalar_ged_enfu_to_bcl_mass
+        vec_ged_residues = vec_ged_residues*scalar_ged_res_to_ged_enfu_energy/scalar_ged_res_to_bcl_mass
+        vec_residues_avail = vec_agrc_residues_avail_for_energy*scalar_ilu_to_bcl_mass
+        
+        # get energy available and convert 
+        total_energy_residues_avail = vec_residues_avail*vec_ged_residues
+        fuelwood_mass_equivalent = total_energy_residues_avail/ged_enfu_biomass_scaled
+
+        return fuelwood_mass_equivalent
     
 
     
@@ -5239,42 +5410,73 @@ class AFOLU:
     
 
 
-    def get_ilu_agrc_unmet_demand_vars(self,
-        area_target_crop: np.ndarray,
-        vec_agrc_reallocation_target: np.ndarray,
-        vec_agrc_total_dem_yield: np.ndarray,
-        vec_agrc_yield_factors_adj: np.ndarray,
-        vec_lndu_next: np.ndarray, # 
-    ) -> Tuple[np.ndarray]:
-        """Get the unmet demand lost and change to net imports from LVST
-            results. Returns a tuple of the form
-
-            (
-                vec_lvst_net_import_increase,
-                vec_lvst_unmet_demand_lost,
-            )
+    def get_ilu_residues_available_for_biomass(self,
+        i: int,
+        sol: 'sco.OptimizationResult',
+        vec_agrc_area: np.ndarray,
+        vec_agrc_bagasse_genfactor: np.ndarray,     # arr_agrc_bagasse_factor[i]
+        vec_agrc_dm_frac_crops: np.ndarray,         # arr_dm_frac_crops[i]
+        vec_agrc_regression_b: np.ndarray,
+        vec_agrc_regression_m: np.ndarray,
+        vec_agrc_yield_factors: np.ndarray,
+    ) -> np.ndarray:
+        """Using the results of the LDE, get biomass from crop residues,
+            including Bagasse, available for energy. This is used to 
+            adjusted demand for biomass in ENTC, since biomass plants 
+            can use residues or wood. 
         """
-        # calculate how much area in surplus exists, then adjust yields down and add extra to net imports
-        vec_agrc_net_imports_increase_adjustment = np.nan_to_num(
-            (area_target_crop - vec_lndu_next[self.ind_lndu_crop])/vec_agrc_reallocation_target.sum(),
+
+        # some shorcuts
+        vec_frac_for_energy = self.arrays_agrc.arr_agrc_frac_residues_removed_for_energy[i]
+        vec_frac_for_feed = self.arrays_agrc.arr_agrc_frac_residues_removed_for_feed[i]
+
+        # get generation factor for residues
+        vec_agrc_genfactor_residues, _ = self.get_lde_vector_residue_genfactors(
+            vec_agrc_area,
+            vec_agrc_bagasse_genfactor,
+            vec_agrc_dm_frac_crops,
+            np.ones(self.attr_agrc.n_key_values),   # want total residues available, so just set feed frac to 1
+            vec_agrc_regression_b,          
+            vec_agrc_regression_m,          
+            vec_agrc_yield_factors,         
+        )
+
+        # vector of residues generated + available residues generated for feed
+        vec_agrc_yield = vec_agrc_yield_factors*vec_agrc_area
+        vec_agrc_residues_gen = vec_agrc_genfactor_residues*vec_agrc_yield
+        vec_agrc_residues_for_feed_avail = vec_agrc_residues_gen*vec_frac_for_feed
+
+        # total residues *used* for feed
+        mat_sol = self.lde.display_as_matrix(sol.x, )
+        total_residues_for_feed = mat_sol[:, self.lde.ind_crop_residues].sum()
+        vec_agrc_residues_for_feed_used = (
+            total_residues_for_feed*vec_agrc_residues_for_feed_avail/vec_agrc_residues_for_feed_avail.sum()
+        )
+
+        # fraction of all non-feed use that energy represents
+        vec_cond_frac_residues_energy = np.nan_to_num(
+            vec_frac_for_energy/(1 - vec_frac_for_feed),
             nan = 0.0,
             posinf = 0.0,
-            neginf = 0.0,
         )
-        vec_agrc_net_imports_increase_adjustment *= vec_agrc_yield_factors_adj
 
-        # add the increase to the imports 
-        vec_agrc_net_imports_increase += vec_agrc_net_imports_increase_adjustment
-        vec_agrc_cropareas_adj = vec_agrc_cropareas_adj/vec_agrc_cropareas_adj.sum()
-        vec_agrc_cropareas_adj *= vec_lndu_next[self.ind_lndu_crop]
-        vec_agrc_yield_adj = vec_agrc_total_dem_yield - vec_agrc_net_imports_increase
+        # then, allocate residues not used for feed to energy
+        vec_agrc_residues_gen_not_feed = np.clip(
+            vec_agrc_residues_gen - vec_agrc_residues_for_feed_used,
+            0.0,
+            np.inf,
+        )
 
+        vec_agrc_residues_gen_available_for_energy = vec_agrc_residues_gen_not_feed*vec_cond_frac_residues_energy
+
+        # return residue totals
         out = (
-
+            vec_agrc_residues_gen_not_feed,
+            vec_agrc_residues_gen_available_for_energy,
         )
 
         return out
-    
+
 
 
     def get_ilu_unmet_demand_vars(self,
@@ -7291,6 +7493,33 @@ class AFOLU:
     
 
 
+    def get_vec_ged_biomass(self,
+        df_afolu_trajectories: pd.DataFrame,
+    ) -> np.ndarray:
+        """Retrieve the biomass 
+        """
+        attr_enfu = self.model_attributes.get_attribute_table(
+            self.model_attributes.subsec_name_enfu,
+        )
+        cat_biomass = self.model_enercons.cat_enfu_biomass
+        ind_biomass = attr_enfu.get_key_value_index(cat_biomass, )
+
+        # get model variables--start with gravimetric energy demand
+        modvar_ged = self.model_attributes.get_variable(
+            self.model_enercons.modvar_enfu_energy_density_gravimetric,
+        )
+
+        arr_enfu_ged = modvar_ged.get_from_dataframe(
+            df_afolu_trajectories,
+            return_type = "array",
+        )
+
+        vec_out = arr_enfu_ged[:, ind_biomass]
+
+        return vec_out
+    
+
+
     def pil_update_ledgers(self,
         i: int,
         ledger: bcl.BiomassCarbonLedger,
@@ -8064,20 +8293,31 @@ class AFOLU:
 
         ##  INITIALIZE OUTPUT ARRAYS AND VARIABLES
 
-        # intilize land use, land converted, emissions, and adjusted transitions
+        # AGRC VARS
+        arr_agrc_area = np.zeros((n_tp, attr_agrc.n_key_values))
+        arr_agrc_change_to_net_imports_lost = np.zeros((n_tp, attr_agrc.n_key_values))
         arr_agrc_crop_drymatter_above_ground = np.zeros((n_tp, attr_agrc.n_key_values))
         arr_agrc_crop_drymatter_per_unit = np.zeros((n_tp, attr_agrc.n_key_values))
         arr_agrc_frac_cropland = np.array([vec_agrc_frac_cropland_area for k in range(n_tp)])
         arr_agrc_net_import_increase = np.zeros((n_tp, attr_agrc.n_key_values))
-        arr_agrc_change_to_net_imports_lost = np.zeros((n_tp, attr_agrc.n_key_values))
+        arr_agrc_residues_avail_for_energy = np.zeros((n_tp, attr_agrc.n_key_values))
+        arr_agrc_residues_non_feed = np.zeros((n_tp, attr_agrc.n_key_values))
 
         # get yield
         arr_agrc_yield = np.array([
             (vec_initial_area[self.ind_lndu_crop]*vec_agrc_frac_cropland_area*arr_agrc_yield_factors[0]) 
             for k in range(n_tp)
         ])
+
+        # residue final use vectors
+        vec_agrc_rfu_burned = self.arrays_agrc.arr_agrc_residue_final_use_burned
+        vec_agrc_rfu_energy = self.arrays_agrc.arr_agrc_residue_final_use_energy
+        vec_agrc_rfu_energy_avail = np.zeros(attr_agrc.n_key_values)
+        vec_agrc_rfu_feed = self.arrays_agrc.arr_agrc_residue_final_use_feed
+        vec_agrc_rfu_field = self.arrays_agrc.arr_agrc_residue_final_use_field
         
-        # land use variables
+        
+        # LNDU VARS
         arr_emissions_conv_ag = np.zeros((n_tp, attr_lndu.n_key_values))
         arr_emissions_conv_bg = np.zeros((n_tp, attr_lndu.n_key_values))
         arr_emissions_conv_agb_matrices = np.zeros(arrs_transitions.shape)
@@ -8088,7 +8328,7 @@ class AFOLU:
         arrs_transitions_adj = np.zeros(arrs_transitions.shape)
 
 
-        # livestock variables
+        # LVST VARS
         arr_lvst_dem_adj = arr_lvst_dem.copy().astype(int)
         arr_lvst_pop_adj = arr_lvst_dem.copy().astype(int)
         arr_lvst_net_import_increase = np.zeros((n_tp, attr_lvst.n_key_values))
@@ -8100,13 +8340,23 @@ class AFOLU:
         vec_lvst_dem_gr_iterator = np.ones(len(arr_lvst_dem[0]))
 
 
-        # initialize the ledgers
-        ledger = self.get_bcl(
+        # initialize the ledgers and associated fuel demands for biomass
+        (
+            ledger,
+            dict_subsec_to_fuel_demand_biomass,
+            vec_c_fuel_demands_entc,
+            vec_c_fuel_demands_total,
+        ) = self.get_bcl(
             df_afolu_trajectories, 
             vec_rates_gdp = vec_rates_gdp, 
         )
 
-        ledger_mangroves = self.get_bcl(
+        (
+            ledger_mangroves,
+            _,
+            _,
+            _,
+        ) = self.get_bcl(
             df_afolu_trajectories, 
             mangroves = True, 
             vec_rates_gdp = vec_rates_gdp, 
@@ -8119,10 +8369,11 @@ class AFOLU:
         arr_agrc_frac_feed = self.arrays_agrc.arr_agrc_frac_animal_feed
         arr_c_lndu_ratio_bg_to_ag = self.arrays_lndu.arr_lndu_biomass_stock_ratio_bg_to_ag
         arr_dm_frac_crops = self.arrays_agrc.arr_agrc_frac_dry_matter_in_crop
-        arr_lndu_frac_increasing_net_exports_met = self.arrays_lndu.arr_lndu_frac_increasing_net_exports_met
-        arr_lndu_frac_increasing_net_imports_met = self.arrays_lndu.arr_lndu_frac_increasing_net_imports_met
+        vec_enfu_ged_biomass = self.get_vec_ged_biomass(df_afolu_trajectories, )
 
         # land use
+        arr_lndu_frac_increasing_net_exports_met = self.arrays_lndu.arr_lndu_frac_increasing_net_exports_met
+        arr_lndu_frac_increasing_net_imports_met = self.arrays_lndu.arr_lndu_frac_increasing_net_imports_met
         vec_lndu_yf_pasture_avg = np.clip(
             self.arrays_lndu.arr_lndu_yf_pasture_avg,
             0,
@@ -8145,7 +8396,6 @@ class AFOLU:
             arr_lvst_mass_per_animal[0]
         )
 
-        
 
         """
         Rough note on the transition adjustment process:
@@ -8223,6 +8473,7 @@ class AFOLU:
             # crop values
             area_crop_cur = x[self.ind_lndu_crop]
             area_crop_proj = x_proj_unadj[self.ind_lndu_crop]
+            vec_agrc_cropland_area_cur = area_crop_cur*arr_agrc_frac_cropland[i]
             vec_agrc_cropland_area_proj = area_crop_proj*arr_agrc_frac_cropland[i + 1]
 
             # pasture values
@@ -8239,8 +8490,8 @@ class AFOLU:
 
             # demands for livestock
             (
-                sol_init,
-                sol,
+                _,
+                sol_preliminary,
                 _, 
                 _,
                 _,
@@ -8265,7 +8516,7 @@ class AFOLU:
 
             # get target areas for pastures and crops for lvst
             area_target_pstr, vec_agrc_area_target_for_lvst = self.estimate_lde_lvst_new_lndu_demands(
-                sol,
+                sol_preliminary,
                 vec_lndu_yf_pasture_avg[i + 1]*factor_lvst_graze_rate, 
                 vec_agrc_cropland_area_proj,
                 arr_agrc_frac_feed[i + 1],
@@ -8273,54 +8524,6 @@ class AFOLU:
                 vec_lde_supply_carrying_capacity,
             )
 
-            """
-            # check areas where lvst has 0 pop
-            inds_lvst_where_pop_noncc = np.where(arr_lvst_annual_dry_matter_consumption_per_capita[i + 1] == 0)[0]
-            vec_lvst_prod_supported_pre_realloc = self.get_lvst_production_supported(
-                area_pstr_proj,
-                arr_lvst_annual_dry_matter_consumption_per_capita[i + 1],
-                arr_lvst_dem[i + 1],
-                factor_lndu_init_avg_consumption_pstr,
-                vec_lvst_scale_cc[i + 1],
-            )
-
-            vec_lvst_unmet_demand = np.nan_to_num(
-                arr_lvst_dem[i + 1] - vec_lvst_prod_supported_pre_realloc,
-                nan = 0.0,
-                posinf = 0.0,
-            )
-
-            
-            ##  CALCULATE NET SURPLUS MET
-
-            vec_lvst_unmet_demand_to_impexp = (
-                sf.vec_bounds(vec_lvst_unmet_demand, (0, np.inf))
-                *arr_lndu_frac_increasing_net_imports_met[i + 1, self.ind_lndu_pstr]
-            )
-            vec_lvst_unmet_demand_to_impexp += (
-                sf.vec_bounds(vec_lvst_unmet_demand, (-np.inf, 0))
-                *arr_lndu_frac_increasing_net_exports_met[i + 1, self.ind_lndu_pstr]
-            )
-            vec_lvst_unmet_demand_lost = vec_lvst_unmet_demand - vec_lvst_unmet_demand_to_impexp
-
-            # get adjusted population
-            vec_lvst_pop_adj = vec_lvst_prod_supported_pre_realloc + vec_lvst_unmet_demand_lost
-            if len(inds_lvst_where_pop_noncc) > 0:
-                np.put(vec_lvst_unmet_demand_to_impexp, inds_lvst_where_pop_noncc, 0)
-                np.put(vec_lvst_unmet_demand_lost, inds_lvst_where_pop_noncc, 0)
-                np.put(vec_lvst_pop_adj, inds_lvst_where_pop_noncc, arr_lvst_dem[i + 1, inds_lvst_where_pop_noncc])
-
-            vec_lvst_unmet_demand = vec_lvst_unmet_demand_to_impexp.copy()
-            vec_lvst_reallocation_target = vec_lvst_unmet_demand*vec_lndu_yrf[i + 1] # demand for livestock met by reallocating land
-
-            # get the target pasture area
-            area_lndu_pstr_increase_0 = self.get_lvst_area_required(
-                arr_lvst_annual_dry_matter_consumption_per_capita[i + 1],
-                vec_lvst_reallocation_target, 
-                factor_lndu_init_avg_consumption_pstr*vec_lvst_scale_cc[i + 1],
-            )
-            area_target_pstr = area_pstr_proj + area_lndu_pstr_increase_0
-            """
 
             ##  AGRICULTURE - calculate demand increase in crops, which is a 
             #                 function of gdp/capita (exogenous) and livestock 
@@ -8378,7 +8581,7 @@ class AFOLU:
 
             # get vector of available crops
             vec_agrc_cropfracs_final = vec_agrc_cropareas_target/vec_agrc_cropareas_target.sum()
-            vec_agrc_cropareas_final = x_next[self.ind_lndu_crop]*vec_agrc_cropfracs_final
+            vec_agrc_cropland_area_final = x_next[self.ind_lndu_crop]*vec_agrc_cropfracs_final
 
             ##  LVST LDE 
             #   - run LDE again with target pop as demand
@@ -8389,8 +8592,8 @@ class AFOLU:
             #       target areas. If not (e.g., due to constraints), target pop
             #       may be low
             (
-                sol_init,
-                sol,
+                _,
+                sol_final,
                 _, 
                 _,
                 _,
@@ -8402,7 +8605,7 @@ class AFOLU:
                 i + 1,
                 vec_lndu_yf_pasture_avg[i + 1]*factor_lvst_graze_rate,
                 lurf,                               # unused in carrying capacity context
-                vec_agrc_cropareas_final,           # use solved crop areas
+                vec_agrc_cropland_area_final,           # use solved crop areas
                 arr_agrc_regression_b[i + 1],       
                 arr_agrc_regression_m[i + 1],
                 arr_agrc_yield_factors[i + 1],
@@ -8436,7 +8639,7 @@ class AFOLU:
             ##  AGRC 
 
             vec_agrc_yield_dem = vec_agrc_cropareas_target*arr_agrc_yield_factors[i + 1]
-            vec_agrc_yield_prod = vec_agrc_cropareas_final*arr_agrc_yield_factors[i + 1]
+            vec_agrc_yield_prod = vec_agrc_cropland_area_final*arr_agrc_yield_factors[i + 1]
 
             (
                 vec_agrc_net_imports_increase,
@@ -8463,10 +8666,32 @@ class AFOLU:
                 arr_lvst_change_to_net_imports_lost[i + 1] = vec_lvst_unmet_demand_lost
                 arr_lvst_net_import_increase[i + 1] = np.round(vec_lvst_net_import_increase).astype(int)
 
-
+            
             ##  ESTIMATE BIOMASS REMOVAL DEMANDS
             
-            #== FUNCTIONALIZE
+            # modifies three arrays in place to get biomass available
+            self.update_ilu_residues_available_for_biomass(
+                i,
+                sol_init,
+                sol_final,
+                arr_agrc_residues_avail_for_energy,         # modified in place
+                arr_agrc_residues_non_feed,                 # modified in place
+                arr_agrc_bagasse_factor,
+                arr_dm_frac_crops,
+                arr_agrc_regression_b,
+                arr_agrc_regression_m,
+                arr_agrc_yield_factors,
+                vec_agrc_cropland_area_cur,
+                vec_agrc_cropland_area_final,
+                vec_agrc_rfu_energy_avail,                  # modified in place
+                vec_enfu_ged_biomass,
+            )
+
+            
+            # vec_agrc_rfu_burned
+            # vec_agrc_rfu_energy
+            # vec_agrc_rfu_feed
+            # vec_agrc_rfu_field
 
             # get area and yield in terms of units needed to use regression for biomass
             vec_agrc_crop_area_m = vec_agrc_cropareas_adj*scalar_agrc_area_to_m
@@ -8484,6 +8709,19 @@ class AFOLU:
             arr_agrc_crop_drymatter_above_ground[i] = vec_agrc_crop_drymatter_above_ground
             arr_agrc_crop_drymatter_per_unit[i] = vec_agrc_crop_drymatter_per_unit
 
+
+            ##  UPDATE REMOVAL DEMANDS
+
+            def get_bcl_removal_adjustments(self,
+                i: int,
+                df_afolu_trajectories: pd.DataFrame,
+                ledger: 'BiomassCarbonLedger',
+                arr_agrc_yield: np.ndarray,
+                vec_lvst_aggregate_animal_mass: np.ndarray,
+            ) -> Tuple[np.ndarray]:
+                """Get adjustments to demands for fuelwood removal demands
+                    based on livestock residuals and 
+                """
             # get additional removal demands from AGRC/LVST
             vec_additional_biomass_removals = self.estimate_energy_demand_agrc_lvst(
                 df_afolu_trajectories.iloc[0:(i + 1)],
@@ -8518,6 +8756,14 @@ class AFOLU:
             vec_emissions_conv_ag = arr_emissions_agb_conv_matrix.sum(axis = 1)
             vec_emissions_conv_bg = arr_emissions_bgb_conv_matrix.sum(axis = 1)
             
+            
+            ##  UPDATE ENERGY DEMANDS IN RESPONSE TO AVAILABLE BIOMASS
+            #def adjust_estimates_#
+            dict_subsec_to_fuel_demand_biomass,
+            vec_c_fuel_demands_entc,
+            vec_c_fuel_demands_total,
+
+
 
             ##  UPDATE ARRAYS
 
@@ -8942,10 +9188,6 @@ class AFOLU:
     
 
 
-
-
-    ##  LIVESTOCK
-
     def reassign_pops_from_proj_to_carry(self,
         arr_lu_derived: np.ndarray,
         arr_dem_based: np.ndarray,
@@ -9158,6 +9400,87 @@ class AFOLU:
             )
 
         return arr_out
+
+
+
+    def update_ilu_residues_available_for_biomass(self,
+        i: int,
+        sol_init: 'sco.OptimizationResult',
+        sol_final: 'sco.OptimizationResult',
+        arr_agrc_residues_avail_for_energy: np.ndarray,
+        arr_agrc_residues_non_feed: np.ndarray,
+        arr_agrc_bagasse_factor: np.ndarray,
+        arr_dm_frac_crops: np.ndarray,
+        arr_agrc_regression_b: np.ndarray,
+        arr_agrc_regression_m: np.ndarray,
+        arr_agrc_yield_factors: np.ndarray,
+        vec_agrc_area_cur: np.ndarray,
+        vec_agrc_area_proj: np.ndarray,
+        vec_agrc_rfu_energy_avail: np.ndarray,
+        vec_enfu_ged_biomass: np.ndarray,
+        **kwargs,
+    ) -> np.ndarray:
+        """Update 
+
+        Function Arguments
+        ------------------
+        sol_init : sco.OptimizationResult
+            Initial solution (before iteration)
+        sol_final : sco.OptimizationResult
+            Final solution (within iteration) for iteration i
+        """
+
+        ##  MUST INITIALIZE AT 0
+
+        if i == 0:
+            (
+                vec_agrc_residues_gen_not_feed,
+                vec_agrc_residues_gen_available_for_energy,
+            ) = self.get_ilu_residues_available_for_biomass(
+                i,
+                sol_init,
+                vec_agrc_area_cur,
+                arr_agrc_bagasse_factor[i], 
+                arr_dm_frac_crops[i],
+                arr_agrc_regression_b[i],
+                arr_agrc_regression_m[i],
+                arr_agrc_yield_factors[i],
+            )
+
+            # update residues available for energy
+            arr_agrc_residues_avail_for_energy[i] = vec_agrc_residues_gen_available_for_energy
+            arr_agrc_residues_non_feed[i] = vec_agrc_residues_gen_not_feed
+            vec_agrc_rfu_energy_avail[i] = self.get_bcl_energy_equivalient_from_residues(
+                i,
+                vec_enfu_ged_biomass[i]
+            )
+        
+        # do for next iteration
+        (
+            vec_agrc_residues_gen_not_feed,
+            vec_agrc_residues_gen_available_for_energy,
+        ) = self.get_ilu_residues_available_for_biomass(
+            i + 1,
+            sol_final,
+            vec_agrc_area_proj,
+            arr_agrc_bagasse_factor[i + 1], 
+            arr_dm_frac_crops[i + 1],
+            arr_agrc_regression_b[i + 1],
+            arr_agrc_regression_m[i + 1],
+            arr_agrc_yield_factors[i + 1],
+        )
+
+        # update the 
+        arr_agrc_residues_avail_for_energy[i + 1] = vec_agrc_residues_gen_available_for_energy
+        arr_agrc_residues_non_feed[i + 1] = vec_agrc_residues_gen_not_feed
+        vec_agrc_rfu_energy_avail[i + 1] = self.get_bcl_energy_equivalient_from_residues(
+            i + 1,
+            vec_enfu_ged_biomass[i + 1],
+        )
+
+        return None
+    
+
 
     
 
