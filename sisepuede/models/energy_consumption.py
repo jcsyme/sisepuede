@@ -1036,6 +1036,36 @@ class EnergyConsumption:
 
 
 
+    def get_enfu_dict_subsectors_to_energy_variables(self,
+    ) -> Dict:
+        """Return a dictionary with emission-producing energy subsectorz as keys 
+            based on the Energy Fuels attribute table:
+
+            {
+                subsec: {
+                    "energy_demand": VARNAME_ENERGY, 
+                    ...
+                }
+            }
+
+            for each key, the dict includes variables associated with subsector
+            ``subsec``
+
+            - "energy_demand"
+        """
+
+        dict_out = self.model_attributes.assign_keys_from_attribute_fields(
+            self.model_attributes.subsec_name_enfu,
+            "abbreviation_subsector",
+            {
+                "Energy Demand by Fuel": "energy_demand"
+            },
+        )
+
+        return dict_out
+    
+
+    
     def get_enfu_fuel_costs_per_energy(self,
         df_neenergy_trajectories: pd.DataFrame,
         hierarchy: Union[List[str], np.ndarray, tuple] = ["gravimetric", "volumetric", "thermal"],

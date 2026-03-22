@@ -117,6 +117,8 @@ class EnergyProduction:
         )
 
         # initialize subsectoral model variables, categories, and indices
+        #    - _initialize_subsector_vars_enfu() depends on _initialize_models()
+        self._initialize_models()
         self._initialize_subsector_vars_enfu()
         self._initialize_subsector_vars_entc()
         self._initialize_subsector_vars_enst()
@@ -127,7 +129,6 @@ class EnergyProduction:
         self._initialize_nemomod_reference_dict(nemomod_reference_files)
 
         # finally, initialize models, set integrated variables/field map dictionaries and initialize julia
-        self._initialize_models()
         self._initialize_integrated_variables()
         self._initialize_julia(dir_jl, initialize_julia = initialize_julia)
         
@@ -1020,7 +1021,7 @@ class EnergyProduction:
         self.ind_enfu_wste = attr_enfu.get_key_value_index(self.cat_enfu_wste)
 
         # get pivot dictionary
-        tuple_dicts = self.get_enfu_dict_subsectors_to_energy_variables()
+        tuple_dicts = self.model_enercons.get_enfu_dict_subsectors_to_energy_variables()
         self.dict_enfu_subsectors_to_energy_variables = tuple_dicts[0]
         self.dict_enfu_subsectors_to_unassigned_enfu_variables = tuple_dicts[1]
 
