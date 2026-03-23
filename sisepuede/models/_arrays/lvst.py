@@ -74,6 +74,15 @@ class ArraysLVST(ma.SubsectorArraysCollection):
             var_bounds = (0, np.inf),
         )
 
+        # carrying capacity scalar
+        self.get_modvar_array(
+            df_trajectories,
+            self.modvar_lvst_carrying_capacity_scalar,
+            override_vector_for_single_mv_q = False,
+            set_property = True,
+            var_bounds = (0, np.inf),
+        )
+
         # elasticities of LVST demand to gdp/gapita
         self.get_modvar_array(
             df_trajectories,

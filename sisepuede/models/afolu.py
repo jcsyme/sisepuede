@@ -2345,6 +2345,7 @@ class AFOLU:
         method: str = "highs",
         vec_agrc_frac_imports_for_lvst: Union[np.ndarray, None] = None,
         verbose: bool = False,
+        **kwargs,
     ) -> np.ndarray:
         """Get a vector of the estimated carrying capacity of livestock
             given a dietary solution from the LDE. NOTE: DEPRECATED, REPLACED
@@ -3257,7 +3258,7 @@ class AFOLU:
         """Get the biomass carbon ledger. Set mangroves = True to build the 
             ledger for mangroves.
         """
-
+        
         # demands 
         (
             vec_c_fuel_entc,
@@ -3270,12 +3271,13 @@ class AFOLU:
             mangroves = mangroves,
             vec_gdp_growth = vec_rates_gdp,
         )
-        
+
         # initial area
         vec_area_init = self.get_bcl_area_forests_initial(
             df_afolu_trajectories,
             mangroves = mangroves,
         ) 
+        
 
         # get growth rate and stocks
         (
@@ -3304,17 +3306,18 @@ class AFOLU:
             df_afolu_trajectories, 
             **kwargs,
         )
-
+        
         # get demands (0 if mangroves)
+        n = df_afolu_trajectories.shape[0]
         vec_demands = (
-            np.zeros(vec_c_total.shape, )
+            np.zeros(n, )
             if mangroves
             else vec_c_total
         )
         
         # build the ledger
         ledger = bcl.BiomassCarbonLedger(
-            df_afolu_trajectories.shape[0],
+            n,
             arr_frac_biomass_buffer,
             arr_frac_biomass_dead_storage,
             vec_area_init,
@@ -3328,7 +3331,7 @@ class AFOLU:
             n_tps_no_withdrawals_new_growth = self.n_tps_no_withdrawals_new_growth,
         )
 
-
+       
         # return the ledger and the demands
         out = (
             ledger,
@@ -3339,7 +3342,7 @@ class AFOLU:
             vec_c_total,
         )
         
-        return ledger
+        return out
 
 
 
@@ -3637,7 +3640,16 @@ class AFOLU:
 
         # if mangroves, no demand
         if mangroves:
-            return 0.0
+                
+            out = (
+                0.0,
+                0.0,
+                0.0,
+                0.0,
+                {},
+            )
+
+            return out
         
 
         # get target mass
@@ -3653,7 +3665,7 @@ class AFOLU:
             )
 
             vec_gdp_growth = vec_gdp_growth[1:]/vec_gdp_growth[0:-1] - 1
-
+        
         (
             vec_c_fuel,
             vec_c_fuel_entc,
@@ -3665,7 +3677,7 @@ class AFOLU:
             vec_gdp_growth,
             units_mass_out = modvar_target_mass,
         )
-
+        
         # HERE123--temporary assignments for debugging
         self.vec_c_fuel = vec_c_fuel
         self.vec_c_hwp_paper = vec_c_hwp_paper
@@ -3760,9 +3772,9 @@ class AFOLU:
         
         # get energy available and convert 
         total_energy_residues_avail = vec_residues_avail*vec_ged_residues
-        fuelwood_mass_equivalent = total_energy_residues_avail/ged_enfu_biomass_scaled
+        vec_fuelwood_mass_equivalent = total_energy_residues_avail/ged_enfu_biomass_scaled
 
-        return fuelwood_mass_equivalent
+        return vec_fuelwood_mass_equivalent
     
 
     
@@ -5456,6 +5468,20 @@ class AFOLU:
     
 
 
+    def get_ilu_lvst_vec_ccs(self,
+    ) -> np.ndarray:
+        """Get and format the carrying capacity scalar
+        """
+        vec_lvst_carrying_capacity_scalar = self.arrays_lvst.arr_lvst_carrying_capacity_scalar.copy()
+        if vec_lvst_carrying_capacity_scalar[0] == 0:
+            raise ValueError(f"Error in carrying capacity scalar; cannot be 0 at time 0.")
+
+        vec_lvst_carrying_capacity_scalar = vec_lvst_carrying_capacity_scalar/vec_lvst_carrying_capacity_scalar[0]
+
+        return vec_lvst_carrying_capacity_scalar
+    
+
+
     def get_ilu_residues_available_for_biomass(self,
         i: int,
         sol: 'sco.OptimizationResult',
@@ -6169,37 +6195,6 @@ class AFOLU:
 
 
 
-    def get_lvst_area_required(self,
-        vec_lvst_annual_dry_matter_consumption: np.ndarray, # arr_lvst_annual_dry_matter_consumption_per_capita[i]
-        vec_lvst_production_needed: np.ndarray, # arr_lvst_domestic_production_unadj[i]
-        factor_lndu_dry_matter_production: float, #factor_lndu_init_avg_consumption_pstr * vec_lvst_carry_capacity_scale[i]
-    ) -> np.ndarray:
-        """
-        Get the number of lvst that can be support
-
-        NOTE: DOES NOT PERFORM UNITS CORRECTION, ASSUMES UNITS ARE PROPERLY 
-            FORMATTED
-        
-        Function Arguments
-        ------------------ 
-        - area_pstr_proj: projected area of pasture
-        - vec_lvst_annual_dry_matter_consumption: vector (by animal) of 
-            consumption of dry matter per animal
-        - vec_lvst_annual_production_unadj: vector (by animal) of expected 
-            production demand by animal type
-        - factor_lndu_dry_matter_production: dry matter production factor for 
-            pastures
-        """
-
-        ##  AREA OF LAND NEEDED 
-        #
-        area_total_land_needed = (vec_lvst_annual_dry_matter_consumption*vec_lvst_production_needed).sum()
-        area_total_land_needed /= factor_lndu_dry_matter_production
-
-        return area_total_land_needed
-    
-
-
     def get_lvst_dict_lsmm_categories_to_lvst_fraction_variables(self,
     ) -> Dict:
         """
@@ -6452,50 +6447,6 @@ class AFOLU:
         )
         
         return out
-
-
-
-    def get_lvst_production_supported(self,
-        area_pstr_proj: float, 
-        vec_lvst_annual_dry_matter_consumption : np.ndarray, # arr_lvst_annual_dry_matter_consumption_per_capita[i]
-        vec_lvst_annual_production_unadj: np.ndarray, # arr_lvst_domestic_production_unadj[i]
-        factor_lndu_init_avg_consumption_pstr: float,
-        scalar_lvst_cc: float # vec_lvst_carry_capacity_scale[i]s
-    ) -> np.ndarray:
-        """Get the number of lvst that can be supported
-
-        NOTE: DOES NOT PERFORM UNITS CORRECTION, ASSUMES UNITS ARE PROPERLY 
-            FORMATTED
-        
-        Function Arguments
-        ------------------
-        - area_pstr_proj: projected area of pasture
-        - vec_lvst_annual_dry_matter_consumption: vector (by animal) of 
-            consumption of dry matter per animal
-        - vec_lvst_annual_production_unadj: vector (by animal) of expected 
-            production demand by animal type
-        - factor_lndu_init_avg_consumption_pstr: initial estimated total average 
-            production factor for pastures across all animal types
-        - scalar_lvst_cc: scalar to apply to 
-        """
-        # average yield per ha of pasture
-        # - NOTE: comes from output of self.get_init_lvst_pasture_and_feed_vars, so it's already controlled
-        vec_lndu_total_yield_pstr_unadj = factor_lndu_init_avg_consumption_pstr*scalar_lvst_cc
-        vec_lndu_total_yield_pstr_unadj *= area_pstr_proj
-
-
-        ##  NUMBER OF LIVESTOCK THAT CAN BE SUPPORTED
-        #
-        vec_lndu_total_yield_needed = (vec_lvst_annual_dry_matter_consumption*vec_lvst_annual_production_unadj).sum()
-        vec_lvst_prod_supportable = vec_lndu_total_yield_pstr_unadj/vec_lndu_total_yield_needed
-        vec_lvst_prod_supportable *= vec_lvst_annual_production_unadj
-
-        #
-        w = np.where(vec_lvst_annual_dry_matter_consumption == 0)[0]
-        np.put(vec_lvst_prod_supportable, w, vec_lvst_annual_production_unadj[w])
-
-
-        return vec_lvst_prod_supportable
 
 
 
@@ -8145,14 +8096,11 @@ class AFOLU:
         arr_agrc_yield_factors: np.ndarray,
         arr_lndu_constraints_inf: np.ndarray,
         arr_lndu_constraints_sup: np.ndarray,
-        # arr_lndu_yield_by_lvst: np.ndarray,
-        # factor_lndu_init_avg_consumption_pstr: float,
         arr_lvst_annual_feed_per_capita: np.ndarray,
         arr_lvst_dem: np.ndarray,
         tup_residue_info: Tuple[np.ndarray],
         vec_agrc_frac_cropland_area: np.ndarray,
         vec_lndu_yrf: np.ndarray,
-        vec_lvst_scale_cc: np.ndarray,
         vec_gnrl_area: np.ndarray,
         n_tp: Union[int, None] = None,
         prohibit_forest_transitions: Union[bool, None] = None,
@@ -8356,6 +8304,9 @@ class AFOLU:
         arr_agrc_rfu_feed = np.zeros((n_tp, attr_agrc.n_key_values))
         arr_agrc_residues_non_feed = np.zeros((n_tp, attr_agrc.n_key_values))
 
+        # initialize area
+        arr_agrc_area[0] = vec_initial_area[self.ind_lndu_crop]*arr_agrc_frac_cropland[0]
+
         # get yield
         arr_agrc_yield = np.array([
             (vec_initial_area[self.ind_lndu_crop]*vec_agrc_frac_cropland_area*arr_agrc_yield_factors[0]) 
@@ -8365,10 +8316,11 @@ class AFOLU:
         # residue final use vectors
         vec_agrc_rfu_burned = self.arrays_agrc.arr_agrc_residue_final_use_burned
         vec_agrc_rfu_energy = self.arrays_agrc.arr_agrc_residue_final_use_energy
-        vec_agrc_rfu_energy_avail = np.zeros(attr_agrc.n_key_values)
-        vec_agrc_rfu_energy_avail_in_terms_bcl_mass = np.zeros(attr_agrc.n_key_values)
+        vec_agrc_rfu_energy_avail = np.zeros(n_tp, )
+        vec_agrc_rfu_energy_avail_in_terms_bcl_mass = np.zeros(n_tp, )#attr_agrc.n_key_values)
         vec_agrc_rfu_feed = self.arrays_agrc.arr_agrc_residue_final_use_feed
         vec_agrc_rfu_field = self.arrays_agrc.arr_agrc_residue_final_use_field
+        
         
         
         # LNDU VARS
@@ -8391,9 +8343,10 @@ class AFOLU:
         arrs_yields_per_livestock = np.array([arr_lvst_annual_feed_per_capita for k in range(n_tp)])
 
         vec_lvst_aggregate_animal_mass = np.zeros(n_tp, )
+        vec_lvst_carrying_capacity_scalar = self.get_ilu_lvst_vec_ccs()
         vec_lvst_dem_gr_iterator = np.ones(len(arr_lvst_dem[0]))
 
-
+        
         # initialize the ledgers and associated fuel demands for biomass
         (
             ledger,
@@ -8486,6 +8439,7 @@ class AFOLU:
         x = vec_initial_area
         i = 0
 
+
         # initialize some factors for LDE
         #   factor_lvst_dietary_mass_balance_adjustment:
         #       adjustment to population mass to ensure that mass balance can be 
@@ -8502,9 +8456,9 @@ class AFOLU:
             vec_agrc_frac_imports_for_lvst,
         ) = self.get_lde_lndu_initial_adjustment_factors(
             i,
-            vec_lndu_yf_pasture_avg[i]*factor_lvst_graze_rate,
-            lurf,
-            vec_agrc_cropland_area_proj,
+            vec_lndu_yf_pasture_avg[i],     # average pasture yield in time 0
+            0.0,                            # lurf in basleline must be 0
+            arr_agrc_area[i],               # initialized above
             arr_agrc_regression_b[i],
             arr_agrc_regression_m[i],
             arr_agrc_yield_factors[i],
@@ -8534,6 +8488,9 @@ class AFOLU:
             vec_agrc_cropland_area_cur = area_crop_cur*arr_agrc_frac_cropland[i]
             vec_agrc_cropland_area_proj = area_crop_proj*arr_agrc_frac_cropland[i + 1]
 
+            if i > 0:
+                arr_agrc_area[i] = vec_agrc_cropland_area_cur
+
             # pasture values
             area_pstr_cur = x[self.ind_lndu_pstr]
             area_pstr_proj = x_proj_unadj[self.ind_lndu_pstr]
@@ -8545,6 +8502,15 @@ class AFOLU:
             ################################################
             #    GET LAND USE DEMANDS FOR LVST AND AGRC    #
             ################################################
+
+            # scale the graze rate by carrying capacity scalar
+            factor_lvst_graze_rate_adj = max(
+                min(
+                    factor_lvst_graze_rate*vec_lvst_carrying_capacity_scalar[i],
+                    1,
+                ),
+                0
+            )
 
             # demands for livestock
             (
@@ -8559,7 +8525,7 @@ class AFOLU:
                 vec_lde_supply, 
             ) = self.get_lde_lvst_land_demands(
                 i + 1,
-                vec_lndu_yf_pasture_avg[i + 1]*factor_lvst_graze_rate,
+                vec_lndu_yf_pasture_avg[i + 1]*factor_lvst_graze_rate_adj,
                 lurf,
                 vec_agrc_cropland_area_proj,
                 arr_agrc_regression_b[i + 1],
@@ -8575,7 +8541,7 @@ class AFOLU:
             # get target areas for pastures and crops for lvst
             area_target_pstr, vec_agrc_area_target_for_lvst = self.estimate_lde_lvst_new_lndu_demands(
                 sol_preliminary,
-                vec_lndu_yf_pasture_avg[i + 1]*factor_lvst_graze_rate, 
+                vec_lndu_yf_pasture_avg[i + 1]*factor_lvst_graze_rate_adj, 
                 vec_agrc_cropland_area_proj,
                 arr_agrc_frac_feed[i + 1],
                 vec_lde_supply,
@@ -8661,15 +8627,15 @@ class AFOLU:
                 vec_lde_supply, 
             ) = self.get_lde_lvst_land_demands(
                 i + 1,
-                vec_lndu_yf_pasture_avg[i + 1]*factor_lvst_graze_rate,
-                lurf,                               # unused in carrying capacity context
+                vec_lndu_yf_pasture_avg[i + 1]*factor_lvst_graze_rate_adj,
+                lurf,                                   # unused in carrying capacity context
                 vec_agrc_cropland_area_final,           # use solved crop areas
                 arr_agrc_regression_b[i + 1],       
                 arr_agrc_regression_m[i + 1],
                 arr_agrc_yield_factors[i + 1],
-                x_next,                             # use solved land use areas
+                x_next,                                 # use solved land use areas
                 arr_lvst_annual_feed_per_capita[i + 1],
-                vec_lde_lvst_pop_target,            # use target LVST population
+                vec_lde_lvst_pop_target,                # use target LVST population
                 for_carrying_capacity = True,
                 lvst_dietary_mass_factor = factor_lvst_dietary_mass_balance_adjustment,     
                 sup_carrying_capacity_scalar = 1.0,
@@ -8724,7 +8690,7 @@ class AFOLU:
                 arr_lvst_change_to_net_imports_lost[i + 1] = vec_lvst_unmet_demand_lost
                 arr_lvst_net_import_increase[i + 1] = np.round(vec_lvst_net_import_increase).astype(int)
 
-            
+
             ##  ESTIMATE BIOMASS REMOVAL DEMANDS
             
             # modifies three arrays in place to get biomass available
@@ -9550,10 +9516,14 @@ class AFOLU:
             arr_agrc_residues_avail_for_energy[j] = vec_agrc_residues_gen_available_for_energy
             arr_agrc_rfu_feed[j] = vec_agrc_residues_gen_feed
             arr_agrc_residues_non_feed[j] = vec_agrc_residues_gen_not_feed
-            energy_avail = self.get_bcl_energy_equivalient_from_residues(
+
+            vec_energy_avail = self.get_bcl_energy_equivalient_from_residues(
                 j,
                 vec_enfu_ged_biomass[j],
+                vec_agrc_residues_gen_available_for_energy,
             )
+            energy_avail = vec_energy_avail.sum()
+            print(energy_avail)
 
             # convert from energy units to mass units
             vec_consumption_biomass_eq = self.convert_fuelwood_to_biomass_equivalent(
@@ -9564,7 +9534,7 @@ class AFOLU:
                 units_energy = None,
                 units_mass = modvar_bcl_mass,
             )
-
+            print(vec_agrc_rfu_energy_avail.shape)
             # update energy available (in energy and in biomass mass equivalent)
             vec_agrc_rfu_energy_avail[j] = energy_avail
             vec_agrc_rfu_energy_avail_in_terms_bcl_mass[j] = vec_consumption_biomass_eq[i]
@@ -9842,19 +9812,16 @@ class AFOLU:
             arr_agrc_yf,
             arr_lndu_constraints_inf,
             arr_lndu_constraints_sup,
-            # arr_lndu_yield_i_reqd_lvst_j_init,
-            # factor_lndu_init_avg_consumption_pstr,
             arr_lvst_annual_feed_per_capita,
             arr_lvst_domestic_production_unadj,
             tup_residue_info,
             vec_agrc_frac_cropland_area,
             vec_lndu_reallocation_factor,
-            # vec_lvst_carry_capacity_scale,
             vec_area,
             n_tp = n_projection_time_periods,
             vec_rates_gdp = vec_rates_gdp,
         )
-        
+
         
         #return ledger
         self.arr_agrc_yield = arr_agrc_yield
