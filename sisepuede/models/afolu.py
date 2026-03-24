@@ -5398,7 +5398,7 @@ class AFOLU:
         return df_out
     
 
-    # PROBLEM
+
     def get_ilu_agrc_area_target_nonfeed(self,
         i: int,
         lurf: float,
@@ -5417,7 +5417,7 @@ class AFOLU:
         vec_agrc_frac_feed = self.arrays_agrc.arr_agrc_frac_animal_feed[i + 1]
         vec_agrc_total_dem_yield = arr_agrc_production_nonfeed_unadj[i + 1].copy()
         vec_agrc_cropland_area_proj_nonfeed = vec_agrc_cropland_area_proj*(1 - vec_agrc_frac_feed)
-        
+
         # calculate net surplus for yields
         vec_agrc_proj_yields = vec_agrc_cropland_area_proj_nonfeed*arr_agrc_yield_factors[i + 1]
 
@@ -8474,10 +8474,6 @@ class AFOLU:
             method = lde_method,
         )
 
-        global dict_sols_prelim
-        global dict_sols_final
-        dict_sols_prelim = {}
-        dict_sols_final = {}
 
         while i < n_tp - 1:
 
@@ -8503,17 +8499,13 @@ class AFOLU:
             if i > 0:
                 arr_agrc_area[i] = vec_agrc_cropland_area_cur
 
-            # pasture values
-            area_pstr_cur = x[self.ind_lndu_pstr]
-            area_pstr_proj = x_proj_unadj[self.ind_lndu_pstr]
-
             # land use reallocation factor
             lurf = vec_lndu_yrf[i + 1]
 
 
-            ################################################
-            #    GET LAND USE DEMANDS FOR LVST AND AGRC    #
-            ################################################
+            ####################################################
+            #    (1) GET LAND USE DEMANDS FOR LVST AND AGRC    #
+            ####################################################
 
             # scale the graze rate by carrying capacity scalar
             factor_lvst_graze_rate_adj = max(
@@ -8581,9 +8573,6 @@ class AFOLU:
                 vec_agrc_cropland_area_proj,
             )
 
-            m = vec_agrc_area_target_nonfeed.max()
-            print(f"vec_agrc_area_target_nonfeed max: {m}")
-
             # get total crop area required
             vec_agrc_cropareas_target = vec_agrc_area_target_nonfeed + vec_agrc_area_target_for_lvst
             area_target_crop = vec_agrc_cropareas_target.sum()
@@ -8597,9 +8586,6 @@ class AFOLU:
                 self.ind_lndu_pstr: area_target_pstr,
             }
 
-            #print(f"dict_area_targets_exog:\n{dict_area_targets_exog}\n\nlurf:\t{lurf}\n\n")
-
-            
             arr_transition_adj = self.qadj_adjust_transitions(
                 arrs_transitions[i_tr],
                 x,
@@ -8613,19 +8599,11 @@ class AFOLU:
             )
 
             x_next  = np.matmul(x, arr_transition_adj)
-            #print(i)
-            #print(dict_area_targets_exog)
-            #print("")
-            dict_sols_prelim.update({i: sol_preliminary})
-            dict_sols_final.update({i: vec_lde_supply})
 
 
-
-            ##########################################################################################
-            ###                                                                                    ###
-            ###    AFTER RUNNING OPT, WE HAVE TO ADJUST AREAS AND FINAL BALANCES, YIELDS, ETC.    ###
-            ###                                                                                    ###
-            ##########################################################################################
+            #########################################################################################                                                                             ###
+            #    (2) AFTER RUNNING OPT, WE HAVE TO ADJUST AREAS AND FINAL BALANCES, YIELDS, ETC.    #
+            #########################################################################################
 
             # get vector of available crops
             vec_agrc_cropfracs_final = vec_agrc_cropareas_target/vec_agrc_cropareas_target.sum()
@@ -8716,8 +8694,10 @@ class AFOLU:
                 arr_lvst_net_import_increase[i + 1] = np.round(vec_lvst_net_import_increase).astype(int)
 
 
-            ##  ESTIMATE BIOMASS REMOVAL DEMANDS
-            
+            ######################################################################
+            #    (3) ESTIMATE BIOMASS REMOVAL DEMANDS AND UPDATE LEDGER FOR i    #
+            ######################################################################
+
             # modifies three arrays in place to get biomass available
             self.update_ilu_residues_available_for_biomass(
                 i,
@@ -8817,16 +8797,17 @@ class AFOLU:
             arrs_transitions_adj[i] = arr_transition_adj
 
 
-            ##  FINALLY, UPDATE THE LAND USE PREVALENCE AND MOVE TO THE NEXT ITERATION
+            ####################################################################################
+            #    (4) FINALLY, UPDATE THE LAND USE PREVALENCE AND MOVE TO THE NEXT ITERATION    #
+            ####################################################################################
 
             x = np.matmul(x, arr_transition_adj)
             i += 1
 
 
-        # add on final time step by repeating the transition matrix
-        # trans_adj = arrs_transitions_adj[i - 1]
+        
+        ##  MUST UPDATE THE LEDGER IN THE FINAL TIME PERIOD
 
-        #
         adjustment_bcl = self.get_bcl_removal_adjustment(
             i,
             df_afolu_trajectories,
@@ -8859,6 +8840,7 @@ class AFOLU:
             c_removals_additional = adjustment_bcl, 
         )
 
+        # get final matrices and update
         arr_land_conv = (arr_transition_adj.transpose()*x.transpose()).transpose()
         vec_emissions_conv_ag = arr_emissions_agb_conv_matrix.sum(axis = 1)
         vec_emissions_conv_bg = arr_emissions_bgb_conv_matrix.sum(axis = 1)
