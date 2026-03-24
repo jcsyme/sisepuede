@@ -4969,14 +4969,11 @@ class AFOLU:
             vec_lde_supply,
             yield_factor = factor_lndu_yf_pasture_avg,
         )
+        print(f"area_target_pastures = {area_target_pastures}")
 
         # update output vector
         vec_agrc_area_target_for_lvst[ind_agrc_c] = area_target_cereals
         vec_agrc_area_target_for_lvst[inds_agrc_nc] = vec_area_target_non_cereals
-
-        m = np.abs(
-            vec_agrc_area_feed - vec_agrc_area_target_for_lvst
-        ).max()
 
         # set out
         out = (
@@ -8473,7 +8470,9 @@ class AFOLU:
             arr_lvst_dem[i],
             method = lde_method,
         )
-
+        
+        global dict_sol_prelim
+        dict_sol_prelim = {}
 
         while i < n_tp - 1:
 
@@ -8542,6 +8541,7 @@ class AFOLU:
                 lvst_dietary_mass_factor = factor_lvst_dietary_mass_balance_adjustment,     
                 vec_agrc_frac_imports_for_lvst = vec_agrc_frac_imports_for_lvst,
             )
+            dict_sol_prelim.update({i: sol_preliminary})
 
             # get target areas for pastures and crops for lvst
             area_target_pstr, vec_agrc_area_target_for_lvst = self.estimate_lde_lvst_new_lndu_demands(
@@ -8830,7 +8830,7 @@ class AFOLU:
             ledger_mangroves,
             arrs_c_agb[i],
             arrs_c_bgb[i],
-            arr_transition_adj,  # trans_adj,
+            arr_transition_adj,  
             x,
             arr_c_lndu_agb[i],
             arr_c_lndu_ratio_bg_to_ag[i],
