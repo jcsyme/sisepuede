@@ -904,13 +904,13 @@ class QAdjuster:
             x_0,
             vec_infima,
             flag_ignore,
-        );
+        )
 
         constraint_max_area = self.get_constraint_coeffs_max_area(
             x_0,
             vec_suprema,
             flag_ignore,
-        );
+        )
 
 
         constraint_row_stochastic = self.get_constraint_coeffs_row_stochastic(matrix_0, )

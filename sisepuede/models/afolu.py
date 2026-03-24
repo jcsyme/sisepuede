@@ -28,6 +28,9 @@ import sisepuede.models._arrays as coll_arrays
 #    GLOBAL VARIABLES    #
 ##########################
 
+# some defaults
+_DEFAULT_LDE_SOLVER = "highs"
+
 # some dummy fields--used for ordering sequestration numbers 
 _FIELD_NPP_ORD_1 = "young"
 _FIELD_NPP_ORD_2 = "secondary"
@@ -2342,7 +2345,7 @@ class AFOLU:
         vec_lvst_dem: np.ndarray,
         iter_step: int = 100,
         mass_balance_adjustment: float = 1.0,
-        method: str = "highs",
+        method: str = _DEFAULT_LDE_SOLVER,
         vec_agrc_frac_imports_for_lvst: Union[np.ndarray, None] = None,
         verbose: bool = False,
         **kwargs,
@@ -4648,7 +4651,7 @@ class AFOLU:
         #   unadjusted land use; we scale this by the solved 
         ratio = yield_lde/vec_yield_supply_carrying_capacity[j]
         area_total_required = vec_yield_supply_constraint[j]*ratio/yield_factor
-     
+
         return area_total_required
     
 
@@ -4717,6 +4720,7 @@ class AFOLU:
             *args,
             lvst_dietary_mass_factor = 1.0,     
             vec_agrc_frac_imports_for_lvst = None,
+            **kwargs,
         )
 
         out = (
@@ -4946,7 +4950,7 @@ class AFOLU:
             vec_lde_supply_cc, # vec_lde_supply_carrying_capacity
             vec_lde_supply,
         )
-
+        
         # non-cereals area
         vec_area_target_non_cereals = self.get_lde_est_area_reqd_from_yield(
             vec_agrc_area_feed[inds_agrc_nc], 
@@ -4970,8 +4974,10 @@ class AFOLU:
         vec_agrc_area_target_for_lvst[ind_agrc_c] = area_target_cereals
         vec_agrc_area_target_for_lvst[inds_agrc_nc] = vec_area_target_non_cereals
 
+        m = np.abs(
+            vec_agrc_area_feed - vec_agrc_area_target_for_lvst
+        ).max()
 
-        
         # set out
         out = (
             area_target_pastures,
@@ -5392,7 +5398,7 @@ class AFOLU:
         return df_out
     
 
-
+    # PROBLEM
     def get_ilu_agrc_area_target_nonfeed(self,
         i: int,
         lurf: float,
@@ -5408,16 +5414,14 @@ class AFOLU:
         """
 
         # some init
-        vec_agrc_frac_feed = self.arrays_agrc.arr_agrc_frac_animal_feed[i]
-        vec_agrc_total_dem_yield = arr_agrc_production_nonfeed_unadj[i + 1]
-
+        vec_agrc_frac_feed = self.arrays_agrc.arr_agrc_frac_animal_feed[i + 1]
+        vec_agrc_total_dem_yield = arr_agrc_production_nonfeed_unadj[i + 1].copy()
+        vec_agrc_cropland_area_proj_nonfeed = vec_agrc_cropland_area_proj*(1 - vec_agrc_frac_feed)
+        
         # calculate net surplus for yields
-        vec_agrc_proj_yields = (
-            vec_agrc_cropland_area_proj
-            *(1 - vec_agrc_frac_feed)
-            *arr_agrc_yield_factors[i + 1]
-        )
+        vec_agrc_proj_yields = vec_agrc_cropland_area_proj_nonfeed*arr_agrc_yield_factors[i + 1]
 
+        # get unmet demands
         vec_agrc_unmet_demand_yields = vec_agrc_total_dem_yield - vec_agrc_proj_yields
         vec_agrc_unmet_demand_yields_to_impexp = (
             sf.vec_bounds(
@@ -5433,11 +5437,11 @@ class AFOLU:
             *arr_lndu_frac_increasing_net_exports_met[i + 1, self.ind_lndu_crop]
         )
         vec_agrc_unmet_demand_yields_lost = vec_agrc_unmet_demand_yields - vec_agrc_unmet_demand_yields_to_impexp
-
+        
         # adjust yields for import/export scalar
         vec_agrc_proj_yields_adj = vec_agrc_proj_yields + vec_agrc_unmet_demand_yields_lost
         vec_agrc_yield_factors_adj = np.nan_to_num(
-            vec_agrc_proj_yields_adj/vec_agrc_cropland_area_proj, 
+            vec_agrc_proj_yields_adj/vec_agrc_cropland_area_proj_nonfeed, 
             nan = 0.0, 
             posinf = 0.0,
         ) # replaces arr_agrc_yield_factors[i + 1] below
@@ -5449,16 +5453,16 @@ class AFOLU:
             nan = 0.0, 
             posinf = 0.0,
         )
-        vec_agrc_unmet_demand = vec_agrc_dem_cropareas - vec_agrc_cropland_area_proj
+        vec_agrc_unmet_demand = vec_agrc_dem_cropareas - vec_agrc_cropland_area_proj_nonfeed
         vec_agrc_reallocation_target = vec_agrc_unmet_demand*lurf
-
+        
         # get surplus yield (increase to net imports)
         vec_agrc_net_imports_increase = (vec_agrc_unmet_demand - vec_agrc_reallocation_target)*vec_agrc_yield_factors_adj
-        vec_agrc_cropareas_adj = vec_agrc_cropland_area_proj + vec_agrc_reallocation_target
+        vec_agrc_cropareas_adj_nonfeed = vec_agrc_cropland_area_proj_nonfeed + vec_agrc_reallocation_target
 
         # add outputs here
         out = (
-            vec_agrc_cropareas_adj,
+            vec_agrc_cropareas_adj_nonfeed,
             vec_agrc_net_imports_increase,
             vec_agrc_reallocation_target,
             vec_agrc_unmet_demand_yields_lost,
@@ -7973,6 +7977,7 @@ class AFOLU:
         vec_agrc_domestic_demand_init_nonlvstfeed = vec_agrc_domestic_demand_init - vec_agrc_domestic_demand_init_lvstfeed
 
         # project domestic demand for crops
+
         arr_agrc_domestic_demand_nonfeed_unadj = self.project_per_capita_demand(
             vec_agrc_domestic_demand_init_nonlvstfeed,
             vec_pop,
@@ -8102,6 +8107,7 @@ class AFOLU:
         vec_agrc_frac_cropland_area: np.ndarray,
         vec_lndu_yrf: np.ndarray,
         vec_gnrl_area: np.ndarray,
+        lde_method: str = _DEFAULT_LDE_SOLVER,
         n_tp: Union[int, None] = None,
         prohibit_forest_transitions: Union[bool, None] = None,
         residues_to_entc_only: bool = True,
@@ -8465,7 +8471,13 @@ class AFOLU:
             x,
             arr_lvst_annual_feed_per_capita[i],
             arr_lvst_dem[i],
+            method = lde_method,
         )
+
+        global dict_sols_prelim
+        global dict_sols_final
+        dict_sols_prelim = {}
+        dict_sols_final = {}
 
         while i < n_tp - 1:
 
@@ -8534,6 +8546,7 @@ class AFOLU:
                 x_proj_unadj,
                 arr_lvst_annual_feed_per_capita[i + 1],
                 arr_lvst_dem[i + 1],
+                method = lde_method,
                 lvst_dietary_mass_factor = factor_lvst_dietary_mass_balance_adjustment,     
                 vec_agrc_frac_imports_for_lvst = vec_agrc_frac_imports_for_lvst,
             )
@@ -8548,7 +8561,7 @@ class AFOLU:
                 vec_lde_supply_carrying_capacity,
             )
 
-
+            
             ##  AGRICULTURE - calculate demand increase in crops, which is a 
             #                 function of gdp/capita (exogenous) and livestock 
             #                 demand (used for feed)
@@ -8568,6 +8581,9 @@ class AFOLU:
                 vec_agrc_cropland_area_proj,
             )
 
+            m = vec_agrc_area_target_nonfeed.max()
+            print(f"vec_agrc_area_target_nonfeed max: {m}")
+
             # get total crop area required
             vec_agrc_cropareas_target = vec_agrc_area_target_nonfeed + vec_agrc_area_target_for_lvst
             area_target_crop = vec_agrc_cropareas_target.sum()
@@ -8580,6 +8596,9 @@ class AFOLU:
                 self.ind_lndu_crop: area_target_crop,
                 self.ind_lndu_pstr: area_target_pstr,
             }
+
+            #print(f"dict_area_targets_exog:\n{dict_area_targets_exog}\n\nlurf:\t{lurf}\n\n")
+
             
             arr_transition_adj = self.qadj_adjust_transitions(
                 arrs_transitions[i_tr],
@@ -8594,6 +8613,11 @@ class AFOLU:
             )
 
             x_next  = np.matmul(x, arr_transition_adj)
+            #print(i)
+            #print(dict_area_targets_exog)
+            #print("")
+            dict_sols_prelim.update({i: sol_preliminary})
+            dict_sols_final.update({i: vec_lde_supply})
 
 
 
@@ -8638,6 +8662,7 @@ class AFOLU:
                 vec_lde_lvst_pop_target,                # use target LVST population
                 for_carrying_capacity = True,
                 lvst_dietary_mass_factor = factor_lvst_dietary_mass_balance_adjustment,     
+                method = lde_method,
                 sup_carrying_capacity_scalar = 1.0,
                 vec_agrc_frac_imports_for_lvst = vec_agrc_frac_imports_for_lvst,
             )
@@ -9272,7 +9297,7 @@ class AFOLU:
         for_carrying_capacity: bool = False, 
         iter_step: int = 100,
         mass_balance_adjustment: float = 1.0,
-        method: str = "highs",
+        method: str = _DEFAULT_LDE_SOLVER,
         sup_carrying_capacity_scalar: float = np.inf,
         vec_agrc_frac_imports_for_lvst: Union[np.ndarray, None] = None,
         verbose: bool = False,
@@ -9523,7 +9548,6 @@ class AFOLU:
                 vec_agrc_residues_gen_available_for_energy,
             )
             energy_avail = vec_energy_avail.sum()
-            print(energy_avail)
 
             # convert from energy units to mass units
             vec_consumption_biomass_eq = self.convert_fuelwood_to_biomass_equivalent(
@@ -9534,7 +9558,7 @@ class AFOLU:
                 units_energy = None,
                 units_mass = modvar_bcl_mass,
             )
-            print(vec_agrc_rfu_energy_avail.shape)
+
             # update energy available (in energy and in biomass mass equivalent)
             vec_agrc_rfu_energy_avail[j] = energy_avail
             vec_agrc_rfu_energy_avail_in_terms_bcl_mass[j] = vec_consumption_biomass_eq[i]
@@ -9555,6 +9579,7 @@ class AFOLU:
 
     def project(self,
         df_afolu_trajectories: pd.DataFrame,
+        lde_method: str = _DEFAULT_LDE_SOLVER,
         passthrough_tmp: str = None,
     ) -> pd.DataFrame:
         """Project the SISEPUEDE AFOLU model forward in time. The project() 
@@ -9569,6 +9594,12 @@ class AFOLU:
             DataFrame with all required input fields as columns. The model will 
             not run if any required variables are missing, but errors will 
             detail which fields are missing.
+
+        Keyword Arguments
+        -----------------
+        lde_method : str
+            Method to pass to sco.linprog. Default is "highs". See ?sco.linprog 
+            for options.
 
         Notes
         -----
@@ -9818,17 +9849,20 @@ class AFOLU:
             vec_agrc_frac_cropland_area,
             vec_lndu_reallocation_factor,
             vec_area,
+            lde_method = lde_method,
             n_tp = n_projection_time_periods,
             vec_rates_gdp = vec_rates_gdp,
         )
 
         
         #return ledger
+        self.arr_agrc_production_nonfeed_unadj = arr_agrc_production_nonfeed_unadj.copy()
         self.arr_agrc_yield = arr_agrc_yield
         self.arr_land_use = arr_land_use
         self.arrs_lndu_land_conv = arrs_lndu_land_conv
         self.vec_lvst_aggregate_animal_mass = vec_lvst_aggregate_animal_mass
-
+        self.arr_lvst_pop = arr_lvst_pop
+        
         # get some output variables
         #df_out += self.extract_variables_from_ledger(
         out = self.extract_variables_from_ledger(

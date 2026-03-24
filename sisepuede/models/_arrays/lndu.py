@@ -118,19 +118,19 @@ class ArraysLNDU(ma.SubsectorArraysCollection):
         )
 
         # area constraint (upper)
+        #   - don't set bounds, the ignore flag is -999
         self.get_modvar_array(
             df_trajectories,
             self.modvar_lndu_constraint_area_max,
             set_property = True,
-            var_bounds = (0, np.inf), 
         )
 
         # area constraint (lower)
+        #   - don't set bounds, the ignore flag is -999
         self.get_modvar_array(
             df_trajectories,
             self.modvar_lndu_constraint_area_min,
             set_property = True,
-            var_bounds = (0, np.inf), 
         )
 
         # fraction of increasing net exports met
