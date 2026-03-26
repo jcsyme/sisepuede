@@ -179,6 +179,305 @@ def scale_inputs_single_value(
     return out
 
 
+"""
+_DICT_SUBSEC_TO_DICT_FUEL_TO_MODVAR = {
+    matt.subsec_name_inen: model_afolu.model_enercons.dict_inen_fuel_categories_to_fuel_variables,
+    matt.subsec_name_scoe: model_afolu.model_enercons.get_scoe_dict_fuel_categories_to_fuel_variables()[0],
+    matt.subsec_name_trns: model_afolu.model_enercons.dict_trns_fuel_categories_to_fuel_variables,
+}
+"""
+
+
+def get_modvar_from_fuel(
+    dict_fuel_to_modvar_by_type: Dict[str, Dict],
+    fuel: str,
+    model_attributes: 'ModelAttributes',
+    key_fuel_fraction: str = "fuel_fraction",
+) -> Union['ModelVariable', None]:
+    """Get the ModelVariable associated with a fuel fraction
+    """
+    # get dictionary mapping--if not found, the fuel is not associated with the subsector
+    dict_fuel_to_fuel_fraction = dict_fuel_to_modvar_by_type.get(fuel, )
+    if dict_fuel_to_fuel_fraction is None:
+        return None
+        
+    modvar_target = model_attributes.get_variable(
+        dict_fuel_to_fuel_fraction.get(key_fuel_fraction, )
+    )
+
+    return modvar_target
+
+def scale_fuel_fraction_from_vector(
+    df_input: pd.DataFrame,
+    subsector: str,
+    fuel_targ: str,
+    fuels_scale_response: Union[List[str], None],
+    vec_scalars: np.ndarray,
+    dict_fuel_to_modvars_by_subsec: Dict[str, Dict],
+    model_attributes: 'ModelAttributes',
+    cats_iter: Union[List[str], None] = None,
+    effective_zero: float = 10.0**(-8.0),
+    key_fuel_fraction: str = "fuel_fraction",
+    vec_mass_ledger: Union[np.ndarray, None] = None,
+) -> Tuple[pd.DataFrame, np.ndarray]:
+    """Using a vector of scalars for each time period, scale the fraction
+        associated with a given fuel. Will scale all other fuels associated
+        with fuels_scale_response uniformly. If None, all other fuels are 
+        adjusted.
+
+    Returns a tuple of the form:
+        (
+            df_candidate,       # DataFrame with fuels that have been shifted
+            vec_mass_ledger,    # Vector with available mass after scaling
+        )
+        
+    Function Arguments
+    ------------------
+    df_input : pd.DataFrame
+        DataFrame of input rajectories. Returns a candidate *copy* of this 
+        DataFrame
+    subsector : str
+        Subsector (energy consumption) to work in 
+    fuel_targ : str
+        Target fuel to apply scalar to
+    fuels_shift_out : List[str]
+        Fuels to shift out of to hit target
+    ind_tp : int
+        Row index associated with the time period to target
+    scalar_full : float
+        Scalar to apply to fuel_targ in time stored at ind_tp
+    dict_fuel_to_modvars_by_subsec : Dict[str, Dict]
+        Dictionary mapping each subsector to the dictionary that maps each fuel 
+        to ModelVariables associated with different components (e.g., fuel 
+        fraction, etc.)
+
+        e.g., 
+
+        dict_fuel_to_modvars_by_subsec = {
+            matt.subsec_name_inen: EnergyConsumption.dict_inen_fuel_categories_to_fuel_variables,
+            matt.subsec_name_scoe: EnergyConsumption.get_scoe_dict_fuel_categories_to_fuel_variables()[0],
+            matt.subsec_name_trns: EnergyConsumption.dict_trns_fuel_categories_to_fuel_variables,
+        }
+    model_attributes : ModelAttributes
+        ModelAttributes object used for variable management
+
+    Keyword Arguments
+    -----------------
+    cats_iter : Union[List[str], None]
+        Optional list of categories to iterate over. If None, will use all
+        available in subsector
+    effective_zero : float
+        Value below which numbers are assumed to be 0
+    key_fuel_fraction : str
+        Key in dict_fuel_to_modvars_by_subsec.get(subector).get(_CAT_ENFU)
+    vec_mass_ledger : Union[np.ndarray, None]
+        Optional "ledger" for keeping track of mass available. Can be used as a
+        passthrough to allow iterative shifting away from fuels
+    """
+
+    ##  INITIALIZE
+
+    df_candidate = df_input.copy()
+    
+    # loop over subsector categories for which shift is made
+    cat_element = model_attributes.get_subsector_attribute(
+        subsector, 
+        "pycategory_primary_element",
+    )
+    dict_specs_by_cat = {}
+
+    # subsector attribute table
+    attr = model_attributes.get_attribute_table(subsector, )
+    attr_enfu = model_attributes.get_attribute_table(
+        model_attributes.subsec_name_enfu, 
+    )
+
+    # some fuel modvars
+    dict_fuel_to_modvar_by_type = dict_fuel_to_modvars_by_subsec.get(subsector, )
+    if dict_fuel_to_modvar_by_type is None:
+        raise RuntimeError(f"No fuel to modvar dictionary found for subsector '{subsector}'")
+
+    # get fuels that can respond
+    fuels_scale_response = (
+        [x for x in attr_enfu.key_values if x in fuels_scale_response]
+        if sf.islistlike(fuels_scale_response)
+        else attr_enfu.key_values
+    )
+    if len(fuels_scale_response) == 0:
+        return df_candidate
+    
+    fuels_stable_try = [
+        x for x in attr_enfu.key_values if x not in fuels_scale_response + [fuel_targ]
+    ]
+
+    # get dictionary mapping--if not found, the fuel is not associated with the subsector
+    modvar_target = get_modvar_from_fuel(
+        dict_fuel_to_modvar_by_type,
+        fuel_targ,
+        model_attributes,
+        key_fuel_fraction = key_fuel_fraction,
+    )
+    if modvar_target is None:
+        return df_candidate
+
+
+
+    ##  ITERATE BY CAT
+
+    cats_iter = ( 
+        attr.key_values
+        if not sf.islistlike(cats_iter)
+        else [x for x in attr.key_values if x in cats_iter]
+    )
+
+    for cat in cats_iter:
+
+        # get the target field
+        field_target = modvar_target.build_fields(
+            category_restrictions = cat, 
+        )
+        if field_target is None: continue
+
+
+        ##  GET TOTAL IN TARGET
+
+        # need to make sure the new target does not exceed 1
+        vec_target_original = df_candidate[field_target].to_numpy()
+        vec_target_new = np.clip(
+            vec_target_original*vec_scalars, 
+            (0, 1),
+        )
+
+
+        ##  GET TOTAL MASS AVAIL TO SHIFT IN
+
+        arr_mass = np.zeros(
+            (
+                df_candidate.shape[0],
+                attr_enfu.n_key_values
+            )
+        )
+        
+        # indices for different groups
+        inds_mass_stable = []
+        inds_mass_scalable = []
+
+        # iterate over each output fuel to retrieve how much is available
+        for i, fuel in enumerate(attr_enfu.key_values, ):
+            
+            # get variable
+            modvar_cur_frac = get_modvar_from_fuel(
+                dict_fuel_to_modvar_by_type,
+                fuel,
+                model_attributes,
+                key_fuel_fraction = key_fuel_fraction,
+            )
+            if modvar_cur_frac is None: continue
+
+            # field and data
+            field_frac_cur = modvar_cur_frac.build_fields(category_restrictions = cat, )
+            arr_mass[:, i] = df_candidate[field_frac_cur].to_numpy()
+            
+            if fuel in fuels_stable_try: 
+                inds_mass_stable.append(i)
+                continue
+
+            if fuel in fuels_scale_response:
+                inds_mass_scalable.append(i)
+                
+
+        ##  CHECK STABLE FUELS TO SEE IF THEY NEED TO BE MADE SCALABLE
+
+        # check the target to see if, with stable, it will exceed 1
+        vec_target_new_with_stable_try = vec_target_new + arr_mass[:, inds_mass_stable].sum(axis = 1)
+        vec_target_new_with_stable_try_clipped = np.clip(
+            vec_target_new_with_stable_try, 0, 1,
+        )
+
+        # if so, just set stable classes to be scalable
+        eps = np.abs(vec_target_new_with_stable_try_clipped - vec_target_new_with_stable_try).max()
+        if eps > 0.0000001:
+            inds_mass_scalable += inds_mass_stable 
+            inds_mass_stable = []
+
+
+
+
+        # cap shift at available
+        vec_mass_cur = arr_mass.sum(axis = 1)
+        vec_mass_cur = sf.vec_bounds(
+            vec_mass_shift,
+            [(-vec_target_original[i], x) for i, x in enumerate(vec_mass_cur)]
+        )
+        
+        # convert to allocation 
+        arr_mass = sf.check_row_sums(
+            arr_mass,
+            thresh_correction = None,
+        )
+        arr_mass = np.nan_to_num(
+            arr_mass,
+            nan = 0.0,
+            posinf = 0.0,
+        )
+        
+        global ams
+        ams = arr_mass.copy()
+
+        arr_mass_shift = sf.do_array_mult(
+            arr_mass,
+            vec_mass_cur,
+        )
+
+
+        
+
+        ##  EXECUTE THE SHIFT BY ITERATING OVER "OUT" FUELS
+
+        
+        #ams = arr_mass_shift.copy()
+        w = np.where(np.isnan(arr_mass_shift))[0]
+        if len(w) > 0:
+            raise RuntimeError("Done")
+
+        vec_mass_shift_to_target = np.zeros(arr_mass_shift.shape[0])
+
+        for i, fuel in enumerate(fuels_shift_out, ):
+            
+            # try getting subdicts for fuel--pass if not defined
+            v = dict_fuel_to_modvar_by_type.get(fuel, )
+            if v is None: continue
+
+            # try getting the fuel fraction modvar
+            modvar = model_attributes.get_variable(v.get(key_fuel_fraction))
+            if modvar is None: continue
+
+            # get current total
+            field_cur = modvar.build_fields(category_restrictions = cat, )
+            if field_cur is None: continue
+
+            vec_shift_cur = arr_mass_shift[:, i]
+            vec_mass_shift_to_target += vec_shift_cur
+            
+            # convert nans and small values
+            df_candidate[field_cur] = _clean_shift_into_field(
+                df_candidate[field_cur].to_numpy() - vec_shift_cur,
+                effective_zero,
+            )
+
+        
+        df_candidate[field_target] = _clean_shift_into_field(
+            df_candidate[field_target].to_numpy() + vec_mass_shift_to_target,
+            effective_zero,
+        )
+        
+    return df_candidate
+
+
+
+
+
+
 
 def shift_fuels_based_on_single_point(
     df_input: pd.DataFrame,

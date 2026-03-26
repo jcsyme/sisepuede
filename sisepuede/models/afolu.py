@@ -3689,6 +3689,7 @@ class AFOLU:
                 0.0,
                 0.0,
                 {},
+                {},
             )
 
             return out
@@ -8425,6 +8426,7 @@ class AFOLU:
             _,
             _,
             _,
+            _,
         ) = self.get_bcl(
             df_afolu_trajectories, 
             mangroves = True, 
@@ -9521,7 +9523,7 @@ class AFOLU:
 
     def update_ilu_residue_vectors(self,             
         arr_agrc_residues_nonfeed: np.ndarray,
-        arr_agrc_rfu_energy: np.narray,
+        arr_agrc_rfu_energy: np.ndarray,
         arr_agrc_rfu_feed: np.ndarray,
     ) -> None:
         """Update energy and feed use vectors of residues.
