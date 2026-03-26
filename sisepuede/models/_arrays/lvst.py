@@ -89,7 +89,7 @@ class ArraysLVST(ma.SubsectorArraysCollection):
             self.modvar_lvst_elas_demand,
             expand_to_all_cats = True,
             set_property = True,
-            var_bounds = (0, 1), 
+            #var_bounds = (0, 1), 
         )
 
         # exports, unadjusted 
