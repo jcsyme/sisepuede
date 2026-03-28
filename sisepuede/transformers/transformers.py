@@ -6426,7 +6426,7 @@ class Transformers:
 
     def _trfunc_scoe_increase_applicance_efficiency(self,
         df_input: Union[pd.DataFrame, None] = None,
-        magnitude: float = 0.5,
+        magnitude: Union[Dict[str, float], float] = 0.5,
         strat: Union[int, None] = None,
         vec_implementation_ramp: Union[np.ndarray, None] = None,
     ) -> pd.DataFrame:
@@ -6437,7 +6437,8 @@ class Transformers:
         df_input : pd.DataFrame
             Optional data frame containing trajectories to modify
         magnitude : float
-            Fractional increase in applieance energy efficiency
+            Fractional increase in applieance energy efficiency OR dictionary 
+            mapping SCOE category to fractional increase
         strat : int
             Optional strategy value to specify for the transformation
         vec_implementation_ramp : Union[np.ndarray, Dict[str, int], None]
@@ -6463,6 +6464,7 @@ class Transformers:
             magnitude,
             vec_implementation_ramp,
             self.model_attributes,
+            categories = categories,
             field_region = self.key_region,
             model_enercons = self.model_enercons,
             strategy_id = strat

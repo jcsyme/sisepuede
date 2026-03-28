@@ -2460,6 +2460,7 @@ def transformation_scoe_decrease_demand_for_appliance_energy(
     magnitude: float,
     vec_ramp: np.ndarray,
     model_attributes: ma.ModelAttributes,
+    categories: Union[List[str], None] = None,
     model_enercons: Union[me.EnergyConsumption, None] = None,
     **kwargs
 ) -> pd.DataFrame:
@@ -2487,13 +2488,17 @@ def transformation_scoe_decrease_demand_for_appliance_energy(
         dataframe (only added if integer)
     """
 
+    # convert to allow for magnitude as a dictionary HERE123
+
+
     # call general transformation
     df_out = transformation_general(
         df_input,
         model_attributes,
         {
-            model_enercons.modvar_scoe_demscalar_elec_energy_demand : {
+            model_enercons.modvar_scoe_demscalar_elec_energy_demand: {
                 "bounds": (0, np.inf),
+                "categories": categories,
                 "magnitude": float(sf.vec_bounds(1 - magnitude, (0, np.inf))),
                 "magnitude_type": "baseline_scalar",
                 "time_period_baseline": get_time_period(model_attributes, "max"),
