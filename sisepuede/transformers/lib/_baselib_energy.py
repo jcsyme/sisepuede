@@ -25,6 +25,34 @@ import sisepuede.utilities._toolbox as sf
 #    SUPPORT FUNCTIONS    #
 ###########################
 
+def get_fuel_cats_to_fuel_vars(
+    subsec: str,
+    model_enercons: 'EnergyConsumption',
+    key_fuel_frac: str = "fuel_fraction",
+) -> dict:
+    """Get a dictionary mapping fuel categories to 
+    """
+
+    # get 
+    matt = model_enercons.model_attributes
+    dict_func = {
+        matt.subsec_name_inen: model_enercons.get_inen_dict_fuel_categories_to_fuel_variables(),
+        matt.subsec_name_scoe: model_enercons.get_scoe_dict_fuel_categories_to_fuel_variables(),
+        matt.subsec_name_trns: model_enercons.get_trns_dict_fuel_categories_to_fuel_variables()
+    }
+
+    dict_out = dict_func.get(subsec, )
+    if dict_out is None:
+        return None
+
+    dict_out = dict(
+        (k, v.get(key_fuel_frac, )) for k, v in dict_out[0].items()
+    )
+
+    return dict_out
+
+
+
 def get_renewable_categories_from_inputs_final_tp(
     df_input: pd.DataFrame,
     model_enerprod: ml.EnergyProduction,
@@ -242,6 +270,291 @@ def _shift_between_modvars_by_cat(
 ###########################################
 #    ENERGY TECHNOLOGY TRANSFORMATIONS    #
 ###########################################
+
+def build_tegsm_specification_dictionary(
+    specification: Union[Dict, float],
+    model_enercons: 'EnergyConsumption',
+    subsec: str,
+) -> Union[Dict[str, Tuple[float, Dict[str, float]]], None]:
+    """Build the dictionary for transformation_energy_general_shift_modvars()
+    """
+
+    ##  INITIALIZATION
+
+    attr = model_attributes.get_attribute_table(subsec)
+    dict_fuel_fracs = get_fuel_cats_to_fuel_vars(
+        subsec, 
+        model_enercons, 
+    )
+    model_attributes = model_enercons.model_attributes
+    modvars = list(dict_fuel_fracs.values())
+    
+    # get all categories in subsector
+    cats_all = attr.key_values
+    
+    
+
+    ##  START BUILDING
+
+    dict_out = specification
+
+    # convert to dictionary if entered as a single magnitude
+    if sf.isnumber(dict_out, ):
+        dict_out = max(min(dict_out, 1), 0)
+        dict_out = dict((x, dict_out) for x in cats_all)
+
+    # only a dictionary can be used going forward
+    if not isinstance(dict_out, dict):
+        return None
+    
+
+    dict_out_final = {}
+    
+    modvar_to_cats = dict(
+        (k, model_attributes.get_variable_categories())
+        for k in modvars
+    )
+
+    for k, v in dict_out.items():
+        
+        dict_out_final.update({k: {}})
+
+        # if a number, apply to each target v
+        if sf.isnumber(v, ):
+            for modvar in modvars:
+                if k not in modvar_to_cats.get(modvar, ):
+                    continue
+
+                dict_out_final[k].update({modvar: v, })
+
+            continue
+        
+      
+
+
+def transformation_energy_general_shift_modvars(
+    df_input: pd.DataFrame,
+    specification: Union[Dict, float],
+    magnitude: float,
+    vec_ramp: np.ndarray,
+    subsec: str,
+    model_enercons: 'EnergyConsumption',
+    categories: Union[List[str], None] = None,
+    dict_modvar_specs: Union[Dict[str, float], None] = None,
+    field_region: str = "region",
+    magnitude_relative_to_baseline: bool = False,
+    regions_apply: Union[List[str], None] = None,
+    return_modvars_only: bool = False,
+    strategy_id: Union[int, None] = None,
+) -> pd.DataFrame:
+    """Implement general fuel switch transformation.
+
+    Function Arguments
+    ------------------
+    df_input : pd.DataFrame
+        Input DataFrame containing baseline trajectories
+    specification : Union[Dict, float]
+        One of the following:
+        * float:                apply a single mangitude to all categories, and 
+                                shift all fuels into electricity
+        * Dict:
+            * cat -> float      Map each category into a unique magnitude, and
+                                shift all fuels into electricity
+            * cat -> (          Map each category into a unique magnitude and 
+                float,          specify target fuel shares of the magnitude in a  
+                Dict            dictionary in the second element of the tuple
+            )
+    magnitude : float   
+        Target magnitude of fuel mixture
+    vec_ramp : np.ndarray
+        Ramp vec used for implementation
+    subsec : str
+        Subsector to use
+
+    Keyword Arguments
+    -----------------
+    categories : Union[List[str], None]
+        subsector categories to apply transformation to
+    dict_modvar_spec : Union[Dict[str, float], None]
+        Dictionary of modvars OR fuels to shift into (assumes that shift
+        will take from others). Maps from modvar to fraction of magnitude. Sum 
+        of values must == 1.
+    field_region : str
+        Field in df_input that specifies the region
+    magnitude_relative_to_baseline : 
+        Apply the magnitude relative to baseline?
+    model_enercons : 
+        Optional EnergyConsumption object to pass for variable access
+    regions_apply : 
+        Optional set of regions to use to define strategy. If None, applies to 
+        all regions.
+    return_modvars_only : 
+        Return the model variables that define fuel fractions
+    strategy_id : 
+        Optional specification of strategy id to add to output DataFrame (only 
+        added if integer)
+    """
+
+    # model variables to explore
+    model_attributes = model_enercons.model_attributes
+    dict_fuel_fracs = get_fuel_cats_to_fuel_vars(
+        subsec, 
+        model_enercons, 
+    )
+    
+    modvars = sorted(list(dict_fuel_fracs.values()))
+    if return_modvars_only:
+        return modvars
+
+    # dertivative vars (alphabetical)
+    all_regions = sorted(list(set(df_input[field_region])))
+    attr = model_attributes.get_attribute_table(subsec)
+    attr_time_period = model_attributes.get_dimensional_attribute_table(model_attributes.dim_time_period)
+    
+    df_out = []
+    regions_apply = (
+        all_regions 
+        if (regions_apply is None) 
+        else [x for x in regions_apply if x in all_regions]
+    )
+
+    
+    ##  GET MODEL VARIABLE SPECIFICATION
+
+    # set the default
+    fuel_elec = model_enercons.cat_enfu_electricity
+    modvar_elec = dict_fuel_fracs.get(fuel_elec, )
+    dict_modvar_specs_def = {modvar_elec: 1.0, }
+
+    # check ditionary specification, including cats and summation
+    dict_modvar_specs = (
+        dict_modvar_specs_def 
+        if not isinstance(dict_modvar_specs, dict) 
+        else dict_modvar_specs
+    )
+    # try to convert fuel to model variables
+    dict_modvar_specs = dict(
+        (dict_fuel_fracs.get(k, k), v) 
+        for k, v in dict_modvar_specs.items() 
+    )
+    dict_modvar_specs = dict(
+        (k, v) for k, v in dict_modvar_specs.items() 
+        if (k in modvars) and sf.isnumber(v)
+    )
+    dict_modvar_specs = (
+        dict_modvar_specs_def 
+        if (sum(list(dict_modvar_specs.values())) != 1.0) 
+        else dict_modvar_specs
+    )
+
+    # get model variables and filter categories
+    modvars_source = [x for x in modvars if x not in dict_modvar_specs.keys()]
+    modvars_target = [x for x in modvars if x in dict_modvar_specs.keys()]
+    cats_all = [set(model_attributes.get_variable_categories(x)) for x in modvars_target]
+    cats_all = set.intersection(*cats_all)
+
+    categories = (
+        [x for x in attr.key_values if x in categories]
+        if isinstance(categories, list)
+        else attr.key_values
+    )
+    cats_all = (
+        set(cats_all) & set(categories)
+        if len(categories) > 0
+        else None
+    )
+
+    if cats_all is None:
+        return df_input
+
+
+    ##  ITERATE OVER REGIONS AND MODVARS TO BUILD TRANSFORMATION
+
+    for region in all_regions:
+
+        df_in = (
+            df_input[
+                df_input[field_region] == region
+            ]
+            .sort_values(by = [model_attributes.dim_time_period])
+            .reset_index(drop = True)
+        )
+        
+        df_in_new = df_in.copy()
+        vec_tp = list(df_in[model_attributes.dim_time_period])
+        n_tp = len(df_in)
+
+        if region in regions_apply:
+            for cat in cats_all:
+
+                fields = [
+                    model_attributes.build_variable_fields(
+                        x,
+                        restrict_to_category_values = cat
+                    ) for x in modvars_target
+                ]
+
+                # get source values
+                #
+                #
+                vec_initial_vals = np.array(df_in[fields].iloc[0]).astype(float)
+                val_initial_target = vec_initial_vals.sum() if magnitude_relative_to_baseline else 0.0
+                vec_initial_distribution = np.nan_to_num(vec_initial_vals/vec_initial_vals.sum(), nan = 1.0, posinf = 1.0, )
+
+                # get the current total value of fractions
+                vec_final_vals = np.array(df_in[fields].iloc[n_tp - 1]).astype(float)
+                val_final_target = sum(vec_final_vals)
+
+                target_value = float(sf.vec_bounds(magnitude + val_initial_target, (0.0, 1.0)))#*dict_modvar_specs.get(modvar_target)
+                scale_non_elec = np.nan_to_num((1 - target_value)/(1 - val_final_target), nan = 0.0, posinf = 0.0, )
+
+                target_distribution = magnitude*np.array([dict_modvar_specs.get(x) for x in modvars_target]) + val_initial_target*vec_initial_distribution
+                target_distribution /= max(magnitude + val_initial_target, 1.0) 
+                target_distribution = np.nan_to_num(target_distribution, nan = 0.0, posinf = 0.0, )
+
+                dict_target_distribution = dict((x, target_distribution[i]) for i, x in enumerate(modvars_target))
+
+                modvars_adjust = []
+                for modvar in modvars:
+                    if cat in model_attributes.get_variable_categories(modvar):
+                        modvars_adjust.append(modvar) 
+
+                # loop over adjustment variables to build new trajectories
+                for modvar in modvars_adjust:
+                    field_cur = model_attributes.build_variable_fields(
+                        modvar,
+                        restrict_to_category_values = cat,
+                    )
+
+                    vec_old = np.array(df_in[field_cur])
+                    val_final = vec_old[n_tp - 1]
+                    val_new = (
+                        np.nan_to_num(val_final, nan = 0.0, posinf = 0.0, )*scale_non_elec 
+                        if (modvar not in modvars_target) 
+                        else dict_target_distribution.get(modvar)
+                    )
+                    vec_new = vec_ramp*val_new + (1 - vec_ramp)*vec_old
+
+                    df_in_new[field_cur] = vec_new
+
+        df_out.append(df_in_new)
+
+
+    # concatenate and add strategy if applicable
+    df_out = pd.concat(df_out, axis = 0).reset_index(drop = True)
+    if isinstance(strategy_id, int):
+        df_out = sf.add_data_frame_fields_from_dict(
+            df_out,
+            {
+                model_attributes.dim_strategy_id: strategy_id
+            },
+            prepend_q = True,
+            overwrite_fields = True
+        )
+
+    return df_out
+
+
 
 def transformation_entc_change_msp_max(
     df_input: pd.DataFrame,
