@@ -6426,6 +6426,7 @@ class Transformers:
 
     def _trfunc_scoe_increase_applicance_efficiency(self,
         df_input: Union[pd.DataFrame, None] = None,
+        categories: Union[List[str], None] = None,
         magnitude: Union[Dict[str, float], float] = 0.5,
         strat: Union[int, None] = None,
         vec_implementation_ramp: Union[np.ndarray, None] = None,
