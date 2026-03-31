@@ -4698,7 +4698,7 @@ def vec_bounds(
 def vector_limiter(
     vecs: list, 
     var_bounds: tuple
-) -> list:
+) -> Union[List[np.ndarray], np.ndarray, None]:
     """Bound a collection vectors by sum. Must specify at least a lower bound. 
         Renormalizes vector components that exceed a threshold. Reflects the
         concept of a limiter.
@@ -4706,7 +4706,10 @@ def vector_limiter(
     Function Arguments
     ------------------
     vecs : list 
-        List of numpy arrays with the same shape
+        List of numpy arrays with the same shape OR numpy array. If entered as a
+        1- or 2-dimensional NumPy array, will return an array. 2-dimensional 
+        arrays are limited on row sums (axis = 1). > 2 dimensions will return
+        None.
     var_bounds : tuple
         tuple of bounds
     """
@@ -4724,6 +4727,29 @@ def vector_limiter(
         Invalid bounds specification of length 0 found in vector_limiter. Enter at least a lower bound.
         """
         raise ValueError(msg)
+
+    
+    ##  CHECK IF PASSING AN ARRAY
+
+    return_array = False
+    array_shape = None
+
+    if isinstance(vecs, np.ndarray):
+        if len(vecs.shape) not in [1, 2]:
+            return None
+        
+        # update some characteristics
+        return_array = True
+        array_shape = vecs.shape
+
+        if len(vecs.shape) == 1:
+            vecs = [vecs]
+
+        elif len(vecs.shape) == 2:
+            vecs = np.split(
+                vecs.flatten(order = "F", ), 
+                array_shape[1], 
+            )
 
     # get vector totals
     vec_total = 0
@@ -4750,6 +4776,24 @@ def vector_limiter(
         for v in vecs:
             elems_new = thresh_sup*v[w_sup]/vec_total[w_sup]
             np.put(v, w_sup, elems_new)
+    
+
+    ##  RETURNS
+
+    # return an array? If not, return output
+    if not return_array:
+        return vecs
+
+    # case where array was entered aas a vector
+    if len(array_shape) == 1:
+        vecs = vecs[0]
+        return vecs
+    
+    # otherwise, input was matrix
+    vecs = (
+        np.concatenate(vecs)
+        .reshape(array_shape, order = "F", )
+    )
 
     return vecs
 

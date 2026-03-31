@@ -13,6 +13,9 @@ from typing import *
 ##########################
 
 # error classes
+class SimplexBoundsError(Exception):
+    pass
+
 class UndefinedErrorFunction(Exception):
     pass
 
@@ -20,6 +23,213 @@ class UndefinedErrorFunction(Exception):
 
 
 _ERROR_FUNCTIONS = ef.ErrorFunctions()
+
+
+_TSSS_TYPE_FRACTION_OF_SOURCE = "fraction_of_source"
+_TSSS_TYPE_VECTOR_SCALAR = "scalar_vectors"
+
+
+class TimeSeriesSimplexShifter:
+    """Shift fractions in a time series.
+
+    In all descriptions below, let
+
+        * T:        number of time periods
+        * n:        simplex dimension (number of categories)
+
+    Allows for shifting of fractions from a source group to a target group 
+        based on one of the following types:
+
+        * fraction_of_source:
+            Shift a fraction of source mass into target mass. If specifying,
+            must specify target mass allocations for shifted mass. If None is 
+            provided, will allocate proportionally to target mass.
+
+            REQUIRED ARGUMENTS
+            ------------------
+            * source fractions                  # fraction of source mass 
+                                                #   categories to be shifted
+            * target allocations                # allocation fractions for
+                                                #   target mass categories
+                                                #   receiving shifted mass
+        * scalar_vectors:
+            Using a vector of scaling, adjust source mass categories and 
+            allocated to target fuels accordingly.
+
+            REQUIRED ARGUMENTS
+            ------------------
+            * dict_source_vector_scalars        # dictionary mapping source 
+                                                #   indices (column) to scalars
+                                                #   to apply. If a scalar is a
+                                                #   single number, then that 
+                                                #   number is applied uniformly.
+                                                #   If it is a vector, it is 
+                                                #   used to scale the source 
+                                                #   category.
+            * arr_target_allocations            # array (T x n) mapping target 
+                                                #   indices to allocated share.
+                                                #   Row sums must equal 1. If 
+                                                #   None, then all non-source
+                                                #   categories are targeted. 
+
+        
+
+        
+    Initialization Arguments
+    ------------------------
+    array_base : np.narray (T x n)
+        Baseline array of
+    """
+
+    def __init__(self,
+        array_base: np.ndarray,
+        thresh_correction: float = 1e-6,
+    ) -> None:
+
+        self._initialize_array_base(
+            array_base,
+            thresh_correction,
+        )
+
+        return None
+    
+
+    def _initialize_array_base(self,
+        array_base: np.ndarray,
+        thresh_correction: float,
+    ) -> None:
+        """Initialize the base array of share vectors
+        """
+        
+        # check that everything is positive
+        if array_base.min() < 0:
+            raise ValueError(f"Values for time series array_base in TimeSeriesSimplexShifter cannot be negative.")
+
+        # verify sums
+        array_base = sf.check_row_sums(
+            array_base, 
+            msg_pass = "array_base in TimeSeriesSimplexShifter",
+            thresh_correction = thresh_correction,
+        )
+
+
+        ##  SET PROPERTIES
+
+        self.T = array_base.shape[0]
+        self.n = array_base.shape[1]
+        self.array_base = array_base
+
+        return None
+
+
+
+    def _initialize_magnitude_types(self,
+    ) -> None:
+        """Initialize magnitude types that can be passed.
+        """
+
+        magnitude_types = [
+            _TSSS_TYPE_VECTOR_SCALAR
+        ]
+
+        
+        ##  SET PROPERTIES
+
+        self.magnitude_type_scalar_vector = _TSSS_TYPE_VECTOR_SCALAR
+        self.magnitude_types = magnitude_types
+
+        return None
+    
+
+    
+    #####################################################################
+    #    END-STATE FUNCTIONS                                            #
+    #    -------------------------------                                #
+    #    - functions that estimate the end-states for sources and/or    #     
+    #       targets, depending on type.                                 #
+    #                                                                   #
+    #####################################################################
+
+    def _get_end_state_vectors_sources_sv(self,
+        dict_source_vector_scalars: Dict[int, np.ndarray],
+        normalize_exceedance: bool = True,
+        stop_on_bounds_error: bool = False, 
+    ) -> Union[np.ndarray, None]:
+        """Get the end-state vectors for SOURCE vectors in scalar_vectors shift
+            type. Returns an array of size T x n where only SOURCE vectors are 
+            set. All others are ignored.
+
+        
+        Function Arguments
+        ------------------
+        dict_source_vector_scalars : Dict[int, np.ndarray]
+            Dictionary mapping a column index to a scalar vector to apply to 
+            that index.
+
+        Keyword Arguments
+        -----------------
+        normalize_exceedance : bool 
+            Normalize total targets that exceed one? 
+            * True:     If end states that are scaled exceed 1, they will be 
+                        normalized to ensure that the simplex is preserved
+            * False:    If end states exceed 1 in total, an error is thrown.  
+        stop_on_bounds_error : bool
+            Stop if negative scalars are found? If False, skips.
+        """
+
+        if not isinstance(dict_source_vector_scalars, dict):
+            return None
+        
+
+        # continue 
+        arr_out = np.zeros(self.array_base.shape, )
+
+        for k, v in dict_source_vector_scalars.items():
+
+            # conditions that need to be met--index
+            skip = not sf.isnumber(k, integer = True, )
+            skip |= ((k < 0) | (k >= self.n)) if not skip else skip            
+            if skip: continue
+
+            # conditions that need to be met--specification
+            val = v*np.ones(self.T, ) if sf.isnumber(v) else v
+            skip = not isinstance(val, np.ndarray)
+            skip |= (val.shape != (self.T, )) if not skip else skip
+            if skip: continue
+
+            # check scalars
+            if val.min() < 0: 
+                if stop_on_bounds_error:
+                    raise SimplexBoundsError(f"Unable to apply scalar at index {k}: negative scalars found.")
+                continue
+
+            # apply to column
+            arr_out[:, k] = self.array_base[:, k]*val
+        
+        
+        # check 
+        if normalize_exceedance:
+            arr_out = np.nan_to_num(
+                sf.vector_limiter(arr_out, (0, 1)),
+                nan = 0.0,
+                posinf = 0.0,
+            )
+        
+        else:
+            vec_sum = arr_out.sum(axis = 1)
+            w = np.where((vec_sum > 1) | (vec_sum < 0))[0]
+
+            if len(w) > 0:
+                msg = f"Some target mass fractions are either > 1 or < 0. Check the scalars provided or allow normalize_exceedance."
+                raise SimplexBoundsError(msg)
+        
+
+        return arr_out
+
+
+
+
+
 
 
 
@@ -207,12 +417,13 @@ def get_modvar_from_fuel(
 
     return modvar_target
 
+
+
 def scale_fuel_fraction_from_vector(
     df_input: pd.DataFrame,
     subsector: str,
-    fuel_targ: str,
+    dict_fuels_targ: Dict[str, Union[np.ndarray, float]],
     fuels_scale_response: Union[List[str], None],
-    vec_scalars: np.ndarray,
     dict_fuel_to_modvars_by_subsec: Dict[str, Dict],
     model_attributes: 'ModelAttributes',
     cats_iter: Union[List[str], None] = None,
@@ -238,10 +449,13 @@ def scale_fuel_fraction_from_vector(
         DataFrame
     subsector : str
         Subsector (energy consumption) to work in 
-    fuel_targ : str
-        Target fuel to apply scalar to
-    fuels_shift_out : List[str]
-        Fuels to shift out of to hit target
+    dict_fuels_targ : Dict[str, Union[np.ndarray, float]]
+        Dictionary mapping fuels to scalars, which are specified either as a
+        float (same value applied to all time periods) or a vector (one value
+        for each time period)
+    fuels_shift_out : Union[List[str], None]
+        Fuels to shift out of to hit target. If None, will shift out of all
+        fuels not specified in the target set.
     ind_tp : int
         Row index associated with the time period to target
     scalar_full : float
@@ -286,7 +500,7 @@ def scale_fuel_fraction_from_vector(
     )
     dict_specs_by_cat = {}
 
-    # subsector attribute table
+    # get attribute tables
     attr = model_attributes.get_attribute_table(subsector, )
     attr_enfu = model_attributes.get_attribute_table(
         model_attributes.subsec_name_enfu, 
@@ -296,6 +510,7 @@ def scale_fuel_fraction_from_vector(
     dict_fuel_to_modvar_by_type = dict_fuel_to_modvars_by_subsec.get(subsector, )
     if dict_fuel_to_modvar_by_type is None:
         raise RuntimeError(f"No fuel to modvar dictionary found for subsector '{subsector}'")
+
 
     # get fuels that can respond
     fuels_scale_response = (
@@ -399,6 +614,8 @@ def scale_fuel_fraction_from_vector(
         if eps > 0.0000001:
             inds_mass_scalable += inds_mass_stable 
             inds_mass_stable = []
+
+        #
 
 
 
