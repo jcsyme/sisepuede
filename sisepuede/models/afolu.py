@@ -17,6 +17,7 @@ from sisepuede.models.ippu import IPPU
 from sisepuede.models.socioeconomic import Socioeconomic
 from sisepuede.utilities._plotting import is_valid_figtuple
 import sisepuede.models.biomass_carbon_ledger as bcl
+import sisepuede.utilities._classes as suc
 import sisepuede.utilities._npp_curves as npp
 import sisepuede.utilities._optimization as suo
 import sisepuede.utilities._toolbox as sf
@@ -3388,6 +3389,42 @@ class AFOLU:
 
 
 
+    def get_bcl_adjusted_energy_and_ippu_inputs(self,
+        df_afolu_trajectories: pd.DataFrame,
+        ledger: 'BiomassCarbonLedger',
+        dict_subsec_to_fuel_demand_biomass: Dict[str, np.ndarray],
+        vec_c_demands_fuel_entc: np.ndarray,
+        vec_c_demands_fuel_total: np.ndarray,
+        vec_c_demands_hwp: np.ndarray,
+    ) -> pd.DataFrame:
+        """Using available biomass, adjust ratios in all relevant energy
+            subsectors, including CCSQ, ENTC, INEN, SCOE, and TRNS.
+        """
+        ##  INITIALIZATION
+
+        # output DataFrame
+        df_out = []
+
+        ##  GET ADJUSTMENTS TO EnergyConsumption SUBSECTORS
+
+        # total demand met
+        vec_biomass_scalar_from_bcl = np.nan_to_num(
+            ledger.vec_total_removals_met/ledger.vec_total_removals_demanded,
+            nan = 0.0,
+            posinf = 0.0,
+        )
+        print(f"vec_biomass_scalar_from_bcl: {vec_biomass_scalar_from_bcl}")
+
+        # adjusted fuel fractions
+        df_out.append(
+            self.get_ilu_fuel_shifts_from_biomass(
+                df_afolu_trajectories,
+                vec_biomass_scalar_from_bcl,
+            )
+        )
+        return None
+
+
     def get_bcl_adjusted_thresholds(self,
         df_afolu_trajectories: pd.DataFrame,
         vec_frac_biomass_adjustment_threshold: np.ndarray,
@@ -5522,6 +5559,162 @@ class AFOLU:
 
         return out
     
+
+
+    def get_ilu_arrays_for_fuel_shift(self,
+        df_input: pd.DataFrame,
+        subsec: str,
+    ) -> np.ndarray:
+        """Retrieve array of fuel fractions by category within a subsector. Used
+            for setting target allocations in the time series simplex shifter 
+            for biomass. 
+        """
+
+        ##  INITIALIZATION
+
+        # shortcuts and dictionary mapping fuels to model variables
+        matt = self.model_attributes
+        attr = matt.get_attribute_table(subsec, )
+        attr_enfu = matt.get_attribute_table(matt.subsec_name_enfu, )
+        dict_fuel_to_frac = self.model_enercons.get_subsec_dict_fuel_to_fuel_modvar(
+            subsec, 
+        )
+
+
+        # all categories to build for
+        cats = sorted(
+            list(
+                set(
+                    sum(
+                        [matt.get_variable_categories(x) for x in dict_fuel_to_frac.values()],
+                        []
+                    )
+                )
+            )
+        )
+
+        dict_out = {}
+        
+        
+        # iterate over each category/fuel combo
+        for cat in cats:
+
+            # initialize the array
+            arr = np.zeros((df_input.shape[0], attr_enfu.n_key_values), )
+            
+            for j, fuel in enumerate(attr_enfu.key_values):
+
+                # get associated variable
+                modvar = matt.get_variable(dict_fuel_to_frac.get(fuel, ), )
+                skip = modvar is None
+                skip |= (
+                    cat not in matt.get_variable_categories(modvar, )
+                    if not skip
+                    else skip
+                )
+                
+                if skip: continue
+                
+                # get field and add
+                field = modvar.build_fields(category_restrictions = cat, )
+                arr[:, j] = df_input[field].to_numpy()
+            
+            dict_out.update({cat: arr, })
+
+        return dict_out
+
+
+
+    def get_ilu_fuel_shifts_from_biomass(self,
+        df_afolu_trajectories: pd.DataFrame,
+        vec_biomass_scalar: np.ndarray,
+    ) -> pd.DataFrame:
+        """Using biomass demands satsifed from BCL, scale 
+
+        Function Arguments
+        ------------------
+        df_afolu_trajectories : pd.DataFrame
+            Input DataFrame containing EnergyConsumption fuel fraciton variables
+            for INEN, SCOE, and TRNS
+        vec_biomass_scalar : np.ndarray
+            Vector to scale biomass demands, estimated as 
+
+            vec_demand_met/vec_demanded
+
+            
+        """
+
+        # initialize some SSP indices
+        matt = self.model_attributes
+        attr_enfu = matt.get_attribute_table(matt.subsec_name_enfu, )
+        ind_biomass = attr_enfu.get_key_value_index(self.cat_enfu_biomass, )
+
+        # set the dictionary mapping biomass to the scalar
+        dict_vec_scalars = {ind_biomass: vec_biomass_scalar, }
+
+        # initialize output dataframe
+        df_out = []
+        
+
+        ##  ITERATE OVER EACH ENERGY CONSUMPTION SUBSECTOR TO SCALE
+        
+        subsecs = [
+            matt.subsec_name_inen,
+            matt.subsec_name_scoe,
+            matt.subsec_name_trns
+        ]
+
+        for subsec in subsecs:
+            
+            dict_cat_to_fuel_shares = self.get_ilu_arrays_for_fuel_shift(
+                df_afolu_trajectories,
+                subsec,
+            )
+
+            # map fuels to associated model variables
+            dict_fuel_to_frac = (
+                self
+                .model_enercons
+                .get_subsec_dict_fuel_to_fuel_modvar(
+                    subsec, 
+                    values_as_modvars = True,
+                )
+            )
+
+            
+            for cat, arr in dict_cat_to_fuel_shares.items():
+                
+                # get a shifter
+                tss = suc.TimeSeriesSimplexShifter(arr, )
+                arr_out = tss.shift_mass_scalar_vectors(arr, dict_vec_scalars, )
+
+                
+                # output array is set for every fuel category; iterate to build
+                #   fields and extraction column indices
+                inds_extract = []
+                fields = []
+                
+                for j, fuel in enumerate(attr_enfu.key_values):
+                    
+                    modvar = dict_fuel_to_frac.get(fuel, )
+                    if modvar is None: continue
+
+                    # build field
+                    field = modvar.build_fields(category_restrictions = cat, )
+                    if field is None: continue
+                
+                    fields.append(field)
+                    inds_extract.append(j)
+
+                # convert to an output dataframe
+                df_cur = pd.DataFrame(arr_out[:, inds_extract], columns = fields, )
+                df_out.append(df_cur, )
+
+        df_out = pd.concat(df_out, axis = 1, )
+            
+
+        return df_out
+
 
 
     def get_ilu_lvst_vec_ccs(self,
@@ -8931,22 +9124,30 @@ class AFOLU:
         )
 
         ##  HAVE TO ADJUST ENERGY DEMANDS IN RESPONSE
-        """
-        def get_bcl_adjusted_energy_inputs(self,
-            ledger: 'BiomassCarbonLedger',
-            dict_subsec_to_fuel_demand_biomass: Dict[str, np.ndarray],
-            vec_c_demands_fuel_entc: np.ndarray,
-            vec_c_demands_fuel_total: np.ndarray,
-            vec_c_demands_hwp: np.ndarray,
-        ) -> pd.DataFrame:
-            \"""Using available biomass, adjust ratios in all relevant energy
-                subsectors, including CCSQ, ENTC, INEN, SCOE, and TRNS.
-            \"""
+        #
+        #   get_bcl_adjusted_energy_and_ippu_inputs() returns new energy inputs
+        #   - fractional shares of INEN, SCOE, and TRNS are adjusted
+        #       based on ratio of demand_met/demand
+        #   - Biomass is converted to a TechnologyActivityLimit (upper and 
+        #       lower), similarly to Waste and Biogas 
 
-            # total demand met
-            vec_demand_met = ledger.vec_total_removals_met
-        """
+        # some shortcuts
+        vec_c_demands_hwp = vec_c_demands_hwp_paper + vec_c_demands_hwp_wood
+        vec_c_demands_fuel_total = vec_c_demands_total - vec_c_demands_hwp
+
+        df_energy_ippu_inputs_adjusted = self.get_bcl_adjusted_energy_and_ippu_inputs(
+            df_afolu_trajectories,
+            ledger,
+            dict_subsec_to_fuel_demand_biomass,
+            vec_c_demands_fuel_entc,
+            vec_c_demands_fuel_total,
+            vec_c_demands_hwp,
+        )
         
+
+       
+        ##  RETURNS
+
         out = (
             arr_agrc_change_to_net_imports_lost,
             arr_agrc_crop_drymatter_above_ground,
