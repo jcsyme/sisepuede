@@ -3371,7 +3371,7 @@ class AFOLU:
             vec_young_sf_curve_specification,
             n_tps_no_withdrawals_new_growth = self.n_tps_no_withdrawals_new_growth,
         )
-
+        
        
         # return the ledger and the demands
         out = (

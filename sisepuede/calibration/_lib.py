@@ -142,6 +142,38 @@ class TimeSeriesSimplexShifter:
     
 
     
+
+    ################################
+    #    VERIFICATION FUNCTIONS    #
+    ################################
+
+    def _check_arr_target_allocations(self,
+        arr_target_allocations: np.ndarray,
+    ) -> None:
+        """Check the allocation array for type and shape
+        """
+        # check type
+        if not isinstance(arr_target_allocations, np.ndarray):
+            tp = str(type(arr_target_allocations))
+            raise TypeError(f"Invalid type '{tp}' specified: must be numpy array.")
+
+        # check shape
+        if arr_target_allocations.shape != self.array_base.shape:
+            msg = f"""Invalid shape {arr_target_allocations.shape} specified for arr_target_allocations:
+            Must have shape {self.array_base.shape}"""
+            raise RuntimeError(msg)
+
+        # check min value
+        if arr_target_allocations.min() < 0:
+            msg = arr_target_allocations.min()
+            msg = f"arr_target_allocations has minimum {msg} < 0. All values must be >= 0."
+            raise ValueError(msg)
+
+        return None
+    
+
+
+
     #####################################################################
     #    END-STATE FUNCTIONS                                            #
     #    -------------------------------                                #
@@ -149,6 +181,50 @@ class TimeSeriesSimplexShifter:
     #       targets, depending on type.                                 #
     #                                                                   #
     #####################################################################
+
+    def _filter_dict_source_vector_scalars(
+        dict_source_vector_scalars: Dict[int, Union[float, np.ndarray]],
+        stop_on_bounds_error: bool = False,
+        unsafe: bool = False,
+    ) -> Dict[int, np.ndarray]:
+        """Filter the dict_source_vector_scalars dictionary to make sure it 
+            maps an integer to a numpy array. 
+            
+            * If `stop_on_bounds_error`, will throw an error if any scalars 
+                are < 0. 
+            * If `unsafe`, will simply pass dict_source_vector_scalars.
+        """
+
+        if unsafe:
+            return dict_source_vector_scalars
+        
+
+        dict_out = {}
+
+        for k, v in dict_source_vector_scalars.items():
+
+            # conditions that need to be met--index
+            skip = not sf.isnumber(k, integer = True, )
+            skip |= ((k < 0) | (k >= self.n)) if not skip else skip            
+            if skip: continue
+
+            # conditions that need to be met--specification
+            vec = v*np.ones(self.T, ) if sf.isnumber(v) else v
+            skip = not isinstance(vec, np.ndarray)
+            skip |= (vec.shape != (self.T, )) if not skip else skip
+            if skip: continue
+
+            # check scalars
+            if vec.min() < 0: 
+                if stop_on_bounds_error:
+                    raise SimplexBoundsError(f"Unable to apply scalar at index {k}: negative scalars found.")
+                continue
+
+            dict_out.update({k: vec, })
+
+        return dict_out
+    
+
 
     def _get_end_state_vectors_sources_sv(self,
         dict_source_vector_scalars: Dict[int, np.ndarray],
@@ -181,32 +257,21 @@ class TimeSeriesSimplexShifter:
             return None
         
 
-        # continue 
+        # initialize array and filter the dictionary 
         arr_out = np.zeros(self.array_base.shape, )
-
-        for k, v in dict_source_vector_scalars.items():
-
-            # conditions that need to be met--index
-            skip = not sf.isnumber(k, integer = True, )
-            skip |= ((k < 0) | (k >= self.n)) if not skip else skip            
-            if skip: continue
-
-            # conditions that need to be met--specification
-            val = v*np.ones(self.T, ) if sf.isnumber(v) else v
-            skip = not isinstance(val, np.ndarray)
-            skip |= (val.shape != (self.T, )) if not skip else skip
-            if skip: continue
-
-            # check scalars
-            if val.min() < 0: 
-                if stop_on_bounds_error:
-                    raise SimplexBoundsError(f"Unable to apply scalar at index {k}: negative scalars found.")
-                continue
-
-            # apply to column
-            arr_out[:, k] = self.array_base[:, k]*val
+        dict_svs = self._filter_dict_source_vector_scalars(
+            dict_source_vector_scalars,
+            stop_on_bounds_error = stop_on_bounds_error,
+        )
+        
+        # apply scalars to each specified column; the output of 
+        #   _filter... is a dictionary mapping an index to a numpy array
+        for k, v in dict_svs.items():
+            arr_out[:, k] = self.array_base[:, k]*v
         
         
+        ##  RETURN AND FINAL CHECKS
+
         # check 
         if normalize_exceedance:
             arr_out = np.nan_to_num(
@@ -214,23 +279,81 @@ class TimeSeriesSimplexShifter:
                 nan = 0.0,
                 posinf = 0.0,
             )
-        
-        else:
-            vec_sum = arr_out.sum(axis = 1)
-            w = np.where((vec_sum > 1) | (vec_sum < 0))[0]
 
-            if len(w) > 0:
-                msg = f"Some target mass fractions are either > 1 or < 0. Check the scalars provided or allow normalize_exceedance."
-                raise SimplexBoundsError(msg)
+            return arr_out
+
+        # otherwise, check sums and throw an error if any issues arise
+        vec_sum = arr_out.sum(axis = 1)
+        w = np.where((vec_sum > 1) | (vec_sum < 0))[0]
+        if len(w) > 0:
+            msg = f"Some target mass fractions are either > 1 or < 0. Check the scalars provided or allow normalize_exceedance."
+            raise SimplexBoundsError(msg)
         
 
         return arr_out
 
 
 
+    def _get_allocation_vectors_targets_sv(self,
+        arr_target_allocations: np.ndarray,
+        dict_source_vector_scalars: Dict[int, np.ndarray],
+        allow_self_shifts: bool = False,
+        stop_on_bounds_error: bool = False,
+    ) -> np.ndarray:
+        """Get allocation vectors for targets in scalar shift. Checks 
+            specification
+        
+        Function Arguments
+        ------------------
+        arr_target_allocations : np.ndarray
+            Numpy array (T x n) giving shares for target shift. 
+        dict_source_vector_scalars : Dict[int, np.ndarray]
+            Dictionary mapping a column index to a scalar vector to apply to 
+            that index.
 
+        Keyword Arguments
+        -----------------
+        allow_self_shifts : bool
+            Allow the allocation target to include shifts into itself? 
+            * True:     Shifts out can be partially allocated back into source 
+                        categories.
+            * False:    Any specified shifts into source categories are
+                        eliminated and allocations are re-normalized
+        stop_on_bounds_error : bool
+            Stop if negative scalars are found? If False, skips.
+        """
 
+        # check the array specification
+        self._check_arr_target_allocations(arr_target_allocations, )
 
+        # get source vectors scalings
+        dict_svs = self._filter_dict_source_vector_scalars(
+            dict_source_vector_scalars,
+            stop_on_bounds_error = stop_on_bounds_error,
+        )
+        arr_out = arr_target_allocations.copy()
+
+        # check
+        if not allow_self_shifts:
+            arr_out[:, list(dict_svs.keys())] = 0
+        
+
+        # since _check_arr_target_allocations ensures no negative numbers
+        # we can assume that all are >= 0
+        vec_sums = arr_out.sum(axis =1 , )
+        w = np.where(vec_sums == 0, )[0]
+        arr_out[w, :] = 1                   # will renormalize below; creates homogenous
+        
+        arr_out = sf.check_row_sums(
+            arr_out,
+            thresh_correction = None, 
+        )
+
+        return arr_out
+
+                
+    
+    
 
 
 

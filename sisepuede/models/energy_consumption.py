@@ -14,6 +14,19 @@ import sisepuede.utilities._toolbox as sf
 
 
 
+##########################
+#    SET SOME GLOBALS    #
+##########################
+
+# keys for some shared dicts
+_KEY_MODVAR_DICT_FUEL_EF_CH4 = "ef_ch4"
+_KEY_MODVAR_DICT_FUEL_EF_N2O = "ef_n2o"
+_KEY_MODVAR_DICT_FUEL_EFFICIENCY = "fuel_efficiency"
+_KEY_MODVAR_DICT_FUEL_FRACTION = "fuel_fraction"
+_KEY_MODVAR_DICT_MODAL_ENERGY_CONSUMPTION = "modal_energy_consumption"
+_KEY_MODVAR_DICT_VEHICLE_DISTANCE_TRAVELED = "vehicle_distance_traveled"
+
+# update module UUID
 _MODULE_UUID = "88CA4341-5E74-43BF-9491-571DB7085D82"  
 
 
@@ -135,7 +148,7 @@ class EnergyConsumption:
         # build dictionary for projection 
         dict_inen_fuel_frac_to_eff_cat = self.dict_inen_fuel_categories_to_fuel_variables.copy()
         for k in dict_inen_fuel_frac_to_eff_cat.keys():
-            val = dict_inen_fuel_frac_to_eff_cat[k]["fuel_fraction"]
+            val = dict_inen_fuel_frac_to_eff_cat[k][_KEY_MODVAR_DICT_FUEL_FRACTION]
             dict_inen_fuel_frac_to_eff_cat.update({k: val})
             
         dict_inen_fuel_frac_to_eff_cat = sf.reverse_dict(dict_inen_fuel_frac_to_eff_cat)
@@ -675,7 +688,7 @@ class EnergyConsumption:
         self.dict_inen_fuel_categories_to_fuel_variables, self.dict_inen_fuel_categories_to_unassigned_fuel_variables = self.get_inen_dict_fuel_categories_to_fuel_variables()
         self.modvars_inen_list_fuel_fraction = self.model_attributes.get_vars_by_assigned_class_from_akaf(
             self.dict_inen_fuel_categories_to_fuel_variables,
-            "fuel_fraction"
+            _KEY_MODVAR_DICT_FUEL_FRACTION,
         )
         # key categories
         self.cat_inen_agricultural = self.model_attributes.filter_keys_by_attribute(
@@ -863,11 +876,11 @@ class EnergyConsumption:
         # some derivate lists of variables
         self.modvars_trns_list_fuel_fraction = self.model_attributes.get_vars_by_assigned_class_from_akaf(
             self.dict_trns_fuel_categories_to_fuel_variables,
-            "fuel_fraction"
+            _KEY_MODVAR_DICT_FUEL_FRACTION,
         )
         self.modvars_trns_list_fuel_efficiency = self.model_attributes.get_vars_by_assigned_class_from_akaf(
             self.dict_trns_fuel_categories_to_fuel_variables,
-            "fuel_efficiency"
+            _KEY_MODVAR_DICT_FUEL_EFFICIENCY,
         )
 
         return None
@@ -1675,7 +1688,7 @@ class EnergyConsumption:
             self.subsec_name_inen,
             "cat_fuel",
             {
-                "Fuel Fraction": "fuel_fraction"
+                "Fuel Fraction": _KEY_MODVAR_DICT_FUEL_FRACTION,
             },
         )
 
@@ -1709,8 +1722,8 @@ class EnergyConsumption:
             self.subsec_name_scoe,
             "cat_fuel",
             {
-                "SCOE Efficiency Factor": "fuel_efficiency",
-                "SCOE Fraction Heat Energy": "fuel_fraction",
+                "SCOE Efficiency Factor": _KEY_MODVAR_DICT_FUEL_EFFICIENCY,
+                "SCOE Fraction Heat Energy": _KEY_MODVAR_DICT_FUEL_FRACTION,
             },
         )
 
@@ -1745,12 +1758,12 @@ class EnergyConsumption:
             self.subsec_name_trns,
             "cat_fuel",
             {
-                "Fuel Efficiency": "fuel_efficiency",
-                "Fuel Fraction": "fuel_fraction",
-                "Transportation Modal Energy Consumption": "modal_energy_consumption",
-                ":math:\\text{CH}_4": "ef_ch4",
-                ":math:\\text{N}_2\\text{O}": "ef_n2o",
-                "Vehicle Distance Traveled from": "vehicle_distance_traveled"
+                "Fuel Efficiency": _KEY_MODVAR_DICT_FUEL_EFFICIENCY,
+                "Fuel Fraction": _KEY_MODVAR_DICT_FUEL_FRACTION,
+                "Transportation Modal Energy Consumption": _KEY_MODVAR_DICT_MODAL_ENERGY_CONSUMPTION,
+                ":math:\\text{CH}_4": _KEY_MODVAR_DICT_FUEL_EF_CH4,
+                ":math:\\text{N}_2\\text{O}": _KEY_MODVAR_DICT_FUEL_EF_N2O,
+                "Vehicle Distance Traveled from": _KEY_MODVAR_DICT_VEHICLE_DISTANCE_TRAVELED,
             },
         )
 
@@ -3901,11 +3914,11 @@ class EnergyConsumption:
 
             # set some model variables
             dict_tfc_to_fv_cur = self.dict_trns_fuel_categories_to_fuel_variables.get(cat_fuel)
-            modvar_trns_ef_ch4_cur = dict_tfc_to_fv_cur.get("ef_ch4")
-            modvar_trns_ef_n2o_cur = dict_tfc_to_fv_cur.get("ef_n2o")
-            modvar_trns_fuel_efficiency_cur = dict_tfc_to_fv_cur.get("fuel_efficiency")
-            modvar_trns_fuel_fraction_cur = dict_tfc_to_fv_cur.get("fuel_fraction")
-            modvar_trns_modal_energy_demand_by_fuel = dict_tfc_to_fv_cur.get("modal_energy_consumption")
+            modvar_trns_ef_ch4_cur = dict_tfc_to_fv_cur.get(_KEY_MODVAR_DICT_FUEL_EF_CH4, )
+            modvar_trns_ef_n2o_cur = dict_tfc_to_fv_cur.get(_KEY_MODVAR_DICT_FUEL_EF_N2O, )
+            modvar_trns_fuel_efficiency_cur = dict_tfc_to_fv_cur.get(_KEY_MODVAR_DICT_FUEL_EFFICIENCY, )
+            modvar_trns_fuel_fraction_cur = dict_tfc_to_fv_cur.get(_KEY_MODVAR_DICT_FUEL_FRACTION, )
+            modvar_trns_modal_energy_demand_by_fuel = dict_tfc_to_fv_cur.get(_KEY_MODVAR_DICT_MODAL_ENERGY_CONSUMPTION, )
 
             # set some scalars for use in the calculations
             scalar_trns_fuel_efficiency_to_demand = self.model_attributes.get_variable_unit_conversion_factor(
@@ -3957,7 +3970,7 @@ class EnergyConsumption:
             # add vmt by fuel to output and get scalar to convert self.modvar_trde_demand_pkm to configuration units
             modvar_trns_vmt_by_fuel_cut = self.dict_trns_fuel_categories_to_fuel_variables.get(cat_fuel)
             modvar_trns_vmt_by_fuel_cut = (
-                modvar_trns_vmt_by_fuel_cut.get("vehicle_distance_traveled") 
+                modvar_trns_vmt_by_fuel_cut.get(_KEY_MODVAR_DICT_VEHICLE_DISTANCE_TRAVELED, ) 
                 if (modvar_trns_vmt_by_fuel_cut is not None) 
                 else None
             )
