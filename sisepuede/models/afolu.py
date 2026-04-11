@@ -416,6 +416,7 @@ class AFOLU:
         """
 
         attr_agrc = self.model_attributes.get_attribute_table(self.subsec_name_agrc, )
+        attr_enfu = self.model_attributes.get_attribute_table(self.subsec_name_enfu, )
         attr_frst = self.model_attributes.get_attribute_table(self.subsec_name_frst, )
         attr_lndu = self.model_attributes.get_attribute_table(self.subsec_name_lndu, )
         attr_lsmm = self.model_attributes.get_attribute_table(self.subsec_name_lsmm, )
@@ -426,6 +427,7 @@ class AFOLU:
         ##  SET PROPERTIES
 
         self.attr_agrc = attr_agrc
+        self.attr_enfu = attr_enfu
         self.attr_frst = attr_frst
         self.attr_lndu = attr_lndu
         self.attr_lsmm = attr_lsmm
@@ -485,10 +487,15 @@ class AFOLU:
             * self.integration_variables
         """
 
-        # initialize some variables not initialized elsewhere
-        modvar_entc_efficiency_factor_technology = "Technology Efficiency of Fuel Use"
-        modvar_entc_nemomod_min_share_production = "NemoMod MinShareProduction"
-        modvar_entc_nemomod_residual_capacity = "NemoMod ResidualCapacity"
+        # set variables from ENTC
+        self.model_attributes.assign_subsector_variable_names_from_varcodes(
+            self,
+            self.model_attributes.subsec_name_entc,
+            stop_on_error = True, 
+        )
+
+
+        ##  SET INTEGRATION VARS
 
         dict_vars_required_for_integration = {
             # enfu variables that are required
@@ -497,10 +504,13 @@ class AFOLU:
             ],
 
             # entc variables required for estimating biomass demand from ENTC
+            # and passing biomass availability back
             self.subsec_name_entc: [
-                modvar_entc_efficiency_factor_technology,
-                modvar_entc_nemomod_min_share_production,
-                modvar_entc_nemomod_residual_capacity
+                self.modvar_entc_efficiency_factor_technology,
+                self.modvar_entc_fuel_constraint_crop_residues,
+                self.modvar_entc_fuel_constraint_fuelwood,
+                self.modvar_entc_nemomod_min_share_production,
+                self.modvar_entc_nemomod_residual_capacity
             ],
 
             # ippu variables required for estimating HWP
@@ -554,12 +564,9 @@ class AFOLU:
         for k in dict_vars_required_for_integration.keys():
             list_vars_required_for_integration += dict_vars_required_for_integration[k]
 
-        
+
         ##  SET PROPERTIES
 
-        self.modvar_entc_efficiency_factor_technology = modvar_entc_efficiency_factor_technology
-        self.modvar_entc_nemomod_min_share_production = modvar_entc_nemomod_min_share_production
-        self.modvar_entc_nemomod_residual_capacity = modvar_entc_nemomod_residual_capacity
         self.dict_integration_variables_by_subsector = dict_vars_required_for_integration
         self.integration_variables = list_vars_required_for_integration
 
@@ -654,11 +661,12 @@ class AFOLU:
                 * self.model_ippu
                 * self.model_socioeconomic
 
-            * Associated categories of interest
+            * Associated categories and indices of interest
 
                 * self.cat_enfu_biomass
                 * self.cat_ippu_paper
                 * self.cat_ippu_wood
+                * self.ind_enfu_biomass
 
             * The Land Use transition corrector optimization model
 
@@ -685,11 +693,6 @@ class AFOLU:
         model_socioeconomic = Socioeconomic(model_attributes)
 
         # key categories
-        cat_enfu_biomass = model_attributes.filter_keys_by_attribute(
-            self.subsec_name_enfu, 
-            {"biomass_demand_category": 1, }
-        )[0]
-
         cat_ippu_paper = model_attributes.filter_keys_by_attribute(
             self.subsec_name_ippu, 
             {"virgin_paper_category": 1}
@@ -699,6 +702,10 @@ class AFOLU:
             self.subsec_name_ippu, 
             {"virgin_wood_category": 1}
         )[0]
+
+        # get index
+        cat_enfu_biomass = model_enercons.cat_enfu_biomass
+        ind_enfu_biomass = self.attr_enfu.get_key_value_index(cat_enfu_biomass, )
         
 
         ##  SET CLASSES USED TO SOLVE SOME INTERNAL PROBLEMS
@@ -715,6 +722,7 @@ class AFOLU:
         self.cat_enfu_biomass = cat_enfu_biomass
         self.cat_ippu_paper = cat_ippu_paper
         self.cat_ippu_wood = cat_ippu_wood
+        self.ind_enfu_biomass = ind_enfu_biomass
         self.model_enercons = model_enercons
         self.model_ippu = model_ippu
         self.model_socioeconomic = model_socioeconomic
@@ -1738,11 +1746,7 @@ class AFOLU:
         
         ##  INITIALIZATION 
 
-        attr_enfu = self.model_attributes.get_attribute_table(
-            self.model_attributes.subsec_name_enfu,
-        )
-        cat_biomass = self.model_enercons.cat_enfu_biomass
-        ind_biomass = attr_enfu.get_key_value_index(cat_biomass, )
+        ind_biomass = self.ind_enfu_biomass
 
         # get model variables--start with gravimetric energy demand
         modvar_ged = self.model_attributes.get_variable(
@@ -2052,13 +2056,12 @@ class AFOLU:
         ##  INITIALIZATION
 
         # get some model attribute related information
-        attr_enfu = self.model_attributes.get_attribute_table(self.subsec_name_enfu)
         modvar_ag = self.model_attributes.get_variable(self.modvar_agrc_yield, )
         modvar_lvst = self.model_attributes.get_variable(self.modvar_lvst_total_animal_mass, )
 
         # get some indices
-        ind_enfu_biomass = attr_enfu.get_key_value_index(self.cat_enfu_biomass)
-        ind_enfu_electricity = attr_enfu.get_key_value_index(self.model_enercons.cat_enfu_electricity)
+        ind_enfu_biomass = self.ind_enfu_biomass
+        ind_enfu_electricity = self.attr_enfu.get_key_value_index(self.model_enercons.cat_enfu_electricity)
 
 
         ##  BUILD INPUT FOR EnergyConsumption
@@ -3388,22 +3391,6 @@ class AFOLU:
         return out
 
 
-    def get_biomass_use_variables(self,
-        vec_biomass_scalar_from_bcl: np.ndarray,              
-        vec_c_demands_fuel_entc: np.ndarray,
-        
-    ) -> pd.DataFrame:
-        """Get variables related to biomass use, including:
-
-            * total estimated energy consumption of biomass in ENTC (used to
-                set total technology upper and lower limits)
-        """
-
-        vec_c_demands_fuel_entc_out = vec_c_demands_fuel_entc*vec_biomass_scalar_from_bcl
-
-
-
-
 
     def get_bcl_adjusted_energy_and_ippu_inputs(self,
         df_afolu_trajectories: pd.DataFrame,
@@ -3430,8 +3417,10 @@ class AFOLU:
             posinf = 0.0,
         )
         
-        # HERE123
-        # adjusted fuel fractions
+        
+        ##  BUILD ADJUSTMENT DATAFRAMES HERE
+
+        # (1) adjusted fuel fractions in energy consumption subsectors
         df_out.append(
             self.get_ilu_fuel_shifts_from_biomass(
                 df_afolu_trajectories,
@@ -3439,7 +3428,14 @@ class AFOLU:
             )
         )
 
+        # (2) biomass fuel availability constraints to pass to EnergyProduction
+        df_out += self.get_bcl_biomass_energy_availability_variables(
+            vec_biomass_scalar_from_bcl,    
+            vec_c_demands_fuel_entc,
+        )
+
         return df_out
+
 
 
     def get_bcl_adjusted_thresholds(self,
@@ -3607,6 +3603,54 @@ class AFOLU:
         )
     
         return vec_out
+    
+
+
+    def get_bcl_biomass_energy_availability_variables(self,
+        vec_biomass_scalar_from_bcl: np.ndarray,              
+        vec_c_demands_fuel_entc: np.ndarray,
+    ) -> pd.DataFrame:
+        """Get variables related to biomass use, including:
+
+            * total estimated energy consumption of biomass in ENTC (used to
+                set total technology upper and lower limits)
+        """
+
+        ##  INITIALIZATION
+
+        # initialize list of output dataframes + model variables to assign
+        df_out = []
+        modvar_cr = self.modvar_entc_fuel_constraint_crop_residues
+        modvar_fw = self.modvar_entc_fuel_constraint_fuelwood
+
+
+        ##  GET AVAILABILITY OF FUELWOOD
+
+        # initialize blank array, then assign column vector
+        arr_fill = modvar_fw.get_from_dataframe(
+            modvar_fw.spawn_default_dataframe(
+                None, 
+                0, 
+                length = vec_c_demands_fuel_entc.shape[0],
+            ),
+            expand_to_all_categories = True,
+            extraction_logic = "any",
+            return_type = "array",
+        )
+
+        arr_fill[:, self.ind_enfu_biomass] = vec_c_demands_fuel_entc*vec_biomass_scalar_from_bcl
+        vf = arr_fill[:, self.ind_enfu_biomass]
+        print(f"vf = {vf}")
+        # build array for ENTC variable
+        df_out.append(
+            self.model_attributes.array_to_df(
+                arr_fill,
+                modvar_fw,
+                reduce_from_all_cats_to_specified_cats = True,
+            )
+        )
+
+        return df_out
     
 
 
@@ -5665,7 +5709,7 @@ class AFOLU:
         # initialize some SSP indices
         matt = self.model_attributes
         attr_enfu = matt.get_attribute_table(matt.subsec_name_enfu, )
-        ind_biomass = attr_enfu.get_key_value_index(self.cat_enfu_biomass, )
+        ind_biomass = self.ind_enfu_biomass
 
         # set the dictionary mapping biomass to the scalar
         dict_vec_scalars = {ind_biomass: vec_biomass_scalar, }
@@ -7766,11 +7810,6 @@ class AFOLU:
     ) -> np.ndarray:
         """Retrieve the biomass 
         """
-        attr_enfu = self.model_attributes.get_attribute_table(
-            self.model_attributes.subsec_name_enfu,
-        )
-        cat_biomass = self.model_enercons.cat_enfu_biomass
-        ind_biomass = attr_enfu.get_key_value_index(cat_biomass, )
 
         # get model variables--start with gravimetric energy demand
         modvar_ged = self.model_attributes.get_variable(
@@ -7782,7 +7821,7 @@ class AFOLU:
             return_type = "array",
         )
 
-        vec_out = arr_enfu_ged[:, ind_biomass]
+        vec_out = arr_enfu_ged[:, self.ind_enfu_biomass]
 
         return vec_out
     

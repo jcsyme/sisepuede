@@ -933,6 +933,14 @@ class EnergyProduction:
             * self.ind_enfu_****
             * self.modvar_enfu_****
         """
+
+        # Energy Fuel model variables
+        self.model_attributes.assign_subsector_variable_names_from_varcodes(
+            self,
+            self.model_attributes.subsec_name_enfu,
+            stop_on_error = True, 
+        )
+        """
         # Energy Fuel model variables
         self.modvar_enfu_ef_combustion_co2 = ":math:\\text{CO}_2 Combustion Emission Factor"
         self.modvar_enfu_ef_combustion_mobile_ch4 = ":math:\\text{CH}_4 Mobile Combustion Emission Factor"
@@ -969,7 +977,7 @@ class EnergyProduction:
         self.modvar_enfu_value_of_fuel_inen = "Value of Fuel Consumed in Industrial Energy"
         self.modvar_enfu_value_of_fuel_scoe = "Value of Fuel Consumed in SCOE"
         self.modvar_enfu_value_of_fuel_trns = "Value of Fuel Consumed in Transportation"
-        
+        """
         # key categories
         self.cat_enfu_bgas = self.model_attributes.filter_keys_by_attribute(
             self.subsec_name_enfu, 
@@ -1043,13 +1051,22 @@ class EnergyProduction:
             * self.key_oar
             * self.modvar_entc_****
         """
-        
+        # Energy (Electricity) Technology Variables
+        self.model_attributes.assign_subsector_variable_names_from_varcodes(
+            self,
+            self.model_attributes.subsec_name_entc,
+            stop_on_error = True, 
+        )
+
+        """
         # Energy (Electricity) Technology Variables
         self.modvar_entc_ccs_achievement_frac = "Carbon Capture Achievement Fraction"
         self.modvar_entc_ef_scalar_ch4 = ":math:\\text{CH}_4 NemoMod EmissionsActivityRatio Scalar"
         self.modvar_entc_ef_scalar_co2 = ":math:\\text{CO}_2 NemoMod EmissionsActivityRatio Scalar"
         self.modvar_entc_ef_scalar_n2o = ":math:\\text{N}_2\\text{O} NemoMod EmissionsActivityRatio Scalar"
         self.modvar_entc_efficiency_factor_technology = "Technology Efficiency of Fuel Use"
+        self.modvar_entc_fuel_constraint_crop_residues = "Total Energy Available from Crop Residues"
+        self.modvar_entc_fuel_constraint_fuelwood = "Total Energy Available from Fuelwood"
         self.modvar_entc_fuelprod_emissions_activity_ratio_ch4 = ":math:\\text{CH}_4 Fuel Production NemoMod EmissionsActivityRatio"
         self.modvar_entc_fuelprod_emissions_activity_ratio_co2 = ":math:\\text{CO}_2 Fuel Production NemoMod EmissionsActivityRatio"
         self.modvar_entc_fuelprod_emissions_activity_ratio_n2o = ":math:\\text{N}_2\\text{O} Fuel Production NemoMod EmissionsActivityRatio"
@@ -1064,7 +1081,9 @@ class EnergyProduction:
         self.modvar_entc_fuelprod_input_activity_ratio_natural_gas_unprocessed = "Fuel Production NemoMod InputActivityRatio Natural Gas Unprocessed"
         self.modvar_entc_fuelprod_input_activity_ratio_oil = "Fuel Production NemoMod InputActivityRatio Oil"
         self.modvar_entc_fuelprod_input_activity_ratio_water = "Fuel Production NemoMod InputActivityRatio Water"
+        self.modvar_entc_fuelprod_output_activity_ratio_ammonia = "Fuel Production NemoMod OutputActivityRatio Ammonia"
         self.modvar_entc_fuelprod_output_activity_ratio_coal = "Fuel Production NemoMod OutputActivityRatio Coal"
+        self.modvar_entc_fuelprod_output_activity_ratio_crude = "Fuel Production NemoMod OutputActivityRatio Crude"
         self.modvar_entc_fuelprod_output_activity_ratio_diesel = "Fuel Production NemoMod OutputActivityRatio Diesel"
         self.modvar_entc_fuelprod_output_activity_ratio_gasoline = "Fuel Production NemoMod OutputActivityRatio Gasoline"
         self.modvar_entc_fuelprod_output_activity_ratio_hgl = "Fuel Production NemoMod OutputActivityRatio Hydrocarbon Gas Liquids"
@@ -1072,6 +1091,7 @@ class EnergyProduction:
         self.modvar_entc_fuelprod_output_activity_ratio_kerosene = "Fuel Production NemoMod OutputActivityRatio Kerosene"
         self.modvar_entc_fuelprod_output_activity_ratio_natural_gas = "Fuel Production NemoMod OutputActivityRatio Natural Gas"
         self.modvar_entc_fuelprod_output_activity_ratio_natural_gas_liquid = "Fuel Production NemoMod OutputActivityRatio Natural Gas Liquid"
+        self.modvar_entc_fuelprod_output_activity_ratio_natural_gas_unprocessed = "Fuel Production NemoMod OutputActivityRatio Natural Gas Unprocessed"
         self.modvar_entc_fuelprod_output_activity_ratio_oil = "Fuel Production NemoMod OutputActivityRatio Oil"
         self.modvar_entc_max_elec_prod_increase_for_msp = "Maximum Production Increase Fraction to Satisfy MinShareProduction Electricity"
         self.modvar_entc_nemomod_capital_cost = "NemoMod CapitalCost"
@@ -1118,7 +1138,7 @@ class EnergyProduction:
         self.modvar_entc_nemomod_total_annual_min_capacity = "NemoMod TotalAnnualMinCapacity"
         self.modvar_entc_nemomod_total_annual_min_capacity_investment = "NemoMod TotalAnnualMinCapacityInvestment"
         self.modvar_entc_nemomod_variable_cost = "NemoMod VariableCost"
-
+        """
         # set dictionaries 
         self._set_dict_enfu_fuel_categories_to_entc_variables()
 
