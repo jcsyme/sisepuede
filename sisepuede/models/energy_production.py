@@ -1045,7 +1045,7 @@ class EnergyProduction:
         """
         
         # Energy (Electricity) Technology Variables
-        self.modvar_ccs_achievement_frac = "Carbon Capture Achievement Fraction"
+        self.modvar_entc_ccs_achievement_frac = "Carbon Capture Achievement Fraction"
         self.modvar_entc_ef_scalar_ch4 = ":math:\\text{CH}_4 NemoMod EmissionsActivityRatio Scalar"
         self.modvar_entc_ef_scalar_co2 = ":math:\\text{CO}_2 NemoMod EmissionsActivityRatio Scalar"
         self.modvar_entc_ef_scalar_n2o = ":math:\\text{N}_2\\text{O} NemoMod EmissionsActivityRatio Scalar"
@@ -1053,6 +1053,7 @@ class EnergyProduction:
         self.modvar_entc_fuelprod_emissions_activity_ratio_ch4 = ":math:\\text{CH}_4 Fuel Production NemoMod EmissionsActivityRatio"
         self.modvar_entc_fuelprod_emissions_activity_ratio_co2 = ":math:\\text{CO}_2 Fuel Production NemoMod EmissionsActivityRatio"
         self.modvar_entc_fuelprod_emissions_activity_ratio_n2o = ":math:\\text{N}_2\\text{O} Fuel Production NemoMod EmissionsActivityRatio"
+        self.modvar_entc_fuelprod_input_activity_ratio_coal = "Fuel Production NemoMod InputActivityRatio Coal"
         self.modvar_entc_fuelprod_input_activity_ratio_coal_deposits = "Fuel Production NemoMod InputActivityRatio Coal Deposits"
         self.modvar_entc_fuelprod_input_activity_ratio_crude = "Fuel Production NemoMod InputActivityRatio Crude"
         self.modvar_entc_fuelprod_input_activity_ratio_diesel = "Fuel Production NemoMod InputActivityRatio Diesel"
@@ -6310,7 +6311,7 @@ class EnergyProduction:
         # conflicting constraints between MinShareProduction/ReMinProductionTarget
         vec_entc_elec_demand_frac_from_tech_lower_limit = self.estimate_production_share_from_activity_limits(
             df_elec_trajectories,
-            tuple_enfu_production_and_demands = tuple_enfu_production_and_demands
+            tuple_enfu_production_and_demands = tuple_enfu_production_and_demands,
         )
         
         # copy and add fractions of demand represented by TechnologyTotalAnnualLowerLimit
@@ -7131,12 +7132,13 @@ class EnergyProduction:
 
         Function Arguments
         ------------------
-        - df_elec_trajectories: data frame of model variable input trajectories
+        df_elec_trajectories : pd.DataFrame
+            DataFrame of model variable input trajectories
 
         Keyword Arguments
         -----------------
-        - tuple_enfu_production_and_demands: optional tuple of energy fuel 
-            demands produced by 
+        tuple_enfu_production_and_demands : Union[Tuple[pd.DataFrame], None]
+            Optional tuple of energy fuel demands produced by 
             self.model_enercons.project_enfu_production_and_demands():
 
             (
@@ -7210,7 +7212,13 @@ class EnergyProduction:
 
         #    NOTE: This fraction is >= than the true fraction, since demands for electricity increase with fuel production
         table_name = self.model_attributes.table_nemomod_total_technology_annual_activity_lower_limit
-        df_tech_lower_limit = self.get_total_technology_activity_lower_limit_no_msp_adjustment(df_elec_trajectories).get(table_name)
+        df_tech_lower_limit = (
+            self.get_total_technology_activity_lower_limit_no_msp_adjustment(
+                df_elec_trajectories
+            )
+            .get(table_name)
+        )
+
         vector_reference_time_period = list(df_elec_trajectories[self.model_attributes.dim_time_period])
 
         # 
@@ -8386,9 +8394,8 @@ class EnergyProduction:
         regions: Union[List[str], None] = None, 
         return_type: str = "NemoMod",
     ) -> Dict[str, pd.DataFrame]:
-        """
-        Construct the TotalTechnologyAnnualActivityLowerLimit input tables for 
-            NemoMod based on SISEPUEDE configuration parameters, input 
+        """Construct the TotalTechnologyAnnualActivityLowerLimit input tables 
+            for NemoMod based on SISEPUEDE configuration parameters, input 
             variables, integrated model outputs, and reference tables WITHOUT
             adjusting for the implementation of the Max Production Inrease from
             MinShareProduction. 
@@ -8710,14 +8717,14 @@ class EnergyProduction:
             self.get_dict_tech_base_to_ccs()
         modvar_mix : Union[str, ModelVariable]
             ModelVariable used to denote mixing fraction. Defaults to 
-            self.modvar_ccs_achievement_frac
+            self.modvar_entc_ccs_achievement_frac
             **NOTE** that the fraction mix is in terms of bound 1
         """
         ##  INITIALIZE SOME PIECES
         
         # get mixing model variables
         modvar_mix = (
-            self.modvar_ccs_achievement_frac
+            self.modvar_entc_ccs_achievement_frac
             if modvar_mix is None
             else modvar_mix
         )

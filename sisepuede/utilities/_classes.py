@@ -12,6 +12,10 @@ from typing import *
 class SimplexBoundsError(Exception):
     pass
 
+# TimeSeriesSimplexShifter defaults
+_TSSS_DEFAULT_THRESH_NEGATIVE = -1e-8
+_TSSS_DEFAULT_THRESH_POSITIVE = 1e-8
+
 # TimeSeriesSimplexShifter types
 _TSSS_TYPE_FRACTION_OF_SOURCE = "fraction_of_source"
 _TSSS_TYPE_VECTOR_SCALAR = "scalar_vectors"
@@ -75,31 +79,52 @@ class TimeSeriesSimplexShifter:
     ------------------------
     array_base : np.narray (T x n)
         Baseline array of
+
+    Optional Arguments
+    ------------------
+    thresh_correction: float
+        Threshold for correcting fractional sums
+    thresh_negative: float
+        Threshold for clipping small magnitude negative numbers. Any negative 
+        number >= thresh_negative will be converted to 0
+    thresh_positive: float
+        Threshold for clipping positive numbers that exceed 1 by a small 
+        magnitude positve numbers. Any positive number >= 1 + thresh_positive
+        will be clipped to 1
+
     """
 
     def __init__(self,
         array_base: np.ndarray,
         thresh_correction: float = 1e-6,
+        thresh_negative: float = _TSSS_DEFAULT_THRESH_NEGATIVE,
+        thresh_positive: float = _TSSS_DEFAULT_THRESH_POSITIVE,
     ) -> None:
 
         self._initialize_array_base(
             array_base,
             thresh_correction,
+            thresh_negative = thresh_negative,
         )
 
         return None
     
 
+
     def _initialize_array_base(self,
         array_base: np.ndarray,
         thresh_correction: float,
+        thresh_negative: float = _TSSS_DEFAULT_THRESH_NEGATIVE,
+        thresh_positive: float = _TSSS_DEFAULT_THRESH_POSITIVE,
     ) -> None:
         """Initialize the base array of share vectors
         """
         
-        # check that everything is positive
-        if array_base.min() < 0:
-            raise ValueError(f"Values for time series array_base in TimeSeriesSimplexShifter cannot be negative.")
+        array_base = self._clip_simplex_array(
+            array_base,
+            thresh_negative = thresh_negative,
+            thresh_positive = thresh_positive,
+        )
 
         # verify sums
         array_base = sf.check_row_sums(
@@ -145,6 +170,8 @@ class TimeSeriesSimplexShifter:
 
     def _check_arr_target_allocations(self,
         arr_target_allocations: np.ndarray,
+        thresh_negative: float = _TSSS_DEFAULT_THRESH_NEGATIVE,
+        thresh_positive: float = _TSSS_DEFAULT_THRESH_POSITIVE,
     ) -> None:
         """Check the allocation array for type and shape
         """
@@ -159,13 +186,47 @@ class TimeSeriesSimplexShifter:
             Must have shape {self.array_base.shape}"""
             raise RuntimeError(msg)
 
-        # check min value
-        if arr_target_allocations.min() < 0:
-            msg = arr_target_allocations.min()
-            msg = f"arr_target_allocations has minimum {msg} < 0. All values must be >= 0."
-            raise ValueError(msg)
+        arr_target_allocations = self._clip_simplex_array(
+            arr_target_allocations,
+            thresh_negative = thresh_negative,
+            thresh_positive = thresh_positive,
+        )
 
-        return None
+        return arr_target_allocations
+    
+
+
+    def _clip_simplex_array(self,
+        array: np.ndarray,
+        thresh_negative: float = _TSSS_DEFAULT_THRESH_NEGATIVE,
+        thresh_positive: float = _TSSS_DEFAULT_THRESH_POSITIVE,
+    ) -> np.ndarray:
+        """Check bounds of array and clip if within thresholds. 
+        """
+
+        thresh_negative = min(thresh_negative, 0)
+        thresh_positive = max(thresh_positive, 0)
+
+        # check that everything is positive
+        if array.min() < thresh_negative:
+            msg = f"""Values for time series array_base in TimeSeriesSimplexShifter 
+            cannot be negative. Use "thresh_negative" to set minimum allowable 
+            value to clip to 0."""
+
+            raise ValueError(msg)
+    
+
+        # check that everything is bounded by one
+        if array.max() > 1 + thresh_positive:
+            msg = f"""Values for time series array_base in TimeSeriesSimplexShifter 
+            cannot exceed 1. Use "thresh_positive" to set maximum allowable 
+            exceedance of 1."""
+
+            raise ValueError(msg)
+        
+        out = np.clip(array, 0.0, 1.0, )
+
+        return out
     
 
 
@@ -302,6 +363,7 @@ class TimeSeriesSimplexShifter:
         allow_self_shifts: bool = False,
         pass_dict_svs_unsafe: bool = False,
         stop_on_bounds_error: bool = False,
+        **kwargs,
     ) -> np.ndarray:
         """Get allocation vectors for targets in scalar shift. Checks 
             specification
@@ -329,10 +391,15 @@ class TimeSeriesSimplexShifter:
             * False:    Verify dictionary elements
         stop_on_bounds_error : bool
             Stop if negative scalars are found? If False, skips.
+        **kwargs :
+            Passed to _check_arr_target_allocations()
         """
 
         # check the array specification
-        self._check_arr_target_allocations(arr_target_allocations, )
+        arr_target_allocations = self._check_arr_target_allocations(
+            arr_target_allocations, 
+            **kwargs,
+        )
 
         # get source vectors scalings
         dict_svs = self._filter_dict_source_vector_scalars(
@@ -375,6 +442,7 @@ class TimeSeriesSimplexShifter:
     def shift_mass_scalar_vectors(self,
         arr_target_allocations: np.ndarray,
         dict_vec_scalars: Dict[int, np.ndarray],
+        **kwargs,
     ) -> np.ndarray:
         """Perform the `scalar_vectors` shift
 
@@ -385,6 +453,12 @@ class TimeSeriesSimplexShifter:
         dict_source_vector_scalars : Dict[int, np.ndarray]
             Dictionary mapping a column index to a scalar vector to apply to 
             that index.
+
+        Keyword Arguments
+        -----------------
+        **kwargs : 
+            Passed to _check_arr_target_allocations() via 
+            _get_allocation_vectors_targets_sv()
         """
 
         ##  INITIALIZATION
@@ -405,6 +479,7 @@ class TimeSeriesSimplexShifter:
             arr_target_allocations,
             dict_vec_scalars,
             pass_dict_svs_unsafe = True,    # This dictionary has already been checked
+            **kwargs,
         )
         
 

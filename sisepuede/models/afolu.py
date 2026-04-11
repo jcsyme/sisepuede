@@ -3388,6 +3388,22 @@ class AFOLU:
         return out
 
 
+    def get_biomass_use_variables(self,
+        vec_biomass_scalar_from_bcl: np.ndarray,              
+        vec_c_demands_fuel_entc: np.ndarray,
+        
+    ) -> pd.DataFrame:
+        """Get variables related to biomass use, including:
+
+            * total estimated energy consumption of biomass in ENTC (used to
+                set total technology upper and lower limits)
+        """
+
+        vec_c_demands_fuel_entc_out = vec_c_demands_fuel_entc*vec_biomass_scalar_from_bcl
+
+
+
+
 
     def get_bcl_adjusted_energy_and_ippu_inputs(self,
         df_afolu_trajectories: pd.DataFrame,
@@ -3413,8 +3429,8 @@ class AFOLU:
             nan = 0.0,
             posinf = 0.0,
         )
-        print(f"vec_biomass_scalar_from_bcl: {vec_biomass_scalar_from_bcl}")
-
+        
+        # HERE123
         # adjusted fuel fractions
         df_out.append(
             self.get_ilu_fuel_shifts_from_biomass(
@@ -3422,7 +3438,8 @@ class AFOLU:
                 vec_biomass_scalar_from_bcl,
             )
         )
-        return None
+
+        return df_out
 
 
     def get_bcl_adjusted_thresholds(self,
@@ -5629,7 +5646,8 @@ class AFOLU:
         df_afolu_trajectories: pd.DataFrame,
         vec_biomass_scalar: np.ndarray,
     ) -> pd.DataFrame:
-        """Using biomass demands satsifed from BCL, scale 
+        """Using biomass demands satsifed from BCL, scale fuel fractions if 
+            reductions are required due to stock depletion.
 
         Function Arguments
         ------------------
@@ -5665,7 +5683,6 @@ class AFOLU:
         ]
 
         for subsec in subsecs:
-            
             dict_cat_to_fuel_shares = self.get_ilu_arrays_for_fuel_shift(
                 df_afolu_trajectories,
                 subsec,
@@ -5707,7 +5724,11 @@ class AFOLU:
                     inds_extract.append(j)
 
                 # convert to an output dataframe
-                df_cur = pd.DataFrame(arr_out[:, inds_extract], columns = fields, )
+                df_cur = pd.DataFrame(
+                    arr_out[:, inds_extract], 
+                    columns = fields, 
+                )
+
                 df_out.append(df_cur, )
 
         df_out = pd.concat(df_out, axis = 1, )
@@ -9143,6 +9164,7 @@ class AFOLU:
             vec_c_demands_fuel_total,
             vec_c_demands_hwp,
         )
+        self.df_energy_ippu_inputs_adjusted = df_energy_ippu_inputs_adjusted
         
 
        
@@ -9167,6 +9189,7 @@ class AFOLU:
             arrs_transitions_adj,
             arrs_yields_per_livestock,
             vec_lvst_aggregate_animal_mass,
+            df_energy_ippu_inputs_adjusted,
             ledger,
             ledger_mangroves,
         )
@@ -10185,14 +10208,15 @@ class AFOLU:
             arr_lndu_emissions_conv_bg,
             arrs_lndu_emissions_conv_agb_matrices,
             arrs_lndu_emissions_conv_bgb_matrices,
-            arr_land_use,                             # note: this is in terms of modvar_gnrl_area (Area of Region)
+            arr_land_use,                               # note: this is in terms of modvar_gnrl_area (Area of Region)
             arr_lvst_change_to_net_imports_lost,
             arr_lvst_net_import_increase,
             arr_lvst_pop,
             arrs_lndu_land_conv,
             arrs_lndu_q_adj,
             arr_lvst_yields_per_livestock,
-            vec_lvst_aggregate_animal_mass,           # in terms of self.modvar_lvst_animal_mass
+            vec_lvst_aggregate_animal_mass,             # in terms of self.modvar_lvst_animal_mass
+            df_out_energy_ippu_adjustments,             # adjusted inputs to energy (biomass, both wood and residuals) and IPPU (HWP)     
             ledger,
             ledger_mangroves,
         ) = self.project_integrated_land_use(
@@ -10238,7 +10262,7 @@ class AFOLU:
             ledger_mangroves,
         )
 
-        return out, ledger, ledger_mangroves
+        return out, df_out_energy_ippu_adjustments, ledger, ledger_mangroves
 
         # update imports/exports for agriculture
         arr_agrc_exports_adj = sf.vec_bounds(
