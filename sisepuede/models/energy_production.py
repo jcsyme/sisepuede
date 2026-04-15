@@ -31,6 +31,9 @@ import sisepuede.utilities._toolbox as sf
 # module uuid
 _MODULE_UUID = "AC7DB39D-5093-46D9-9C64-9BF703C8E47C"  
 
+# prefixes
+_PREFIX_ATTRIBUTE_ENTC_ELEC_GEN = "electricity_generation"
+
 # solver options
 _SOLVER_OPTION_HIGHS_USER_BOUND_SCALE = "user_bound_scale"
 
@@ -2173,19 +2176,10 @@ class EnergyProduction:
         )
 
         # get dictionary mapping power plants to tech type
-        dict_cat_pp_to_cat_enfu = self.model_attributes.get_ordered_category_attribute(
-            self.model_attributes.subsec_name_entc,
-            f"electricity_generation_{pycat_enfu}",
-            clean_attribute_schema_q = True,
-            return_type = dict,
-            skip_none_q = True,
-        )
-
-        # reverse the dictionary
-        dict_fuel_to_pp_techs = sf.reverse_dict(
+        (
             dict_cat_pp_to_cat_enfu,
-            allow_multi_keys = True,
-        )
+            dict_fuel_to_pp_techs,
+        ) = self.get_dicts_tech_to_fuel()
         
         # get the final return categories
         pp_techs_biomass = dict_fuel_to_pp_techs.get(self.cat_enfu_bmas, [])
@@ -2235,6 +2229,48 @@ class EnergyProduction:
 
         return dict_out
 
+
+
+    def get_dicts_tech_to_fuel(self,
+        allow_multi_keys: bool = True,
+        attribute_prefix: str = _PREFIX_ATTRIBUTE_ENTC_ELEC_GEN,
+    ) -> Tuple[Dict[str, str], Dict[str, str]]:
+        """Get dictionaries mapping techs to fuels and and fuels to techs.
+
+            Returns a tuple of the form:
+
+            (
+                dict_cat_pp_to_cat_enfu,
+                dict_cat_enfu_to_cat_pp
+            )
+        """
+        # get the ENFU pycategory
+        pycat_enfu = self.model_attributes.get_subsector_attribute(
+            self.subsec_name_enfu, 
+            "pycategory_primary_element",
+        )
+
+        dict_cat_pp_to_cat_enfu = self.model_attributes.get_ordered_category_attribute(
+            self.model_attributes.subsec_name_entc,
+            f"{attribute_prefix}_{pycat_enfu}",
+            clean_attribute_schema_q = True,
+            return_type = dict,
+            skip_none_q = True,
+        )
+
+        # reverse the dictionary
+        dict_cat_enfu_to_cat_pp = sf.reverse_dict(
+            dict_cat_pp_to_cat_enfu,
+            allow_multi_keys = allow_multi_keys,
+        )
+
+        out = (
+            dict_cat_pp_to_cat_enfu,
+            dict_cat_enfu_to_cat_pp
+        )
+
+        return out
+    
 
 
     def get_dummy_fuel_description(self,

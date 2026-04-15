@@ -12,11 +12,12 @@ from sisepuede.core.attribute_table import AttributeTable
 from sisepuede.core.model_attributes import *
 from sisepuede.core.model_variable import is_model_variable
 #from sisepuede.models.energy_consumption import EnergyConsumption
-import sisepuede.models.energy_consumption as mec
+from sisepuede.models.energy_production import _PREFIX_ATTRIBUTE_ENTC_ELEC_GEN
 from sisepuede.models.ippu import IPPU
 from sisepuede.models.socioeconomic import Socioeconomic
 from sisepuede.utilities._plotting import is_valid_figtuple
 import sisepuede.models.biomass_carbon_ledger as bcl
+import sisepuede.models.energy_consumption as mec
 import sisepuede.utilities._classes as suc
 import sisepuede.utilities._npp_curves as npp
 import sisepuede.utilities._optimization as suo
@@ -417,6 +418,7 @@ class AFOLU:
 
         attr_agrc = self.model_attributes.get_attribute_table(self.subsec_name_agrc, )
         attr_enfu = self.model_attributes.get_attribute_table(self.subsec_name_enfu, )
+        attr_entc = self.model_attributes.get_attribute_table(self.subsec_name_entc, )
         attr_frst = self.model_attributes.get_attribute_table(self.subsec_name_frst, )
         attr_lndu = self.model_attributes.get_attribute_table(self.subsec_name_lndu, )
         attr_lsmm = self.model_attributes.get_attribute_table(self.subsec_name_lsmm, )
@@ -428,6 +430,7 @@ class AFOLU:
 
         self.attr_agrc = attr_agrc
         self.attr_enfu = attr_enfu
+        self.attr_entc = attr_entc
         self.attr_frst = attr_frst
         self.attr_lndu = attr_lndu
         self.attr_lsmm = attr_lsmm
@@ -869,6 +872,14 @@ class AFOLU:
             * self.modvar_list_frst_****
         """
 
+        # assign from attribute variable codes
+        self.model_attributes.assign_subsector_variable_names_from_varcodes(
+            self,
+            self.model_attributes.subsec_name_frst,
+            stop_on_error = True, 
+        )
+        
+        """
         # forest model variables
         self.modvar_frst_average_fraction_burned_annually = "Average Fraction of Forest Burned Annually"
         self.modvar_frst_bcl_frac_adjustment_thresh = "Biomass Carbon Ledger Adjustment Threshold"
@@ -899,7 +910,7 @@ class AFOLU:
         self.modvar_frst_frac_tropical = "Forest Fraction Tropical"
         self.modvar_frst_hwp_half_life_paper = "HWP Half Life Paper"
         self.modvar_frst_hwp_half_life_wood = "HWP Half Life Wood"
-
+        """
         
         #additional lists
         self.modvar_list_frst_frac_temptrop = [
@@ -1711,7 +1722,7 @@ class AFOLU:
 
 
 
-    def convert_fuelwood_to_biomass_equivalent(self,
+    def convert_fuelwood_to_biomass_c_equivalent(self,
         df_afolu_trajectories: pd.DataFrame,
         vec_energy_demand_fuelwood: Union[float, np.ndarray],
         convert_to_c: bool = False,
@@ -1756,9 +1767,7 @@ class AFOLU:
         # get C per dry matter to use
         modvar_c_per_dm = self.model_attributes.get_variable(modvar_frac_c, )
         if modvar_c_per_dm is None:
-            modvar_c_per_dm = self.model_attributes.get_variable(
-                self.modvar_frst_frac_c_per_dm, 
-            )
+            modvar_c_per_dm = self.modvar_frst_frac_c_per_dm
 
         
         ##  EXTRACT VARIABLES
@@ -1853,6 +1862,12 @@ class AFOLU:
         ##  INITIALIZATION OF MODEL ATTRIBUTES INFO
 
         # attribute table
+        (
+            cat_entc_biomass,
+            ind_entc_biomass,
+        ) = self.get_ind_entc_pp_biomass()
+
+        """
         attr_entc = self.model_attributes.get_attribute_table(
             self.model_attributes.subsec_name_entc,
         )
@@ -1866,7 +1881,7 @@ class AFOLU:
         )[0]
 
         ind_entc_biomass = attr_entc.get_key_value_index(cat_entc_biomass, )
-
+        """
 
         # get model variables
         modvar_entc_efficiency = self.model_attributes.get_variable(
@@ -2045,13 +2060,13 @@ class AFOLU:
         -----------------
         convert_to_c : bool
             Set to True to convert output to C. If True, can pass units via 
-            kwargs to convert_fuelwood_to_biomass_equivalent()
+            kwargs to convert_fuelwood_to_biomass_c_equivalent()
         unit_spec_mass : Union[str, 'ModelVariable', None]
             Optional ModelVariable (MUST be a ModelVariable, not a string) or
             unit (str) to use for target mass units. If None, defaults to 
             configuration defaults
         kwargs :
-            Passed to convert_fuelwood_to_biomass_equivalent()
+            Passed to convert_fuelwood_to_biomass_c_equivalent()
         """
         ##  INITIALIZATION
 
@@ -2166,7 +2181,7 @@ class AFOLU:
         vec_fuel_demand_biomass_out = vec_fuel_demand_biomass + vec_fuel_demand_biomass_entc
 
         # convert to C and return
-        vec_c_demand = self.convert_fuelwood_to_biomass_equivalent(
+        vec_c_demand = self.convert_fuelwood_to_biomass_c_equivalent(
             df_afolu_trajectories,
             vec_fuel_demand_biomass_out,
             convert_to_c = convert_to_c,
@@ -2176,7 +2191,7 @@ class AFOLU:
         )
 
         # convert to C and return
-        vec_c_demand_entc = self.convert_fuelwood_to_biomass_equivalent(
+        vec_c_demand_entc = self.convert_fuelwood_to_biomass_c_equivalent(
             df_afolu_trajectories,
             vec_fuel_demand_biomass_entc,
             convert_to_c = convert_to_c,
@@ -2626,7 +2641,7 @@ class AFOLU:
         )
 
         # convert from energy units to mass units
-        vec_consumption_biomass = self.convert_fuelwood_to_biomass_equivalent(
+        vec_consumption_biomass = self.convert_fuelwood_to_biomass_c_equivalent(
             df_afolu_trajectories,
             vec_consumption_biomass,
             convert_to_c = False,
@@ -3396,9 +3411,11 @@ class AFOLU:
         df_afolu_trajectories: pd.DataFrame,
         ledger: 'BiomassCarbonLedger',
         dict_subsec_to_fuel_demand_biomass: Dict[str, np.ndarray],
+        arr_agrc_rfu_energy: np.ndarray,
         vec_c_demands_fuel_entc: np.ndarray,
         vec_c_demands_fuel_total: np.ndarray,
         vec_c_demands_hwp: np.ndarray,
+        vec_enfu_ged_biomass: np.ndarray,
     ) -> pd.DataFrame:
         """Using available biomass, adjust ratios in all relevant energy
             subsectors, including CCSQ, ENTC, INEN, SCOE, and TRNS.
@@ -3430,8 +3447,11 @@ class AFOLU:
 
         # (2) biomass fuel availability constraints to pass to EnergyProduction
         df_out += self.get_bcl_biomass_energy_availability_variables(
+            df_afolu_trajectories, 
+            arr_agrc_rfu_energy,
             vec_biomass_scalar_from_bcl,    
             vec_c_demands_fuel_entc,
+            vec_enfu_ged_biomass,
         )
 
         return df_out
@@ -3605,10 +3625,13 @@ class AFOLU:
         return vec_out
     
 
-
+    
     def get_bcl_biomass_energy_availability_variables(self,
+        df_afolu_trajectories: pd.DataFrame,
+        arr_agrc_rfu_energy: np.ndarray,
         vec_biomass_scalar_from_bcl: np.ndarray,              
         vec_c_demands_fuel_entc: np.ndarray,
+        vec_enfu_ged_biomass: np.ndarray,
     ) -> pd.DataFrame:
         """Get variables related to biomass use, including:
 
@@ -3618,19 +3641,106 @@ class AFOLU:
 
         ##  INITIALIZATION
 
-        # initialize list of output dataframes + model variables to assign
+        # initialize list of output dataframes 
         df_out = []
+
+        # some function-based indices and model variables
+        _, ind_entc_biomass = self.get_ind_entc_pp_biomass()
+        _, modvar_bcl_mass = self.get_modvars_for_unit_targets_bcl()
+        
+        # some stuff from attributes
         modvar_cr = self.modvar_entc_fuel_constraint_crop_residues
         modvar_fw = self.modvar_entc_fuel_constraint_fuelwood
+        modvar_ged_enfu = self.model_enercons.modvar_enfu_energy_density_gravimetric
+
+        # scalars (units_mass_ged/units_mass_bcl)
+        scalar_bcl_to_ged_to_mass = self.model_attributes.get_variable_unit_conversion_factor(
+            modvar_bcl_mass,
+            modvar_ged_enfu,
+            "mass",
+        )
+
+        scalar_ged_to_cr = self.model_attributes.get_variable_unit_conversion_factor(
+            modvar_ged_enfu,
+            modvar_cr,
+            "energy",
+        )
+
+        scalar_ged_to_fw = self.model_attributes.get_variable_unit_conversion_factor(
+            modvar_ged_enfu,
+            modvar_fw,
+            "energy",
+        )
 
 
-        ##  GET AVAILABILITY OF FUELWOOD
+        ##  GET TOTAL ENERGY DEMAND AVAILABLE FROM CROP RESIDUES
+        #
+        #   (1) arr_agrc_rfu_energy gives total *mass* of residuals available in 
+        #       terms of ILU, which means we can pass it to 
+        #       get_bcl_residue_equalivalent_fuelwood_from_energy()
+
+        vec_rfu_total_energy_available_ged = np.zeros(arr_agrc_rfu_energy.shape[0], )
+        
+        for j in range(arr_agrc_rfu_energy.shape[0]):
+            vec_energy_by_residue_type, _ = self.get_bcl_residue_equalivalent_fuelwood_from_energy(
+                j,
+                vec_enfu_ged_biomass[j],
+                arr_agrc_rfu_energy[j],
+            )
+
+            vec_rfu_total_energy_available_ged[j] = vec_energy_by_residue_type.sum()
+        
+        vec_rfu_total_energy_available_ged *= scalar_ged_to_cr
 
         # initialize blank array, then assign column vector
-        arr_fill = modvar_fw.get_from_dataframe(
+        arr_fill_cr = modvar_cr.get_from_dataframe(
+            modvar_cr.spawn_default_dataframe(
+                None, 
+                0.0, 
+                length = vec_rfu_total_energy_available_ged.shape[0],
+            ),
+            expand_to_all_categories = True,
+            extraction_logic = "any",
+            return_type = "array",
+        )
+
+        arr_fill_cr[:, ind_entc_biomass] = vec_rfu_total_energy_available_ged
+
+        # build array for ENTC variable
+        df_out.append(
+            self.model_attributes.array_to_df(
+                arr_fill_cr,
+                modvar_cr,
+                reduce_from_all_cats_to_specified_cats = True,
+            )
+        )
+
+
+        ##  GET FUELWOOD ENERGY AVAILABILITY
+
+        # extract some variables
+        arr_ged_enfu = self.model_attributes.extract_model_variable(
+            df_afolu_trajectories,
+            modvar_ged_enfu,
+            override_vector_for_single_mv_q = False,
+            return_type = "array_base",
+            var_bounds = (0, np.inf),
+        ) 
+
+        # get c fraction?
+        vec_frst_c_frac = self.model_attributes.extract_model_variable(
+            df_afolu_trajectories,
+            self.modvar_frst_frac_c_per_dm,
+            override_vector_for_single_mv_q = False,
+            return_type = "array_base",
+            var_bounds = (0, 1),
+        ) 
+
+        # initialize blank array, then assign column vector
+        arr_fill_fw = modvar_fw.get_from_dataframe(
             modvar_fw.spawn_default_dataframe(
                 None, 
-                0, 
+                0.0, 
                 length = vec_c_demands_fuel_entc.shape[0],
             ),
             expand_to_all_categories = True,
@@ -3638,13 +3748,25 @@ class AFOLU:
             return_type = "array",
         )
 
-        arr_fill[:, self.ind_enfu_biomass] = vec_c_demands_fuel_entc*vec_biomass_scalar_from_bcl
-        vf = arr_fill[:, self.ind_enfu_biomass]
-        print(f"vf = {vf}")
+        # update with expected total and convert to:
+        #   1. Biomass total (is currently c, not biomass)
+        #   2. GED mass (HERE123)
+        vec_energy_fw = vec_c_demands_fuel_entc*vec_biomass_scalar_from_bcl
+        vec_energy_fw *= scalar_bcl_to_ged_to_mass
+        vec_energy_fw = np.nan_to_num(
+            vec_energy_fw/vec_frst_c_frac,
+            nan = 0.0,
+            posinf = 0.0,
+        )
+
+        # convert to energy and update in df
+        vec_energy_fw *= arr_ged_enfu[:, self.ind_enfu_biomass]*scalar_ged_to_fw
+        arr_fill_fw[:, ind_entc_biomass] = vec_energy_fw
+
         # build array for ENTC variable
         df_out.append(
             self.model_attributes.array_to_df(
-                arr_fill,
+                arr_fill_fw,
                 modvar_fw,
                 reduce_from_all_cats_to_specified_cats = True,
             )
@@ -3841,7 +3963,7 @@ class AFOLU:
     
 
 
-    def get_bcl_energy_equivalient_from_residues(self,
+    def get_bcl_residue_equalivalent_fuelwood_from_energy(self,
         i: int,
         ged_enfu_biomass_unscaled: float,
         vec_agrc_residues_avail_for_energy: np.ndarray, 
@@ -3853,7 +3975,16 @@ class AFOLU:
         This adjustment is then used to reduce demands for forest stock 
             removals.
 
-        Returns fuelwood equivalent mass in BLC units
+        Returns:
+        
+            out = (
+                vec_energy_residues_avail,      # Energy available in terms
+                                                #   of Gravimetric Energy Demand
+                                                #   units.
+                vec_fuelwood_mass_equivalent,   # Equivalent mass of firewood
+                                                #   in terms of BCL mass units.
+            )
+        fuelwood equivalent mass in BLC units
 
 
         Function Arguments
@@ -3868,7 +3999,6 @@ class AFOLU:
         modvar_ged_enfu = self.model_enercons.modvar_enfu_energy_density_gravimetric
 
         # get some model variables
-        modvar_ged_residues = self.modvar_agrc_ged_residues
         modvar_ged_residues = self.modvar_agrc_ged_residues
         vec_ged_residues = self.arrays_agrc.arr_agrc_ged_residues[i].copy()
 
@@ -3914,10 +4044,17 @@ class AFOLU:
         vec_residues_avail = vec_agrc_residues_avail_for_energy*scalar_ilu_to_bcl_mass
         
         # get energy available and convert 
-        total_energy_residues_avail = vec_residues_avail*vec_ged_residues
-        vec_fuelwood_mass_equivalent = total_energy_residues_avail/ged_enfu_biomass_scaled
+        vec_energy_residues_avail = vec_residues_avail*vec_ged_residues
+        vec_fuelwood_mass_equivalent = vec_energy_residues_avail/ged_enfu_biomass_scaled
 
-        return vec_fuelwood_mass_equivalent
+        #ratio = vec_energy_residues_avail.sum()/vec_fuelwood_mass_equivalent.sum()
+        #print(f"ratio0 = {ratio}")
+        out = (
+            vec_energy_residues_avail,
+            vec_fuelwood_mass_equivalent,
+        )
+
+        return out
     
 
     
@@ -4120,6 +4257,18 @@ class AFOLU:
             it) 
         """
 
+        # mass variables for conversion
+        _, modvar_bcl_mass = self.get_modvars_for_unit_targets_bcl()
+        _, modvar_ilu_mass = self.get_modvars_for_unit_targets_ilu()
+
+        # scalar for mass converison
+        scalar_mass_bcl_to_ilu = self.model_attributes.get_variable_unit_conversion_factor(
+            modvar_bcl_mass,
+            modvar_bcl_mass,
+            "mass",
+        )
+
+
         # existing demands for c
         vec_dem_total = ledger.vec_total_removals_demanded
 
@@ -4130,20 +4279,20 @@ class AFOLU:
             vec_lvst_aggregate_animal_mass[0:(i + 1)],
         )
         
-        # assume that biomass only can be used or ENTC if kwarg is True (default)
-        mass_avail_from_residues = vec_agrc_rfu_energy_avail_in_terms_bcl_mass[i]
+        # assume that residues only can be used or ENTC if kwarg is True (default)--fwe is fuelwood equivalent
+        mass_fwe_avail_from_residues = vec_agrc_rfu_energy_avail_in_terms_bcl_mass[i]
         sup_afr = vec_dem_total[i] + vec_additional_biomass_removals[-1]
         sup_afr = vec_c_fuel_demands_entc[i] if residues_to_entc_only else sup_afr
-        mass_afr_passable = min(mass_avail_from_residues, sup_afr, ) 
+        mass_afr_passable = min(mass_fwe_avail_from_residues, sup_afr, ) 
 
-        
-        # set adjustments
+        # set adjustments and update RFU to be in terms of ILU mass
         adjustment = vec_additional_biomass_removals[-1] - mass_afr_passable
         arr_agrc_rfu_energy[i] = np.nan_to_num(
-            arr_agrc_residues_avail_energy[i]*mass_afr_passable/mass_avail_from_residues,
+            arr_agrc_residues_avail_energy[i]*mass_afr_passable/mass_fwe_avail_from_residues,
             nan = 0.0,
             posinf = 0.0,
         )
+
 
         out = (
             adjustment,             # adjustment to BCL demands
@@ -4409,6 +4558,48 @@ class AFOLU:
             vec_area_protected_in_ledger,
             vec_avg_stock_ag_in_targets_in_ledger,
             vec_avg_stock_bg_in_targets_in_ledger,
+        )
+
+        return out
+    
+
+
+    def get_dicts_tech_to_fuel(self,
+        allow_multi_keys: bool = True,
+        attribute_prefix: str = _PREFIX_ATTRIBUTE_ENTC_ELEC_GEN,
+    ) -> Tuple[Dict[str, str], Dict[str, str]]:
+        """Get dictionaries mapping techs to fuels and and fuels to techs.
+
+            Returns a tuple of the form:
+
+            (
+                dict_cat_pp_to_cat_enfu,
+                dict_cat_enfu_to_cat_pp
+            )
+        """
+        # fuel pycategory
+        pycat_enfu = self.model_attributes.get_subsector_attribute(
+            self.subsec_name_enfu, 
+            "pycategory_primary_element",
+        )
+
+        dict_cat_pp_to_cat_enfu = self.model_attributes.get_ordered_category_attribute(
+            self.model_attributes.subsec_name_entc,
+            f"{attribute_prefix}_{pycat_enfu}",
+            clean_attribute_schema_q = True,
+            return_type = dict,
+            skip_none_q = True,
+        )
+
+        # reverse the dictionary
+        dict_cat_enfu_to_cat_pp = sf.reverse_dict(
+            dict_cat_pp_to_cat_enfu,
+            allow_multi_keys = allow_multi_keys,
+        )
+
+        out = (
+            dict_cat_pp_to_cat_enfu,
+            dict_cat_enfu_to_cat_pp
         )
 
         return out
@@ -6630,6 +6821,41 @@ class AFOLU:
     
 
 
+    def get_ind_entc_pp_biomass(self,
+    ) -> Tuple[str, int]:
+        """Get the ENTC index for the biomass powerplant. Returns a tuple of the
+            form 
+            
+            (
+                cat_entc_pp_biomass,
+                ind_entc_pp_biomass,
+            )
+        """
+
+        (
+            dict_cat_pp_to_cat_enfu,
+            dict_cat_enfu_to_cat_pp,
+        ) = self.get_dicts_tech_to_fuel()
+
+        # get category and index
+        cat_entc_pp_biomass = dict_cat_enfu_to_cat_pp.get(self.cat_enfu_biomass, )
+        cat_entc_pp_biomass = (
+            cat_entc_pp_biomass[0] 
+            if sf.islistlike(cat_entc_pp_biomass) 
+            else cat_entc_pp_biomass
+        )
+        ind_entc_pp_biomass = self.attr_entc.get_key_value_index(cat_entc_pp_biomass, )
+
+        # set return tuple
+        out = (
+            cat_entc_pp_biomass,
+            ind_entc_pp_biomass,
+        )
+
+        return out
+    
+
+    
     def get_init_lvst_pasture_and_feed_vars(self,
         vec_lndu_area_initial: np.ndarray,
     ) -> np.ndarray:
@@ -9062,7 +9288,7 @@ class AFOLU:
             #   residue availability and *increase* removals based on AGRC and
             #   LVST demands 
 
-            adjustment_bcl, mass_residuals_to_energy = self.get_bcl_removal_adjustment(
+            adjustment_bcl, mass_ilu_residuals_to_energy = self.get_bcl_removal_adjustment(
                 i,
                 df_afolu_trajectories,
                 ledger,
@@ -9075,7 +9301,7 @@ class AFOLU:
                 residues_to_entc_only = residues_to_entc_only,
             )
             
-            
+
             ##  CALCULATE FINAL LAND CONVERSION AND EMISSIONS 
 
             (
@@ -9127,7 +9353,7 @@ class AFOLU:
         
         ##  MUST UPDATE THE LEDGER IN THE FINAL TIME PERIOD
 
-        adjustment_bcl, mass_residuals_to_energy = self.get_bcl_removal_adjustment(
+        adjustment_bcl, mass_ilu_residuals_to_energy = self.get_bcl_removal_adjustment(
             i,
             df_afolu_trajectories,
             ledger,
@@ -9183,6 +9409,7 @@ class AFOLU:
             arr_agrc_rfu_feed,
         )
 
+
         ##  HAVE TO ADJUST ENERGY DEMANDS IN RESPONSE
         #
         #   get_bcl_adjusted_energy_and_ippu_inputs() returns new energy inputs
@@ -9195,13 +9422,17 @@ class AFOLU:
         vec_c_demands_hwp = vec_c_demands_hwp_paper + vec_c_demands_hwp_wood
         vec_c_demands_fuel_total = vec_c_demands_total - vec_c_demands_hwp
 
+        # HERE123
+
         df_energy_ippu_inputs_adjusted = self.get_bcl_adjusted_energy_and_ippu_inputs(
             df_afolu_trajectories,
             ledger,
             dict_subsec_to_fuel_demand_biomass,
+            arr_agrc_rfu_energy, # total energy from residues in terms of ILU mass
             vec_c_demands_fuel_entc,
             vec_c_demands_fuel_total,
             vec_c_demands_hwp,
+            vec_enfu_ged_biomass,
         )
         self.df_energy_ippu_inputs_adjusted = df_energy_ippu_inputs_adjusted
         
@@ -9967,27 +10198,34 @@ class AFOLU:
             arr_agrc_rfu_feed[j] = vec_agrc_residues_gen_feed
             arr_agrc_residues_non_feed[j] = vec_agrc_residues_gen_not_feed
 
-            vec_energy_avail = self.get_bcl_energy_equivalient_from_residues(
+            # get energy available (in units of Gravimetric Energy Density) and 
+            (
+                vec_residue_energy_avail,
+                vec_residue_eq_fuelwood_energy_avail,
+            ) = self.get_bcl_residue_equalivalent_fuelwood_from_energy(
                 j,
                 vec_enfu_ged_biomass[j],
                 vec_agrc_residues_gen_available_for_energy,
             )
-            energy_avail = vec_energy_avail.sum()
-
+            energy_avail = vec_residue_energy_avail.sum()
+            residue_eq_fuelwood_energy_avail = vec_residue_eq_fuelwood_energy_avail.sum()
+            
+            
+            """
             # convert from energy units to mass units
-            vec_consumption_biomass_eq = self.convert_fuelwood_to_biomass_equivalent(
+            vec_consumption_biomass_eq = self.convert_fuelwood_to_biomass_c_equivalent(
                 df_afolu_trajectories,
-                energy_avail*np.ones(df_afolu_trajectories.shape[0], ),
+                residue_eq_fuelwood_energy_avail*np.ones(df_afolu_trajectories.shape[0], ),
                 convert_to_c = False,
                 modvar_frac_c = self.modvar_frst_frac_c_per_dm,
                 units_energy = None,
                 units_mass = modvar_bcl_mass,
             )
+            """
 
             # update energy available (in energy and in biomass mass equivalent)
             vec_agrc_rfu_energy_avail[j] = energy_avail
-            vec_agrc_rfu_energy_avail_in_terms_bcl_mass[j] = vec_consumption_biomass_eq[i]
-
+            vec_agrc_rfu_energy_avail_in_terms_bcl_mass[j] = residue_eq_fuelwood_energy_avail#vec_consumption_biomass_eq[i]
 
         return None
     

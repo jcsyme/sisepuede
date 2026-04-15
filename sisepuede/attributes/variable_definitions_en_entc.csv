@@ -168,7 +168,7 @@ Output,NemoMod Production by Technology,nemomod_production_by_technology," | Pro
  | NemoMod variable **vproductionbytechnologyannual**",``nemomod_entc_annual_production_by_technology_$CAT-TECHNOLOGY$``,``pp_biogas``|``pp_biomass``|``pp_coal``|``pp_coal_ccs``|``pp_gas``|``pp_gas_ccs``|``pp_geothermal``|``pp_hydropower``|``pp_nuclear``|``pp_ocean``|``pp_oil``|``pp_solar``|``pp_waste_incineration``|``pp_wind``|``st_batteries``|``st_compressed_air``|``st_flywheels``|``st_pumped_hydro``,,0,1,1,,none,0,none,,,
 Output,Total Energy Available from Crop Residues,fuel_constraint_crop_residues," |Total energy available from crop residuals for use in biomass technologies. Estimated in AFOLU model. Can be expanded to other techs (e.g., biomass gasification)
  | 
- | In configuration energy units",``fuel_available_entc_biomass_crop_residuals_$CAT-TECHNOLOGY$``,``pp_biomass``,,0,1,1,,none,0,none,,,
+ | In configuration energy units",``fuel_available_entc_biomass_crop_residuals_$CAT-TECHNOLOGY$_$UNIT-ENERGY$`` (``$UNIT-ENERGY$ = pj``),``pp_biomass``,,0,1,1,,none,0,none,,,
 Output,Total Energy Available from Fuelwood,fuel_constraint_fuelwood," |Total energy available from fuelwood for use in biomass. Estimated in AFOLU model. Can be expanded to other techs (e.g., biomass gasification)
  | 
- | In configuration energy units",``fuel_available_entc_biomass_fuelwood_$CAT-TECHNOLOGY$``,``pp_biomass``,,0,1,Total Energy Available from Fuelwood,,none,0,none,,,
+ | In configuration energy units",``fuel_available_entc_biomass_fuelwood_$CAT-TECHNOLOGY$_$UNIT-ENERGY$`` (``$UNIT-ENERGY$ = pj``),``pp_biomass``,,0,1,Total Energy Available from Fuelwood,,none,0,none,,,
