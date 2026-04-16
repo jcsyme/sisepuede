@@ -12,12 +12,11 @@ from sisepuede.core.attribute_table import AttributeTable
 from sisepuede.core.model_attributes import *
 from sisepuede.core.model_variable import is_model_variable
 #from sisepuede.models.energy_consumption import EnergyConsumption
-from sisepuede.models.energy_production import _PREFIX_ATTRIBUTE_ENTC_ELEC_GEN
-from sisepuede.models.ippu import IPPU
 from sisepuede.models.socioeconomic import Socioeconomic
 from sisepuede.utilities._plotting import is_valid_figtuple
 import sisepuede.models.biomass_carbon_ledger as bcl
 import sisepuede.models.energy_consumption as mec
+import sisepuede.models.ippu as mip
 import sisepuede.utilities._classes as suc
 import sisepuede.utilities._npp_curves as npp
 import sisepuede.utilities._optimization as suo
@@ -43,6 +42,9 @@ _MODULE_UUID = "53E0A234-5674-47C8-B950-5A419EEAAF00"
 
 # integration information
 _NPP_INTEGRATION_WINDOWS = [20, 480, 1000]
+
+# prefixes--can't import from other modules
+_PREFIX_ATTRIBUTE_ENTC_ELEC_GEN = "electricity_generation"
 
 # error classes
 class InfeasibleError(Exception):
@@ -420,6 +422,7 @@ class AFOLU:
         attr_enfu = self.model_attributes.get_attribute_table(self.subsec_name_enfu, )
         attr_entc = self.model_attributes.get_attribute_table(self.subsec_name_entc, )
         attr_frst = self.model_attributes.get_attribute_table(self.subsec_name_frst, )
+        attr_ippu = self.model_attributes.get_attribute_table(self.subsec_name_ippu, )
         attr_lndu = self.model_attributes.get_attribute_table(self.subsec_name_lndu, )
         attr_lsmm = self.model_attributes.get_attribute_table(self.subsec_name_lsmm, )
         attr_lvst = self.model_attributes.get_attribute_table(self.subsec_name_lvst, )
@@ -432,6 +435,7 @@ class AFOLU:
         self.attr_enfu = attr_enfu
         self.attr_entc = attr_entc
         self.attr_frst = attr_frst
+        self.attr_ippu = attr_ippu
         self.attr_lndu = attr_lndu
         self.attr_lsmm = attr_lsmm
         self.attr_lvst = attr_lvst
@@ -691,9 +695,9 @@ class AFOLU:
         )
 
         # add other model classes--required for integration variables
-        model_enercons = mec.EnergyConsumption(model_attributes)
-        model_ippu = IPPU(model_attributes)
-        model_socioeconomic = Socioeconomic(model_attributes)
+        model_enercons = mec.EnergyConsumption(model_attributes, )
+        model_ippu = mip.IPPU(model_attributes, )
+        model_socioeconomic = Socioeconomic(model_attributes, )
 
         # key categories
         cat_ippu_paper = model_attributes.filter_keys_by_attribute(
@@ -2224,7 +2228,7 @@ class AFOLU:
 
         return out
     
-
+    
 
     def estimate_biommass_demand_for_hwp_and_removals(self,
         df_afolu_trajectories: pd.DataFrame,
@@ -2297,9 +2301,7 @@ class AFOLU:
     
 
         # get projections of industrial wood and paper product demand
-        attr_ippu = self.model_attributes.get_attribute_table(self.subsec_name_ippu, )
-        ind_paper = attr_ippu.get_key_value_index(self.cat_ippu_paper, )
-        ind_wood = attr_ippu.get_key_value_index(self.cat_ippu_wood, )
+        ind_paper, ind_wood = self.get_ippu_inds_hwp()
 
         # production data
         _, dfs_ippu_harvested_wood = self.model_ippu.get_production_with_recycling_adjustment(
@@ -3410,7 +3412,6 @@ class AFOLU:
     def get_bcl_adjusted_energy_and_ippu_inputs(self,
         df_afolu_trajectories: pd.DataFrame,
         ledger: 'BiomassCarbonLedger',
-        dict_subsec_to_fuel_demand_biomass: Dict[str, np.ndarray],
         arr_agrc_rfu_energy: np.ndarray,
         vec_c_demands_fuel_entc: np.ndarray,
         vec_c_demands_fuel_total: np.ndarray,
@@ -3454,8 +3455,101 @@ class AFOLU:
             vec_enfu_ged_biomass,
         )
 
+        # (3) get scalars for HWP demand
+        df_out += self.get_bcl_adjusted_hwp_inputs(
+            df_afolu_trajectories, 
+            vec_biomass_scalar_from_bcl,    
+        )
+
         return df_out
 
+
+        
+    def get_bcl_adjusted_hwp_inputs(self,
+        df_afolu_trajectories: pd.DataFrame,
+        vec_biomass_scalar_from_bcl: np.ndarray,   
+        stop_on_error: bool = False,
+    ) -> List[pd.DataFrame]:
+        """Get adjustments to HWP in IPPU. Adjusts scalars for production in
+            Paper and Wood, and can adjust initial production if the initial 
+            scalar is too high. 
+        """
+
+        ##  INITIALIZATION
+
+        cats_ordered = [self.cat_ippu_paper, self.cat_ippu_wood]
+        modvar_prod_init = self.model_ippu.modvar_ippu_prod_qty_init
+        modvar_scalar = self.model_ippu.modvar_ippu_scalar_production
+
+        # get appropritate scalars
+        array_ippu_production_scalar = self.model_attributes.extract_model_variable(#
+            df_afolu_trajectories, 
+            modvar_scalar,
+            expand_to_all_cats = True, 
+            return_type = "array_base", 
+            var_bounds = (0, np.inf),
+        )
+
+        # get initial production
+        array_ippu_production_init = self.model_attributes.extract_model_variable(#
+            df_afolu_trajectories, 
+            modvar_prod_init,
+            expand_to_all_cats = True, 
+            return_type = "array_base", 
+            var_bounds = (0, np.inf),
+        )
+        
+        # get scalars to apply to production
+        vec_scalars_prod = vec_biomass_scalar_from_bcl.copy()
+        changed_prod_init = vec_biomass_scalar_from_bcl[0] < 1
+
+        if changed_prod_init:
+            if (vec_scalars_prod[0] == 0) and stop_on_error:
+                raise InfeasibleError(f"Unable to produce wood at time 0; no forest available to support production.")
+
+            array_ippu_production_init = array_ippu_production_init*vec_scalars_prod[0]
+            vec_scalars_prod = vec_scalars_prod/vec_scalars_prod[0]
+
+        # multiply through
+        array_ippu_production_scalar = sf.do_array_mult(
+            array_ippu_production_scalar,
+            vec_scalars_prod,
+        )
+
+
+        ##  GET OUTPUT DFs
+
+        df_out = []
+
+        # build and reduce *only* to HWP fields
+        df_scale = self.model_attributes.array_to_df(
+            array_ippu_production_scalar,
+            modvar_scalar,
+            reduce_from_all_cats_to_specified_cats = True,
+        )
+        fields_scale = modvar_scalar.build_fields(
+            category_restrictions = cats_ordered,
+        )
+
+        df_out.append(df_scale[fields_scale])
+
+        # add change to initial production if needed
+        if changed_prod_init:
+            df_prod_init = self.model_attributes.array_to_df(
+                array_ippu_production_scalar,
+                modvar_prod_init,
+                reduce_from_all_cats_to_specified_cats = True,
+            )
+
+            fields_prod_init = modvar_prod_init.build_fields(
+                category_restrictions = cats_ordered,
+            )
+
+            df_out.append(df_prod_init[fields_prod_init])
+
+        
+        return df_out
+        
 
 
     def get_bcl_adjusted_thresholds(self,
@@ -6092,6 +6186,22 @@ class AFOLU:
         out = (
             vec_unmet_demand_to_impexp,
             vec_unmet_demand_lost,
+        )
+
+        return out
+    
+
+
+    def get_ippu_inds_hwp(self,
+    ) -> Tuple[int]:
+        """Get IPPU indices for paper and wood, respectively
+        """
+        ind_paper = self.attr_ippu.get_key_value_index(self.cat_ippu_paper, )
+        ind_wood = self.attr_ippu.get_key_value_index(self.cat_ippu_wood, )
+
+        out = (
+            ind_paper, 
+            ind_wood, 
         )
 
         return out
@@ -9422,22 +9532,18 @@ class AFOLU:
         vec_c_demands_hwp = vec_c_demands_hwp_paper + vec_c_demands_hwp_wood
         vec_c_demands_fuel_total = vec_c_demands_total - vec_c_demands_hwp
 
-        # HERE123
-
+        # get energy and IPPU inputs (as well some ENTC outs) that are adjusted
         df_energy_ippu_inputs_adjusted = self.get_bcl_adjusted_energy_and_ippu_inputs(
             df_afolu_trajectories,
             ledger,
-            dict_subsec_to_fuel_demand_biomass,
             arr_agrc_rfu_energy, # total energy from residues in terms of ILU mass
             vec_c_demands_fuel_entc,
             vec_c_demands_fuel_total,
             vec_c_demands_hwp,
             vec_enfu_ged_biomass,
         )
-        self.df_energy_ippu_inputs_adjusted = df_energy_ippu_inputs_adjusted
-        
 
-       
+
         ##  RETURNS
 
         out = (
@@ -10528,8 +10634,9 @@ class AFOLU:
         self.arr_lvst_pop = arr_lvst_pop
         
         # get some output variables
-        #df_out += self.extract_variables_from_ledger(
-        out = self.extract_variables_from_ledger(
+        df_out += df_out_energy_ippu_adjustments
+        
+        df_out += self.extract_variables_from_ledger(
             df_afolu_trajectories,
             arr_lndu_emissions_conv_ag,
             arr_lndu_emissions_conv_bg,
@@ -10539,7 +10646,7 @@ class AFOLU:
             ledger_mangroves,
         )
 
-        return out, df_out_energy_ippu_adjustments, ledger, ledger_mangroves
+        return df_out, ledger, ledger_mangroves
 
         # update imports/exports for agriculture
         arr_agrc_exports_adj = sf.vec_bounds(

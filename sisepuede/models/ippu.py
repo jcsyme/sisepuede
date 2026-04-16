@@ -330,6 +330,15 @@ class IPPU:
             * self.modvar_ippu_****
         """
 
+
+        # assign from attribute variable codes
+        self.model_attributes.assign_subsector_variable_names_from_varcodes(
+            self,
+            self.model_attributes.subsec_name_ippu,
+            stop_on_error = True, 
+        )
+
+        """
         ##  NON-EMISSION VARIABLES
         
         self.modvar_ippu_average_construction_materials_required_per_household = "Average per Household Demand for Construction Materials"
@@ -461,7 +470,7 @@ class IPPU:
         self.modvar_ippu_emissions_produse_pfc3110 = "PFC-31-10 Emissions from Industrial Product Use"
         self.modvar_ippu_emissions_process_pfc5114 = "PFC-51-14 Emissions from Industrial Production Processes"
         self.modvar_ippu_emissions_produse_pfc5114 = "PFC-51-14 Emissions from Industrial Product Use"
-
+        """
         return None
     
 
