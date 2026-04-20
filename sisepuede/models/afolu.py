@@ -2394,9 +2394,9 @@ class AFOLU:
         **kwargs,
     ) -> np.ndarray:
         """Get a vector of the estimated carrying capacity of livestock
-            given a dietary solution from the LDE. NOTE: DEPRECATED, REPLACED
-            BY LP SOLUTION TO MAX POP. See self.run_lde() for a description of
-            function and keyword arguments
+            by maximizing the population of each livestock class (uniformly 
+            scaling each population) while remaining feasible. See 
+            self.run_lde() for a description of function and keyword arguments
         """
         ##  CHECK INPUT
         
@@ -2427,8 +2427,7 @@ class AFOLU:
         except Exception as e:
             raise InfeasibleError(f"Unable to find solution for carrying capacity: {e}")
 
-        global S
-        S = sol
+
         ##  GET SCALING FACTOR FOR BASE POP
 
         scale_factor = sol.x[-1]
