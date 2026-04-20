@@ -9567,6 +9567,7 @@ class AFOLU:
             df_energy_ippu_inputs_adjusted,
             ledger,
             ledger_mangroves,
+            sol_final,
         )
         
         return out
@@ -10601,6 +10602,7 @@ class AFOLU:
             df_out_energy_ippu_adjustments,             # adjusted inputs to energy (biomass, both wood and residuals) and IPPU (HWP)     
             ledger,
             ledger_mangroves,
+            sol_final,
         ) = self.project_integrated_land_use(
             df_afolu_trajectories,
             vec_modvar_lndu_initial_area,
@@ -10645,7 +10647,8 @@ class AFOLU:
             ledger_mangroves,
         )
 
-        return df_out, ledger, ledger_mangroves
+        # Here
+        return df_out, ledger, ledger_mangroves, sol_final
 
         # update imports/exports for agriculture
         arr_agrc_exports_adj = sf.vec_bounds(
