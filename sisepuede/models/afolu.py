@@ -3204,6 +3204,175 @@ class AFOLU:
     
 
 
+    def get_agrc_demand_balance_vars(self,
+        arr_agrc_change_to_net_imports_lost: np.ndarray,
+        arr_agrc_exports_unadj: np.ndarray,
+        arr_agrc_imports_nonfeed_unadj: np.ndarray,
+        arr_agrc_net_import_increase: np.ndarray,
+        arr_agrc_yield: np.ndarray,
+        vec_lde_imports_cereals: np.ndarray,
+        vec_lde_imports_non_cereals: np.ndarray,
+    ) -> List[pd.DataFrame]:
+        """Get the AGRC DataFrames for:
+
+            - demand (satisfied)
+            - exports (adjusted)
+            - imports (adjusted)
+            - yields 
+
+            NOTE: MASS UNITS MUST BE IN UNITS OF modvar_ilu_mass() (output of 
+            project_integrated_land_use())
+        """
+
+        modvar_ilu_area, modvar_ilu_mass = self.get_modvars_for_unit_targets_ilu()
+
+
+        ##  GET ADJUSTED EXPORTS/IMPORTS FOR AG
+
+        arr_agrc_exports_adj = sf.vec_bounds(
+            arr_agrc_exports_unadj - sf.vec_bounds(arr_agrc_net_import_increase, (-np.inf, 0)),
+            (np.zeros(arr_agrc_yield.shape), arr_agrc_yield)
+        )
+        
+        arr_agrc_imports_unadj = self.get_agrc_imports_for_lvst(
+            arr_agrc_exports_adj,
+            arr_agrc_yield,
+            vec_lde_imports_cereals,
+            vec_lde_imports_non_cereals,
+        )
+        arr_agrc_imports_unadj += arr_agrc_imports_nonfeed_unadj
+
+        arr_agrc_imports_adj = sf.vec_bounds(
+            arr_agrc_imports_unadj + sf.vec_bounds(arr_agrc_net_import_increase, (0, np.inf)),
+            (0, np.inf)
+        )
+
+
+        ##  DO SOME UNITS CONVERSION
+
+        # convert yield out units
+        arr_agrc_yield_out = arr_agrc_yield*self.model_attributes.get_variable_unit_conversion_factor(
+            modvar_ilu_mass,
+            self.modvar_agrc_yield,
+            "mass"
+        )
+        # convert exports/imports
+        arr_agrc_exports_adj *= self.model_attributes.get_variable_unit_conversion_factor(
+            modvar_ilu_mass,
+            self.modvar_agrc_adjusted_equivalent_exports,
+            "mass"
+        )
+        arr_agrc_imports_adj *= self.model_attributes.get_variable_unit_conversion_factor(
+            modvar_ilu_mass,
+            self.modvar_agrc_adjusted_equivalent_imports,
+            "mass"
+        )
+
+        # convert change to net imports to yield units
+        arr_agrc_change_to_net_imports_lost *= self.model_attributes.get_variable_unit_conversion_factor(
+            modvar_ilu_mass,
+            self.modvar_agrc_changes_to_net_imports_lost,
+            "mass"
+        )
+
+        
+        ##  ESTIMATE TOTAL DEMAND SATISFIED
+
+        arr_agrc_demand_out = arr_agrc_yield_out*self.model_attributes.get_variable_unit_conversion_factor(
+            self.modvar_agrc_yield,
+            self.modvar_agrc_demand_crops,
+            "mass"
+        )
+        arr_agrc_demand_out += arr_agrc_imports_adj*self.model_attributes.get_variable_unit_conversion_factor(
+            self.modvar_agrc_adjusted_equivalent_imports,
+            self.modvar_agrc_demand_crops,
+            "mass"
+        )
+        arr_agrc_demand_out -= arr_agrc_exports_adj*self.model_attributes.get_variable_unit_conversion_factor(
+            self.modvar_agrc_adjusted_equivalent_exports,
+            self.modvar_agrc_demand_crops,
+            "mass"
+        )
+
+        # add to output data frame
+        df_out = [
+            self.model_attributes.array_to_df(
+                arr_agrc_change_to_net_imports_lost, 
+                self.modvar_agrc_changes_to_net_imports_lost
+            ),
+            self.model_attributes.array_to_df(
+                arr_agrc_demand_out, 
+                self.modvar_agrc_demand_crops
+            ),
+            self.model_attributes.array_to_df(
+                arr_agrc_exports_adj, 
+                self.modvar_agrc_adjusted_equivalent_exports
+            ),
+            self.model_attributes.array_to_df(
+                arr_agrc_imports_adj, 
+                self.modvar_agrc_adjusted_equivalent_imports
+            ),
+            self.model_attributes.array_to_df(
+                arr_agrc_yield_out, 
+                self.modvar_agrc_yield
+            )
+        ]
+
+        return df_out
+    
+
+
+    def get_agrc_imports_for_lvst(self,
+        arr_agrc_exports: np.ndarray,
+        arr_agrc_yield: np.ndarray,          
+        vec_lde_imports_cereals: np.ndarray,
+        vec_lde_imports_non_cereals: np.ndarray,         
+    ) -> np.ndarray:
+        """Get imports of crops by crop type from solution.
+        """
+        ##  INITIALIZATION
+
+        # shortcuts
+        lde = self.lde
+        arr_agrc_frac_animal_feed = self.arrays_agrc.arr_agrc_frac_animal_feed
+        n_non_cereal = len(self.inds_agrc_non_cereal)
+
+        # get weights
+        arr_agrc_yield_avail = np.clip(arr_agrc_yield - arr_agrc_exports, 0.0, np.inf)
+        arr_agrc_yield_for_feed = arr_agrc_yield_avail*arr_agrc_frac_animal_feed
+        
+        arr_w_non_cereals = arr_agrc_yield_for_feed[:, self.inds_agrc_non_cereal]
+        arr_w_non_cereals = sf.check_row_sums(
+            arr_w_non_cereals,
+            thresh_correction = None,
+        )
+        
+        # case where any rows are 0
+        w = np.where(np.isnan(arr_w_non_cereals[:, 0]))[0]
+        if len(w) > 0:
+            arr_w_non_cereals[w, :] = np.nan_to_num(
+                sf.check_row_sums(
+                    arr_agrc_yield[w, :]*arr_agrc_frac_animal_feed[w, :],
+                    thresh_correction = None,
+                ),
+                nan = 1/n_non_cereal,
+                posinf = 1/n_non_cereal,
+            )
+
+
+        ##  ASSIGN TO IMPORTS OUT
+
+        arr_agrc_imports_feed = np.zeros(arr_agrc_frac_animal_feed.shape, )
+        arr_agrc_imports_feed[:, self.inds_agrc_non_cereal] = sf.do_array_mult(
+            arr_w_non_cereals,
+            vec_lde_imports_non_cereals,
+        )
+
+        arr_agrc_imports_feed[:, self.ind_agrc_cereals] = vec_lde_imports_cereals
+
+        return arr_agrc_imports_feed
+
+
 
     def get_agrc_residue_vars(self,
         df_afolu_trajectories: pd.DataFrame,
@@ -8854,7 +9023,7 @@ class AFOLU:
         
         Returns
         -------
-        Tuple with 19 elements:
+        Tuple with 21 elements:
         (
             arr_agrc_change_to_net_imports_lost,
             arr_agrc_crop_drymatter_above_ground,       # total drymatter residue in terms of modvar_agrc_regression_m_above_ground_residue
@@ -8875,6 +9044,8 @@ class AFOLU:
             arrs_yields_per_livestock,
             ledger,
             ledger_mangroves,
+            vec_lde_crop_imports_cereals,               # total cereal crops imported for LVST feed
+            vec_lde_crop_imports_non_cereals,           # total cereal crops imported for non-cereal feed
         )
         """
         
@@ -8959,6 +9130,10 @@ class AFOLU:
             for k in range(n_tp)
         ])
 
+        # lde tracking vectors
+        vec_lde_crop_imports_cereals = np.zeros(n_tp, )
+        vec_lde_crop_imports_non_cereals  = np.zeros(n_tp, )
+
         # residue final use vectors
         vec_agrc_rfu_burned = self.arrays_agrc.arr_agrc_residue_final_use_burned
         vec_agrc_rfu_energy = self.arrays_agrc.arr_agrc_residue_final_use_energy
@@ -8967,8 +9142,7 @@ class AFOLU:
         vec_agrc_rfu_feed = self.arrays_agrc.arr_agrc_residue_final_use_feed
         vec_agrc_rfu_field = self.arrays_agrc.arr_agrc_residue_final_use_field
         
-        
-        
+
         # LNDU VARS
         arr_emissions_conv_ag = np.zeros((n_tp, attr_lndu.n_key_values))
         arr_emissions_conv_bg = np.zeros((n_tp, attr_lndu.n_key_values))
@@ -9116,6 +9290,15 @@ class AFOLU:
             method = lde_method,
         )
         
+        # initialize imports
+        self._update_lde_tracking_vectors(
+            i,
+            sol_init,
+            vec_lde_crop_imports_cereals,
+            vec_lde_crop_imports_non_cereals,
+        )
+
+
         global dict_sol_final
         global dict_sol_prelim
         global dict_supplies
@@ -9336,6 +9519,13 @@ class AFOLU:
             # update AGRC and LVST arrays
             if i + 1 < n_tp:
 
+                self._update_lde_tracking_vectors(
+                    i + 1,
+                    sol_final,
+                    vec_lde_crop_imports_cereals,
+                    vec_lde_crop_imports_non_cereals,
+                )
+
                 # update agriculture arrays
                 rng_agrc = list(range((i + 1)*attr_agrc.n_key_values, (i + 2)*attr_agrc.n_key_values))
                 np.put(arr_agrc_change_to_net_imports_lost, rng_agrc, vec_agrc_unmet_demand_yields_lost)
@@ -9353,7 +9543,7 @@ class AFOLU:
             ######################################################################
 
             # modifies three arrays in place to get biomass available
-            self.update_ilu_residues_available_for_biomass(
+            self._update_ilu_residues_available_for_biomass(
                 i,
                 df_afolu_trajectories,
                 sol_init,
@@ -9438,7 +9628,7 @@ class AFOLU:
 
 
             ##  UPDATE ARRAYS
-
+        
             # non-ag arrays
             rng_put = np.arange((i)*attr_lndu.n_key_values, (i + 1)*attr_lndu.n_key_values)
             np.put(arr_land_use, rng_put, x)
@@ -9512,7 +9702,7 @@ class AFOLU:
         arrs_transitions_adj[i] = arr_transition_adj  # trans_adj
 
         # udpdate output vectors tracking residue mass pathways
-        self.update_ilu_residue_vectors(  
+        self._update_ilu_residue_vectors(  
             arr_agrc_residues_non_feed,
             arr_agrc_rfu_energy,
             arr_agrc_rfu_feed,
@@ -9567,7 +9757,8 @@ class AFOLU:
             df_energy_ippu_inputs_adjusted,
             ledger,
             ledger_mangroves,
-            sol_final,
+            vec_lde_crop_imports_cereals,
+            vec_lde_crop_imports_non_cereals,
         )
         
         return out
@@ -10121,7 +10312,29 @@ class AFOLU:
 
 
 
-    def update_ilu_residue_vectors(self,             
+    def _update_lde_tracking_vectors(self,
+        i: int,
+        sol: 'sco.OptimizeResult',
+        vec_lde_crop_imports_cereals: np.ndarray,
+        vec_lde_crop_imports_non_cereals: np.ndarray,
+    ) -> None:
+        """Update import totals for cereals and non-cereals...
+        """
+        
+        # get totals from solution
+        mat_sol = self.lde.display_as_matrix(sol.x, )
+        total_cereals = mat_sol[:, self.lde.ind_crop_imports_cereals].sum()
+        total_non_cereals = mat_sol[:, self.lde.ind_crop_imports_non_cereals].sum()
+
+        # update
+        vec_lde_crop_imports_cereals[i] = total_cereals
+        vec_lde_crop_imports_non_cereals[i] = total_non_cereals
+
+        return None
+
+
+
+    def _update_ilu_residue_vectors(self,             
         arr_agrc_residues_nonfeed: np.ndarray,
         arr_agrc_rfu_energy: np.ndarray,
         arr_agrc_rfu_feed: np.ndarray,
@@ -10226,7 +10439,7 @@ class AFOLU:
     
 
 
-    def update_ilu_residues_available_for_biomass(self,
+    def _update_ilu_residues_available_for_biomass(self,
         i: int,
         df_afolu_trajectories: pd.DataFrame,
         sol_init: 'sco.OptimizationResult',
@@ -10602,7 +10815,8 @@ class AFOLU:
             df_out_energy_ippu_adjustments,             # adjusted inputs to energy (biomass, both wood and residuals) and IPPU (HWP)     
             ledger,
             ledger_mangroves,
-            sol_final,
+            vec_lde_imports_cereals,
+            vec_lde_imports_non_cereals,
         ) = self.project_integrated_land_use(
             df_afolu_trajectories,
             vec_modvar_lndu_initial_area,
@@ -10647,18 +10861,29 @@ class AFOLU:
             ledger_mangroves,
         )
 
-        # Here
-        return df_out, ledger, ledger_mangroves, sol_final
 
-        # update imports/exports for agriculture
-        arr_agrc_exports_adj = sf.vec_bounds(
-            arr_agrc_exports_unadj - sf.vec_bounds(arr_agrc_net_import_increase, (-np.inf, 0)),
-            (np.zeros(arr_agrc_yield.shape), arr_agrc_yield)
+        ##  GET AGRC AND LVST DEMAND BALANCE VARIABLES
+
+        df_out += self.get_agrc_demand_balance_vars(
+            arr_agrc_change_to_net_imports_lost,
+            arr_agrc_exports_unadj,
+            arr_agrc_imports_nonfeed_unadj,
+            arr_agrc_net_import_increase,
+            arr_agrc_yield,
+            vec_lde_imports_cereals,
+            vec_lde_imports_non_cereals,
         )
-        arr_agrc_imports_adj = sf.vec_bounds(
-            arr_agrc_imports_unadj + sf.vec_bounds(arr_agrc_net_import_increase, (0, np.inf)),
-            (0, np.inf)
-        )
+
+        # Here
+        return df_out, ledger, ledger_mangroves
+
+    
+        
+        
+    
+
+
+
 
         # update demand from population
         arr_lvst_exports_adj = sf.vec_bounds(
@@ -10716,30 +10941,7 @@ class AFOLU:
 
         ##  UNIT CONVERSIONS
 
-        # convert yield out units
-        arr_agrc_yield_out = arr_agrc_yield*self.model_attributes.get_variable_unit_conversion_factor(
-            self.modvar_agrc_yf,
-            self.modvar_agrc_yield,
-            "mass"
-        )
-        # convert exports/imports
-        arr_agrc_exports_adj *= self.model_attributes.get_variable_unit_conversion_factor(
-            self.modvar_agrc_yf,
-            self.modvar_agrc_adjusted_equivalent_exports,
-            "mass"
-        )
-        arr_agrc_imports_adj *= self.model_attributes.get_variable_unit_conversion_factor(
-            self.modvar_agrc_yf,
-            self.modvar_agrc_adjusted_equivalent_imports,
-            "mass"
-        )
-
-        # convert change to net imports to yield units
-        arr_agrc_change_to_net_imports_lost *= self.model_attributes.get_variable_unit_conversion_factor(
-            self.modvar_agrc_yf,
-            self.modvar_agrc_changes_to_net_imports_lost,
-            "mass"
-        )
+        
         """
         # JSYME REMOVED 2023-07-13: removing modvar_agrc_net_imports variable
         # self.modvar_agrc_net_imports = "Change to Net Imports of Crops"
@@ -10750,22 +10952,7 @@ class AFOLU:
             "mass"
         )
         """;
-        # get total domestic crop demand
-        arr_agrc_demand_out = arr_agrc_yield_out*self.model_attributes.get_variable_unit_conversion_factor(
-            self.modvar_agrc_yield,
-            self.modvar_agrc_demand_crops,
-            "mass"
-        )
-        arr_agrc_demand_out += arr_agrc_imports_adj*self.model_attributes.get_variable_unit_conversion_factor(
-            self.modvar_agrc_adjusted_equivalent_imports,
-            self.modvar_agrc_demand_crops,
-            "mass"
-        )
-        arr_agrc_demand_out -= arr_agrc_exports_adj*self.model_attributes.get_variable_unit_conversion_factor(
-            self.modvar_agrc_adjusted_equivalent_exports,
-            self.modvar_agrc_demand_crops,
-            "mass"
-        )
+        
 
 
         # convert land use conversion areas totals to config area
@@ -10778,26 +10965,26 @@ class AFOLU:
         # add to output data frame
         df_out += [
             df_agrc_frac_cropland,
-            self.model_attributes.array_to_df(
-                arr_agrc_change_to_net_imports_lost, 
-                self.modvar_agrc_changes_to_net_imports_lost
-            ),
-            self.model_attributes.array_to_df(
-                arr_agrc_demand_out, 
-                self.modvar_agrc_demand_crops
-            ),
-            self.model_attributes.array_to_df(
-                arr_agrc_exports_adj, 
-                self.modvar_agrc_adjusted_equivalent_exports
-            ),
-            self.model_attributes.array_to_df(
-                arr_agrc_imports_adj, 
-                self.modvar_agrc_adjusted_equivalent_imports
-            ),
-            self.model_attributes.array_to_df(
-                arr_agrc_yield_out, 
-                self.modvar_agrc_yield
-            ),
+            #self.model_attributes.array_to_df(
+            #    arr_agrc_change_to_net_imports_lost, 
+            #    self.modvar_agrc_changes_to_net_imports_lost
+            #),
+            #self.model_attributes.array_to_df(
+            #    arr_agrc_demand_out, 
+            #    self.modvar_agrc_demand_crops
+            #),
+            #self.model_attributes.array_to_df(
+            #    arr_agrc_exports_adj, 
+            #    self.modvar_agrc_adjusted_equivalent_exports
+            #),
+            #self.model_attributes.array_to_df(
+            #    arr_agrc_imports_adj, 
+            #    self.modvar_agrc_adjusted_equivalent_imports
+            #),
+            #self.model_attributes.array_to_df(
+            #    arr_agrc_yield_out, 
+            #    self.modvar_agrc_yield
+            #),
             self.model_attributes.array_to_df(
                 vec_agrc_food_produced_wasted_before_consumption, 
                 self.modvar_agrc_total_food_lost_in_ag
