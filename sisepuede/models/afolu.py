@@ -10956,7 +10956,7 @@ class AFOLU:
         )
 
 
-        ##  GET AGRC AND LVST DEMAND BALANCE VARIABLES
+        ##  GET VARIABLES FROM ILU OUTPUT
 
         # demand balance (dem/exp/imp/prod) in agrc
         df_out += self.build_varsout_agrc_demand_balance_from_ilu(
