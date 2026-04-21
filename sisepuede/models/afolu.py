@@ -8518,6 +8518,82 @@ class AFOLU:
         return out
 
 
+
+    def get_lvst_demand_balance_vars(self,
+        arr_lvst_change_to_net_imports_lost: np.ndarray,
+        arr_lvst_exports_unadj: np.ndarray,
+        arr_lvst_imports_unadj: np.ndarray,
+        arr_lvst_net_import_increase: np.ndarray,
+        arr_lvst_pop: np.ndarray,
+        vec_lvst_aggregate_animal_mass: np.ndarray,
+    ) -> List[pd.DataFrame]:
+        """Get the LVST DataFrames for:
+
+            - demand (satisfied)
+            - exports (adjusted)
+            - imports (adjusted)
+            - yields 
+
+            NOTE: MASS UNITS MUST BE IN UNITS OF modvar_ilu_mass() (output of 
+            project_integrated_land_use())
+        """
+
+        _, modvar_ilu_mass = self.get_modvars_for_unit_targets_ilu()
+
+        # update demand from population
+        arr_lvst_exports_adj = sf.vec_bounds(
+            arr_lvst_exports_unadj - sf.vec_bounds(arr_lvst_net_import_increase, (-np.inf, 0)),
+            (np.zeros(arr_lvst_pop.shape), arr_lvst_pop)
+        )
+        arr_lvst_imports_adj = sf.vec_bounds(
+            arr_lvst_imports_unadj + sf.vec_bounds(arr_lvst_net_import_increase, (0, np.inf)),
+            (0, np.inf)
+        )
+        arr_lvst_demand = arr_lvst_pop + arr_lvst_imports_adj - arr_lvst_exports_adj
+
+        # convert animal mass to correct unit--recall that, for use in the integrated model, it was converted to YF units
+        vec_lvst_aggregate_animal_mass *= self.model_attributes.get_variable_unit_conversion_factor(
+            modvar_ilu_mass,
+            self.modvar_lvst_total_animal_mass,
+            "mass",
+        )
+
+
+        ##  BUILD OUTPUT DATAFRAME 
+        #
+        # done as list
+
+        df_out = [
+            self.model_attributes.array_to_df(
+                arr_lvst_change_to_net_imports_lost, 
+                self.modvar_lvst_changes_to_net_imports_lost,
+            ),
+            self.model_attributes.array_to_df(
+                arr_lvst_demand, 
+                self.modvar_lvst_demand_livestock,
+            ),
+            self.model_attributes.array_to_df(
+                arr_lvst_exports_adj, 
+                self.modvar_lvst_adjusted_equivalent_exports,
+            ),
+            self.model_attributes.array_to_df(
+                arr_lvst_imports_adj, 
+                self.modvar_lvst_adjusted_equivalent_imports,
+            ),
+            self.model_attributes.array_to_df(
+                arr_lvst_pop, 
+                self.modvar_lvst_pop,
+            ),
+            self.model_attributes.array_to_df(
+                vec_lvst_aggregate_animal_mass, 
+                self.modvar_lvst_total_animal_mass
+            )
+        ]
+
+        return df_out
+    
+
+
     def get_lvst_demands_for_feed_and_land(self,
         df_afolu_trajectories: pd.DataFrame,
         vec_agrc_frac_for_lvst: np.ndarray,
@@ -10874,28 +10950,21 @@ class AFOLU:
             vec_lde_imports_non_cereals,
         )
 
+
+        df_out += self.get_lvst_demand_balance_vars(
+            arr_lvst_change_to_net_imports_lost,
+            arr_lvst_exports_unadj,
+            arr_lvst_imports_unadj,
+            arr_lvst_net_import_increase,
+            arr_lvst_pop,
+            vec_lvst_aggregate_animal_mass,
+        )
+
         # Here
         return df_out, ledger, ledger_mangroves
 
-    
+
         
-        
-    
-
-
-
-
-        # update demand from population
-        arr_lvst_exports_adj = sf.vec_bounds(
-            arr_lvst_exports_unadj - sf.vec_bounds(arr_lvst_net_import_increase, (-np.inf, 0)),
-            (np.zeros(arr_lvst_pop.shape), arr_lvst_pop)
-        )
-        arr_lvst_imports_adj = sf.vec_bounds(
-            arr_lvst_imports_unadj + sf.vec_bounds(arr_lvst_net_import_increase, (0, np.inf)),
-            (0, np.inf)
-        )
-        arr_lvst_demand = arr_lvst_pop + arr_lvst_imports_adj - arr_lvst_exports_adj
-
         # assign some dfs that are used below in other subsectors
         df_agrc_frac_cropland = self.model_attributes.array_to_df(
             arr_agrc_frac_cropland, 
@@ -11014,22 +11083,22 @@ class AFOLU:
                 include_scalars = True
             ),
 
-            self.model_attributes.array_to_df(
-                arr_lvst_change_to_net_imports_lost, 
-                self.modvar_lvst_changes_to_net_imports_lost
-            ),
-            self.model_attributes.array_to_df(
-                arr_lvst_demand, 
-                self.modvar_lvst_demand_livestock
-            ),
-            self.model_attributes.array_to_df(
-                arr_lvst_exports_adj, 
-                self.modvar_lvst_adjusted_equivalent_exports
-            ),
-            self.model_attributes.array_to_df(
-                arr_lvst_imports_adj, 
-                self.modvar_lvst_adjusted_equivalent_imports
-            )
+            #self.model_attributes.array_to_df(
+            #    arr_lvst_change_to_net_imports_lost, 
+            #    self.modvar_lvst_changes_to_net_imports_lost
+            #),
+            #self.model_attributes.array_to_df(
+            #    arr_lvst_demand, 
+            #    self.modvar_lvst_demand_livestock
+            #),
+            #self.model_attributes.array_to_df(
+            #    arr_lvst_exports_adj, 
+            #    self.modvar_lvst_adjusted_equivalent_exports
+            #),
+            #self.model_attributes.array_to_df(
+            #    arr_lvst_imports_adj, 
+            #    self.modvar_lvst_adjusted_equivalent_imports
+            #)
         ]
 
 
@@ -11371,29 +11440,22 @@ class AFOLU:
             return_type = "array_units_corrected",
         )
 
-        # convert animal mass to correct unit--recall that, for use in the integrated model, it was converted to YF units
-        vec_lvst_aggregate_animal_mass *= self.model_attributes.get_variable_unit_conversion_factor(
-            self.modvar_agrc_yf,
-            self.modvar_lvst_total_animal_mass,
-            "mass",
-        )
 
         # add to output dataframe
         df_out += [
             self.model_attributes.array_to_df(
                 arr_lvst_emissions_ch4_ef*arr_lvst_pop, 
                 self.modvar_lvst_emissions_ch4_ef
-            ),
-
-            self.model_attributes.array_to_df(
-                arr_lvst_pop, 
-                self.modvar_lvst_pop,
-            ),
-
-            self.model_attributes.array_to_df(
-                vec_lvst_aggregate_animal_mass, 
-                self.modvar_lvst_total_animal_mass
             )
+            #self.model_attributes.array_to_df(
+            #    arr_lvst_pop, 
+            #    self.modvar_lvst_pop,
+            #),
+            #
+            #self.model_attributes.array_to_df(
+            #    vec_lvst_aggregate_animal_mass, 
+            #    self.modvar_lvst_total_animal_mass
+            #)
         ]
 
 
