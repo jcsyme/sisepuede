@@ -1620,6 +1620,53 @@ class EnergyConsumption:
     
 
 
+    def get_subsec_dict_fuel_to_fuel_modvar(self,
+        subsec: str,
+        key: str = "fuel_fraction",
+        values_as_modvars: bool = False, 
+    ) -> Dict[str, str]:
+        """Get a fuel to model variable dictionary for a subsector. 
+
+        Function Arguments
+        ------------------
+        subsec : str
+            Subsector to pull
+
+        Keyword Arguments
+        -----------------
+        key : str 
+            Key from get_SUBSEC_dict_fuel_categories_to_fuel_variables() to 
+            retrieve.
+        values_as_modvars : bool
+            * True:     Values in the returned dictionary are ModelVariables
+            * False:    Values in the returned dictionary are model variable 
+                        names (strings)
+        """
+        matt = self.model_attributes
+
+        ##  GET FUNCTION BASED ON SUBSEC
+
+        if subsec == matt.subsec_name_inen:
+            dict_out = self.get_inen_dict_fuel_categories_to_fuel_variables()[0]
+        
+        elif subsec == matt.subsec_name_scoe:
+            dict_out = self.get_scoe_dict_fuel_categories_to_fuel_variables()[0]
+
+        elif subsec == matt.subsec_name_trns:
+            dict_out = self.get_trns_dict_fuel_categories_to_fuel_variables()[0]
+
+        # extract key
+        dict_out = dict((k, v.get(key)) for k, v in dict_out.items())
+
+        if values_as_modvars:
+            dict_out = dict(
+                (k, matt.get_variable(v)) for k, v in dict_out.items()
+            )
+
+        return dict_out
+    
+
+
     def get_trns_dict_fuel_categories_to_fuel_variables(self
     ) -> dict:
         """

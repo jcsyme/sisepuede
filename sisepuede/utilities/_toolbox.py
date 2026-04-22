@@ -4749,6 +4749,7 @@ def vector_limiter(
 
     # replace those beyond the supremum
     w_sup = np.where(vec_total > thresh_sup)[0]
+    print(f"w_sup = {w_sup}")
     if len(w_sup) > 0:
         for v in vecs:
             elems_new = thresh_sup*v[w_sup]/vec_total[w_sup]
