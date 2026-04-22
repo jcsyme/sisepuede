@@ -6235,7 +6235,7 @@ class AFOLU:
     def get_ilu_arrays_for_fuel_shift(self,
         df_input: pd.DataFrame,
         subsec: str,
-    ) -> np.ndarray:
+    ) -> Dict[str, np.ndarray]:
         """Retrieve array of fuel fractions by category within a subsector. Used
             for setting target allocations in the time series simplex shifter 
             for biomass. 
