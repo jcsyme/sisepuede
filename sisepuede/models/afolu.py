@@ -1638,6 +1638,78 @@ class AFOLU:
     
 
 
+    def build_varsout_agrc_food_wasted(self,
+        df_afolu_trajectories: pd.DataFrame,
+        arr_agrc_production_nonfeed_unadj: np.ndarray,
+        vec_agrc_frac_production_wasted: np.ndarray,
+    ) -> Tuple[List[pd.DataFrame], pd.DataFrame]:
+        """Get land use outputs that come from the integrated land use
+            routine. Returns:
+
+            (
+                dfs_out,                # output dfs for land use conversion and 
+                                        #   area in terms of variable output 
+                                        #   units
+                df_agrc_frac_cropland,  # fraction of cropland by crop
+                df_land_use_ilu,        # land  use in terms of ILU area units
+            )
+        """
+        
+        ##  INITIALIZATION
+
+        _, modvar_ilu_mass = self.get_modvars_for_unit_targets_ilu()
+
+        # get total production wasted FLAG!!HEREHERE - check if arr_agrc_production_nonfeed_unadj is correct
+
+        vec_agrc_food_produced_wasted_before_consumption = np.sum(
+            arr_agrc_production_nonfeed_unadj.transpose()*vec_agrc_frac_production_wasted, 
+            axis = 0,
+        )
+
+        vec_agrc_food_produced_wasted_before_consumption *= (
+            self
+            .model_attributes
+            .get_variable_unit_conversion_factor(
+                modvar_ilu_mass,
+                self.modvar_agrc_total_food_lost_in_ag,
+                "mass",
+            )
+        )
+        
+        # get total production that is wasted or lost that ends up in landfills
+        vec_agrc_frac_production_loss_to_landfills = self.model_attributes.extract_model_variable(#
+            df_afolu_trajectories, 
+            self.modvar_agrc_frac_production_loss_to_msw, 
+            return_type = "array_base", 
+            var_bounds = (0, 1),
+        )
+
+        vec_agrc_food_wasted_to_landfills = vec_agrc_food_produced_wasted_before_consumption*vec_agrc_frac_production_loss_to_landfills
+        vec_agrc_food_wasted_to_landfills *= self.model_attributes.get_variable_unit_conversion_factor(
+            self.modvar_agrc_total_food_lost_in_ag,
+            self.modvar_agrc_total_food_lost_in_ag_to_msw,
+            "mass",
+        )
+
+
+        ##  SET OUTPUT
+
+        # add to output data frame
+        df_out += [
+            self.model_attributes.array_to_df(
+                vec_agrc_food_produced_wasted_before_consumption, 
+                self.modvar_agrc_total_food_lost_in_ag
+            ),
+            self.model_attributes.array_to_df(
+                vec_agrc_food_wasted_to_landfills, 
+                self.modvar_agrc_total_food_lost_in_ag_to_msw
+            )
+        ]
+
+        return df_out
+    
+
+
     def build_varsout_lndu_from_ilu(self,
         arr_agrc_frac_cropland: np.ndarray,
         arr_land_use: np.ndarray,
@@ -10969,6 +11041,13 @@ class AFOLU:
             vec_lde_imports_non_cereals,
         )
 
+        # add in food wasted
+        df_out += self.build_varsout_agrc_food_wasted(
+            df_afolu_trajectories,
+            arr_agrc_production_nonfeed_unadj,
+            vec_agrc_frac_production_wasted,
+        )
+
         # demand balance (dem/exp/imp/prod) in lvst
         df_out += self.build_varsout_lvst_demand_balance_from_ilu(
             arr_lvst_change_to_net_imports_lost,
@@ -10995,51 +11074,6 @@ class AFOLU:
         return df_out, ledger, ledger_mangroves
 
 
-    
-        
-
-        # get total production wasted FLAG!!HEREHERE - check if arr_agrc_production_nonfeed_unadj is correct
-
-        vec_agrc_food_produced_wasted_before_consumption = np.sum(
-            arr_agrc_production_nonfeed_unadj.transpose()*vec_agrc_frac_production_wasted, 
-            axis = 0,
-        )
-        vec_agrc_food_produced_wasted_before_consumption *= self.model_attributes.get_variable_unit_conversion_factor(
-            self.modvar_agrc_yf,
-            self.modvar_agrc_total_food_lost_in_ag,
-            "mass"
-        )
-        
-        # get total production that is wasted or lost that ends up in landfills
-        vec_agrc_frac_production_loss_to_landfills = self.model_attributes.extract_model_variable(#
-            df_afolu_trajectories, 
-            self.modvar_agrc_frac_production_loss_to_msw, 
-            return_type = "array_base", 
-            var_bounds = (0, 1),
-        )
-        vec_agrc_food_wasted_to_landfills = vec_agrc_food_produced_wasted_before_consumption*vec_agrc_frac_production_loss_to_landfills
-        vec_agrc_food_wasted_to_landfills *= self.model_attributes.get_variable_unit_conversion_factor(
-            self.modvar_agrc_total_food_lost_in_ag,
-            self.modvar_agrc_total_food_lost_in_ag_to_msw,
-            "mass",
-        )
-
-
-        ##  UNIT CONVERSIONS
-
-        
-        # add to output data frame
-        df_out += [
-            self.model_attributes.array_to_df(
-                vec_agrc_food_produced_wasted_before_consumption, 
-                self.modvar_agrc_total_food_lost_in_ag
-            ),
-            self.model_attributes.array_to_df(
-                vec_agrc_food_wasted_to_landfills, 
-                self.modvar_agrc_total_food_lost_in_ag_to_msw
-            )
-        ]
-
 
 
         ####################################
@@ -11060,7 +11094,7 @@ class AFOLU:
             "area",
         )
         
-        # get land use sequestration in biomass
+        # get land use sequestration in biomass IMPORTANT HERE123 - ADD C fraction of biomass
         arr_lndu_sequestration_co2e = -1*arr_land_use*arr_lndu_ef_sequestration
         arr_lndu_sequestration_co2e *= self.model_attributes.get_variable_unit_conversion_factor(
             self.modvar_lndu_biomass_growth_rate,
@@ -11254,8 +11288,10 @@ class AFOLU:
             self.modvar_frst_frac_temperate_nutrient_rich: arr_frst_biomass_consumed_temperate,
             self.modvar_frst_frac_tropical: arr_frst_biomass_consumed_tropical
         }
+
         # loop over tropical/temperate NP/temperate NR
         arr_frst_emissions_co2_fires = 0.0
+        
         for modvar in self.modvar_list_frst_frac_temptrop:
             # soil category
             cat_soil = clean_schema(self.model_attributes.get_variable_attribute(modvar, pycat_soil))
