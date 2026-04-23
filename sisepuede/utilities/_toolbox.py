@@ -2347,6 +2347,7 @@ def merge_output_df_list(
     model_attributes: 'ModelAttributes',
     additional_dimensions: Union[List[str], None] = None,
     merge_type: str = "concatenate",
+    overwrite_from_right: bool = False,
 ) -> pd.DataFrame:
     """Merge data frames together into a single output when they share ordered 
         dimensions of analysis (from ModelAttribute class)
@@ -2366,6 +2367,9 @@ def merge_output_df_list(
         * "concatenate": verify index equality and concatenate
         * "merge": slower, but may be necessary if row indices are not the 
             same across inputs
+    overwrite_from_right : bool
+        Overwrite fields in left-frames? If True, for any field, will keep the
+        right-most instance.
     """
     # check type
     valid_merge_types = ["concatenate", "merge"]
@@ -2376,6 +2380,7 @@ def merge_output_df_list(
     # start building the output dataframe and retrieve dimensions of analysis for merging/ordering
     dfs_output_data = [x for x in dfs_output_data if (x is not None)]
     df_out = dfs_output_data[0].copy()
+
     dims_to_order = model_attributes.sort_ordered_dimensions_of_analysis.copy()
     dims_to_order += (
         sorted(list(set(additional_dimensions)))
@@ -2392,6 +2397,28 @@ def merge_output_df_list(
         return dfs_output_data[0]
 
  
+    # iterate to check for overwrites
+    if overwrite_from_right:
+
+        warnings.warn("Warning! Using overwrite_from_right. Only used if length of list is 2.")
+    
+        if len(dfs_output_data) == 2:
+
+            fields_drop = [
+                x for x in dfs_output_data[1].columns 
+                if True and 
+                (x not in dims_to_order) and
+                (x in dfs_output_data[0].columns)
+            ]
+
+            if len(fields_drop) > 0:
+                dfs_output_data[0] = (
+                    dfs_output_data[0]
+                    .drop(columns = fields_drop, )
+                )
+            
+
+
     # loop to merge where applicable
     for i in range(1, len(dfs_output_data)):
         if merge_type == "concatenate":

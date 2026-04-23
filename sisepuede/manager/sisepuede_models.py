@@ -694,7 +694,7 @@ class SISEPUEDEModels:
 
         if "Energy" in models_run:
             self._log(
-                "Running Energy (Fugitive Emissions)", 
+                "Running Energy (Fugitive Emissions) and adjusting conversion emissions for biomass.", 
                 type_log = "info",
             )
 
