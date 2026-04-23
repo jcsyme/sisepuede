@@ -1012,7 +1012,6 @@ class EnergyConsumption:
             x for x in fields_biomass_from_out
             if x in df_out.columns
         ]
-        print(f"cols = {df_out.columns}")
 
 
         ##  GET TOTALS
@@ -1075,7 +1074,6 @@ class EnergyConsumption:
             posinf = 0.0,
         )
 
-        print(f"vec_scalar_to_apply = {vec_scalar_to_apply}")
         # do the multiplication
         arr_emissions_conv = sf.do_array_mult(
             arr_emissions_conv,
@@ -1089,10 +1087,6 @@ class EnergyConsumption:
         # otherwise, add to output
         df_out[fields_lndu_conv] = arr_emissions_conv
         df_out[fields_lndu_conv_away] = arr_emissions_conv_away
-
-        print("Totals:")
-        print(df_out[fields_lndu_conv].sum(axis = 1, ).head())
-        print(df_out[fields_lndu_conv_away].sum(axis = 1, ).head())
 
         return df_out
     
@@ -4765,7 +4759,6 @@ class EnergyConsumption:
 
         # KLUGE: perform accounting adjustment for conversions?
         if self.subsec_name_fgtv in subsectors_project:
-            print("Adjusting!")
             df_out = self._adjust_forest_conversion_biomass(
                 df_trajectories,
                 df_out,

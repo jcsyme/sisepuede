@@ -733,17 +733,23 @@ class SISEPUEDEModels:
                     else df_return
                 )
 
+                # update land use aggregate
+                self.model_attributes.add_subsector_emissions_aggregates(
+                    df_return[0], 
+                    [self.model_attributes.subsec_name_lndu], 
+                    stop_on_missing_fields_q = False,
+                )
+
                 self._log(
                     f"Fugitive Emissions from Energy model run successfully completed", 
                     type_log = "info",
                 )
-                print("Running ok")
+
             except Exception as e:
                 self._log(
                     f"Error running Fugitive Emissions from Energy model: {e}", 
                     type_log = "error",
                 )
-                print(f"Error running Fugitive Emissions from Energy model: {e}")
 
         
         ##  7. Add Socioeconomic output at the end to avoid double-initiation throughout models
