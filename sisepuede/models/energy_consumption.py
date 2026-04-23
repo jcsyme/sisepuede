@@ -134,7 +134,7 @@ class EnergyConsumption:
         Assign shortcut properties for land use categories, including crosswalks
             mapping forests to their land use category
         """
-        print("here!")
+
         attr_lndu = self.model_attributes.get_attribute_table(self.model_attributes.subsec_name_lndu)
         pycat_frst = self.model_attributes.get_subsector_attribute(
             self.model_attributes.subsec_name_frst, 
@@ -249,7 +249,7 @@ class EnergyConsumption:
 
 
     def get_neenergy_input_output_fields(self,
-    ):
+    ) -> Tuple[List]:
         required_doa = [self.model_attributes.dim_time_period]
         required_vars, output_vars = self.model_attributes.get_input_output_fields(self.required_subsectors)
 
@@ -383,8 +383,10 @@ class EnergyConsumption:
             self.modvar_entc_nemomod_emissions_co2_elec,
             self.modvar_entc_nemomod_emissions_co2_fpr_biomass,
             self.modvar_frst_conversion_frac_for_fuelwood,
+            self.modvar_inen_emissions_co2_biomass,
             self.modvar_lndu_emissions_conv,
             self.modvar_lndu_emissions_conv_away,
+            self.modvar_scoe_emissions_co2_biomass
         ]
 
 
@@ -947,6 +949,154 @@ class EnergyConsumption:
     ######################################
     #    SUBSECTOR SPECIFIC FUNCTIONS    #
     ######################################
+
+    def _adjust_forest_conversion_biomass(self,
+        df_neenergy_trajectories: pd.DataFrame,
+        df_out: pd.DataFrame,
+    ) -> pd.DataFrame:
+        """Using biomass that was combusted, adjust forest conversion emissions
+            to shift accounting if some fraction of that is used for biomass.
+        """
+        ##  INITIALIZE
+
+        matt = self.model_attributes
+
+        # get model variables--afolu
+        modvar_frst_frac = matt.get_variable(self.modvar_frst_conversion_frac_for_fuelwood, )
+        modvar_lndu_conv = matt.get_variable(self.modvar_lndu_emissions_conv, )
+        modvar_lndu_conv_away = matt.get_variable(self.modvar_lndu_emissions_conv_away, )
+
+
+        ##  GET ENERGY VARIABLES
+
+        # model variables--energy (NOTE: all are config mass units)
+        modvar_bmass_inen = matt.get_variable(self.modvar_inen_emissions_co2_biomass, )
+        modvar_bmass_scoe = matt.get_variable(self.modvar_scoe_emissions_co2_biomass, )
+        modvar_bmass_entc_fp = matt.get_variable(self.modvar_entc_nemomod_emissions_co2_fpr_biomass, )
+        modvar_bmass_entc_el = matt.get_variable(self.modvar_entc_nemomod_emissions_co2_elec, )
+
+        # dictionary to map biomass to ENTC tec
+        (
+            _,
+            dict_fuel_to_gnrt_techs,
+        ) = self.get_entc_to_enfu_dicts()
+
+        cat_entc_biomass = dict_fuel_to_gnrt_techs.get(self.cat_enfu_biomass)[0]
+
+        # other categories
+        pycat_lndu = self.model_attributes.get_subsector_attribute(
+            self.model_attributes.subsec_name_lndu,
+            "pycategory_primary_element"
+        )
+
+
+        ##  ALL FIELDS HAVE SAME UNITS
+
+        # fields from the input df
+        fields_biomass_from_in = (
+            modvar_bmass_entc_fp.fields 
+            + modvar_bmass_entc_el.build_fields(
+                category_restrictions = [cat_entc_biomass],
+            )
+            + modvar_bmass_inen.fields 
+            + modvar_bmass_scoe.fields
+        )
+        fields_biomass_from_in = [
+            x for x in fields_biomass_from_in
+            if x in df_neenergy_trajectories.columns
+        ]
+
+        # fields coming from the EnergyConsumption output
+        fields_biomass_from_out = []#modvar_bmass_inen.fields + modvar_bmass_scoe.fields
+        fields_biomass_from_out = [
+            x for x in fields_biomass_from_out
+            if x in df_out.columns
+        ]
+        print(f"cols = {df_out.columns}")
+
+
+        ##  GET TOTALS
+
+        # in terms of configuration units
+        vec_total_bmass = (
+            df_out[fields_biomass_from_out]
+            .sum(axis = 1, )
+            .to_numpy()
+        )
+        vec_total_bmass += (
+            df_neenergy_trajectories[fields_biomass_from_in]
+            .sum(axis = 1, )
+            .to_numpy()
+        )
+        
+
+
+        ##  ITERATE OVER VARS TO MODIFY
+
+        # get fields
+        cats_lndu = [self.cat_lndu_fstp, self.cat_lndu_fsts]
+        fields_lndu_conv = modvar_lndu_conv.build_fields(
+            category_restrictions = {
+                f"{pycat_lndu}_dim1": cats_lndu,
+            }
+        )
+        fields_lndu_conv_away = modvar_lndu_conv_away.build_fields(
+            category_restrictions = cats_lndu,
+        )
+
+        # get the fraction of forest conv avail for biomass
+        vec_frac_forest_conv_avail_for_bmass = matt.extract_model_variable(
+            df_neenergy_trajectories, 
+            modvar_frst_frac,
+            return_type = "array_base", 
+            var_bounds = (0, 1), 
+        )
+
+        # extract emissions from the input and check; if 0, no need to do anything
+        arr_emissions_conv = df_neenergy_trajectories[fields_lndu_conv].to_numpy()
+        arr_emissions_conv_away = df_neenergy_trajectories[fields_lndu_conv_away].to_numpy()
+        vec_emissions_conv = arr_emissions_conv.sum(axis = 1, )
+
+        if vec_emissions_conv.max() == 0:
+            return df_out
+        
+        
+        # basic arithmetic here
+        vec_emissions_conv_avail = vec_emissions_conv*vec_frac_forest_conv_avail_for_bmass
+        vec_emissions_conv_avail_used = np.clip(
+            vec_total_bmass,
+            np.zeros(vec_emissions_conv_avail.shape[0], ),
+            vec_emissions_conv_avail,
+        )
+
+        vec_scalar_to_apply = np.nan_to_num(
+            (vec_emissions_conv - vec_emissions_conv_avail_used)/vec_emissions_conv,
+            nan = 0.0,
+            posinf = 0.0,
+        )
+
+        print(f"vec_scalar_to_apply = {vec_scalar_to_apply}")
+        # do the multiplication
+        arr_emissions_conv = sf.do_array_mult(
+            arr_emissions_conv,
+            vec_scalar_to_apply,
+        )
+        arr_emissions_conv_away = sf.do_array_mult(
+            arr_emissions_conv_away,
+            vec_scalar_to_apply,
+        )
+        
+        # otherwise, add to output
+        df_out[fields_lndu_conv] = arr_emissions_conv
+        df_out[fields_lndu_conv_away] = arr_emissions_conv_away
+
+        print("Totals:")
+        print(df_out[fields_lndu_conv].sum(axis = 1, ).head())
+        print(df_out[fields_lndu_conv_away].sum(axis = 1, ).head())
+
+        return df_out
+    
+
 
     def get_agrc_lvst_prod_and_intensity(self,
         df_neenergy_trajectories: pd.DataFrame
@@ -4432,147 +4582,6 @@ class EnergyConsumption:
 
 
 
-    def adjust_forest_conversion_biomass(self,
-        df_neenergy_trajectories: pd.DataFrame,
-        df_out: pd.DataFrame,
-    ) -> pd.DataFrame:
-        """Using biomass that was combusted, adjust forest conversion emissions
-            to shift accounting if some fraction of that 
-        """
-        ##  INITIALIZE
-
-        matt = self.model_attributes
-
-        # get model variables--afolu
-        modvar_frst_frac = matt.get_variable(self.modvar_frst_conversion_frac_for_fuelwood, )
-        modvar_lndu_conv = matt.get_variable(self.modvar_lndu_emissions_conv, )
-        modvar_lndu_conv_away = matt.get_variable(self.modvar_lndu_emissions_conv_away, )
-
-
-        ##  GET ENERGY VARIABLES
-
-        # model variables--energy (NOTE: all are config mass units)
-        modvar_bmass_inen = matt.get_variable(self.modvar_inen_emissions_co2_biomass, )
-        modvar_bmass_scoe = matt.get_variable(self.modvar_scoe_emissions_co2_biomass, )
-        modvar_bmass_entc_fp = matt.get_variable(self.modvar_entc_nemomod_emissions_co2_fpr_biomass, )
-        modvar_bmass_entc_el = matt.get_variable(self.modvar_entc_nemomod_emissions_co2_elec, )
-
-        # dictionary to map biomass to ENTC tec
-        (
-            dict_gnrt_tech_to_fuel,
-            dict_fuel_to_gnrt_techs,
-        ) = self.get_entc_to_enfu_dicts()
-
-        cat_entc_biomass = dict_fuel_to_gnrt_techs.get(self.cat_enfu_biomass)[0]
-
-        # other categories
-        pycat_lndu = self.model_attributes.get_subsector_attribute(
-            self.model_attributes.subsec_name_lndu,
-            "pycategory_primary_element"
-        )
-
-
-        ##  ALL FIELDS HAVE SAME UNITS
-
-        # fields from the input df
-        fields_biomass_from_in = modvar_bmass_entc_fp.fields + modvar_bmass_entc_el.build_fields(
-            category_restrictions = [cat_entc_biomass],
-        )
-        fields_biomass_from_in = [
-            x for x in fields_biomass_from_in
-            if x in df_neenergy_trajectories.columns
-        ]
-
-        # fields coming from the EnergyConsumption output
-        fields_biomass_from_out = modvar_bmass_inen.fields + modvar_bmass_scoe.fields
-        fields_biomass_from_out = [
-            x for x in fields_biomass_from_out
-            if x in df_out.columns
-        ]
-
-
-        ##  GET TOTALS
-
-        # in terms of configuration units
-        vec_total_bmass = (
-            df_out[fields_biomass_from_out]
-            .sum(axis = 1, )
-            .to_numpy()
-        )
-        vec_total_bmass += (
-            df_neenergy_trajectories[fields_biomass_from_in]
-            .sum(axis = 1, )
-            .to_numpy()
-        )
-
-
-        ##  ITERATE OVER VARS TO MODIFY
-
-        # get fields
-        cats_lndu = [self.cat_lndu_fstp, self.cat_lndu_fsts]
-        fields_lndu_conv = modvar_lndu_conv.build_fields(
-            category_restrictions = {
-                f"{pycat_lndu}_dim1": cats_lndu,
-            }
-        )
-        fields_lndu_conv_away = modvar_lndu_conv_away.build_fields(
-            category_restrictions = cats_lndu,
-        )
-
-        # get the fraction of forest conv avail for biomass
-        vec_frac_forest_conv_avail_for_bmass = matt.extract_model_variable(
-            df_neenergy_trajectories, 
-            modvar_frst_frac,
-            return_type = "array_base", 
-            var_bounds = (0, 1), 
-        )
-
-        # extract emissions from the input and check; if 0, no need to do anything
-        arr_emissions_conv = df_neenergy_trajectories[fields_lndu_conv].to_numpy()
-        arr_emissions_conv_away = df_neenergy_trajectories[fields_lndu_conv_away].to_numpy()
-        vec_emissions_conv = arr_emissions_conv.sum(axis = 1, )
-
-        if vec_emissions_conv.max() == 0:
-            return df_out
-        
-        
-        # basic arithmetic here
-        vec_emissions_conv_avail = vec_emissions_conv*vec_frac_forest_conv_avail_for_bmass
-        vec_emissions_conv_avail_used = np.clip(
-            vec_total_bmass,
-            np.zeros(vec_emissions_conv_avail.shape[0], ),
-            vec_emissions_conv_avail,
-        )
-
-        vec_scalar_to_apply = np.nan_to_num(
-            (vec_emissions_conv - vec_emissions_conv_avail_used)/vec_emissions_conv,
-            nan = 0.0,
-            posinf = 0.0,
-        )
-
-        # do the multiplication
-        arr_emissions_conv = sf.do_array_mult(
-            arr_emissions_conv,
-            vec_scalar_to_apply,
-        )
-        arr_emissions_conv_away = sf.do_array_mult(
-            arr_emissions_conv_away,
-            vec_scalar_to_apply,
-        )
-        
-        # otherwise, add to output
-        df_out[fields_lndu_conv] = arr_emissions_conv
-        df_out[fields_lndu_conv_away] = arr_emissions_conv_away
-
-        return df_out
-            
-
-
-
-
-
-
-
     def project(self,
         df_neenergy_trajectories: pd.DataFrame,
         adjust_forest_conversion_biomass: bool = True,
@@ -4753,6 +4762,14 @@ class EnergyConsumption:
             merge_type = "concatenate",
         )
 
+
+        # KLUGE: perform accounting adjustment for conversions?
+        if self.subsec_name_fgtv in subsectors_project:
+            print("Adjusting!")
+            df_out = self._adjust_forest_conversion_biomass(
+                df_trajectories,
+                df_out,
+            )
         
         return df_out
 

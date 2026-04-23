@@ -705,16 +705,30 @@ class SISEPUEDEModels:
                     self.model_enercons.integration_variables_fgtv
                 )
 
+                # add in required outputs
+                df_input_data = self.model_attributes.transfer_df_variables(
+                    df_input_data,
+                    df_return[0],
+                    self.model_enercons.integration_variables_fgtv
+                )
+
             try:
                 df_return.append(
                     self.model_enercons.project(
                         df_input_data, 
-                        subsectors_project = self.model_attributes.subsec_name_fgtv
+                        subsectors_project = self.model_attributes.subsec_name_fgtv,
                     )
                 )
 
                 df_return = (
-                    [sf.merge_output_df_list(df_return, self.model_attributes, merge_type = "concatenate")] 
+                    [
+                        sf.merge_output_df_list(
+                            df_return, 
+                            self.model_attributes, 
+                            merge_type = "concatenate",
+                            overwrite_from_right = True,   ##  include accounting adjustment
+                        )
+                    ] 
                     if run_integrated 
                     else df_return
                 )
@@ -723,12 +737,13 @@ class SISEPUEDEModels:
                     f"Fugitive Emissions from Energy model run successfully completed", 
                     type_log = "info",
                 )
-
+                print("Running ok")
             except Exception as e:
                 self._log(
                     f"Error running Fugitive Emissions from Energy model: {e}", 
                     type_log = "error",
                 )
+                print(f"Error running Fugitive Emissions from Energy model: {e}")
 
         
         ##  7. Add Socioeconomic output at the end to avoid double-initiation throughout models
