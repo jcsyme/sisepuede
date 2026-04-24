@@ -11047,7 +11047,7 @@ class AFOLU:
             arr_agrc_production_nonfeed_unadj,
             vec_agrc_frac_production_wasted,
         )
-
+  
         # demand balance (dem/exp/imp/prod) in lvst
         df_out += self.build_varsout_lvst_demand_balance_from_ilu(
             arr_lvst_change_to_net_imports_lost,
