@@ -1695,7 +1695,7 @@ class AFOLU:
         ##  SET OUTPUT
 
         # add to output data frame
-        df_out += [
+        df_out = [
             self.model_attributes.array_to_df(
                 vec_agrc_food_produced_wasted_before_consumption, 
                 self.modvar_agrc_total_food_lost_in_ag
@@ -2375,7 +2375,7 @@ class AFOLU:
         unit_spec_mass: Union[str, 'ModelVariable', None] = None,
         **kwargs,
     ) -> Tuple[np.ndarray]:
-        """Estimate the specified demand fir mass of c removals in term of a 
+        """Estimate the specified demand for mass of c removals in term of a 
             target model variable. Later gets adjusted if stock is not 
             available.
         
@@ -2580,7 +2580,6 @@ class AFOLU:
     def estimate_biommass_demand_for_hwp_and_removals(self,
         df_afolu_trajectories: pd.DataFrame,
         vec_rates_gdp: np.ndarray,
-        #dict_check_integrated_variables: dict,
         convert_to_c: bool = False,
         units_mass_out: Union['ModelVariable', str, None] = None,
         **kwargs,
@@ -2705,6 +2704,7 @@ class AFOLU:
         ) = self.estimate_biomass_demand_fuelwood_noag(
             df_afolu_trajectories,
             dfs_ippu_harvested_wood[2],
+            convert_to_c = convert_to_c,
             unit_spec_mass = units_mass_out,
             **kwargs,
         )
@@ -3006,17 +3006,19 @@ class AFOLU:
     def evl_support_get_c_stock_mass_var_info(self,
         ledger: bcl.BiomassCarbonLedger,
         modvar: Union[str, 'ModelVariable'],
-        vec_frst_frac_dm: np.ndarray,
+        #vec_frst_frac_dm: np.ndarray, HERE123 -- this can be removed
     ) -> Tuple:
         """In support of self.extract_variables_from_ledger(), get the 
             ModelVariable, spawned array, and scalar (mass only) that maps
             ledger units to output variable units. Returns a tuple of
 
             (
-                array,
-                modvar,
-                scalar
+                array,      # array of C in terms of BCL mass
+                modvar,     #
+                scalar      # scalar used to convert to target mass 
             )
+
+            Returns 
         """
 
         matt = self.model_attributes
@@ -3044,13 +3046,14 @@ class AFOLU:
             return_type = "array_base",
         )
 
+        """
         # multiply by fraction of dry matter that is C
         arr_out = (
             sf.do_array_mult(arr_out, vec_frst_frac_dm)
             if len(arr_out.shape) == 2
             else arr_out*vec_frst_frac_dm
         )
-
+        """
 
         out = (
             arr_out,
@@ -3079,12 +3082,17 @@ class AFOLU:
         ) = self.evl_support_get_c_stock_mass_var_info(
             ledger, 
             self.modvar_frst_c_stock_ag, 
-            vec_frst_frac_dm,
+            # vec_frst_frac_dm
         )
 
-        # assign to applicable rows
+        # assign to applicable rows and convert to C
         arr_frst_c_stock_ag[:, inds_ps] = ledger.arr_total_biomass_c_ag_starting.copy()
         arr_frst_c_stock_ag[:, ind_m] = ledger_mangroves.arr_total_biomass_c_ag_starting[:, 1].copy()
+
+        arr_frst_c_stock_ag = sf.do_array_mult(
+            arr_frst_c_stock_ag,
+            vec_frst_frac_dm,
+        )
 
         # add to output data frame (scale here so array can be used for total)
         df_out = self.model_attributes.array_to_df(
@@ -3115,12 +3123,17 @@ class AFOLU:
         ) = self.evl_support_get_c_stock_mass_var_info(
             ledger, 
             self.modvar_frst_c_stock_bg, 
-            vec_frst_frac_dm,
+            #vec_frst_frac_dm,
         )
 
-        # get from ledger
+        # get from ledger and convert to C
         arr_frst_c_stock_bg[:, inds_ps] = ledger.arr_total_biomass_c_bg_starting.copy()
         arr_frst_c_stock_bg[:, ind_m] = ledger_mangroves.arr_total_biomass_c_bg_starting[:, 1].copy()
+
+        arr_frst_c_stock_bg = sf.do_array_mult(
+            arr_frst_c_stock_bg,
+            vec_frst_frac_dm,
+        )
 
         # add to output data frame (scale here so array can be used for total)
         df_out = self.model_attributes.array_to_df(
@@ -3151,7 +3164,7 @@ class AFOLU:
         ) = self.evl_support_get_c_stock_mass_var_info(
             ledger, 
             self.modvar_frst_c_stock_decomposition,
-            vec_frst_frac_dm,
+            #vec_frst_frac_dm,
         )
         
         # build vector
@@ -3187,7 +3200,7 @@ class AFOLU:
         ) = self.evl_support_get_c_stock_mass_var_info(
             ledger, 
             self.modvar_frst_c_stock_removals,
-            vec_frst_frac_dm,
+            #vec_frst_frac_dm,
         )
 
         # get from ledgers
@@ -3196,7 +3209,7 @@ class AFOLU:
 
         # add to output data frame
         df_out = self.model_attributes.array_to_df(
-            vec_frst_c_stock_removals*scalar_frst_c_stock_removals,
+            vec_frst_frac_dm*vec_frst_c_stock_removals*scalar_frst_c_stock_removals,
             modvar_frst_c_stock_removals,
         )
 
@@ -3219,9 +3232,10 @@ class AFOLU:
         ) = self.evl_support_get_c_stock_mass_var_info(
             ledger, 
             self.modvar_frst_c_stock_total,
-            vec_frst_frac_dm,
+            # vec_frst_frac_dm,
         )
-       
+
+        # add C stock here--no need to convert to DM since ag and bg are already in terms of c
         vec_total_c_stock = arr_frst_c_stock_ag.sum(axis = 1, ) + arr_frst_c_stock_bg.sum(axis = 1, )
 
         # add to output data frame
@@ -3300,7 +3314,7 @@ class AFOLU:
         ) = self.evl_support_get_c_stock_mass_var_info(
             ledger, 
             self.modvar_frst_emissions_co2_decomposition,
-            vec_frst_frac_dm,
+            #vec_frst_frac_dm,
         )
 
         # get primary/secondary forest above- and below-ground from ledgers
@@ -3344,7 +3358,7 @@ class AFOLU:
         ) = self.evl_support_get_c_stock_mass_var_info(
             ledger, 
             self.modvar_frst_emissions_co2_sequestration,
-            vec_frst_frac_dm,
+            #vec_frst_frac_dm,
         )
         
         # get from ledger
@@ -3717,7 +3731,7 @@ class AFOLU:
             )
         """
         
-        # demands 
+        # demands IN TERMS OF BIOMASS, not BIOMASS C (requires DM adjustment)
         (
             vec_c_fuel_entc,
             vec_c_hwp_paper,
@@ -11080,6 +11094,22 @@ class AFOLU:
         #    GENERIC LAND USE EMISSIONS    #
         ####################################
 
+        df_out += self.get_lndu_other_emissions(
+            df_afolu_trajectories,
+            arr_land_use,
+        )
+    def get_lndu_other_emissions(self,
+        df_afolu_trajectories: pd.DataFrame,
+        arr_lndu_area: np.ndarray,
+    ) -> List[pd.DataFrame]:
+        """
+
+        arr_lndu_area : np.ndarray
+            Direct output of project_integrated_land_use(), with area in terms
+            of ILU area
+        """
+        modvar_ilu_area, modvar_ilu_mass = self.get_modvars_for_unit_targets_ilu()
+
         # biomass sequestration by land use type
         arr_lndu_ef_sequestration = self.model_attributes.extract_model_variable(#
             df_afolu_trajectories, 
@@ -11095,7 +11125,7 @@ class AFOLU:
         )
         
         # get land use sequestration in biomass IMPORTANT HERE123 - ADD C fraction of biomass
-        arr_lndu_sequestration_co2e = -1*arr_land_use*arr_lndu_ef_sequestration
+        arr_lndu_sequestration_co2e = -1*arr_lndu_area*arr_lndu_ef_sequestration
         arr_lndu_sequestration_co2e *= self.model_attributes.get_variable_unit_conversion_factor(
             self.modvar_lndu_biomass_growth_rate,
             self.modvar_lndu_emissions_co2_sequestration,
