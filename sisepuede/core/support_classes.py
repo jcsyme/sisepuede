@@ -1896,8 +1896,7 @@ class Regions:
         missing_iso_flag: Union[str, None] = None,
         return_modified_df: bool = False,
     ) -> Union[np.ndarray, pd.DataFrame]:
-        """
-        Map countries in field_country to ISO codes contained in 
+        """Map countries in field_country to ISO codes contained in 
             df_in[field_country]. If field_country is None, defaults to 
             self.key.
 

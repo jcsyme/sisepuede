@@ -588,7 +588,7 @@ class SamplingUnit:
 		params = None
 
 		# set to default if an invalid type is entered
-		if not (isinstance(fan_type, str) or isinstance(fan_type, typle)):
+		if not (isinstance(fan_type, str) or isinstance(fan_type, tuple)):
 			fan_type = default_fan_type
 
 		if isinstance(fan_type, tuple):

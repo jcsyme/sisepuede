@@ -3749,6 +3749,9 @@ class Transformers:
             vec_implementation_ramp,
             df_input,
         )
+
+        global dfi
+        dfi = df_input.copy()
         """
         ##  BEGIN modify ramp to be a binary/start in another year HEREHERE - TEMP  ##
         vec_ramp = np.array(
