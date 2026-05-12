@@ -749,6 +749,7 @@ class BiomassCarbonLedger:
             out = np.ones(self.n_cats, )
             return out
         
+        
         ##  START WITH THE ADJUSTMENT FACTOR arr_orig_sf_adjustment_factor
 
         # shortcuts
