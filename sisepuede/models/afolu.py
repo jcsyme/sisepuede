@@ -11509,6 +11509,25 @@ class AFOLU:
         #    AGRICULTURE    #
         #####################
 
+        """
+        HERE12345
+
+        NOTE: 20260512--HERE, NEED TO ADD RESIDUE GROWTH AS A "SEQUESTRATION"
+        - Need to trace the residues through the system
+        - if used for energy, will account for that use in Energy
+        - if used for feed, waste, or burning, will count as a CO2 emission
+        - if left on field, deal with as we have been (potential N2O emissions)
+
+        Really, all I need is the mass of residues (ignore the actual crops, the 
+            usable part) and dry matter fraction. For annual crops, this will be
+            a sequestration in the year AND a loss for CO2.
+
+
+        new vars:
+
+        - modvar_agrc_emissions_co2_residues_annual
+        - modvar_agrc_emissions_co2_residues_annual_sequestration
+        """
         # get area of cropland
         field_crop_array = self.model_attributes.build_variable_fields(
             self.modvar_lndu_area_by_cat, 
@@ -11562,7 +11581,7 @@ class AFOLU:
             ),
             self.model_attributes.array_to_df(
                 arr_agrc_ef_co2_biomass*arr_agrc_crop_area, 
-                self.modvar_agrc_emissions_co2_biomass, 
+                self.modvar_agrc_emissions_co2_woody_biomass, 
                 reduce_from_all_cats_to_specified_cats = True
             )
         ]
@@ -12327,15 +12346,15 @@ class AFOLU:
         vec_agrc_crop_residue_burned *= vec_agrc_avg_combustion_factor
 
         # get estimate of emissions of ch4
-        vec_agrc_emissions_ch4_biomass_burning = vec_agrc_crop_residue_burned*vec_agrc_ef_ch4_biomass_burning
-        vec_agrc_emissions_ch4_biomass_burning *= self.model_attributes.get_scalar(
+        vec_agrc_emissions_ch4_residue_and_biomass_burning = vec_agrc_crop_residue_burned*vec_agrc_ef_ch4_biomass_burning
+        vec_agrc_emissions_ch4_residue_and_biomass_burning *= self.model_attributes.get_scalar(
             self.modvar_agrc_regression_m_above_ground_residue,
             "mass"
         )
 
         # get estimate of emissions of n2o
-        vec_agrc_emissions_n2o_biomass_burning = vec_agrc_crop_residue_burned*vec_agrc_ef_n2o_biomass_burning
-        vec_agrc_emissions_n2o_biomass_burning *= self.model_attributes.get_scalar(
+        vec_agrc_emissions_n2o_residue_and_biomass_burning = vec_agrc_crop_residue_burned*vec_agrc_ef_n2o_biomass_burning
+        vec_agrc_emissions_n2o_residue_and_biomass_burning *= self.model_attributes.get_scalar(
             self.modvar_agrc_regression_m_above_ground_residue,
             "mass"
         )
@@ -12344,13 +12363,13 @@ class AFOLU:
         df_out += [
             # CH4 FROM BIOMASS BURNING
             self.model_attributes.array_to_df(
-                vec_agrc_emissions_ch4_biomass_burning, 
-                self.modvar_agrc_emissions_ch4_biomass_burning
+                vec_agrc_emissions_ch4_residue_and_biomass_burning, 
+                self.modvar_agrc_emissions_ch4_residue_and_biomass_burning
             ),
             # N2O EMISSIONS FROM BIOMASS BURNING
             self.model_attributes.array_to_df(
-                vec_agrc_emissions_n2o_biomass_burning, 
-                self.modvar_agrc_emissions_n2o_biomass_burning
+                vec_agrc_emissions_n2o_residue_and_biomass_burning, 
+                self.modvar_agrc_emissions_n2o_residue_and_biomass_burning
             )
         ]
 
