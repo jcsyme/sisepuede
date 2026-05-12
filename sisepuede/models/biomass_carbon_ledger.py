@@ -17,8 +17,13 @@ from typing import *
 
 _MODULE_UUID = "75A3CD91-6944-4A08-A44A-6C3BC9DA855D"
 
+# default logistic window for removals
+_REMOVALS_LOGISTIC_WINDOW_DEFAULT = (-6, 6, )
+
+
 class ShapeError(Exception):
     pass
+
 
 
 
@@ -511,6 +516,7 @@ class BiomassCarbonLedger:
         vec_total_removals_demanded: np.ndarray,
         vec_young_sf_curve_specification: np.ndarray,
         n_tps_no_withdrawals_new_growth: int = 20,
+        removals_logistic_window: tuple = _REMOVALS_LOGISTIC_WINDOW_DEFAULT,
         **kwargs,
     ) -> None:
         
@@ -518,6 +524,7 @@ class BiomassCarbonLedger:
         self._initialize_attributes(
             n_tp,
             n_tps_no_withdrawals_new_growth = n_tps_no_withdrawals_new_growth,
+            removals_logistic_window = removals_logistic_window,
         )
 
 
@@ -665,6 +672,36 @@ class BiomassCarbonLedger:
 
         return out
     
+
+
+    def _check_logistic_window(self,
+        removals_logistic_window: tuple,
+    ) -> tuple:
+        """Verify that the removals logistic window is a tuple of length two
+            with numeric elements such that w1 > 0 and w0 < 0
+        """
+
+        # check window
+        if not isinstance(removals_logistic_window, tuple):
+            return _REMOVALS_LOGISTIC_WINDOW_DEFAULT
+
+        if len(removals_logistic_window) != 2:
+            return _REMOVALS_LOGISTIC_WINDOW_DEFAULT
+        
+        if (
+            (not sf.isnumber(removals_logistic_window[0])) 
+            | (not sf.isnumber(removals_logistic_window[1]))
+        ):
+            return _REMOVALS_LOGISTIC_WINDOW_DEFAULT
+
+        if (
+            (removals_logistic_window[0] > 0)
+            | (removals_logistic_window[1] < 0)
+        ):
+            return _REMOVALS_LOGISTIC_WINDOW_DEFAULT
+
+        return removals_logistic_window
+
 
 
     def _get_forest_c_total_growth(self,
@@ -829,6 +866,7 @@ class BiomassCarbonLedger:
     def _initialize_attributes(self,
         n_tp: int,
         n_tps_no_withdrawals_new_growth: int = 20,
+        removals_logistic_window: tuple = _REMOVALS_LOGISTIC_WINDOW_DEFAULT,
     ) -> None:
         """Initialize key attributes used to manage land use classes
         """
@@ -836,13 +874,17 @@ class BiomassCarbonLedger:
         if not sf.isnumber(n_tp, integer = True, ):
             raise TypeError(f"Invalid type for n_tp. Must be an integer.")
 
-
+        
         ##  CHECK NUMBER OF TIME PERIODS WITH NO WITHDRAWALS FOR NEWLY PLANTED FORESTS
 
         n_tps_no_withdrawals_new_growth = (
             20 
             if not sf.isnumber(n_tps_no_withdrawals_new_growth, integer = True)
             else max(n_tps_no_withdrawals_new_growth, 1)
+        )
+
+        removals_logistic_window = self._check_logistic_window(
+            removals_logistic_window, 
         )
 
 
@@ -853,7 +895,8 @@ class BiomassCarbonLedger:
         self.n_cats = 2
         self.n_tp = n_tp
         self.n_tps_no_withdrawals_new_growth = n_tps_no_withdrawals_new_growth
-    
+        self.removals_logistic_window = removals_logistic_window
+
         return None
     
 
@@ -1711,11 +1754,17 @@ class BiomassCarbonLedger:
 
 
         # 2. get fraction of removals that are satisfiable
-        vec_frac_satisfiable = np.clip(
-            (vec_frac_available - frac_dead_storage)/frac_buffer,
-            0,
-            1,
+        vec_frac_satisfiable = sf.bounded_logistic_on_uniform_arr(
+            vec_frac_available, 
+            frac_buffer,
+            frac_dead_storage,
+            window_logistic = self.removals_logistic_window,
         )
+        #vec_frac_satisfiable = np.clip(
+        #    (vec_frac_available - frac_dead_storage)/frac_buffer,
+        #    0,
+        #    1,
+        #)
         self.arr_orig_frac_removables_satisfiable[i] = vec_frac_satisfiable
 
         

@@ -212,6 +212,40 @@ def back_project_array(
     
 
 
+def bounded_logistic_on_uniform(
+    x: float,
+    b: float,
+    d: float,
+    window_logistic: tuple = (-6, 6),
+) -> float:
+    """
+    """
+
+    # some conditions
+    if x <= d:
+        return 0
+
+    if x >= d + b:
+        return 1
+
+    # otherwise 
+    w0, w1 = window_logistic
+    y = logistic(
+        (x - d)*(w1 - w0)/b + w0, 
+    )
+
+    return y
+
+
+# generate an array based function
+bounded_logistic_on_uniform_arr = np.vectorize(
+    bounded_logistic_on_uniform, 
+    excluded = ["window_logistic"],
+    otypes = [float],
+)
+
+
+
 def bounded_real_magnitude(
     magnitude: Union[float, int],
     default: Union[float, int],
@@ -2193,6 +2227,15 @@ def list_dict_keys_with_same_values(
     str_out = delim.join(str_out) if (len(str_out) > 0) else ""
 
     return str_out
+
+
+
+def logistic(
+    x: float,
+) -> float:
+    """Standard logistic function
+    """
+    return 1/(1 + np.exp(-x))
 
 
 
