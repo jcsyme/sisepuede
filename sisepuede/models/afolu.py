@@ -3437,6 +3437,8 @@ class AFOLU:
         arrs_lndu_land_conv_bgb: np.ndarray,
         arrs_lndu_emissions_conv_agb_matrices: np.ndarray,
         arrs_lndu_emissions_conv_bgb_matrices: np.ndarray,
+        vec_biomass_hwp_paper: np.ndarray,
+        vec_biomass_hwp_wood: np.ndarray,
         ledger: bcl.BiomassCarbonLedger,
         ledger_mangroves: bcl.BiomassCarbonLedger,
     ) -> pd.DataFrame:
@@ -3490,6 +3492,9 @@ class AFOLU:
             return_type = "array_base", 
             var_bounds = (0, 1),
         )
+
+        # get BCL masses
+        _, modvar_bcl_mass = self.get_modvars_for_unit_targets_bcl()
 
         # some default args to pass to most functions
         args_default = (
@@ -3579,8 +3584,109 @@ class AFOLU:
         df_return.append(df_co2_conv_away_bgb, )
         
 
+        # 12. CO2 Emissions from HWP
+        # ACCOUNTING NOTE: These should not be part of the emission total yet; 
+        #                       have to ensure they they are not being double
+        #                       counted against removals
+
+        vec_biomass_scalar = self.get_bcl_biomass_scalar_vec(ledger, )
+        df_return.extend(
+            self.get_emissions_co2_from_hwp(
+                df_afolu_trajectories, 
+                vec_biomass_hwp_paper*vec_biomass_scalar,
+                vec_biomass_hwp_wood*vec_biomass_scalar,
+                units_mass = modvar_bcl_mass,
+            )
+        )
+
         return df_return
     
+
+
+    def get_agrc_emissions_residues_posneg(self,
+        df_afolu_trajectories: pd.DataFrame,
+    ) -> List[pd.DataFrame]:
+        """Get emissions associated with total residues. Excludes emissions 
+            associated with residue use in energy, since that is handled in 
+            Energy.
+
+            Positive--losses from burning, feed, and field.
+            Negative--sequestration from growth (all residues)
+
+            Negative = (
+                -Positive - Residues for Energy
+            )
+        """
+
+        ##  INITIALIZATION
+
+        # unit model variables to use for converting residues
+        _, modvar_ilu_mass = self.get_modvars_for_unit_targets_ilu()
+
+        # get model variables for extraction
+        modvar_agrc_emit = self.modvar_agrc_emissions_co2_residues_annual
+        modvar_agrc_seq = self.modvar_agrc_emissions_co2_residues_annual_sequestration
+        modvar_frac_dm = self.modvar_frst_frac_c_per_dm
+
+
+        ##  GET DM FRAC C AND SCALARS 
+
+        # get scalars
+        scalar = self.model_attributes.get_scalar(modvar_ilu_mass, "mass", )
+
+        # fraction dry matter
+        vec_frac_dm = self.model_attributes.extract_model_variable(#
+            df_afolu_trajectories, 
+            modvar_frac_dm,
+            override_vector_for_single_mv_q = False, 
+            return_type = "array_base", 
+            var_bounds = (0, 1),
+        )
+
+        vec_scalar = scalar*vec_frac_dm*self.factor_c_to_co2
+
+        
+        ##  EMISSIONS AND SEQUESTRATION
+
+        # emissions--don't account for combustion in energy
+        vec_co2_residues_emit = sf.do_array_mult(
+            (
+                self.arrays_agrc.arr_agrc_residue_final_use_burned
+                + self.arrays_agrc.arr_agrc_residue_final_use_feed
+                + self.arrays_agrc.arr_agrc_residue_final_use_field
+            ),
+            vec_scalar,
+        )
+
+        # sequestration includes the amount that are eventually sent to energy
+        vec_co2_residues_seq = -1*sf.do_array_mult(
+            (
+                self.arrays_agrc.arr_agrc_residue_final_use_burned
+                + self.arrays_agrc.arr_agrc_residue_final_use_feed
+                + self.arrays_agrc.arr_agrc_residue_final_use_field
+                + self.arrays_agrc.arr_agrc_residue_final_use_energy
+            ),
+            vec_scalar,
+        )
+
+
+        ##  ADD TO OUTPUT
+
+        df_out = [
+            self.model_attributes.array_to_df(
+                vec_co2_residues_emit,
+                modvar_agrc_emit,
+                reduce_from_all_cats_to_specified_cats = True,
+            ),
+            self.model_attributes.array_to_df(
+                vec_co2_residues_seq,
+                modvar_agrc_seq,
+                reduce_from_all_cats_to_specified_cats = True,
+            )
+        ]
+
+        return df_out
+
 
 
     def get_agrc_imports_for_lvst(self,
@@ -3859,11 +3965,7 @@ class AFOLU:
         ##  GET ADJUSTMENTS TO EnergyConsumption SUBSECTORS
 
         # total demand met
-        vec_biomass_scalar_from_bcl = np.nan_to_num(
-            ledger.vec_total_removals_met/ledger.vec_total_removals_demanded,
-            nan = 0.0,
-            posinf = 0.0,
-        )
+        vec_biomass_scalar_from_bcl = self.get_bcl_biomass_scalar_vec(ledger, )
         
         
         ##  BUILD ADJUSTMENT DATAFRAMES HERE
@@ -4297,6 +4399,22 @@ class AFOLU:
         )
 
         return df_out
+    
+
+
+    def get_bcl_biomass_scalar_vec(self,
+        ledger: 'BiomassCarbonLedger',
+    ) -> np.ndarray:
+        """Get the scalar vector to apply to removal demands.
+        """
+        # total demand met
+        vec_biomass_scalar_from_bcl = np.nan_to_num(
+            ledger.vec_total_removals_met/ledger.vec_total_removals_demanded,
+            nan = 0.0,
+            posinf = 0.0,
+        )
+
+        return vec_biomass_scalar_from_bcl
     
 
 
@@ -5212,6 +5330,7 @@ class AFOLU:
         df_afolu_trajectories: pd.DataFrame,
         vec_frst_c_paper: np.ndarray,
         vec_frst_c_wood: np.ndarray,
+        multiply_by_frac_c_in_hwp: bool = True,
         units_mass: Union['ModelVariable', str, None] = None,
     ) -> List[pd.DataFrame]:
         """Estimate the CO2 emissions from Harvested Wood Products.
@@ -5227,6 +5346,9 @@ class AFOLU:
 
         Keyword Arguments
         -----------------
+        multiply_by_frac_c_in_hwp : bool
+            Multiply vectors of biomass demands by frac C? If False, assumes
+            that input vectors are already in terms of C.
         units_mass : Union['ModelVariable', str, None]
             Units of mass for vec_frst_c_paper and vec_frst_c_wood. If None, it
             is assumed that the units are configuration units.
@@ -5241,7 +5363,6 @@ class AFOLU:
         um_mass = self.model_attributes.get_unit("mass")
         units_mass_input = self.get_units_from_specification(units_mass, "mass", )
         units_mass_config = self.get_units_from_specification(None, "mass", )
-
         scalar_mass = um_mass.convert(units_mass_input, units_mass_config, )
 
         
@@ -5271,6 +5392,10 @@ class AFOLU:
             var_bounds = (0, np.inf),
         )
 
+        if multiply_by_frac_c_in_hwp:
+            vec_frst_c_paper = vec_frst_c_paper*vec_frst_ef_c
+            vec_frst_c_wood = vec_frst_c_wood*vec_frst_ef_c
+
 
         # set a lookback based on some number of years (max half-life to estimate some amount of carbon stock)
         if historical_method == "back_project":
@@ -5296,7 +5421,7 @@ class AFOLU:
         else:
             # set up n_years_lookback to be based on historical
             n_years_lookback = 0
-            msg = f"""Error in estimate_c_demand_from_hwp(): 
+            msg = f"""Error in get_emissions_co2_from_hwp(): 
             historical_harvested_wood_products_method 'historical' not supported 
             at the moment.
             """
@@ -6926,9 +7051,9 @@ class AFOLU:
 
         # setup biomass arrays as a dictionary
         dict_frst_modvar_to_array_forest_fires = {
-            self.modvar_frst_frac_temperate_nutrient_poor: arr_frst_biomass_consumed_temperate,
-            self.modvar_frst_frac_temperate_nutrient_rich: arr_frst_biomass_consumed_temperate,
-            self.modvar_frst_frac_tropical: arr_frst_biomass_consumed_tropical
+            self.modvar_frst_frac_temperate_nutrient_poor.name: arr_frst_biomass_consumed_temperate,
+            self.modvar_frst_frac_temperate_nutrient_rich.name: arr_frst_biomass_consumed_temperate,
+            self.modvar_frst_frac_tropical.name: arr_frst_biomass_consumed_tropical
         }
 
         # loop over tropical/temperate NP/temperate NR
@@ -6946,8 +7071,16 @@ class AFOLU:
                 return_type = "array_units_corrected",
             )
             # get forest area
-            arr_frst_area_temptrop_burned_cur = arr_area_frst*dict_arrs_frst_frac_temptrop[modvar]*arr_frst_frac_burned
-            arr_frst_total_dry_mass_burned_cur = arr_frst_area_temptrop_burned_cur*dict_frst_modvar_to_array_forest_fires[modvar]
+            arr_frst_area_temptrop_burned_cur = (
+                arr_area_frst
+                *dict_arrs_frst_frac_temptrop[modvar.name]
+                *arr_frst_frac_burned
+            )
+
+            arr_frst_total_dry_mass_burned_cur = (
+                arr_frst_area_temptrop_burned_cur
+                *dict_frst_modvar_to_array_forest_fires[modvar.name]
+            )
             arr_frst_emissions_co2_fires += arr_frst_total_dry_mass_burned_cur*arr_frst_ef_co2_fires
 
         # add to output
@@ -9692,12 +9825,8 @@ class AFOLU:
         vec_lde_crop_imports_non_cereals  = np.zeros(n_tp, )
 
         # residue final use vectors
-        vec_agrc_rfu_burned = self.arrays_agrc.arr_agrc_residue_final_use_burned
-        vec_agrc_rfu_energy = self.arrays_agrc.arr_agrc_residue_final_use_energy
         vec_agrc_rfu_energy_avail = np.zeros(n_tp, )
         vec_agrc_rfu_energy_avail_in_terms_bcl_mass = np.zeros(n_tp, )#attr_agrc.n_key_values)
-        vec_agrc_rfu_feed = self.arrays_agrc.arr_agrc_residue_final_use_feed
-        vec_agrc_rfu_field = self.arrays_agrc.arr_agrc_residue_final_use_field
         
 
         # LNDU VARS
@@ -10274,10 +10403,6 @@ class AFOLU:
         #   - Biomass is converted to a TechnologyActivityLimit (upper and 
         #       lower), similarly to Waste and Biogas 
 
-        # some shortcuts
-        vec_biomass_demands_hwp = vec_biomass_demands_hwp_paper + vec_biomass_demands_hwp_wood
-        vec_biomass_demands_fuel_total = vec_biomass_demands_total - vec_biomass_demands_hwp
-
         # get energy and IPPU inputs (as well some ENTC outs) that are adjusted
         df_energy_ippu_inputs_adjusted = self.get_bcl_adjusted_energy_and_ippu_inputs(
             df_afolu_trajectories,
@@ -10286,7 +10411,7 @@ class AFOLU:
             vec_biomass_demands_fuel_entc,
             vec_enfu_ged_biomass,
         )
-
+        
 
         ##  RETURNS
 
@@ -10312,6 +10437,8 @@ class AFOLU:
             df_energy_ippu_inputs_adjusted,
             ledger,
             ledger_mangroves,
+            vec_biomass_demands_hwp_paper,
+            vec_biomass_demands_hwp_wood,
             vec_lde_crop_imports_cereals,
             vec_lde_crop_imports_non_cereals,
         )
@@ -10963,32 +11090,28 @@ class AFOLU:
 
         ##  GET TOTALS FOR OUTPUT VECTORS
 
-        vec_agrc_rfu_burned = (
-            (
-                arr_agrc_rfu_other*arr_agrc_conditional_frac_burned
-            )
-            .sum(axis = 1, )
+        arr_agrc_rfu_burned = (
+            arr_agrc_rfu_other
+            *arr_agrc_conditional_frac_burned
             *scalar_ilu_to_burned
         )
 
-        vec_agrc_rfu_field = (
-            (
-                arr_agrc_rfu_other*arr_agrc_conditional_frac_field
-            )
-            .sum(axis = 1, )
+        arr_agrc_rfu_field = (
+            arr_agrc_rfu_other
+            *arr_agrc_conditional_frac_field
             *scalar_ilu_to_field
         )
 
-        vec_agrc_rfu_energy = arr_agrc_rfu_energy.sum(axis = 1, )*scalar_ilu_to_energy
-        vec_agrc_rfu_feed = arr_agrc_rfu_feed.sum(axis = 1, )*scalar_ilu_to_feed
+        #_agrc_rfu_energy = arr_agrc_rfu_energy.sum(axis = 1, )*scalar_ilu_to_energy
+        #vec_agrc_rfu_feed = arr_agrc_rfu_feed.sum(axis = 1, )*scalar_ilu_to_feed
 
         
         ##  UPDATE VECTORS
 
-        self.arrays_agrc.arr_agrc_residue_final_use_burned = vec_agrc_rfu_burned
-        self.arrays_agrc.arr_agrc_residue_final_use_energy = vec_agrc_rfu_energy
-        self.arrays_agrc.arr_agrc_residue_final_use_feed = vec_agrc_rfu_feed
-        self.arrays_agrc.arr_agrc_residue_final_use_field = vec_agrc_rfu_field
+        self.arrays_agrc.arr_agrc_residue_final_use_burned = arr_agrc_rfu_burned
+        self.arrays_agrc.arr_agrc_residue_final_use_energy = arr_agrc_rfu_energy*scalar_ilu_to_energy
+        self.arrays_agrc.arr_agrc_residue_final_use_feed = arr_agrc_rfu_feed*scalar_ilu_to_feed
+        self.arrays_agrc.arr_agrc_residue_final_use_field = arr_agrc_rfu_field
 
         return None
     
@@ -11369,6 +11492,8 @@ class AFOLU:
             df_out_energy_ippu_adjustments,             # adjusted inputs to energy (biomass, both wood and residuals) and IPPU (HWP)     
             ledger,
             ledger_mangroves,
+            vec_biomass_hwp_paper,
+            vec_biomass_hwp_wood,
             vec_lde_imports_cereals,
             vec_lde_imports_non_cereals,
         ) = self.project_integrated_land_use(
@@ -11411,6 +11536,8 @@ class AFOLU:
             arr_lndu_emissions_conv_bg,
             arrs_lndu_emissions_conv_agb_matrices,
             arrs_lndu_emissions_conv_bgb_matrices,
+            vec_biomass_hwp_paper,
+            vec_biomass_hwp_wood,
             ledger,
             ledger_mangroves,
         )
@@ -11508,11 +11635,9 @@ class AFOLU:
         #####################
         #    AGRICULTURE    #
         #####################
-
+        
         """
-        HERE12345
-
-        NOTE: 20260512--HERE, NEED TO ADD RESIDUE GROWTH AS A "SEQUESTRATION"
+        NOTE: 20260512--ADDED RESIDUE GROWTH AS ANNUAL SEQUESTRATION
         - Need to trace the residues through the system
         - if used for energy, will account for that use in Energy
         - if used for feed, waste, or burning, will count as a CO2 emission
@@ -11522,12 +11647,16 @@ class AFOLU:
             usable part) and dry matter fraction. For annual crops, this will be
             a sequestration in the year AND a loss for CO2.
 
-
         new vars:
 
         - modvar_agrc_emissions_co2_residues_annual
         - modvar_agrc_emissions_co2_residues_annual_sequestration
         """
+        # get residue +/-
+        df_out += self.get_agrc_emissions_residues_posneg(
+            df_afolu_trajectories, 
+        )
+        
         # get area of cropland
         field_crop_array = self.model_attributes.build_variable_fields(
             self.modvar_lndu_area_by_cat, 
