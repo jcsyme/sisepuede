@@ -3584,6 +3584,9 @@ class AFOLU:
         df_return.append(df_co2_conv_away_bgb, )
         
 
+        """HERE--ADD A FUELWOOD REMOVALS STACK
+        - can be the emissions
+        """
         # 12. CO2 Emissions from HWP
         # ACCOUNTING NOTE: These should not be part of the emission total yet; 
         #                       have to ensure they they are not being double
@@ -5324,6 +5327,7 @@ class AFOLU:
 
         return out
     
+
 
 
     def get_emissions_co2_from_hwp(self,
