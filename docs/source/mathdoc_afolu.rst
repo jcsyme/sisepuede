@@ -52,7 +52,7 @@ SISEPUEDE does not calculate a general equilibrium for land use demand. Instead,
 
    * The net surplus demand for livestock of type *v* at time *t* is :math:`S_v^{(lvst)}(t) = D_v^{(lvst)}(t) - \tilde{P}_v^{(lvst)}(t)`
 
-   * In the SISEPUEDE land use model, some of this surplus demand can be met endogenously (by adjusting the land use transition), while some can be met from net imports. The quantity used to adjust the land-use transition is found as :math:`\eta S_v^{(lvst)}`, where :math:`0 \leq \eta \leq 1` is the **Land Use Yield Reallocation Factor**.
+   * In the SISEPUEDE land use model, some of this surplus demand can be met endogenously (by adjusting the land use transition), while some can be met from net imports. The quantity used to adjust the land-use transition is found as :math:`\eta S_v^{(lvst)}`, where :math:`0 \leq \eta \leq 1` is the **Land Use Reallocation Factor (LURF)**.
       * If :math:`S_v^{(lvst)}(t) < 0`, the area of grassland will be reapportioned back to cropland, where a second adjustment occurs.
 
 #. **Estimate cropland demand and unadjusted production**
