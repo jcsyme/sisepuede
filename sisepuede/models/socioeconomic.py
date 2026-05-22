@@ -203,8 +203,11 @@ class Socioeconomic:
             * self.modvar_econ_*
         """
 
-        self.modvar_econ_gdp = "GDP"
-        self.modvar_econ_gdp_per_capita = "GDP per Capita"
+        self.model_attributes.assign_subsector_variable_names_from_varcodes(
+            self,
+            self.model_attributes.subsec_name_econ,
+            stop_on_error = True, 
+        )
 
         return None
 
@@ -221,20 +224,12 @@ class Socioeconomic:
             * self.ind_gnrl_*
             * self.modvar_gnrl_*
         """
-
-        self.modvar_gnrl_area = "Area of Region"
-        self.modvar_gnrl_climate_change_hydropower_availability = "Climate Change Factor for Average Hydropower Availability"
-        self.modvar_gnrl_elasticity_occrate_to_gdppc = "Elasticity National Occupation Rate to GDP Per Capita"
-        self.modvar_gnrl_emission_limit_ch4 = ":math:\\text{CH}_4 Annual Emission Limit"
-        self.modvar_gnrl_emission_limit_co2 = ":math:\\text{CO}_2 Annual Emission Limit"
-        self.modvar_gnrl_emission_limit_n2o = ":math:\\text{N}_2\\text{O} Annual Emission Limit"
-        self.modvar_gnrl_frac_eating_red_meat = "Fraction Eating Red Meat"
-        self.modvar_gnrl_init_occ_rate = "Initial National Occupancy Rate"
-        self.modvar_grnl_num_hh = "Number of Households"
-        self.modvar_gnrl_occ_rate = "National Occupancy Rate"
-        self.modvar_gnrl_subpop = "Population"
-        self.modvar_gnrl_pop_total = "Total Population"
-
+        self.model_attributes.assign_subsector_variable_names_from_varcodes(
+            self,
+            self.model_attributes.subsec_name_gnrl,
+            stop_on_error = True, 
+        )
+        
         return None
     
 
@@ -412,7 +407,7 @@ class Socioeconomic:
             ),
             self.model_attributes.array_to_df(
                 vec_gnrl_num_hh, 
-                self.modvar_grnl_num_hh, 
+                self.modvar_gnrl_num_hh, 
                 False
             )
         ]

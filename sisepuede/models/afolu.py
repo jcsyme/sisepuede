@@ -545,7 +545,7 @@ class AFOLU:
                 self.model_ippu.modvar_ippu_demand_for_harvested_wood,
                 self.model_ippu.modvar_ippu_elast_ind_prod_to_gdp,
                 self.model_ippu.modvar_ippu_max_recycled_material_ratio,
-                self.model_ippu.model_socioeconomic.modvar_grnl_num_hh,
+                self.model_ippu.model_socioeconomic.modvar_gnrl_num_hh,
                 self.model_ippu.modvar_ippu_prod_qty_init,
                 self.model_ippu.modvar_ippu_qty_recycled_used_in_production,
                 self.model_ippu.modvar_ippu_qty_total_production,
@@ -3360,6 +3360,39 @@ class AFOLU:
     
 
 
+    def extract_lvars_emission_co2_removals_fuelwood(self,
+        ind_m: int,
+        inds_ps: np.ndarray,
+        ledger: bcl.BiomassCarbonLedger,
+        ledger_mangroves: bcl.BiomassCarbonLedger,
+        vec_frst_frac_dm: np.ndarray,
+        vec_biomass_removals_fuelwood: np.ndarray,
+    ) -> pd.DataFrame:
+        """Extract total above ground C stock by type from each ledger
+        """
+        (
+            _,
+            modvar_frst_co2_removals_fuelwood,
+            scalar_frst_co2_removals_fuelwood,
+        ) = self.evl_support_get_c_stock_mass_var_info(
+            ledger, 
+            self.modvar_frst_emissions_co2_fuelwood_removals,
+        )
+
+        # get C removals
+        vec_removals_c = vec_biomass_removals_fuelwood*vec_frst_frac_dm
+        vec_emissions_co2 = vec_removals_c*self.factor_c_to_co2
+        
+        # add to output data frame
+        df_out = self.model_attributes.array_to_df(
+            vec_emissions_co2*scalar_frst_co2_removals_fuelwood,
+            modvar_frst_co2_removals_fuelwood,
+        )
+
+        return df_out
+    
+
+
     def extract_lvars_emission_co2_sequestration(self,
         ind_m: int,
         inds_ps: np.ndarray,
@@ -3437,6 +3470,7 @@ class AFOLU:
         arrs_lndu_land_conv_bgb: np.ndarray,
         arrs_lndu_emissions_conv_agb_matrices: np.ndarray,
         arrs_lndu_emissions_conv_bgb_matrices: np.ndarray,
+        vec_biomass_demands_total: np.ndarray,
         vec_biomass_hwp_paper: np.ndarray,
         vec_biomass_hwp_wood: np.ndarray,
         ledger: bcl.BiomassCarbonLedger,
@@ -3471,6 +3505,13 @@ class AFOLU:
             Arrays of biomass conversion totals (T x N x N), where each entry is
             a matrix and the value at i, j is the total below-ground biomass 
             loss from converting from i to j
+        vec_biomass_demands_total : np.ndarray
+            Vector of total removal demands for biomass from forests in terms of
+            BCL mass; everything not from HWP is assumed to be fuelwood
+        vec_biomass_hwp_paper : np.ndarray
+            Vector of paper demand (HWP) for biomass in terms of BCL mass
+        vec_biomass_hwp_wood : np.ndarray
+            Vector of wood demand (HWP) for biomass in terms of BCL mass
         ledger : BiomassCarbonLedger
             ledger_mangroves storing data for primary and secondary forest
         ledger : BiomassCarbonLedger
@@ -3504,6 +3545,9 @@ class AFOLU:
             ledger_mangroves,
             vec_frst_frac_dm,
         )
+
+        # scalar for demands for biomass
+        vec_biomass_scalar = self.get_bcl_biomass_scalar_vec(ledger, )
 
 
         ##  BUILD IN ORDER
@@ -3584,15 +3628,23 @@ class AFOLU:
         df_return.append(df_co2_conv_away_bgb, )
         
 
-        """HERE--ADD A FUELWOOD REMOVALS STACK
-        - can be the emissions
-        """
-        # 12. CO2 Emissions from HWP
+        # 12. get CO2 emissions from fuelwood removals
+        df_co2_removals_fuelwood = self.extract_lvars_emission_co2_removals_fuelwood(
+            *args_default,
+            vec_biomass_scalar*np.clip(
+                vec_biomass_demands_total
+                - vec_biomass_hwp_paper
+                - vec_biomass_hwp_wood,
+                0.0,
+                np.inf
+            ),
+        )
+        df_return.append(df_co2_removals_fuelwood, )
+
+        # 13. CO2 Emissions from HWP
         # ACCOUNTING NOTE: These should not be part of the emission total yet; 
         #                       have to ensure they they are not being double
         #                       counted against removals
-
-        vec_biomass_scalar = self.get_bcl_biomass_scalar_vec(ledger, )
         df_return.extend(
             self.get_emissions_co2_from_hwp(
                 df_afolu_trajectories, 
@@ -6927,6 +6979,42 @@ class AFOLU:
         
         return arr_lndu_area_drained_organic
 
+
+
+    def get_lndu_area_target_settlements(self,
+        df_afolu_trajectories: pd.DataFrame,
+        vec_gnrl_pop: np.ndarray,
+        vec_lndu_area_initial: np.ndarray,
+    ) -> pd.DataFrame:
+        """Estimate the target area for 
+        
+        Function Arguments
+        ------------------
+        df_afolu_trajectories : pd.DataFrame
+            DataFrame containing input trajectories
+        vec_lndu_area_initial : np.ndarray
+            Vector (shape (N, ), where N is number of land use categories) 
+            storing initial land use areas
+        vec_population_urban : np.ndarray
+            Array of land use conversion areas by land use classification 
+            in terms of region area variable
+            
+        Keyword Arguments
+        -----------------
+        
+        """
+
+        # get the population density
+        vec_scalar_pop_density = self.model_attributes.extract_model_variable(
+            df_afolu_trajectories,
+            self.model_socioeconomic.modvar_gnrl_scalar_pop_density,
+            override_vector_for_single_mv_q = False,
+            return_type = "array_base",
+        )
+
+        # get initial area
+        area_init = vec_lndu_area_initial[self.ind_lndu_stlm]
+        density_init = vec_gnrl_pop[0]/area_init
 
 
     def get_lndu_areas_to_from_remaining(self,
@@ -10443,6 +10531,7 @@ class AFOLU:
             ledger_mangroves,
             vec_biomass_demands_hwp_paper,
             vec_biomass_demands_hwp_wood,
+            vec_biomass_demands_total,
             vec_lde_crop_imports_cereals,
             vec_lde_crop_imports_non_cereals,
         )
@@ -11340,7 +11429,7 @@ class AFOLU:
 
         vec_hh = self.model_attributes.extract_model_variable(#
             df_afolu_trajectories, 
-            self.model_socioeconomic.modvar_grnl_num_hh, 
+            self.model_socioeconomic.modvar_gnrl_num_hh, 
             return_type = "array_base",
         )
 
@@ -11498,6 +11587,7 @@ class AFOLU:
             ledger_mangroves,
             vec_biomass_hwp_paper,
             vec_biomass_hwp_wood,
+            vec_biomass_demands_total,
             vec_lde_imports_cereals,
             vec_lde_imports_non_cereals,
         ) = self.project_integrated_land_use(
@@ -11540,6 +11630,7 @@ class AFOLU:
             arr_lndu_emissions_conv_bg,
             arrs_lndu_emissions_conv_agb_matrices,
             arrs_lndu_emissions_conv_bgb_matrices,
+            vec_biomass_demands_total,
             vec_biomass_hwp_paper,
             vec_biomass_hwp_wood,
             ledger,

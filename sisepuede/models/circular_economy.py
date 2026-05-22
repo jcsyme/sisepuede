@@ -1085,7 +1085,7 @@ class CircularEconomy:
 
         vec_hh = self.model_attributes.extract_model_variable(#
             df_ce_trajectories, 
-            self.model_socioeconomic.modvar_grnl_num_hh, 
+            self.model_socioeconomic.modvar_gnrl_num_hh, 
             override_vector_for_single_mv_q = False, 
             return_type = "array_base",
         )
@@ -1653,7 +1653,7 @@ class CircularEconomy:
 
         vec_hh = self.model_attributes.extract_model_variable(#
             df_ce_trajectories, 
-            self.model_socioeconomic.modvar_grnl_num_hh, 
+            self.model_socioeconomic.modvar_gnrl_num_hh, 
             return_type = "array_base",
         )
 

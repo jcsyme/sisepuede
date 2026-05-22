@@ -4479,7 +4479,7 @@ class EnergyConsumption:
 
         vec_hh = self.model_attributes.extract_model_variable(#
             df_neenergy_trajectories, 
-            self.model_socioeconomic.modvar_grnl_num_hh, 
+            self.model_socioeconomic.modvar_gnrl_num_hh, 
             return_type = "array_base",
         )
 

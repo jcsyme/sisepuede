@@ -832,7 +832,7 @@ class IPPU:
             else modvar_elast_ind_prod_to_gdp
         )
         modvar_num_hh = (
-            self.model_socioeconomic.modvar_grnl_num_hh 
+            self.model_socioeconomic.modvar_gnrl_num_hh 
             if (modvar_num_hh is None) 
             else modvar_num_hh
         )
@@ -882,7 +882,7 @@ class IPPU:
         # adjust housing construction
         vec_hh = self.model_attributes.extract_model_variable(#
             df_ippu_trajectories, 
-            self.model_socioeconomic.modvar_grnl_num_hh, 
+            self.model_socioeconomic.modvar_gnrl_num_hh, 
             return_type = "array_base",
         )
 
@@ -1021,7 +1021,7 @@ class IPPU:
         )
 
         modvar_num_hh = (
-            self.model_socioeconomic.modvar_grnl_num_hh 
+            self.model_socioeconomic.modvar_gnrl_num_hh 
             if (modvar_num_hh is None) 
             else modvar_num_hh
         )
@@ -1322,7 +1322,7 @@ class IPPU:
 
         vec_hh = self.model_attributes.extract_model_variable(#
             df_ippu_trajectories, 
-            self.model_socioeconomic.modvar_grnl_num_hh, 
+            self.model_socioeconomic.modvar_gnrl_num_hh, 
             return_type = "array_base",
         )
 
