@@ -33,13 +33,15 @@ Input,Land Use Fraction Tropical,frac_tropical," | Used to calculate :math:`\tex
 Input,Land Use Fraction Wet,frac_wet," | Used to calculate :math:`\text{N}_2\text{O}` emissions from fertilizer application
  | 
  | Land Use Fraction Dry and Land Use Fraction Wet must sum to 1",``frac_lndu_$CAT-LANDUSE$_cl2_wet``,``grasslands``|``other``|``pastures``|``settlements``,,0,1,1,3,0,``wet_climate``,,,
-Input,Land Use Yield Reallocation Factor,reallocation_factor,"The land use yield reallocation factor :math:`\eta \in [0, 1]` is used to represent land use responsiveness to changes in demands. 
+Input,Land Use Reallocation Factor,reallocation_factor," | The land use reallocation factor :math:`\eta \in [0, 1]` is used to represent land use responsiveness to changes in demands. 
  | 
- | If :math:`\eta = 1`, then **land use will be reallocated**, diverging from the specified transition matrix. If demands exceed carrying capacity to meet all livestock and crop demands, then the transitions into grassland and cropland are increased to meet demands. If the carrying capacity exceeds demand, then transitions to grassland and croplands are reduced (which also increases forested land). 
+ | If :math:`\eta = 1`, then **land use will be totally reallocated**, diverging from the specified transition matrix. If demands exceed carrying capacity to meet all livestock and crop demands, then the transitions into grassland and cropland are increased to meet demands. If the carrying capacity exceeds demand, then transitions to grassland and croplands are reduced (which also increases forested land). 
  | 
  | If :math:`\eta = 0`, then **land use will remain as specified**, and all remaining demands with be met with net imports. If the demand is less then carrying capacity, then there is an increase in net exports; if demand exceeds carrying capacity, there is an increase in net imports.
  | 
- | For :math:`\eta \in (0, 1)`, there is a mix of reallocation and net imports, which scales linearly between extremes.
+ | For :math:`\eta \in (0, 1)`, there is a mix of reallocation and net imports, which is used to adjust _demands_ for land between extreme. Since the transition matrix is adjusted using a quadratic program that has to adhere to multiple constraints, it may not always reach targeted demands; for example, if croplands cannot exceed X% of a region, then, once this limit is reached, the area is prevented from increasing again. 
+ | 
+ |**NOTE**: by default, settlements **are not** subject to the land use reallocation factor. They can be subject to the LURF using the `force_lurf_for_settlements` keyword argument.
 ",``lndu_reallocation_factor``,none,,0,0,2,,0,none,,,
 Input,Maximum Area,constraint_area_max," | Maximum allowable area for a given category--can be used to cap feasible transitions based on geography and climate constraints.
  | 
