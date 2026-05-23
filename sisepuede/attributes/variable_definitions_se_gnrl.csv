@@ -24,6 +24,7 @@ Input,Population Density Scalar,scalar_pop_density," | The Population Density Sc
  | SISEPUEDE therefore estimates land use change demands for settlements using changes to the urban population. Furthermore, as rural populations may not live in built-up areas, changes to rural population do not affect demands for settlements.
  | 
  |Note that, by default, settlements **are not** subject to the land use reallocation factor. They can be subject to the LURF using the `force_lurf_for_settlements` keyword argument.",``scalar_gnrl_population_density_$CAT-GENERAL$``,``urban``,,1,1,1,,0,,,
-Output,National Occupancy Rate,occ_rate,,``occrate_gnrl_hhs``,none,,0,1,1,,0,,,
-Output,Number of Households,num_hh,,``qty_gnrl_households``,none,,0,1,1,,0,,,
-Output,Total Population,pop_total,,``population_gnrl_total``,none,,0,1,1,,0,,,
+Output,National Occupancy Rate,occ_rate,Average number of people per household,``occrate_gnrl_hhs``,none,,0,1,1,,0,,,
+Output,Number of Households,num_hh,Number of households,``qty_gnrl_households``,none,,0,1,1,,0,,,
+Output,Urban Population Density,pop_density,Population density for urban population only,``population_gnrl_density_in_built_up_$CAT-GENERAL$``,``urban``,,0,1,1,,0,,,
+Output,Total Population,pop_total,Total population,``population_gnrl_total``,none,,0,1,1,,0,,,

@@ -423,6 +423,7 @@ class AFOLU:
         attr_enfu = self.model_attributes.get_attribute_table(self.subsec_name_enfu, )
         attr_entc = self.model_attributes.get_attribute_table(self.subsec_name_entc, )
         attr_frst = self.model_attributes.get_attribute_table(self.subsec_name_frst, )
+        attr_gnrl = self.model_attributes.get_attribute_table(self.subsec_name_gnrl, )
         attr_ippu = self.model_attributes.get_attribute_table(self.subsec_name_ippu, )
         attr_lndu = self.model_attributes.get_attribute_table(self.subsec_name_lndu, )
         attr_lsmm = self.model_attributes.get_attribute_table(self.subsec_name_lsmm, )
@@ -450,6 +451,7 @@ class AFOLU:
         self.attr_enfu = attr_enfu
         self.attr_entc = attr_entc
         self.attr_frst = attr_frst
+        self.attr_gnrl = attr_gnrl
         self.attr_ippu = attr_ippu
         self.attr_lndu = attr_lndu
         self.attr_lsmm = attr_lsmm
@@ -6983,10 +6985,10 @@ class AFOLU:
 
     def get_lndu_area_target_settlements(self,
         df_afolu_trajectories: pd.DataFrame,
-        vec_gnrl_pop: np.ndarray,
         vec_lndu_area_initial: np.ndarray,
-    ) -> pd.DataFrame:
-        """Estimate the target area for 
+    ) -> np.ndarray:
+        """Estimate the target area for settlements based on population and
+            density scalar adjustments.
         
         Function Arguments
         ------------------
@@ -6995,26 +6997,71 @@ class AFOLU:
         vec_lndu_area_initial : np.ndarray
             Vector (shape (N, ), where N is number of land use categories) 
             storing initial land use areas
-        vec_population_urban : np.ndarray
-            Array of land use conversion areas by land use classification 
-            in terms of region area variable
             
         Keyword Arguments
         -----------------
-        
         """
 
-        # get the population density
+        ##  EXTRACT SOME VARIABLES
+
+        cat_gnrl_urban = self.model_attributes.filter_keys_by_attribute(
+            self.subsec_name_gnrl,
+            {"urban_population": 1}
+        )[0]
+        ind_gnrl_urban = self.attr_gnrl.get_key_value_index(cat_gnrl_urban, )
+
+        # urban population 
+        arr_pop = self.model_attributes.extract_model_variable(
+            df_afolu_trajectories,
+            self.model_socioeconomic.modvar_gnrl_subpop,
+            expand_to_all_cats = True,
+            override_vector_for_single_mv_q = True,
+            return_type = "array_base",
+            var_bounds = (0, np.inf),
+        )
+        vec_pop_urban = arr_pop[:, ind_gnrl_urban]
+
+        # scalar to apply to urban population density    
         vec_scalar_pop_density = self.model_attributes.extract_model_variable(
             df_afolu_trajectories,
             self.model_socioeconomic.modvar_gnrl_scalar_pop_density,
             override_vector_for_single_mv_q = False,
             return_type = "array_base",
+            var_bounds = (0, np.inf),
         )
+
+        # ensure relative to first time period
+        vec_scalar_pop_density = np.nan_to_num(
+            vec_scalar_pop_density/vec_scalar_pop_density[0],
+            nan = 1,
+            posinf = 1,
+        )
+
+        """
+        modvar_ilu_area, _ = self.get_modvars_for_unit_targets_ilu()
+        self.model_attributes.get_variable_unit_conversion_factor(
+            modvar_ilu_area,
+            self.modvar_gnrl_,
+            "area",
+        )
+        """
+        
+        ##  GET DENSITY, SCALE, AND CONVERT TO AREA
 
         # get initial area
         area_init = vec_lndu_area_initial[self.ind_lndu_stlm]
-        density_init = vec_gnrl_pop[0]/area_init
+        density_init = vec_pop_urban[0]/area_init
+        vec_density = density_init*vec_scalar_pop_density
+
+        # use density to generate estimated target area
+        vec_area_target = np.nan(
+            vec_pop_urban/vec_density, 
+            nan = 1.0,
+            posinf = 1.0,
+        )
+
+        return vec_area_target
+
 
 
     def get_lndu_areas_to_from_remaining(self,
@@ -9698,6 +9745,7 @@ class AFOLU:
         vec_agrc_frac_cropland_area: np.ndarray,
         vec_lndu_yrf: np.ndarray,
         vec_gnrl_area: np.ndarray,
+        force_lurf_for_settlements: bool = False,
         lde_method: str = _DEFAULT_LDE_SOLVER,
         n_tp: Union[int, None] = None,
         prohibit_forest_transitions: Union[bool, None] = None,
@@ -9788,6 +9836,10 @@ class AFOLU:
         ------------------
         n_tp : int
             Number of time periods to run. If None, runs AFOLU.n_time_periods
+        force_lurf_for_settlements : bool
+            Force Settlements to follow the Land Use Reallocation Factor? If 
+            False, reallocated for settlements (since they are generally very
+            small)
         prohibit_forest_transitions : Union[bool, None]
             Prohibit transitions between forests? If so, disallows:
             - Mangroves to Secondary
@@ -9875,7 +9927,12 @@ class AFOLU:
             if not isinstance(prohibit_forest_transitions, bool)
             else prohibit_forest_transitions
         )
-
+        # get target area for settlements
+        vec_lndu_target_area_settlements = self.get_lndu_area_target_settlements(
+            df_afolu_trajectories, 
+            vec_initial_area,
+        )
+        
 
         # get some information used to estimate residues, which have to be included in-line 
         (
@@ -10155,6 +10212,12 @@ class AFOLU:
             )
             dict_sol_prelim.update({i: sol_preliminary})
 
+
+            ##  GET TARGET AREAS FOR LAND USE CLASSES
+            #       - croplands
+            #       - pastures/managed grazelands
+            #       - settlements
+
             # get target areas for pastures and crops for lvst
             area_target_pstr, vec_agrc_area_target_for_lvst = self.estimate_lde_lvst_new_lndu_demands(
                 sol_preliminary,
@@ -10166,7 +10229,6 @@ class AFOLU:
                 vec_lde_supply_carrying_capacity,
             )
             vec_dem = arr_lvst_dem[i + 1].astype(int)
-
 
 
             ##  AGRICULTURE - calculate demand increase in crops, which is a 
@@ -10193,12 +10255,23 @@ class AFOLU:
             area_target_crop = vec_agrc_cropareas_target.sum()
 
 
+            # get settlement areas
+            area_stlm_unadj = x[self.ind_lndu_stlm]
+            area_target_stlm = vec_lndu_target_area_settlements[i]
+            area_target_stlm = (
+                area_target_stlm
+                if not force_lurf_for_settlements
+                else area_target_stlm*lurf + area_stlm_unadj*(1 - lurf)
+            )
+
+
             ##  DO TRANSITION ADJUSTMENT (CALL OPTIMIZATION)
 
             # the reallocation may not have succeeded due to constraints on area
             dict_area_targets_exog = {
                 self.ind_lndu_crop: area_target_crop,
                 self.ind_lndu_pstr: area_target_pstr,
+                self.ind_lndu_stlm: area_target_stlm,
             }
 
             arr_transition_adj = self.qadj_adjust_transitions(
