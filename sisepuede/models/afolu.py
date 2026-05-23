@@ -31,6 +31,8 @@ import sisepuede.models._arrays as coll_arrays
 
 # some defaults
 _DEFAULT_LDE_SOLVER = "highs"
+_DEFAULT_FORCE_LURF_FOR_SETTLEMENTS = False
+_DEFAULT_PROHIBIT_FOREST_TRANSITIONS = True
 
 # some dummy fields--used for ordering sequestration numbers 
 _FIELD_NPP_ORD_1 = "young"
@@ -98,6 +100,21 @@ class AFOLU:
 
     Optional Arguments
     ------------------
+    force_lurf_for_settlements : bool
+        Force the Land Use Reallocation Factor to apply to settlements? May be
+        useful to set to False if evaluating urban areas that represent a large
+        fraction of a region, or if wanting to evaluate fixed land use
+        projections.
+
+        * True:     Settlements will be subject to land use reallocation; i.e.,
+                    if ß is the land use reallocation factor, X is the exogenous
+                    area of settlements, and D is the area demanded for urban
+                    built up areas (given urban population and density change
+                    scalar), then the target area will be 
+
+                        T_settlements = X*(1 - ß) + D*ß
+        * False:    Settlements are always adjusted so that T_settlements = D.
+
     logger : Union[logging.Logger, None]
         optional logger object to use for event logging
     min_diag_qadj : float
@@ -144,13 +161,14 @@ class AFOLU:
 
     def __init__(self,
         attributes: ModelAttributes,
+        force_lurf_for_settlements: bool = _DEFAULT_FORCE_LURF_FOR_SETTLEMENTS,
         logger: Union[logging.Logger, None] = None,
         min_diag_qadj: float = 0.98,
         n_tps_no_withdrawals_new_growth: int = 20,
         npp_curve: Union[str, npp.NPPCurve, None] = None,
         npp_include_primary_forest: bool = False,
         npp_integration_windows: Union[list, tuple, np.ndarray] = _NPP_INTEGRATION_WINDOWS,
-        prohibit_forest_transitions: bool = True,
+        prohibit_forest_transitions: bool = _DEFAULT_PROHIBIT_FOREST_TRANSITIONS,
         **kwargs,
     ) -> None:
 
@@ -160,6 +178,7 @@ class AFOLU:
         self._initialize_subsector_names()
         self._initialize_input_output_components()
         self._initialize_other_properties(
+            force_lurf_for_settlements = force_lurf_for_settlements,
             prohibit_forest_transitions = prohibit_forest_transitions,
         )
 
@@ -760,7 +779,8 @@ class AFOLU:
 
 
     def _initialize_other_properties(self,
-        prohibit_forest_transitions: bool = True,
+        force_lurf_for_settlements: bool = _DEFAULT_FORCE_LURF_FOR_SETTLEMENTS,
+        prohibit_forest_transitions: bool = _DEFAULT_PROHIBIT_FOREST_TRANSITIONS,
     ) -> None:
         """
         Initialize other properties that don't fit elsewhere. Sets the 
@@ -798,6 +818,7 @@ class AFOLU:
         self.factor_c_to_co2 = factor_c_to_co2
         self.factor_n2on_to_n2o = factor_n2on_to_n2o
         self.flag_ignore_constraint = -999
+        self.force_lurf_for_settlements = force_lurf_for_settlements
         self.is_sisepuede_model_afolu = True
         self.time_periods = time_periods
         self.n_time_periods = n_time_periods
@@ -7054,7 +7075,7 @@ class AFOLU:
         vec_density = density_init*vec_scalar_pop_density
 
         # use density to generate estimated target area
-        vec_area_target = np.nan(
+        vec_area_target = np.nan_to_num(
             vec_pop_urban/vec_density, 
             nan = 1.0,
             posinf = 1.0,
@@ -9745,7 +9766,7 @@ class AFOLU:
         vec_agrc_frac_cropland_area: np.ndarray,
         vec_lndu_yrf: np.ndarray,
         vec_gnrl_area: np.ndarray,
-        force_lurf_for_settlements: bool = False,
+        force_lurf_for_settlements: Union[bool, None] = None,
         lde_method: str = _DEFAULT_LDE_SOLVER,
         n_tp: Union[int, None] = None,
         prohibit_forest_transitions: Union[bool, None] = None,
@@ -9839,7 +9860,8 @@ class AFOLU:
         force_lurf_for_settlements : bool
             Force Settlements to follow the Land Use Reallocation Factor? If 
             False, reallocated for settlements (since they are generally very
-            small)
+            small). 
+            * If None, defaults to self.force_lurf_for_settlements
         prohibit_forest_transitions : Union[bool, None]
             Prohibit transitions between forests? If so, disallows:
             - Mangroves to Secondary
@@ -9848,8 +9870,8 @@ class AFOLU:
             - Primary to Secondary
             - Secondary to Mangroves
             - Secondary to Primary
-            These transitions are generally reasonable to avoid. If None,
-            defaults to self.prohibit_forest_transitions.
+            These transitions are generally reasonable to avoid. 
+            * If None, defaults to self.prohibit_forest_transitions.
         residues_to_entc_only : bool
             Send crop residues for energy ONLY to ENTC? If not True, can be
             used to offset fuelwood demands in other subsecotrs then
@@ -9906,6 +9928,19 @@ class AFOLU:
         ]
         m = attr_lndu.n_key_values
 
+        # get some bools
+        force_lurf_for_settlements = (
+            self.force_lurf_for_settlements
+            if not isinstance(force_lurf_for_settlements, bool)
+            else force_lurf_for_settlements
+        )
+
+        prohibit_forest_transitions = (
+            self.prohibit_forest_transitions
+            if not isinstance(prohibit_forest_transitions, bool)
+            else prohibit_forest_transitions
+        )
+
         # scalar to convert input area values to biomass carbon ledger values
         modvar_bcl_area, modvar_bcl_mass = self.get_modvars_for_unit_targets_bcl() 
         modvar_ilu_area, modvar_ilu_mass = self.get_modvars_for_unit_targets_ilu()
@@ -9922,11 +9957,6 @@ class AFOLU:
             "mass",
         )
 
-        prohibit_forest_transitions = (
-            self.prohibit_forest_transitions
-            if not isinstance(prohibit_forest_transitions, bool)
-            else prohibit_forest_transitions
-        )
         # get target area for settlements
         vec_lndu_target_area_settlements = self.get_lndu_area_target_settlements(
             df_afolu_trajectories, 
