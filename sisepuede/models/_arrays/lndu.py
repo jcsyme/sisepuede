@@ -133,6 +133,52 @@ class ArraysLNDU(ma.SubsectorArraysCollection):
             set_property = True,
         )
 
+        # soil carbon factor
+        self.get_modvar_array(
+            df_trajectories,
+            self.modvar_lndu_factor_soil_carbon,
+            expand_to_all_cats = True,
+            set_property = True,
+            var_bounds = (0, np.inf),
+        )
+
+        #  upper bound for F_I, or input component w/o manure
+        self.get_modvar_array(
+            df_trajectories,
+            self.modvar_lndu_factor_soil_inputs_supremum_no_manure,
+            all_cats_missing_val = 1.0,
+            expand_to_all_cats = True,
+            set_property = True,
+        )
+
+        # soil management infimum
+        self.get_modvar_array(
+            df_trajectories,
+            self.modvar_lndu_factor_soil_management_infinum,
+            all_cats_missing_val = 1.0,
+            expand_to_all_cats = True,
+            set_property = True,
+        )
+
+        # soil management supremum
+        self.get_modvar_array(
+            df_trajectories,
+            self.modvar_lndu_factor_soil_management_supremum,
+            all_cats_missing_val = 1.0,
+            expand_to_all_cats = True,
+            set_property = True,
+        )
+
+        # fraction of land use fertilized
+        self.get_modvar_array(
+            df_trajectories,
+            self.modvar_lndu_frac_fertilized,
+            expand_to_all_cats = True,
+            override_vector_for_single_mv_q = True, 
+            set_property = True,
+            var_bounds = (0, 1),
+        )
+
         # fraction of increasing net exports met
         self.get_modvar_array(
             df_trajectories,
@@ -147,6 +193,25 @@ class ArraysLNDU(ma.SubsectorArraysCollection):
             df_trajectories,
             self.modvar_lndu_frac_increasing_net_imports_met,
             expand_to_all_cats = True,
+            set_property = True,
+            var_bounds = (0, 1),
+        )
+
+        # fraction of soils, by land use type, that are mineral
+        self.get_modvar_array(
+            df_trajectories,
+            self.modvar_lndu_frac_mineral_soils,
+            expand_to_all_cats = True,
+            override_vector_for_single_mv_q = True, 
+            set_property = True,
+            var_bounds = (0, 1),
+        )
+
+        # fraction of pastures with improved management
+        self.get_modvar_array(
+            df_trajectories,
+            self.modvar_lndu_frac_pastures_improved,
+            expand_to_all_cats = False,
             set_property = True,
             var_bounds = (0, 1),
         )
@@ -174,8 +239,6 @@ class ArraysLNDU(ma.SubsectorArraysCollection):
             set_property = True,
             var_bounds = (0, np.inf),
         )
-
-        
 
 
         return None

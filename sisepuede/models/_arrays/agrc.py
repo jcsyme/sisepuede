@@ -135,6 +135,32 @@ class ArraysAGRC(ma.SubsectorArraysCollection):
             set_property = True,
         )
 
+        # combustion factor for residues
+        self.get_modvar_array(
+            df_trajectories,
+            self.modvar_agrc_combustion_factor,
+            expand_to_all_cats = True,
+            override_vector_for_single_mv_q = True, 
+            set_property = True,
+            var_bounds = (0, 1),
+        )
+
+        # emission factor--ch4, residue burning
+        self.get_modvar_array(
+            df_trajectories,
+            self.modvar_agrc_ef_ch4_burning,
+            return_type = "array_units_corrected",
+            set_property = True,
+        )
+
+        # emission factor--n2o, residue burning
+        self.get_modvar_array(
+            df_trajectories,
+            self.modvar_agrc_ef_n2o_burning,
+            return_type = "array_units_corrected",
+            set_property = True,
+        )
+
         # elasticities of AGRC demand to gdp/gapita
         self.get_modvar_array(
             df_trajectories,
@@ -178,6 +204,16 @@ class ArraysAGRC(ma.SubsectorArraysCollection):
             var_bounds = (0, 1),
         )
 
+        # fracion of each crop type under no-till
+        self.get_modvar_array(
+            df_trajectories,
+            self.modvar_agrc_frac_no_till,
+            all_cats_missing_val = 0.0,
+            expand_to_all_cats = True,
+            set_property = True,
+            var_bounds = (0, 1),
+        )
+
         # production fraction lost
         self.get_modvar_array(
             df_trajectories,
@@ -194,7 +230,36 @@ class ArraysAGRC(ma.SubsectorArraysCollection):
             set_property = True,
             var_bounds = (0, np.inf),
         )
+
+        # N content of above-ground residues
+        self.get_modvar_array(
+            df_trajectories,
+            self.modvar_agrc_n_content_of_above_ground_residues,
+            expand_to_all_cats = True,
+            override_vector_for_single_mv_q = True, 
+            set_property = True,
+            var_bounds = (0, 1),
+        )
+
+        # N content of below-ground residues
+        self.get_modvar_array(
+            df_trajectories,
+            self.modvar_agrc_n_content_of_below_ground_residues,
+            expand_to_all_cats = True,
+            override_vector_for_single_mv_q = True, 
+            set_property = True,
+            var_bounds = (0, 1),
+        )
         
+        # ratio of below-ground biomass to above-ground biomass
+        self.get_modvar_array(
+            df_trajectories,
+            self.modvar_agrc_ratio_below_ground_biomass_to_above_ground_biomass,
+            expand_to_all_cats = True,
+            override_vector_for_single_mv_q = True, 
+            set_property = True,
+            var_bounds = (0, np.inf),
+        )
 
         # residue production regression b
         self.get_modvar_array(
