@@ -152,6 +152,14 @@ class ArraysSOIL(ma.SubsectorArraysCollection):
             var_bounds = (0, 1),
         )
 
+        # Fraction of synthetic fertilizer from Urea
+        self.get_modvar_array(
+            df_trajectories,
+            self.modvar_soil_frac_synethic_fertilizer_urea,
+            set_property = True,
+            var_bounds = (0, 1), 
+        )
+
         # organic C stocks
         self.get_modvar_array(
             df_trajectories,
@@ -160,14 +168,12 @@ class ArraysSOIL(ma.SubsectorArraysCollection):
             override_vector_for_single_mv_q = True,
             set_property = True,
         )
-        
 
-        # Fraction of synthetic fertilizer from Urea
+        # ratio of C to N in SOC
         self.get_modvar_array(
             df_trajectories,
-            self.modvar_soil_frac_synethic_fertilizer_urea,
+            self.modvar_soil_ratio_c_to_n_soil_organic_matter,
             set_property = True,
-            var_bounds = (0, 1), 
         )
 
         return None

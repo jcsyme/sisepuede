@@ -3943,6 +3943,26 @@ class AFOLU:
 
 
 
+    def get_agrc_frac_residues_on_field(self,
+    ) -> np.ndarray:
+        """Crop residues left on the field are based on final allocations from 
+            the ILU model and distribution pathways.
+        """
+
+        # get fraction of crop areas left on field (assumed to be under conservation ag)
+        arr_agrc_total = self.get_agrc_total_residues_from_final_pathway_arrays()
+
+        arr_agrc_frac_residue_inputs = np.nan_to_num(
+            self.arrays_agrc.modvar_agrc_residue_final_use_field
+            /arr_agrc_total,
+            nan = 0.0,
+            posinf = 0.0,
+        )
+
+        return arr_agrc_frac_residue_inputs
+    
+
+
     def get_agrc_imports_for_lvst(self,
         arr_agrc_exports: np.ndarray,
         arr_agrc_yield: np.ndarray,          
@@ -4082,6 +4102,21 @@ class AFOLU:
 
         return out
     
+
+
+    def get_agrc_total_residues_from_final_pathway_arrays(self,
+    ) -> np.ndarray:
+        """Get total residues from the final pathways
+        """
+        arr_out = (
+            self.arrays_agrc.modvar_agrc_residue_final_use_burned
+            + self.arrays_agrc.modvar_agrc_residue_final_use_energy
+            + self.arrays_agrc.modvar_agrc_residue_final_use_feed
+            + self.arrays_agrc.modvar_agrc_residue_final_use_field
+        )
+
+        return arr_out
+        
 
 
     def get_bcl(self,
@@ -7910,7 +7945,7 @@ class AFOLU:
 
         return out
     
-
+        
 
     def get_lndu_soil_soc_factors(self,
         arr_agrc_crop_area: np.ndarray,
@@ -7919,6 +7954,10 @@ class AFOLU:
     ) -> Tuple[np.ndarray, np.ndarray]:
         """Generate soil SOC factors and areas of land-use types under improved 
             management (in terms of configuration units).
+        
+        NOTE: Important that this is called AFTER project_integrated_land_use().
+            Relies on self.get_agrc_frac_residues_on_field(), which populates
+            arrays based on project_integrated_land_use()
         
         NOTE: Treats F_I and F_MG as independent; right now, F_I is scaled by 
             the fraction of residues that are not removed or burned, and it is 
@@ -7948,6 +7987,7 @@ class AFOLU:
 
         # upper bound for F_I, or input component w/o manure
         arr_lndu_factor_soil_inputs_no_manure_sup = self.arrays_lndu.arr_lndu_factor_soil_inputs_supremum_no_manure
+       
         # lower and upper bounds for F_MG 
         arr_lndu_factor_soil_management_inf = self.arrays_lndu.arr_lndu_factor_soil_management_infinum
         arr_lndu_factor_soil_management_sup = self.arrays_lndu.arr_lndu_factor_soil_management_supremum
@@ -7970,11 +8010,7 @@ class AFOLU:
         vec_lndu_fmg_cropland += (1 - vec_lndu_frac_cropland_improved)*arr_lndu_factor_soil_management_inf[:, self.ind_lndu_crop]
 
         # get fraction of crop areas left on field (assumed to be under conservation ag)
-        arr_agrc_frac_residue_inputs = 1 - (
-            self.arrays_agrc.arr_agrc_frac_residues_burned
-            + self.arrays_agrc.arr_agrc_frac_residues_removed_for_energy
-            + self.arrays_agrc.arr_agrc_frac_residues_removed_for_feed
-        )
+        arr_agrc_frac_residue_inputs = self.get_agrc_frac_residues_on_field()
 
         # average fraction of residue inputs
         vec_agrc_frac_residue_inputs = (
@@ -12950,6 +12986,9 @@ class AFOLU:
 
         ##  LAND USE VARIABLES
 
+        # get carbon stocks and ratio of c to n - convert to self.modvar_lsmm_n_to_fertilizer_agg_dung units for N2O/EF1
+        arr_lndu_factor_soil_carbon = self.arrays_lndu.arr_lndu_factor_soil_carbon
+
         # get land that's fertilized and use to project fertilizer demand - add in fraction of grassland that is pasture
         arr_lndu_frac_fertilized = self.arrays_lndu.arr_lndu_frac_fertilized
         arr_lndu_frac_mineral_soils = self.arrays_lndu.arr_lndu_frac_mineral_soils
@@ -12960,21 +12999,35 @@ class AFOLU:
         # matrices
         arr_soil_ef1_organic = self.arrays_soil.arr_soil_ef1_n_managed_soils_org_fert
         arr_soil_ef1_synthetic = self.arrays_soil.arr_soil_ef1_n_managed_soils_syn_fert
-        arr_soil_organic_c_stocks = self.arrays_soil.arr_soil_organic_c_stocks
+        arr_soil_organic_c_stocks = (
+            self.arrays_soil.arr_soil_organic_c_stocks
+            *self.model_attributes.get_variable_unit_conversion_factor(
+                self.modvar_soil_organic_c_stocks,
+                modvar_fert_mass,
+                "mass",
+            )
+            /self.model_attributes.get_variable_unit_conversion_factor(
+                self.modvar_soil_organic_c_stocks,
+                self.modvar_ilu_area,
+                "area",
+            )
+        )
 
         # vectors
         vec_soil_demscalar_fertilizer = self.arrays_soil.arr_soil_demscalar_fertilizer
         vec_soil_ef1_rice = self.arrays_soil.arr_soil_ef1_n_managed_soils_rice
-        vec_soil_init_n_fertilizer_synthetic = self.arrays_soil.arr_soil_fertuse_init_synthetic
-        vec_soil_frac_synthetic_fertilizer_urea = (
-            self.arrays_soil.arr_soil_frac_synethic_fertilizer_urea
+        vec_soil_frac_synthetic_fertilizer_urea = self.arrays_soil.arr_soil_frac_synethic_fertilizer_urea
+        vec_soil_init_n_fertilizer_synthetic = (
+            self.arrays_soil.arr_soil_fertuse_init_synthetic
             * self.model_attributes.get_variable_unit_conversion_factor(
                 self.modvar_soil_fertuse_init_synthetic,
                 modvar_fert_mass,
-                "mass"
+                "mass",
             )
         )
 
+        vec_soil_ratio_c_to_n_soil_organic_matter = self.arrays_soil.arr_soil_ratio_c_to_n_soil_organic_matter
+ 
 
         ##############################
         #    DERIVATIVE VARIABLES    #
@@ -13072,29 +13125,7 @@ class AFOLU:
             )
         ]
 
-        # get carbon stocks and ratio of c to n - convert to self.modvar_lsmm_n_to_fertilizer_agg_dung units for N2O/EF1
-        arr_lndu_factor_soil_carbon = self.arrays_lndu.arr_lndu_factor_soil_carbon
         
-        # organic C factor
-        arr_soil_organic_c_stocks = arr_soil_organic_c_stocks*self.model_attributes.get_variable_unit_conversion_factor(
-            self.modvar_soil_organic_c_stocks,
-            self.modvar_lsmm_n_to_fertilizer_agg_dung,
-            "mass",
-
-        )
-        arr_soil_organic_c_stocks /= self.model_attributes.get_variable_unit_conversion_factor(
-            self.modvar_soil_organic_c_stocks,
-            self.modvar_ilu_area,
-            "area",
-        )
-
-        # get some other factors
-        vec_soil_ratio_c_to_n_soil_organic_matter = self.model_attributes.extract_model_variable(#
-            df_afolu_trajectories,
-            self.modvar_soil_ratio_c_to_n_soil_organic_matter,
-            return_type = "array_base",
-        )
-
 
         # get arrays of SOC conversion per area by land use
         arrs_lndu_soc_conversion_factors, vec_soil_ef1_soc_est = self.get_mineral_soc_change_matrices(
