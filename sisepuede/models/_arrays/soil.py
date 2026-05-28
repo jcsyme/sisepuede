@@ -100,11 +100,56 @@ class ArraysSOIL(ma.SubsectorArraysCollection):
             set_property = True,
         )
 
+        # EF3 N emission factor for pasture/range/paddock
+        self.get_modvar_array(
+            df_trajectories,
+            self.modvar_soil_ef3_n_prp,
+            expand_to_all_cats = True,
+            override_vector_for_single_mv_q = True, 
+            set_property = True,
+        )
+
+        # EF4 N emission factor for volatilisation
+        self.get_modvar_array(
+            df_trajectories,
+            self.modvar_soil_ef4_n_volatilisation,
+            expand_to_all_cats = True,
+            override_vector_for_single_mv_q = True, 
+            set_property = True,
+        )
+
         # Initial synthetic fertilizer use demand
         self.get_modvar_array(
             df_trajectories,
             self.modvar_soil_fertuse_init_synthetic,
             set_property = True,
+        )
+
+        # fraction of N lost to volatilisation of organic N
+        self.get_modvar_array(
+            df_trajectories,
+            self.modvar_soil_frac_n_lost_volatilisation_on,
+            override_vector_for_single_mv_q = False, 
+            set_property = True,
+            var_bounds = (0, 1),
+        )
+
+        # fraction of N lost to volatilisation of synthetic N, non-urea
+        self.get_modvar_array(
+            df_trajectories,
+            self.modvar_soil_frac_n_lost_volatilisation_sn_non_urea,
+            override_vector_for_single_mv_q = False, 
+            set_property = True,
+            var_bounds = (0, 1),
+        )
+
+        # fraction of N lost to volatilisation of synethetic N, urea
+        self.get_modvar_array(
+            df_trajectories,
+            self.modvar_soil_frac_n_lost_volatilisation_sn_urea,
+            override_vector_for_single_mv_q = False, 
+            set_property = True,
+            var_bounds = (0, 1),
         )
 
         # organic C stocks
