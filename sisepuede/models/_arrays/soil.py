@@ -100,6 +100,15 @@ class ArraysSOIL(ma.SubsectorArraysCollection):
             set_property = True,
         )
 
+        # EF2 N2O emission factor in organic soils
+        self.get_modvar_array(
+            df_trajectories,
+            self.modvar_soil_ef2_n_organic_soils,
+            expand_to_all_cats = True,
+            override_vector_for_single_mv_q = True, 
+            set_property = True,
+        )
+
         # EF3 N emission factor for pasture/range/paddock
         self.get_modvar_array(
             df_trajectories,
