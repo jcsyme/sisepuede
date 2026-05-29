@@ -9935,6 +9935,8 @@ class AFOLU:
         
 
         out = (
+            vec_agrc_total_n_residue_dry,
+            vec_agrc_total_n_residue_wet,
             vec_soil_n2odirectn_fcr,
             vec_soil_n2odirectn_fcr_rice,
         )
@@ -12999,6 +13001,8 @@ class AFOLU:
         # matrices
         arr_soil_ef1_organic = self.arrays_soil.arr_soil_ef1_n_managed_soils_org_fert
         arr_soil_ef1_synthetic = self.arrays_soil.arr_soil_ef1_n_managed_soils_syn_fert
+        arr_soil_ef3 = self.arrays_soil.arr_soil_ef3_n_prp
+
         arr_soil_organic_c_stocks = (
             self.arrays_soil.arr_soil_organic_c_stocks
             *self.model_attributes.get_variable_unit_conversion_factor(
@@ -13017,6 +13021,7 @@ class AFOLU:
         vec_soil_demscalar_fertilizer = self.arrays_soil.arr_soil_demscalar_fertilizer
         vec_soil_ef1_rice = self.arrays_soil.arr_soil_ef1_n_managed_soils_rice
         vec_soil_frac_synthetic_fertilizer_urea = self.arrays_soil.arr_soil_frac_synethic_fertilizer_urea
+       
         vec_soil_init_n_fertilizer_synthetic = (
             self.arrays_soil.arr_soil_fertuse_init_synthetic
             * self.model_attributes.get_variable_unit_conversion_factor(
@@ -13094,8 +13099,10 @@ class AFOLU:
         ##  F_CR - CROP RESIDUES
 
         (
+            vec_agrc_total_n_residue_dry,
+            vec_agrc_total_n_residue_wet,
             vec_soil_n2odirectn_fcr,
-            vec_soil_n2odirectn_fcr,
+            vec_soil_n2odirectn_fcr_rice,
         ) = self.get_soil_ef1_components_fcr(
             arr_agrc_frac_n_content_ag_residues,
             arr_agrc_frac_n_content_bg_residues,
@@ -13117,15 +13124,6 @@ class AFOLU:
             arr_land_use,
         )
 
-        df_out += [
-            self.model_attributes.array_to_df(
-                arr_lndu_area_improved*scalar_ilu_area_to_config_area,
-                self.modvar_lndu_area_improved,
-                reduce_from_all_cats_to_specified_cats = True,
-            )
-        ]
-
-        
 
         # get arrays of SOC conversion per area by land use
         arrs_lndu_soc_conversion_factors, vec_soil_ef1_soc_est = self.get_mineral_soc_change_matrices(
@@ -13344,7 +13342,7 @@ class AFOLU:
                     pycat_lndu
                 )
             ]
-            inds_lndu = [attr_lndu.get_key_value_index(x) for x in cats_lndu]
+            inds_lndu = [self.attr_lndu.get_key_value_index(x) for x in cats_lndu]
             arr_soil_frst_temptrop_cur = np.sum(arr_area_frst*dict_arrs_frst_frac_temptrop[modvar]*arr_lndu_frac_organic_soils[:, inds_lndu], axis = 1)
             arr_soil_frst_temptrop_cur *= arr_soil_ef2[:, ind_soil]
             vec_soil_n2on_direct_organic += arr_soil_frst_temptrop_cur
@@ -13366,7 +13364,7 @@ class AFOLU:
     
         
         #
-        arr_soil_ef3 = self.arrays_soil.arr_soil_ef3_n_prp
+        
 
         vec_lsmm_nitrogen_to_pasture_ito_dung = (
             vec_lsmm_nitrogen_to_pasture
@@ -13514,6 +13512,11 @@ class AFOLU:
             self.model_attributes.array_to_df(
                 vec_soil_emission_n2o_crop_residue*scalar_n2on_to_emission_out, 
                 self.modvar_agrc_emissions_n2o_crop_residues
+            ),
+            self.model_attributes.array_to_df(
+                arr_lndu_area_improved*scalar_ilu_area_to_config_area,
+                self.modvar_lndu_area_improved,
+                reduce_from_all_cats_to_specified_cats = True,
             ),
             self.model_attributes.array_to_df(
                 arr_lndu_emission_co2_drained_organic_soils, 
