@@ -4082,9 +4082,8 @@ class ModelAttributes:
         category_pivot: str,
         fields_to_filter_on: list,
     ) -> dict:
-        """
-        Retrieve a dictionary that maps variables to each other based on shared 
-            categories within a subsector
+        """Retrieve a dictionary that maps variables to each other based on 
+            shared categories within a subsector
         """
         dict_out = {}
 
@@ -4108,7 +4107,15 @@ class ModelAttributes:
 
                 # clean and build dictionary
                 df_tmp[category_pivot] = df_tmp[category_pivot].apply(clean_schema)
-                dict_map = sf.build_dict(df_tmp[[category_pivot, "variable"]])
+
+                dict_map = dict(
+                    (
+                        row[category_pivot],
+                        self.get_variable(row["variable"], ),
+                    )
+                    for _, row in df_tmp.iterrows()
+                )
+                #dict_map = sf.build_dict(df_tmp[[category_pivot, "variable"]])
 
                 dict_out.update({field: dict_map})
 
@@ -5502,6 +5509,8 @@ class ModelAttributes:
             else table_type
         )
 
+        is_vardef = (table_type == "variable_definitions")
+
         # check the subsector and type specifications
         try:
             attr_subsector = self.get_attribute_table(
@@ -5541,21 +5550,46 @@ class ModelAttributes:
                 attr_subsector.table[field_attribute] == val
             ][attr_subsector.key]
 
+            # convert to ModelVariable
+            if is_vardef:
+                subsec_keys = [self.get_variable(x) for x in subsec_keys]
+
             # loop over the keys to assign
             dict_assigned = {}
             for subsec_key in subsec_keys:
+                
+                # need a string if key type is from variable definition
+                subsec_key_str = (
+                    subsec_key.name
+                    if is_vardef
+                    else subsec_key
+                )
+
+                # try matching against each assignment element
                 for k in dict_assignment.keys():
-                    if k not in subsec_key:
+                    if k not in subsec_key_str:
                         continue
 
-                    val_assigned = clean_schema(subsec_key) if clean_attr_key else subsec_key
-                    dict_assigned.update({dict_assignment[k]: val_assigned})
+                    val_assigned = (
+                        clean_schema(subsec_key) 
+                        if clean_attr_key 
+                        else subsec_key
+                    )
+
+                    dict_assigned.update({dict_assignment[k]: val_assigned, })
             
             vals_unassigned = list(set(dict_assignment.values()) - set(dict_assigned.keys()))
-            dict_out.update({dict_out_key: dict_assigned})
-            dict_vals_unassigned.update({dict_out_key: vals_unassigned})
+            
+            dict_out.update({dict_out_key: dict_assigned, })
+            dict_vals_unassigned.update({dict_out_key: vals_unassigned, })
 
-        return dict_out, dict_vals_unassigned
+        # set output
+        out = (
+            dict_out, 
+            dict_vals_unassigned,
+        )
+
+        return out
     
 
 
@@ -6577,8 +6611,8 @@ class ModelAttributes:
                 else arr_cur
             )
 
-            # ensure that the key is a string, not the ModelVariable object
-            dict_arrs.update({modvar.name: arr_cur})
+            # key is a model variable object
+            dict_arrs.update({modvar: arr_cur})
             arr += arr_cur
 
         modvars = sorted(list(dict_arrs.keys()))

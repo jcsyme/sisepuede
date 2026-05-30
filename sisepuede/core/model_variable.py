@@ -185,6 +185,14 @@ class ModelVariable:
     
 
 
+    def __lt__(self,
+        other: 'ModelVariable',
+    ) -> bool:
+        out = self.name.__lt__(other.name, )
+        return out
+    
+
+
     def __repr__(self,
     ) -> None:
         
