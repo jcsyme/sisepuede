@@ -153,6 +153,26 @@ class ArraysAGRC(ma.SubsectorArraysCollection):
             set_property = True,
         )
 
+        # emission factor--ch4, crop decomposition
+        self.get_modvar_array(
+            df_trajectories,
+            self.modvar_agrc_ef_ch4_crop_decomposition,
+            expand_to_all_cats = True,
+            override_vector_for_single_mv_q = True, 
+            return_type = "array_units_corrected",
+            set_property = True,
+        )
+
+        # emission factor--co2 from biomass
+        self.get_modvar_array(
+            df_trajectories,
+            self.modvar_agrc_ef_co2_biomass,
+            expand_to_all_cats = True,
+            override_vector_for_single_mv_q = True, 
+            return_type = "array_units_corrected",
+            set_property = True,
+        )
+
         # emission factor--n2o, residue burning
         self.get_modvar_array(
             df_trajectories,

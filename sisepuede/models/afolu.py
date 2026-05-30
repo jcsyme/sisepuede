@@ -1643,17 +1643,17 @@ class AFOLU:
         arr_agrc_demand_out = arr_agrc_yield_out*self.model_attributes.get_variable_unit_conversion_factor(
             self.modvar_agrc_yield,
             self.modvar_agrc_demand_crops,
-            "mass"
+            "mass",
         )
         arr_agrc_demand_out += arr_agrc_imports_adj*self.model_attributes.get_variable_unit_conversion_factor(
             self.modvar_agrc_adjusted_equivalent_imports,
             self.modvar_agrc_demand_crops,
-            "mass"
+            "mass",
         )
         arr_agrc_demand_out -= arr_agrc_exports_adj*self.model_attributes.get_variable_unit_conversion_factor(
             self.modvar_agrc_adjusted_equivalent_exports,
             self.modvar_agrc_demand_crops,
-            "mass"
+            "mass",
         )
 
         # add to output data frame
@@ -2054,9 +2054,8 @@ class AFOLU:
         frac_type: str = "initial",
         thresh_for_correction: float = 0.01,
     ) -> np.ndarray:
-        """
-        Check cropland fractions and extract from data frame. Returns np.ndarray
-            ordered by AGRC attribute keys
+        """Check cropland fractions and extract from data frame. Returns 
+            np.ndarray ordered by AGRC attribute keys
         """
         if frac_type not in ["initial", "calculated"]:
             raise ValueError(f"Error in frac_type '{frac_type}': valid values are 'initial' and 'calculated'.")
@@ -2070,17 +2069,19 @@ class AFOLU:
         arr = self.model_attributes.extract_model_variable(#
             df_in, 
             varname, 
+            all_cats_missing_val = 0.0,
+            expand_to_all_cats = True,
             override_vector_for_single_mv_q = True, 
             return_type = "array_base",
         )
 
+        # check total and verify that it's within the bounds acceptable for correction
         totals = sum(arr.transpose())
         m = max(np.abs(totals - 1))
+
         if m > thresh_for_correction:
-            msg = f"""
-                Invalid crop areas found in check_cropland_fractions. The
-                maximum fraction total was {m}; the maximum allowed deviation 
-                from 1 is {thresh_for_correction}.
+            msg = f"""Invalid crop areas found in check_cropland_fractions. The maximum fraction 
+                total was {m}; the maximum allowed deviation from 1 is {thresh_for_correction}.
             """
             raise ValueError(msg)
 
@@ -2940,15 +2941,16 @@ class AFOLU:
         modvar_inen_prod_intensity = self.model_enercons.modvar_inen_en_prod_intensity_factor
         modvar_inen_prod_intensity = self.model_attributes.get_variable(modvar_inen_prod_intensity, )
 
+        _, modvar_source_mass = self.get_modvars_for_unit_targets_ilu()
         _, modvar_target_mass = self.get_modvars_for_unit_targets_bcl()
-
+        
         # extract arrays of fuel fractions
         dict_arrs_inen_frac_energy = self.model_attributes.get_multivariables_with_bounded_sum_by_category(
             df_afolu_trajectories,
             self.model_enercons.modvars_inen_list_fuel_fraction,
             1,
             force_sum_equality = True,
-            msg_append = "Energy fractions by category do not sum to 1. See definition of dict_arrs_inen_frac_energy."
+            msg_append = "Energy fractions by category do not sum to 1. See definition of dict_arrs_inen_frac_energy.",
         )
 
 
@@ -2980,6 +2982,7 @@ class AFOLU:
         )
 
         self.vec_lvst_aggregate_animal_mass = vec_lvst_aggregate_animal_mass
+        
         # get agricultural and livestock production + intensities 
         # (in terms of self.model_ippu.modvar_ippu_qty_total_production (mass) 
         # and self.modvar_inen_en_prod_intensity_factor (energy), respectively)
@@ -2991,8 +2994,8 @@ class AFOLU:
             df_afolu_trajectories, 
             arr_inen_agrc_prod = arr_agrc_yield,
             arr_inen_lvst_prod = vec_lvst_aggregate_animal_mass[..., None],
-            modvar_mass_units_agrc = self.modvar_agrc_yf,
-            modvar_mass_units_lvst = self.modvar_agrc_yf,
+            modvar_mass_units_agrc = modvar_source_mass,
+            modvar_mass_units_lvst = modvar_source_mass,
         )
         arr_inen_prod[:, index_inen_agrc] = vec_inen_prod_agrc_lvst
         
@@ -3686,6 +3689,45 @@ class AFOLU:
     
 
 
+    def get_agrc_cropland_area(self,
+        df_land_use: Union[np.ndarray, pd.DataFrame],
+        df_agrc_frac_cropland: Union[np.ndarray, pd.DataFrame],
+    ) -> np.ndarray:
+        """Get np.ndarray of agricultural cropland areas
+        """
+
+        field_crop_array = self.model_attributes.build_variable_fields(
+            self.modvar_lndu_area_by_cat, 
+            restrict_to_category_values = self.cat_lndu_crop,
+        )
+    
+        # get total area of cropland
+        vec_cropland_area = (
+            df_land_use[field_crop_array].to_numpy()
+            if isinstance(df_land_use, pd.DataFrame)
+            else df_land_use[:, self.ind_lndu_crop]
+        )
+
+        # fraction of cropland and area
+        arr_agrc_frac_cropland_area = (
+            self.check_cropland_fractions(
+                df_agrc_frac_cropland, 
+                "calculated", 
+            )
+            if isinstance(arr_agrc_frac_cropland_area, pd.DataFrame)
+            else df_agrc_frac_cropland
+        )
+
+        # get crop area
+        arr_agrc_crop_area = sf.do_array_mult(
+            arr_agrc_frac_cropland_area,
+            vec_cropland_area,
+        )
+
+        return arr_agrc_crop_area
+
+
+
     def get_agrc_emissions_additional(self,
         df_afolu_trajectories: pd.DataFrame,
         df_agrc_frac_cropland: pd.DataFrame,
@@ -3713,49 +3755,30 @@ class AFOLU:
         
         ##  CALCULATIONS
 
-        # get area of cropland
-        field_crop_array = self.model_attributes.build_variable_fields(
-            self.modvar_lndu_area_by_cat, 
-            restrict_to_category_values = self.cat_lndu_crop,
-        )
-        vec_cropland_area = np.array(df_land_use[field_crop_array])
-
-        # fraction of cropland and area
-        arr_agrc_frac_cropland_area = self.check_cropland_fractions(
-            df_agrc_frac_cropland, 
-            "calculated", 
-        )
-        arr_agrc_crop_area = sf.do_array_mult(
-            arr_agrc_frac_cropland_area,
-            vec_cropland_area,
+        # get the area of crop types
+        arr_agrc_crop_area = self.get_agrc_cropland_area(
+            df_land_use,
+            df_agrc_frac_cropland,
         )
        
         # unit-corrected emission factors - ch4
-        arr_agrc_ef_ch4 = self.model_attributes.extract_model_variable(#
-            df_afolu_trajectories, 
-            self.modvar_agrc_ef_ch4_crop_decomposition,
-            expand_to_all_cats = True,
-            override_vector_for_single_mv_q = True, 
-            return_type = "array_units_corrected",
-        )
-        arr_agrc_ef_ch4 *= self.model_attributes.get_variable_unit_conversion_factor(
-            modvar_ilu_area,
-            self.modvar_agrc_ef_ch4_crop_decomposition,
-            "area"
+        arr_agrc_ef_ch4 = (
+            self.arrays_agrc.arr_agrc_ef_ch4_crop_decomposition
+            *self.model_attributes.get_variable_unit_conversion_factor(
+                modvar_ilu_area,
+                self.modvar_agrc_ef_ch4_crop_decomposition,
+                "area",
+            )
         )
 
         # biomass
-        arr_agrc_ef_co2_biomass = self.model_attributes.extract_model_variable(#
-            df_afolu_trajectories, 
-            self.modvar_agrc_ef_co2_biomass, 
-            expand_to_all_cats = True,
-            override_vector_for_single_mv_q = True, 
-            return_type = "array_units_corrected",
-        )
-        arr_agrc_ef_co2_biomass *= self.model_attributes.get_variable_unit_conversion_factor(
-            self.model_socioeconomic.modvar_gnrl_area,
-            self.modvar_agrc_ef_co2_biomass,
-            "area"
+        arr_agrc_ef_co2_biomass = (
+            self.arrays_agrc.arr_agrc_ef_co2_biomass
+            * self.model_attributes.get_variable_unit_conversion_factor(
+                modvar_ilu_area,
+                self.modvar_agrc_ef_co2_biomass,
+                "area",
+            )
         )
 
         
@@ -4499,7 +4522,7 @@ class AFOLU:
             Build for mangroves?
         """
         # initialization
-        modvar_area_source = self.model_socioeconomic.modvar_gnrl_area
+        
         (
             ind_lndu_fstm,
             ind_lndu_fstp, 
@@ -4507,6 +4530,8 @@ class AFOLU:
         ) = self.get_lndu_indices_fstp_fsts(
             include_mangroves = True,
         )
+
+        modvar_area_source = self.model_socioeconomic.modvar_gnrl_area
         modvar_area_target, _ = self.get_modvars_for_unit_targets_bcl()
         
         # get the area
@@ -7351,6 +7376,7 @@ class AFOLU:
         df_afolu_trajectories: pd.DataFrame,
         df_land_use_ilu: pd.DataFrame,
         dict_arrs_frst_frac_temptrop: Dict[str, np.ndarray],
+        modvar_area_target: 'ModelVariable',
     ) -> pd.DataFrame:
         """Get emissions associated with forest fires.
         """
@@ -7392,7 +7418,7 @@ class AFOLU:
         )
         arr_frst_biomass_consumed_temperate /= self.model_attributes.get_variable_unit_conversion_factor(
             self.modvar_frst_biomass_consumed_fire_temperate,
-            self.model_socioeconomic.modvar_gnrl_area,
+            modvar_area_target,
             "area"
         )
 
@@ -7416,7 +7442,7 @@ class AFOLU:
         )
         arr_frst_biomass_consumed_tropical /= self.model_attributes.get_variable_unit_conversion_factor(
             self.modvar_frst_biomass_consumed_fire_tropical,
-            self.model_socioeconomic.modvar_gnrl_area,
+            modvar_area_target,
             "area",
         )
 
@@ -7458,31 +7484,24 @@ class AFOLU:
 
 
     def get_frst_emissions_methane(self,
-        df_afolu_trajectories: pd.DataFrame,
         df_land_use_ilu: pd.DataFrame,
+        modvar_area_target: 'ModelVariable',
     ) -> List[pd.DataFrame]:
         """Get forest methane emission factors in terms of output emission mass 
-            and self.model_socioeconomic.modvar_gnrl_area area units.
+            and modvar_area_target units.
         """
 
-        # get ILU area variable
-        modvar_ilu_area, _ = self.get_modvars_for_unit_targets_ilu()
-        
         # get forest area
         arr_area_frst = self.get_frst_area_from_df(df_land_use_ilu, )
 
         # get factors
-        arr_frst_ef_methane = self.model_attributes.extract_model_variable(#
-            df_afolu_trajectories, 
-            self.modvar_frst_ef_ch4, 
-            override_vector_for_single_mv_q = True, 
-            return_type = "array_units_corrected",
-        )
-
-        arr_frst_ef_methane *= self.model_attributes.get_variable_unit_conversion_factor(
-            modvar_ilu_area,
-            self.modvar_frst_ef_ch4,
-            "area"
+        arr_frst_ef_methane = (
+            self.arrays_frst.arr_frst_ef_ch4
+            * self.model_attributes.get_variable_unit_conversion_factor(
+                modvar_area_target,
+                self.modvar_frst_ef_ch4,
+                "area",
+            )
         )
 
         # return output
@@ -10322,6 +10341,294 @@ class AFOLU:
     
 
 
+    def get_soil_emissions_liming_and_urea(self,
+        vec_soil_area_fertilized: np.ndarray,
+        modvar_fert_mass: 'ModelVariable',
+    ) -> List[pd.DataFrame]:
+        """Get CO2 emissions from liming and dolomite use and urea as well
+            as total lime and urea use.
+        """
+        ##  INITIALIZATION
+
+        # lime use per unit demand scalar
+        vec_soil_demscalar_liming = self.arrays_soil.arr_soil_demscalar_liming
+        
+        # c emission factors for dolomite and limestone
+        vec_soil_ef_liming_dolomite = self.arrays_soil.arr_soil_ef_c_liming_dolomite
+        vec_soil_ef_liming_limestone = self.arrays_soil.arr_soil_ef_c_liming_limestone
+        vec_soil_ef_urea = self.arrays_soil.arr_soil_ef_c_urea
+
+        # initial use of dolomite and limestone
+        vec_soil_lime_init_dolomite = self.arrays_soil.arr_soil_qtyinit_liming_dolomite
+        vec_soil_lime_init_limestone = self.arrays_soil.arr_soil_qtyinit_liming_limestone
+
+        # write in terms of dolomite
+        vec_soil_lime_init_limestone *= self.model_attributes.get_variable_unit_conversion_factor(
+            self.modvar_soil_qtyinit_liming_limestone,
+            self.modvar_soil_qtyinit_liming_dolomite,
+            "mass"
+        )
+
+
+        ##  ESTIMATE LIMING DEMAND USING THE AREA OF LAND THAT'S FERTILIZED 
+
+        # estimate liming demand using the area of land that's fertilized
+        vec_soil_lime_use_growth_rate = np.concatenate(
+            [
+                np.ones(1), 
+                np.cumprod(vec_soil_area_fertilized[1:]/vec_soil_area_fertilized[0:-1])
+            ]
+        )
+
+        vec_soil_lime_use_growth_rate *= vec_soil_demscalar_liming
+        vec_soil_lime_use_dolomite = vec_soil_lime_init_dolomite[0]*vec_soil_lime_use_growth_rate
+        vec_soil_lime_use_limestone = vec_soil_lime_init_limestone[0]*vec_soil_lime_use_growth_rate
+    
+        # get output emissions
+        vec_soil_emission_co2_lime_use = (
+            vec_soil_lime_use_dolomite*vec_soil_ef_liming_dolomite 
+            + vec_soil_lime_use_limestone*vec_soil_ef_liming_limestone
+        )
+        vec_soil_emission_co2_lime_use *= (
+            self.model_attributes.get_scalar(
+                self.modvar_soil_qtyinit_liming_dolomite,
+                "mass",
+            )
+            *self.factor_c_to_co2
+            *self.model_attributes.get_gwp("co2")
+        )
+        
+        # total lime applied
+        vec_soil_lime_use_total = vec_soil_lime_use_limestone + vec_soil_lime_use_dolomite
+        vec_soil_lime_use_total *= self.model_attributes.get_variable_unit_conversion_factor(
+            self.modvar_soil_qtyinit_liming_dolomite,
+            self.modvar_soil_limeuse_total,
+            "mass",
+        )
+        
+
+        ##  UREA
+
+        vec_soil_emission_co2_urea_use = (
+            vec_soil_ef_urea
+            *vec_soil_n_fertilizer_use_synthetic_urea
+            *self.model_attributes.get_scalar(
+                modvar_fert_mass,
+                "mass",
+            )
+            *self.factor_c_to_co2
+            *self.model_attributes.get_gwp("co2")
+        )
+
+        # get total urea applied (based on synthetic fertilizer, which was in terms of modvar_lsmm_n_to_fertilizer_agg_dung)
+        vec_soil_n_fertilizer_use_synthetic_urea *= self.model_attributes.get_variable_unit_conversion_factor(
+            modvar_fert_mass,
+            self.modvar_soil_ureause_total,
+            "mass",
+        )
+        
+
+        ##  OUTPUT DFs
+
+        df_out = [
+            # CO2 EMISSIONS FROM LIMING
+            self.model_attributes.array_to_df(
+                vec_soil_emission_co2_lime_use, 
+                self.modvar_soil_emissions_co2_lime
+            ),
+            # CO2 EMISSIONS FROM UREA
+            self.model_attributes.array_to_df(
+                vec_soil_emission_co2_urea_use, 
+                self.modvar_soil_emissions_co2_urea
+            ),
+            # TOTAL LIME USE
+            self.model_attributes.array_to_df(
+                vec_soil_lime_use_total, 
+                self.modvar_soil_limeuse_total
+            ),
+            # TOTAL UREA USE
+            self.model_attributes.array_to_df(
+                vec_soil_n_fertilizer_use_synthetic_urea, 
+                self.modvar_soil_ureause_total
+            )
+        ]
+
+        return df_out
+    
+
+
+    def get_soil_emissions_n_leaching(self,
+        vec_agrc_total_n_residue_dry: np.ndarray,
+        vec_agrc_total_n_residue_rice: np.ndarray,
+        vec_agrc_total_n_residue_wet: np.ndarray,
+        vec_lsmm_nitrogen_to_pasture_ito_fert_mass: np.ndarray,
+        vec_soil_delta_soc_mineral: np.ndarray,
+        vec_soil_n_fertilizer_use_organic_to_pasture: np.ndarray,
+        vec_soil_ratio_c_to_n_soil_organic_matter: np.ndarray,
+        modvar_fert_mass: 'ModelVariable',
+    ) -> Tuple[np.ndarray]:
+        """Get N2O-N emissions associated with N leaching
+
+        Equations
+        ---------
+        V4-C11-E11.10
+        """
+        # get some variables
+        vec_soil_ef5 = self.arrays_soil.arr_soil_ef5_n_leaching
+        vec_soil_frac_leaching = self.arrays_soil.arr_soil_frac_n_lost_leaching
+        
+
+        ##  ADD UP THE DIFFERENT N SOURCES
+
+        # fertilizer
+        vec_soil_n2on_indirect_leaching_fert = vec_soil_n_fertilizer_use_organic + vec_soil_n_fertilizer_use_synthetic
+        vec_soil_n2on_indirect_leaching_fert *= vec_soil_frac_leaching*vec_soil_ef5
+        
+        # paddock, pasture, range
+        vec_soil_n2on_indirect_leaching_ppr = vec_lsmm_nitrogen_to_pasture_ito_fert_mass + vec_soil_n_fertilizer_use_organic_to_pasture
+        vec_soil_n2on_indirect_leaching_ppr *= vec_soil_frac_leaching*vec_soil_ef5
+
+        # leaching from crop residues
+        vec_soil_n2on_indirect_leaching_cr = vec_agrc_total_n_residue_dry + vec_agrc_total_n_residue_rice + vec_agrc_total_n_residue_wet
+        vec_soil_n2on_indirect_leaching_cr *= vec_soil_frac_leaching*vec_soil_ef5
+        
+        # indirect leaching in mineral soils
+        vec_soil_n2on_indirect_leaching_mineral_soils = vec_soil_delta_soc_mineral/vec_soil_ratio_c_to_n_soil_organic_matter
+        vec_soil_n2on_indirect_leaching_mineral_soils *= vec_soil_frac_leaching*vec_soil_ef5
+        
+        
+        ##  BUILD AGGREGATE EMISSIONS
+
+        vec_soil_n2on_indirect_leaching = (vec_soil_n2on_indirect_leaching_fert + vec_soil_n2on_indirect_leaching_ppr + vec_soil_n2on_indirect_leaching_cr + vec_soil_n2on_indirect_leaching_mineral_soils)
+        vec_soil_emission_n2o_crop_residue += vec_soil_n2on_indirect_leaching_cr
+        vec_soil_emission_n2o_fertilizer += vec_soil_n2on_indirect_leaching_fert
+        vec_soil_emission_n2o_mineral_soils += vec_soil_n2on_indirect_leaching_mineral_soils
+        vec_soil_emission_n2o_ppr += vec_soil_n2on_indirect_leaching_ppr
+
+        
+        ##  UNITS CONVERSION
+
+        # fertilizer use for organic/synthetic
+        vec_soil_n_fertilizer_use_organic *= self.model_attributes.get_variable_unit_conversion_factor(
+            modvar_fert_mass,
+            self.modvar_soil_fertuse_final_organic,
+            "mass",
+        )
+        vec_soil_n_fertilizer_use_synthetic *= self.model_attributes.get_variable_unit_conversion_factor(
+            modvar_fert_mass,
+            self.modvar_soil_fertuse_final_synthetic,
+            "mass",
+        )
+
+        # fertilizer use for total fertilizer N
+        vec_soil_n_fertilizer_use_total = vec_soil_n_fertilizer_use_organic*self.model_attributes.get_variable_unit_conversion_factor(
+            self.modvar_soil_fertuse_final_organic,
+            self.modvar_soil_fertuse_final_total,
+            "mass",
+        )
+        vec_soil_n_fertilizer_use_total += vec_soil_n_fertilizer_use_synthetic*self.model_attributes.get_variable_unit_conversion_factor(
+            self.modvar_soil_fertuse_final_synthetic,
+            self.modvar_soil_fertuse_final_total,
+            "mass",
+        )
+
+        # set return
+        out = (
+            vec_soil_emission_n2o_crop_residue,
+            vec_soil_emission_n2o_fertilizer,
+            vec_soil_emission_n2o_mineral_soils,
+            vec_soil_emission_n2o_ppr,
+            vec_soil_n_fertilizer_use_organic,
+            vec_soil_n_fertilizer_use_synthetic,
+            vec_soil_n_fertilizer_use_total,
+        )
+        
+        return out
+    
+
+
+    def get_soil_emissions_n_volatilisation(self,
+        dict_soil_fertilizer_application_by_climate_organic: Dict[str, np.ndarray],
+        dict_soil_fertilizer_application_by_climate_synthetic: Dict[str, np.ndarray],
+        dict_soil_ppr_n_by_climate: Dict[str, np.ndarray],
+        vec_soil_emission_n2o_fertilizer: np.ndarray,
+        vec_soil_emission_n2o_ppr: np.ndarray,
+        vec_soil_frac_synthetic_fertilizer_urea: np.ndarray,
+    ) -> Tuple[np.ndarray]:
+        """Get N2O volatised emissions (N20-N)
+
+        Equations
+        ---------
+        V4-C11-E11.9
+        """
+        # get volatilisation arrays-NOTE: THIS SHOULD PROBABLY COME FROM get_lndu_n_volatilisation_factor_ef4()
+        arr_soil_ef4 = self.arrays_soil.arr_soil_ef4_n_volatilisation
+
+        # vectors
+        vec_soil_frac_gasf_non_urea = self.arrays_soil.arr_soil_frac_n_lost_volatilisation_sn_non_urea
+        vec_soil_frac_gasf_urea = self.arrays_soil.arr_soil_frac_n_lost_volatilisation_sn_urea
+        vec_soil_frac_gasm = self.arrays_soil.arr_soil_frac_n_lost_volatilisation_on
+
+
+        # loop over dry/wet
+        vec_soil_n2on_indirect_volatilisation = 0.0
+        vec_soil_n2on_indirect_volatilisation_gasf = 0.0
+        vec_soil_n2on_indirect_volatilisation_gasm_on = 0.0
+        vec_soil_n2on_indirect_volatilisation_gasm_ppr = 0.0
+
+        for modvar in self.modvar_list_lndu_frac_drywet:
+        
+            # soil category
+            cat_soil, ind_soil = self.get_soil_cat_ind_from_modvar(modvar, )
+
+            # GASF component--synthetic by urea/non-urea
+            vec_soil_fert_sn_cur_non_urea = dict_soil_fertilizer_application_by_climate_synthetic[cat_soil].copy()
+            vec_soil_fert_sn_cur_urea = vec_soil_fert_sn_cur_non_urea*vec_soil_frac_synthetic_fertilizer_urea
+            vec_soil_fert_sn_cur_non_urea -= vec_soil_fert_sn_cur_urea
+
+            vec_soil_component_gasf_cur = (
+                vec_soil_fert_sn_cur_non_urea*vec_soil_frac_gasf_non_urea 
+                + vec_soil_fert_sn_cur_urea*vec_soil_frac_gasf_urea
+            )
+            vec_soil_component_gasf_cur *= arr_soil_ef4[:, ind_soil]
+
+            # GASM component--organic
+            vec_soil_component_gasm_on_cur = (
+                dict_soil_fertilizer_application_by_climate_organic[cat_soil]
+                *vec_soil_frac_gasm
+                *arr_soil_ef4[:, ind_soil]
+            )
+            vec_soil_component_gasm_ppr_cur = (
+                dict_soil_ppr_n_by_climate[cat_soil]
+                *vec_soil_frac_gasm
+                *arr_soil_ef4[:, ind_soil]
+            )
+
+            # aggregates
+            vec_soil_n2on_indirect_volatilisation_gasf += vec_soil_component_gasf_cur
+            vec_soil_n2on_indirect_volatilisation_gasm_on += vec_soil_component_gasm_on_cur
+            vec_soil_n2on_indirect_volatilisation_gasm_ppr += vec_soil_component_gasm_ppr_cur
+            
+            vec_soil_n2on_indirect_volatilisation += (
+                vec_soil_component_gasf_cur 
+                + vec_soil_component_gasm_on_cur 
+                + vec_soil_component_gasm_ppr_cur
+            )
+
+        # update emissions
+        vec_soil_emission_n2o_fertilizer += vec_soil_n2on_indirect_volatilisation_gasf + vec_soil_n2on_indirect_volatilisation_gasm_on
+        vec_soil_emission_n2o_ppr += vec_soil_n2on_indirect_volatilisation_gasm_ppr
+
+        out = (
+            dict_soil_fertilizer_application_by_climate_synthetic,
+            vec_soil_emission_n2o_fertilizer,
+            vec_soil_emission_n2o_ppr,
+        )
+
+        return out
+    
+
+
     def get_soil_fertilizer_vectors(self,
         arr_land_use: np.ndarray,
         arr_lndu_frac_fertilized: np.ndarray,
@@ -12067,6 +12374,441 @@ class AFOLU:
         self._log(f"Land use projection complete in {t_elapse} seconds.", type_log = "info")
 
         return arr_emissions_conv, arr_land_use, arrs_land_conv
+    
+
+
+    def project_soil(self,
+        df_afolu_trajectories: pd.DataFrame,
+        df_land_use_ilu: pd.DataFrame,
+        n_projection_time_periods: int,
+        arr_agrc_frac_cropland_area: np.ndarray,
+        arr_agrc_yield: np.ndarray,                         # in terms of modvar_ilu_mass
+        arr_land_use: np.ndarray,                           # in terms of modvar_ilu_area
+        arrs_lndu_land_conv: np.ndarray,                    # in terms of modvar_ilu_area
+        dict_arrs_agrc_frac_drywet: Dict['ModelVariable', np.ndarray],
+        dict_arrs_agrc_frac_temptrop: Dict['ModelVariable', np.ndarray],
+        dict_arrs_frst_frac_temptrop: Dict['ModelVariable', np.ndarray],
+        dict_arrs_lndu_frac_drywet: Dict['ModelVariable', np.ndarray],
+        dict_arrs_lndu_frac_temptrop: Dict['ModelVariable', np.ndarray],
+        vec_lsmm_nitrogen_to_fertilizer_dung: np.ndarray,   # in terms of modvar_lvst_animal_mass
+        vec_lsmm_nitrogen_to_fertilizer_urine: np.ndarray,  # in terms of modvar_lvst_animal_mass
+        vec_lsmm_nitrogen_to_pasture: np.ndarray,           # in terms of modvar_lvst_animal_mass
+    ) -> List[pd.DataFrame]:
+        """Get emissions in the Soil Management sector. Includes
+
+            * Fertilizer
+            * Drained Organic Soils
+            * Mineralization
+
+        Function Arguments
+        ------------------
+        df_afolu_trajectories : pd.DataFrame
+            DataFrame storing input variables
+        arr_agrc_crop_area : np.ndarray
+            Array of crop areas
+            * UNITS:    modvar_ilu_area
+        arr_agrc_yield : np.ndarray
+            Array of agricultural yields
+            * UNITS:    modvar_ilu_mass
+        arr_land_use : np.ndarray
+            Array of land use
+            * UNITS:    modvar_ilu_area
+        arrs_lndu_land_conv : np.ndarray
+            Arrays of land use conversion
+            * UNITS:    modvar_ilu_area
+        dict_arrs_agrc_frac_drywet : Dict[str, np.ndarray]
+            Dictionary mapping fractions dry/wet (ModelVariables) to arrays of
+            fractions by crop type
+        dict_arrs_agrc_frac_drywet : Dict[str, np.ndarray]
+            Dictionary mapping fractions dry/wet (ModelVariables) to arrays of
+            fractions by land use type
+        vec_lsmm_nitrogen_to_fertilizer_dung : np.ndarray
+            Mass of dung N from different manure management pathways to 
+            fertilizer
+            * UNITS:    self.modvar_lvst_animal_mass
+        vec_lsmm_nitrogen_to_fertilizer_dung : np.ndarray
+            Mass of urine N from different manure management pathways to 
+            fertilizer
+            * UNITS:    self.modvar_lvst_animal_mass
+        vec_lsmm_nitrogen_to_pasture : np.ndarray
+            Mass of total N to pastures from manure management
+            * UNITS:    self.modvar_lvst_animal_mass
+        """
+
+        ##  INITIALIZATION
+
+        # initial df_out
+        df_out = []
+
+        # model variables
+        modvar_ilu_area, modvar_ilu_mass = self.get_modvars_for_unit_targets_ilu()
+        modvar_fert_mass = self.modvar_lsmm_n_to_fertilizer_agg_dung
+
+        # categories and indices
+        ind_rice = self.attr_agrc.get_key_value_index(self.cat_agrc_rice, )
+
+        # scalars
+        scalar_ilu_area_to_config_area = self.model_attributes.get_scalar(
+            modvar_ilu_area,
+            "area",
+        )
+
+
+        ################################################
+        #    GET MODEL VARIABLES FROM ARRAY CLASSES    #
+        ################################################
+
+        ##  AGRICULTURE VARIABLES
+            
+        # get n available in above ground residues (as a fraction of mass)
+        arr_agrc_frac_n_content_ag_residues = self.arrays_agrc.arr_agrc_n_content_of_above_ground_residues
+        arr_agrc_frac_n_content_bg_residues = self.arrays_agrc.arr_agrc_n_content_of_below_ground_residues
+
+
+        ##  LAND USE VARIABLES
+
+        # get carbon stocks and ratio of c to n - convert to self.modvar_lsmm_n_to_fertilizer_agg_dung units for N2O/EF1
+        arr_lndu_factor_soil_carbon = self.arrays_lndu.arr_lndu_factor_soil_carbon
+
+        # get land that's fertilized and use to project fertilizer demand - add in fraction of grassland that is pasture
+        arr_lndu_frac_fertilized = self.arrays_lndu.arr_lndu_frac_fertilized
+        arr_lndu_frac_mineral_soils = self.arrays_lndu.arr_lndu_frac_mineral_soils
+
+
+        ##  SOIL VARIABLES
+
+        # matrices
+        arr_soil_ef1_organic = self.arrays_soil.arr_soil_ef1_n_managed_soils_org_fert
+        arr_soil_ef1_synthetic = self.arrays_soil.arr_soil_ef1_n_managed_soils_syn_fert
+        arr_soil_ef2 = (
+            self.arrays_soil.arr_soil_ef2_n_organic_soils
+            *self.model_attributes.get_variable_unit_conversion_factor(
+                self.modvar_soil_ef2_n_organic_soils,
+                modvar_fert_mass,
+                "mass",
+            )
+            /self.model_attributes.get_variable_unit_conversion_factor(
+                self.modvar_soil_ef2_n_organic_soils,
+                modvar_ilu_area,
+                "area",
+            )
+        )
+
+        arr_soil_ef3 = self.arrays_soil.arr_soil_ef3_n_prp
+        arr_soil_organic_c_stocks = (
+            self.arrays_soil.arr_soil_organic_c_stocks
+            *self.model_attributes.get_variable_unit_conversion_factor(
+                self.modvar_soil_organic_c_stocks,
+                modvar_fert_mass,
+                "mass",
+            )
+            /self.model_attributes.get_variable_unit_conversion_factor(
+                self.modvar_soil_organic_c_stocks,
+                self.modvar_ilu_area,
+                "area",
+            )
+        )
+
+        # vectors
+        vec_soil_demscalar_fertilizer = self.arrays_soil.arr_soil_demscalar_fertilizer
+        vec_soil_ef1_rice = self.arrays_soil.arr_soil_ef1_n_managed_soils_rice
+        vec_soil_frac_synthetic_fertilizer_urea = self.arrays_soil.arr_soil_frac_synethic_fertilizer_urea
+       
+        vec_soil_init_n_fertilizer_synthetic = (
+            self.arrays_soil.arr_soil_fertuse_init_synthetic
+            * self.model_attributes.get_variable_unit_conversion_factor(
+                self.modvar_soil_fertuse_init_synthetic,
+                modvar_fert_mass,
+                "mass",
+            )
+        )
+        vec_soil_ratio_c_to_n_soil_organic_matter = self.arrays_soil.arr_soil_ratio_c_to_n_soil_organic_matter
+ 
+
+        ##############################
+        #    DERIVATIVE VARIABLES    #
+        ##############################
+        (
+            vec_soil_area_fertilized,
+            vec_soil_init_n_fertilizer_total,
+            vec_soil_n_fertilizer_use_organic,
+            vec_soil_n_fertilizer_use_organic_to_pasture,   
+            vec_soil_n_fertilizer_use_synthetic,
+            vec_soil_n_fertilizer_use_synthetic_nonurea,
+            vec_soil_n_fertilizer_use_synthetic_urea,
+        ) = self.get_soil_fertilizer_vectors(
+            arr_land_use,
+            arr_lndu_frac_fertilized,
+            vec_lsmm_nitrogen_to_fertilizer_dung,
+            vec_lsmm_nitrogen_to_fertilizer_urine,
+            vec_soil_demscalar_fertilizer,
+            vec_soil_frac_synthetic_fertilizer_urea,
+            vec_soil_init_n_fertilizer_synthetic,
+            vec_soil_n_fertilizer_use_organic,
+            modvar_fert_mass,
+        )
+        
+        # get cropland area
+        arr_agrc_crop_area = self.get_agrc_cropland_area(
+            arr_land_use,
+            arr_agrc_frac_cropland_area,
+        )
+
+        # area of forest lands by forest cat
+        arr_area_frst = self.get_frst_area_from_df(df_land_use_ilu, )
+
+        # get estimated fraction organic by land use type
+        arr_lndu_frac_organic_soils = sf.vec_bounds(1 - arr_lndu_frac_mineral_soils, (0.0, 1.0))
+        vec_soil_area_crop_pasture = (
+            arr_land_use[:, [self.ind_lndu_crop, self.ind_lndu_pstr]]
+            .sum(axis = 1)
+        )
+
+
+        ###################################################################
+        ###                                                             ###
+        ###    N2O DIRECT - INPUT EMISSIONS (PT. 1 OF EQUATION 11.1)    ###
+        ###                                                             ###
+        ###################################################################
+
+        ##  F_ON AND F_SN - SYNTHETIC FERTILIZERS AND ORGANIC AMENDMENTS
+
+        (
+            dict_soil_fertilizer_application_by_climate_organic,
+            dict_soil_fertilizer_application_by_climate_synthetic,
+            vec_soil_n2odirectn_fon,
+            vec_soil_n2odirectn_fsn,
+            vec_soil_n2odirectn_fon_rice,
+            vec_soil_n2odirectn_fsn_rice,
+        ) = self.get_soil_ef1_components_fon_fsn(
+            arr_agrc_crop_area,
+            arr_land_use,
+            arr_lndu_frac_fertilized,
+            arr_soil_ef1_organic,
+            arr_soil_ef1_synthetic,
+            dict_arrs_agrc_frac_drywet,
+            dict_arrs_lndu_frac_drywet,
+            ind_rice,
+            vec_soil_area_fertilized,
+            vec_soil_ef1_rice,
+            vec_soil_n_fertilizer_use_organic,
+            vec_soil_n_fertilizer_use_synthetic,
+        )
+
+
+        ##  F_CR - CROP RESIDUES
+
+        (
+            vec_agrc_total_n_residue_dry,
+            vec_agrc_total_n_residue_rice,
+            vec_agrc_total_n_residue_wet,
+            vec_soil_n2odirectn_fcr,
+            vec_soil_n2odirectn_fcr_rice,
+        ) = self.get_soil_ef1_components_fcr(
+            arr_agrc_frac_n_content_ag_residues,
+            arr_agrc_frac_n_content_bg_residues,
+            arr_agrc_yield,
+            arr_soil_ef1_organic,
+            dict_arrs_agrc_frac_drywet,
+            ind_rice,
+            vec_soil_ef1_rice,
+            modvar_fert_mass,
+            modvar_ilu_mass,
+        )
+
+
+        ##  F_SOM (mineral soils)
+        
+        (
+            arr_lndu_area_improved,
+            vec_soil_delta_soc_mineral,
+            vec_soil_emission_co2_soil_carbon_mineral,
+            vec_soil_n2odirectn_fsom,
+        ) = self.get_soil_ef1_components_fsom_fso(
+            arr_agrc_crop_area,
+            arr_land_use,
+            arr_lndu_factor_soil_carbon,
+            arr_lndu_frac_mineral_soils,
+            arrs_lndu_land_conv,
+            arr_soil_ef1_organic,
+            arr_soil_organic_c_stocks,
+            dict_arrs_agrc_frac_drywet,
+            dict_arrs_frst_frac_temptrop,
+            dict_arrs_lndu_frac_drywet,
+            vec_soil_ratio_c_to_n_soil_organic_matter,
+            vec_soil_area_crop_pasture,
+            modvar_fert_mass,
+        )
+
+ 
+        ##  FINAL EF1 COMPONENTS
+
+        # different tablulations (totals will run across EF1, EF2, EF3, EF4, and EF5)
+        vec_soil_emission_n2o_crop_residue = vec_soil_n2odirectn_fcr + vec_soil_n2odirectn_fcr_rice
+        vec_soil_emission_n2o_fertilizer = (
+            vec_soil_n2odirectn_fon 
+            + vec_soil_n2odirectn_fon_rice 
+            + vec_soil_n2odirectn_fsn 
+            + vec_soil_n2odirectn_fsn_rice
+        )
+        vec_soil_emission_n2o_mineral_soils = vec_soil_n2odirectn_fsom
+
+
+
+        ########################################################################
+        #    DRAINED ORGANIC SOILS                                             #
+        #    - CO2 EMISSIONS IN CROPLANDS AND MANAGED GRASSLANDS               #
+        #    - N2O DIRECT - ORGANIC SOIL EMISSIONS (PT. 2 OF EQUATION 11.1)    #
+        ########################################################################
+        (
+            arr_lndu_emission_co2_drained_organic_soils,
+            vec_soil_emission_n2o_organic_soils,
+        ) = self.get_soil_dos_components(
+            df_afolu_trajectories,
+            n_projection_time_periods,
+            arr_agrc_frac_cropland_area,
+            arr_area_frst,
+            arr_land_use,
+            arr_lndu_frac_organic_soils,
+            arrs_lndu_land_conv,
+            arr_soil_ef2,
+            dict_arrs_agrc_frac_temptrop,
+            dict_arrs_frst_frac_temptrop,
+            dict_arrs_lndu_frac_temptrop,
+        )
+ 
+
+        ####################################################################
+        #    N2O DIRECT - PASTURE/RANGE/PADDOCK (PT. 3 OF EQUATION 11.1)   #
+        ####################################################################
+    
+        (
+            dict_soil_ppr_n_by_climate,
+            vec_soil_emission_n2o_ppr,                  # passed also to get_soil_emissions_volatilisation for modification
+            vec_lsmm_nitrogen_to_pasture_ito_fert_mass,
+        ) = self.get_soil_ppr_component(
+            arr_land_use,
+            arr_soil_ef3,
+            dict_arrs_lndu_frac_drywet,
+            vec_lsmm_nitrogen_to_pasture,
+            vec_soil_n_fertilizer_use_organic_to_pasture,
+            modvar_fert_mass,
+        )
+        
+        ###########################################################
+        #    N2O INDIRECT - VOLATISED EMISSIONS (EQUATION 11.9)   #
+        ###########################################################
+
+        (
+            dict_soil_fertilizer_application_by_climate_synthetic,
+            vec_soil_emission_n2o_fertilizer,
+            vec_soil_emission_n2o_ppr,
+        ) = self.get_soil_emissions_n_volatilisation(
+            dict_soil_fertilizer_application_by_climate_organic,
+            dict_soil_fertilizer_application_by_climate_synthetic,
+            dict_soil_ppr_n_by_climate,
+            vec_soil_emission_n2o_fertilizer,
+            vec_soil_emission_n2o_ppr,
+            vec_soil_frac_synthetic_fertilizer_urea,
+        )
+            
+    
+
+        ###########################################################
+        #    N2O INDIRECT - LEACHING EMISSIONS (EQUATION 11.10)   #
+        ###########################################################
+
+        (
+            vec_soil_emission_n2o_crop_residue,
+            vec_soil_emission_n2o_fertilizer,
+            vec_soil_emission_n2o_mineral_soils,
+            vec_soil_emission_n2o_ppr,
+            vec_soil_n_fertilizer_use_organic,
+            vec_soil_n_fertilizer_use_synthetic,
+            vec_soil_n_fertilizer_use_total,
+        ) = self.get_soil_emissions_n_leaching(
+            vec_agrc_total_n_residue_dry,
+            vec_agrc_total_n_residue_rice,
+            vec_agrc_total_n_residue_wet,
+            vec_lsmm_nitrogen_to_pasture_ito_fert_mass,
+            vec_soil_delta_soc_mineral,
+            vec_soil_n_fertilizer_use_organic_to_pasture,
+            vec_soil_ratio_c_to_n_soil_organic_matter,
+            modvar_fert_mass,
+        )
+    
+    
+
+        #####################################################
+        #    SUMMARIZE N2O EMISSIONS AS DIRECT + INDIRECT   #
+        #####################################################
+
+        scalar_n2on_to_emission_out = self.factor_n2on_to_n2o*self.model_attributes.get_scalar(self.modvar_lsmm_n_to_fertilizer_agg_dung, "mass")
+        scalar_n2on_to_emission_out *= self.model_attributes.get_gwp("n2o")
+        
+        # build emissions outputs
+        df_out = [
+            self.model_attributes.array_to_df(
+                vec_soil_emission_n2o_crop_residue*scalar_n2on_to_emission_out, 
+                self.modvar_agrc_emissions_n2o_crop_residues
+            ),
+            self.model_attributes.array_to_df(
+                arr_lndu_area_improved*scalar_ilu_area_to_config_area,
+                self.modvar_lndu_area_improved,
+                reduce_from_all_cats_to_specified_cats = True,
+            ),
+            self.model_attributes.array_to_df(
+                arr_lndu_emission_co2_drained_organic_soils, 
+                self.modvar_lndu_emissions_co2_drained_organic_soils,
+                reduce_from_all_cats_to_specified_cats = True,
+            ),
+            self.model_attributes.array_to_df(
+                vec_soil_emission_co2_soil_carbon_mineral, 
+                self.modvar_soil_emissions_co2_soil_carbon_mineral
+            ),
+            self.model_attributes.array_to_df(
+                vec_soil_emission_n2o_fertilizer*scalar_n2on_to_emission_out, 
+                self.modvar_soil_emissions_n2o_fertilizer
+            ),
+            self.model_attributes.array_to_df(
+                vec_soil_emission_n2o_mineral_soils*scalar_n2on_to_emission_out, 
+                self.modvar_soil_emissions_n2o_mineral_soils
+            ),
+            self.model_attributes.array_to_df(
+                vec_soil_emission_n2o_organic_soils*scalar_n2on_to_emission_out, 
+                self.modvar_soil_emissions_n2o_organic_soils
+            ),
+            self.model_attributes.array_to_df(
+                vec_soil_emission_n2o_ppr*scalar_n2on_to_emission_out, 
+                self.modvar_soil_emissions_n2o_ppr
+            ),
+            self.model_attributes.array_to_df(
+                vec_soil_n_fertilizer_use_organic, 
+                self.modvar_soil_fertuse_final_organic
+            ),
+            self.model_attributes.array_to_df(
+                vec_soil_n_fertilizer_use_synthetic, 
+                self.modvar_soil_fertuse_final_synthetic
+            ),
+            self.model_attributes.array_to_df(
+                vec_soil_n_fertilizer_use_total, 
+                self.modvar_soil_fertuse_final_total
+            )
+        ]
+
+
+
+        ############################################################
+        #    ADD IN CO2 EMISSIONS FROM LIMING + UREA APPLICATION   #
+        ############################################################
+
+        df_out += self.get_soil_emissions_liming_and_urea(
+            vec_soil_area_fertilized,
+            modvar_fert_mass,
+        )
+
+        
+        return df_out
 
 
 
@@ -13138,11 +13880,12 @@ class AFOLU:
             df_afolu_trajectories,
             df_land_use_ilu,
             dict_arrs_frst_frac_temptrop,
+            modvar_ilu_area,
         )
 
         df_out += self.get_frst_emissions_methane(
-            df_afolu_trajectories,
             df_land_use_ilu,
+            modvar_ilu_area,
         )
 
         df_out += self.get_lndu_emissions_other(
@@ -13194,27 +13937,18 @@ class AFOLU:
         )
         df_out += df_lsmm_emissions
         
-    
-        ## HERE1234
-
-        return df_out, ledger, ledger_mangroves
-    
-
 
 
         #############################
-        ###                       ###
-        ###    SOIL MANAGEMENT    ###
-        ###                       ###
+        #    GET SOIL MANAGEMENT    #
         #############################
 
         df_out += self.project_soil(
             df_afolu_trajectories,
+            df_land_use_ilu,
             n_projection_time_periods,
-            arr_agrc_crop_area,
-            arr_agrc_frac_cropland_area,
+            arr_agrc_frac_cropland,
             arr_agrc_yield,
-            arr_area_frst,
             arr_land_use,
             arrs_lndu_land_conv,
             dict_arrs_agrc_frac_drywet,
@@ -13226,626 +13960,36 @@ class AFOLU:
             vec_lsmm_nitrogen_to_fertilizer_urine,
             vec_lsmm_nitrogen_to_pasture,
         )
-        
-    def project_soil(self,
-        df_afolu_trajectories: pd.DataFrame,
-        n_projection_time_periods: int,
-        arr_agrc_crop_area: np.ndarray,                     # in terms of modvar_ilu_area
-        arr_agrc_frac_cropland_area: np.ndarray,
-        arr_agrc_yield: np.ndarray,                         # in terms of modvar_ilu_mass
-        arr_area_frst: np.ndarray,                          # in terms of modvar_ilu_mass
-        arr_land_use: np.ndarray,                           # in terms of modvar_ilu_area
-        arrs_lndu_land_conv: np.ndarray,                    # in terms of modvar_ilu_area
-        dict_arrs_agrc_frac_drywet: Dict['ModelVariable', np.ndarray],
-        dict_arrs_agrc_frac_temptrop: Dict['ModelVariable', np.ndarray],
-        dict_arrs_frst_frac_temptrop: Dict['ModelVariable', np.ndarray],
-        dict_arrs_lndu_frac_drywet: Dict['ModelVariable', np.ndarray],
-        dict_arrs_lndu_frac_temptrop: Dict['ModelVariable', np.ndarray],
-        vec_lsmm_nitrogen_to_fertilizer_dung: np.ndarray,   # in terms of modvar_lvst_animal_mass
-        vec_lsmm_nitrogen_to_fertilizer_urine: np.ndarray,  # in terms of modvar_lvst_animal_mass
-        vec_lsmm_nitrogen_to_pasture: np.ndarray,           # in terms of modvar_lvst_animal_mass
-    ) -> List[pd.DataFrame]:
-        """Get emissions in the Soil Management sector. Includes
-
-            * Fertilizer
-            * Drained Organic Soils
-            * Mineralization
-
-        Function Arguments
-        ------------------
-        df_afolu_trajectories : pd.DataFrame
-            DataFrame storing input variables
-        arr_agrc_crop_area : np.ndarray
-            Array of crop areas
-            * UNITS:    modvar_ilu_area
-        arr_agrc_yield : np.ndarray
-            Array of agricultural yields
-            * UNITS:    modvar_ilu_mass
-        arr_land_use : np.ndarray
-            Array of land use
-            * UNITS:    modvar_ilu_area
-        arrs_lndu_land_conv : np.ndarray
-            Arrays of land use conversion
-            * UNITS:    modvar_ilu_area
-        dict_arrs_agrc_frac_drywet : Dict[str, np.ndarray]
-            Dictionary mapping fractions dry/wet (ModelVariables) to arrays of
-            fractions by crop type
-        dict_arrs_agrc_frac_drywet : Dict[str, np.ndarray]
-            Dictionary mapping fractions dry/wet (ModelVariables) to arrays of
-            fractions by land use type
-        vec_lsmm_nitrogen_to_fertilizer_dung : np.ndarray
-            Mass of dung N from different manure management pathways to 
-            fertilizer
-            * UNITS:    self.modvar_lvst_animal_mass
-        vec_lsmm_nitrogen_to_fertilizer_dung : np.ndarray
-            Mass of urine N from different manure management pathways to 
-            fertilizer
-            * UNITS:    self.modvar_lvst_animal_mass
-        vec_lsmm_nitrogen_to_pasture : np.ndarray
-            Mass of total N to pastures from manure management
-            * UNITS:    self.modvar_lvst_animal_mass
-        """
-
-        ##  INITIALIZATION
-
-        # initial df_out
-        df_out = []
-
-        # model variables
-        modvar_ilu_area, modvar_ilu_mass = self.get_modvars_for_unit_targets_ilu()
-        modvar_fert_mass = self.modvar_lsmm_n_to_fertilizer_agg_dung
-
-        # categories and indices
-        ind_rice = self.attr_agrc.get_key_value_index(self.cat_agrc_rice, )
-
-        # scalars
-        scalar_ilu_area_to_config_area = self.model_attributes.get_scalar(
-            modvar_ilu_area,
-            "area",
-        )
 
 
-        ################################################
-        #    GET MODEL VARIABLES FROM ARRAY CLASSES    #
-        ################################################
+        ##  BUILD OUTPUT DATAFRAME
+        #
+        #   - concatenate
+        #   - add emissions aggregates
+        #   - 
 
-        ##  AGRICULTURE VARIABLES
-            
-        # get n available in above ground residues (as a fraction of mass)
-        arr_agrc_frac_n_content_ag_residues = self.arrays_agrc.arr_agrc_n_content_of_above_ground_residues
-        arr_agrc_frac_n_content_bg_residues = self.arrays_agrc.arr_agrc_n_content_of_below_ground_residues
-
-
-        ##  LAND USE VARIABLES
-
-        # get carbon stocks and ratio of c to n - convert to self.modvar_lsmm_n_to_fertilizer_agg_dung units for N2O/EF1
-        arr_lndu_factor_soil_carbon = self.arrays_lndu.arr_lndu_factor_soil_carbon
-
-        # get land that's fertilized and use to project fertilizer demand - add in fraction of grassland that is pasture
-        arr_lndu_frac_fertilized = self.arrays_lndu.arr_lndu_frac_fertilized
-        arr_lndu_frac_mineral_soils = self.arrays_lndu.arr_lndu_frac_mineral_soils
-
-
-        ##  SOIL VARIABLES
-
-        # matrices
-        arr_soil_ef1_organic = self.arrays_soil.arr_soil_ef1_n_managed_soils_org_fert
-        arr_soil_ef1_synthetic = self.arrays_soil.arr_soil_ef1_n_managed_soils_syn_fert
-        arr_soil_ef2 = (
-            self.arrays_soil.arr_soil_ef2_n_organic_soils
-            *self.model_attributes.get_variable_unit_conversion_factor(
-                self.modvar_soil_ef2_n_organic_soils,
-                modvar_fert_mass,
-                "mass",
+        df_out = (
+            pd.concat(
+                df_out, 
+                axis = 1
             )
-            /self.model_attributes.get_variable_unit_conversion_factor(
-                self.modvar_soil_ef2_n_organic_soils,
-                modvar_ilu_area,
-                "area",
-            )
+            .reset_index(drop = True, )
         )
 
-        arr_soil_ef3 = self.arrays_soil.arr_soil_ef3_n_prp
-        arr_soil_organic_c_stocks = (
-            self.arrays_soil.arr_soil_organic_c_stocks
-            *self.model_attributes.get_variable_unit_conversion_factor(
-                self.modvar_soil_organic_c_stocks,
-                modvar_fert_mass,
-                "mass",
-            )
-            /self.model_attributes.get_variable_unit_conversion_factor(
-                self.modvar_soil_organic_c_stocks,
-                self.modvar_ilu_area,
-                "area",
-            )
+        self.model_attributes.add_subsector_emissions_aggregates(
+            df_out, 
+            self.required_base_subsectors, 
+            False,
         )
 
-        # vectors
-        vec_soil_demscalar_fertilizer = self.arrays_soil.arr_soil_demscalar_fertilizer
-        vec_soil_ef1_rice = self.arrays_soil.arr_soil_ef1_n_managed_soils_rice
-        vec_soil_frac_synthetic_fertilizer_urea = self.arrays_soil.arr_soil_frac_synethic_fertilizer_urea
-       
-        vec_soil_init_n_fertilizer_synthetic = (
-            self.arrays_soil.arr_soil_fertuse_init_synthetic
-            * self.model_attributes.get_variable_unit_conversion_factor(
-                self.modvar_soil_fertuse_init_synthetic,
-                modvar_fert_mass,
-                "mass",
-            )
-        )
-        vec_soil_ratio_c_to_n_soil_organic_matter = self.arrays_soil.arr_soil_ratio_c_to_n_soil_organic_matter
- 
-
-        ##############################
-        #    DERIVATIVE VARIABLES    #
-        ##############################
-        (
-            vec_soil_area_fertilized,
-            vec_soil_init_n_fertilizer_total,
-            vec_soil_n_fertilizer_use_organic,
-            vec_soil_n_fertilizer_use_organic_to_pasture,
-            vec_soil_n_fertilizer_use_synthetic,
-            vec_soil_n_fertilizer_use_synthetic_nonurea,
-            vec_soil_n_fertilizer_use_synthetic_urea,
-        ) = self.get_soil_fertilizer_vectors(
-            arr_land_use,
-            arr_lndu_frac_fertilized,
-            vec_lsmm_nitrogen_to_fertilizer_dung,
-            vec_lsmm_nitrogen_to_fertilizer_urine,
-            vec_soil_demscalar_fertilizer,
-            vec_soil_frac_synthetic_fertilizer_urea,
-            vec_soil_init_n_fertilizer_synthetic,
-            vec_soil_n_fertilizer_use_organic,
-            modvar_fert_mass,
-        )
-        
-        # get estimated fraction organic by land use type
-        arr_lndu_frac_organic_soils = sf.vec_bounds(1 - arr_lndu_frac_mineral_soils, (0.0, 1.0))
-        vec_soil_area_crop_pasture = (
-            arr_land_use[:, [self.ind_lndu_crop, self.ind_lndu_pstr]]
-            .sum(axis = 1)
+        # initialize output and overwrite if passthrough_tmp is specified
+        out = (
+            df_out
+            if passthrough_tmp is None
+            else (df_out, passthrough_tmp, )
         )
 
-
-        ###################################################################
-        ###                                                             ###
-        ###    N2O DIRECT - INPUT EMISSIONS (PT. 1 OF EQUATION 11.1)    ###
-        ###                                                             ###
-        ###################################################################
-
-        ##  F_ON AND F_SN - SYNTHETIC FERTILIZERS AND ORGANIC AMENDMENTS
-
-        (
-            dict_soil_fertilizer_application_by_climate_organic,
-            dict_soil_fertilizer_application_by_climate_synthetic,
-            vec_soil_n2odirectn_fon,
-            vec_soil_n2odirectn_fsn,
-            vec_soil_n2odirectn_fon_rice,
-            vec_soil_n2odirectn_fsn_rice,
-        ) = self.get_soil_ef1_components_fon_fsn(
-            arr_agrc_crop_area,
-            arr_land_use,
-            arr_lndu_frac_fertilized,
-            arr_soil_ef1_organic,
-            arr_soil_ef1_synthetic,
-            dict_arrs_agrc_frac_drywet,
-            dict_arrs_lndu_frac_drywet,
-            ind_rice,
-            vec_soil_area_fertilized,
-            vec_soil_ef1_rice,
-            vec_soil_n_fertilizer_use_organic,
-            vec_soil_n_fertilizer_use_synthetic,
-        )
-
-
-        ##  F_CR - CROP RESIDUES
-
-        (
-            vec_agrc_total_n_residue_dry,
-            vec_agrc_total_n_residue_rice,
-            vec_agrc_total_n_residue_wet,
-            vec_soil_n2odirectn_fcr,
-            vec_soil_n2odirectn_fcr_rice,
-        ) = self.get_soil_ef1_components_fcr(
-            arr_agrc_frac_n_content_ag_residues,
-            arr_agrc_frac_n_content_bg_residues,
-            arr_agrc_yield,
-            arr_soil_ef1_organic,
-            dict_arrs_agrc_frac_drywet,
-            ind_rice,
-            vec_soil_ef1_rice,
-            modvar_fert_mass,
-            modvar_ilu_mass,
-        )
-
-
-        ##  F_SOM (mineral soils)
-        
-        (
-            arr_lndu_area_improved,
-            vec_soil_delta_soc_mineral,
-            vec_soil_emission_co2_soil_carbon_mineral,
-            vec_soil_n2odirectn_fsom,
-        ) = self.get_soil_ef1_components_fsom_fso(
-            arr_agrc_crop_area,
-            arr_land_use,
-            arr_lndu_factor_soil_carbon,
-            arr_lndu_frac_mineral_soils,
-            arrs_lndu_land_conv,
-            arr_soil_ef1_organic,
-            arr_soil_organic_c_stocks,
-            dict_arrs_agrc_frac_drywet,
-            dict_arrs_frst_frac_temptrop,
-            dict_arrs_lndu_frac_drywet,
-            vec_soil_ratio_c_to_n_soil_organic_matter,
-            vec_soil_area_crop_pasture,
-            modvar_fert_mass,
-        )
-
- 
-        ##  FINAL EF1 COMPONENTS
-
-        # different tablulations (totals will run across EF1, EF2, EF3, EF4, and EF5)
-        """
-        vec_soil_n2on_direct_input = (
-            vec_soil_n2odirectn_fon 
-            + vec_soil_n2odirectn_fon_rice 
-            + vec_soil_n2odirectn_fsn 
-            + vec_soil_n2odirectn_fsn_rice 
-            + vec_soil_n2odirectn_fcr 
-            + vec_soil_n2odirectn_fcr_rice 
-            + vec_soil_n2odirectn_fsom
-        )
-        """;
-        vec_soil_emission_n2o_crop_residue = vec_soil_n2odirectn_fcr + vec_soil_n2odirectn_fcr_rice
-        vec_soil_emission_n2o_fertilizer = (
-            vec_soil_n2odirectn_fon 
-            + vec_soil_n2odirectn_fon_rice 
-            + vec_soil_n2odirectn_fsn 
-            + vec_soil_n2odirectn_fsn_rice
-        )
-        vec_soil_emission_n2o_mineral_soils = vec_soil_n2odirectn_fsom
-
-
-
-        ########################################################################
-        #    DRAINED ORGANIC SOILS                                             #
-        #    - CO2 EMISSIONS IN CROPLANDS AND MANAGED GRASSLANDS               #
-        #    - N2O DIRECT - ORGANIC SOIL EMISSIONS (PT. 2 OF EQUATION 11.1)    #
-        ########################################################################
-        (
-            arr_lndu_emission_co2_drained_organic_soils,
-            vec_soil_emission_n2o_organic_soils,
-        ) = self.get_soil_dos_components(
-            df_afolu_trajectories,
-            n_projection_time_periods,
-            arr_agrc_frac_cropland_area,
-            arr_area_frst,
-            arr_land_use,
-            arr_lndu_frac_organic_soils,
-            arrs_lndu_land_conv,
-            arr_soil_ef2,
-            dict_arrs_agrc_frac_temptrop,
-            dict_arrs_frst_frac_temptrop,
-            dict_arrs_lndu_frac_temptrop,
-        )
- 
-
-        ####################################################################
-        #    N2O DIRECT - PASTURE/RANGE/PADDOCK (PT. 3 OF EQUATION 11.1)   #
-        ####################################################################
-    
-        (
-            dict_soil_ppr_n_by_climate,
-            vec_soil_emission_n2o_ppr,
-            vec_lsmm_nitrogen_to_pasture_ito_fert_mass,
-        ) = self.get_soil_ppr_component(
-            arr_land_use,
-            arr_soil_ef3,
-            dict_arrs_lndu_frac_drywet,
-            vec_lsmm_nitrogen_to_pasture,
-            vec_soil_n_fertilizer_use_organic_to_pasture,
-            modvar_fert_mass,
-        )
-    
-
-        ###########################################################
-        #    N2O INDIRECT - VOLATISED EMISSIONS (EQUATION 11.9)   #
-        ###########################################################
-
-        # get volatilisation arrays-NOTE: THIS SHOULD PROBABLY COME FROM get_lndu_n_volatilisation_factor_ef4()
-        arr_soil_ef4 = self.arrays_soil.arr_soil_ef4_n_volatilisation
-
-        # vectors
-        vec_soil_frac_gasf_non_urea = self.arrays_soil.arr_soil_frac_n_lost_volatilisation_sn_non_urea
-        vec_soil_frac_gasf_urea = self.arrays_soil.arr_soil_frac_n_lost_volatilisation_sn_urea
-        vec_soil_frac_gasm = self.arrays_soil.arr_soil_frac_n_lost_volatilisation_on
-
-
-        # loop over dry/wet
-        vec_soil_n2on_indirect_volatilisation = 0.0
-        vec_soil_n2on_indirect_volatilisation_gasf = 0.0
-        vec_soil_n2on_indirect_volatilisation_gasm_on = 0.0
-        vec_soil_n2on_indirect_volatilisation_gasm_ppr = 0.0
-
-        for modvar in self.modvar_list_lndu_frac_drywet:
-            # soil category
-            cat_soil, ind_soil = self.get_soil_cat_ind_from_modvar(modvar, )
-
-            # GASF component--synthetic by urea/non-urea
-            vec_soil_fert_sn_cur_non_urea = dict_soil_fertilizer_application_by_climate_synthetic[cat_soil].copy()
-            vec_soil_fert_sn_cur_urea = vec_soil_fert_sn_cur_non_urea*vec_soil_frac_synthetic_fertilizer_urea
-            vec_soil_fert_sn_cur_non_urea -= vec_soil_fert_sn_cur_urea
-            vec_soil_component_gasf_cur = vec_soil_fert_sn_cur_non_urea*vec_soil_frac_gasf_non_urea + vec_soil_fert_sn_cur_urea*vec_soil_frac_gasf_urea
-            vec_soil_component_gasf_cur *= arr_soil_ef4[:, ind_soil]
-
-            # GASM component--organic
-            vec_soil_component_gasm_on_cur = dict_soil_fertilizer_application_by_climate_organic[cat_soil]*vec_soil_frac_gasm*arr_soil_ef4[:, ind_soil]
-            vec_soil_component_gasm_ppr_cur = dict_soil_ppr_n_by_climate[cat_soil]*vec_soil_frac_gasm*arr_soil_ef4[:, ind_soil]
-
-            # aggregates
-            vec_soil_n2on_indirect_volatilisation_gasf += vec_soil_component_gasf_cur
-            vec_soil_n2on_indirect_volatilisation_gasm_on += vec_soil_component_gasm_on_cur
-            vec_soil_n2on_indirect_volatilisation_gasm_ppr += vec_soil_component_gasm_ppr_cur
-            vec_soil_n2on_indirect_volatilisation += vec_soil_component_gasf_cur + vec_soil_component_gasm_on_cur + vec_soil_component_gasm_ppr_cur
-
-        # update emissions
-        vec_soil_emission_n2o_fertilizer += vec_soil_n2on_indirect_volatilisation_gasf + vec_soil_n2on_indirect_volatilisation_gasm_on
-        vec_soil_emission_n2o_ppr += vec_soil_n2on_indirect_volatilisation_gasm_ppr
-
-
-
-        ###########################################################
-        #    N2O INDIRECT - LEACHING EMISSIONS (EQUATION 11.10)   #
-        ###########################################################
-
-        # get some components
-        vec_soil_ef5 = self.model_attributes.extract_model_variable(#
-            df_afolu_trajectories, 
-            self.modvar_soil_ef5_n_leaching, 
-            return_type = "array_base",
-        )
-
-        vec_soil_frac_leaching = self.model_attributes.extract_model_variable(#
-            df_afolu_trajectories, 
-            self.modvar_soil_frac_n_lost_leaching, 
-            return_type = "array_base", 
-            var_bounds = (0, 1)
-        )
-        
-        # add up sources of N
-        vec_soil_n2on_indirect_leaching_fert = vec_soil_n_fertilizer_use_organic + vec_soil_n_fertilizer_use_synthetic
-        vec_soil_n2on_indirect_leaching_fert *= vec_soil_frac_leaching*vec_soil_ef5
-        vec_soil_n2on_indirect_leaching_ppr = vec_lsmm_nitrogen_to_pasture_ito_fert_mass + vec_soil_n_fertilizer_use_organic_to_pasture
-        vec_soil_n2on_indirect_leaching_ppr *= vec_soil_frac_leaching*vec_soil_ef5
-
-        vec_soil_n2on_indirect_leaching_cr = vec_agrc_total_n_residue_dry + vec_agrc_total_n_residue_rice + vec_agrc_total_n_residue_wet
-        vec_soil_n2on_indirect_leaching_cr *= vec_soil_frac_leaching*vec_soil_ef5
-        vec_soil_n2on_indirect_leaching_mineral_soils = vec_soil_delta_soc_mineral/vec_soil_ratio_c_to_n_soil_organic_matter
-        vec_soil_n2on_indirect_leaching_mineral_soils *= vec_soil_frac_leaching*vec_soil_ef5
-        
-        # build aggregate emissions
-        vec_soil_n2on_indirect_leaching = (vec_soil_n2on_indirect_leaching_fert + vec_soil_n2on_indirect_leaching_ppr + vec_soil_n2on_indirect_leaching_cr + vec_soil_n2on_indirect_leaching_mineral_soils)
-        vec_soil_emission_n2o_crop_residue += vec_soil_n2on_indirect_leaching_cr
-        vec_soil_emission_n2o_fertilizer += vec_soil_n2on_indirect_leaching_fert
-        vec_soil_emission_n2o_mineral_soils += vec_soil_n2on_indirect_leaching_mineral_soils
-        vec_soil_emission_n2o_ppr += vec_soil_n2on_indirect_leaching_ppr
-
-        # get fertilizer use totals
-        vec_soil_n_fertilizer_use_organic *= self.model_attributes.get_variable_unit_conversion_factor(
-            self.modvar_lsmm_n_to_fertilizer_agg_dung,
-            self.modvar_soil_fertuse_final_organic,
-            "mass"
-        )
-        vec_soil_n_fertilizer_use_synthetic *= self.model_attributes.get_variable_unit_conversion_factor(
-            self.modvar_lsmm_n_to_fertilizer_agg_dung,
-            self.modvar_soil_fertuse_final_synthetic,
-            "mass"
-        )
-        # total
-        vec_soil_n_fertilizer_use_total = vec_soil_n_fertilizer_use_organic*self.model_attributes.get_variable_unit_conversion_factor(
-            self.modvar_soil_fertuse_final_organic,
-            self.modvar_soil_fertuse_final_total,
-            "mass",
-        )
-        vec_soil_n_fertilizer_use_total += vec_soil_n_fertilizer_use_synthetic*self.model_attributes.get_variable_unit_conversion_factor(
-            self.modvar_soil_fertuse_final_synthetic,
-            self.modvar_soil_fertuse_final_total,
-            "mass",
-        )
-
-        #####################################################
-        #    SUMMARIZE N2O EMISSIONS AS DIRECT + INDIRECT   #
-        #####################################################
-
-        scalar_n2on_to_emission_out = self.factor_n2on_to_n2o*self.model_attributes.get_scalar(self.modvar_lsmm_n_to_fertilizer_agg_dung, "mass")
-        scalar_n2on_to_emission_out *= self.model_attributes.get_gwp("n2o")
-        
-        # build emissions outputs
-        df_out += [
-            self.model_attributes.array_to_df(
-                vec_soil_emission_n2o_crop_residue*scalar_n2on_to_emission_out, 
-                self.modvar_agrc_emissions_n2o_crop_residues
-            ),
-            self.model_attributes.array_to_df(
-                arr_lndu_area_improved*scalar_ilu_area_to_config_area,
-                self.modvar_lndu_area_improved,
-                reduce_from_all_cats_to_specified_cats = True,
-            ),
-            self.model_attributes.array_to_df(
-                arr_lndu_emission_co2_drained_organic_soils, 
-                self.modvar_lndu_emissions_co2_drained_organic_soils,
-                reduce_from_all_cats_to_specified_cats = True,
-            ),
-            self.model_attributes.array_to_df(
-                vec_soil_emission_co2_soil_carbon_mineral, 
-                self.modvar_soil_emissions_co2_soil_carbon_mineral
-            ),
-            self.model_attributes.array_to_df(
-                vec_soil_emission_n2o_fertilizer*scalar_n2on_to_emission_out, 
-                self.modvar_soil_emissions_n2o_fertilizer
-            ),
-            self.model_attributes.array_to_df(
-                vec_soil_emission_n2o_mineral_soils*scalar_n2on_to_emission_out, 
-                self.modvar_soil_emissions_n2o_mineral_soils
-            ),
-            self.model_attributes.array_to_df(
-                vec_soil_emission_n2o_organic_soils*scalar_n2on_to_emission_out, 
-                self.modvar_soil_emissions_n2o_organic_soils
-            ),
-            self.model_attributes.array_to_df(
-                vec_soil_emission_n2o_ppr*scalar_n2on_to_emission_out, 
-                self.modvar_soil_emissions_n2o_ppr
-            ),
-            self.model_attributes.array_to_df(
-                vec_soil_n_fertilizer_use_organic, 
-                self.modvar_soil_fertuse_final_organic
-            ),
-            self.model_attributes.array_to_df(
-                vec_soil_n_fertilizer_use_synthetic, 
-                self.modvar_soil_fertuse_final_synthetic
-            ),
-            self.model_attributes.array_to_df(
-                vec_soil_n_fertilizer_use_total, 
-                self.modvar_soil_fertuse_final_total
-            )
-        ]
-
-
-
-        #####################################################
-        #    CO2 EMISSIONS FROM LIMING + UREA APPLICATION   #
-        #####################################################
-
-        ##  LIMING
-
-        # use land that's fertilized to project lime demand
-        vec_soil_demscalar_liming = self.model_attributes.extract_model_variable(#
-            df_afolu_trajectories, 
-            self.modvar_soil_demscalar_liming, 
-            return_type = "array_base", 
-            var_bounds = (0, np.inf),
-        )
-
-        vec_soil_lime_init_dolomite = self.model_attributes.extract_model_variable(#
-            df_afolu_trajectories, 
-            self.modvar_soil_qtyinit_liming_dolomite,
-            return_type = "array_base", 
-            var_bounds = (0, np.inf),
-        )
-
-        vec_soil_lime_init_limestone = self.model_attributes.extract_model_variable(#
-            df_afolu_trajectories, 
-            self.modvar_soil_qtyinit_liming_limestone,
-            return_type = "array_base", 
-            var_bounds = (0, np.inf),
-        )
-
-        # get emission factors
-        vec_soil_ef_liming_dolomite = self.model_attributes.extract_model_variable(#
-            df_afolu_trajectories, 
-            self.modvar_soil_ef_c_liming_dolomite,
-            return_type = "array_base", 
-            var_bounds = (0, np.inf),
-        )
-
-        vec_soil_ef_liming_limestone = self.model_attributes.extract_model_variable(#
-            df_afolu_trajectories, 
-            self.modvar_soil_ef_c_liming_limestone,
-            return_type = "array_base", 
-            var_bounds = (0, np.inf),
-        )
-
-        # write in terms of dolomite
-        vec_soil_lime_init_limestone *= self.model_attributes.get_variable_unit_conversion_factor(
-            self.modvar_soil_qtyinit_liming_limestone,
-            self.modvar_soil_qtyinit_liming_dolomite,
-            "mass"
-        )
-
-        # estimate liming demand using the area of land that's fertilized
-        vec_soil_lime_use_growth_rate = np.concatenate([np.ones(1), np.cumprod(vec_soil_area_fertilized[1:]/vec_soil_area_fertilized[0:-1])])
-        vec_soil_lime_use_growth_rate *= vec_soil_demscalar_liming
-        vec_soil_lime_use_dolomite = vec_soil_lime_init_dolomite[0]*vec_soil_lime_use_growth_rate
-        vec_soil_lime_use_limestone = vec_soil_lime_init_limestone[0]*vec_soil_lime_use_growth_rate
-       
-        # get output emissions
-        vec_soil_emission_co2_lime_use = vec_soil_lime_use_dolomite*vec_soil_ef_liming_dolomite + vec_soil_lime_use_limestone*vec_soil_ef_liming_limestone
-        vec_soil_emission_co2_lime_use *= self.model_attributes.get_scalar(
-            self.modvar_soil_qtyinit_liming_dolomite,
-            "mass"
-        )
-        vec_soil_emission_co2_lime_use *= self.factor_c_to_co2
-        vec_soil_emission_co2_lime_use *= self.model_attributes.get_gwp("co2")
-        
-        # total lime applied
-        vec_soil_lime_use_total = vec_soil_lime_use_limestone + vec_soil_lime_use_dolomite
-        vec_soil_lime_use_total *= self.model_attributes.get_variable_unit_conversion_factor(
-            self.modvar_soil_qtyinit_liming_dolomite,
-            self.modvar_soil_limeuse_total,
-            "mass"
-        )
-         
-
-        ##  UREA
-
-        vec_soil_ef_urea = self.model_attributes.extract_model_variable(#
-            df_afolu_trajectories, 
-            self.modvar_soil_ef_c_urea, 
-            return_type = "array_base", 
-            var_bounds = (0, np.inf),
-        )
-
-        vec_soil_emission_co2_urea_use = vec_soil_ef_urea*vec_soil_n_fertilizer_use_synthetic_urea
-        vec_soil_emission_co2_urea_use *= self.model_attributes.get_scalar(
-            modvar_fert_mass,
-            "mass",
-        )
-
-        vec_soil_emission_co2_urea_use *= self.factor_c_to_co2
-        vec_soil_emission_co2_urea_use *= self.model_attributes.get_gwp("co2")
-        
-        # get total urea applied (based on synthetic fertilizer, which was in terms of modvar_lsmm_n_to_fertilizer_agg_dung)
-        vec_soil_n_fertilizer_use_synthetic_urea *= self.model_attributes.get_variable_unit_conversion_factor(
-            modvar_fert_mass,
-            self.modvar_soil_ureause_total,
-            "mass",
-        )
-        
-
-        # add to output
-        df_out += [
-            # CO2 EMISSIONS FROM LIMING
-            self.model_attributes.array_to_df(
-                vec_soil_emission_co2_lime_use, 
-                self.modvar_soil_emissions_co2_lime
-            ),
-            # CO2 EMISSIONS FROM UREA
-            self.model_attributes.array_to_df(
-                vec_soil_emission_co2_urea_use, 
-                self.modvar_soil_emissions_co2_urea
-            ),
-            # TOTAL LIME USE
-            self.model_attributes.array_to_df(
-                vec_soil_lime_use_total, 
-                self.modvar_soil_limeuse_total
-            ),
-            # TOTAL UREA USE
-            self.model_attributes.array_to_df(
-                vec_soil_n_fertilizer_use_synthetic_urea, 
-                self.modvar_soil_ureause_total
-            )
-        ]
-
-
-
-        df_out = pd.concat(df_out, axis = 1).reset_index(drop = True)
-        self.model_attributes.add_subsector_emissions_aggregates(df_out, self.required_base_subsectors, False)
-
-        if passthrough_tmp is None:
-            return df_out
-        else:
-            return df_out, passthrough_tmp
+        return out
 
 
 

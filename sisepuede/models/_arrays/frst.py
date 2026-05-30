@@ -50,6 +50,15 @@ class ArraysFRST(ma.SubsectorArraysCollection):
         """Initialize FRST arrays that are carried through
         """
 
+        # emission factor--CH4 from methane emission
+        self.get_modvar_array(
+            df_trajectories,
+            self.modvar_frst_ef_ch4,
+            override_vector_for_single_mv_q = True, 
+            return_type = "array_units_corrected",
+            set_property = True,
+        )
+
         # fraction of forest C available from land use conversions away from forests
         self.get_modvar_array(
             df_trajectories,
@@ -57,7 +66,6 @@ class ArraysFRST(ma.SubsectorArraysCollection):
             set_property = True,
             var_bounds = (0, 1),
         )
-
        
 
         return None

@@ -75,6 +75,14 @@ class ArraysSOIL(ma.SubsectorArraysCollection):
             var_bounds = (0, np.inf),
         )
 
+        # liming demand scalar (can be used to increase/decrease)
+        self.get_modvar_array(
+            df_trajectories,
+            self.modvar_soil_demscalar_liming,
+            set_property = True,
+            var_bounds = (0, np.inf),
+        )
+
         # EF1 N2O emission factor, organic fertilizer
         self.get_modvar_array(
             df_trajectories,
@@ -127,11 +135,50 @@ class ArraysSOIL(ma.SubsectorArraysCollection):
             set_property = True,
         )
 
+        # EF5 N emission factor for leaching
+        self.get_modvar_array(
+            df_trajectories,
+            self.modvar_soil_ef5_n_leaching,
+            set_property = True,
+        )
+
+        # EF for C - dolomite
+        self.get_modvar_array(
+            df_trajectories,
+            self.modvar_soil_ef_c_liming_dolomite,
+            set_property = True,
+            var_bounds = (0, np.inf),
+        )
+
+        # EF for C - limestone
+        self.get_modvar_array(
+            df_trajectories,
+            self.modvar_soil_ef_c_liming_limestone,
+            set_property = True,
+            var_bounds = (0, np.inf),
+        )
+
+        # EF for C - urea
+        self.get_modvar_array(
+            df_trajectories,
+            self.modvar_soil_ef_c_urea,
+            set_property = True,
+            var_bounds = (0, np.inf),
+        )
+
         # Initial synthetic fertilizer use demand
         self.get_modvar_array(
             df_trajectories,
             self.modvar_soil_fertuse_init_synthetic,
             set_property = True,
+        )
+
+        # fraction of N lost to leaching
+        self.get_modvar_array(
+            df_trajectories,
+            self.modvar_soil_frac_n_lost_leaching,
+            set_property = True,
+            var_bounds = (0, 1),
         )
 
         # fraction of N lost to volatilisation of organic N
@@ -176,6 +223,22 @@ class ArraysSOIL(ma.SubsectorArraysCollection):
             expand_to_all_cats = True,
             override_vector_for_single_mv_q = True,
             set_property = True,
+        )
+
+        # initial quantity of dolomite use
+        self.get_modvar_array(
+            df_trajectories,
+            self.modvar_soil_qtyinit_liming_dolomite,
+            set_property = True,
+            var_bounds = (0, np.inf),
+        )
+
+        # initial quantity of limestone use
+        self.get_modvar_array(
+            df_trajectories,
+            self.modvar_soil_qtyinit_liming_limestone,
+            set_property = True,
+            var_bounds = (0, np.inf),
         )
 
         # ratio of C to N in SOC
