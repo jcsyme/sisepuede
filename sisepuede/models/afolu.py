@@ -12721,7 +12721,6 @@ class AFOLU:
         ###########################################################
         #    N2O INDIRECT - VOLATISED EMISSIONS (EQUATION 11.9)   #
         ###########################################################
-
         (
             dict_soil_fertilizer_application_by_climate_synthetic,
             vec_soil_emission_n2o_fertilizer,
@@ -12740,7 +12739,6 @@ class AFOLU:
         ###########################################################
         #    N2O INDIRECT - LEACHING EMISSIONS (EQUATION 11.10)   #
         ###########################################################
-
         (
             vec_soil_emission_n2o_crop_residue,
             vec_soil_emission_n2o_fertilizer,
@@ -12766,14 +12764,19 @@ class AFOLU:
             modvar_fert_mass,
         )
     
-    
 
         #####################################################
         #    SUMMARIZE N2O EMISSIONS AS DIRECT + INDIRECT   #
         #####################################################
 
-        scalar_n2on_to_emission_out = self.factor_n2on_to_n2o*self.model_attributes.get_scalar(self.modvar_lsmm_n_to_fertilizer_agg_dung, "mass")
-        scalar_n2on_to_emission_out *= self.model_attributes.get_gwp("n2o")
+        scalar_n2on_to_emission_out = (
+            self.factor_n2on_to_n2o
+            *self.model_attributes.get_scalar(
+                modvar_fert_mass, 
+                "mass",
+            )
+            *self.model_attributes.get_gwp("n2o")
+        )
         
         # build emissions outputs
         df_out = [
@@ -13899,12 +13902,21 @@ class AFOLU:
         )
         df_out += dfs_add
 
-        
+        # Additional emissions from agriculture
+        # - Pos/Neg CO2 emissions from residues
+        # - Biomass increase/loss (woody biomass)
+        # - CH4 from decomposition 
+        # - CH4/N2O from residue burning
+        df_out += self.get_agrc_emissions_additional(
+            df_afolu_trajectories,
+            df_agrc_frac_cropland,
+            df_land_use_ilu,
+        )
+
 
         #######################################
         #    ADDITIONAL LAND USE EMISSIONS    #
         #######################################
-
 
         df_out += self.get_frst_emissions_fire(
             df_afolu_trajectories,
@@ -13925,26 +13937,6 @@ class AFOLU:
         )
 
 
-
-        #####################
-        #    AGRICULTURE    #
-        #####################
-        
-        # Emissions from 
-        # - Pos/Neg CO2 emissions from residues
-        # - Biomass increase/loss (woody biomass)
-        # - CH4 from decomposition 
-        # - CH4/N2O from residue burning
-        
-        df_out += self.get_agrc_emissions_additional(
-            df_afolu_trajectories,
-            df_agrc_frac_cropland,
-            df_land_use_ilu,
-        )
-        global df_out2
-        df_out2 = df_out.copy()
-
-
         ###################
         #    LIVESTOCK    #
         ###################
@@ -13955,7 +13947,7 @@ class AFOLU:
             arr_lvst_pop,
         )
         
-        # manure management
+        # manure management--pass N fertilizer/PPR to project_soil()
         (
             df_lsmm_emissions,
             vec_lsmm_nitrogen_to_fertilizer_dung,   # in terms of modvar_lvst_animal_mass
