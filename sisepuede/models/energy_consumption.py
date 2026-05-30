@@ -685,7 +685,11 @@ class EnergyConsumption:
         self.modvar_inen_gas_captured_co2 = ":math:\\text{CO}_2 Captured in Industrial Energy"
         
         # get some dictionaries implied by the inen attribute tables
-        self.dict_inen_fuel_categories_to_fuel_variables, self.dict_inen_fuel_categories_to_unassigned_fuel_variables = self.get_inen_dict_fuel_categories_to_fuel_variables()
+        (
+            self.dict_inen_fuel_categories_to_fuel_variables, 
+            self.dict_inen_fuel_categories_to_unassigned_fuel_variables,
+        ) = self.get_inen_dict_fuel_categories_to_fuel_variables()
+        
         self.modvars_inen_list_fuel_fraction = self.model_attributes.get_vars_by_assigned_class_from_akaf(
             self.dict_inen_fuel_categories_to_fuel_variables,
             _KEY_MODVAR_DICT_FUEL_FRACTION,
@@ -1922,9 +1926,10 @@ class EnergyConsumption:
 
         # use fractions of demand + efficiencies to calculate fraction of consumption
         for modvar_fuel_frac in dict_fuel_fracs.keys():
+
             # get efficiency, then fuel fractions
-            modvar_fuel_eff = dict_fuel_frac_to_eff.get(modvar_fuel_frac)
-            arr_frac = dict_fuel_fracs.get(modvar_fuel_frac)
+            modvar_fuel_eff = dict_fuel_frac_to_eff.get(modvar_fuel_frac, )
+            arr_frac = dict_fuel_fracs.get(modvar_fuel_frac, )
 
             arr_efficiency = self.model_attributes.extract_model_variable(#
                 df_neenergy_trajectories,
@@ -1934,7 +1939,11 @@ class EnergyConsumption:
                 return_type = "array_base",
             )
 
-            arr_frac_norm += np.nan_to_num(arr_frac/arr_efficiency, nan = 0.0, posinf = 0.0, )
+            arr_frac_norm += np.nan_to_num(
+                arr_frac/arr_efficiency, 
+                nan = 0.0, 
+                posinf = 0.0, 
+            )
 
         # project demand forward
         arr_demand = np.nan_to_num(arr_consumption/arr_frac_norm, nan = 0.0, posinf = 0.0, )
@@ -2074,8 +2083,8 @@ class EnergyConsumption:
         # use fractions of demand + efficiencies to calculate fraction of consumption
         for modvar_fuel_frac in dict_fuel_fracs.keys():
 
-            cat_fuel = dict_fuel_frac_to_fuel_cat.get(modvar_fuel_frac)
-            index_enfu_fuel = attr_enfu.get_key_value_index(cat_fuel)
+            cat_fuel = dict_fuel_frac_to_fuel_cat.get(modvar_fuel_frac, )
+            index_enfu_fuel = attr_enfu.get_key_value_index(cat_fuel, )
 
             # get efficiency, then fuel fractions
             vec_efficiency = arr_enfu_efficiency[:, index_enfu_fuel]

@@ -3714,7 +3714,7 @@ class AFOLU:
                 df_agrc_frac_cropland, 
                 "calculated", 
             )
-            if isinstance(arr_agrc_frac_cropland_area, pd.DataFrame)
+            if isinstance(df_agrc_frac_cropland, pd.DataFrame)
             else df_agrc_frac_cropland
         )
 
@@ -3782,12 +3782,13 @@ class AFOLU:
         )
 
         
-        
-        # set output DataFrame
-        df_out = [
-            self.get_agrc_emissions_co2_residues_posneg(
-                df_afolu_trajectories, 
-            ),
+        ##  BUILD OUTPUT DATAFRAME
+
+        df_out = self.get_agrc_emissions_co2_residues_posneg(
+            df_afolu_trajectories, 
+        )
+
+        df_out += [
             self.model_attributes.array_to_df(
                 arr_agrc_crop_area*scalar_lndu_ilu_area_to_output_area, 
                 self.modvar_agrc_area_crop
@@ -3803,7 +3804,6 @@ class AFOLU:
                 reduce_from_all_cats_to_specified_cats = True
             )
         ]
-
 
         # add in biomass burning
         df_out += self.get_agrc_emissions_residue_burning()
@@ -3976,7 +3976,7 @@ class AFOLU:
         arr_agrc_total = self.get_agrc_total_residues_from_final_pathway_arrays()
 
         arr_agrc_frac_residue_inputs = np.nan_to_num(
-            self.arrays_agrc.modvar_agrc_residue_final_use_field
+            self.arrays_agrc.arr_agrc_residue_final_use_field
             /arr_agrc_total,
             nan = 0.0,
             posinf = 0.0,
@@ -4132,10 +4132,10 @@ class AFOLU:
         """Get total residues from the final pathways
         """
         arr_out = (
-            self.arrays_agrc.modvar_agrc_residue_final_use_burned
-            + self.arrays_agrc.modvar_agrc_residue_final_use_energy
-            + self.arrays_agrc.modvar_agrc_residue_final_use_feed
-            + self.arrays_agrc.modvar_agrc_residue_final_use_field
+            self.arrays_agrc.arr_agrc_residue_final_use_burned
+            + self.arrays_agrc.arr_agrc_residue_final_use_energy
+            + self.arrays_agrc.arr_agrc_residue_final_use_feed
+            + self.arrays_agrc.arr_agrc_residue_final_use_field
         )
 
         return arr_out
@@ -6046,9 +6046,11 @@ class AFOLU:
         """
         # copy to avoid modifying in place
         arr_out = (
-            self.arrays_agrc
-            .dict_residue_pathways.get(
-                self.modvar_agrc_frac_residues_removed_for_feed.name,
+            self
+            .arrays_agrc
+            .dict_residue_pathways
+            .get(
+                self.modvar_agrc_frac_residues_removed_for_feed,
             )
             .copy()
         )
@@ -7448,9 +7450,9 @@ class AFOLU:
 
         # setup biomass arrays as a dictionary
         dict_frst_modvar_to_array_forest_fires = {
-            self.modvar_frst_frac_temperate_nutrient_poor.name: arr_frst_biomass_consumed_temperate,
-            self.modvar_frst_frac_temperate_nutrient_rich.name: arr_frst_biomass_consumed_temperate,
-            self.modvar_frst_frac_tropical.name: arr_frst_biomass_consumed_tropical
+            self.modvar_frst_frac_temperate_nutrient_poor: arr_frst_biomass_consumed_temperate,
+            self.modvar_frst_frac_temperate_nutrient_rich: arr_frst_biomass_consumed_temperate,
+            self.modvar_frst_frac_tropical: arr_frst_biomass_consumed_tropical
         }
 
         # loop over tropical/temperate NP/temperate NR
@@ -7461,13 +7463,13 @@ class AFOLU:
             # get forest area
             arr_frst_area_temptrop_burned_cur = (
                 arr_area_frst
-                *dict_arrs_frst_frac_temptrop[modvar.name]
+                *dict_arrs_frst_frac_temptrop.get(modvar)
                 *arr_frst_frac_burned
             )
 
             arr_frst_total_dry_mass_burned_cur = (
                 arr_frst_area_temptrop_burned_cur
-                *dict_frst_modvar_to_array_forest_fires[modvar.name]
+                *dict_frst_modvar_to_array_forest_fires.get(modvar)
             )
             arr_frst_emissions_co2_fires += arr_frst_total_dry_mass_burned_cur*arr_frst_ef_co2_fires
 
@@ -10343,6 +10345,7 @@ class AFOLU:
 
     def get_soil_emissions_liming_and_urea(self,
         vec_soil_area_fertilized: np.ndarray,
+        vec_soil_n_fertilizer_use_synthetic_urea: np.ndarray,
         modvar_fert_mass: 'ModelVariable',
     ) -> List[pd.DataFrame]:
         """Get CO2 emissions from liming and dolomite use and urea as well
@@ -10463,7 +10466,13 @@ class AFOLU:
         vec_agrc_total_n_residue_wet: np.ndarray,
         vec_lsmm_nitrogen_to_pasture_ito_fert_mass: np.ndarray,
         vec_soil_delta_soc_mineral: np.ndarray,
+        vec_soil_emission_n2o_crop_residue: np.ndarray,
+        vec_soil_emission_n2o_fertilizer: np.ndarray,
+        vec_soil_emission_n2o_mineral_soils: np.ndarray,
+        vec_soil_emission_n2o_ppr: np.ndarray,
+        vec_soil_n_fertilizer_use_organic: np.ndarray,
         vec_soil_n_fertilizer_use_organic_to_pasture: np.ndarray,
+        vec_soil_n_fertilizer_use_synthetic: np.ndarray,
         vec_soil_ratio_c_to_n_soil_organic_matter: np.ndarray,
         modvar_fert_mass: 'ModelVariable',
     ) -> Tuple[np.ndarray]:
@@ -10637,13 +10646,38 @@ class AFOLU:
         vec_soil_demscalar_fertilizer: np.ndarray,
         vec_soil_frac_synthetic_fertilizer_urea: np.ndarray,
         vec_soil_init_n_fertilizer_synthetic: np.ndarray,
-        vec_soil_n_fertilizer_use_organic: np.ndarray,
         modvar_fert_mass: 'ModelVariable',
     ) -> Tuple[np.ndarray]:
         """Support function for project_soil()
         """
+
+        ##  GET TOTAL ORGANIC FERTILIZER AND TOTAL FERTILIZER N
+
+        # get total organic fertilizer use N, from LSMM; start with urine
+        vec_soil_n_fertilizer_use_organic = (
+            vec_lsmm_nitrogen_to_fertilizer_urine
+            *self.model_attributes.get_variable_unit_conversion_factor(
+                self.modvar_lsmm_n_to_fertilizer_agg_urine,
+                modvar_fert_mass,
+                "mass",
+            )
+        )
+        # add dung
+        vec_soil_n_fertilizer_use_organic += ( 
+            vec_lsmm_nitrogen_to_fertilizer_dung
+            *self.model_attributes.get_variable_unit_conversion_factor(
+                self.modvar_lsmm_n_to_fertilizer_agg_dung,
+                modvar_fert_mass,
+                "mass",
+
+            )
+        )
+
         # total N fertilizer from synthetic and organic sources
         vec_soil_init_n_fertilizer_total = vec_soil_init_n_fertilizer_synthetic + vec_soil_n_fertilizer_use_organic
+
+
+        ##  ESTIMATE DEMANDS
 
         # estimate fertilizer demand
         vec_soil_area_fertilized = np.sum(
@@ -10672,18 +10706,8 @@ class AFOLU:
         vec_soil_n_fertilizer_use_synthetic_urea = vec_soil_n_fertilizer_use_synthetic*vec_soil_frac_synthetic_fertilizer_urea
         vec_soil_n_fertilizer_use_synthetic_nonurea = vec_soil_n_fertilizer_use_synthetic - vec_soil_n_fertilizer_use_synthetic_urea
 
-        # organic fertilizer use N, from LSMM
-        vec_soil_n_fertilizer_use_organic = (
-            vec_lsmm_nitrogen_to_fertilizer_urine
-            *self.model_attributes.get_variable_unit_conversion_factor(
-                self.modvar_lsmm_n_to_fertilizer_agg_urine,
-                modvar_fert_mass,
-                "mass"
-
-            )
-            + vec_lsmm_nitrogen_to_fertilizer_dung
-        )
-    
+        
+        # set output
         out = (
             vec_soil_area_fertilized,
             vec_soil_init_n_fertilizer_total,
@@ -12504,7 +12528,7 @@ class AFOLU:
             )
             /self.model_attributes.get_variable_unit_conversion_factor(
                 self.modvar_soil_organic_c_stocks,
-                self.modvar_ilu_area,
+                modvar_ilu_area,
                 "area",
             )
         )
@@ -12544,7 +12568,6 @@ class AFOLU:
             vec_soil_demscalar_fertilizer,
             vec_soil_frac_synthetic_fertilizer_urea,
             vec_soil_init_n_fertilizer_synthetic,
-            vec_soil_n_fertilizer_use_organic,
             modvar_fert_mass,
         )
         
@@ -12732,7 +12755,13 @@ class AFOLU:
             vec_agrc_total_n_residue_wet,
             vec_lsmm_nitrogen_to_pasture_ito_fert_mass,
             vec_soil_delta_soc_mineral,
+            vec_soil_emission_n2o_crop_residue,
+            vec_soil_emission_n2o_fertilizer,
+            vec_soil_emission_n2o_mineral_soils,
+            vec_soil_emission_n2o_ppr,
+            vec_soil_n_fertilizer_use_organic,
             vec_soil_n_fertilizer_use_organic_to_pasture,
+            vec_soil_n_fertilizer_use_synthetic,
             vec_soil_ratio_c_to_n_soil_organic_matter,
             modvar_fert_mass,
         )
@@ -12804,6 +12833,7 @@ class AFOLU:
 
         df_out += self.get_soil_emissions_liming_and_urea(
             vec_soil_area_fertilized,
+            vec_soil_n_fertilizer_use_synthetic_urea,
             modvar_fert_mass,
         )
 
@@ -13905,13 +13935,14 @@ class AFOLU:
         # - Biomass increase/loss (woody biomass)
         # - CH4 from decomposition 
         # - CH4/N2O from residue burning
-
+        
         df_out += self.get_agrc_emissions_additional(
             df_afolu_trajectories,
             df_agrc_frac_cropland,
             df_land_use_ilu,
         )
-
+        global df_out2
+        df_out2 = df_out.copy()
 
 
         ###################
@@ -13966,7 +13997,6 @@ class AFOLU:
         #
         #   - concatenate
         #   - add emissions aggregates
-        #   - 
 
         df_out = (
             pd.concat(
