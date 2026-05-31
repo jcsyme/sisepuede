@@ -585,6 +585,8 @@ class AFOLU:
                 self.model_enercons.modvar_scoe_consumpinit_energy_per_hh_heat,
                 self.model_enercons.modvar_scoe_consumpinit_energy_per_mmmgdp_elec,
                 self.model_enercons.modvar_scoe_consumpinit_energy_per_mmmgdp_heat,
+                self.model_enercons.modvar_scoe_efficiency_fact_heat_en_biomass,
+                self.model_enercons.modvar_scoe_efficiency_fact_heat_en_charcoal,
                 self.model_enercons.modvar_scoe_efficiency_fact_heat_en_coal,
                 self.model_enercons.modvar_scoe_efficiency_fact_heat_en_diesel,
                 self.model_enercons.modvar_scoe_efficiency_fact_heat_en_electricity,
@@ -593,11 +595,12 @@ class AFOLU:
                 self.model_enercons.modvar_scoe_efficiency_fact_heat_en_hydrogen,
                 self.model_enercons.modvar_scoe_efficiency_fact_heat_en_kerosene,
                 self.model_enercons.modvar_scoe_efficiency_fact_heat_en_natural_gas,
-                self.model_enercons.modvar_scoe_efficiency_fact_heat_en_solid_biomass,
                 self.model_enercons.modvar_scoe_elasticity_hh_energy_demand_electric_to_gdppc,
                 self.model_enercons.modvar_scoe_elasticity_hh_energy_demand_heat_to_gdppc,
                 self.model_enercons.modvar_scoe_elasticity_mmmgdp_energy_demand_elec_to_gdppc,
                 self.model_enercons.modvar_scoe_elasticity_mmmgdp_energy_demand_heat_to_gdppc,
+                self.model_enercons.modvar_scoe_frac_heat_en_biomass,
+                self.model_enercons.modvar_scoe_frac_heat_en_charcoal,
                 self.model_enercons.modvar_scoe_frac_heat_en_coal,
                 self.model_enercons.modvar_scoe_frac_heat_en_diesel,
                 self.model_enercons.modvar_scoe_frac_heat_en_electricity,
@@ -605,8 +608,7 @@ class AFOLU:
                 self.model_enercons.modvar_scoe_frac_heat_en_hgl,
                 self.model_enercons.modvar_scoe_frac_heat_en_hydrogen,
                 self.model_enercons.modvar_scoe_frac_heat_en_kerosene,
-                self.model_enercons.modvar_scoe_frac_heat_en_natural_gas,
-                self.model_enercons.modvar_scoe_frac_heat_en_solid_biomass
+                self.model_enercons.modvar_scoe_frac_heat_en_natural_gas
             ]
         }
 
