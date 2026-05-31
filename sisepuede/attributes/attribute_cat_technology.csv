@@ -1,5 +1,6 @@
 ﻿Category Name,``$CAT-TECHNOLOGY$``,Description,Data Source,Hyperlink,Notes,CCS ``$CAT-TECHNOLOGY$``,Electricity Generation ``$CAT-FUEL$``,Generates Fuel ``$CAT-FUEL$``,Technology from Storage,Technology to Storage,``$CAT-STORAGE$``,Operational Life,Fuel Processing,Mining and Extraction,Power Plant,Storage,Renewable Default
 Fuel Production - Ammonia,``fp_ammonia_production``,"Ammonia production using the Haber-Bosch process. Hydrogen and nitrogen are feedstocks, and additional energy may be required from electricity.",,,,none,none,none,none,none,none,100,1,0,0,0,0
+Fuel Production - Charcoal,``fp_charcoal``,Charcoal production from earth clamps or kilns,,,,none,none,none,none,none,none,100,1,0,0,0,0
 Fuel Production - Hydrogen Electrolysis,``fp_hydrogen_electrolysis``,"Hydrogen generation from electrolysis, which relies on electricity and water as the only inputs.",,,,none,none,none,none,none,none,100,1,0,0,0,0
 Fuel Production - Hydrogen from Coal Gasification,``fp_hydrogen_gasification``,"Hydrogen generation from fossil-fuel driven thermochemical processes, coal gasification",,,,none,none,none,none,none,none,100,1,0,0,0,0
 Fuel Production - Hydrogen Steam Methane Reformation,``fp_hydrogen_reformation``,Hydrogen generation from steam-methane reformation.,,,,``fp_hydrogen_reformation_ccs``,none,none,none,none,none,100,1,0,0,0,0

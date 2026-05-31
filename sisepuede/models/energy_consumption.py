@@ -668,6 +668,8 @@ class EnergyConsumption:
         self.modvar_inen_energy_demand_total = "Energy Demand in Industrial Energy"
         self.modvar_inen_en_gdp_intensity_factor = "Initial Energy Consumption Intensity of GDP"
         self.modvar_inen_en_prod_intensity_factor = "Initial Energy Consumption Intensity of Production"
+        self.modvar_inen_frac_en_biomass = "Industrial Energy Fuel Fraction Biomass"
+        self.modvar_inen_frac_en_charcoal = "Industrial Energy Fuel Fraction Charcoal"
         self.modvar_inen_frac_en_coal = "Industrial Energy Fuel Fraction Coal"
         self.modvar_inen_frac_en_coke = "Industrial Energy Fuel Fraction Coke"
         self.modvar_inen_frac_en_diesel = "Industrial Energy Fuel Fraction Diesel"
@@ -681,7 +683,6 @@ class EnergyConsumption:
         self.modvar_inen_frac_en_natural_gas = "Industrial Energy Fuel Fraction Natural Gas"
         self.modvar_inen_frac_en_oil = "Industrial Energy Fuel Fraction Oil"
         self.modvar_inen_frac_en_solar = "Industrial Energy Fuel Fraction Solar"
-        self.modvar_inen_frac_en_solid_biomass = "Industrial Energy Fuel Fraction Solid Biomass"
         self.modvar_inen_gas_captured_co2 = ":math:\\text{CO}_2 Captured in Industrial Energy"
         
         # get some dictionaries implied by the inen attribute tables
@@ -726,6 +727,8 @@ class EnergyConsumption:
         self.modvar_scoe_consumpinit_energy_per_mmmgdp_heat = "SCOE Initial Per GDP Heat Energy Consumption"
         self.modvar_scoe_demscalar_elec_energy_demand = "SCOE Appliance Energy Demand Scalar"
         self.modvar_scoe_demscalar_heat_energy_demand = "SCOE Heat Energy Demand Scalar"
+        self.modvar_scoe_efficiency_fact_heat_en_biomass = "SCOE Efficiency Factor for Heat Energy from Biomass"
+        self.modvar_scoe_efficiency_fact_heat_en_charcoal = "SCOE Efficiency Factor for Heat Energy from Charcoal"
         self.modvar_scoe_efficiency_fact_heat_en_coal = "SCOE Efficiency Factor for Heat Energy from Coal"
         self.modvar_scoe_efficiency_fact_heat_en_diesel = "SCOE Efficiency Factor for Heat Energy from Diesel"
         self.modvar_scoe_efficiency_fact_heat_en_electricity = "SCOE Efficiency Factor for Heat Energy from Electricity"
@@ -734,7 +737,6 @@ class EnergyConsumption:
         self.modvar_scoe_efficiency_fact_heat_en_hydrogen = "SCOE Efficiency Factor for Heat Energy from Hydrogen"
         self.modvar_scoe_efficiency_fact_heat_en_kerosene = "SCOE Efficiency Factor for Heat Energy from Kerosene"
         self.modvar_scoe_efficiency_fact_heat_en_natural_gas = "SCOE Efficiency Factor for Heat Energy from Natural Gas"
-        self.modvar_scoe_efficiency_fact_heat_en_solid_biomass = "SCOE Efficiency Factor for Heat Energy from Solid Biomass"
         self.modvar_scoe_elasticity_hh_energy_demand_electric_to_gdppc = "SCOE Elasticity of Per Household Electrical Applicance Demand to GDP Per Capita"
         self.modvar_scoe_elasticity_hh_energy_demand_heat_to_gdppc = "SCOE Elasticity of Per Household Heat Energy Demand to GDP Per Capita"
         self.modvar_scoe_elasticity_mmmgdp_energy_demand_elec_to_gdppc = "SCOE Elasticity of Per GDP Electrical Applicance Demand to GDP Per Capita"
@@ -748,6 +750,8 @@ class EnergyConsumption:
         self.modvar_scoe_energy_consumption_total = "Energy Consumption from SCOE"
         self.modvar_scoe_energy_consumption_total_agg = "Total Energy Consumption from SCOE"
         self.modvar_scoe_energy_demand_heat_total = "Heat Energy Demand in SCOE"
+        self.modvar_scoe_frac_heat_en_biomass = "SCOE Fraction Heat Energy Demand Biomass"
+        self.modvar_scoe_frac_heat_en_charcoal = "SCOE Fraction Heat Energy Demand Charcoal"
         self.modvar_scoe_frac_heat_en_coal = "SCOE Fraction Heat Energy Demand Coal"
         self.modvar_scoe_frac_heat_en_diesel = "SCOE Fraction Heat Energy Demand Diesel"
         self.modvar_scoe_frac_heat_en_electricity = "SCOE Fraction Heat Energy Demand Electricity"
@@ -756,7 +760,7 @@ class EnergyConsumption:
         self.modvar_scoe_frac_heat_en_hydrogen = "SCOE Fraction Heat Energy Demand Hydrogen"
         self.modvar_scoe_frac_heat_en_kerosene = "SCOE Fraction Heat Energy Demand Kerosene"
         self.modvar_scoe_frac_heat_en_natural_gas = "SCOE Fraction Heat Energy Demand Natural Gas"
-        self.modvar_scoe_frac_heat_en_solid_biomass = "SCOE Fraction Heat Energy Demand Solid Biomass"
+        
 
         # get some dictionaries implied by the SCOE attribute tables
         
