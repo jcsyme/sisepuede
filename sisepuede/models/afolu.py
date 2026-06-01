@@ -7634,7 +7634,11 @@ class AFOLU:
             modvar_sequestration = self.modvar_frst_biomass_growth_rate
 
         # get sequestration factor--correct if specified
-        return_type = "array_units_corrected" if output_mass_as_config else "array_base"
+        return_type = (
+            "array_units_corrected" 
+            if output_mass_as_config 
+            else "array_base"
+        )
 
         arr_frst_ef_sequestration = self.model_attributes.extract_model_variable(
             df_afolu_trajectories, 
@@ -7815,12 +7819,18 @@ class AFOLU:
     
 
 
-    def get_lndu_emissions_other(self,
+    def get_lndu_variables_other(self,
         df_afolu_trajectories: pd.DataFrame,
         df_land_use_ilu: pd.DataFrame,
         arr_lndu_area: np.ndarray,
     ) -> List[pd.DataFrame]:
-        """
+        """Get:
+
+            * Emissions
+                - CH4 emissions in wetlands
+                - CO2 Sequestration annually in land use types (non-forest)
+            * Other
+                - Area of seasonal wetlands
 
         arr_lndu_area : np.ndarray
             Direct output of project_integrated_land_use(), with area in terms
@@ -7886,6 +7896,22 @@ class AFOLU:
             self.modvar_lndu_area_by_cat, # target
         )
         arr_lndu_area_ch4_boc = np.array(df_land_use_ilu[fields_lndu_for_ch4_boc])
+        
+
+        ##  AREA OF SEASONAL WETLANDS
+
+        # get in terms of config area
+        arr_area_seasonal = (
+            arr_lndu_area
+            *self.arrays_lndu.arr_lndu_frac_seasonal_wetlands
+            *self.model_attributes.get_scalar(
+                modvar_ilu_area,
+                "area",
+            )
+        )
+
+
+        ##  BUILD OUTPUT LIST OF DFs
 
         df_out = [
             # wetland CH4
@@ -7898,6 +7924,13 @@ class AFOLU:
             self.model_attributes.array_to_df(
                 arr_lndu_sequestration_co2e, 
                 self.modvar_lndu_emissions_co2_sequestration,
+                reduce_from_all_cats_to_specified_cats = True,
+            ),
+
+            # seasonal wetland area
+            self.model_attributes.array_to_df(
+                arr_area_seasonal, 
+                self.modvar_lndu_area_seasonal_wetlands,
                 reduce_from_all_cats_to_specified_cats = True,
             )
         ]
@@ -13944,7 +13977,7 @@ class AFOLU:
             modvar_ilu_area,
         )
 
-        df_out += self.get_lndu_emissions_other(
+        df_out += self.get_lndu_variables_other(
             df_afolu_trajectories,
             df_land_use_ilu,
             arr_land_use,

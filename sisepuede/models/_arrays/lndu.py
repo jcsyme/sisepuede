@@ -216,6 +216,14 @@ class ArraysLNDU(ma.SubsectorArraysCollection):
             var_bounds = (0, 1),
         )
 
+        # fraction of land use class that is seasonal wetland
+        self.get_modvar_array(
+            df_trajectories,
+            self.modvar_lndu_frac_seasonal_wetlands,
+            expand_to_all_cats = True,
+            set_property = True,
+            var_bounds = (0, 1),
+        )
         # initial land use shares
         self.get_modvar_array(
             df_trajectories, 
