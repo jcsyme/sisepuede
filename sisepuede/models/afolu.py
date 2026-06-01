@@ -2550,7 +2550,7 @@ class AFOLU:
         # initialize fuel demands
         dict_demand_out = {}
         vec_fuel_demand_biomass = 0
-        vec_fuel_demand_charcoal = 0
+        vec_fuel_demand_charcoal = 0 #HERE12345
         vec_fuel_demand_electricity = 0
 
         for subsec_abv, modvar in dict_subsec_to_modvar.items():
