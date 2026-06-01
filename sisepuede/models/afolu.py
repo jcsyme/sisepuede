@@ -949,39 +949,7 @@ class AFOLU:
             stop_on_error = True, 
         )
         
-        """
-        # forest model variables
-        self.modvar_frst_average_fraction_burned_annually = "Average Fraction of Forest Burned Annually"
-        self.modvar_frst_bcl_frac_adjustment_thresh = "Biomass Carbon Ledger Adjustment Threshold"
-        self.modvar_frst_bcl_frac_buffer = "Biomass Carbon Ledger Buffer Fraction"
-        self.modvar_frst_bcl_frac_dead_storage = "Biomass Carbon Ledger Dead Storage Fraction"
-        self.modvar_frst_biomass_consumed_fire_temperate = "Fire Biomass Consumption for Temperate Forests"
-        self.modvar_frst_biomass_consumed_fire_tropical = "Fire Biomass Consumption for Tropical Forests"
-        self.modvar_frst_biomass_growth_rate = "Forest Above Ground Biomass Growth Rate"
-        self.modvar_frst_biomass_growth_rate_young_secondary = "Young Secondary Forest Above Ground Biomass Growth Rate"
-        self.modvar_frst_c_stock_ag = "Above Ground C Stock in Forests"
-        self.modvar_frst_c_stock_bg = "Below Ground C Stock in Forests"
-        self.modvar_frst_c_stock_decomposition = "Total C Stock Lost to Decomposition"
-        self.modvar_frst_c_stock_removals = "Total C Stock Removals from Forests"
-        self.modvar_frst_c_stock_total = "Total C Stock in Forests"
-        self.modvar_frst_ef_co2_fires = ":math:\\text{CO}_2 Forest Fire Emission Factor"
-        self.modvar_frst_ef_ch4 = ":math:\\text{CH}_4 Forest Methane Emissions"
-        self.modvar_frst_emissions_ch4 = ":math:\\text{CH}_4 Emissions from Forests"
-        self.modvar_frst_emissions_co2_decomposition = ":math:\\text{CO}_2 Emissions from Forest Biomass Decomposition"
-        self.modvar_frst_emissions_co2_fires = ":math:\\text{CO}_2 Emissions from Forest Fires"
-        self.modvar_frst_emissions_co2_hwp = ":math:\\text{CO}_2 Emissions from Harvested Wood Products"
-        self.modvar_frst_emissions_co2_sequestration = ":math:\\text{CO}_2 Emissions from Forest Biomass Sequestration"
-        self.modvar_frst_frac_c_converted_available = "Fraction of Forest Converted C Available for Use"
-        self.modvar_frst_frac_c_per_dm = "Carbon Fraction Dry Matter"
-        self.modvar_frst_frac_c_per_hwp = "Carbon Fraction Harvested Wood Products"
-        self.modvar_frst_frac_max_degradation = "Maximum Degradation Fraction"
-        self.modvar_frst_frac_temperate_nutrient_poor = "Forest Fraction Temperate Nutrient Poor"
-        self.modvar_frst_frac_temperate_nutrient_rich = "Forest Fraction Temperate Nutrient Rich"
-        self.modvar_frst_frac_tropical = "Forest Fraction Tropical"
-        self.modvar_frst_hwp_half_life_paper = "HWP Half Life Paper"
-        self.modvar_frst_hwp_half_life_wood = "HWP Half Life Wood"
-        """
-        
+
         #additional lists
         self.modvar_list_frst_frac_temptrop = [
             self.modvar_frst_frac_temperate_nutrient_poor,
@@ -2498,6 +2466,24 @@ class AFOLU:
         ind_enfu_electricity = self.attr_enfu.get_key_value_index(self.model_enercons.cat_enfu_electricity)
 
 
+        ##  GET FUEL PRODUCTION BIOMASS USE
+        
+        # get the average iar for biomass to charcoal
+        modvar_iar = self.model_attributes.get_variable(
+            self.modvar_entc_fuelprod_input_activity_ratio_biomass
+        )
+
+        # extract the IAR, which is used to inflate the demand for charcoal into biomass removal demand
+        field = modvar_iar.build_fields(
+            category_restrictions = self.cat_entc_charcoal,
+        )
+        vec_iar = (
+            np.zeros(df_afolu_trajectories.shape[0], )
+            if field is None
+            else df_afolu_trajectories[field].to_numpy()
+        )
+
+
         ##  BUILD INPUT FOR EnergyConsumption
 
         # generate yield/lvst pop + production
@@ -2577,8 +2563,10 @@ class AFOLU:
                 modvar, 
                 return_type = "energy",
             )
-
+            
+            # add biomass and charcoal demands
             vec_fuel_demand_biomass += arr_fuel_demand[:, ind_enfu_biomass]
+            vec_fuel_demand_biomass += arr_fuel_demand[:, ind_enfu_charcoal]*vec_iar
             vec_fuel_demand_electricity += arr_fuel_demand[:, ind_enfu_electricity]
 
             # add to output dictionary
@@ -6967,9 +6955,13 @@ class AFOLU:
         matt = self.model_attributes
         attr_enfu = matt.get_attribute_table(matt.subsec_name_enfu, )
         ind_biomass = self.ind_enfu_biomass
+        ind_charcoal = self.ind_enfu_charcoal
 
         # set the dictionary mapping biomass to the scalar
-        dict_vec_scalars = {ind_biomass: vec_biomass_scalar, }
+        dict_vec_scalars = {
+            ind_biomass: vec_biomass_scalar, 
+            ind_charcoal: vec_biomass_scalar,
+        }
 
         # initialize output dataframe
         df_out = []

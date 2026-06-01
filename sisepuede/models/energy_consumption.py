@@ -531,44 +531,7 @@ class EnergyConsumption:
             stop_on_error = True, 
         )
         
-        # Energy Fuel model variables
-        """
-        self.modvar_enfu_energy_density_volumetric = "Volumetric Energy Density"
-        self.modvar_enfu_ef_combustion_co2 = ":math:\\text{CO}_2 Combustion Emission Factor"
-        self.modvar_enfu_ef_combustion_mobile_ch4 = ":math:\\text{CH}_4 Mobile Combustion Emission Factor"
-        self.modvar_enfu_ef_combustion_mobile_n2o = ":math:\\text{N}_2\\text{O} Mobile Combustion Emission Factor"
-        self.modvar_enfu_ef_combustion_stationary_ch4 = ":math:\\text{CH}_4 Stationary Combustion Emission Factor"
-        self.modvar_enfu_ef_combustion_stationary_n2o = ":math:\\text{N}_2\\text{O} Stationary Combustion Emission Factor"
-        self.modvar_enfu_efficiency_factor_industrial_energy = "Average Industrial Energy Fuel Efficiency Factor"
-        self.modvar_enfu_energy_demand_by_fuel_ccsq = "Energy Demand by Fuel in CCSQ"
-        self.modvar_enfu_energy_demand_by_fuel_entc = "Energy Demand by Fuel in Energy Technology"
-        self.modvar_enfu_energy_demand_by_fuel_inen = "Energy Demand by Fuel in Industrial Energy"
-        self.modvar_enfu_energy_demand_by_fuel_scoe = "Energy Demand by Fuel in SCOE"
-        self.modvar_enfu_energy_demand_by_fuel_total = "Total Energy Demand by Fuel"
-        self.modvar_enfu_energy_demand_by_fuel_trns = "Energy Demand by Fuel in Transportation"
-        self.modvar_enfu_energy_density_gravimetric = "Gravimetric Energy Density"
-        self.modvar_enfu_energy_density_volumetric = "Volumetric Energy Density"
-        self.modvar_enfu_exports_fuel = "Fuel Exports"
-        self.modvar_enfu_exports_fuel_adjusted = "Adjusted Fuel Exports"
-        self.modvar_enfu_frac_fuel_demand_imported = "Fraction of Fuel Demand Imported"
-        self.modvar_enfu_imports_fuel = "Fuel Imports"
-        self.modvar_enfu_minimum_frac_fuel_used_for_electricity = "Minimum Fraction of Fuel Used for Electricity Generation"
-        self.modvar_enfu_nemomod_renewable_production_target = "NemoMod REMinProductionTarget"
-        self.modvar_enfu_price_gravimetric = "Gravimetric Fuel Price"
-        self.modvar_enfu_price_thermal = "Thermal Fuel Price"
-        self.modvar_enfu_price_volumetric = "Volumetric Fuel Price"
-        self.modvar_enfu_production_frac_petroleum_refinement = "Petroleum Refinery Production Fraction"
-        self.modvar_enfu_production_frac_natural_gas_processing = "Natural Gas Processing Fraction"
-        self.modvar_enfu_production_fuel = "Fuel Production"
-        self.modvar_enfu_transmission_loss_electricity = "Electrical Transmission Loss"
-        self.modvar_enfu_transmission_loss_frac_electricity = "Electrical Transmission Loss Fraction"
-        self.modvar_enfu_unused_fuel_exported = "Unused Fuel Exported"
-        self.modvar_enfu_value_of_fuel_ccsq = "Value of Fuel Consumed in CCSQ"
-        self.modvar_enfu_value_of_fuel_entc = "Value of Fuel Consumed in Energy Technology"
-        self.modvar_enfu_value_of_fuel_inen = "Value of Fuel Consumed in Industrial Energy"
-        self.modvar_enfu_value_of_fuel_scoe = "Value of Fuel Consumed in SCOE"
-        self.modvar_enfu_value_of_fuel_trns = "Value of Fuel Consumed in Transportation"
-        """
+
         # list of key variables - total energy demands by fuel
         self.modvars_enfu_energy_demands_total = [
             self.modvar_enfu_energy_demand_by_fuel_ccsq,
