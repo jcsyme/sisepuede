@@ -71,6 +71,20 @@ _FIELD_SUBSECTOR_VARIABLE_CODE = "subsector_variable_code"
 _FIELD_VARIABLE = "variable"
 _FIELD_VARIABLE_FIELD = "variable_field"
 
+# fields in attribute tables--ENFU
+_FIELD_ENFU_BIOGAS_FUEL_CATEOGRY = "Biogas Fuel Category"
+_FIELD_ENFU_BIOMASS_DEMAND_CATEOGRY = "Biomass Demand Category"
+_FIELD_ENFU_CHARCOAL_FUEL_CATEOGRY = "Charcoal Fuel Category"
+_FIELD_ENFU_ELECTRICITY_DEMAND_CATEOGRY = "Electricity Demand Category"
+_FIELD_ENFU_HYDROPOWER_FUEL_CATEOGRY = "Hydropower Fuel Category"
+_FIELD_ENFU_HYDROGEN_FUEL_CATEOGRY = "Hydrogen Fuel Category"
+_FIELD_ENFU_UPSTREAM_TO_FUEL_CATEOGRY = "Upstream to Fuel Category"
+_FIELD_ENFU_WASTE_FUEL_CATEOGRY = "Waste Fuel Category"
+
+# fields in attribute tables--ENTC
+_FIELD_ENTC_AMMONIA_PRODUCTION = "Ammonia Production"
+_FIELD_ENTC_CHARCOAL_PRODUCTION = "Charcoal Production"
+
 # keys
 _KEY_ATTRIBUTE = "attribute"
 _KEY_VARIABLE_DEFINITIONS = "variable_definitions"
@@ -1893,6 +1907,7 @@ class ModelAttributes:
             specified
 
             * self.field_enfu_biomass_demand_category
+            * self.field_enfu_charcoal_fuel_category
             * self.field_enfu_biogas_fuel_category
             * self.field_enfu_electricity_demand_category
             * self.field_enfu_hydrogen_fuel_category
@@ -1903,15 +1918,17 @@ class ModelAttributes:
         # share values
         subsec = self.subsec_name_enfu
         attr = self.get_attribute_table(subsec)
+        
 
         # miscellaneous parameters that need to be checked before running
-        self.field_enfu_biomass_demand_category = "biomass_demand_category"
-        self.field_enfu_biogas_fuel_category = "biogas_fuel_category"
-        self.field_enfu_electricity_demand_category = "electricity_demand_category"
-        self.field_enfu_hydrogen_fuel_category = "hydrogen_fuel_category"
-        self.field_enfu_hydropower_fuel_category = "hydropower_fuel_category"
-        self.field_enfu_upstream_to_fuel_category = "upstream_to_fuel_category"
-        self.field_enfu_waste_fuel_category = "waste_fuel_category"
+        self.field_enfu_biogas_fuel_category = sf.clean_field_names(_FIELD_ENFU_BIOGAS_FUEL_CATEOGRY, )
+        self.field_enfu_biomass_demand_category = sf.clean_field_names(_FIELD_ENFU_BIOMASS_DEMAND_CATEOGRY, )
+        self.field_enfu_charcoal_fuel_category = sf.clean_field_names(_FIELD_ENFU_CHARCOAL_FUEL_CATEOGRY, )
+        self.field_enfu_electricity_demand_category = sf.clean_field_names(_FIELD_ENFU_ELECTRICITY_DEMAND_CATEOGRY, )
+        self.field_enfu_hydrogen_fuel_category = sf.clean_field_names(_FIELD_ENFU_HYDROGEN_FUEL_CATEOGRY, )
+        self.field_enfu_hydropower_fuel_category = sf.clean_field_names(_FIELD_ENFU_HYDROPOWER_FUEL_CATEOGRY, )
+        self.field_enfu_upstream_to_fuel_category = sf.clean_field_names(_FIELD_ENFU_UPSTREAM_TO_FUEL_CATEOGRY, )
+        self.field_enfu_waste_fuel_category = sf.clean_field_names(_FIELD_ENFU_WASTE_FUEL_CATEOGRY, )
 
         # check binary variables
         fields_req_bin = [
@@ -2011,6 +2028,11 @@ class ModelAttributes:
         subsec = self.subsec_name_entc
         attr = self.get_attribute_table(subsec)
 
+
+        # miscellaneous parameters that need to be checked before running
+        self.field_entc_ammonia_production_category = sf.clean_field_names(_FIELD_ENTC_AMMONIA_PRODUCTION, )
+        self.field_entc_charcoal_production_category = sf.clean_field_names(_FIELD_ENTC_CHARCOAL_PRODUCTION, )
+        
 
         # check required fields - binary - and the partition of types
         fields_req_bin = ["fuel_processing", "mining_and_extraction", "power_plant", "storage"]

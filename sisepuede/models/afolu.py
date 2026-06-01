@@ -556,10 +556,12 @@ class AFOLU:
 
             # entc variables required for estimating biomass demand from ENTC
             # and passing biomass availability back
+            # --includes requirements for charcoal production from input_activity_ratio
             self.subsec_name_entc: [
                 self.modvar_entc_efficiency_factor_technology,
                 self.modvar_entc_fuel_constraint_crop_residues,
                 self.modvar_entc_fuel_constraint_fuelwood,
+                self.modvar_entc_fuelprod_input_activity_ratio_biomass,
                 self.modvar_entc_nemomod_min_share_production,
                 self.modvar_entc_nemomod_residual_capacity
             ],
@@ -745,7 +747,10 @@ class AFOLU:
         model_ippu = mip.IPPU(model_attributes, )
         model_socioeconomic = Socioeconomic(model_attributes, )
 
-        # key categories
+
+        ##  KEY SOME KEY CATEGORIES FROM OTHER MODELS
+
+        # key categories--IPPU
         cat_ippu_paper = model_attributes.filter_keys_by_attribute(
             self.subsec_name_ippu, 
             {"virgin_paper_category": 1}
@@ -756,10 +761,20 @@ class AFOLU:
             {"virgin_wood_category": 1}
         )[0]
 
-        # get index
+        # key categories--ENFU
         cat_enfu_biomass = model_enercons.cat_enfu_biomass
+        cat_enfu_charcoal = model_enercons.cat_enfu_charcoal
         ind_enfu_biomass = self.attr_enfu.get_key_value_index(cat_enfu_biomass, )
+        ind_enfu_charcoal = self.attr_enfu.get_key_value_index(cat_enfu_charcoal, )
         
+        # key categories--ENTC
+        cat_entc_charcoal = self.model_attributes.filter_keys_by_attribute(
+            self.subsec_name_entc, 
+            {
+                self.model_attributes.field_entc_charcoal_production_category: 1
+            }
+        )[0]
+
 
         ##  SET CLASSES USED TO SOLVE SOME INTERNAL PROBLEMS
 
@@ -773,9 +788,12 @@ class AFOLU:
         ##  SET PROPERTIES
 
         self.cat_enfu_biomass = cat_enfu_biomass
+        self.cat_enfu_charcoal = cat_enfu_charcoal
+        self.cat_entc_charcoal = cat_entc_charcoal
         self.cat_ippu_paper = cat_ippu_paper
         self.cat_ippu_wood = cat_ippu_wood
         self.ind_enfu_biomass = ind_enfu_biomass
+        self.ind_enfu_charcoal = ind_enfu_charcoal
         self.model_enercons = model_enercons
         self.model_ippu = model_ippu
         self.model_socioeconomic = model_socioeconomic
@@ -2476,6 +2494,7 @@ class AFOLU:
 
         # get some indices
         ind_enfu_biomass = self.ind_enfu_biomass
+        ind_enfu_charcoal = self.ind_enfu_charcoal
         ind_enfu_electricity = self.attr_enfu.get_key_value_index(self.model_enercons.cat_enfu_electricity)
 
 
@@ -2531,6 +2550,7 @@ class AFOLU:
         # initialize fuel demands
         dict_demand_out = {}
         vec_fuel_demand_biomass = 0
+        vec_fuel_demand_charcoal = 0
         vec_fuel_demand_electricity = 0
 
         for subsec_abv, modvar in dict_subsec_to_modvar.items():
@@ -2565,7 +2585,7 @@ class AFOLU:
             dict_demand_out.update({subsec: vec_fuel_demand_biomass, })
     
 
-        ##  NEXT< GET ENTC AND DO CONVERSIONS
+        ##  NEXT, GET ENTC AND DO CONVERSIONS
 
         # estimate ENTC and add to output dictionary
         vec_fuel_demand_biomass_entc = self.estimate_biomass_demand_entc(
@@ -2626,7 +2646,7 @@ class AFOLU:
     
     
 
-    def estimate_biomass_demand_for_hwp_and_removals(self,
+    def estimate_biomass_demand_for_hwp_and_fuelwood_removals(self,
         df_afolu_trajectories: pd.DataFrame,
         vec_rates_gdp: np.ndarray,
         convert_to_c: bool = False,
@@ -4894,7 +4914,7 @@ class AFOLU:
             vec_biomass_hwp_wood,
             dict_subsec_to_frst_biomass_demand,   # BCL units of C equivalent by subsec
             dict_subsec_to_fuel_demand_biomass,     # configuration units for energy by energy consumption subsec
-        ) = self.estimate_biomass_demand_for_hwp_and_removals(
+        ) = self.estimate_biomass_demand_for_hwp_and_fuelwood_removals(
             df_afolu_trajectories,
             vec_gdp_growth,
             units_mass_out = modvar_target_mass,

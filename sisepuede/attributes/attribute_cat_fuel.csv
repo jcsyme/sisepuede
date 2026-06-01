@@ -1,4 +1,4 @@
-﻿Category Name,``$CAT-FUEL$``,Description,Data Source,Hyperlink,Notes,Biogas Fuel Category,Biomass Demand Category ,Charcoal Category,Electricity Demand Category,Hydrogen Fuel Category,Hydropower Fuel Category,Upstream to Fuel Category,Waste Fuel Category
+﻿Category Name,``$CAT-FUEL$``,Description,Data Source,Hyperlink,Notes,Biogas Fuel Category,Biomass Demand Category ,Charcoal Fuel Category,Electricity Demand Category,Hydrogen Fuel Category,Hydropower Fuel Category,Upstream to Fuel Category,Waste Fuel Category
 Ammonia,``fuel_ammonia``,"Ammonia, generally derived from hydrogen and nitgrogen. ",,,,0,0,0,0,0,0,none,0
 Biogas,``fuel_biogas``,"Includes landfill gas, sludge gas, and other biomass gasses (integrated from the waste sector and as definined in Table 2.2, V2, C2)",,,,1,0,0,0,0,0,none,0
 Biomass,``fuel_biomass``,"Solid biomass, includiing wood, sulphite lyes, and other primary solid biomass (as definined in Table 2.2, V2, C2 2006/2019R IPCC GNGHGI). Excludes charcoal, which is a derivative of biomass.",,,,0,1,0,0,0,0,none,0

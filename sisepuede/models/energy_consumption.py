@@ -583,7 +583,9 @@ class EnergyConsumption:
             self.modvar_enfu_energy_demand_by_fuel_scoe
         ]
 
-        # key categories
+        ##  CATEGORIES FLAGGED IN THE ATTRIBUTE
+
+        # biomass
         self.cat_enfu_biomass = self.model_attributes.filter_keys_by_attribute(
             self.subsec_name_enfu, 
             {
@@ -591,6 +593,15 @@ class EnergyConsumption:
             }
         )[0]
 
+        # charcoal
+        self.cat_enfu_charcoal = self.model_attributes.filter_keys_by_attribute(
+            self.subsec_name_enfu, 
+            {
+                self.model_attributes.field_enfu_charcoal_fuel_category: 1
+            }
+        )[0]
+        
+        # electricity
         self.cat_enfu_electricity = self.model_attributes.filter_keys_by_attribute(
             self.subsec_name_enfu, 
             {
