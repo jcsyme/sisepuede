@@ -1495,39 +1495,8 @@ class AFOLU:
             attr_lndu = self.attr_lndu
         
         # get variables
-        modvar_bmass_ag = self.model_attributes.get_variable(
-            self.modvar_lndu_biomass_stock_factor_ag,
-        )
-        modvar_bmass_ratio_bg = self.model_attributes.get_variable(
-            self.modvar_lndu_biomass_stock_ratio_bg_to_ag,
-        )
-        
-        # get each variable
-        arr_bmass_ag = (
-            self
-            .model_attributes
-            .extract_model_variable(
-                df_afolu_trajectories,
-                modvar_bmass_ag,
-                all_cats_missing_val = 0.0,
-                expand_to_all_cats = True,
-                return_type = "array_base",
-            )
-        )
-
-        # get the below-ground to above-ground biomass ratio
-        arr_bmass_bgr = (
-            self
-            .model_attributes
-            .extract_model_variable(
-                df_afolu_trajectories,
-                modvar_bmass_ratio_bg,
-                all_cats_missing_val = 0.0,
-                expand_to_all_cats = True,
-                return_type = "array_base",
-            )
-        )
-
+        arr_bmass_ag = self.arrays_lndu.arr_lndu_biomass_stock_factor_ag
+        arr_bmass_bgr = self.arrays_lndu.arr_lndu_biomass_stock_ratio_bg_to_ag
         arr_bmass_bg = arr_bmass_bgr*arr_bmass_ag
 
 
@@ -1787,8 +1756,12 @@ class AFOLU:
 
         ##  CONVERSION VARIABLES
 
-        arrs_lndu_conv_to = np.array([np.sum(x - np.diag(np.diagonal(x)), axis = 0) for x in arrs_lndu_land_conv])
-        arrs_lndu_conv_from = np.array([np.sum(x - np.diag(np.diagonal(x)), axis = 1) for x in arrs_lndu_land_conv])
+        arrs_lndu_conv_to = self.get_lndu_area_converted_into_from_convmats(
+            arrs_lndu_land_conv, 
+        )
+        arrs_lndu_conv_from = self.get_lndu_area_converted_away_from_convmats(
+            arrs_lndu_land_conv, 
+        )
 
         # convert land use conversion areas totals to config area
         df_lndu_area_conv_matrices = self.format_transition_matrix_as_input_dataframe(
@@ -2112,7 +2085,6 @@ class AFOLU:
         df_afolu_trajectories: pd.DataFrame,
         vec_energy_demand_fuelwood: Union[float, np.ndarray],
         convert_to_c: bool = False,
-        modvar_frac_c: Union['ModelVariable', None] = None,
         units_energy: Union['ModelVariable', str, None] = None,
         units_mass: Union['ModelVariable', str, None] = None,
     ) -> Union[float, np.ndarray]:
@@ -2150,11 +2122,6 @@ class AFOLU:
             self.model_enercons.modvar_enfu_energy_density_gravimetric,
         )
 
-        # get C per dry matter to use
-        modvar_c_per_dm = self.model_attributes.get_variable(modvar_frac_c, )
-        if modvar_c_per_dm is None:
-            modvar_c_per_dm = self.modvar_frst_frac_c_per_dm
-
         
         ##  EXTRACT VARIABLES
 
@@ -2191,18 +2158,11 @@ class AFOLU:
         if not convert_to_c:
             return vec_mass_biomass
 
-
-        # get c fraction?
-        vec_frst_c_frac = self.model_attributes.extract_model_variable(
-            df_afolu_trajectories,
-            modvar_c_per_dm,
-            override_vector_for_single_mv_q = False,
-            return_type = "array_base",
-            var_bounds = (0, 1),
+        # get mass of C; biomass*C frac
+        vec_mass_c = (
+            vec_mass_biomass
+            *self.arrays_frst.arr_frst_frac_c_per_dm    # is a vector
         )
-        
-        vec_mass_c = vec_mass_biomass*vec_frst_c_frac
-
 
         return vec_mass_c
 
@@ -2593,7 +2553,6 @@ class AFOLU:
             df_afolu_trajectories,
             vec_fuel_demand_biomass_out,
             convert_to_c = convert_to_c,
-            modvar_frac_c = self.modvar_frst_frac_c_per_dm,
             units_mass = unit_spec_mass,
             **kwargs,
         )
@@ -2603,7 +2562,6 @@ class AFOLU:
             df_afolu_trajectories,
             vec_fuel_demand_biomass_entc,
             convert_to_c = convert_to_c,
-            modvar_frac_c = self.modvar_frst_frac_c_per_dm,
             units_mass = unit_spec_mass,
             **kwargs,
         )
@@ -3052,7 +3010,6 @@ class AFOLU:
             df_afolu_trajectories,
             vec_consumption_biomass,
             convert_to_c = False,
-            modvar_frac_c = self.modvar_frst_frac_c_per_dm,
             units_energy = modvar_inen_prod_intensity,
             units_mass = modvar_target_mass,
         )
@@ -3564,19 +3521,14 @@ class AFOLU:
         df_return = []
         ind_m = self.ind_frst_mang
         inds_ps = [self.ind_frst_prim, self.ind_frst_scnd]
-        matt = self.model_attributes
         
-        # get the carbon fraction dry matter
-        modvar_frac_dm = matt.get_variable(self.modvar_frst_frac_c_per_dm, )
-        vec_frst_frac_dm = matt.extract_model_variable(
-            df_afolu_trajectories,
-            modvar_frac_dm,
-            return_type = "array_base", 
-            var_bounds = (0, 1),
-        )
-
-        # get BCL masses
+        # get BCL mass modvar
         _, modvar_bcl_mass = self.get_modvars_for_unit_targets_bcl()
+
+        # get the carbon fraction dry matter (copy since it's used extensively)
+        # and scalar for biomass demands
+        vec_frst_frac_dm = self.arrays_frst.arr_frst_frac_c_per_dm.copy()
+        vec_biomass_scalar = self.get_bcl_biomass_scalar_vec(ledger, )
 
         # some default args to pass to most functions
         args_default = (
@@ -3586,9 +3538,6 @@ class AFOLU:
             ledger_mangroves,
             vec_frst_frac_dm,
         )
-
-        # scalar for demands for biomass
-        vec_biomass_scalar = self.get_bcl_biomass_scalar_vec(ledger, )
 
 
         ##  BUILD IN ORDER
@@ -3738,17 +3687,19 @@ class AFOLU:
 
 
 
-    def get_agrc_emissions_additional(self,
-        df_afolu_trajectories: pd.DataFrame,
+    def get_agrc_variables_additional(self,
         df_agrc_frac_cropland: pd.DataFrame,
         df_land_use: pd.DataFrame,
     ) -> List[pd.DataFrame]:
         """Get emissions in AGRC from:
-
-            - Pos/Neg CO2 emissions from residues
-            - Biomass increase/loss (woody biomass)
-            - CH4 from decomposition 
-            - CH4/N2O from residue burning 
+            
+            * Emissions:
+                - Pos/Neg CO2 emissions from residues
+                - Biomass increase/loss (woody biomass)
+                - CH4 from decomposition 
+                - CH4/N2O from residue burning 
+            * Other variables:
+                - Quantity of residues by pathway and crop type
         """
 
         ##  INITIALIZATION
@@ -3794,9 +3745,8 @@ class AFOLU:
         
         ##  BUILD OUTPUT DATAFRAME
 
-        df_out = self.get_agrc_emissions_co2_residues_posneg(
-            df_afolu_trajectories, 
-        )
+        # initialize with emissins from co2 residues (used for tracking)
+        df_out = self.get_agrc_emissions_co2_residues_posneg()
 
         df_out += [
             self.model_attributes.array_to_df(
@@ -3818,12 +3768,14 @@ class AFOLU:
         # add in biomass burning
         df_out += self.get_agrc_emissions_residue_burning()
 
+        # add in 
+        df_out += self.get_agrc_residue_output_pathways()
+
         return df_out
     
 
 
     def get_agrc_emissions_co2_residues_posneg(self,
-        df_afolu_trajectories: pd.DataFrame,
     ) -> List[pd.DataFrame]:
         """Get emissions associated with total residues. Excludes emissions 
             associated with residue use in energy, since that is handled in 
@@ -3845,23 +3797,13 @@ class AFOLU:
         # get model variables for extraction
         modvar_agrc_emit = self.modvar_agrc_emissions_co2_residues_annual
         modvar_agrc_seq = self.modvar_agrc_emissions_co2_residues_annual_sequestration
-        modvar_frac_dm = self.modvar_frst_frac_c_per_dm
 
 
         ##  GET DM FRAC C AND SCALARS 
 
         # get scalars
         scalar = self.model_attributes.get_scalar(modvar_ilu_mass, "mass", )
-
-        # fraction dry matter
-        vec_frac_dm = self.model_attributes.extract_model_variable(#
-            df_afolu_trajectories, 
-            modvar_frac_dm,
-            override_vector_for_single_mv_q = False, 
-            return_type = "array_base", 
-            var_bounds = (0, 1),
-        )
-
+        vec_frac_dm = self.arrays_frst.arr_frst_frac_c_per_dm
         vec_scalar = scalar*vec_frac_dm*self.factor_c_to_co2
 
         
@@ -4048,8 +3990,103 @@ class AFOLU:
 
 
 
+    def get_agrc_residue_output_pathways(self,
+    ) -> List[pd.DataFrame]:
+        """Get emissions associated with total residues. Excludes emissions 
+            associated with residue use in energy, since that is handled in 
+            Energy.
+
+            Positive--losses from burning, feed, and field.
+            Negative--sequestration from growth (all residues)
+
+            Negative = (
+                -Positive - Residues for Energy
+            )
+        """
+
+        ##  INITIALIZATION
+
+        # unit model variables to use for converting residues
+        _, modvar_ilu_mass = self.get_modvars_for_unit_targets_ilu()
+
+
+        ##  BUILD ARRAYS FOR EACH OF THE RESIDUE PATHWAYS
+
+        # burned
+        arr_final_use_burned = (
+            self.arrays_agrc.arr_agrc_residue_final_use_burned
+            * self.model_attributes.get_variable_unit_conversion_factor(
+                modvar_ilu_mass,
+                self.modvar_agrc_residue_final_use_burned,
+                "mass",
+            )
+        )
+
+        # energy
+        arr_final_use_energy = (
+            self.arrays_agrc.arr_agrc_residue_final_use_energy
+            * self.model_attributes.get_variable_unit_conversion_factor(
+                modvar_ilu_mass,
+                self.modvar_agrc_residue_final_use_energy,
+                "mass",
+            )
+        )
+
+        # feed
+        arr_final_use_feed = (
+            self.arrays_agrc.arr_agrc_residue_final_use_feed
+            * self.model_attributes.get_variable_unit_conversion_factor(
+                modvar_ilu_mass,
+                self.modvar_agrc_residue_final_use_feed,
+                "mass",
+            )
+        )
+
+        # field
+        arr_final_use_field = (
+            self.arrays_agrc.arr_agrc_residue_final_use_field
+            * self.model_attributes.get_variable_unit_conversion_factor(
+                modvar_ilu_mass,
+                self.modvar_agrc_residue_final_use_field,
+                "mass",
+            )
+        )
+
+
+        ##  BUILD OUTPUT DATAFRAMES
+
+        df_out = [
+            # burned
+            self.model_attributes.array_to_df(
+                arr_final_use_burned,
+                self.modvar_agrc_residue_final_use_burned,
+                reduce_from_all_cats_to_specified_cats = True,
+            ),
+            # energy
+            self.model_attributes.array_to_df(
+                arr_final_use_energy,
+                self.modvar_agrc_residue_final_use_energy,
+                reduce_from_all_cats_to_specified_cats = True,
+            ),
+            # feed
+            self.model_attributes.array_to_df(
+                arr_final_use_feed,
+                self.modvar_agrc_residue_final_use_feed,
+                reduce_from_all_cats_to_specified_cats = True,
+            ),
+            # field
+            self.model_attributes.array_to_df(
+                arr_final_use_field,
+                self.modvar_agrc_residue_final_use_field,
+                reduce_from_all_cats_to_specified_cats = True,
+            )
+        ]
+
+        return df_out
+
+
+
     def get_agrc_residue_vars(self,
-        df_afolu_trajectories: pd.DataFrame,
         modvar_target_area: Union['ModelVariable', None] = None,
         modvar_target_mass: Union['ModelVariable', None] = None,
     ) -> Tuple[np.ndarray]:
@@ -4677,15 +4714,6 @@ class AFOLU:
             var_bounds = (0, np.inf),
         ) 
 
-        # get c fraction?
-        vec_frst_c_frac = self.model_attributes.extract_model_variable(
-            df_afolu_trajectories,
-            self.modvar_frst_frac_c_per_dm,
-            override_vector_for_single_mv_q = False,
-            return_type = "array_base",
-            var_bounds = (0, 1),
-        ) 
-
         # initialize blank array, then assign column vector
         arr_fill_fw = modvar_fw.get_from_dataframe(
             modvar_fw.spawn_default_dataframe(
@@ -4697,6 +4725,9 @@ class AFOLU:
             extraction_logic = "any",
             return_type = "array",
         )
+
+        # get c fraction
+        vec_frst_c_frac = self.arrays_frst.arr_frst_frac_c_per_dm
 
         # update with expected total and convert to:
         #   1. Biomass total (is currently c, not biomass)
@@ -5065,8 +5096,7 @@ class AFOLU:
 
         # shortcuts
         matt = self.model_attributes
-        modvar_lndu_stock_initial = self.modvar_lndu_biomass_stock_factor_ag
-        (modvar_targunits_area, modvar_targunits_mass, ) = self.get_modvars_for_unit_targets_bcl()
+        modvar_targunits_area, modvar_targunits_mass = self.get_modvars_for_unit_targets_bcl()
 
 
         ##  GET BIOMASS GROWTH RATES AND DECOMP
@@ -5088,16 +5118,9 @@ class AFOLU:
         ##  GET INITIAL STOCK FACTORS
 
         # get the initial stock factors
-        arr_stock_init = self.model_attributes.extract_model_variable(
-            df_afolu_trajectories,
-            modvar_lndu_stock_initial,
-            expand_to_all_cats = True,
-            return_type = "array_base",
-        )
-
         arr_stock_init = self.scale_bcl_mass_per_area_array(
-            arr_stock_init,
-            modvar_lndu_stock_initial,
+            self.arrays_lndu.arr_lndu_biomass_stock_factor_ag,
+            self.modvar_lndu_biomass_stock_factor_ag,
             modvar_targunits_area,
             modvar_targunits_mass,
         )
@@ -7172,6 +7195,41 @@ class AFOLU:
     
 
 
+    def get_lndu_area_converted_away_from_convmats(self,
+        arrs_lndu_land_conv: np.ndarray,
+    ) -> np.ndarray:
+        """Shortcut function to calculate the area converted to each type from
+            conversion matrices.
+        """
+        arrs_lndu_conv_away = np.array(
+            [
+                np.sum(x - np.diag(np.diagonal(x)), axis = 1) 
+                for x in arrs_lndu_land_conv
+            ]
+        )
+
+        return arrs_lndu_conv_away
+
+
+
+    def get_lndu_area_converted_into_from_convmats(self,
+        arrs_lndu_land_conv: np.ndarray,
+    ) -> np.ndarray:
+        """Shortcut function to calculate the area converted to each type from
+            conversion matrices.
+        """
+
+        arrs_lndu_conv_into = np.array(
+            [
+                np.sum(x - np.diag(np.diagonal(x)), axis = 0, )
+                for x in arrs_lndu_land_conv
+            ]
+        )
+
+        return arrs_lndu_conv_into
+    
+
+
     def get_lndu_area_drained_organic_soils(self,
         df_afolu_trajectories: pd.DataFrame,
         arr_land_use: np.ndarray,
@@ -7532,6 +7590,72 @@ class AFOLU:
 
 
 
+    def get_frst_inventory_aligned_sequestration(self,
+        arrs_lndu_land_conv: np.ndarray,
+    ) -> pd.DataFrame:
+        """National inventories account for sequestration as a carbon potential
+            times area converted. This calcualtion allows for closer calculation
+            of sequestration to inventories.
+
+        Function Arguments
+        ------------------
+        arrs_lndu_land_conv : np.ndarray
+            In terms of ILU area
+        """
+
+        ##  INITIALIZATION
+
+        # get model variable for area basis
+        modvar_ilu_area, _ = self.get_modvars_for_unit_targets_ilu()
+        modvar_out = self.modvar_frst_emissions_co2_sequestration_potential
+
+        # get ordered LNDU indices for forests (same as col ordering of output var)
+        cats_frst = self.model_attributes.get_variable_categories(modvar_out, )
+        inds_lndu_ord = self.get_lndu_indices_fstp_fsts(cats_ordered = cats_frst, )
+
+
+        ##  GET ARRAYS AND CONVERSIONS
+
+        # get area converted to each land use class
+        arrs_lndu_conv_to = self.get_lndu_area_converted_into_from_convmats(
+            arrs_lndu_land_conv,
+        )
+
+        # biomass factors in terms of all forest classes
+        arr_lndu_stock = (
+            self.scale_bcl_mass_per_area_array(
+                self.arrays_lndu.arr_lndu_biomass_stock_factor_ag,
+                self.modvar_lndu_biomass_stock_factor_ag,
+                modvar_ilu_area,
+                None,
+            )
+            *(1 + self.arrays_lndu.arr_lndu_biomass_stock_ratio_bg_to_ag)
+        )
+
+        scalar_to_config = self.model_attributes.get_scalar(
+            self.modvar_lndu_biomass_stock_factor_ag,
+            "mass",
+        )
+
+        # get sequestration potential--the area of land converted to forest*secondary stock
+        arr_frst_seq_potential = -1*(
+            sf.do_array_mult(
+                (arr_lndu_stock*arrs_lndu_conv_to)[:, inds_lndu_ord],
+                self.arrays_frst.arr_frst_frac_c_per_dm,
+            )
+            *self.factor_c_to_co2
+            *scalar_to_config
+        ) 
+        # set output, should be in terms of 
+        df_out = self.model_attributes.array_to_df(
+            arr_frst_seq_potential,
+            modvar_out,
+        )
+
+        return df_out
+    
+
+
     def _get_frst_sequestration_from_npp_build_cmf_df(self,
         df_afolu_trajectories: pd.DataFrame,
         cmf: np.ndarray, 
@@ -7572,7 +7696,7 @@ class AFOLU:
             df_cmf = df_cmf.to_numpy()
 
         return df_cmf
-    
+
 
 
     def get_frst_sequestration_factors(self,
@@ -7750,28 +7874,53 @@ class AFOLU:
 
 
     def get_lndu_indices_fstp_fsts(self,
-        return_categories: bool = False,
+        cats_ordered: Union[List[str], None] = None,
         include_mangroves: bool = False,
+        return_categories: bool = False,
     ) -> Tuple:
         """Get the indices of primary forest and secondary forest in
-            Land Use.
+            Land Use. Ordered for specific use in BCL contexts.
+        
+        Returns
+        -------
+        For return_categories == False (default)
+        - If cats_ordered is None (default):
+            * if include_mangroves == False:
+                (ind_lndu_fstp, ind_lndu_fsts, )
+            * if include_mangroves == True:
+                (ind_lndu_fstm, ind_lndu_fstp, ind_lndu_fsts)
+            Otherwise, returns lndu indices in order of cats_ordered
+
+         For return_categories == True
+            Returns lndu categories only (not lndu indices) in ordering
+            described above
+
+        Keyword Arguments
+        -----------------
+        cats_ordered
+            Option to specify ordered forest categories using cats_ordered;
+            overrides ordering suited to BCL (don't use in that context)
+        include_mangroves : bool
+            Include mangroves in the ordering?
+        return_categories : bool 
+            Return categories only?
         """
-        attr_lndu = self.attr_lndu
-        
-        cat_lndu_fstm = self.dict_cats_frst_to_cats_lndu.get(self.cat_frst_mang, )
-        cat_lndu_fstp = self.dict_cats_frst_to_cats_lndu.get(self.cat_frst_prim, )
-        cat_lndu_fsts = self.dict_cats_frst_to_cats_lndu.get(self.cat_frst_scnd, )
-        
+
         # initialize output
-        out = [cat_lndu_fstp, cat_lndu_fsts]
-        if include_mangroves: 
-            out = [cat_lndu_fstm] + out
-            
+        if not sf.islistlike(cats_ordered):
+            cats_ordered = [self.cat_frst_prim, self.cat_frst_scnd]
+            if include_mangroves: 
+                cats_ordered = [self.cat_frst_mang] + cats_ordered
+        
+        cats_ordered = [x for x in cats_ordered if x in self.attr_frst.key_values]
+        
+        # get the output categories (in terms of land use)
+        out = [self.dict_cats_frst_to_cats_lndu.get(x) for x in cats_ordered]
         if return_categories:
             return tuple(out)
         
         # otherwise, get ordered indices
-        out = tuple([attr_lndu.get_key_value_index(x, ) for x in out])
+        out = tuple([self.attr_lndu.get_key_value_index(x, ) for x in out])
 
         return out
     
@@ -7823,12 +7972,15 @@ class AFOLU:
         df_afolu_trajectories: pd.DataFrame,
         df_land_use_ilu: pd.DataFrame,
         arr_lndu_area: np.ndarray,
+        arrs_lndu_land_conv: np.ndarray,
     ) -> List[pd.DataFrame]:
         """Get:
 
             * Emissions
                 - CH4 emissions in wetlands
                 - CO2 Sequestration annually in land use types (non-forest)
+                - Inventory aligned-sequestration (seq. potential by forest
+                    type)
             * Other
                 - Area of seasonal wetlands
 
@@ -7864,16 +8016,9 @@ class AFOLU:
         )
 
         # get fraction C and apply to the sequestration factor
-        vec_frac_c_dm = self.model_attributes.extract_model_variable(
-            df_afolu_trajectories,
-            self.modvar_frst_frac_c_per_dm,
-            return_type = "array_base",
-            var_bounds = (0, 1),
-        )
-
         arr_lndu_sequestration_co2e = sf.do_array_mult(
             arr_lndu_sequestration_co2e,
-            vec_frac_c_dm,
+            self.arrays_frst.arr_frst_frac_c_per_dm,    # is a vector
         )
 
         
@@ -7925,6 +8070,11 @@ class AFOLU:
                 arr_lndu_sequestration_co2e, 
                 self.modvar_lndu_emissions_co2_sequestration,
                 reduce_from_all_cats_to_specified_cats = True,
+            ),
+
+            # inventory aligned sequestration potential
+            self.get_frst_inventory_aligned_sequestration(
+                arrs_lndu_land_conv,
             ),
 
             # seasonal wetland area
@@ -8990,7 +9140,7 @@ class AFOLU:
             scalar = self.model_attributes.get_variable_unit_conversion_factor(
                 self.modvar_lndu_biomass_stock_factor_ag,
                 modvar_target_units_mass,
-                "mass"
+                "mass",
             )
 
             arrs_c_agb *= scalar
@@ -9003,7 +9153,7 @@ class AFOLU:
             scalar = self.model_attributes.get_variable_unit_conversion_factor(
                 modvar_target_units_area,
                 self.modvar_lndu_biomass_stock_factor_ag,
-                "area"
+                "area",
             )
 
             arrs_c_agb *= scalar
@@ -13726,9 +13876,7 @@ class AFOLU:
         #    SOME AGRICULTURE ARRAYS    #
         #################################
 
-        tup_residue_info = self.get_agrc_residue_vars(
-            df_afolu_trajectories, 
-        )
+        tup_residue_info = self.get_agrc_residue_vars()
         
       
 
@@ -13949,13 +14097,13 @@ class AFOLU:
         )
         df_out += dfs_add
 
-        # Additional emissions from agriculture
-        # - Pos/Neg CO2 emissions from residues
-        # - Biomass increase/loss (woody biomass)
-        # - CH4 from decomposition 
-        # - CH4/N2O from residue burning
-        df_out += self.get_agrc_emissions_additional(
-            df_afolu_trajectories,
+        # Additional variables from agriculture
+        #   - Pos/Neg CO2 emissions from residues
+        #   - Biomass increase/loss (woody biomass) emissions
+        #   - CH4 emissions from decomposition 
+        #   - CH4/N2O from residue burning
+        #   - Residue quantities by pathway
+        df_out += self.get_agrc_variables_additional(
             df_agrc_frac_cropland,
             df_land_use_ilu,
         )
@@ -13981,6 +14129,7 @@ class AFOLU:
             df_afolu_trajectories,
             df_land_use_ilu,
             arr_land_use,
+            arrs_lndu_land_conv, 
         )
 
 
@@ -14036,7 +14185,7 @@ class AFOLU:
         #
         #   - concatenate
         #   - add emissions aggregates
-
+        
         df_out = (
             pd.concat(
                 df_out, 

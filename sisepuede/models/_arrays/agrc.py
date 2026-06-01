@@ -303,6 +303,7 @@ class ArraysAGRC(ma.SubsectorArraysCollection):
         self.get_modvar_array(
             None,
             self.modvar_agrc_residue_final_use_burned,
+            expand_to_all_cats = True,
             set_property = True,
         )
 
@@ -310,6 +311,7 @@ class ArraysAGRC(ma.SubsectorArraysCollection):
         self.get_modvar_array(
             None,
             self.modvar_agrc_residue_final_use_energy,
+            expand_to_all_cats = True,
             set_property = True,
         )
 
@@ -317,6 +319,7 @@ class ArraysAGRC(ma.SubsectorArraysCollection):
         self.get_modvar_array(
             None,
             self.modvar_agrc_residue_final_use_feed,
+            expand_to_all_cats = True,
             set_property = True,
         )
 
@@ -324,6 +327,7 @@ class ArraysAGRC(ma.SubsectorArraysCollection):
         self.get_modvar_array(
             None,
             self.modvar_agrc_residue_final_use_field,
+            expand_to_all_cats = True,
             set_property = True,
         )
 

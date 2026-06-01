@@ -66,6 +66,16 @@ class ArraysFRST(ma.SubsectorArraysCollection):
             set_property = True,
             var_bounds = (0, 1),
         )
+
+        # fraction of c per dry matter in forests
+        self.get_modvar_array(
+            df_trajectories,
+            self.modvar_frst_frac_c_per_dm,
+            override_vector_for_single_mv_q = False, 
+            set_property = True,
+            var_bounds = (0, 1),
+        )
+        
        
 
         return None

@@ -108,6 +108,16 @@ class ArraysLNDU(ma.SubsectorArraysCollection):
         """Initialize LNDU arrays that are carried through
         """
         
+        # initial stock per land use type
+        self.get_modvar_array(
+            df_trajectories,
+            self.modvar_lndu_biomass_stock_factor_ag,
+            all_cats_missing_val = 0.0,
+            expand_to_all_cats = True,
+            set_property = True,
+            var_bounds = (0, np.inf),
+        )
+
         # ratio of below-ground to above-ground biomass
         self.get_modvar_array(
             df_trajectories,
@@ -224,6 +234,7 @@ class ArraysLNDU(ma.SubsectorArraysCollection):
             set_property = True,
             var_bounds = (0, 1),
         )
+
         # initial land use shares
         self.get_modvar_array(
             df_trajectories, 
