@@ -5094,33 +5094,41 @@ class ModelAttributes:
     def transfer_df_variables(self,
         df_target: pd.DataFrame,
         df_source: pd.DataFrame,
-        variables_transfer: list,
-        fields_index: Union[list, None] = None,
+        variables_transfer: List[Union[str, 'ModelVariable']],
+        fields_index: Union[List[str], None] = None,
         join_type: str = "concatenate",
         overwrite_targets: bool = False,
-        stop_on_error: bool = True
+        stop_on_error: bool = True,
+        **kwargs,
     ) -> pd.DataFrame:
-        """
-        Transfar SISEPUEDE model variables from source data frame to target data 
-            frame.
+        """Transfer SISEPUEDE model variables from source data frame to target 
+            data frame.
 
         Function Arguments
         ------------------
-        - df_target: data frame to receive variables
-        - df_source: data frame to send variables from
-        - variables_transfer: list of SISEPUEDE model variables to transfer from 
-            source to target
+        df_target : pd.DataFrame
+            DataFrame to receive variables
+        df_source : pd.DataFrame
+            DataFrame to send variables from
+        variables_transfer : List[Union[str, ModelVariable]]
+            List of SISEPUEDE model variables to transfer from source to target
 
         Keyword Arguments
         -----------------
-        - fields_index: index fields shared by each data frame
-        - join_type: valid values are "concatenate" and "merge". If index 
-            field(s) ordering is the same, concatenation is recommended.
-        - overwrite_targets: overwrite existing model variable fields in 
-            df_target if they exist? Default is false.
-        - stop_on_error: stop the transfer on an error. If False, variables that 
-            are not available in df_source will be ignored.
-
+        fields_index : Union[List[str], None]
+            Index fields shared by each data frame
+        join_type : str
+            Valid values are "concatenate" and "merge". If index field(s) 
+            ordering is the same, concatenation is recommended.
+        overwrite_targets : bool
+            Overwrite existing model variable fields in df_target if they exist? 
+            Default is false.
+        stop_on_error : bool
+            Stop the transfer on an error. If False, variables that are not 
+            available in df_source will be ignored.
+        **kwargs :
+            Passed to extract_model_variable() via 
+            get_optional_or_integrated_standard_variable()
         Notes
         -----
         * Assumes that variable schema are unique for each model variable
@@ -5137,12 +5145,12 @@ class ModelAttributes:
                     df_source, 
                     var_int, 
                     None,
+                    **kwargs,
                 )
 
             except Exception as e:
                 if stop_on_error:
-                    msg = f"""
-                    Error in transfer_df_variables: 
+                    msg = f"""Error in transfer_df_variables: 
                     get_optional_or_integrated_standard_variable returned '{e}'.
                     """
                     raise RuntimeError(msg)
@@ -6680,7 +6688,6 @@ class ModelAttributes:
             is not passed
         """
         # get fields needed
-        subsector_integrated = self.get_variable_subsector(var_integrated)
         fields_check = self.build_variable_fields(var_integrated)
         out = None
 

@@ -23,6 +23,12 @@ Chemical,``chemicals``,"Includes production of
 * Soda Ash production
 * Titanium Dioxide
 * Others",none,0,0,0,,,
+Compute,``compute_infrastructure``,"Energy for the support of industrial-scale energy-intensive compute infrastructure, including:
+
+* AI Data Centers
+* Cloud-compute centers
+* Data storage and warehousing
+",none,0,0,0,,,
 Construction and Demolition,``construction_and_demolition``,Primarily generates wastewater and waste. Driven by growth in population and gdp.,none,0,0,0,,,
 Electronics - Displays,``electronics``," | Includes emissions (especially FCs) from processes and product use involved with the production of: 
  * Displays
@@ -65,7 +71,6 @@ Metals,``metals``,"Virgin production of metals (excludes mining activities). Inc
 Other,``other_industries``,"This category includes emissions from industrial processes and product use in other industrial categories not covered above, including
 
 * Food and Beverages Industry
-* Pulp and Paper Industry
 * Other
 
 Produces extensive wastewater and COD.",none,0,0,0,,,

@@ -549,7 +549,7 @@ def main(
         dict_scenarios,
         chunk_size = 2,
         check_results = True,
-        include_electricity_in_energy = include_fuel_prod,
+        include_nemo_fuel_production = include_fuel_prod,
         max_attempts = max_solve_attempts,
         reinitialize_output_table_on_verification_failure = True,
         save_inputs = save_inputs,

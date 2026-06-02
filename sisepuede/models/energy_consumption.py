@@ -296,7 +296,8 @@ class EnergyConsumption:
             self.subsec_name_trns, 
             self.subsec_name_trde, 
             self.subsec_name_scoe
-        ]#self.subsec_name_enfu,#self.model_attributes.get_setor_subsectors("Energy")
+        ]
+        
         subsectors_base = subsectors.copy()
         subsectors += [self.subsec_name_econ, self.subsec_name_gnrl]
 
@@ -337,7 +338,7 @@ class EnergyConsumption:
         )
         self.required_variables += new_vars
 
-        # sot required variables and ensure no double counting
+        # sort required variables and ensure no double counting
         self.required_variables = list(set(self.required_variables))
         self.required_variables.sort()
 
@@ -354,7 +355,14 @@ class EnergyConsumption:
             self.modvar_enfu_production_fuel
         ]
 
+        # get variables required for AFOLU integration
+        list_vars_required_for_integration_afolu = (
+            self.get_inen_dict_fuel_categories_to_fuel_variables()
+            + self.get_scoe_dict_fuel_categories_to_fuel_variables()
+            + self.get_trns_dict_fuel_categories_to_fuel_variables()
+        )
 
+        self.integration_variables_afolu = list_vars_required_for_integration_afolu
         self.integration_variables_non_fgtv = list_vars_required_for_integration
         self.integration_variables_fgtv = list_vars_required_for_integration_fgtv
 

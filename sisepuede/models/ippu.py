@@ -235,8 +235,16 @@ class IPPU:
             self.modvar_waso_waste_total_recycled
         ]
 
-        self.integration_variables = list_vars_required_for_integration
+        # variables that are required from biomass
+        list_vars_required_for_integration_afolu = [
+            self.modvar_ippu_prod_qty_init,
+            self.modvar_ippu_scalar_production
+        ]
 
+
+        self.integration_variables = list_vars_required_for_integration
+        self.integration_variables_afolu = list_vars_required_for_integration_afolu
+        
         return None
 
 
@@ -506,8 +514,7 @@ class IPPU:
         modvar_carbon_capture_total: Union[str, None] = None,
         modvar_prod_mass: str = None,
     ) -> list:
-        """
-        Calculate emissions driven by GDP/Production and different factors. 
+        """Calculate emissions driven by GDP/Production and different factors. 
             Takes a production array (to drive production-based emissions), a 
             gdp vector, and dictionaries that contain (a) output variables as 
             keys and (b) lists of input gdp and/or production variables.

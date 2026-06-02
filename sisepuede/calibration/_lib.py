@@ -133,7 +133,7 @@ def scale_inputs_single_value(
     # project the model onces
     df_projected_initial = models.project(
         df_candidate,
-        include_electricity_in_energy = include_energy_production,
+        include_nemo_fuel_production = include_energy_production,
     )
 
     # get index to compare
@@ -148,7 +148,7 @@ def scale_inputs_single_value(
     # project again and recalculate
     df_projected_final = models.project(
         df_candidate,
-        include_electricity_in_energy = include_energy_production,
+        include_nemo_fuel_production = include_energy_production,
     )
     model_sum_adjusted = df_projected_final[fields_output].iloc[ind].sum()
 

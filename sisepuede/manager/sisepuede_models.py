@@ -449,7 +449,7 @@ class SISEPUEDEModels:
         check_results: bool = True,
         dict_optimizer_attributes: Union[Dict[str, Any], None] = None,
         fields_check: Union[List[str], str, None] = "emissions_output_subsector_aggregate",
-        include_electricity_in_energy: bool = True,
+        include_nemo_fuel_production: bool = True,
         models_run: Union[List[str], None] = None,
         regions: Union[List[str], str, None] = None,
         run_integrated: bool = True,
@@ -474,7 +474,7 @@ class SISEPUEDEModels:
             * Circular Economy (or ce)
             * IPPU (or ip)
             * Energy (or en)
-                * Note: set include_electricity_in_energy = False to avoid
+                * Note: set include_nemo_fuel_production = False to avoid
                     running the electricity model with energy
             * Socioeconomic (or se)
 
@@ -496,7 +496,7 @@ class SISEPUEDEModels:
             * None (to check all fields not associated with fields_ind)
             * NOTE: If any elements intersect with fields_ind, fields_ind takes 
                 priority
-        include_electricity_in_energy : bool
+        include_nemo_fuel_production : bool
             Include the electricity model in runs of the energy model?
             * If False, runs without electricity (time intensive model)
         regions : Union[List[str], None]
@@ -554,7 +554,7 @@ class SISEPUEDEModels:
         if "AFOLU" in models_run:
             self._log("Running AFOLU model", type_log = "info")
             try:
-                df_return.append(self.model_afolu.project(df_input_data))
+                df_return.append(self.model_afolu.project(df_input_data, ))
                 self._log(f"AFOLU model run successfully completed", type_log = "info")
 
             except Exception as e:
@@ -595,6 +595,16 @@ class SISEPUEDEModels:
                     df_return[0],
                     self.model_ippu.integration_variables
                 )
+            
+            # get biomass overwrites of HWP variables--only what is specified
+            if run_integrated and set(["AFOLU"]).issubset(set(models_run)):
+                df_input_data = self.model_attributes.transfer_df_variables(
+                    df_input_data,
+                    df_return[0],
+                    self.model_ippu.integration_variables_afolu,
+                    extraction_logic = "any",
+                    overwrite_targets = True,
+                )
 
             try:
                 df_return.append(self.model_ippu.project(df_input_data))
@@ -609,7 +619,7 @@ class SISEPUEDEModels:
                 self._log(f"Error running IPPU model: {e}", type_log = "error")
 
 
-        ##  4. Run Non-Electric Energy (excluding Fugitive Emissions) and collect output
+        ##  4. Run Non-Fuel Production Energy (excluding Fugitive Emissions) and collect output
 
         if "Energy" in models_run:
 
@@ -624,6 +634,16 @@ class SISEPUEDEModels:
                     df_return[0],
                     self.model_enercons.integration_variables_non_fgtv
                 )
+
+                # get biomass overwrites of fuel variables--only what is specified
+                df_input_data = self.model_attributes.transfer_df_variables(
+                    df_input_data,
+                    df_return[0],
+                    self.model_enercons.integration_variables_afolu,
+                    extraction_logic = "any",
+                    overwrite_targets = True,
+                )
+
 
             try:
                 df_return.append(self.model_enercons.project(df_input_data))
@@ -643,9 +663,9 @@ class SISEPUEDEModels:
                 )
         
 
-        ##  5. Run Electricity and collect output
+        ##  5. Run Fuel Production and collect output
 
-        if ("Energy" in models_run) and include_electricity_in_energy and self.allow_electricity_run:
+        if ("Energy" in models_run) and include_nemo_fuel_production and self.allow_electricity_run:
 
             self._log(
                 "Running Energy model (Electricity and Fuel Production: trying to call Julia)", 

@@ -374,8 +374,13 @@ class EnergyProduction:
             self.modvar_enfu_energy_demand_by_fuel_ccsq,
             self.modvar_enfu_energy_demand_by_fuel_inen,
             self.modvar_enfu_energy_demand_by_fuel_scoe,
-            self.modvar_enfu_energy_demand_by_fuel_trns
+            self.modvar_enfu_energy_demand_by_fuel_trns,
+            # Energy Technology variables from AFOLU
+            self.modvar_entc_fuel_constraint_crop_residues,
+            self.modvar_entc_fuel_constraint_fuelwood
         ]
+
+        
 
         # in Electricity, update required variables
         for modvar in self.integration_variables:
