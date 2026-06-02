@@ -147,11 +147,12 @@ class EnergyConsumption:
         """
         # build dictionary for projection 
         dict_inen_fuel_frac_to_eff_cat = self.dict_inen_fuel_categories_to_fuel_variables.copy()
-        for k in dict_inen_fuel_frac_to_eff_cat.keys():
-            val = dict_inen_fuel_frac_to_eff_cat[k][_KEY_MODVAR_DICT_FUEL_FRACTION]
-            dict_inen_fuel_frac_to_eff_cat.update({k: val})
+        
+        for k, v in dict_inen_fuel_frac_to_eff_cat.items():
+            val = v.get(_KEY_MODVAR_DICT_FUEL_FRACTION, )
+            dict_inen_fuel_frac_to_eff_cat.update({k: val, })
             
-        dict_inen_fuel_frac_to_eff_cat = sf.reverse_dict(dict_inen_fuel_frac_to_eff_cat)
+        dict_inen_fuel_frac_to_eff_cat = sf.reverse_dict(dict_inen_fuel_frac_to_eff_cat, )
 
         return dict_inen_fuel_frac_to_eff_cat
     
@@ -357,9 +358,9 @@ class EnergyConsumption:
 
         # get variables required for AFOLU integration
         list_vars_required_for_integration_afolu = (
-            self.get_inen_dict_fuel_categories_to_fuel_variables()
-            + self.get_scoe_dict_fuel_categories_to_fuel_variables()
-            + self.get_trns_dict_fuel_categories_to_fuel_variables()
+            self.modvars_inen_list_fuel_fraction
+            + self.modvars_scoe_list_fuel_fraction
+            + self.modvars_trns_list_fuel_fraction
         )
 
         self.integration_variables_afolu = list_vars_required_for_integration_afolu
@@ -748,10 +749,23 @@ class EnergyConsumption:
         
         self.modvar_dicts_scoe_fuel_vars = self.model_attributes.get_var_dicts_by_shared_category(
             self.subsec_name_scoe,
-            self.model_attributes.get_subsector_attribute(self.subsec_name_enfu, "pycategory_primary_element"),
-            ["energy_efficiency_variable_by_fuel", "fuel_fraction_variable_by_fuel", "energy_demand_variable_by_fuel"]
+            self.model_attributes.get_subsector_attribute(
+                self.subsec_name_enfu, 
+                "pycategory_primary_element",
+            ),
+            [
+                "energy_efficiency_variable_by_fuel", 
+                "fuel_fraction_variable_by_fuel", 
+                "energy_demand_variable_by_fuel"
+            ]
         )
         
+        # list of scoe fuel fractions--used elsewhere
+        self.modvars_scoe_list_fuel_fraction = self.model_attributes.get_vars_by_assigned_class_from_akaf(
+            self.get_scoe_dict_fuel_categories_to_fuel_variables()[0],
+            _KEY_MODVAR_DICT_FUEL_FRACTION,
+        )
+
         # reassign as variables
         self.modvar_dict_scoe_fuel_fractions_to_efficiency_factors = self.modvar_dicts_scoe_fuel_vars.get(
             "fuel_fraction_variable_by_fuel_to_energy_efficiency_variable_by_fuel"
@@ -1703,7 +1717,7 @@ class EnergyConsumption:
 
 
     def get_inen_dict_fuel_categories_to_fuel_variables(self,
-    ) -> Dict:
+    ) -> Union[Dict[str, Dict[str, 'ModelVariable']], List['ModelVariable']]:
         """
         use get_inen_dict_fuel_categories_to_fuel_variables to return a 
             dictionary with fuel categories as keys based on the Industrial 
