@@ -39,4 +39,4 @@ Output,Electrical Energy Consumption from SCOE,energy_consumption_electricity,,`
 Output,Energy Consumption from SCOE,energy_consumption_total,,``energy_consumption_scoe_$CAT-SCOE$``,all,,0,1,1,,0,0,0,none,,,2
 Output,Heat Energy Demand in SCOE,energy_demand_heat_total,,``energy_demand_scoe_heat_$CAT-SCOE$``,all,,0,1,1,,0,0,0,none,,,2
 Output,Total Electrical Energy Consumption from SCOE,energy_consumption_electricity_agg,,``energy_consumption_electricity_scoe_total``,none,,0,1,1,,0,0,0,none,,,2
-Output,Total Energy Consumption from SCOE,energy_consumption_total_ag,,``energy_consumption_scoe_total``,none,,0,1,1,,0,0,0,none,,,2
+Output,Total Energy Consumption from SCOE,energy_consumption_total_agg,,``energy_consumption_scoe_total``,none,,0,1,1,,0,0,0,none,,,2
