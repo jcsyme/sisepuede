@@ -2823,9 +2823,6 @@ class ModelAttributes:
 
         ##  START EXTRACTION
 
-        # initialize extration fields, which are modified below in different circumstances
-        flds = modvar.fields
-
         # will default to model variable default value
         fill_value = (
             all_cats_missing_val
@@ -2839,7 +2836,11 @@ class ModelAttributes:
                 expand_to_all_categories = False,#expand_to_all_cats,
                 extraction_logic = extraction_logic,
                 fill_value = fill_value,
+                return_type = "data_frame",
             )
+
+            # get fields ordered properly
+            flds = list(out.columns)
 
         except Exception as e:
             msg = f"""Unable to extract variable {modvar.name} in extract_model_variable: {e}
@@ -2906,7 +2907,7 @@ class ModelAttributes:
             )
 
             if return_type == "data_frame":
-                sec = self.get_variable_subsector(modvar)
+                sec = self.get_variable_subsector(modvar, )
                 flds = self.get_attribute_table(sec).key_values
 
 
@@ -5085,7 +5086,12 @@ class ModelAttributes:
             else df_project[fields_dims_notime + [self.dim_time_period] + fields_dat]
         )
 
-        out = (dict_dims, df_project, n_projection_time_periods, projection_time_periods)
+        out = (
+            dict_dims, 
+            df_project, 
+            n_projection_time_periods, 
+            projection_time_periods,
+        )
 
         return out
 
@@ -6683,16 +6689,27 @@ class ModelAttributes:
         var_optional: Union[str, None],
         **kwargs
     ) -> Union[tuple, None]:
-        """
-        Function to return an optional variable if another (integrated) variable 
-            is not passed
+        """Function to return an optional variable if another (integrated) 
+            variable is not passed
         """
         # get fields needed
         fields_check = self.build_variable_fields(var_integrated)
         out = None
 
+        # check if extraction logic is "any"
+        extraction_logic = kwargs.get("extraction_logic", )
+        use_intersect = extraction_logic is not None
+        use_intersect &= (extraction_logic == "any") if use_intersect else False
+        
+        # set the condition to try 
+        condition = (
+            len(set(fields_check) & set(df_in.columns)) > 0
+            if use_intersect
+            else set(fields_check).issubset(set(df_in.columns))
+        )
+        
         # check and return the output variable + which variable was selected
-        if set(fields_check).issubset(set(df_in.columns)):
+        if condition:
             out = self.extract_model_variable(#
                 df_in, 
                 var_integrated, 
