@@ -702,6 +702,7 @@ class AFOLU:
         # initialize the Livestock Dietary Estimator
         lde = self.get_lde()
 
+
         ##  SET PROPERTIES
 
         self.curves_npp = curves_npp
@@ -7333,9 +7334,16 @@ class AFOLU:
     def get_lndu_area_target_settlements(self,
         df_afolu_trajectories: pd.DataFrame,
         vec_lndu_area_initial: np.ndarray,
-    ) -> np.ndarray:
+    ) -> Tuple[pd.DataFrame, np.ndarray]:
         """Estimate the target area for settlements based on population and
-            density scalar adjustments.
+            density scalar adjustments. Returns a tuple of the form
+
+            (
+                df_pop_density_urban,   # output variable for population density
+                vec_area_target,        # target settlement area in terms of 
+                                        #   vec_lndu_area_initial units (ILU)
+            )
+            
         
         Function Arguments
         ------------------
@@ -7384,14 +7392,6 @@ class AFOLU:
             posinf = 1,
         )
 
-        """
-        modvar_ilu_area, _ = self.get_modvars_for_unit_targets_ilu()
-        self.model_attributes.get_variable_unit_conversion_factor(
-            modvar_ilu_area,
-            self.modvar_gnrl_,
-            "area",
-        )
-        """
         
         ##  GET DENSITY, SCALE, AND CONVERT TO AREA
 
@@ -7407,7 +7407,30 @@ class AFOLU:
             posinf = 1.0,
         )
 
-        return vec_area_target
+
+        ##  GET OUTPUT DENSITY DATAFRAME
+
+        modvar_ilu_area, _ = self.get_modvars_for_unit_targets_ilu()
+
+        # invert since is density PER area
+        scalar_density_out = self.model_attributes.get_variable_unit_conversion_factor(
+            self.model_socioeconomic.modvar_gnrl_pop_density,
+            modvar_ilu_area,
+            "area",
+        )
+
+        df_pop_density_urban = self.model_attributes.array_to_df(
+            scalar_density_out*vec_density,
+            self.model_socioeconomic.modvar_gnrl_pop_density,
+        )
+
+        # set output
+        out = (
+            df_pop_density_urban,
+            vec_area_target,
+        )
+
+        return out
 
 
 
@@ -11767,11 +11790,11 @@ class AFOLU:
         
         Returns
         -------
-        Tuple with 21 elements:
+        Tuple with 29 elements:
         (
             arr_agrc_change_to_net_imports_lost,
-            arr_agrc_crop_drymatter_above_ground,       # total drymatter residue in terms of modvar_agrc_regression_m_above_ground_residue
-            arr_agrc_crop_drymatter_per_unit,           # total drymatter residue per unit area in terms of modvar_agrc_regression_m_above_ground_residue                               
+            arr_agrc_crop_drymatter_above_ground,   # total drymatter residue in terms of ILU mass
+            arr_agrc_crop_drymatter_per_unit,
             arr_agrc_frac_cropland,
             arr_agrc_net_import_increase,
             arr_agrc_yield,
@@ -11786,10 +11809,16 @@ class AFOLU:
             arrs_land_conv,
             arrs_transitions_adj,
             arrs_yields_per_livestock,
+            vec_lvst_aggregate_animal_mass,
+            df_energy_ippu_inputs_adjusted,
+            df_out_pop_density,
             ledger,
             ledger_mangroves,
-            vec_lde_crop_imports_cereals,               # total cereal crops imported for LVST feed
-            vec_lde_crop_imports_non_cereals,           # total cereal crops imported for non-cereal feed
+            vec_biomass_demands_hwp_paper,
+            vec_biomass_demands_hwp_wood,
+            vec_biomass_demands_total,
+            vec_lde_crop_imports_cereals,
+            vec_lde_crop_imports_non_cereals,
         )
         """
         
@@ -11846,7 +11875,10 @@ class AFOLU:
         )
 
         # get target area for settlements
-        vec_lndu_target_area_settlements = self.get_lndu_area_target_settlements(
+        (
+            df_out_pop_density,
+            vec_lndu_target_area_settlements,
+        ) = self.get_lndu_area_target_settlements(
             df_afolu_trajectories, 
             vec_initial_area,
         )
@@ -12518,6 +12550,7 @@ class AFOLU:
             arrs_yields_per_livestock,
             vec_lvst_aggregate_animal_mass,
             df_energy_ippu_inputs_adjusted,
+            df_out_pop_density,
             ledger,
             ledger_mangroves,
             vec_biomass_demands_hwp_paper,
@@ -14016,6 +14049,7 @@ class AFOLU:
             arr_lvst_yields_per_livestock,
             vec_lvst_aggregate_animal_mass,             # in terms of self.modvar_lvst_animal_mass
             df_out_energy_ippu_adjustments,             # adjusted inputs to energy (biomass, both wood and residuals) and IPPU (HWP)     
+            df_out_pop_density,                         # population density
             ledger,
             ledger_mangroves,
             vec_biomass_hwp_paper,
@@ -14055,6 +14089,7 @@ class AFOLU:
         self.arr_lvst_pop = arr_lvst_pop
         
         # get some output variables
+        df_out += [df_out_pop_density]
         df_out += df_out_energy_ippu_adjustments
         
         df_out += self.extract_variables_from_ledger(

@@ -552,7 +552,9 @@ class SISEPUEDEModels:
         ##  1. Run AFOLU and collect output
 
         if "AFOLU" in models_run:
+
             self._log("Running AFOLU model", type_log = "info")
+
             try:
                 df_return.append(self.model_afolu.project(df_input_data, ))
                 self._log(f"AFOLU model run successfully completed", type_log = "info")
@@ -560,11 +562,13 @@ class SISEPUEDEModels:
             except Exception as e:
                 self._log(f"Error running AFOLU model: {e}", type_log = "error")
 
-
+            
         ##  2. Run CircularEconomy and collect output - requires AFOLU to run integrated
 
         if "Circular Economy" in models_run:
+
             self._log("Running CircularEconomy model", type_log = "info")
+
             if run_integrated and set(["AFOLU"]).issubset(set(models_run)):
                 df_input_data = self.model_attributes.transfer_df_variables(
                     df_input_data,
@@ -583,19 +587,22 @@ class SISEPUEDEModels:
 
             except Exception as e:
                 self._log(f"Error running CircularEconomy model: {e}", type_log = "error")
+                raise RuntimeError(e)
 
 
         ##  3. Run IPPU and collect output
 
         if "IPPU" in models_run:
+
             self._log("Running IPPU model", type_log = "info")
+
             if run_integrated and set(["Circular Economy"]).issubset(set(models_run)):
                 df_input_data = self.model_attributes.transfer_df_variables(
                     df_input_data,
                     df_return[0],
                     self.model_ippu.integration_variables
                 )
-            
+                
             # get biomass overwrites of HWP variables--only what is specified
             if run_integrated and set(["AFOLU"]).issubset(set(models_run)):
                 df_input_data = self.model_attributes.transfer_df_variables(
@@ -605,7 +612,8 @@ class SISEPUEDEModels:
                     extraction_logic = "any",
                     overwrite_targets = True,
                 )
-
+            
+            
             try:
                 df_return.append(self.model_ippu.project(df_input_data))
                 df_return = (
@@ -614,11 +622,11 @@ class SISEPUEDEModels:
                     else df_return
                 )
                 self._log(f"IPPU model run successfully completed", type_log = "info")
-
+                
             except Exception as e:
                 self._log(f"Error running IPPU model: {e}", type_log = "error")
-
-
+        
+        
         ##  4. Run Non-Fuel Production Energy (excluding Fugitive Emissions) and collect output
 
         if "Energy" in models_run:
@@ -627,14 +635,14 @@ class SISEPUEDEModels:
                 "Running Energy model (EnergyConsumption without Fugitive Emissions)", 
                 type_log = "info",
             )
-
+            
             if run_integrated and set(["IPPU", "AFOLU"]).issubset(set(models_run)):
                 df_input_data = self.model_attributes.transfer_df_variables(
                     df_input_data,
                     df_return[0],
-                    self.model_enercons.integration_variables_non_fgtv
+                    self.model_enercons.integration_variables_non_fgtv,
                 )
-
+                
                 # get biomass overwrites of fuel variables--only what is specified
                 df_input_data = self.model_attributes.transfer_df_variables(
                     df_input_data,
@@ -643,7 +651,6 @@ class SISEPUEDEModels:
                     extraction_logic = "any",
                     overwrite_targets = True,
                 )
-
 
             try:
                 df_return.append(self.model_enercons.project(df_input_data))

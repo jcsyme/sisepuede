@@ -1831,10 +1831,11 @@ class CircularEconomy:
             msg_append = "See the calculation of dict_waso_comp_biogas_check.",
         )
         
+        # 
         array_waso_waste_biogas = dict_waso_comp_biogas_check[self.modvar_waso_frac_biogas]*array_waso_total_by_category
         array_waso_waste_compost = dict_waso_comp_biogas_check[self.modvar_waso_frac_compost]*array_waso_total_by_category
         array_waso_total_by_category -= (array_waso_waste_biogas + array_waso_waste_compost)
-        print("here!")
+
         # gete emission factors from composting/biogas - unitless
         array_waso_ef_ch4_biogas = self.model_attributes.extract_model_variable(#
             df_ce_trajectories, 
