@@ -281,7 +281,7 @@ def _CURVE_SEM(
 ) -> float:
     """Use the SEM curve (Chen et al.) for NPP 
     """
-
+    
     out = b*((t/c)**d) - 1
     out /= np.exp(t/c)  
     out += 1
@@ -341,7 +341,7 @@ class NPPCurves:
     
     Includes the following curves:
 
-        - SEM (chen et al. 2003)
+        - SEM   (chen et al. 2003)
         - Gamma (Tang et al. 2014)
 
         

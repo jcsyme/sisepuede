@@ -2413,9 +2413,11 @@ def merge_output_df_list(
         str_valid_types = format_print_list(valid_merge_types)
         raise ValueError(f"Invalid merge_type '{merge_type}': valid types are {str_valid_types}.")
 
-    # start building the output dataframe and retrieve dimensions of analysis for merging/ordering
+    # start building the output dataframe 
     dfs_output_data = [x for x in dfs_output_data if (x is not None)]
     df_out = dfs_output_data[0].copy()
+
+    # retrieve dimensions of analysis for merging/ordering
     dims_to_order = model_attributes.sort_ordered_dimensions_of_analysis.copy()
     dims_to_order += (
         sorted(list(set(additional_dimensions)))
@@ -2435,6 +2437,7 @@ def merge_output_df_list(
     # loop to merge where applicable
     for i in range(1, len(dfs_output_data)):
         if merge_type == "concatenate":
+            
             # check available dims; if there are ones that aren't already contained, keep them. Otherwise, drop
             fields_dat = [x for x in dfs_output_data[i].columns if (x not in dims_to_order)]
             fields_new_dims = [
