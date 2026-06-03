@@ -239,17 +239,25 @@ class CircularEconomy:
             * self.modvar_lvst_*
             * self.integration_variables
         """
-        self.modvar_agrc_total_food_lost_in_ag_to_msw = "Total Food Loss Sent to Municipal Solid Waste"
-        self.modvar_lsmm_dung_incinerated = "Dung Incinerated"
-        self.modvar_lvst_animal_weight = "Animal Weight"
-        self.modvar_lvst_demand_domestic = "Livestock Demand"
-        self.modvar_lvst_total_animal_mass = "Total Domestic Animal Mass"
+        # assign from attribute variable codes
+        subsecs_assign = [
+            self.model_attributes.subsec_name_agrc,
+            self.model_attributes.subsec_name_lsmm,
+            self.model_attributes.subsec_name_lvst
+        ]
+
+        for subsec in subsecs_assign:
+            self.model_attributes.assign_subsector_variable_names_from_varcodes(
+                self,
+                subsec,
+                stop_on_error = True, 
+            )
 
         list_vars_required_for_integration = [
             self.modvar_agrc_total_food_lost_in_ag_to_msw,
             self.modvar_lsmm_dung_incinerated,
-            self.modvar_lvst_demand_domestic,
-            self.modvar_lvst_animal_weight,
+            self.modvar_lvst_demand_livestock,
+            self.modvar_lvst_animal_mass,
             self.modvar_lvst_total_animal_mass
 		]
 
@@ -362,6 +370,13 @@ class CircularEconomy:
             * self.modvar_trww_****
         """
 
+        # assign from attribute variable codes
+        self.model_attributes.assign_subsector_variable_names_from_varcodes(
+            self,
+            self.model_attributes.subsec_name_trww,
+            stop_on_error = True, 
+        )
+        """
         self.modvar_trww_ef_n2o_wastewater_treatment = ":math:\\text{N}_2\\text{O} Wastewater Treatment Emission Factor"
         self.modvar_trww_emissions_ch4_treatment = ":math:\\text{CH}_4 Emissions from Wastewater Treatment"
         self.modvar_trww_emissions_n2o_treatment = ":math:\\text{N}_2\\text{O} Emissions from Wastewater Treatment"
@@ -384,7 +399,7 @@ class CircularEconomy:
         self.modvar_trww_total_p_in_effluent = "Total Phosphorous in Effluent"
         self.modvar_trww_total_p_treated = "Total Phosphorous Removed in Treatment"
         self.modvar_trww_vol_ww_treated = "Volume of Wastewater Treated"
-
+        """
         return None
 
 
@@ -398,6 +413,14 @@ class CircularEconomy:
             * self.cat_wali_****
             * self.ind_wali_****
             * self.modvar_wali_****
+        """
+
+        # assign from attribute variable codes
+        self.model_attributes.assign_subsector_variable_names_from_varcodes(
+            self,
+            self.model_attributes.subsec_name_wali,
+            stop_on_error = True, 
+        )
         """
         # liquid waste model variables
         self.modvar_wali_bod_correction = "BOD Correction Factor for TOW"
@@ -426,7 +449,7 @@ class CircularEconomy:
         self.modvar_wali_treatpath_secondary_anaerobic = "Treatment Fraction Secondary Anaerobic"
         self.modvar_wali_treatpath_untreated_no_sewerage = "Treatment Fraction Untreated No Sewerage"
         self.modvar_wali_treatpath_untreated_with_sewerage = "Treatment Fraction Untreated With Sewerage"
-
+        """
         tup = self.get_wali_dict_trww_categories_to_wali_fraction_variables()
 
         self.dict_trww_categories_to_wali_fraction_variables = tup[0]
@@ -447,6 +470,13 @@ class CircularEconomy:
             * self.modvar_waso_****
         """
 
+        # assign from attribute variable codes
+        self.model_attributes.assign_subsector_variable_names_from_varcodes(
+            self,
+            self.model_attributes.subsec_name_waso,
+            stop_on_error = True, 
+        )
+        """
         self.modvar_waso_annual_vkmt_per_collection_vehicle = "Average VKMT Per Waste Collection Vehicle"
         self.modvar_waso_annual_waste_collected_per_collection_vehicle = "Average Annual Waste Transported Per Waste Collection Vehicle"
         self.modvar_waso_composition_isw = "Initial Composition Fraction Industrial Solid Waste"
@@ -498,7 +528,7 @@ class CircularEconomy:
         self.modvar_waso_waste_total_landfilled = "Total Waste Landfilled"
         self.modvar_waso_waste_total_open_dumped = "Total Waste Open Dumped"
         self.modvar_waso_waste_total_recycled = "Total Waste Recycled"
-
+        """
         self.modvars_waso_frac_non_recyled_pathways = [
             self.modvar_waso_frac_nonrecycled_incineration, 
             self.modvar_waso_frac_nonrecycled_landfill, 
@@ -913,7 +943,7 @@ class CircularEconomy:
             array_project_protein_driver
         ) = self.model_attributes.get_optional_or_integrated_standard_variable(
             df_ce_trajectories,
-            self.modvar_lvst_demand_domestic,
+            self.modvar_lvst_demand_livestock,
             self.modvar_wali_optional_elasticity_protein_to_gdppc,
             override_vector_for_single_mv_q = True,
             return_type = "array_base",
@@ -935,7 +965,7 @@ class CircularEconomy:
         """;
 
         # project depending on availability
-        if modvar_proj_protein_driver == self.modvar_lvst_demand_domestic:
+        if modvar_proj_protein_driver == self.modvar_lvst_demand_livestock:
             """
             use estimate of total animal weight for increase in protein content 
                 in diet
@@ -1417,7 +1447,11 @@ class CircularEconomy:
         ##  START BY CALCULATING TOTAL NITROGEN
 
         #  calcualte the protein content (kg) and total nitrogen in domestic wastewater using V5, C6, Equation 6.10 from IPCC GNGHGI (2019R) - factors are default
-        vec_wali_protein = self.project_protein_consumption(df_ce_trajectories, vec_pop, vec_rates_gdp_per_capita)
+        vec_wali_protein = self.project_protein_consumption(
+            df_ce_trajectories, 
+            vec_pop, 
+            vec_rates_gdp_per_capita,
+        )
 
         # use the BOD commercial/industrial correction factor as f_indcom from 6.10
         vec_wali_findcom = vec_wali_bod_correction
@@ -1686,7 +1720,7 @@ class CircularEconomy:
                 self.model_attributes.varchar_str_unit_mass,
             )
         )
-
+        
         # municipal components
         factor_waso_init_pc_waste = self.model_attributes.extract_model_variable(#
             df_ce_trajectories, 
@@ -1723,7 +1757,7 @@ class CircularEconomy:
         # estimate total waste in each category
         array_waso_msw_total_by_category = np.outer(factor_waso_init_pc_waste*vec_pop, vec_waso_init_msw_composition)
         array_waso_msw_total_by_category *= array_waso_growth_msw_by_cat*array_waso_scale_msw
-
+        
         # get integrated MSW from TRWW and AGRC--AFTER demand adjustments
         array_waso_msw_total_by_category = self.get_waso_integrated_waste_passthroughs(
             df_ce_trajectories,
@@ -1765,7 +1799,7 @@ class CircularEconomy:
                 self.modvar_waso_waste_total_produced, 
             )
         ]
-
+        
 
         ############################################################
         #    RECYCLED AND COMPOSTED/ANAEROBICALLY TREATED WASTE    #
@@ -1788,7 +1822,7 @@ class CircularEconomy:
 
         array_waso_waste_recycled *= array_waso_total_by_category
         array_waso_total_by_category -= array_waso_waste_recycled
-
+        
         # initialize arrays for compost and biogas, but ensure their totals do not exceed 1. Get totals
         dict_waso_comp_biogas_check = self.model_attributes.get_multivariables_with_bounded_sum_by_category(
             df_ce_trajectories,
@@ -1796,11 +1830,11 @@ class CircularEconomy:
             1,
             msg_append = "See the calculation of dict_waso_comp_biogas_check.",
         )
-
+        
         array_waso_waste_biogas = dict_waso_comp_biogas_check[self.modvar_waso_frac_biogas]*array_waso_total_by_category
         array_waso_waste_compost = dict_waso_comp_biogas_check[self.modvar_waso_frac_compost]*array_waso_total_by_category
         array_waso_total_by_category -= (array_waso_waste_biogas + array_waso_waste_compost)
-
+        print("here!")
         # gete emission factors from composting/biogas - unitless
         array_waso_ef_ch4_biogas = self.model_attributes.extract_model_variable(#
             df_ce_trajectories, 
@@ -1819,7 +1853,7 @@ class CircularEconomy:
             self.modvar_waso_ef_n2o_compost, 
             return_type = "array_units_corrected_gas",
         )
-
+        
         # other adjustments
         vec_waso_ch4_flared_compost = self.model_attributes.extract_model_variable(#
             df_ce_trajectories, 

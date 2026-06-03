@@ -486,6 +486,14 @@ class EnergyConsumption:
             * self.modvar_dict_ccsq_****
             * self.modvar_dicts_ccsq_****
         """
+
+        # assign from attribute variable codes
+        self.model_attributes.assign_subsector_variable_names_from_varcodes(
+            self,
+            self.model_attributes.subsec_name_ccsq,
+            stop_on_error = True, 
+        )
+        """
         # Carbon Capture and Sequestration variables
         self.modvar_ccsq_demand_per_co2 = "CCSQ Energy Demand Per Mass of :math:\\text{CO}_2 Captured"
         self.modvar_ccsq_efficiency_fact_heat_en_geothermal = "CCSQ Efficiency Factor for Heat Energy from Geothermal"
@@ -504,7 +512,7 @@ class EnergyConsumption:
         self.modvar_ccsq_frac_heat_en_hydrogen = "CCSQ Fraction Heat Energy Demand Hydrogen"
         self.modvar_ccsq_frac_heat_en_natural_gas = "CCSQ Fraction Heat Energy Demand Natural Gas"
         self.modvar_ccsq_total_sequestration = "Annual Capture and Sequestration by Type"
-
+        """
         # get some dictionaries implied by the CCSQ attribute tables
         self.modvar_dicts_ccsq_fuel_vars = self.model_attributes.get_var_dicts_by_shared_category(
             self.subsec_name_ccsq,
@@ -595,6 +603,14 @@ class EnergyConsumption:
             * self.ind_fgtv_****
             * self.modvar_fgtv_****
         """
+
+        # assign from attribute variable codes
+        self.model_attributes.assign_subsector_variable_names_from_varcodes(
+            self,
+            self.model_attributes.subsec_name_fgtv,
+            stop_on_error = True, 
+        )
+        """
         # Fugitive Emissions model variables
         self.modvar_fgtv_ef_ch4_distribution = ":math:\\text{CH}_4 FGTV Distribution Emission Factor"
         self.modvar_fgtv_ef_ch4_production_flaring = ":math:\\text{CH}_4 FGTV Production Flaring Emission Factor"
@@ -621,7 +637,7 @@ class EnergyConsumption:
         self.modvar_fgtv_emissions_nmvoc = "NMVOC Fugitive Emissions"
         self.modvar_fgtv_frac_non_fugitive_flared = "Fraction Non-Fugitive :math:\\text{CH}_4 Flared"
         self.modvar_fgtv_frac_reduction_fugitive_leaks = "Reduction in Fugitive Leaks"
-
+        """
         return None
 
 
@@ -636,6 +652,14 @@ class EnergyConsumption:
             * self.ind_inen_****
             * self.modvar_inen_****
             * self.modvar_dict_inen_****
+        """
+
+        # assign from attribute variable codes
+        self.model_attributes.assign_subsector_variable_names_from_varcodes(
+            self,
+            self.model_attributes.subsec_name_inen,
+            stop_on_error = True, 
+        )
         """
         # Industrial Energy model variables
         self.modvar_inen_demscalar = "Industrial Energy Demand Scalar"
@@ -667,7 +691,7 @@ class EnergyConsumption:
         self.modvar_inen_frac_en_oil = "Industrial Energy Fuel Fraction Oil"
         self.modvar_inen_frac_en_solar = "Industrial Energy Fuel Fraction Solar"
         self.modvar_inen_gas_captured_co2 = ":math:\\text{CO}_2 Captured in Industrial Energy"
-        
+        """
         # get some dictionaries implied by the inen attribute tables
         (
             self.dict_inen_fuel_categories_to_fuel_variables, 
@@ -703,10 +727,18 @@ class EnergyConsumption:
             * self.modvar_dict_scoe_****
             * self.modvar_dicts_scoe_****
         """
+
+        # assign from attribute variable codes
+        self.model_attributes.assign_subsector_variable_names_from_varcodes(
+            self,
+            self.model_attributes.subsec_name_scoe,
+            stop_on_error = True, 
+        )
+        """
         # Stationary Combustion and Other Energy variables
-        self.modvar_scoe_consumpinit_energy_per_hh_elec = "SCOE Initial Per Household Electric Appliances Energy Consumption"
+        self.modvar_scoe_consumpinit_energy_per_hh_elecappl = "SCOE Initial Per Household Electric Appliances Energy Consumption"
         self.modvar_scoe_consumpinit_energy_per_hh_heat = "SCOE Initial Per Household Heat Energy Consumption"
-        self.modvar_scoe_consumpinit_energy_per_mmmgdp_elec = "SCOE Initial Per GDP Electric Appliances Energy Consumption"
+        self.modvar_scoe_consumpinit_energy_per_mmmgdp_elecappl = "SCOE Initial Per GDP Electric Appliances Energy Consumption"
         self.modvar_scoe_consumpinit_energy_per_mmmgdp_heat = "SCOE Initial Per GDP Heat Energy Consumption"
         self.modvar_scoe_demscalar_elec_energy_demand = "SCOE Appliance Energy Demand Scalar"
         self.modvar_scoe_demscalar_heat_energy_demand = "SCOE Heat Energy Demand Scalar"
@@ -720,9 +752,9 @@ class EnergyConsumption:
         self.modvar_scoe_efficiency_fact_heat_en_hydrogen = "SCOE Efficiency Factor for Heat Energy from Hydrogen"
         self.modvar_scoe_efficiency_fact_heat_en_kerosene = "SCOE Efficiency Factor for Heat Energy from Kerosene"
         self.modvar_scoe_efficiency_fact_heat_en_natural_gas = "SCOE Efficiency Factor for Heat Energy from Natural Gas"
-        self.modvar_scoe_elasticity_hh_energy_demand_electric_to_gdppc = "SCOE Elasticity of Per Household Electrical Applicance Demand to GDP Per Capita"
+        self.modvar_scoe_elasticity_hh_energy_demand_elecappl_to_gdppc = "SCOE Elasticity of Per Household Electrical Applicance Demand to GDP Per Capita"
         self.modvar_scoe_elasticity_hh_energy_demand_heat_to_gdppc = "SCOE Elasticity of Per Household Heat Energy Demand to GDP Per Capita"
-        self.modvar_scoe_elasticity_mmmgdp_energy_demand_elec_to_gdppc = "SCOE Elasticity of Per GDP Electrical Applicance Demand to GDP Per Capita"
+        self.modvar_scoe_elasticity_mmmgdp_energy_demand_elecappl_to_gdppc = "SCOE Elasticity of Per GDP Electrical Applicance Demand to GDP Per Capita"
         self.modvar_scoe_elasticity_mmmgdp_energy_demand_heat_to_gdppc = "SCOE Elasticity of Per GDP Heat Energy Demand to GDP Per Capita"
         self.modvar_scoe_emissions_ch4 = ":math:\\text{CH}_4 Emissions from SCOE"
         self.modvar_scoe_emissions_co2_biomass = ":math:\\text{CO}_2 Biomass Emissions from SCOE"
@@ -743,7 +775,7 @@ class EnergyConsumption:
         self.modvar_scoe_frac_heat_en_hydrogen = "SCOE Fraction Heat Energy Demand Hydrogen"
         self.modvar_scoe_frac_heat_en_kerosene = "SCOE Fraction Heat Energy Demand Kerosene"
         self.modvar_scoe_frac_heat_en_natural_gas = "SCOE Fraction Heat Energy Demand Natural Gas"
-        
+        """
 
         # get some dictionaries implied by the SCOE attribute tables
         
@@ -787,6 +819,14 @@ class EnergyConsumption:
             * self.modvar_dict_trde_****
             * self.modvar_dicts_trde_****
         """
+
+        # assign from attribute variable codes
+        self.model_attributes.assign_subsector_variable_names_from_varcodes(
+            self,
+            self.model_attributes.subsec_name_trde,
+            stop_on_error = True, 
+        )
+        """
         # Transportation Demand variables
         self.modvar_trde_demand_scalar = "Transportation Demand Scalar"
         self.modvar_trde_elasticity_mtkm_to_gdp = "Elasticity of Megatonne-Kilometer Demand to GDP"
@@ -795,7 +835,7 @@ class EnergyConsumption:
         self.modvar_trde_demand_initial_pkm_per_capita = "Initial per Capita Passenger-Kilometer Demand"
         self.modvar_trde_demand_mtkm = "Megatonne-Kilometer Demand"
         self.modvar_trde_demand_pkm = "Passenger-Kilometer Demand"
-
+        """
         self.cat_trde_frgt = self.model_attributes.filter_keys_by_attribute(
             self.subsec_name_trde, 
             {"freight_category": 1}
@@ -819,6 +859,13 @@ class EnergyConsumption:
             * self.modvar_dicts_trns_****
         """
         
+        # assign from attribute variable codes
+        self.model_attributes.assign_subsector_variable_names_from_varcodes(
+            self,
+            self.model_attributes.subsec_name_trns,
+            stop_on_error = True, 
+        )
+        """
         # Transportation variablesz
         self.modvar_trns_average_vehicle_load_freight = "Average Freight Vehicle Load"
         self.modvar_trns_average_passenger_occupancy = "Average Passenger Vehicle Occupancy Rate"
@@ -871,7 +918,8 @@ class EnergyConsumption:
         self.modvar_trns_vehicle_distance_traveled_hydrogen = "Vehicle Distance Traveled from Hydrogen"
         self.modvar_trns_vehicle_distance_traveled_kerosene = "Vehicle Distance Traveled from Kerosene"
         self.modvar_trns_vehicle_distance_traveled_natural_gas = "Vehicle Distance Traveled from Natural Gas"
-
+        """
+        
         # fuel variables dictionary for transportation
         tuple_dicts = self.get_trns_dict_fuel_categories_to_fuel_variables()
         self.dict_trns_fuel_categories_to_fuel_variables = tuple_dicts[0]
@@ -3339,7 +3387,7 @@ class EnergyConsumption:
         # get initial per-activity demands (can use to get true demands)
         arr_scoe_deminit_hh_elec = self.model_attributes.extract_model_variable(#
             df_neenergy_trajectories, 
-            self.modvar_scoe_consumpinit_energy_per_hh_elec, 
+            self.modvar_scoe_consumpinit_energy_per_hh_elecappl, 
             expand_to_all_cats = True,
             override_vector_for_single_mv_q = True, 
             return_type = "array_base",
@@ -3355,7 +3403,7 @@ class EnergyConsumption:
 
         arr_scoe_deminit_mmmgdp_elec = self.model_attributes.extract_model_variable(#
             df_neenergy_trajectories, 
-            self.modvar_scoe_consumpinit_energy_per_mmmgdp_elec, 
+            self.modvar_scoe_consumpinit_energy_per_mmmgdp_elecappl, 
             expand_to_all_cats = True,
             override_vector_for_single_mv_q = True, 
             return_type = "array_base",
@@ -3372,7 +3420,7 @@ class EnergyConsumption:
         # get elasticities
         arr_scoe_enerdem_elasticity_hh_elec = self.model_attributes.extract_model_variable(#
             df_neenergy_trajectories, 
-            self.modvar_scoe_elasticity_hh_energy_demand_electric_to_gdppc, 
+            self.modvar_scoe_elasticity_hh_energy_demand_elecappl_to_gdppc, 
             expand_to_all_cats = True,
             override_vector_for_single_mv_q = True, 
             return_type = "array_base",
@@ -3388,7 +3436,7 @@ class EnergyConsumption:
 
         arr_scoe_enerdem_elasticity_mmmgdp_elec = self.model_attributes.extract_model_variable(#
             df_neenergy_trajectories, 
-            self.modvar_scoe_elasticity_mmmgdp_energy_demand_elec_to_gdppc, 
+            self.modvar_scoe_elasticity_mmmgdp_energy_demand_elecappl_to_gdppc, 
             expand_to_all_cats = True,
             override_vector_for_single_mv_q = True, 
             return_type = "array_base",
@@ -3413,7 +3461,7 @@ class EnergyConsumption:
             vec_hh
         )
         arr_scoe_demand_hh_elec *= self.model_attributes.get_scalar(
-            self.modvar_scoe_consumpinit_energy_per_hh_elec, 
+            self.modvar_scoe_consumpinit_energy_per_hh_elecappl, 
             "energy",
         )
         
@@ -3429,7 +3477,7 @@ class EnergyConsumption:
             vec_gdp,
         )
         arr_scoe_demand_mmmgdp_elec *= self.model_attributes.get_scalar(
-            self.modvar_scoe_consumpinit_energy_per_mmmgdp_elec, 
+            self.modvar_scoe_consumpinit_energy_per_mmmgdp_elecappl, 
             "energy",
         )
         

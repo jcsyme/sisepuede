@@ -1090,6 +1090,13 @@ class EnergyProduction:
         """
 
         # Energy (Electricity) Storage Variables
+        self.model_attributes.assign_subsector_variable_names_from_varcodes(
+            self,
+            self.model_attributes.subsec_name_enst,
+            stop_on_error = True, 
+        )
+        """
+        # Energy (Electricity) Storage Variables
         self.modvar_enst_nemomod_capital_cost_storage = "NemoMod CapitalCostStorage"
         self.modvar_enst_nemomod_discounted_capital_investment_storage = "NemoMod Discounted Capital Investment Storage"
         self.modvar_enst_nemomod_discounted_operating_costs_storage = "NemoMod Discounted Operating Costs Storage"
@@ -1099,7 +1106,7 @@ class EnergyProduction:
         self.modvar_enst_nemomod_total_annual_max_capacity_investment_storage = "NemoMod TotalAnnualMaxCapacityInvestmentStorage"
         self.modvar_enst_nemomod_total_annual_min_capacity_storage = "NemoMod TotalAnnualMinCapacityStorage"
         self.modvar_enst_nemomod_total_annual_min_capacity_investment_storage = "NemoMod TotalAnnualMinCapacityInvestmentStorage"
-
+        """
         return None
     
 

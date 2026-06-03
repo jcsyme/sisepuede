@@ -132,15 +132,31 @@ class AFOLU:
         vary over time. In general, young secondary forests sequester much more 
         than older secondary forests, with much of the annual growth 
         concentrated in the first 5-50 years. 
-            * None or invalid entry: dynamic NPP is not used
-            * "gamma": use the gamma function
-            * "sem": use the SEM function 
 
+        Valid options are:
+            * "gamma":  Use the gamma function (Tang et al. 2014), which takes
+                        the form
+
+                        `gamma(t; k0, k1, k2,) = k0*(t^k1)*exp(k2*t)`
+
+                        for shape parameters k0, k1, and k2.
+
+            * "sem":    Use the SEM function   (Chen et al. 2003), which takes
+                        the form
+
+                        `sem(t; a, b, c, d) = a*[(b*((t/c)^d) - 1)/exp(t/c) + 1]`
+
+        See Li et al. (https://bg.copernicus.org/articles/21/625/2024/) for a 
+            comparison of different sequestration curves. In general, the SEM 
+            and Gamma curves show the best performance. 
+
+        
     npp_include_primary_forest : bool
-        Include primary forest sequestration factor in integration target for
-        Net Primary Productivity (NPP) curve? If False, uses secondary forest 
-        (non-young) sequestration factor as long term integration target. Only
-        applies if `npp_curve` is specified as a valid curve.
+        * True:     Include primary forest sequestration factor in integration 
+                    target for Net Primary Productivity (NPP) curve.
+        * False:    Uses secondary forest (non-young) sequestration factor as 
+                    long term integration target. Only applies if `npp_curve` is 
+                    specified as a valid curve.
     npp_integration_windows : arraylike
         Used for NPP curve fitting--to fit, integration is performed (or 
         estimated) in the windows specified here, and the average value by time
@@ -165,8 +181,8 @@ class AFOLU:
         logger: Union[logging.Logger, None] = None,
         min_diag_qadj: float = 0.98,
         n_tps_no_withdrawals_new_growth: int = 20,
-        npp_curve: Union[str, npp.NPPCurve, None] = None,
-        npp_include_primary_forest: bool = False,
+        npp_curve: Union[str, npp.NPPCurve, None] = "sem",
+        npp_include_primary_forest: bool = True,
         npp_integration_windows: Union[list, tuple, np.ndarray] = _NPP_INTEGRATION_WINDOWS,
         prohibit_forest_transitions: bool = _DEFAULT_PROHIBIT_FOREST_TRANSITIONS,
         **kwargs,
@@ -583,9 +599,9 @@ class AFOLU:
 
             # SCOE variables required for projecting changes to wood energy demand
             self.subsec_name_scoe: [
-                self.model_enercons.modvar_scoe_consumpinit_energy_per_hh_elec,
+                self.model_enercons.modvar_scoe_consumpinit_energy_per_hh_elecappl,
                 self.model_enercons.modvar_scoe_consumpinit_energy_per_hh_heat,
-                self.model_enercons.modvar_scoe_consumpinit_energy_per_mmmgdp_elec,
+                self.model_enercons.modvar_scoe_consumpinit_energy_per_mmmgdp_elecappl,
                 self.model_enercons.modvar_scoe_consumpinit_energy_per_mmmgdp_heat,
                 self.model_enercons.modvar_scoe_efficiency_fact_heat_en_biomass,
                 self.model_enercons.modvar_scoe_efficiency_fact_heat_en_charcoal,
@@ -597,9 +613,9 @@ class AFOLU:
                 self.model_enercons.modvar_scoe_efficiency_fact_heat_en_hydrogen,
                 self.model_enercons.modvar_scoe_efficiency_fact_heat_en_kerosene,
                 self.model_enercons.modvar_scoe_efficiency_fact_heat_en_natural_gas,
-                self.model_enercons.modvar_scoe_elasticity_hh_energy_demand_electric_to_gdppc,
+                self.model_enercons.modvar_scoe_elasticity_hh_energy_demand_elecappl_to_gdppc,
                 self.model_enercons.modvar_scoe_elasticity_hh_energy_demand_heat_to_gdppc,
-                self.model_enercons.modvar_scoe_elasticity_mmmgdp_energy_demand_elec_to_gdppc,
+                self.model_enercons.modvar_scoe_elasticity_mmmgdp_energy_demand_elecappl_to_gdppc,
                 self.model_enercons.modvar_scoe_elasticity_mmmgdp_energy_demand_heat_to_gdppc,
                 self.model_enercons.modvar_scoe_frac_heat_en_biomass,
                 self.model_enercons.modvar_scoe_frac_heat_en_charcoal,
@@ -14185,7 +14201,7 @@ class AFOLU:
         #
         #   - concatenate
         #   - add emissions aggregates
-        
+
         df_out = (
             pd.concat(
                 df_out, 
