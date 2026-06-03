@@ -589,6 +589,12 @@ class EnergyConsumption:
             }
         )[0]
 
+        # biomass emission categories--reported only
+        self.cats_enfu_bmass_emissions = [
+            self.cat_enfu_biomass,
+            self.cat_enfu_charcoal
+        ]
+
         return None
 
 
@@ -919,7 +925,7 @@ class EnergyConsumption:
         self.modvar_trns_vehicle_distance_traveled_kerosene = "Vehicle Distance Traveled from Kerosene"
         self.modvar_trns_vehicle_distance_traveled_natural_gas = "Vehicle Distance Traveled from Natural Gas"
         """
-        
+
         # fuel variables dictionary for transportation
         tuple_dicts = self.get_trns_dict_fuel_categories_to_fuel_variables()
         self.dict_trns_fuel_categories_to_fuel_variables = tuple_dicts[0]
@@ -3146,7 +3152,7 @@ class EnergyConsumption:
 
             # split out co2 by biomass/non-biomass
             vec_co2 = arr_inen_endem_cur_fuel.transpose()*arr_inen_ef_by_fuel_co2[:, index_cat_fuel]
-            if cat_fuel == self.cat_enfu_biomass:
+            if cat_fuel in self.cats_enfu_bmass_emissions:
                 arr_inen_emissions_co2_biomass += vec_co2
             else:
                 arr_inen_emissions_co2_non_biomass += vec_co2
@@ -3592,7 +3598,7 @@ class EnergyConsumption:
 
             # co2--split out biomass v. non biomass
             vec_co2 = arr_scoe_endem_cur_fuel.transpose()*arr_scoe_ef_by_fuel_co2[:, index_cat_fuel]
-            if cat_fuel == self.cat_enfu_biomass:
+            if cat_fuel in self.cats_enfu_bmass_emissions:
                 arr_scoe_emissions_co2_biomass += vec_co2
             else:
                 arr_scoe_emissions_co2_non_biomass += vec_co2

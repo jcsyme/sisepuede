@@ -272,6 +272,44 @@ class EnergyProduction:
         return dict_out
         
 
+    
+    def _initialize_attribute_tables(self,
+    ) -> None:
+        """Initialize some commonly used attribute tables
+        """
+
+        # get relevant attribute tables
+        attr_enfu = self.model_attributes.get_attribute_table(self.subsec_name_enfu, )
+        attr_enst = self.model_attributes.get_attribute_table(self.subsec_name_enst, )
+        attr_entc = self.model_attributes.get_attribute_table(self.subsec_name_entc, )
+        
+        # relevant pycats
+        pycat_enfu = self.model_attributes.get_subsector_attribute(
+            self.subsec_name_enfu, 
+            "pycategory_primary_element"
+        )
+        pycat_enst = self.model_attributes.get_subsector_attribute(
+            self.subsec_name_enst, 
+            "pycategory_primary_element"
+        )
+        pycat_entc = self.model_attributes.get_subsector_attribute(
+            self.subsec_name_entc, 
+            "pycategory_primary_element"
+        )
+
+        
+        ##  SET PROPERTIES
+
+        self.attr_enfu = attr_enfu
+        self.attr_enst = attr_enst
+        self.attr_entc = attr_entc
+        self.pycat_enfu = pycat_enfu
+        self.pycat_enst = pycat_enst
+        self.pycat_entc = pycat_entc
+
+        return None
+    
+
 
     def _initialize_dict_tables_required_to_required_fields(self,
     ) -> None:
@@ -744,7 +782,7 @@ class EnergyProduction:
         attr_region = self.model_attributes.get_other_attribute_table(
             self.model_attributes.dim_region
         )
-        attr_technology = self.model_attributes.get_attribute_table(self.subsec_name_entc)
+        attr_technology = self.attr_entc
         attr_time_slice = self.model_attributes.get_other_attribute_table("time_slice")
 
         # attribute derivatives
@@ -1641,7 +1679,7 @@ class EnergyProduction:
         )
 
         # get the fuel source index to use to allocate emissions
-        attr_enfu = self.model_attributes.get_attribute_table(self.model_attributes.subsec_name_enfu)
+        attr_enfu = self.attr_enfu
         ind_enfu_energy_source = attr_enfu.get_key_value_index(cat_enfu_energy_source)
 
 
@@ -1854,12 +1892,10 @@ class EnergyProduction:
             technologies. If None, use ModelAttributes default.
         """
         # some attribute initializations
-        attribute_technology = (
-            self.model_attributes.get_attribute_table(self.subsec_name_entc) 
-            if (attribute_technology is None) 
-            else attribute_technology
+        attribute_technology = self.get_attribute_entc(attribute_technology, )
+        dict_tech_info = self.get_tech_info_dict(
+            attribute_technology = attribute_technology,
         )
-        dict_tech_info = self.get_tech_info_dict(attribute_technology = attribute_technology)
         cost_type = cost_type if (cost_type in ["capital", "fixed", "variable"]) else "variable"
 
         df_out = {
@@ -1956,62 +1992,60 @@ class EnergyProduction:
 
 
     def get_attribute_enfu(self,
-        **kwargs
+        attribute_enfu: Union['AttributeTable', None] = None,
+        **kwargs,
     ) -> AttributeTable:
+        """Shortcut to get the Energy Fuels attribute table
         """
-        Shortcut to get the Energy Fuels attribute table
-        """
+        if not is_attribute_table(attribute_enfu, ):
+            return self.attr_enfu
 
-        out = self.model_attributes.get_attribute_table(
-            self.model_attributes.subsec_name_enfu,
-            **kwargs
-        )
-
-        return out
+        return attribute_enfu
     
 
 
     def get_attribute_entc(self,
+        attribute_entc: Union['AttributeTable', None] = None,
         **kwargs
     ) -> AttributeTable:
+        """Shortcut to get the Energy Technology attribute table
         """
-        Shortcut to get the Energy Technology attribute table
-        """
+        if not is_attribute_table(attribute_entc, ):
+            return self.attr_entc
 
-        out = self.model_attributes.get_attribute_table(
-            self.model_attributes.subsec_name_entc,
-            **kwargs
-        )
-
-        return out
+        return attribute_entc
 
 
 
     def get_attribute_region(self,
+        attribute_region: Union['AttributeTable', None] = None,
     ) -> AttributeTable:
+        """Shortcut to get the region table
         """
-        Shortcut to get the region table
-        """
+        if not is_attribute_table(attribute_region, ):
+            attribute_region = self.model_attributes.get_other_attribute_table(
+                self.model_attributes.dim_region,
+            )
 
-        out = self.model_attributes.get_other_attribute_table(
-            self.model_attributes.dim_region,
-        )
+            return attribute_region
 
-        return out
+        return attribute_region
 
 
 
     def get_attribute_time_period(self,
+        attribute_time_period: Union['AttributeTable', None] = None,
     ) -> AttributeTable:
+        """Shortcut to get the time period attribute table
         """
-        Shortcut to get the time period attribute table
-        """
+        if not is_attribute_table(attribute_time_period, ):
+            attribute_time_period = self.model_attributes.get_dimensional_attribute_table(
+                self.model_attributes.dim_time_period,
+            )
 
-        out = self.model_attributes.get_dimensional_attribute_table(
-            self.model_attributes.dim_time_period,
-        )
+            return attribute_time_period
 
-        return out
+        return attribute_time_period
 
 
 
@@ -2137,11 +2171,10 @@ class EnergyProduction:
             Prependage to category field storing the CCS tech associated with base
             technology
         """
-        subsec = self.model_attributes.subsec_name_entc
         
         # get the attribute 
-        attr_entc = self.model_attributes.get_attribute_table(subsec)
-        pycat_tech = self.model_attributes.get_subsector_attribute(subsec, "pycategory_primary_element")
+        attr_entc = self.attr_entc
+        pycat_tech = self.pycat_entc
         field_ccs_tech = f"{field_prepend_ccs}_{pycat_tech}"
 
         # filter
@@ -2267,11 +2300,7 @@ class EnergyProduction:
             (not self.include_supply_techs_for_all_fuels)
         - return_type: "dict" or "pd.DataFrame". Default is dictionary.
         """
-        attribute_fuel = (
-            self.model_attributes.get_attribute_table(self.subsec_name_enfu) 
-            if (attribute_fuel is None) 
-            else attribute_fuel
-        )
+        attribute_fuel = self.get_attribute_enfu(attribute_fuel, )
 
         drop_activity_ratio_fuels = (
             (not self.include_supply_techs_for_all_fuels) 
@@ -2322,11 +2351,7 @@ class EnergyProduction:
             use ModelAttributes default.
         """
         # get some defaults
-        attribute_technology = (
-            self.model_attributes.get_attribute_table(self.subsec_name_entc) 
-            if (attribute_technology is None) 
-            else attribute_technology
-        )
+        attribute_technology = self.get_attribute_entc(attribute_technology, )
         pycat_enfu = self.model_attributes.get_subsector_attribute(
             self.subsec_name_enfu, 
             "pycategory_primary_element",
@@ -2620,11 +2645,7 @@ class EnergyProduction:
             * "upstream_fuels": list of upstream fuels
         """
         # initialize the ENFU attribute table
-        attribute_fuel = (
-            self.model_attributes.get_attribute_table(self.model_attributes.subsec_name_enfu) 
-            if (attribute_fuel is None) 
-            else attribute_fuel
-        )
+        attribute_fuel = self.get_attribute_enfu(attribute_fuel, )
 
         # initialize some dictionaries
         dict_upstream_fuel = attribute_fuel.field_maps.get(
@@ -2724,9 +2745,11 @@ class EnergyProduction:
     def get_entc_cat_for_integration(self,
         cat_name: str
     ) -> str:
-        """
-        Get the ENTC category used for waste incineration or biogas (integrated 
-            with outputs from CircularEconomy)
+        """Get the ENTC category used for:
+            
+            * Biogas (integrated with outputs from AFOLU and CircularEconomy)
+            * Biomass (integrated with outputs from AFOLU)
+            * Waste incineration
 
         Function Arguments
         ------------------
@@ -2743,6 +2766,8 @@ class EnergyProduction:
         dict_cat_name_to_cat = {
             "bgas": self.cat_enfu_bgas,
             "biogas": self.cat_enfu_bgas,
+            "biomass": self.cat_enfu_bmas,
+            "bmas": self.cat_enfu_bmas,
             "hpwr": self.cat_enfu_hpwr,
             "hydropower": self.cat_enfu_hpwr,
             "waste": self.cat_enfu_wste,
@@ -2892,23 +2917,9 @@ class EnergyProduction:
         """
         
         # get some information
-        attribute_fuel = (
-            self.get_attribute_enfu()
-            if not is_attribute_table(attribute_fuel, ) 
-            else attribute_fuel
-        )
-
-        attribute_technology = (
-            self.get_attribute_entc()
-            if not is_attribute_table(attribute_technology, ) 
-            else attribute_technology
-        )
-
-        attribute_time_period = (
-            self.get_attribute_time_period()
-            if not is_attribute_table(attribute_time_period, ) 
-            else attribute_time_period
-        )
+        attribute_fuel = self.get_attribute_enfu(attribute_fuel, )
+        attribute_technology = self.get_attribute_entc(attribute_technology, )
+        attribute_time_period = self.get_attribute_time_period(attribute_time_period, )
 
         dict_tech_info = self.get_tech_info_dict()
         dict_fuel_cats = self.dict_entc_fuel_categories_to_fuel_variables
@@ -3100,17 +3111,8 @@ class EnergyProduction:
             )
         """
         # do some initialization from inputs
-        attribute_fuel = (
-            self.model_attributes.get_attribute_table(self.subsec_name_enfu) 
-            if (attribute_fuel is None) 
-            else attribute_fuel
-        )
-
-        attribute_technology = (
-            self.model_attributes.get_attribute_table(self.subsec_name_entc) 
-            if (attribute_technology is None) 
-            else attribute_technology
-        )
+        attribute_fuel = self.get_attribute_enfu(attribute_fuel, )
+        attribute_technology = self.get_attribute_entc(attribute_technology, )
 
         dict_tech_info = (
             self.get_tech_info_dict(attribute_technology = attribute_technology) 
@@ -3357,16 +3359,9 @@ class EnergyProduction:
         
         ##  INITIALIZATION
         
-        attribute_technology = (
-            self.model_attributes.get_attribute_table(self.subsec_name_entc) 
-            if (attribute_technology is None) 
-            else attribute_technology
-        )
-        attribute_fuel = (
-            self.model_attributes.get_attribute_table(self.subsec_name_enfu) 
-            if (attribute_fuel is None) 
-            else attribute_fuel
-        )
+        attribute_fuel = self.get_attribute_enfu(attribute_fuel, )
+        attribute_technology = self.get_attribute_entc(attribute_technology, )
+
         drop_flag = (
             self.drop_flag_tech_capacities 
             if (drop_flag is None) 
@@ -3766,30 +3761,13 @@ class EnergyProduction:
             divide techs. If None, uses ModelAttributes default.
         """
         # set some defaults
-        attribute_fuel = (
-            self.model_attributes.get_attribute_table(self.subsec_name_enfu) 
-            if (attribute_fuel is None) 
-            else attribute_fuel
-        )
-        attribute_technology = (
-            self.model_attributes.get_attribute_table(self.subsec_name_entc) 
-            if (attribute_technology is None) 
-            else attribute_technology
-        )
+        attribute_fuel = self.get_attribute_enfu(attribute_fuel, )
+        attribute_technology = self.get_attribute_entc(attribute_technology, )
 
         # get some categories associated with elements
-        pycat_enfu = self.model_attributes.get_subsector_attribute(
-            self.subsec_name_enfu, 
-            "pycategory_primary_element",
-        )
-        pychat_entc = self.model_attributes.get_subsector_attribute(
-            self.subsec_name_entc, 
-            "pycategory_primary_element",
-        )
-        pycat_strg = self.model_attributes.get_subsector_attribute(
-            self.subsec_name_enst, 
-            "pycategory_primary_element",
-        )
+        pycat_enfu = self.pycat_enfu
+        pycat_entc = self.pycat_entc
+        pycat_strg = self.pycat_enst
 
         # tech -> fuel and fuel -> tech dictionaries
         dict_gnrt_tech_to_fuel = self.model_attributes.get_ordered_category_attribute(
@@ -4056,11 +4034,7 @@ class EnergyProduction:
             Calculate emission factors?
         """
         # some attribute initializations
-        attribute_technology = (
-            self.model_attributes.get_attribute_table(self.subsec_name_entc) 
-            if (attribute_technology is None) 
-            else attribute_technology
-        )
+        attribute_technology = self.get_attribute_entc(attribute_technology, )
 
         # output variable initialization
         dict_efs = {}
@@ -4510,16 +4484,8 @@ class EnergyProduction:
         """
 
         # set some defaults
-        attribute_fuel = (
-            self.get_attribute_enfu()
-            if (attribute_fuel is None) 
-            else attribute_fuel
-        )
-
-        pycat_fuel = self.model_attributes.get_subsector_attribute(
-            self.subsec_name_enfu, 
-            "pycategory_primary_element"
-        )
+        attribute_fuel = self.get_attribute_enfu(attribute_fuel, )
+        pycat_fuel = self.pycat_enfu
 
         dict_rename = (
             {
@@ -4641,12 +4607,7 @@ class EnergyProduction:
         """
 
         # get the region attribute - reduce only to applicable regions
-        attribute_region = (
-            self.get_attribute_region()
-            if (attribute_region is None) 
-            else attribute_region
-        )
-
+        attribute_region = self.get_attribute_region(attribute_region, )
         dict_rename = (
             {
                 self.model_attributes.dim_region: self.field_nemomod_value, 
@@ -4744,23 +4705,12 @@ class EnergyProduction:
             NemoMod
         """
 
+        ##  INITIALIZATION
+
         # set some defaults
-        attribute_fuel = (
-            self.model_attributes.get_attribute_table(self.subsec_name_enfu) 
-            if (attribute_fuel is None) 
-            else attribute_fuel
-        )
-
-        attribute_technology = (
-            self.model_attributes.get_attribute_table(self.subsec_name_entc) 
-            if (attribute_technology is None) 
-            else attribute_technology
-        )
-
-        pycat_entc = self.model_attributes.get_subsector_attribute(
-            self.subsec_name_entc, 
-            "pycategory_primary_element",
-        )
+        attribute_fuel = self.get_attribute_enfu(attribute_fuel, )
+        attribute_technology = self.get_attribute_entc(attribute_technology, )
+        pycat_entc = self.pycat_entc
 
         dict_rename = (
             {
@@ -4774,7 +4724,11 @@ class EnergyProduction:
         # add dummies
         dict_fuels_to_dummy_techs = self.get_dummy_fuel_techs(attribute_fuel = attribute_fuel)
 
-        df_out_dummies = pd.DataFrame({self.field_nemomod_fuel: list(dict_fuels_to_dummy_techs.keys())})
+        df_out_dummies = pd.DataFrame(
+            {
+                self.field_nemomod_fuel: list(dict_fuels_to_dummy_techs.keys())
+            }
+        )
         df_out_dummies[self.field_nemomod_value] = (
             df_out_dummies[self.field_nemomod_fuel]
             .replace(dict_fuels_to_dummy_techs)
@@ -4900,11 +4854,7 @@ class EnergyProduction:
             else attribute_emission
         )
 
-        attribute_time_period = (
-            self.get_attribute_time_period() 
-            if (attribute_time_period is None) 
-            else attribute_time_period
-        )
+        attribute_time_period = self.get_attribute_time_period(attribute_time_period, )
 
         drop_flag = self.drop_flag_tech_capacities if (drop_flag is None) else drop_flag
 
@@ -5020,17 +4970,8 @@ class EnergyProduction:
         sf.check_fields(df_reference_availability_factor, fields_req)
 
         # attribute tables
-        attribute_technology = (
-            self.get_attribute_entc()
-            if (attribute_technology is None) 
-            else attribute_technology
-        )
-
-        attribute_region = (
-            self.get_attribute_region()
-            if (attribute_region is None) 
-            else attribute_region
-        )
+        attribute_region = self.get_attribute_region(attribute_region, )
+        attribute_technology = self.get_attribute_entc(attribute_technology, )
 
         # get scalars 
         modvar_scalar = self.model_attributes.get_variable(
@@ -5264,15 +5205,8 @@ class EnergyProduction:
         """
 
         # initialize some attribute components
-        attr_enfu = (
-            self.model_attributes.get_attribute_table(self.model_attributes.subsec_name_enfu) 
-            if not is_attribute_table(attribute_fuel, ) 
-            else attribute_fuel
-        )
-        pycat_enfu = self.model_attributes.get_subsector_attribute(
-            self.model_attributes.subsec_name_enfu,
-            "pycategory_primary_element"
-        )
+        attr_enfu = self.get_attribute_enfu(attribute_fuel, )
+        pycat_enfu = self.pycat_enfu
 
         dict_return = {}
         flag_dummy_price = min(flag_dummy_price, -1)
@@ -5618,20 +5552,9 @@ class EnergyProduction:
 
         ##  CATEGORY AND ATTRIBUTE INITIALIZATION
 
-        attr_enfu = (
-            self.model_attributes.get_attribute_table(self.model_attributes.subsec_name_enfu) 
-            if not is_attribute_table(attribute_fuel, ) 
-            else attribute_fuel
-        )
-        attr_entc = (
-            self.model_attributes.get_attribute_table(self.model_attributes.subsec_name_entc) 
-            if not is_attribute_table(attribute_technology, ) 
-            else attribute_technology
-        )
-        pycat_enfu = self.model_attributes.get_subsector_attribute(
-            self.subsec_name_enfu, 
-            "pycategory_primary_element",
-        )
+        attr_enfu = self.get_attribute_enfu(attribute_fuel, )
+        attr_entc = self.get_attribute_entc(attribute_technology, )
+        pycat_enfu = self.pycat_enfu
 
         # get technology info and cat to fuel dictionary
         dict_tech_info = self.get_tech_info_dict(attribute_fuel = attribute_fuel)
@@ -5934,18 +5857,9 @@ class EnergyProduction:
         """
 
         ##  CATEGORY AND ATTRIBUTE INITIALIZATION
-        attribute_fuel = (
-            self.model_attributes.get_attribute_table(self.subsec_name_enfu) 
-            if (attribute_fuel is None) 
-            else attribute_fuel
-        )
 
-        attribute_technology = (
-            self.model_attributes.get_attribute_table(self.subsec_name_entc) 
-            if (attribute_technology is None) 
-            else attribute_technology
-        )
-
+        attribute_fuel = self.get_attribute_enfu(attribute_fuel, )
+        attribute_technology = self.get_attribute_entc(attribute_technology, )
 
         # cat to fuel dictionary + reverse
         dict_tech_info = self.get_tech_info_dict(
@@ -6192,16 +6106,9 @@ class EnergyProduction:
             )
         """
         # do some initialization
-        attribute_fuel = (
-            self.model_attributes.get_attribute_table(self.subsec_name_enfu) 
-            if (attribute_fuel is None) 
-            else attribute_fuel
-        )
-        attribute_technology = (
-            self.model_attributes.get_attribute_table(self.subsec_name_entc) 
-            if (attribute_technology is None) 
-            else attribute_technology
-        )
+        attribute_fuel = self.get_attribute_enfu(attribute_fuel, )
+        attribute_technology = self.get_attribute_entc(attribute_technology, )
+
         dict_tech_info = self.get_tech_info_dict(
             attribute_technology = attribute_technology
         )
@@ -6493,15 +6400,9 @@ class EnergyProduction:
             if (attribute_storage is None) 
             else attribute_storage
         )
-        attribute_technology = (
-            self.model_attributes.get_attribute_table(self.subsec_name_entc) 
-            if (attribute_technology is None) 
-            else attribute_technology
-        )
-        pycat_strg = self.model_attributes.get_subsector_attribute(
-            self.subsec_name_enst, 
-            "pycategory_primary_element",
-        )
+
+        attribute_technology = self.get_attribute_entc(attribute_technology, )
+        pycat_strg = self.pycat_enst
 
         # cat storage dictionary
         dict_storage_techs_to_storage = self.model_attributes.get_ordered_category_attribute(
@@ -6608,17 +6509,8 @@ class EnergyProduction:
         
         ##  CATEGORY AND ATTRIBUTE INITIALIZATION
 
-        attribute_fuel = (
-            self.model_attributes.get_attribute_table(self.subsec_name_enfu) 
-            if (attribute_fuel is None) 
-            else attribute_fuel
-        )
-
-        attribute_technology = (
-            self.model_attributes.get_attribute_table(self.subsec_name_entc) 
-            if (attribute_technology is None) 
-            else attribute_technology
-        )
+        attribute_fuel = self.get_attribute_enfu(attribute_fuel, )
+        attribute_technology = self.get_attribute_entc(attribute_technology, )
 
 
         ##  BUILD DUMMY SUPPLY TECHNOLOGIES FOR FUELS WITHOUT SPECIFIED OUTPUT ACTIVITY RATIOS
@@ -6792,9 +6684,17 @@ class EnergyProduction:
         
         """
         # perform some initialization
-        attribute_fuel = self.model_attributes.get_attribute_table(self.subsec_name_enfu) if (attribute_fuel is None) else attribute_fuel
-        modvar_import_fraction = self.modvar_enfu_frac_fuel_demand_imported if (modvar_import_fraction is None) else modvar_import_fraction
-        modvar_renewable_target = self.modvar_enfu_nemomod_renewable_production_target if (modvar_renewable_target is None) else modvar_renewable_target
+        attribute_fuel = self.get_attribute_enfu(attribute_fuel, )
+        modvar_import_fraction = (
+            self.modvar_enfu_frac_fuel_demand_imported 
+            if (modvar_import_fraction is None) 
+            else modvar_import_fraction
+        )
+        modvar_renewable_target = (
+            self.modvar_enfu_nemomod_renewable_production_target 
+            if (modvar_renewable_target is None) 
+            else modvar_renewable_target
+        )
 
         # get imports and renewable energy minimum production targets 
         arr_enfu_imports = self.model_attributes.extract_model_variable(#
@@ -7277,11 +7177,7 @@ class EnergyProduction:
             method.
         """
 
-        attribute_fuel = (
-            self.model_attributes.get_attribute_table(self.subsec_name_enfu) 
-            if (attribute_fuel is None) 
-            else attribute_fuel
-        )
+        attribute_fuel = self.get_attribute_enfu(attribute_fuel, )
        
 
         ##  GET PRODUCTION DEMAND FROM INTEGRATED MODEL
@@ -7419,18 +7315,8 @@ class EnergyProduction:
 
         ##  INITIAlIZATION
 
-        attribute_fuel = (
-            self.get_attribute_enfu() 
-            if (attribute_fuel is None) 
-            else attribute_fuel
-        )
-
-        attribute_region = (
-            self.get_attribute_region() 
-            if (attribute_region is None) 
-            else attribute_region
-        )
-
+        attribute_fuel = self.get_attribute_enfu(attribute_fuel, )
+        attribute_region = self.get_attribute_region(attribute_region, )
         attribute_time_slice = (
             self.model_attributes.get_other_attribute_table("time_slice") 
             if (attribute_time_slice is None) 
@@ -7449,7 +7335,7 @@ class EnergyProduction:
             if (len(fuels_to_specify) == 0) 
             else fuels_to_specify
         )
-
+        
         regions = self.model_attributes.get_region_list_filtered(regions, attribute_region = attribute_region)
         regions_keep = set(attribute_region.key_values) & set(regions)
         regions_keep = (
@@ -7677,15 +7563,9 @@ class EnergyProduction:
             if (attribute_storage is None) 
             else attribute_storage
         )
-        attribute_technology = (
-            self.model_attributes.get_attribute_table(self.subsec_name_entc) 
-            if (attribute_technology is None) 
-            else attribute_technology
-        )
-        pycat_strg = self.model_attributes.get_subsector_attribute(
-            self.subsec_name_enst, 
-            "pycategory_primary_element",
-        )
+
+        attribute_technology = self.get_attribute_entc(attribute_technology, )
+        pycat_strg = self.pycat_enst
 
 
         # cat storage dictionary
@@ -8233,16 +8113,9 @@ class EnergyProduction:
         """
 
         # some initialization
-        attribute_fuel = (
-            self.model_attributes.get_attribute_table(self.subsec_name_enfu) 
-            if (attribute_fuel is None) 
-            else attribute_fuel
-        )
-        attribute_technology = (
-            self.model_attributes.get_attribute_table(self.subsec_name_entc) 
-            if (attribute_technology is None) 
-            else attribute_technology
-        )
+        attribute_fuel = self.get_attribute_enfu(attribute_fuel, )
+        attribute_technology = self.get_attribute_entc(attribute_technology, )
+
         drop_flag = self.drop_flag_tech_capacities if (drop_flag is None) else drop_flag
         table_name = self.model_attributes.table_nemomod_total_technology_annual_activity_lower_limit
     
@@ -8334,16 +8207,9 @@ class EnergyProduction:
         """
 
         # some initialization
-        attribute_fuel = (
-            self.model_attributes.get_attribute_table(self.subsec_name_enfu) 
-            if (attribute_fuel is None) 
-            else attribute_fuel
-        )
-        attribute_technology = (
-            self.model_attributes.get_attribute_table(self.subsec_name_entc) 
-            if (attribute_technology is None) 
-            else attribute_technology
-        )
+        attribute_fuel = self.get_attribute_enfu(attribute_fuel, )
+        attribute_technology = self.get_attribute_entc(attribute_technology, )
+        
         drop_flag = self.drop_flag_tech_capacities if (drop_flag is None) else drop_flag
         table_name = self.model_attributes.table_nemomod_total_technology_annual_activity_upper_limit
     
@@ -8423,11 +8289,7 @@ class EnergyProduction:
             return_type = "NemoMod"
 
         # some attribute initializations
-        attribute_technology = (
-            self.model_attributes.get_attribute_table(self.subsec_name_entc) 
-            if (attribute_technology is None) 
-            else attribute_technology
-        )
+        attribute_technology = self.get_attribute_entc(attribute_technology, )
 
         # get some categories and keys
         cat_entc_pp_biogas = self.get_entc_cat_for_integration("bgas")
@@ -8566,11 +8428,7 @@ class EnergyProduction:
             return_type = "NemoMod"
 
         # some attribute initializations
-        attribute_technology = (
-            self.model_attributes.get_attribute_table(self.subsec_name_entc) 
-            if (attribute_technology is None) 
-            else attribute_technology
-        )
+        attribute_technology = self.get_attribute_entc(attribute_technology, )
 
         # get some categories and keys
         cat_entc_pp_biogas = self.get_entc_cat_for_integration("bgas")
@@ -8822,16 +8680,9 @@ class EnergyProduction:
         """
 
         # some initialization
-        attribute_fuel = (
-            self.model_attributes.get_attribute_table(self.subsec_name_enfu) 
-            if (attribute_fuel is None) 
-            else attribute_fuel
-        )
-        attribute_technology = (
-            self.model_attributes.get_attribute_table(self.subsec_name_entc) 
-            if (attribute_technology is None) 
-            else attribute_technology
-        )
+        attribute_fuel = self.get_attribute_enfu(attribute_fuel, )
+        attribute_technology = self.get_attribute_entc(attribute_technology, )
+
         drop_flag = self.drop_flag_tech_capacities if (drop_flag is None) else drop_flag
         table_name = list(dict_ttal.keys())[0] if (key_ttal is None) else key_ttal
 
@@ -8958,12 +8809,7 @@ class EnergyProduction:
             )
 
         else:
-            attribute_time_period = (
-                self.get_attribute_time_period()
-                if (attribute_time_period is None) 
-                else attribute_time_period
-            )
-            
+            attribute_time_period = self.get_attribute_time_period(attribute_time_period, )
             dict_map = attribute_time_period.field_maps.get(f"{field_year}_to_{attribute_time_period.key}")
 
         df_out = (
@@ -9358,11 +9204,7 @@ class EnergyProduction:
 
         ##  INITIALIZATION
 
-        attribute_fuel = (
-            self.model_attributes.get_attribute_table(self.subsec_name_enfu) 
-            if (attribute_fuel is None) 
-            else attribute_fuel
-        )
+        attribute_fuel = self.get_attribute_enfu(attribute_fuel, )
         table_name = (
             self.model_attributes.table_nemomod_use_by_technology 
             if (table_name is None) 
@@ -9701,11 +9543,7 @@ class EnergyProduction:
             and exporting.
         """
         # initialize some pieces
-        attribute_fuel = (
-            self.model_attributes.get_attribute_table(self.subsec_name_enfu) 
-            if (attribute_fuel is None) 
-            else attribute_fuel
-        )
+        attribute_fuel = self.get_attribute_enfu(attribute_fuel, )
         table_name_demand_annual = (
             self.model_attributes.table_nemomod_annual_demand_nn 
             if (table_name_demand_annual is None) 
@@ -10001,8 +9839,9 @@ class EnergyProduction:
         attr_tech = (
             attr 
             if (subsec == self.subsec_name_entc) 
-            else self.model_attributes.get_attribute_table(self.subsec_name_entc)
+            else self.attr_entc
         )
+
         dict_tech_info = self.get_tech_info_dict(attribute_technology = attr_tech)
         field_pivot = self.field_nemomod_technology if (field_pivot is None) else field_pivot
 
