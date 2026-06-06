@@ -3125,8 +3125,6 @@ class EnergyProduction:
         # initialize some shortcuts
         cats_entc_msp = self.model_attributes.get_variable_categories(modvar_msp)
         dict_fuel_cats = self.dict_entc_fuel_categories_to_fuel_variables
-        subsec_name_enfu = self.model_attributes.subsec_name_enfu
-        subsec_name_entc = self.model_attributes.subsec_name_entc
         
         # retrieve input MSP that has been adjusted to the presence of max production limits
         (
@@ -3602,23 +3600,25 @@ class EnergyProduction:
         attribute_technology: Union[AttributeTable, None] = None,
         attribute_time_period: Union[AttributeTable, None] = None
     ) -> Union[pd.DataFrame, None]:
-        """
-        If waste composition is known from CircularEconomy, emission factors
+        """If waste composition is known from CircularEconomy, emission factors
             can be derived from the integrated model. Pulls emission factors
             from waste data in CircularEconomy.
 
         Function Arguments
         ------------------
-        - df_elec_trajectories: data frame of model variable input trajectories
+        df_elec_trajectories : DataFrame 
+            DataFrameof model variable input trajectories
 
         Keyword Arguments
         -----------------
-        - attribute_fuel: attribute table used for fuels. If None,
-            defaults to self.model_attributes
-        - attribute_technology: attribute table used for technology. If None,
-            defaults to self.model_attributes
-        - attribute_time_period: attribute table used for time period. If None,
-            defaults to self.model_attributes
+        attribute_fuel : Union[AttributeTable, None]
+            Attribute table used for fuels. If None, defaults to self.attr_enfu
+        attribute_technology: Union[AttributeTable, None]
+            Attribute table used for technologies. If None, defaults to 
+            self.attr_entc
+        attribute_time_period : Union[AttributeTable, None]
+            Attribute table used for time period. If None, defaults to
+            self.model_attributes.get_dimensional_attribute_table("time_period")
         """
         # get tech category for waste
         cat_entc_pp_waste = self.get_entc_cat_for_integration("wste") 
@@ -7335,7 +7335,7 @@ class EnergyProduction:
             if (len(fuels_to_specify) == 0) 
             else fuels_to_specify
         )
-        
+
         regions = self.model_attributes.get_region_list_filtered(regions, attribute_region = attribute_region)
         regions_keep = set(attribute_region.key_values) & set(regions)
         regions_keep = (
@@ -8157,8 +8157,7 @@ class EnergyProduction:
         tuple_enfu_production_and_demands: Union[Tuple[pd.DataFrame], None] = None,
         **kwargs
     ) -> Dict[str, pd.DataFrame]:
-        """
-        Format the TotalTechnologyAnnualActivityUpperLimit input tables for 
+        """Format the TotalTechnologyAnnualActivityUpperLimit input tables for 
             NemoMod based on SISEPUEDE configuration parameters, input 
             variables, integrated model outputs, and reference tables.
 
@@ -8379,7 +8378,7 @@ class EnergyProduction:
         return dict_return
     
 
-
+    #HEREHERE--START
     def get_total_technology_activity_upper_limit_no_msp_adjustment(self,
         df_elec_trajectories: pd.DataFrame,
         attribute_technology: AttributeTable = None,
