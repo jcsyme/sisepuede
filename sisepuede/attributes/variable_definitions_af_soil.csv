@@ -1,4 +1,7 @@
 Variable Type,Variable,Subsector Variable Code,Information,Variable Schema,Categories,Reference,Default Value,Default LHS Scalar Minimum at Final Time Period,Default LHS Scalar Maximum at Final Time Period,``$CAT-LANDUSE$``,Simplex Group,Emissions Total by Gas Component,IPCC Emissions Sector Codes,IPCC Equation Reference,Notes
+Input,:math:`\text{EF}_{1FR} - \text{N}_2\text{O}` Rice Fields,ef1_n_managed_soils_rice," | See :math:`EF_{1FR}` from Table 11.1 in V4, C11 IPCC GNGHGI 2019R
+ | 
+ | This emission factor is given by the IPCC as kg :math:`\text{N}_2\text{O-N}`(kg :math:`\text{NH}_3\text{-N} + \text{NO}_x\text{-N}`), and it is multipled in the by the factor 11/7 to convert :math:`\text{N}_2\text{O-N}` to  :math:`\text{N}_2\text{O}`.",``ef_soil_ef1_n_rice_fields_$EMISSION-GAS$`` (``$EMISSION-GAS$ = n2o``),none,,0,0.8,1.2,none,,0,,,
 Input,:math:`\text{EF}_1 - \text{N}_2\text{O}` Organic Amendments and Fertilizer,ef1_n_managed_soils_org_fert," | See :math:`EF_1` from Table 11.1 in V4, C11 IPCC GNGHGI 2019R
  | 
  | This emission factor is given by the IPCC as kg :math:`\text{N}_2\text{O-N}`(kg :math:`\text{NH}_3\text{-N} + \text{NO}_x\text{-N}`), and it is multipled in the by the factor 11/7 to convert :math:`\text{N}_2\text{O-N}` to  :math:`\text{N}_2\text{O}`.",``ef_soil_ef1_n_synthetic_fertilizer_$EMISSION-GAS$_$CAT-SOIL-MANAGEMENT$`` (``$EMISSION-GAS$ = n2o``),``dry_climate``|``wet_climate``,,0,0.8,1.2,none,,0,,,
@@ -8,9 +11,6 @@ Input,:math:`\text{EF}_1 - \text{N}_2\text{O}` Synthetic Fertilizer,ef1_n_manage
 Input,:math:`\text{EF}_2 - \text{N}_2\text{O}` Emissions from Drained and Managed Organic Soils,ef2_n_organic_soils," | See :math:`EF_2` from `2013 Supplement to the 2006 IPCC Guidelines for National Greenhouse Gas Inventories <https://www.ipcc.ch/publication/2013-supplement-to-the-2006-ipcc-guidelines-for-national-greenhouse-gas-inventories-wetlands/>`_
  | 
  | This emission factor is given by the IPCC as kg :math:`\text{N}_2\text{O-N}`(kg :math:`\text{NH}_3\text{-N} + \text{NO}_x\text{-N}`), and it is multipled in the by the factor 11/7 to convert :math:`\text{N}_2\text{O-N}` to  :math:`\text{N}_2\text{O}`.","``ef_soil_ef2_n_drained_managed_soils_$EMISSION-GAS$_$CAT-SOIL-MANAGEMENT$_$UNIT-MASS$_n2on_$UNIT-AREA$`` (``$EMISSION-GAS$ = n2o``, ``$UNIT-MASS$ = kg``, ``$UNIT-AREA$ = ha``)",``temperate_crop_grass``|``temperate_forest_nutrient_rich``|``temperate_forest_nutrient_poor``|``tropical_crop_grass``|``tropical_forest``,,0,0.8,1.2,none,,0,,,
-Input,:math:`\text{EF}_{1FR} - \text{N}_2\text{O}` Rice Fields,ef1_n_managed_soils_rice," | See :math:`EF_{1FR}` from Table 11.1 in V4, C11 IPCC GNGHGI 2019R
- | 
- | This emission factor is given by the IPCC as kg :math:`\text{N}_2\text{O-N}`(kg :math:`\text{NH}_3\text{-N} + \text{NO}_x\text{-N}`), and it is multipled in the by the factor 11/7 to convert :math:`\text{N}_2\text{O-N}` to  :math:`\text{N}_2\text{O}`.",``ef_soil_ef1_n_rice_fields_$EMISSION-GAS$`` (``$EMISSION-GAS$ = n2o``),none,,0,0.8,1.2,none,,0,,,
 Input,C Annual Croplands Drained Organic Soils Emission Factor,ef_c_organic_soils_croplands,"See V4 C5, Table 5.6 for default factors","``ef_soil_c_croplands_drained_organic_$CAT-SOIL-MANAGEMENT$_$UNIT-MASS$_per_$UNIT-AREA$`` (``$UNIT-MASS$ = tonne``, ``$UNIT-AREA$ = ha``)",``temperate_crop_grass``|``tropical_crop_grass``,,0,0.1,1.9,``croplands``,,0,,,See IPCC GNGHGI V4 C5 Table 5.6 for +/- 90% uncertainty ranges
 Input,C Annual Managed Grasslands Drained Organic Soils Emission Factor,ef_c_organic_soils_managed_grasslands,"See V4 C6, Table 6.3 for default factors","``ef_soil_c_managed_grasslands_drained_organic_$CAT-SOIL-MANAGEMENT$_$UNIT-MASS$_per_$UNIT-AREA$`` (``$UNIT-MASS$ = tonne``, ``$UNIT-AREA$ = ha``)",``temperate_crop_grass``|``tropical_crop_grass``,,0,0.1,1.9,``pastures``,,0,,,See IPCC GNGHGI V4 C6 Table 6.3 for +/- 90% uncertainty ranges
 Input,C Liming Emission Factor Dolomite,ef_c_liming_dolomite," | Dimensionless emission factor that gives :math:`CO_2-C` mass of emission per mass of dolomite applied.
@@ -19,10 +19,10 @@ Input,C Liming Emission Factor Dolomite,ef_c_liming_dolomite," | Dimensionless e
 Input,C Liming Emission Factor Limestone,ef_c_liming_limestone," | Dimensionless emission factor that gives :math:`CO_2-C` mass of emission per mass of limestone applied.
  | 
  | See Page V4, C11, page 11.29 of IPCC GNGHGI (2006) for emission factor defaults.",``ef_soil_c_liming_limestone``,none,,0,1,1,none,,0,,,
+Input,C to N Ratio of Soil Organic Matter,ratio_c_to_n_soil_organic_matter,"See Equation 11.8, V4, IPCC GNGHGI (2019R)",``ratio_soil_organic_matter_c_to_n``,none,,0,1,1,none,,0,,,
 Input,C Urea Emission Factor,ef_c_urea," | Dimensionless emission factor that gives :math:`CO_2-C` mass of emission per mass of urea applied.
  | 
  | See Page V4, C11, page 11.32 (Section 11.4.1) of IPCC GNGHGI (2006) for emission factor defaults.",``ef_soil_c_urea``,none,,0,1,1,none,,0,,,
-Input,C to N Ratio of Soil Organic Matter,ratio_c_to_n_soil_organic_matter,"See Equation 11.8, V4, IPCC GNGHGI (2019R)",``ratio_soil_organic_matter_c_to_n``,none,,0,1,1,none,,0,,,
 Input,EF3 N Pasture Range and Paddock,ef3_n_prp," | See :math:`EF_{3PRP}` from Table 11.1 in V4, C11 IPCC GNGHGI 2019R
  | 
  | This emission factor is given by the IPCC as kg :math:`\text{N}_2\text{O-N}`(kg N), and it is multipled in the by the factor 11/7 to convert :math:`\text{N}_2\text{O-N}` to  :math:`\text{N}_2\text{O}`.",``ef_soil_ef3_pasture_$EMISSION-GAS$_$CAT-SOIL-MANAGEMENT$`` (``$EMISSION-GAS$ = n2o``),``dry_climate``|``wet_climate``,,0,0.8,1.2,none,,0,,,
@@ -33,6 +33,8 @@ Input,EF5 N Leaching and Runoff Emission Factor,ef5_n_leaching," | See :math:`EF
  | 
  | This emission factor is given by the IPCC as kg :math:`\text{N}_2\text{O-N}` (kg N), and it is multipled in the by the factor 11/7 to convert :math:`\text{N}_2\text{O-N}` to  :math:`\text{N}_2\text{O}`.",``ef_soil_ef5_n_leaching_$EMISSION-GAS$`` (``$EMISSION-GAS$ = n2o``),none,,0,0.8,1.2,none,,0,,,
 Input,Fertilizer N Demand Scalar,demscalar_fertilizer,Use to reduce or increase per-unit demand for fertilizer N,``demscalar_soil_fertilizer_n_per_area``,none,,0,1,1,none,,0,,,
+Input,Fertilizer N Exports,exports_synthetic_fert_n,,``exports_soil_synthetic_fertilizer_n_$UNIT-MASS$`` (``$UNIT-MASS$ = tonne``),none,,0,1,1,none,,0,,,
+Input,Fertilizer N Import Fraction,frac_synthetic_fert_n_imported,,``frac_soil_synthetic_fertilizer_n_demand_imported``,none,,0,1,1,none,,0,,,
 Input,Fraction Synthetic Fertilizer Use Urea,frac_synethic_fertilizer_urea,Fraction of synthetic fertilizer use that comes from Urea. Can change in the future.,``frac_soil_synthetic_fertilizer_urea``,none,,0,1,1,none,,0,,,
 Input,Initial Liming Dolomite Applied to Soils,qtyinit_liming_dolomite,,``qtyinit_soil_liming_dolomite_applied_to_soils_$UNIT-MASS$`` (``$UNIT-MASS$ = kt),none,,0,1,1,none,,0,,,
 Input,Initial Liming Limestone Applied to Soils,qtyinit_liming_limestone,,``qtyinit_soil_liming_limestone_applied_to_soils_$UNIT-MASS$`` (``$UNIT-MASS$ = kt),none,,0,1,1,none,,0,,,
