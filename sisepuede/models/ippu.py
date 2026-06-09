@@ -6,6 +6,7 @@ import pandas as pd
 
 from sisepuede.core.attribute_table import AttributeTable
 from sisepuede.core.model_attributes import *
+from sisepuede.core.model_variable import *
 from sisepuede.models.socioeconomic import Socioeconomic
 import sisepuede.utilities._toolbox as sf
 
@@ -767,13 +768,13 @@ class IPPU:
         df_ippu_trajectories: pd.DataFrame,
         vec_rates_gdp: np.ndarray,
         dict_dims: dict = None,
-        n_projection_time_periods: int = None,
-        projection_time_periods: List[int] = None,
         modvar_average_lifespan_housing: Union['ModelVariable', str, None] = None,
         modvar_elast_ind_prod_to_gdp: Union['ModelVariable', str, None] = None,
         modvar_num_hh: Union['ModelVariable', str, None] = None,
         modvar_prod_qty_init: Union['ModelVariable', str, None] = None,
         modvar_scalar_prod: Union['ModelVariable', str, None] = None,
+        n_projection_time_periods: int = None,
+        projection_time_periods: List[int] = None,
     ) -> np.ndarray:
         """Project industrial production. Called from other sectors to simplify 
             calculation of industrial production. Includes swap of demand for 
@@ -855,12 +856,9 @@ class IPPU:
         )
 
         # get initial production and apply elasticities to gdp to calculate growth in production
-        array_ippu_prod_init_by_cat = self.model_attributes.extract_model_variable(#
-            df_ippu_trajectories, 
-            modvar_prod_qty_init, 
-            expand_to_all_cats = True, 
-            return_type = "array_base", 
-            var_bounds = (0, np.inf),
+        array_ippu_prod_init_by_cat = self.get_ippu_initial_production_mass(
+            df_ippu_trajectories,
+            modvar_units_mass = modvar_prod_qty_init,
         )
 
         array_ippu_elasticity_prod_to_gdp = self.model_attributes.extract_model_variable(#
@@ -929,8 +927,75 @@ class IPPU:
         array_ippu_ind_prod = sf.vec_bounds(array_ippu_ind_balance, (0, np.inf))
         array_ippu_change_to_net_imports_cur = array_ippu_ind_balance - array_ippu_ind_prod
 
-        return array_ippu_ind_prod, array_ippu_change_to_net_imports_cur
+        out = (
+            array_ippu_ind_prod, 
+            array_ippu_change_to_net_imports_cur,
+        )
 
+        return out
+
+
+
+    def get_ippu_initial_production_mass(self,
+        df_ippu_trajectories: pd.DataFrame,
+        modvar_units_mass: Union['ModelVariable', None] = None,
+    ) -> pd.DataFrame:
+        """Initial production leverages (a) initial total production by
+            industry type and (b) initial partial production variables--e.g.,
+            ammonia EXCLUDES fertilizer production.
+        """
+
+        # get variable for output units
+        modvar_units_mass = (
+            self.modvar_ippu_prod_qty_init
+            if not is_model_variable(modvar_units_mass, )
+            else modvar_units_mass
+        )
+        
+        # get initial production 
+        array_ippu_prod_init_by_cat = self.model_attributes.extract_model_variable(#
+            df_ippu_trajectories, 
+            self.modvar_ippu_prod_qty_init, 
+            expand_to_all_cats = True, 
+            return_type = "array_base", 
+            var_bounds = (0, np.inf),
+        )
+
+        array_ippu_prod_init_by_cat = (
+            array_ippu_prod_init_by_cat
+            * self.model_attributes.get_variable_unit_conversion_factor(
+                self.modvar_ippu_prod_qty_init,
+                modvar_units_mass,
+                "mass",
+            )
+        )
+
+        # non-fertilizer production
+        array_ippu_prod_init_by_cat_nff = self.model_attributes.extract_model_variable(#
+            df_ippu_trajectories, 
+            self.modvar_ippu_prod_qty_init_nff, 
+            expand_to_all_cats = True, 
+            return_type = "array_base", 
+            var_bounds = (0, np.inf),
+        )
+
+        array_ippu_prod_init_by_cat_nff = (
+            array_ippu_prod_init_by_cat_nff
+            * self.model_attributes.get_variable_unit_conversion_factor(
+                self.modvar_ippu_prod_qty_init_nff,
+                modvar_units_mass,
+                "mass",
+            )
+        )
+
+        # sum--categories should be mutually exclusive
+        arr_out = (
+            array_ippu_prod_init_by_cat
+            + array_ippu_prod_init_by_cat_nff
+        )
+
+        return arr_out
+    
 
 
     def get_production_with_recycling_adjustment(self,
@@ -1101,14 +1166,14 @@ class IPPU:
         array_ippu_production, array_ippu_change_net_imports = self.project_industrial_production(
             df_ippu_trajectories,
             vec_rates_gdp,
-            dict_dims,
-            n_projection_time_periods,
-            projection_time_periods,
-            modvar_average_lifespan_housing,
-            modvar_elast_ind_prod_to_gdp,
-            modvar_num_hh,
-            modvar_prod_qty_init,
-            modvar_scalar_prod
+            dict_dims = dict_dims,
+            modvar_average_lifespan_housing = modvar_average_lifespan_housing,
+            modvar_elast_ind_prod_to_gdp = modvar_elast_ind_prod_to_gdp,
+            modvar_num_hh = modvar_num_hh,
+            modvar_prod_qty_init = modvar_prod_qty_init,
+            modvar_scalar_prod = modvar_scalar_prod,
+            n_projection_time_periods = n_projection_time_periods,
+            projection_time_periods = projection_time_periods,
         )
 
         # perform adjustments to production if recycling is denoted
@@ -1130,7 +1195,7 @@ class IPPU:
             factor_ippu_waso_recycle_to_ippu_recycle = self.model_attributes.get_variable_unit_conversion_factor(
                 modvar_waste_total_recycled,
                 modvar_prod_qty_init,
-                "mass"
+                "mass",
             )
 
             array_ippu_recycled_waste *= factor_ippu_waso_recycle_to_ippu_recycle

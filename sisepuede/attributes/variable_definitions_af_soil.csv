@@ -38,7 +38,7 @@ Input,Fertilizer N Import Fraction,frac_synthetic_fert_n_imported,,``frac_soil_s
 Input,Fraction Synthetic Fertilizer Use Urea,frac_synethic_fertilizer_urea,Fraction of synthetic fertilizer use that comes from Urea. Can change in the future.,``frac_soil_synthetic_fertilizer_urea``,none,,0,1,1,none,,0,,,
 Input,Initial Liming Dolomite Applied to Soils,qtyinit_liming_dolomite,,``qtyinit_soil_liming_dolomite_applied_to_soils_$UNIT-MASS$`` (``$UNIT-MASS$ = kt),none,,0,1,1,none,,0,,,
 Input,Initial Liming Limestone Applied to Soils,qtyinit_liming_limestone,,``qtyinit_soil_liming_limestone_applied_to_soils_$UNIT-MASS$`` (``$UNIT-MASS$ = kt),none,,0,1,1,none,,0,,,
-Input,Initial Synthetic Fertilizer Use,fertuse_init_synthetic,,``qtyinit_soil_synthetic_fertilizer_$UNIT-MASS$`` (``$UNIT-MASS$ = kt``),none,,0,1,1,none,,0,,,
+Input,Initial Synthetic Fertilizer Use,fertuse_init_synthetic,"Domestic supply. Used to estimate production (S = P - E + I), which is passed to IPPU to estimate total demands for ammonia.",``qtyinit_soil_synthetic_fertilizer_$UNIT-MASS$`` (``$UNIT-MASS$ = kt``),none,,0,1,1,none,,0,,,
 Input,Leaching Fraction of N Lost,frac_n_lost_leaching," | See :math:`FRAC_{LEACH-(H)}` from Table 11.3 in V4, C11 IPCC GNGHGI 2019R",``frac_soil_leachh_n_lost_to_leaching``,none,,0,1,1,none,,0,,,
 Input,Liming Demand Scalar,demscalar_liming,,``demscalar_soil_liming_per_area``,none,,0,1,1,none,,0,,,
 Input,Soil Organic C Stocks,organic_c_stocks,"See :math:`SOC_{REF}` in Table 2.3, used in Equation 2.25, for Equation 11.8, V4 IPCC GNGHGI (2019R)","``qty_soil_organic_c_stock_$CAT-SOIL-MANAGEMENT$_$UNIT-MASS$_per_$UNIT-AREA$`` (``$UNIT-MASS$ = tonne``, ``$UNIT-AREA$ = ha``)",all,,0,1,1,none,,0,,,
