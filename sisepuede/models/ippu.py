@@ -248,23 +248,22 @@ class IPPU:
 
         # 
         list_vars_required_for_integration = [
-            self.modvar_enfu_frac_n,
-            self.modvar_soil_fert_n_synthetic_production_demand,
             self.modvar_waso_waste_total_recycled
         ]
 
         # variables that are required from biomass
         list_vars_required_for_integration_afolu = [
             self.modvar_ippu_prod_qty_init,
-            self.modvar_ippu_scalar_production
+            self.modvar_ippu_scalar_production,
+            self.modvar_soil_fert_n_synthetic_production_demand
         ]
 
 
         ##  AMMONIA VARIABLES FOR ENFU
 
-        # ammonia category--IPPU
+        # ammonia category--ENFU
         cat_enfu_ammonia = self.model_attributes.filter_keys_by_attribute(
-            self.subsec_name_ippu, 
+            self.subsec_name_enfu,
             {
                 self.model_attributes.field_enfu_ammonia_category: 1
             }
@@ -362,9 +361,9 @@ class IPPU:
             self.model_attributes.subsec_name_waso,
         )
 
-        # pycategory problems
+        # pycategories
         pycat_ippu = self.model_attributes.get_subsector_attribute(
-            self.subsec_name_ippu, 
+            self.model_attributes.subsec_name_ippu, 
             "pycategory_primary_element",
         )
 
@@ -514,7 +513,8 @@ class IPPU:
         """
 
         # get the attribute table and model variables
-        attr_ippu = self.model_attributes.get_attribute_table(self.subsec_name_ippu)
+        attr_ippu = self.attr_ippu
+
         modvar_carbon_capture_efficacy = (
             self.modvar_ippu_capture_efficacy_co2
             if (modvar_carbon_capture_efficacy is None) 
@@ -969,7 +969,10 @@ class IPPU:
         if vec_prod_fert_n is None:
             vec_demand_ammonia_for_fert = np.zeros(df_ippu_trajectories.shape[0], )
             return vec_demand_ammonia_for_fert
-        
+
+        # otherwise, returns a tuple
+        vec_prod_fert_n = vec_prod_fert_n[1]
+
 
         # need to divide to get ammonia tonnage
         vec_frac_ammonia_n = self.model_attributes.extract_model_variable(
@@ -978,7 +981,11 @@ class IPPU:
             expand_to_all_cats = True,
             return_type = "array_base",
         )
+
         vec_frac_ammonia_n = vec_frac_ammonia_n[:, self.ind_enfu_ammonia]
+
+        #print(vec_prod_fert_n)
+        #print(vec_frac_ammonia_n)
 
         # get total and convert to output units
         vec_demand_ammonia_for_fert = (
@@ -1146,7 +1153,7 @@ class IPPU:
 
         # get some attribute info
         attr_ippu = self.attr_ippu
-        attr_waso = self.model_attributes.get_attribute_table(self.subsec_name_waso)
+        attr_waso = self.attr_waso
         pycat_ippu = self.pycat_ippu
 
         # get recycling
@@ -1338,7 +1345,8 @@ class IPPU:
                 reduce_from_all_cats_to_specified_cats = True
             )
         ]
-
+        
+        
         out = (
             array_ippu_production, 
             df_out,
@@ -1393,8 +1401,8 @@ class IPPU:
 
         # attribute tables
         attr_gnrl = self.model_attributes.get_attribute_table(self.subsec_name_gnrl)
-        attr_ippu = self.model_attributes.get_attribute_table(self.subsec_name_ippu)
-        attr_waso = self.model_attributes.get_attribute_table(self.subsec_name_waso)
+        attr_ippu = self.attr_ippu
+        attr_waso = self.attr_waso
 
 
         ##  ECON/GNRL VECTOR AND ARRAY INITIALIZATION
@@ -1442,9 +1450,16 @@ class IPPU:
         ######################################################
 
         ##  PERFORM THE RECYCLING ADJUSTMENT (if recycling data are provided from the waste model)
-        array_ippu_production = self.get_production_with_recycling_adjustment(df_ippu_trajectories, vec_rates_gdp)
+        array_ippu_production = self.get_production_with_recycling_adjustment(
+            df_ippu_trajectories, 
+            vec_rates_gdp,
+        )
+
+        
+        self.array_ippu_production = array_ippu_production
         df_out += array_ippu_production[1]
         array_ippu_production = array_ippu_production[0]
+        #raise RuntimeError("done!")
 
 
         ############################

@@ -13978,6 +13978,10 @@ class AFOLU:
 
         ##  ECON/GNRL VECTOR AND ARRAY INITIALIZATION
 
+        # initialize array classes--clear with None, then update with latest
+        self._initialize_array_classes(None, )
+        self._initialize_array_classes(df_afolu_trajectories, )
+
         # get some vectors
         vec_gdp = self.model_attributes.extract_model_variable(#
             df_afolu_trajectories, 

@@ -151,8 +151,28 @@ class SISEPUEDEModels:
             * self.fp_nemomod_reference_files
         """
 
-        self.model_afolu = AFOLU(self.model_attributes)
-        self.model_circecon = CircularEconomy(self.model_attributes)
+        self.model_afolu = AFOLU(
+            self.model_attributes, 
+            logger = self.logger,
+        )
+        self.model_circecon = CircularEconomy(
+            self.model_attributes, 
+            logger = self.logger,
+        )
+        self.model_enercons = mec.EnergyConsumption(
+            self.model_attributes,
+            logger = self.logger,
+        )
+
+        self.model_ippu = IPPU(
+            self.model_attributes,
+            logger = self.logger,
+        )
+
+        self.model_socioeconomic = Socioeconomic(
+            self.model_attributes,
+            logger = self.logger,
+        )
 
         self.model_enerprod = None
         if self.allow_electricity_run:
@@ -164,14 +184,7 @@ class SISEPUEDEModels:
                 logger = self.logger,
             )
 
-        self.model_enercons = mec.EnergyConsumption(
-            self.model_attributes,
-            logger = self.logger
-        )
         
-        self.model_ippu = IPPU(self.model_attributes)
-        self.model_socioeconomic = Socioeconomic(self.model_attributes)
-
         return None
 
 
@@ -526,7 +539,7 @@ class SISEPUEDEModels:
         df_return = []
         models_run = self.model_attributes.get_sector_list_from_projection_input(models_run)
         regions = self.model_attributes.get_region_list_filtered(regions)
-        
+        set_models_run = set(models_run) # run once
 
         # check time periods
         time_periods_run = (
@@ -562,14 +575,14 @@ class SISEPUEDEModels:
             except Exception as e:
                 self._log(f"Error running AFOLU model: {e}", type_log = "error")
 
-            
+
         ##  2. Run CircularEconomy and collect output - requires AFOLU to run integrated
 
         if "Circular Economy" in models_run:
 
             self._log("Running CircularEconomy model", type_log = "info")
 
-            if run_integrated and set(["AFOLU"]).issubset(set(models_run)):
+            if run_integrated and set(["AFOLU"]).issubset(set_models_run):
                 df_input_data = self.model_attributes.transfer_df_variables(
                     df_input_data,
                     df_return[0],
@@ -596,15 +609,16 @@ class SISEPUEDEModels:
 
             self._log("Running IPPU model", type_log = "info")
 
-            if run_integrated and set(["Circular Economy"]).issubset(set(models_run)):
+            if run_integrated and set(["Circular Economy"]).issubset(set_models_run):
                 df_input_data = self.model_attributes.transfer_df_variables(
                     df_input_data,
                     df_return[0],
                     self.model_ippu.integration_variables
                 )
                 
+            
             # get biomass overwrites of HWP variables--only what is specified
-            if run_integrated and set(["AFOLU"]).issubset(set(models_run)):
+            if run_integrated and set(["AFOLU"]).issubset(set_models_run):
                 df_input_data = self.model_attributes.transfer_df_variables(
                     df_input_data,
                     df_return[0],
@@ -612,8 +626,12 @@ class SISEPUEDEModels:
                     extraction_logic = "any",
                     overwrite_targets = True,
                 )
+
             
             
+            global dfr
+            dfr = df_return.copy()
+
             try:
                 df_return.append(self.model_ippu.project(df_input_data))
                 df_return = (
@@ -624,6 +642,7 @@ class SISEPUEDEModels:
                 self._log(f"IPPU model run successfully completed", type_log = "info")
                 
             except Exception as e:
+                print(e)
                 self._log(f"Error running IPPU model: {e}", type_log = "error")
         
         
@@ -636,7 +655,7 @@ class SISEPUEDEModels:
                 type_log = "info",
             )
             
-            if run_integrated and set(["IPPU", "AFOLU"]).issubset(set(models_run)):
+            if run_integrated and set(["IPPU", "AFOLU"]).issubset(set_models_run):
                 df_input_data = self.model_attributes.transfer_df_variables(
                     df_input_data,
                     df_return[0],
@@ -679,7 +698,7 @@ class SISEPUEDEModels:
                 type_log = "info",
             )
 
-            if run_integrated and set(["Circular Economy", "AFOLU"]).issubset(set(models_run)):
+            if run_integrated and set(["Circular Economy", "AFOLU"]).issubset(set_models_run):
                 df_input_data = self.model_attributes.transfer_df_variables(
                     df_input_data,
                     df_return[0],
@@ -725,7 +744,7 @@ class SISEPUEDEModels:
                 type_log = "info",
             )
 
-            if run_integrated and set(["IPPU", "AFOLU"]).issubset(set(models_run)):
+            if run_integrated and set(["IPPU", "AFOLU"]).issubset(set_models_run):
                 df_input_data = self.model_attributes.transfer_df_variables(
                     df_input_data,
                     df_return[0],
