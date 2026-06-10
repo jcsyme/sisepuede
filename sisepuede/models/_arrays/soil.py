@@ -166,6 +166,14 @@ class ArraysSOIL(ma.SubsectorArraysCollection):
             var_bounds = (0, np.inf),
         )
 
+        # Exports of synthetic fertilizer
+        self.get_modvar_array(
+            df_trajectories,
+            self.modvar_soil_exports_synthetic_fert_n,
+            set_property = True,
+            var_bounds = (0, np.inf), 
+        )
+
         # Initial synthetic fertilizer use demand
         self.get_modvar_array(
             df_trajectories,
@@ -211,7 +219,15 @@ class ArraysSOIL(ma.SubsectorArraysCollection):
         # Fraction of synthetic fertilizer from Urea
         self.get_modvar_array(
             df_trajectories,
-            self.modvar_soil_frac_synethic_fertilizer_urea,
+            self.modvar_soil_frac_synthetic_fertilizer_urea,
+            set_property = True,
+            var_bounds = (0, 1), 
+        )
+
+        # Fraction of synthetic fertilizer imported
+        self.get_modvar_array(
+            df_trajectories,
+            self.modvar_soil_frac_synthetic_fert_n_imported,
             set_property = True,
             var_bounds = (0, 1), 
         )

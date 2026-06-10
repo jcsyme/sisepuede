@@ -113,6 +113,7 @@ class EnergyProduction:
 
         # initialize names and shared fields
         self._initialize_subsector_names()
+        self._initialize_attribute_tables()
         self._initialize_nemomod_fields()
         self._initialize_input_output_components()
         self._initialize_other_properties(

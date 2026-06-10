@@ -1151,6 +1151,14 @@ class AFOLU:
             * self.modvar_soil_****
             * self.modvar_dict_soil_****
         """
+
+        self.model_attributes.assign_subsector_variable_names_from_varcodes(
+            self,
+            self.model_attributes.subsec_name_soil,
+            stop_on_error = True, 
+        )
+
+        """
         # soil management variables
         self.modvar_soil_demscalar_fertilizer = "Fertilizer N Demand Scalar"
         self.modvar_soil_demscalar_liming = "Liming Demand Scalar"
@@ -1188,7 +1196,7 @@ class AFOLU:
         self.modvar_soil_qtyinit_liming_limestone = "Initial Liming Limestone Applied to Soils"
         self.modvar_soil_ratio_c_to_n_soil_organic_matter = "C to N Ratio of Soil Organic Matter"
         self.modvar_soil_ureause_total = "Total Urea Use"
-
+        """
 
         (
             self.dict_lndu_categories_to_soil_variables, 
@@ -10479,7 +10487,7 @@ class AFOLU:
         )
 
         return out
-    
+
 
 
     def get_soil_ef1_components_fsom_fso(self,
@@ -11021,6 +11029,88 @@ class AFOLU:
         )
 
         return out
+    
+
+
+    def get_soil_variables_trade(self,
+        vec_soil_n_fertilizer_use_synthetic: np.ndarray,
+        modvar_in_n_fert_mass: 'ModelVariable',
+    ) -> List[pd.DataFrame]:
+        """Get Synethetic fertilize trade variables, which are used to calculate
+            demands for ammonia production domestically.
+
+        Gets:
+            - Total synthetic fertilizer N imports
+            - Total production demand for fertilizer N
+
+        Function Arguments
+        ------------------
+        vec_soil_n_fertilizer_use_synthetic : np.ndarray
+            Synethetic fertilizer use in terms of 
+        modvar_in_n_fert_mass : ModelVariable
+            Modvar giving mass units for vec_soil_n_fertilizer_use_synthetic  
+        """
+
+        ##  INITIALIZE VARIABLES
+
+        vec_soil_exports_nsynth = self.arrays_soil.arr_soil_exports_synthetic_fert_n
+        vec_soil_frac_nsynth_imported = self.arrays_soil.arr_soil_frac_synthetic_fert_n_imported
+
+        # some model variables
+        modvar_out_imports = self.modvar_soil_fert_n_synthetic_imports
+        modvar_out_prod = self.modvar_soil_fert_n_synthetic_production_demand
+
+
+        ##  UNITS CONVERSION
+
+        # total imports
+        vec_soil_n_synth_imps = (
+            vec_soil_n_fertilizer_use_synthetic
+            *self.model_attributes.get_variable_unit_conversion_factor(
+                modvar_in_n_fert_mass,
+                modvar_out_imports,
+                "mass",
+            )
+            *vec_soil_frac_nsynth_imported
+        )
+
+        # get production requirements--use*(1 - import frac)
+        vec_soil_n_synth_prod = (
+            vec_soil_n_fertilizer_use_synthetic
+            *self.model_attributes.get_variable_unit_conversion_factor(
+                modvar_in_n_fert_mass,
+                modvar_out_prod,
+                "mass",
+            )
+            *(1 - vec_soil_frac_nsynth_imported)
+        )
+        # add in exports
+        vec_soil_n_synth_prod += (
+            vec_soil_exports_nsynth
+            *self.model_attributes.get_variable_unit_conversion_factor(
+                self.modvar_soil_exports_synthetic_fert_n,
+                modvar_out_prod,
+                "mass",
+            )
+        )
+
+
+        ##  BUILD OUTPUT DFS
+
+        df_out = [
+            self.model_attributes.array_to_df(
+                vec_soil_n_synth_imps,
+                modvar_out_imports,
+            ),
+
+            self.model_attributes.array_to_df(
+                vec_soil_n_synth_prod,
+                modvar_out_prod,
+            )
+        ]
+
+        return df_out
+    
 
 
     def get_transition_matrix_from_long_df(self,
@@ -12646,7 +12736,7 @@ class AFOLU:
         return arr_emissions_conv, arr_land_use, arrs_land_conv
     
 
-
+    
     def project_soil(self,
         df_afolu_trajectories: pd.DataFrame,
         df_land_use_ilu: pd.DataFrame,
@@ -12782,7 +12872,7 @@ class AFOLU:
         # vectors
         vec_soil_demscalar_fertilizer = self.arrays_soil.arr_soil_demscalar_fertilizer
         vec_soil_ef1_rice = self.arrays_soil.arr_soil_ef1_n_managed_soils_rice
-        vec_soil_frac_synthetic_fertilizer_urea = self.arrays_soil.arr_soil_frac_synethic_fertilizer_urea
+        vec_soil_frac_synthetic_fertilizer_urea = self.arrays_soil.arr_soil_frac_synthetic_fertilizer_urea
        
         vec_soil_init_n_fertilizer_synthetic = (
             self.arrays_soil.arr_soil_fertuse_init_synthetic
@@ -13028,7 +13118,7 @@ class AFOLU:
         df_out = [
             self.model_attributes.array_to_df(
                 vec_soil_emission_n2o_crop_residue*scalar_n2on_to_emission_out, 
-                self.modvar_agrc_emissions_n2o_crop_residues
+                self.modvar_agrc_emissions_n2o_crop_residues,
             ),
             self.model_attributes.array_to_df(
                 arr_lndu_area_improved*scalar_ilu_area_to_config_area,
@@ -13042,43 +13132,45 @@ class AFOLU:
             ),
             self.model_attributes.array_to_df(
                 vec_soil_emission_co2_soil_carbon_mineral, 
-                self.modvar_soil_emissions_co2_soil_carbon_mineral
+                self.modvar_soil_emissions_co2_soil_carbon_mineral,
             ),
             self.model_attributes.array_to_df(
                 vec_soil_emission_n2o_fertilizer*scalar_n2on_to_emission_out, 
-                self.modvar_soil_emissions_n2o_fertilizer
+                self.modvar_soil_emissions_n2o_fertilizer,
             ),
             self.model_attributes.array_to_df(
                 vec_soil_emission_n2o_mineral_soils*scalar_n2on_to_emission_out, 
-                self.modvar_soil_emissions_n2o_mineral_soils
+                self.modvar_soil_emissions_n2o_mineral_soils,
             ),
             self.model_attributes.array_to_df(
                 vec_soil_emission_n2o_organic_soils*scalar_n2on_to_emission_out, 
-                self.modvar_soil_emissions_n2o_organic_soils
+                self.modvar_soil_emissions_n2o_organic_soils,
             ),
             self.model_attributes.array_to_df(
                 vec_soil_emission_n2o_ppr*scalar_n2on_to_emission_out, 
-                self.modvar_soil_emissions_n2o_ppr
+                self.modvar_soil_emissions_n2o_ppr,
             ),
             self.model_attributes.array_to_df(
                 vec_soil_n_fertilizer_use_organic, 
-                self.modvar_soil_fertuse_final_organic
+                self.modvar_soil_fertuse_final_organic,
             ),
             self.model_attributes.array_to_df(
                 vec_soil_n_fertilizer_use_synthetic, 
-                self.modvar_soil_fertuse_final_synthetic
+                self.modvar_soil_fertuse_final_synthetic,
             ),
             self.model_attributes.array_to_df(
                 vec_soil_n_fertilizer_use_total, 
-                self.modvar_soil_fertuse_final_total
+                self.modvar_soil_fertuse_final_total,
             )
         ]
 
 
 
-        ############################################################
-        #    ADD IN CO2 EMISSIONS FROM LIMING + UREA APPLICATION   #
-        ############################################################
+        ###########################################################
+        #    ADD IN:                                              #
+        #       - CO2 EMISSIONS FROM LIMING + UREA APPLICATION    #
+        #       - FERTILIZER TRADE AND PRODUCTION VARS            #
+        ###########################################################
 
         df_out += self.get_soil_emissions_liming_and_urea(
             vec_soil_area_fertilized,
@@ -13086,6 +13178,10 @@ class AFOLU:
             modvar_fert_mass,
         )
 
+        df_out += self.get_soil_variables_trade(
+            vec_soil_n_fertilizer_use_synthetic,
+            self.modvar_soil_fertuse_final_synthetic,
+        )
         
         return df_out
 
