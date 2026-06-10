@@ -71,7 +71,20 @@ _FIELD_SUBSECTOR_VARIABLE_CODE = "subsector_variable_code"
 _FIELD_VARIABLE = "variable"
 _FIELD_VARIABLE_FIELD = "variable_field"
 
+# keys
+_KEY_ATTRIBUTE = "attribute"
+_KEY_VARIABLE_DEFINITIONS = "variable_definitions"
+
+# variable components
+_PREFIX_ARRAYS = "arr"
+_PREFIX_MODEL_VARIABLES = "modvar"
+_PREFIX_VECTORS = "vec"
+
+
+##  SUBSECTOR-SPECIFIC ATTRIBUTE TABLE FIELDS
+
 # fields in attribute tables--ENFU
+_FIELD_ENFU_AMMONIA_CATEGORY = "Ammonia Fuel Category"
 _FIELD_ENFU_BIOGAS_FUEL_CATEOGRY = "Biogas Fuel Category"
 _FIELD_ENFU_BIOMASS_DEMAND_CATEOGRY = "Biomass Demand Category"
 _FIELD_ENFU_CHARCOAL_FUEL_CATEOGRY = "Charcoal Fuel Category"
@@ -85,14 +98,8 @@ _FIELD_ENFU_WASTE_FUEL_CATEOGRY = "Waste Fuel Category"
 _FIELD_ENTC_AMMONIA_PRODUCTION = "Ammonia Production"
 _FIELD_ENTC_CHARCOAL_PRODUCTION = "Charcoal Production"
 
-# keys
-_KEY_ATTRIBUTE = "attribute"
-_KEY_VARIABLE_DEFINITIONS = "variable_definitions"
-
-# variable components
-_PREFIX_ARRAYS = "arr"
-_PREFIX_MODEL_VARIABLES = "modvar"
-_PREFIX_VECTORS = "vec"
+# fields in attribute tables--IPPU
+_FIELD_IPPU_AMMONIA_CATEGORY = "Ammonia Category"
 
 
 
@@ -1953,6 +1960,9 @@ class ModelAttributes:
             injection_q = True,
         )
 
+        # set a specific category
+        self.field_enfu_ammonia_category = sf.clean_field_names(_FIELD_ENFU_AMMONIA_CATEGORY, )
+
         return None
 
 
@@ -2134,6 +2144,9 @@ class ModelAttributes:
             "emission_factor",
         ]
         self._check_binary_fields(attr, subsec, fields_req_bin)
+
+        # set a specific category
+        self.field_ippu_ammonia_category = sf.clean_field_names(_FIELD_IPPU_AMMONIA_CATEGORY, )
 
         return None
 
