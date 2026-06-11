@@ -7139,25 +7139,25 @@ class EnergyProduction:
         regions: Union[List[str], None] = None,
         tuple_enfu_production_and_demands: Union[Tuple[pd.DataFrame], None] = None
     ) -> pd.DataFrame:
-        """
-        Format the SpecifiedAnnualDemand input table for NemoMod based on 
+        """Format the SpecifiedAnnualDemand input table for NemoMod based on 
             SISEPUEDE configuration parameters, input variables, integrated 
             model outputs, and reference tables.
 
         Function Arguments
         ------------------
-        - df_elec_trajectories: data frame of model variable input trajectories
+        df_elec_trajectories: data frame of model variable input trajectories
 
         Keyword Arguments
         -----------------
-        - attribute_fuel: AttributeTable used for fuels
-        - attribute_time_period: AttributeTable mapping 
-            ModelAttributes.dim_time_period to year. If None, use 
-            ModelAttributes default.
-        - regions: regions to specify. If None, defaults to configuration 
-            regions
-        - tuple_enfu_production_and_demands: optional tuple of energy fuel 
-            demands produced by 
+        attribute_fuel : AttributeTable
+            AttributeTable used for fuels
+        attribute_time_period : AttributeTable
+            AttributeTable mapping ModelAttributes.dim_time_period to year. If 
+            None, use ModelAttributes default.
+        regions : 
+            Regions to specify. If None, defaults to configuration regions
+        tuple_enfu_production_and_demands : Union[Tuple, None]
+            Optional tuple of energy fuel demands produced by 
             self.model_enercons.project_enfu_production_and_demands():
 
             (

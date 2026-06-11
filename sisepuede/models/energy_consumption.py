@@ -326,7 +326,10 @@ class EnergyConsumption:
             * self.integration_variables_non_fgtv
             * self.integration_variables_fgtv
         """
-        # set the integration variables
+
+        ##  SET INTEGRATION VARIABLES
+
+        # standard integration
         list_vars_required_for_integration = [
             self.modvar_agrc_yield,
             self.model_ippu.modvar_ippu_qty_total_production,
@@ -1770,6 +1773,72 @@ class EnergyConsumption:
 
 
 
+    def get_industrial_ammonia_fuel_demand(self,
+        df_neenergy_trajectories: pd.DataFrame,
+    ) -> np.ndarray:
+        """Convert industrial production demands for Ammonia into fuel
+            demands that can be added to project_enfu_production_and_demands()
+        """
+
+        ##  INITIALIZE
+
+        modvar_enfu_ged = self.model_attributes.get_variable(
+            self.modvar_enfu_energy_density_gravimetric,
+        )
+
+        modvar_ippu_prod = self.model_attributes.get_variable(
+            self.model_ippu.modvar_ippu_qty_total_production,
+        )
+
+
+        ##  TRY EXTRACTING
+
+        # gravimetric energy density
+        arr_enfu_ged = self.model_attributes.extract_model_variable(
+            df_neenergy_trajectories,
+            modvar_enfu_ged,
+            expand_to_all_cats = True,
+            return_type = "array_base",
+        )
+        vec_enfu_ged = arr_enfu_ged[:, self.model_ippu.ind_enfu_ammonia].copy()
+
+        # total IPPU production
+        arr_ippu_prod = self.model_attributes.get_optional_or_integrated_standard_variable(
+            df_neenergy_trajectories,
+            modvar_ippu_prod,
+            None,
+            expand_to_all_cats = True,
+            return_type = "array_base",
+        )
+        
+        # if not available, return as 0
+        if arr_ippu_prod is None:
+            vec_out = np.zeros(df_neenergy_trajectories.shape[0], )
+            return vec_out
+
+
+        ##  OTHERWISE, GET AND CONVERT UNITS
+
+        vec_ippu_prod = arr_ippu_prod[1][:, self.model_ippu.ind_ippu_ammonia].copy()
+
+        # convert
+        vec_enfu_ged /= self.model_attributes.get_variable_unit_conversion_factor(
+            modvar_enfu_ged,
+            modvar_ippu_prod,
+            "mass",
+        )
+        vec_enfu_ged *= self.model_attributes.get_scalar(
+            modvar_enfu_ged,
+            return_type = "energy",
+        )
+
+        # convert
+        vec_sad_ammonia = vec_ippu_prod*vec_enfu_ged
+
+        return vec_sad_ammonia
+    
+
+
     def get_inen_dict_fuel_categories_to_fuel_variables(self,
     ) -> Union[Dict[str, Dict[str, 'ModelVariable']], List['ModelVariable']]:
         """
@@ -2179,45 +2248,56 @@ class EnergyConsumption:
     def project_enfu_production_and_demands(self,
         df_neenergy_trajectories: pd.DataFrame,
         attribute_fuel: AttributeTable = None,
-        modvars_energy_demands: list = None,
-        modvars_energy_distribution_demands: list = None,
-        modvar_energy_exports: str = None,
-        modvar_import_fraction: str = None,
-        target_energy_units: str = None
-    ) -> tuple:
-
-        """
-        Project imports, exports, and domestic production demands for fuels. 
+        modvars_energy_demands: Union[List[Union['ModelVariable', str]], None] = None,
+        modvars_energy_distribution_demands: Union[List[Union['ModelVariable', str]], None] = None,
+        modvar_energy_exports: Union[List[Union['ModelVariable', str]], None] = None,
+        modvar_import_fraction: Union[List[Union['ModelVariable', str]], None] = None,
+        target_energy_units: Union[List[Union['ModelVariable', str]], None] = None,
+    ) -> Tuple[np.ndarray]:
+        """Project imports, exports, and domestic production demands for fuels. 
             Returns a tuple of np.ndarrays with the following elements:
 
-            (demands, distribution demands, exports, imports, production)
+            (
 
-        Arrays are returned in order of attribute_fuel.key_values
+                demands, 
+                distribution demands, 
+                exports, 
+                imports, 
+                production,
+            )
 
-        Output units are ModelAttributes.configuration energy units
+        * Arrays are returned in order of attribute_fuel.key_values
+
+        * Output units are ModelAttributes.configuration energy units
 
         Function Arguments
         ------------------
-        - df_neenergy_trajectories: Dataframe of input variables
-        - attribute_fuel: AttributeTable with information on fuels. If None, use 
+        df_neenergy_trajectories : Dataframe
+            Dataframe of input variables
+        attribute_fuel : AttributeTable
+            AttributeTable with information on fuels. If None, use 
             ModelAttributes default.
-        - modvars_energy_demands: list of SISEPUEDE model variables to extract 
-            for use as energy demands. If None, defaults to 
-            EnergyConsumption.modvars_enfu_energy_demands_total
+        
        
         Keyword Arguments
         -----------------
-        - modvars_energy_distribution_demands: list of SISEPUEDE model variables 
-            to extract for use for distribution energy demands. If None, 
-            defaults to 
+        modvars_energy_demands : Union[List['ModelVariable', str], None]
+            List of SISEPUEDE model variables to extract for use as energy 
+            demands. If None, defaults to 
+            EnergyConsumption.modvars_enfu_energy_demands_total
+        modvars_energy_distribution_demands : Union[List['ModelVariable', str], None]
+            List of SISEPUEDE model variables to extract for use for 
+            distribution energy demands. If None, defaults to 
             EnergyConsumption.modvars_enfu_energy_demands_distribution
-        - modvar_energy_exports: SISEPUEDE model variable giving exports. If 
-            None, default to EnergyConsumption.modvar_enfu_exports_fuel
-        - modvar_import_fraction: SISEPUEDE model variable giving the import 
-            fraction. If None, default to 
-            EnergyConsumption.modvar_enfu_frac_fuel_demand_imported
-        - target_energy_units: target energy units to convert output to. If 
-            None, default to ModelAttributes.configuration energy_units.
+        modvar_energy_exports : Union[ModelVariable, str, None]
+            SISEPUEDE model variable giving exports. If None, defaults to 
+            EnergyConsumption.modvar_enfu_exports_fuel
+        modvar_import_fraction : Union[ModelVariable, str, None]
+            SISEPUEDE model variable giving the import fraction. If None, 
+            defaults to EnergyConsumption.modvar_enfu_frac_fuel_demand_imported
+        target_energy_units : 
+            Target energy units to convert output to. If None, default to 
+            ModelAttributes.configuration energy_units.
         """
 
         # initialize some variables
@@ -2228,7 +2308,11 @@ class EnergyConsumption:
         modvar_import_fraction = self.modvar_enfu_frac_fuel_demand_imported if (modvar_import_fraction is None) else modvar_import_fraction
         
         # set energy units out
-        output_energy_units = target_energy_units if (self.model_attributes.get_energy_equivalent(target_energy_units) is not None) else self.model_attributes.configuration.get("energy_units")
+        output_energy_units = (
+            target_energy_units 
+            if self.model_attributes.get_energy_equivalent(target_energy_units) is not None 
+            else self.model_attributes.configuration.get("energy_units")
+        )
 
 
         ##  CALCULATE TOTAL DEMAND
@@ -2241,11 +2325,11 @@ class EnergyConsumption:
 
             energy_units = self.model_attributes.get_variable_characteristic(
                 modvar,
-                self.model_attributes.varchar_str_unit_energy
+                self.model_attributes.varchar_str_unit_energy,
             )
             scalar = self.model_attributes.get_energy_equivalent(
                 energy_units,
-                output_energy_units
+                output_energy_units,
             )
 
             arr_tmp = 0.0
@@ -2268,6 +2352,11 @@ class EnergyConsumption:
             arr_tmp *= scalar
             arr_demands += arr_tmp
             arr_demands_distribution += arr_tmp if (modvar in modvars_energy_distribution_demands) else 0.0
+
+        
+        # get industrial ammonia production demands, including from fertilizer
+        vec_ind_ammonia = self.get_industrial_ammonia_fuel_demand(df_neenergy_trajectories, )
+        arr_demands[:, self.model_ippu.ind_enfu_ammonia] += vec_ind_ammonia
 
 
         ##  CALCULATE IMPORTS, EXPORTS, AND PRODUCTION
