@@ -8,10 +8,10 @@ days_per_year: 365.25
 discount_rate: 0.0
 # set the mass reporting unit for emissions
 emissions_mass: MT
-# set the reporting units for energy demand (kJ, MJ, GJ, PJ, TJ)
+# set the reporting units for energy demand (kJ, MJ, GJ, TJ, PJ, EJ, ZJ)
 energy_units: PJ
-# set the units for energy demands in NemoMod (kJ, MJ, GJ, PJ, TJ) - these should be of reasonable scale to power units to enable good numerical solutions
-energy_units_nemomod: PJ
+# set the units for energy demands in NemoMod (TJ, PJ, EJ) - these should be of reasonable scale to power units to enable good numerical solutions
+energy_units_nemomod: TJ
 # set the global warming potential (20, 100, 500)
 global_warming_potential: 100
 # if back-projecting solid waste, set the number of periods to back project
@@ -29,7 +29,7 @@ monetary_units: mm_usd
 # nemomod solver to use. Acceptable values are: cbc, clp, cplex, gams_cplex, glpk, gurobi, highs (Note: if specifying CPLEX or Gurobi, ensure access to the solver/license)
 nemomod_solver: highs
 # nemomod solver time limit
-nemomod_solver_time_limit_seconds: 900
+nemomod_solver_time_limit_seconds: 30
 # time periods to run for NemoMod. Either 'all' or pipe-delimited values (e.g., 0|1|2|...)
 nemomod_time_periods: all
 # power units in NemoMod and output (MW, GW)

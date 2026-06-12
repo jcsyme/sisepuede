@@ -1220,7 +1220,7 @@ class EnergyProduction:
         vector: list,
         time_period_as_year: bool = None,
         direction: str = "to_nemomod",
-        shift: int = 1000
+        shift: int = 1000,
     ) -> np.ndarray:
         """
         Transform a year field if necessary to ensure that the minimum is 
@@ -1875,35 +1875,44 @@ class EnergyProduction:
         attribute_technology: Union[AttributeTable, None] = None,
         override_time_period_transformation: Union[bool, None] = None
     ) -> pd.DataFrame:
-        """
-        Build costs for dummy techs based on an input price.
+        """Build costs for dummy techs based on an input price.
 
         Function Arguments
         ------------------
-        - price: variable cost to assign to dummy technologies. Should be large 
+        price : Union[int, float]
+            Variable cost to assign to dummy technologies. Should be large 
             relative to other technologies.
-        - cost_type: one of
+        cost_type : str
+            One of
             * "capital": capital cost [t, y, val]
             * "fixed": fixed cost [t, y, val]
             * "variable": variable cost [t, y, mode, val]
 
         Keyword Arguments
         -----------------
-        - attribute_technology: attribute table used to obtain dummy 
-            technologies. If None, use ModelAttributes default.
+        Attribute_technology : Union[AttributeTable, None]
+            Attribute table used to obtain dummy technologies. If None, use 
+            ModelAttributes default.
         """
         # some attribute initializations
         attribute_technology = self.get_attribute_entc(attribute_technology, )
         dict_tech_info = self.get_tech_info_dict(
             attribute_technology = attribute_technology,
         )
-        cost_type = cost_type if (cost_type in ["capital", "fixed", "variable"]) else "variable"
 
+        cost_type = (
+            cost_type 
+            if (cost_type in ["capital", "fixed", "variable"]) 
+            else "variable"
+        )
+
+        # build the output dataframe
         df_out = {
             self.field_nemomod_technology: dict_tech_info.get("all_techs_dummy"),
             self.field_nemomod_value: price
         }
-        df_out.update({self.field_nemomod_mode: self.cat_enmo_gnrt}) if (cost_type == "variable") else None
+        if (cost_type == "variable"): df_out.update({self.field_nemomod_mode: self.cat_enmo_gnrt}) 
+        
         df_out = pd.DataFrame(df_out)
 
         # order and add multifields
@@ -1912,7 +1921,9 @@ class EnergyProduction:
             self.field_nemomod_year,
             self.field_nemomod_value
         ]
-        fields_for_multifield.append(self.field_nemomod_mode) if (cost_type == "variable") else None
+
+        if (cost_type == "variable"): fields_for_multifield.append(self.field_nemomod_mode) 
+        
         df_out = self.add_multifields_from_key_values(
             df_out, 
             fields_for_multifield,
@@ -5177,28 +5188,31 @@ class EnergyProduction:
         flag_dummy_price: Union[int, float] = -999,
         minimum_dummy_price: Union[int, float] = 100,
         regions: Union[List[str], None] = None,
-        tables_with_dummy: List[str] = ["CapitalCost", "FixedCost", "VariableCost"]
+        tables_with_dummy: List[str] = ["CapitalCost", "FixedCost", "VariableCost"],
     ) -> pd.DataFrame:
-        """
-        Format the CapitalCost, FixedCost, and VaribleCost input tables for 
+        """Format the CapitalCost, FixedCost, and VaribleCost input tables for 
             NemoMod based on SISEPUEDE configuration parameters, input 
             variables, integrated model outputs, and reference tables.
 
         Function Arguments
         ------------------
-        - df_elec_trajectories: data frame of model variable input trajectories
+        df_elec_trajectories: DataFrame
+            DataFrame of model variable input trajectories
 
         Keyword Arguments
         -----------------
-        - attribute_fuel: attribute table used for fuels. If None, defaults to 
+        attribute_fuel : Union[AttributeTable, None]
+            Attribute table used for fuels. If None, defaults to 
             self.model_attributes default
-        - flag_dummy_price: initial price to use, which is later replaced. 
-            Should be a large magnitude negative number.
-        - minimum_dummy_price: minimum price for dummy technologies
-        - regions: regions to specify. If None, defaults to configuration 
-            regions
-        - tables_with_dummy: list of tables to include dummy tech costs in. 
-            Acceptable values are:
+        flag_dummy_price : Union[int, float]
+            Initial price to use, which is later replaced. Should be a large 
+            magnitude negative number.
+        minimum_dummy_price : Union[int, float]
+            Minimum price for dummy technologies
+        regions : Union[List[str], None]
+            Regions to specify. If None, defaults to configuration regions
+        tables_with_dummy : List[str]
+            List of tables to include dummy tech costs in. Acceptable values are:
 
             * "CapitalCost"
             * "FixedCost"
@@ -5364,17 +5378,38 @@ class EnergyProduction:
         cats_entc_dummy = list(self.get_dummy_fuel_techs().values())
         cats_no_cost = set(cats_entc_dummy) - set(cats_entc_dummy_with_high_cost)
         
+        
         for table_name in list(dict_return.keys()):
             df_tmp = dict_return.get(table_name)
 
             # set high price relative to other prices & determine where to keep specified costs (vec_high_cost_bool = 0 if it is contained in cats_no_cost)
-            price_high = max(np.round(max(df_tmp[self.field_nemomod_value])*2)*10 + 10, minimum_dummy_price)
-            vec_high_cost_bool = np.array([(x not in cats_no_cost) for x in list(df_tmp[self.field_nemomod_technology])]).astype(int)
-            vals_new = np.array(df_tmp[self.field_nemomod_value].replace({flag_dummy_price: price_high})) * vec_high_cost_bool
+            price_high = max(
+                10 + 2*np.round(
+                    max(df_tmp[self.field_nemomod_value])*2
+                ), 
+                minimum_dummy_price,
+            )
+
+            vec_high_cost_bool = (
+                np.array(
+                    [
+                        (x not in cats_no_cost) 
+                        for x in df_tmp[self.field_nemomod_technology].to_numpy()
+                    ]
+                )
+                .astype(int)
+            )
+
+            vals_new = (
+                np.array(
+                    df_tmp[self.field_nemomod_value]
+                    .replace({flag_dummy_price: price_high, })
+                ) 
+                *vec_high_cost_bool
+            )
             
             df_tmp[self.field_nemomod_value] = vals_new
-
-            dict_return.update({table_name: df_tmp})
+            dict_return.update({table_name: df_tmp, })
         
         return dict_return
 

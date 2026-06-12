@@ -1775,6 +1775,7 @@ class EnergyConsumption:
 
     def get_industrial_ammonia_fuel_demand(self,
         df_neenergy_trajectories: pd.DataFrame,
+        units_energy_specification: Union['ModelVariable', str, None] = None,
     ) -> np.ndarray:
         """Convert industrial production demands for Ammonia into fuel
             demands that can be added to project_enfu_production_and_demands()
@@ -1789,6 +1790,8 @@ class EnergyConsumption:
         modvar_ippu_prod = self.model_attributes.get_variable(
             self.model_ippu.modvar_ippu_qty_total_production,
         )
+
+        units_input_energy = modvar_enfu_ged.attribute("unit_energy", )
 
 
         ##  TRY EXTRACTING
@@ -1827,10 +1830,22 @@ class EnergyConsumption:
             modvar_ippu_prod,
             "mass",
         )
-        vec_enfu_ged *= self.model_attributes.get_scalar(
-            modvar_enfu_ged,
-            return_type = "energy",
+
+        # apply energy scalar
+        scalar_energy = (
+            self.model_attributes.get_unit_equivalent(
+                "energy",
+                units_input_energy,
+                units_energy_specification,
+                None,
+            )
+            if isinstance(units_energy_specification, str)
+            else self.model_attributes.get_scalar(
+                modvar_enfu_ged,
+                return_type = "energy",
+            )
         )
+        vec_enfu_ged *= scalar_energy
 
         # convert
         vec_sad_ammonia = vec_ippu_prod*vec_enfu_ged
@@ -2327,6 +2342,7 @@ class EnergyConsumption:
                 modvar,
                 self.model_attributes.varchar_str_unit_energy,
             )
+
             scalar = self.model_attributes.get_energy_equivalent(
                 energy_units,
                 output_energy_units,
@@ -2355,7 +2371,11 @@ class EnergyConsumption:
 
         
         # get industrial ammonia production demands, including from fertilizer
-        vec_ind_ammonia = self.get_industrial_ammonia_fuel_demand(df_neenergy_trajectories, )
+        vec_ind_ammonia = self.get_industrial_ammonia_fuel_demand(
+            df_neenergy_trajectories,
+            units_energy_specification = target_energy_units,
+        )
+
         arr_demands[:, self.model_ippu.ind_enfu_ammonia] += vec_ind_ammonia
 
 
@@ -2391,10 +2411,19 @@ class EnergyConsumption:
         )
         arr_exports *= scalar
 
-        # get production
+        # estimate production demands (supply)
         arr_production = arr_demands + arr_exports - arr_imports
 
-        return arr_demands, arr_demands_distribution, arr_exports, arr_imports, arr_production
+        # output tuple
+        out = (
+            arr_demands, 
+            arr_demands_distribution, 
+            arr_exports, 
+            arr_imports, 
+            arr_production,
+        )
+
+        return out
 
 
 
