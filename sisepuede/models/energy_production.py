@@ -987,98 +987,83 @@ class EnergyProduction:
             self.model_attributes.subsec_name_enfu,
             stop_on_error = True, 
         )
-        """
-        # Energy Fuel model variables
-        self.modvar_enfu_ef_combustion_co2 = ":math:\\text{CO}_2 Combustion Emission Factor"
-        self.modvar_enfu_ef_combustion_mobile_ch4 = ":math:\\text{CH}_4 Mobile Combustion Emission Factor"
-        self.modvar_enfu_ef_combustion_mobile_n2o = ":math:\\text{N}_2\\text{O} Mobile Combustion Emission Factor"
-        self.modvar_enfu_ef_combustion_stationary_ch4 = ":math:\\text{CH}_4 Stationary Combustion Emission Factor"
-        self.modvar_enfu_ef_combustion_stationary_n2o = ":math:\\text{N}_2\\text{O} Stationary Combustion Emission Factor"
-        self.modvar_enfu_efficiency_factor_industrial_energy = "Average Industrial Energy Fuel Efficiency Factor"
-        self.modvar_enfu_energy_demand_by_fuel_ccsq = "Energy Demand by Fuel in CCSQ"
-        self.modvar_enfu_energy_demand_by_fuel_entc = "Energy Demand by Fuel in Energy Technology"
-        self.modvar_enfu_energy_demand_by_fuel_inen = "Energy Demand by Fuel in Industrial Energy"
-        self.modvar_enfu_energy_demand_by_fuel_scoe = "Energy Demand by Fuel in SCOE"
-        self.modvar_enfu_energy_demand_by_fuel_total = "Total Energy Demand by Fuel"
-        self.modvar_enfu_energy_demand_by_fuel_trns = "Energy Demand by Fuel in Transportation"
-        self.modvar_enfu_energy_density_gravimetric = "Gravimetric Energy Density"
-        self.modvar_enfu_energy_density_volumetric = "Volumetric Energy Density"
-        self.modvar_enfu_exports_fuel = "Fuel Exports"
-        self.modvar_enfu_exports_fuel_adjusted = "Adjusted Fuel Exports"
-        self.modvar_enfu_frac_fuel_demand_imported = "Fraction of Fuel Demand Imported"
-        self.modvar_enfu_imports_fuel = "Fuel Imports"
-        self.modvar_enfu_minimum_frac_fuel_used_for_electricity = "Minimum Fraction of Fuel Used for Electricity Generation"
-        self.modvar_enfu_nemomod_renewable_production_target = "NemoMod REMinProductionTarget"
-        self.modvar_enfu_nemomod_reserve_margin = "NemoMod ReserveMargin"
-        self.modvar_enfu_price_gravimetric = "Gravimetric Fuel Price"
-        self.modvar_enfu_price_thermal = "Thermal Fuel Price"
-        self.modvar_enfu_price_volumetric = "Volumetric Fuel Price"
-        self.modvar_enfu_production_frac_petroleum_refinement = "Petroleum Refinery Production Fraction"
-        self.modvar_enfu_production_frac_natural_gas_processing = "Natural Gas Processing Fraction"
-        self.modvar_enfu_production_fuel = "Fuel Production"
-        self.modvar_enfu_transmission_loss_electricity = "Electrical Transmission Loss"
-        self.modvar_enfu_transmission_loss_frac_electricity = "Electrical Transmission Loss Fraction"
-        self.modvar_enfu_unused_fuel_exported = "Unused Fuel Exported"
-        self.modvar_enfu_value_of_fuel_ccsq = "Value of Fuel Consumed in CCSQ"
-        self.modvar_enfu_value_of_fuel_entc = "Value of Fuel Consumed in Energy Technology"
-        self.modvar_enfu_value_of_fuel_inen = "Value of Fuel Consumed in Industrial Energy"
-        self.modvar_enfu_value_of_fuel_scoe = "Value of Fuel Consumed in SCOE"
-        self.modvar_enfu_value_of_fuel_trns = "Value of Fuel Consumed in Transportation"
-        """
-        # key categories
-        self.cat_enfu_bgas = self.model_attributes.filter_keys_by_attribute(
+        
+        
+        ##  KEY CATEGORIES AND INDICES
+
+        cat_enfu_bgas = self.model_attributes.filter_keys_by_attribute(
             self.subsec_name_enfu, 
             {
                 self.model_attributes.field_enfu_biogas_fuel_category: 1
             }
         )[0]
 
-        self.cat_enfu_bmas = self.model_attributes.filter_keys_by_attribute(
+        cat_enfu_bmas = self.model_attributes.filter_keys_by_attribute(
             self.subsec_name_enfu, 
             {
                 self.model_attributes.field_enfu_biomass_demand_category: 1
             }
         )[0]
 
-        self.cat_enfu_elec = self.model_attributes.filter_keys_by_attribute(
+        cat_enfu_elec = self.model_attributes.filter_keys_by_attribute(
             self.subsec_name_enfu, 
             {
                 self.model_attributes.field_enfu_electricity_demand_category: 1
             }
         )[0]
 
-        self.cat_enfu_hgen = self.model_attributes.filter_keys_by_attribute(
+        cat_enfu_hgen = self.model_attributes.filter_keys_by_attribute(
             self.subsec_name_enfu, 
             {
                 self.model_attributes.field_enfu_hydrogen_fuel_category: 1
             }
         )[0]
 
-        self.cat_enfu_hpwr = self.model_attributes.filter_keys_by_attribute(
+        cat_enfu_hpwr = self.model_attributes.filter_keys_by_attribute(
             self.subsec_name_enfu, 
             {
                 self.model_attributes.field_enfu_hydropower_fuel_category : 1
             }
         )[0]
 
-        self.cat_enfu_wste = self.model_attributes.filter_keys_by_attribute(
+        cat_enfu_wste = self.model_attributes.filter_keys_by_attribute(
             self.subsec_name_enfu, 
             {
                 self.model_attributes.field_enfu_waste_fuel_category: 1
             }
         )[0]
 
+
         # associated indices
-        attr_enfu = self.model_attributes.get_attribute_table(self.subsec_name_enfu)
-        self.ind_enfu_bgas = attr_enfu.get_key_value_index(self.cat_enfu_bgas)
-        self.ind_enfu_elec = attr_enfu.get_key_value_index(self.cat_enfu_elec)
-        self.ind_enfu_hgen = attr_enfu.get_key_value_index(self.cat_enfu_hgen)
-        self.ind_enfu_wste = attr_enfu.get_key_value_index(self.cat_enfu_wste)
+        attr_enfu = self.attr_enfu
+        ind_enfu_bgas = attr_enfu.get_key_value_index(cat_enfu_bgas, )
+        ind_enfu_bmas = attr_enfu.get_key_value_index(cat_enfu_bmas, )
+        ind_enfu_elec = attr_enfu.get_key_value_index(cat_enfu_elec, )
+        ind_enfu_hgen = attr_enfu.get_key_value_index(cat_enfu_hgen, )
+        ind_enfu_hpwr = attr_enfu.get_key_value_index(cat_enfu_hpwr, )
+        ind_enfu_wste = attr_enfu.get_key_value_index(cat_enfu_wste, )
 
         # get pivot dictionary
         tuple_dicts = self.model_enercons.get_enfu_dict_subsectors_to_energy_variables()
+        
+
+
+        ## SET PROPERTIES
+
+        self.cat_enfu_bgas = cat_enfu_bgas
+        self.cat_enfu_bmas = cat_enfu_bmas
+        self.cat_enfu_elec = cat_enfu_elec
+        self.cat_enfu_hgen = cat_enfu_hgen
+        self.cat_enfu_hpwr = cat_enfu_hpwr
+        self.cat_enfu_wste = cat_enfu_wste
         self.dict_enfu_subsectors_to_energy_variables = tuple_dicts[0]
         self.dict_enfu_subsectors_to_unassigned_enfu_variables = tuple_dicts[1]
+        self.ind_enfu_bgas = ind_enfu_bgas
+        self.ind_enfu_bmas = ind_enfu_bmas
+        self.ind_enfu_elec = ind_enfu_elec
+        self.ind_enfu_hgen = ind_enfu_hgen
+        self.ind_enfu_hpwr = ind_enfu_hpwr
+        self.ind_enfu_wste = ind_enfu_wste
 
         return None
 
@@ -1242,7 +1227,11 @@ class EnergyProduction:
         """
 
         sf.check_set_values([direction], ["to_nemomod", "from_nemomod"])
-        time_period_as_year = self.nemomod_time_period_as_year if (time_period_as_year is None) else time_period_as_year
+        time_period_as_year = (
+            self.nemomod_time_period_as_year 
+            if (time_period_as_year is None) 
+            else time_period_as_year
+        )
 
         vector_out = np.array(vector)
         if time_period_as_year:
@@ -1261,25 +1250,28 @@ class EnergyProduction:
 
     def add_index_field_from_key_values(self,
         df_input: pd.DataFrame,
-        index_values: list,
+        index_values: List[str],
         field_index: str,
-        outer_prod: bool = True
+        outer_prod: bool = True,
     ) -> pd.DataFrame:
-        """
-        Add a field (if necessary) to input dataframe if it is missing based on 
-            input index_values.
+        """Add a field (if necessary) to input dataframe if it is missing based 
+            on input index_values.
 
         Function Arguments
         ------------------
-        - df_input: input data frame to modify
-        - index_values: values to expand the data frame along
-        - field_index: new field to add
+        df_input : DataFrame
+            Input data frame to modify
+        index_values : List[str]
+            Values to expand the data frame along
+        field_index : str
+            New field to add
 
         Keyword Arguments
         -----------------
-        - outer_prod: assume data frame is repeated to all regions. If not, 
-            assume that the index values are applied as a column only (must be 
-            one element or of the same length as df_input)
+        outer_prod : bool 
+            True:   Assume data frame is repeated to all regions. 
+            False:  Assume that the index values are applied as a column only 
+                        (must be one element or of the same length as df_input)
         """
 
         field_dummy = "merge_key"
@@ -1293,10 +1285,12 @@ class EnergyProduction:
                 df_merge = pd.DataFrame({field_index: index_values})
                 df_merge[field_dummy] = 0
                 df_input[field_dummy] = 0
+
                 # order columns and do outer product
                 order_cols = list(df_input.columns)
                 df_input = pd.merge(df_input, df_merge, on = field_dummy, how = "outer")
                 df_input = df_input[[field_index] + [x for x in order_cols if (x != field_dummy)]]
+            
             else:
                 # check shape
                 if (len(df_input) == len(index_values)) or (not (isinstance(index_values, list) or isinstance(index_values, np.ndarray))):
@@ -1314,8 +1308,7 @@ class EnergyProduction:
         outer_prod: bool = True,
         restriction_fuels: list = None
     ) -> pd.DataFrame:
-        """
-        Add a fuel field (if necessary) to input dataframe if it is missing. 
+        """Add a fuel field (if necessary) to input dataframe if it is missing. 
             Defaults to all defined fuels, and assumes that the input data frame 
             is repeated across all fuels.
 
@@ -1332,12 +1325,22 @@ class EnergyProduction:
         """
 
         field_fuel = self.field_nemomod_fuel if (field_fuel is None) else field_fuel
-
+        
         # get regions
-        fuels = self.model_attributes.get_attribute_table(self.subsec_name_enfu).key_values
-        fuels = [x for x in fuels if x in restriction_fuels] if (restriction_fuels is not None) else fuels
+        fuels = self.attr_enfu.key_values
+        fuels = (
+            [x for x in fuels if x in restriction_fuels] 
+            if (restriction_fuels is not None) 
+            else fuels
+        )
+        
         # add to output using outer product
-        df_input = self.add_index_field_from_key_values(df_input, fuels, field_fuel, outer_prod = outer_prod)
+        df_input = self.add_index_field_from_key_values(
+            df_input, 
+            fuels, 
+            field_fuel, 
+            outer_prod = outer_prod,
+        )
 
         return df_input
 
@@ -2103,6 +2106,65 @@ class EnergyProduction:
             var_bounds = (0, 1)
         )
         vec_enfu_minimum_fuel_frac_to_elec = vec_enfu_minimum_fuel_frac_to_elec[:, self.ind_enfu_bgas]
+
+        # iterate to add total biogas collected
+        for modvar in modvars_biogas:
+            # retrieve biogas totals
+            tuple_biogas = self.model_attributes.get_optional_or_integrated_standard_variable(
+                df_elec_trajectories,
+                modvar,
+                None,
+                override_vector_for_single_mv_q = True,
+                return_type = "array_base"
+            )
+
+            #
+            if tuple_biogas is None: continue
+            
+            # get mass of waste incinerated,
+            modvar_biogas, array_mass_biogas = tuple_biogas
+            vec_mass_biogas = np.sum(array_mass_biogas, axis = 1)
+
+            # convert units -- first, in terms of mass incinerated, then in terms of energy density
+            vec_enfu_energy_density_cur = vec_enfu_energy_density_gravimetric/self.model_attributes.get_variable_unit_conversion_factor(
+                self.modvar_enfu_energy_density_gravimetric,
+                modvar_biogas,
+                "mass"
+            )
+            vec_enfu_energy_density_cur *= self.get_nemomod_energy_scalar(self.modvar_enfu_energy_density_gravimetric)
+            vec_enfu_total_energy_biogas += vec_enfu_energy_density_cur*vec_mass_biogas
+
+        # get minimum fraction to electricity
+        vec_enfu_minimum_fuel_energy_to_electricity_biogas = vec_enfu_total_energy_biogas*vec_enfu_minimum_fuel_frac_to_elec
+
+        out = (
+            vec_enfu_total_energy_biogas, 
+            vec_enfu_minimum_fuel_energy_to_electricity_biogas,
+        )
+
+        return out
+    
+
+
+    def get_biomass_components(self,
+        df_elec_trajectories: pd.DataFrame
+    ) -> tuple:
+        """Retrieve total biomass used from fuelwood and residue (including
+            bagasse) sources
+
+        Function Arguments
+        ------------------
+        df_elec_trajectories : pd.DataFrame 
+            DataFrame of input variables, which must include livestock manure 
+            management and wastewater treatment sector outputs used to calcualte 
+            emission factors
+        """
+        # initialize of some variables
+        vec_enfu_total_energy_biogas = 0.0
+
+        modvar_const_cr = self.modvar_entc_fuel_constraint_crop_residues
+        modvar_const_fw = self.modvar_entc_fuel_constraint_fuelwood
+
 
         # iterate to add total biogas collected
         for modvar in modvars_biogas:
@@ -4063,6 +4125,7 @@ class EnergyProduction:
 
         #
         if tuple_waso_incineration is not None:
+
             # get mass of waste incinerated,
             modvar_waso_mass_incinerated, array_waso_mass_incinerated = tuple_waso_incineration
             vec_waso_mass_incinerated = np.sum(array_waso_mass_incinerated, axis = 1)
@@ -4097,7 +4160,7 @@ class EnergyProduction:
             vec_enfu_energy_density_gravimetric *= self.get_nemomod_energy_scalar(self.modvar_enfu_energy_density_gravimetric)
             vec_enfu_total_energy_waste = vec_enfu_energy_density_gravimetric*vec_waso_mass_incinerated
 
-            # get minimum fraction to electricity
+            # get minimum energy to electricity
             vec_enfu_minimum_fuel_energy_to_electricity_waste = vec_enfu_total_energy_waste*vec_enfu_minimum_fuel_frac_to_elec
 
 
@@ -4158,7 +4221,7 @@ class EnergyProduction:
         tup_out = (
             vec_enfu_total_energy_waste, 
             vec_enfu_minimum_fuel_energy_to_electricity_waste, 
-            dict_efs
+            dict_efs,
         )
 
         return tup_out
@@ -4179,8 +4242,7 @@ class EnergyProduction:
         scalar_to_nemomod_units: Union[float, None] = 1,
         **kwargs
     ) -> pd.DataFrame:
-        """
-        Format a SISEPUEDE variable as a nemo mod input table.
+        """Format a SISEPUEDE variable as a NEMO input table.
 
         Function Arguments
         ------------------
@@ -4304,11 +4366,13 @@ class EnergyProduction:
     def format_dummy_tech_description_from_fuel(self, 
         fuel: str
     ) -> str:
-        return f"Dummy supply technology for fuel {fuel} -- allows for solutions that would otherwise be infeasible."
+        out = f"""Dummy supply technology for fuel {fuel}:
+            Allows for solutions that would otherwise be infeasible.
+        """
+        return out
 
 
 
-    # defin a function to compare max/min for related constraints
     def verify_min_max_constraint_inputs(self,
         df_max: pd.DataFrame,
         df_min: pd.DataFrame,
@@ -4319,12 +4383,17 @@ class EnergyProduction:
         drop_invalid_comparisons_on_strong: bool = True,
         max_min_distance_scalar: Union[int, float] = 1,
         field_id: str = None,
-        return_passthrough: bool = False
-    ) -> Union[None, dict]:
-        """
-        Verify that a minimum trajectory is less than or equal (weak) or less 
+        return_passthrough: bool = False,
+    ) -> Union[None, Tuple[pd.DataFrame]]:
+        """Verify that a minimum trajectory is less than or equal (weak) or less 
             than (strong) a maximum trajectory. Data frames must have comparable 
             indices.
+
+        If there are conflicts OR return_passthrough == True, returns a tuple of 
+            DataFrames if conflict_resolution_option != "error":
+
+            (df_max, df_min, ) 
+
 
         Function Arguments
         ------------------
@@ -4364,10 +4433,12 @@ class EnergyProduction:
 
         suffix_max = "max"
         suffix_min = "min"
+
         # check for required field
         field_id = self.field_nemomod_id if (field_id is None) else field_id
         sf.check_fields(df_max, [field_id, field_max])
         sf.check_fields(df_min, [field_id, field_min])
+
         # temporary fields
         field_id_max = f"{field_id}_{suffix_max}"
         field_id_min = f"{field_id}_{suffix_min}"
@@ -4377,50 +4448,91 @@ class EnergyProduction:
         fields_shared = [x for x in fields_shared if x not in [field_min, field_max, field_id]]
         fields_max = fields_shared + [field_max]
         fields_min = fields_shared + [field_min]
+
         df_compare = pd.merge(
             df_max[fields_max],
             df_min[fields_min],
             on = fields_shared,
-            suffixes = (f"_{suffix_max}", f"_{suffix_min}")
+            suffixes = (f"_{suffix_max}", f"_{suffix_min}"),
         )
 
         # set fields to use for comparison
         field_maxm = f"{field_max}_{suffix_max}" if (field_max == field_min) else field_max
         field_minm = f"{field_min}_{suffix_min}" if (field_max == field_min) else field_min
-        #
+        
+        # run comparison
         vec_comparison = np.array(df_compare[[field_minm, field_maxm]])
-        w_resolve = np.where(vec_comparison[:, 1] < vec_comparison[:, 0]) if (comparison == "weak") else np.where(vec_comparison[:, 1] <= vec_comparison[:, 0])[0]
+        w_resolve = (
+            np.where(vec_comparison[:, 1] < vec_comparison[:, 0]) 
+            if (comparison == "weak") 
+            else np.where(vec_comparison[:, 1] <= vec_comparison[:, 0])[0]
+        )
+        
+        # case where no conflicts--return None, or passthrough if requested
+        if (len(w_resolve) == 0):
+            out = (
+                (df_max, df_min, ) 
+                if return_passthrough 
+                else None
+            )
 
-        if (len(w_resolve) > 0):
-            if conflict_resolution_option != "error":
-                df_new_vals = df_compare[[field_minm, field_maxm]].apply(
-                    self.conflict_resolution_func_vmmci,
-                    approach = conflict_resolution_option,
-                    max_min_distance_scalar = max_min_distance_scalar,
-                    axis = 1,
-                    raw = True
-                )
-                # some replacements
-                df_max_replace = pd.concat([df_compare[fields_shared], df_new_vals[[field_maxm]]], axis = 1).rename(
-                    columns = {
-                        field_id_max: field_id,
-                        field_maxm: field_max
-                    }
-                )
-                df_min_replace = pd.concat([df_compare[fields_shared], df_new_vals[[field_minm]]], axis = 1).rename(
-                    columns = {
-                        field_id_min: field_id,
-                        field_minm: field_min
-                    }
-                )
-                df_max_out = sf.replace_numerical_column_from_merge(df_max, df_max_replace, field_max)
-                df_min_out = sf.replace_numerical_column_from_merge(df_min, df_min_replace, field_min)
-            else:
-                raise ValueError(f"Error in verify_min_max_constraint_inputs: minimum trajectory meets or exceeds maximum trajectory in at least one row.")
+            return out
+        
 
-            return df_max_out, df_min_out
-        else:
-            return (df_max, df_min) if return_passthrough else None
+        ##  IF CONFLICTS ARE PRESENT, DEAL WITH THEM BASED ON conflict_resolution_option
+
+        if conflict_resolution_option == "error":
+            raise ValueError(f"Error in verify_min_max_constraint_inputs: minimum trajectory meets or exceeds maximum trajectory in at least one row.")
+        
+        # use conflict_resolution_func_vmmci to resolve
+        df_new_vals = (
+            df_compare[[field_minm, field_maxm]]
+            .apply(
+                self.conflict_resolution_func_vmmci,
+                approach = conflict_resolution_option,
+                max_min_distance_scalar = max_min_distance_scalar,
+                axis = 1,
+                raw = True,
+            )
+        )
+
+        # some replacements
+        df_max_replace = (
+            pd.concat(
+                [df_compare[fields_shared], df_new_vals[[field_maxm]]], 
+                axis = 1,
+            )
+            .rename(
+                columns = {
+                    field_id_max: field_id,
+                    field_maxm: field_max
+                }
+            )
+        )
+
+        # replacements for min
+        df_min_replace = (
+            pd.concat(
+                [df_compare[fields_shared], df_new_vals[[field_minm]]], 
+                axis = 1
+            )
+            .rename(
+                columns = {
+                    field_id_min: field_id,
+                    field_minm: field_min
+                }
+            )
+        )
+
+        df_max_out = sf.replace_numerical_column_from_merge(df_max, df_max_replace, field_max)
+        df_min_out = sf.replace_numerical_column_from_merge(df_min, df_min_replace, field_min)
+
+        out = (
+            df_max_out, 
+            df_min_out,
+        )
+
+        return out
 
 
 
@@ -4473,7 +4585,7 @@ class EnergyProduction:
             .reset_index(drop = True)
         )
 
-        dict_out = {self.model_attributes.table_nemomod_emission: df_out}
+        dict_out = {self.model_attributes.table_nemomod_emission: df_out, }
 
         return dict_out
 
@@ -4482,8 +4594,7 @@ class EnergyProduction:
         attribute_fuel: AttributeTable = None,
         dict_rename: dict = None
     ) -> pd.DataFrame:
-        """
-        Format the FUEL dimension table for NemoMod based on SISEPUEDE 
+        """Format the FUEL dimension table for NemoMod based on SISEPUEDE 
             configuration parameters, input variables, integrated model outputs, 
             and reference tables.
 
@@ -5379,6 +5490,7 @@ class EnergyProduction:
         cats_no_cost = set(cats_entc_dummy) - set(cats_entc_dummy_with_high_cost)
         
         
+
         for table_name in list(dict_return.keys()):
             df_tmp = dict_return.get(table_name)
 
@@ -8360,6 +8472,7 @@ class EnergyProduction:
             df_elec_trajectories,
         )
         vec_enfu_min_energy_to_elec_biogas *= arr_entc_efficiencies[:, ind_entc_pp_biogas]
+        
         # get waste supply available
         vec_enfu_total_energy_supply_waste, vec_enfu_min_energy_to_elec_waste, dict_efs = self.get_waste_energy_components(
             df_elec_trajectories,
@@ -8376,12 +8489,14 @@ class EnergyProduction:
             self.field_nemomod_value: vec_enfu_min_energy_to_elec_biogas,
             self.field_nemomod_year: list(df_elec_trajectories[self.model_attributes.dim_time_period])
         })
+
         # waste component
         df_waste = pd.DataFrame({
             self.field_nemomod_technology: cat_entc_pp_waste,
             self.field_nemomod_value: vec_enfu_min_energy_to_elec_waste,
             self.field_nemomod_year: list(df_elec_trajectories[self.model_attributes.dim_time_period])
         })
+
         # concatenate into output data frame
         df_out = pd.concat([df_biogas, df_waste], axis = 0)
         df_out = self.model_attributes.exchange_year_time_period(
@@ -8390,6 +8505,7 @@ class EnergyProduction:
             df_out[self.field_nemomod_year],
             direction = self.direction_exchange_year_time_period
         )
+        
         # add key values
         df_out = self.add_multifields_from_key_values(df_out,
             [
@@ -10805,15 +10921,20 @@ class EnergyProduction:
             )
             add_unused_fuel = False
 
-        # get biogas and waste supply available
-        vec_enfu_total_energy_supply_biogas, vec_enfu_min_energy_to_elec_biogas = self.get_biogas_components(
-            df_elec_trajectories
+
+        ##  GET FUEL SUPPLIES/CONSTRAINTS FROM OTHER PARTS OF THE MODEL
+
+        (
+            vec_enfu_total_energy_supply_biogas, 
+            vec_enfu_min_energy_to_elec_biogas,
+        ) = self.get_biogas_components(
+            df_elec_trajectories,
         )
 
         (
             vec_enfu_total_energy_supply_waste, 
             vec_enfu_min_energy_to_elec_waste, 
-            dict_efs
+            dict_efs,
         ) = self.get_waste_energy_components(
             df_elec_trajectories,
             return_emission_factors = False,
@@ -10827,6 +10948,7 @@ class EnergyProduction:
         # adjust by fuel used?
         vec_used_bgas = 0.0
         vec_used_wste = 0.0
+
         if add_unused_fuel:
             # do units converison
             arr_enfu_fuel_demand_elec *= self.model_attributes.get_variable_unit_conversion_factor(
@@ -10852,7 +10974,11 @@ class EnergyProduction:
 
 
         # concatenate and add subsector emission totals
-        df_out = sf.merge_output_df_list(df_out, self.model_attributes, merge_type = "concatenate")
+        df_out = sf.merge_output_df_list(
+            df_out, 
+            self.model_attributes, 
+            merge_type = "concatenate",
+        )
         self.model_attributes.add_subsector_emissions_aggregates(df_out, [self.subsec_name_entc], False)
 
 

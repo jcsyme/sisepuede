@@ -2468,6 +2468,27 @@ class AFOLU:
             else df_afolu_trajectories[field].to_numpy()
         )
 
+        
+        ##  GET IMPORT/EXPORTS
+
+        # CHECK ON USING 
+        # project_enfu_production_and_demands()
+
+        # needed to 
+        arr_enfu_frac_imports = self.model_attributes.extract_model_variable(
+            df_afolu_trajectories,
+            self.modvar_enfu_frac_fuel_demand_imported,
+            expand_to_all_cats = True,
+            var_bounds = (0, 1),
+        )
+
+        arr_enfu_exports = self.model_attributes.extract_model_variable(
+            df_afolu_trajectories,
+            self.modvar_enfu_exports_fuel,
+            expand_to_all_cats = True,
+            var_bounds = (0, np.inf),
+        )
+
 
         ##  BUILD INPUT FOR EnergyConsumption
 
@@ -2510,19 +2531,34 @@ class AFOLU:
                 .items()
             )
         )
-        # modvars = [
-        #     self.model_enercons.modvar_enfu_energy_demand_by_fuel_ccsq,
-        #     self.model_enercons.modvar_enfu_energy_demand_by_fuel_inen,
-        #     self.model_enercons.modvar_enfu_energy_demand_by_fuel_scoe,
-        #     self.model_enercons.modvar_enfu_energy_demand_by_fuel_trns,
-        # ] 
-
 
         # initialize fuel demands
         dict_demand_out = {}
         vec_fuel_demand_biomass = 0
         vec_fuel_demand_charcoal = 0 #HERE12345
         vec_fuel_demand_electricity = 0
+
+        # get imports and exports
+        arr_enfu_exorts = self.model_attributes.extract_model_variable(#
+            df_energy_cons_out,
+            self.modvar_enfu_exports_fuel,
+            all_cats_missing_val = 0.0,
+            extraction_logic = "all",
+            expand_to_all_cats = True,
+            return_type = "array_base",
+        )
+
+        arr_enfu_import_frac = self.model_attributes.extract_model_variable(#
+            df_energy_cons_out,
+            self.modvar_enfu_frac_fuel_demand_imported,
+            all_cats_missing_val = 0.0,
+            extraction_logic = "all",
+            expand_to_all_cats = True,
+            return_type = "array_base",
+            var_bounds = (0, 1), 
+        )
+        
+        
 
         for subsec_abv, modvar in dict_subsec_to_modvar.items():
             
@@ -2574,7 +2610,7 @@ class AFOLU:
         vec_fuel_demand_biomass_out = vec_fuel_demand_biomass + vec_fuel_demand_biomass_entc
 
         # convert to C and return
-        vec_c_demand = self.convert_fuelwood_to_biomass_c_equivalent(
+        vec_biomass_demand = self.convert_fuelwood_to_biomass_c_equivalent(
             df_afolu_trajectories,
             vec_fuel_demand_biomass_out,
             convert_to_c = convert_to_c,
@@ -2583,7 +2619,7 @@ class AFOLU:
         )
 
         # convert to C and return
-        vec_c_demand_entc = self.convert_fuelwood_to_biomass_c_equivalent(
+        vec_biomass_demand_entc = self.convert_fuelwood_to_biomass_c_equivalent(
             df_afolu_trajectories,
             vec_fuel_demand_biomass_entc,
             convert_to_c = convert_to_c,
@@ -2594,12 +2630,12 @@ class AFOLU:
         # ensure there is a dictionary is in same units as vec_c_demand and 
         # vec_c_demand_entc
         vec_scalars = np.nan_to_num(
-            vec_c_demand/vec_fuel_demand_biomass_out,
+            vec_biomass_demand/vec_fuel_demand_biomass_out,
             nan = 0.0,
             posinf = 0.0,
         )
 
-        dict_c_demand_out = dict(
+        dict_biomass_demand_out = dict(
             (k, v*vec_scalars) for k, v in dict_demand_out.items()
         )
 
@@ -2607,10 +2643,10 @@ class AFOLU:
         ##  RETURN
 
         out = (
-            vec_c_demand,
-            vec_c_demand_entc,
+            vec_biomass_demand,
+            vec_biomass_demand_entc,
             dict_demand_out,
-            dict_c_demand_out,
+            dict_biomass_demand_out,
         )
 
         return out
@@ -4335,7 +4371,7 @@ class AFOLU:
         df_afolu_trajectories: pd.DataFrame,
         ledger: 'BiomassCarbonLedger',
         arr_agrc_rfu_energy: np.ndarray,
-        vec_c_demands_fuel_entc: np.ndarray,
+        vec_biomass_demands_fuel_entc: np.ndarray,
         vec_enfu_ged_biomass: np.ndarray,
     ) -> pd.DataFrame:
         """Using available biomass, adjust ratios in all relevant energy
@@ -4367,7 +4403,7 @@ class AFOLU:
             df_afolu_trajectories, 
             arr_agrc_rfu_energy,
             vec_biomass_scalar_from_bcl,    
-            vec_c_demands_fuel_entc,
+            vec_biomass_demands_fuel_entc,
             vec_enfu_ged_biomass,
         )
 
@@ -4642,7 +4678,7 @@ class AFOLU:
         df_afolu_trajectories: pd.DataFrame,
         arr_agrc_rfu_energy: np.ndarray,
         vec_biomass_scalar_from_bcl: np.ndarray,              
-        vec_c_demands_fuel_entc: np.ndarray,
+        vec_biomass_demands_fuel_entc: np.ndarray,
         vec_enfu_ged_biomass: np.ndarray,
     ) -> pd.DataFrame:
         """Get variables related to biomass use, including:
@@ -4744,7 +4780,7 @@ class AFOLU:
             modvar_fw.spawn_default_dataframe(
                 None, 
                 0.0, 
-                length = vec_c_demands_fuel_entc.shape[0],
+                length = vec_biomass_demands_fuel_entc.shape[0],
             ),
             expand_to_all_categories = True,
             extraction_logic = "any",
@@ -4755,15 +4791,20 @@ class AFOLU:
         vec_frst_c_frac = self.arrays_frst.arr_frst_frac_c_per_dm
 
         # update with expected total and convert to:
-        #   1. Biomass total (is currently c, not biomass)
-        #   2. GED mass (HERE123)
-        vec_energy_fw = vec_c_demands_fuel_entc*vec_biomass_scalar_from_bcl
-        vec_energy_fw *= scalar_bcl_to_ged_to_mass
-        vec_energy_fw = np.nan_to_num(
-            vec_energy_fw/vec_frst_c_frac,
-            nan = 0.0,
-            posinf = 0.0,
+        #   1. GED mass (HERE123)
+        vec_energy_fw = (
+            vec_biomass_demands_fuel_entc
+            *vec_biomass_scalar_from_bcl
+            *scalar_bcl_to_ged_to_mass
         )
+        
+        
+        # X. Biomass total (is currently c, not biomass)
+        # vec_energy_fw = np.nan_to_num(
+        #     vec_energy_fw/vec_frst_c_frac,
+        #     nan = 0.0,
+        #     posinf = 0.0,
+        # )
 
         # convert to energy and update in df
         vec_energy_fw *= arr_ged_enfu[:, self.ind_enfu_biomass]*scalar_ged_to_fw
@@ -5069,13 +5110,12 @@ class AFOLU:
         vec_energy_residues_avail = vec_residues_avail*vec_ged_residues
         vec_fuelwood_mass_equivalent = vec_energy_residues_avail/ged_enfu_biomass_scaled
 
-        #ratio = vec_energy_residues_avail.sum()/vec_fuelwood_mass_equivalent.sum()
-        #print(f"ratio0 = {ratio}")
+        # output
         out = (
             vec_energy_residues_avail,
             vec_fuelwood_mass_equivalent,
         )
-
+        
         return out
     
 

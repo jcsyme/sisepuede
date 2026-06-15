@@ -74,6 +74,7 @@ class EnergyConsumption:
         self.model_attributes = attributes
 
         self._initialize_subsector_names()
+        self._initialize_attribute_tables()
         self._initialize_input_output_components()
 
         # initialize model variables, categories, and fields
@@ -262,7 +263,33 @@ class EnergyConsumption:
         # check values
         list_out = [dict_map.get(x) for x in valid_subsectors_project if (x in list_out) or (dict_map.get(x) in list_out)]
 
-        return list_out
+        return list_out 
+
+
+
+    def _initialize_attribute_tables(self,
+    ) -> None:
+        """Initialize some commonly used attribute tables
+        """
+
+        # get relevant attribute tables
+        attr_enfu = self.model_attributes.get_attribute_table(
+            self.subsec_name_enfu, 
+        )
+
+        # relevant pycats
+        pycat_enfu = self.model_attributes.get_subsector_attribute(
+            self.subsec_name_enfu, 
+            "pycategory_primary_element",
+        )
+
+        
+        ##  SET PROPERTIES
+
+        self.attr_enfu = attr_enfu
+        self.pycat_enfu = pycat_enfu
+
+        return None
 
 
 
@@ -1563,8 +1590,7 @@ class EnergyConsumption:
     def get_fgtv_demands_and_trade(self,
         df_neenergy_trajectories: pd.DataFrame
     ) -> Tuple[pd.DataFrame]:
-        """
-        Fugitive Emissions can be run downstream of all of EnergyConsumption 
+        """Fugitive Emissions can be run downstream of all of EnergyConsumption 
             models OR downstream of EnergyProduction. 
             
             * If run with EnergyProduction, aggregate demands are taken from 
@@ -1963,18 +1989,16 @@ class EnergyConsumption:
 
     def project_energy_consumption_by_fuel_from_effvars(self,
         df_neenergy_trajectories: pd.DataFrame,
-        modvar_consumption: str,
+        modvar_consumption: Union['ModelVariable', str],
         arr_activity: Union[np.ndarray, None],
         arr_elasticity: Union[np.ndarray, None],
         arr_elastic_driver: Union[np.ndarray, None],
-        dict_fuel_fracs: dict,
-        dict_fuel_frac_to_eff: dict = None
+        dict_fuel_fracs: Dict,
+        dict_fuel_frac_to_eff: Union[Dict, None] = None,
     ) -> Tuple[np.ndarray, Dict[str, np.ndarray]]:
-
-        """
-        Project energy consumption--in terms of configuration units for energy--
-            for a consumption variable for each fuel specified as a key in 
-            self.modvar_dict_scoe_fuel_fractions_to_efficiency_factors.
+        """Project energy consumption--in terms of configuration units for 
+            energy--for a consumption variable for each fuel specified as a key 
+            in self.modvar_dict_scoe_fuel_fractions_to_efficiency_factors.
 
         Returns a tuple of the form
 
@@ -1986,28 +2010,34 @@ class EnergyConsumption:
 
         Function Arguments
         ------------------
-        - df_neenergy_trajectories: Dataframe of input variables
-        - modvar_consumption: energy consumption variable, e.g.
+        df_neenergy_trajectories : Dataframe 
+            Dataframe of input variables
+        modvar_consumption : Union['ModelVariable', str]
+            Energy consumption variable, e.g. 
             self.modvar_scoe_consumpinit_energy_per_hh_heat
-        - arr_activity: per unit activity driving demands.
+        arr_activity : Union[np.ndarray, None]
+            Per unit activity driving demands.
             * Specify as None if demands are not per-activity.
-        - arr_elasticity: array of elasticities for each time step in
-            df_neenergy_trajectories.
+        arr_elasticity : Union[np.ndarray, None]
+            Array of elasticities for each time step in df_neenergy_trajectories
                 * Setting to None will mean that specified future demands will
                 be used (often constant).
-        - arr_elastic_driver: the driver of elasticity in energy demands, e.g., 
-            vector of change rates of gdp per capita.
+        arr_elastic_driver : Union[np.ndarray, None]
+            The driver of elasticity in energy demands, e.g., vector of change 
+            rates of gdp per capita.
             * Must be such that 
                 df_neenergy_trajectories.shape[0] = arr_elastic_driver.shape[0] == arr_elasticity.shape[0] - 1.
             * Setting to None will mean that specified future demands will be 
                 used (often constant).
-        - dict_fuel_fracs: dictionary mapping each fuel fraction variable to its 
-            fraction of energy.
+        dict_fuel_fracs : Dict
+            Dictionary mapping each fuel fraction variable to its fraction of 
+            energy.
             * Each key must be a key in dict_fuel_frac_to_eff.
 
         Keyword Arguments
         -----------------
-        - dict_fuel_frac_to_eff: dictionary mapping fuel fraction variable to 
+        dict_fuel_frac_to_eff : Union[Dict, None]
+            Dictionary mapping fuel fraction variable to 
             its associated efficiency variable (SCOE and CCSQ)
         """
 
@@ -2035,25 +2065,25 @@ class EnergyConsumption:
                     dict_fuel_frac_to_eff = self.modvar_dict_ccsq_fuel_fractions_to_efficiency_factors
 
                 else:
-                    msg = f"""
-                    Error in project_energy_consumption_by_fuel_from_effvars: 
+                    msg = f"""Error in project_energy_consumption_by_fuel_from_effvars: 
                     unable to infer dictionary for dict_fuel_frac_to_eff based 
                     on model variable '{modvar_consumption}'.
                     """
+                    
                     raise ValueError(msg)
             else:
-                msg = f"""
-                Invalid model variable '{modvar_consumption}' found in project_energy_consumption_by_fuel_from_effvars: the variable is 
-                undefined.
+                msg = f"""Invalid model variable '{modvar_consumption}' found in 
+                project_energy_consumption_by_fuel_from_effvars: the variable is undefined.
                 """
+
                 raise ValueError(msg)
 
         elif not isinstance(dict_fuel_frac_to_eff, dict):
             tp = str(type(dict_fuel_frac_to_eff))
-            msg = f"""
-            Error in project_energy_consumption_by_fuel_from_effvars: invalid 
-            type '{tp}' specified for dict_fuel_frac_to_eff.
+            msg = f"""Error in project_energy_consumption_by_fuel_from_effvars: 
+            invalid type '{tp}' specified for dict_fuel_frac_to_eff.
             """
+
             raise ValueError(msg)
 
 
@@ -2176,7 +2206,7 @@ class EnergyConsumption:
         """
 
         # initialize some model_attributes objects
-        attr_enfu = self.model_attributes.get_attribute_table(self.subsec_name_enfu)
+        attr_enfu = self.attr_enfu
         return_none = self.model_attributes.get_variable(modvar_demscalar) is None
         return_none |= self.model_attributes.get_variable(modvar_fuel_efficiency) is None
 
@@ -2316,11 +2346,31 @@ class EnergyConsumption:
         """
 
         # initialize some variables
-        attribute_fuel = self.model_attributes.get_attribute_table(self.subsec_name_enfu) if (attribute_fuel is None) else attribute_fuel
-        modvars_energy_demands = self.modvars_enfu_energy_demands_total if (modvars_energy_demands is None) else modvars_energy_demands
-        modvars_energy_distribution_demands = self.modvars_enfu_energy_demands_distribution if (modvars_energy_distribution_demands is None) else modvars_energy_distribution_demands
-        modvar_energy_exports = self.modvar_enfu_exports_fuel if (modvar_energy_exports is None) else modvar_energy_exports
-        modvar_import_fraction = self.modvar_enfu_frac_fuel_demand_imported if (modvar_import_fraction is None) else modvar_import_fraction
+        attribute_fuel = (
+            self.attr_enfu 
+            if not is_attribute_table(attribute_fuel) 
+            else attribute_fuel
+        )
+        modvars_energy_demands = (
+            self.modvars_enfu_energy_demands_total 
+            if (modvars_energy_demands is None) 
+            else modvars_energy_demands
+        )
+        modvars_energy_distribution_demands = (
+            self.modvars_enfu_energy_demands_distribution 
+            if (modvars_energy_distribution_demands is None) 
+            else modvars_energy_distribution_demands
+        )
+        modvar_energy_exports = (
+            self.modvar_enfu_exports_fuel 
+            if (modvar_energy_exports is None) 
+            else modvar_energy_exports
+        )
+        modvar_import_fraction = (
+            self.modvar_enfu_frac_fuel_demand_imported 
+            if (modvar_import_fraction is None) 
+            else modvar_import_fraction
+        )
         
         # set energy units out
         output_energy_units = (
@@ -2485,20 +2535,14 @@ class EnergyConsumption:
             )
 
 
-        ##  CATEGORY AND ATTRIBUTE INITIALIZATION
+        ##  INITIALIZATION
 
-        pycat_enfu = self.model_attributes.get_subsector_attribute(
-            self.subsec_name_enfu, 
-            "pycategory_primary_element",
-        )
-
-        # attribute tables
+        # attribute tables and pycats
         attr_ccsq = self.model_attributes.get_attribute_table(self.subsec_name_ccsq)
-        attr_enfu = self.model_attributes.get_attribute_table(self.subsec_name_enfu)
+        attr_enfu = self.attr_enfu
+        pycat_enfu = self.pycat_enfu
 
-
-        ##  OUTPUT INITIALIZATION
-
+        # output init
         df_out = [df_neenergy_trajectories[self.required_dimensions].copy()]
 
 
@@ -2800,7 +2844,7 @@ class EnergyConsumption:
 
         ## ATTRIBUTE INITIALIZATION
         
-        attr_enfu = self.model_attributes.get_attribute_table(self.subsec_name_enfu)
+        attr_enfu = self.attr_enfu
         attr_fgtv = self.model_attributes.get_attribute_table(self.subsec_name_fgtv)
         attr_inen = self.model_attributes.get_attribute_table(self.subsec_name_inen)
         attr_ippu = self.model_attributes.get_attribute_table(self.subsec_name_ippu)
@@ -3087,7 +3131,7 @@ class EnergyConsumption:
         )
 
         # attribute tables
-        attr_enfu = self.model_attributes.get_attribute_table(self.subsec_name_enfu)
+        attr_enfu = self.attr_enfu
         attr_inen = self.model_attributes.get_attribute_table(self.subsec_name_inen)
         attr_ippu = self.model_attributes.get_attribute_table(self.subsec_name_ippu)
 
@@ -3483,7 +3527,7 @@ class EnergyConsumption:
         )
 
         # attribute tables
-        attr_enfu = self.model_attributes.get_attribute_table(self.subsec_name_enfu)
+        attr_enfu = self.attr_enfu
         attr_scoe = self.model_attributes.get_attribute_table(self.subsec_name_scoe)
 
 
@@ -3914,7 +3958,7 @@ class EnergyConsumption:
         )
 
         # attribute tables
-        attr_enfu = self.model_attributes.get_attribute_table(self.subsec_name_enfu)
+        attr_enfu = self.attr_enfu
         attr_trde = self.model_attributes.get_attribute_table(self.subsec_name_trde)
         attr_trns = self.model_attributes.get_attribute_table(self.subsec_name_trns)
 
@@ -4476,7 +4520,7 @@ class EnergyConsumption:
         ##  CATEGORY AND ATTRIBUTE INITIALIZATION
          
         # attribute tables
-        attr_enfu = self.model_attributes.get_attribute_table(self.subsec_name_enfu)
+        attr_enfu = self.attr_enfu
         attr_trde = self.model_attributes.get_attribute_table(self.subsec_name_trde)
         attr_trns = self.model_attributes.get_attribute_table(self.subsec_name_trns)
 
