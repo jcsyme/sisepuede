@@ -2479,6 +2479,7 @@ class AFOLU:
             df_afolu_trajectories,
             self.modvar_enfu_frac_fuel_demand_imported,
             expand_to_all_cats = True,
+            return_type = "array_base",
             var_bounds = (0, 1),
         )
 
@@ -2486,6 +2487,7 @@ class AFOLU:
             df_afolu_trajectories,
             self.modvar_enfu_exports_fuel,
             expand_to_all_cats = True,
+            return_type = "array_base",
             var_bounds = (0, np.inf),
         )
 
@@ -2537,27 +2539,6 @@ class AFOLU:
         vec_fuel_demand_biomass = 0
         vec_fuel_demand_charcoal = 0 #HERE12345
         vec_fuel_demand_electricity = 0
-
-        # get imports and exports
-        arr_enfu_exorts = self.model_attributes.extract_model_variable(#
-            df_energy_cons_out,
-            self.modvar_enfu_exports_fuel,
-            all_cats_missing_val = 0.0,
-            extraction_logic = "all",
-            expand_to_all_cats = True,
-            return_type = "array_base",
-        )
-
-        arr_enfu_import_frac = self.model_attributes.extract_model_variable(#
-            df_energy_cons_out,
-            self.modvar_enfu_frac_fuel_demand_imported,
-            all_cats_missing_val = 0.0,
-            extraction_logic = "all",
-            expand_to_all_cats = True,
-            return_type = "array_base",
-            var_bounds = (0, 1), 
-        )
-        
         
 
         for subsec_abv, modvar in dict_subsec_to_modvar.items():
@@ -2586,13 +2567,38 @@ class AFOLU:
             )
             
             # add biomass and charcoal demands
-            vec_fuel_demand_biomass += arr_fuel_demand[:, ind_enfu_biomass]
-            vec_fuel_demand_biomass += arr_fuel_demand[:, ind_enfu_charcoal]*vec_iar
-            vec_fuel_demand_electricity += arr_fuel_demand[:, ind_enfu_electricity]
+            vec_fuel_demand_biomass += (
+                arr_fuel_demand[:, ind_enfu_biomass]
+                *(1 - arr_enfu_import_frac[:, ind_enfu_biomass])
+            )
+            vec_fuel_demand_biomass += (
+                arr_fuel_demand[:, ind_enfu_charcoal]
+                *vec_iar
+                *(1 - arr_enfu_import_frac[:, ind_enfu_charcoal])
+            )
+            vec_fuel_demand_electricity += (
+                arr_fuel_demand[:, ind_enfu_electricity]
+                *(1 - arr_enfu_import_frac[:, ind_enfu_electricity])
+            )
 
             # add to output dictionary
             dict_demand_out.update({subsec: vec_fuel_demand_biomass, })
     
+
+        ##  ADD EXPORTS
+
+        arr_enfu_exports *= self.model_attributes.get_scalar(
+            self.modvar_enfu_exports_fuel,
+            "energy",
+        )
+
+        # add to vars
+        vec_fuel_demand_biomass += (
+            arr_enfu_exports[:, ind_enfu_biomass]
+            + arr_enfu_exports[:, ind_enfu_charcoal]*vec_iar
+        )
+        vec_fuel_demand_electricity += arr_enfu_exports[:, ind_enfu_electricity]
+
 
         ##  NEXT, GET ENTC AND DO CONVERSIONS
 
