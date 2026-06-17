@@ -2475,9 +2475,9 @@ class AFOLU:
         # project_enfu_production_and_demands()
 
         # needed to 
-        arr_enfu_frac_imports = self.model_attributes.extract_model_variable(
+        arr_enfu_import_frac = self.model_attributes.extract_model_variable(
             df_afolu_trajectories,
-            self.modvar_enfu_frac_fuel_demand_imported,
+            self.model_enercons.modvar_enfu_frac_fuel_demand_imported,
             expand_to_all_cats = True,
             return_type = "array_base",
             var_bounds = (0, 1),
@@ -2485,7 +2485,7 @@ class AFOLU:
 
         arr_enfu_exports = self.model_attributes.extract_model_variable(
             df_afolu_trajectories,
-            self.modvar_enfu_exports_fuel,
+            self.model_enercons.modvar_enfu_exports_fuel,
             expand_to_all_cats = True,
             return_type = "array_base",
             var_bounds = (0, np.inf),
@@ -2539,7 +2539,6 @@ class AFOLU:
         vec_fuel_demand_biomass = 0
         vec_fuel_demand_charcoal = 0 #HERE12345
         vec_fuel_demand_electricity = 0
-        
 
         for subsec_abv, modvar in dict_subsec_to_modvar.items():
             
@@ -2585,10 +2584,12 @@ class AFOLU:
             dict_demand_out.update({subsec: vec_fuel_demand_biomass, })
     
 
+        
+
         ##  ADD EXPORTS
 
         arr_enfu_exports *= self.model_attributes.get_scalar(
-            self.modvar_enfu_exports_fuel,
+            self.model_enercons.modvar_enfu_exports_fuel,
             "energy",
         )
 
@@ -2614,7 +2615,7 @@ class AFOLU:
 
         # get biomass demand and return if not converting to C
         vec_fuel_demand_biomass_out = vec_fuel_demand_biomass + vec_fuel_demand_biomass_entc
-
+        
         # convert to C and return
         vec_biomass_demand = self.convert_fuelwood_to_biomass_c_equivalent(
             df_afolu_trajectories,
@@ -4404,7 +4405,7 @@ class AFOLU:
             )
         )
 
-        # (2) biomass fuel availability constraints to pass to EnergyProduction
+        # (2) biomass fuel availability constraints to pass to EnergyProduction and average combustion factors
         df_out += self.get_bcl_biomass_energy_availability_variables(
             df_afolu_trajectories, 
             arr_agrc_rfu_energy,
@@ -4823,6 +4824,15 @@ class AFOLU:
                 modvar_fw,
                 reduce_from_all_cats_to_specified_cats = True,
             )
+        )
+
+
+        ##  ADD AVERAGE COMBUSTION FACTORS
+
+        df_out += self.get_ilu_avg_biomass_energy_emission_factors(
+            df_afolu_trajectories,
+            arr_fill_cr[:, ind_entc_biomass],
+            arr_fill_fw[:, ind_entc_biomass],
         )
 
         return df_out
@@ -7022,6 +7032,198 @@ class AFOLU:
             dict_out.update({cat: arr, })
 
         return dict_out
+
+
+
+    def get_ilu_avg_biomass_energy_emission_factors(self,
+        df_afolu_trajectories: pd.DataFrame,
+        vec_cr_energy: np.ndarray,
+        vec_fw_energy: np.ndarray,
+    ) -> pd.DataFrame:
+        """Get emission factors to pass. Produces two variables:
+            
+        * modvar_enfu_ef_combustion_co2
+            - overwrite CO2 emission factor for biomass in other sectors
+        * modvar_entc_ef_combustion_co2_biomass_integrated  
+            - integrated average CO2 emissions from biomass in ENTC
+
+
+        Methodological Notes
+        --------------------
+        Residue factors as being per mass of dry matter (excl. H2O mass)
+            Okello et al. (2013, 
+            http://dx.doi.org/10.1016/j.biombioe.2013.06.003) in Table 1 
+            demonstrate calculations of energy density (and available) of 
+            residues using dry matter
+        
+        Function Arguments
+        ------------------
+        df_afolu_trajectories : DataFrame
+            DataFrame storing input trajectories
+        vec_cr_energy : DataFrame
+            Vector storing energy constraint availability for crop residues (in 
+            terms of modvar_entc_fuel_constraint_crop_residues)
+        vec_fw_energy : DataFrame
+            Vector storing energy constraint availability for fuelwood (in terms 
+            of modvar_entc_fuel_constraint_fuelwood)
+        """
+        ##  GET MODEL VARIABLES
+
+        matt = self.model_attributes
+
+        # fuel constraint for residues and fuelwood
+        modvar_cr = matt.get_variable(
+            self.modvar_entc_fuel_constraint_crop_residues,
+        )
+        modvar_fw = matt.get_variable(
+            self.modvar_entc_fuel_constraint_fuelwood,
+        )
+
+        # emission factor vars
+        modvar_enfu_ef_avg = matt.get_variable(
+            self.model_enercons.modvar_enfu_ef_combustion_co2,
+        )
+        modvar_entc_ef_avg = matt.get_variable(
+            self.modvar_entc_ef_combustion_co2_biomass_integrated,
+        )
+
+        # gravimetric energy densities
+        modvar_agrc_ged = matt.get_variable(self.modvar_agrc_ged_residues, )
+        modvar_enfu_ged = matt.get_variable(
+            self.model_enercons.modvar_enfu_energy_density_gravimetric,
+        )
+
+        # carbon fraction dry matter
+        vec_frst_frac_c_dm = self.arrays_frst.arr_frst_frac_c_per_dm
+
+
+        ##  GET RESIDUE ESTIMATES
+
+        # average ged residues in terms of modvar_agrc_ged_residues
+        vec_agrc_avg_ged_residues = np.nan_to_num(
+            (
+                self.arrays_agrc.arr_agrc_residue_final_use_energy
+                *self.arrays_agrc.arr_agrc_ged_residues
+            )
+            .sum(axis = 1, )
+            /self.arrays_agrc.arr_agrc_residue_final_use_energy.sum(axis = 1, ),
+            nan = 0.0,
+            posinf = 0.0,
+        )
+
+        # average C per mass of dry matter/ Energy/Mass => Mass C/unit Energy
+        # convert to appropriate units (modvar_entc_ef_avg)
+        vec_ef_avg_cr = (
+            self.factor_c_to_co2
+            *np.nan_to_num(
+                vec_frst_frac_c_dm/vec_agrc_avg_ged_residues,  # 0.47/(15 mj/tonne) -> 0.47 tonne C /15 mj
+                nan = 0,
+                posinf = 0,
+            )
+            *self.model_attributes.get_variable_unit_conversion_factor(
+                modvar_agrc_ged, 
+                modvar_entc_ef_avg, 
+                "mass",
+            )
+            /self.model_attributes.get_variable_unit_conversion_factor(
+                modvar_agrc_ged, 
+                modvar_entc_ef_avg, 
+                "energy",
+            )
+        )
+
+
+        ##  FUELWOOD ESTIMATE
+
+        # 
+        vec_enfu_avg_ged_biomass = modvar_enfu_ged.get_from_dataframe(
+            df_afolu_trajectories,
+            expand_to_all_categories = True,
+            return_type = "array",
+        )[:, self.ind_enfu_biomass]
+
+        # average C per mass of dry matter/ Energy/Mass => Mass C/unit Energy
+        # convert to appropriate units (modvar_entc_ef_avg)
+        vec_ef_avg_fw = (
+            self.factor_c_to_co2
+            *np.nan_to_num(
+                vec_frst_frac_c_dm/vec_enfu_avg_ged_biomass,  # 0.47/(15 mj/tonne) -> 0.47 tonne C /15 mj
+                nan = 0,
+                posinf = 0,
+            )
+            *self.model_attributes.get_variable_unit_conversion_factor(
+                modvar_enfu_ged, 
+                modvar_entc_ef_avg, 
+                "mass",
+            )
+            /self.model_attributes.get_variable_unit_conversion_factor(
+                modvar_enfu_ged, 
+                modvar_entc_ef_avg, 
+                "energy",
+            )
+        )
+
+
+        ##  GET MIX OF CR/FW FOR ENTC COMBUSTION FACTOR (reporting)
+
+        vec_cr_energy_comp = (
+            vec_cr_energy
+            *self.model_attributes.get_variable_unit_conversion_factor(
+                modvar_cr, 
+                modvar_fw, 
+                "energy",
+            )
+        )
+
+        vec_energy_total = vec_cr_energy_comp + vec_fw_energy
+        vec_entc_ef_avg = (vec_ef_avg_cr*vec_cr_energy_comp + vec_ef_avg_fw*vec_fw_energy)/vec_energy_total
+
+        # set to reduce from dataframe
+        arr_entc_ef_avg = modvar_entc_ef_avg.get_from_dataframe(
+            modvar_entc_ef_avg.spawn_default_dataframe(
+                length = df_afolu_trajectories.shape[0],
+            ),
+            expand_to_all_categories = True,
+            return_type = "array",
+        )
+
+        _, ind_entc_bmass = self.get_ind_entc_pp_biomass()
+        arr_entc_ef_avg[:, ind_entc_bmass] = vec_entc_ef_avg
+         
+
+        df_out = [
+            self.model_attributes.array_to_df(
+                arr_entc_ef_avg,
+                modvar_entc_ef_avg,
+                reduce_from_all_cats_to_specified_cats = True,
+            )
+        ]
+
+
+        ##  ADD OUTPUT FOR COMBUSTION FACTOR FOR 
+
+        vec_ef_avg_fw *= (
+            self.model_attributes.get_variable_unit_conversion_factor(
+                modvar_entc_ef_avg, 
+                modvar_enfu_ef_avg,
+                "mass",
+            )
+            /self.model_attributes.get_variable_unit_conversion_factor(
+                modvar_entc_ef_avg, 
+                modvar_enfu_ef_avg, 
+                "energy",
+            )
+        )
+
+        # build the dataframe and add to output DataFrame list
+        df_enfu_ef = modvar_enfu_ef_avg.build_fields(
+            category_restrictions = self.cat_enfu_biomass,
+        )
+        df_enfu_ef = pd.DataFrame({df_enfu_ef: vec_ef_avg_fw, })
+
+        df_out += [df_enfu_ef]
+
+        return df_out
 
 
 
