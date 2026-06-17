@@ -28,11 +28,14 @@ import sisepuede.utilities._toolbox as sf
 #    SET SOME GLOBAL VARIABLES    #
 ###################################
 
+# config keys
+_KEY_CONFIG_NEMO_SOLVER_TIME_LIMIT = "nemomod_solver_time_limit_seconds"
+_KEY_CONFIG_NEMO_UNITS_ENERGY = "energy_units_nemomod"
+_KEY_CONFIG_UNITS_ENERGY = "energy_units"
+_KEY_CONFIG_UNITS_POWER = "power_units"
+
 # module uuid
 _MODULE_UUID = "AC7DB39D-5093-46D9-9C64-9BF703C8E47C"  
-
-# prefixes
-_PREFIX_ATTRIBUTE_ENTC_ELEC_GEN = "electricity_generation"
 
 # solver options
 _SOLVER_OPTION_HIGHS_USER_BOUND_SCALE = "user_bound_scale"
@@ -113,7 +116,6 @@ class EnergyProduction:
 
         # initialize names and shared fields
         self._initialize_subsector_names()
-        self._initialize_attribute_tables()
         self._initialize_nemomod_fields()
         self._initialize_input_output_components()
         self._initialize_other_properties(
@@ -121,8 +123,6 @@ class EnergyProduction:
         )
 
         # initialize subsectoral model variables, categories, and indices
-        #    - _initialize_subsector_vars_enfu() depends on _initialize_models()
-        self._initialize_models()
         self._initialize_subsector_vars_enfu()
         self._initialize_subsector_vars_entc()
         self._initialize_subsector_vars_enst()
@@ -133,6 +133,7 @@ class EnergyProduction:
         self._initialize_nemomod_reference_dict(nemomod_reference_files)
 
         # finally, initialize models, set integrated variables/field map dictionaries and initialize julia
+        self._initialize_models()
         self._initialize_integrated_variables()
         self._initialize_julia(dir_jl, initialize_julia = initialize_julia)
         
@@ -263,7 +264,7 @@ class EnergyProduction:
         dict_out = self.model_attributes.assign_keys_from_attribute_fields(
             self.model_attributes.subsec_name_entc,
             "abbreviation_subsector",
-            {
+            { 
                 "NemoMod :math:\\text{CH}_4 Emissions from Electricity Generation": "emissions_ch4",
                 "NemoMod :math:\\text{CO}_2 Emissions from Electricity Generation": "emissions_co2",
                 "NemoMod :math:\\text{N}_2\\text{O} Emissions from Electricity Generation": "emissions_n2o"
@@ -271,44 +272,36 @@ class EnergyProduction:
         )
 
         return dict_out
-        
-
     
-    def _initialize_attribute_tables(self,
-    ) -> None:
-        """Initialize some commonly used attribute tables
+
+
+    def get_units_energy(self,
+    ) -> str:
+        """Rerieve energy units for reporting
         """
-
-        # get relevant attribute tables
-        attr_enfu = self.model_attributes.get_attribute_table(self.subsec_name_enfu, )
-        attr_enst = self.model_attributes.get_attribute_table(self.subsec_name_enst, )
-        attr_entc = self.model_attributes.get_attribute_table(self.subsec_name_entc, )
+        out = self.model_attributes.configuration.get(_KEY_CONFIG_UNITS_ENERGY, )
         
-        # relevant pycats
-        pycat_enfu = self.model_attributes.get_subsector_attribute(
-            self.subsec_name_enfu, 
-            "pycategory_primary_element"
-        )
-        pycat_enst = self.model_attributes.get_subsector_attribute(
-            self.subsec_name_enst, 
-            "pycategory_primary_element"
-        )
-        pycat_entc = self.model_attributes.get_subsector_attribute(
-            self.subsec_name_entc, 
-            "pycategory_primary_element"
-        )
+        return out
+     
 
+
+    def get_units_energy_nemo(self,
+    ) -> str:
+        """Rerieve the nemomod energy units
+        """
+        out = self.model_attributes.configuration.get(_KEY_CONFIG_NEMO_UNITS_ENERGY, )
         
-        ##  SET PROPERTIES
+        return out
+    
 
-        self.attr_enfu = attr_enfu
-        self.attr_enst = attr_enst
-        self.attr_entc = attr_entc
-        self.pycat_enfu = pycat_enfu
-        self.pycat_enst = pycat_enst
-        self.pycat_entc = pycat_entc
 
-        return None
+    def get_units_power(self,
+    ) -> str:
+        """Rerieve power units for reporting
+        """
+        out = self.model_attributes.configuration.get(_KEY_CONFIG_UNITS_POWER, )
+        
+        return out
     
 
 
@@ -321,13 +314,13 @@ class EnergyProduction:
             * self.dict_tables_required_to_required_fields
             * self.required_reference_tables
         """
-
+        
         self.dict_tables_required_to_required_fields = {
-            "AvailabilityFactor": [
+            self.model_attributes.table_nemomod_availability_factor: [
                 self.field_nemomod_region,
                 self.field_nemomod_time_slice
             ],
-            "SpecifiedDemandProfile": [
+            self.model_attributes.table_nemomod_specified_demand_profile: [
                 self.field_nemomod_region,
                 self.field_nemomod_time_slice,
                 self.field_nemomod_value
@@ -413,13 +406,8 @@ class EnergyProduction:
             self.modvar_enfu_energy_demand_by_fuel_ccsq,
             self.modvar_enfu_energy_demand_by_fuel_inen,
             self.modvar_enfu_energy_demand_by_fuel_scoe,
-            self.modvar_enfu_energy_demand_by_fuel_trns,
-            # Energy Technology variables from AFOLU
-            self.modvar_entc_fuel_constraint_crop_residues,
-            self.modvar_entc_fuel_constraint_fuelwood
+            self.modvar_enfu_energy_demand_by_fuel_trns
         ]
-
-        
 
         # in Electricity, update required variables
         for modvar in self.integration_variables:
@@ -438,51 +426,9 @@ class EnergyProduction:
     ) -> None:
         """Initialize the julia environment
         """
-
         # ensure that the environment that includes juliapkg.json is set, then import
         os.environ["PYTHON_JULIAPKG_PROJECT"] = self.dir_jl
         import juliapkg
-
-        """
-        # build configuration elements here
-        juliapkg.require_julia("1.10.4")
-
-        dict_packages = {
-            "Cbc": "9961bab8-2fa3-5c5a-9d89-47fab24efd76",
-            "Clp": "e2554f3b-3117-50c0-817c-e040a3ddf72d",
-            "DataFrames": "a93c6f00-e57d-5684-b7b6-d8193f3e46c0",
-            "GLPK": "60bf3e95-4087-53dc-ae20-288a0d20c6a6",
-            "HiGHS": "87dc4568-4c63-4d18-b0c0-bb2238e4078b",
-            "Ipopt": "b6b21f68-93f8-5de0-b562-5493be1d77c9",
-            "JuMP": "4076af6c-e467-56ae-b986-b466b2749572",
-            "NemoMod": {
-                "uuid": "a3c327a0-d2f0-11e8-37fd-d12fd35c3c72",
-                "url": "https://github.com/sei-international/NemoMod.jl.git",
-                "rev": "61e63e0",
-            },
-            "SQLite": "0aa819cd-b072-5ff4-a722-6bc24af294d9",
-        }
-
-
-        # iterate over dictionary elements to add
-        for k, v in dict_packages.items():
-            
-            dict_kwargs = {}
-
-            if isinstance(v, dict):
-                dict_kwargs = dict(
-                    (k, v) for (k, v) in v.items() if (k != "uuid")
-                )
-
-                v = v.get("uuid")
-                if v is None:
-                    continue
-
-            juliapkg.add(
-                k, v, **dict_kwargs
-            )
-        """
-
         return None
 
 
@@ -638,7 +584,11 @@ class EnergyProduction:
             to self.model_attributes.
         """
 
-        model_attributes = self.model_attributes if (model_attributes is None) else model_attributes
+        model_attributes = (
+            self.model_attributes 
+            if not is_model_attributes(model_attributes)
+            else model_attributes
+        )
         
         self.model_afolu = AFOLU(self.model_attributes)
         self.model_circecon = CircularEconomy(self.model_attributes)
@@ -783,7 +733,7 @@ class EnergyProduction:
         attr_region = self.model_attributes.get_other_attribute_table(
             self.model_attributes.dim_region
         )
-        attr_technology = self.attr_entc
+        attr_technology = self.model_attributes.get_attribute_table(self.subsec_name_entc)
         attr_time_slice = self.model_attributes.get_other_attribute_table("time_slice")
 
         # attribute derivatives
@@ -922,11 +872,12 @@ class EnergyProduction:
         # set the runtime limit
         solver_time_limit = (
             max(solver_time_limit, 15) 
-            if isinstance(solver_time_limit, int) 
+            if sf.isnumber(solver_time_limit, integer = True, ) 
             else solver_time_limit
         )
+        
         self.solver_time_limit = (
-            self.model_attributes.configuration.get("nemomod_solver_time_limit_seconds")
+            self.model_attributes.configuration.get(_KEY_CONFIG_NEMO_SOLVER_TIME_LIMIT, )
             if not isinstance(solver_time_limit, int)
             else solver_time_limit
         )
@@ -941,7 +892,7 @@ class EnergyProduction:
         )
         self.include_supply_techs_for_all_fuels = include_supply_techs_for_all_fuels
         self.is_sisepuede_model_fuel_production = True
-        self.units_energy_nemomod = self.model_attributes.configuration.get("energy_units_nemomod")
+        self.units_energy_nemomod = self.get_units_energy_nemo(),
 
         return None
 
@@ -981,89 +932,104 @@ class EnergyProduction:
             * self.modvar_enfu_****
         """
 
-        # Energy Fuel model variables
         self.model_attributes.assign_subsector_variable_names_from_varcodes(
             self,
             self.model_attributes.subsec_name_enfu,
             stop_on_error = True, 
         )
-        
-        
-        ##  KEY CATEGORIES AND INDICES
+        """
+        # Energy Fuel model variables
+        self.modvar_enfu_ef_combustion_co2 = ":math:\\text{CO}_2 Combustion Emission Factor"
+        self.modvar_enfu_ef_combustion_mobile_ch4 = ":math:\\text{CH}_4 Mobile Combustion Emission Factor"
+        self.modvar_enfu_ef_combustion_mobile_n2o = ":math:\\text{N}_2\\text{O} Mobile Combustion Emission Factor"
+        self.modvar_enfu_ef_combustion_stationary_ch4 = ":math:\\text{CH}_4 Stationary Combustion Emission Factor"
+        self.modvar_enfu_ef_combustion_stationary_n2o = ":math:\\text{N}_2\\text{O} Stationary Combustion Emission Factor"
+        self.modvar_enfu_efficiency_factor_industrial_energy = "Average Industrial Energy Fuel Efficiency Factor"
+        self.modvar_enfu_energy_demand_by_fuel_ccsq = "Energy Demand by Fuel in CCSQ"
+        self.modvar_enfu_energy_demand_by_fuel_entc = "Energy Demand by Fuel in Energy Technology"
+        self.modvar_enfu_energy_demand_by_fuel_inen = "Energy Demand by Fuel in Industrial Energy"
+        self.modvar_enfu_energy_demand_by_fuel_scoe = "Energy Demand by Fuel in SCOE"
+        self.modvar_enfu_energy_demand_by_fuel_total = "Total Energy Demand by Fuel"
+        self.modvar_enfu_energy_demand_by_fuel_trns = "Energy Demand by Fuel in Transportation"
+        self.modvar_enfu_energy_density_gravimetric = "Gravimetric Energy Density"
+        self.modvar_enfu_energy_density_volumetric = "Volumetric Energy Density"
+        self.modvar_enfu_exports_fuel = "Fuel Exports"
+        self.modvar_enfu_exports_fuel_adjusted = "Adjusted Fuel Exports"
+        self.modvar_enfu_frac_fuel_demand_imported = "Fraction of Fuel Demand Imported"
+        self.modvar_enfu_imports_fuel = "Fuel Imports"
+        self.modvar_enfu_minimum_frac_fuel_used_for_electricity = "Minimum Fraction of Fuel Used for Electricity Generation"
+        self.modvar_enfu_nemomod_renewable_production_target = "NemoMod REMinProductionTarget"
+        self.modvar_enfu_nemomod_reserve_margin = "NemoMod ReserveMargin"
+        self.modvar_enfu_price_gravimetric = "Gravimetric Fuel Price"
+        self.modvar_enfu_price_thermal = "Thermal Fuel Price"
+        self.modvar_enfu_price_volumetric = "Volumetric Fuel Price"
+        self.modvar_enfu_production_frac_petroleum_refinement = "Petroleum Refinery Production Fraction"
+        self.modvar_enfu_production_frac_natural_gas_processing = "Natural Gas Processing Fraction"
+        self.modvar_enfu_production_fuel = "Fuel Production"
+        self.modvar_enfu_transmission_loss_electricity = "Electrical Transmission Loss"
+        self.modvar_enfu_transmission_loss_frac_electricity = "Electrical Transmission Loss Fraction"
+        self.modvar_enfu_unused_fuel_exported = "Unused Fuel Exported"
+        self.modvar_enfu_value_of_fuel_ccsq = "Value of Fuel Consumed in CCSQ"
+        self.modvar_enfu_value_of_fuel_entc = "Value of Fuel Consumed in Energy Technology"
+        self.modvar_enfu_value_of_fuel_inen = "Value of Fuel Consumed in Industrial Energy"
+        self.modvar_enfu_value_of_fuel_scoe = "Value of Fuel Consumed in SCOE"
+        self.modvar_enfu_value_of_fuel_trns = "Value of Fuel Consumed in Transportation"
+        """
 
-        cat_enfu_bgas = self.model_attributes.filter_keys_by_attribute(
+        # key categories
+        self.cat_enfu_bgas = self.model_attributes.filter_keys_by_attribute(
             self.subsec_name_enfu, 
             {
                 self.model_attributes.field_enfu_biogas_fuel_category: 1
             }
         )[0]
 
-        cat_enfu_bmas = self.model_attributes.filter_keys_by_attribute(
+        self.cat_enfu_bmas = self.model_attributes.filter_keys_by_attribute(
             self.subsec_name_enfu, 
             {
                 self.model_attributes.field_enfu_biomass_demand_category: 1
             }
         )[0]
 
-        cat_enfu_elec = self.model_attributes.filter_keys_by_attribute(
+        self.cat_enfu_elec = self.model_attributes.filter_keys_by_attribute(
             self.subsec_name_enfu, 
             {
                 self.model_attributes.field_enfu_electricity_demand_category: 1
             }
         )[0]
 
-        cat_enfu_hgen = self.model_attributes.filter_keys_by_attribute(
+        self.cat_enfu_hgen = self.model_attributes.filter_keys_by_attribute(
             self.subsec_name_enfu, 
             {
                 self.model_attributes.field_enfu_hydrogen_fuel_category: 1
             }
         )[0]
 
-        cat_enfu_hpwr = self.model_attributes.filter_keys_by_attribute(
+        self.cat_enfu_hpwr = self.model_attributes.filter_keys_by_attribute(
             self.subsec_name_enfu, 
             {
                 self.model_attributes.field_enfu_hydropower_fuel_category : 1
             }
         )[0]
 
-        cat_enfu_wste = self.model_attributes.filter_keys_by_attribute(
+        self.cat_enfu_wste = self.model_attributes.filter_keys_by_attribute(
             self.subsec_name_enfu, 
             {
                 self.model_attributes.field_enfu_waste_fuel_category: 1
             }
         )[0]
 
-
         # associated indices
-        attr_enfu = self.attr_enfu
-        ind_enfu_bgas = attr_enfu.get_key_value_index(cat_enfu_bgas, )
-        ind_enfu_bmas = attr_enfu.get_key_value_index(cat_enfu_bmas, )
-        ind_enfu_elec = attr_enfu.get_key_value_index(cat_enfu_elec, )
-        ind_enfu_hgen = attr_enfu.get_key_value_index(cat_enfu_hgen, )
-        ind_enfu_hpwr = attr_enfu.get_key_value_index(cat_enfu_hpwr, )
-        ind_enfu_wste = attr_enfu.get_key_value_index(cat_enfu_wste, )
+        attr_enfu = self.model_attributes.get_attribute_table(self.subsec_name_enfu)
+        self.ind_enfu_bgas = attr_enfu.get_key_value_index(self.cat_enfu_bgas)
+        self.ind_enfu_elec = attr_enfu.get_key_value_index(self.cat_enfu_elec)
+        self.ind_enfu_hgen = attr_enfu.get_key_value_index(self.cat_enfu_hgen)
+        self.ind_enfu_wste = attr_enfu.get_key_value_index(self.cat_enfu_wste)
 
         # get pivot dictionary
-        tuple_dicts = self.model_enercons.get_enfu_dict_subsectors_to_energy_variables()
-        
-
-
-        ## SET PROPERTIES
-
-        self.cat_enfu_bgas = cat_enfu_bgas
-        self.cat_enfu_bmas = cat_enfu_bmas
-        self.cat_enfu_elec = cat_enfu_elec
-        self.cat_enfu_hgen = cat_enfu_hgen
-        self.cat_enfu_hpwr = cat_enfu_hpwr
-        self.cat_enfu_wste = cat_enfu_wste
+        tuple_dicts = self.get_enfu_dict_subsectors_to_energy_variables()
         self.dict_enfu_subsectors_to_energy_variables = tuple_dicts[0]
         self.dict_enfu_subsectors_to_unassigned_enfu_variables = tuple_dicts[1]
-        self.ind_enfu_bgas = ind_enfu_bgas
-        self.ind_enfu_bmas = ind_enfu_bmas
-        self.ind_enfu_elec = ind_enfu_elec
-        self.ind_enfu_hgen = ind_enfu_hgen
-        self.ind_enfu_hpwr = ind_enfu_hpwr
-        self.ind_enfu_wste = ind_enfu_wste
 
         return None
 
@@ -1083,13 +1049,89 @@ class EnergyProduction:
             * self.key_oar
             * self.modvar_entc_****
         """
-        # Energy (Electricity) Technology Variables
+
+        # assign from attribute variable codes
         self.model_attributes.assign_subsector_variable_names_from_varcodes(
             self,
             self.model_attributes.subsec_name_entc,
             stop_on_error = True, 
         )
-
+        
+        """
+        # Energy (Electricity) Technology Variables
+        self.modvar_ccs_achievement_frac = "Carbon Capture Achievement Fraction"
+        self.modvar_entc_ef_scalar_ch4 = ":math:\\text{CH}_4 NemoMod EmissionsActivityRatio Scalar"
+        self.modvar_entc_ef_scalar_co2 = ":math:\\text{CO}_2 NemoMod EmissionsActivityRatio Scalar"
+        self.modvar_entc_ef_scalar_n2o = ":math:\\text{N}_2\\text{O} NemoMod EmissionsActivityRatio Scalar"
+        self.modvar_entc_efficiency_factor_technology = "Technology Efficiency of Fuel Use"
+        self.modvar_entc_fuelprod_emissions_activity_ratio_ch4 = ":math:\\text{CH}_4 Fuel Production NemoMod EmissionsActivityRatio"
+        self.modvar_entc_fuelprod_emissions_activity_ratio_co2 = ":math:\\text{CO}_2 Fuel Production NemoMod EmissionsActivityRatio"
+        self.modvar_entc_fuelprod_emissions_activity_ratio_n2o = ":math:\\text{N}_2\\text{O} Fuel Production NemoMod EmissionsActivityRatio"
+        self.modvar_entc_fuelprod_input_activity_ratio_coal_deposits = "Fuel Production NemoMod InputActivityRatio Coal Deposits"
+        self.modvar_entc_fuelprod_input_activity_ratio_crude = "Fuel Production NemoMod InputActivityRatio Crude"
+        self.modvar_entc_fuelprod_input_activity_ratio_diesel = "Fuel Production NemoMod InputActivityRatio Diesel"
+        self.modvar_entc_fuelprod_input_activity_ratio_electricity = "Fuel Production NemoMod InputActivityRatio Electricity"
+        self.modvar_entc_fuelprod_input_activity_ratio_gasoline = "Fuel Production NemoMod InputActivityRatio Gasoline"
+        self.modvar_entc_fuelprod_input_activity_ratio_hydrogen = "Fuel Production NemoMod InputActivityRatio Hydrogen"
+        self.modvar_entc_fuelprod_input_activity_ratio_natural_gas = "Fuel Production NemoMod InputActivityRatio Natural Gas"
+        self.modvar_entc_fuelprod_input_activity_ratio_natural_gas_unprocessed = "Fuel Production NemoMod InputActivityRatio Natural Gas Unprocessed"
+        self.modvar_entc_fuelprod_input_activity_ratio_oil = "Fuel Production NemoMod InputActivityRatio Oil"
+        self.modvar_entc_fuelprod_input_activity_ratio_water = "Fuel Production NemoMod InputActivityRatio Water"
+        self.modvar_entc_fuelprod_output_activity_ratio_coal = "Fuel Production NemoMod OutputActivityRatio Coal"
+        self.modvar_entc_fuelprod_output_activity_ratio_diesel = "Fuel Production NemoMod OutputActivityRatio Diesel"
+        self.modvar_entc_fuelprod_output_activity_ratio_gasoline = "Fuel Production NemoMod OutputActivityRatio Gasoline"
+        self.modvar_entc_fuelprod_output_activity_ratio_hgl = "Fuel Production NemoMod OutputActivityRatio Hydrocarbon Gas Liquids"
+        self.modvar_entc_fuelprod_output_activity_ratio_hydrogen = "Fuel Production NemoMod OutputActivityRatio Hydrogen"
+        self.modvar_entc_fuelprod_output_activity_ratio_kerosene = "Fuel Production NemoMod OutputActivityRatio Kerosene"
+        self.modvar_entc_fuelprod_output_activity_ratio_natural_gas = "Fuel Production NemoMod OutputActivityRatio Natural Gas"
+        self.modvar_entc_fuelprod_output_activity_ratio_natural_gas_liquid = "Fuel Production NemoMod OutputActivityRatio Natural Gas Liquid"
+        self.modvar_entc_fuelprod_output_activity_ratio_oil = "Fuel Production NemoMod OutputActivityRatio Oil"
+        self.modvar_entc_max_elec_prod_increase_for_msp = "Maximum Production Increase Fraction to Satisfy MinShareProduction Electricity"
+        self.modvar_entc_nemomod_capital_cost = "NemoMod CapitalCost"
+        self.modvar_entc_nemomod_discounted_capital_investment = "NemoMod Discounted Capital Investment"
+        self.modvar_entc_nemomod_discounted_operating_costs = "NemoMod Discounted Operating Costs"
+        self.modvar_entc_nemomod_emissions_ch4_elec = "NemoMod :math:\\text{CH}_4 Emissions from Electricity Generation"
+        self.modvar_entc_nemomod_emissions_co2_elec = "NemoMod :math:\\text{CO}_2 Emissions from Electricity Generation"
+        self.modvar_entc_nemomod_emissions_n2o_elec = "NemoMod :math:\\text{N}_2\\text{O} Emissions from Electricity Generation"
+        self.modvar_entc_nemomod_emissions_ch4_fpr = "NemoMod :math:\\text{CH}_4 Emissions from Fuel Processing and Refinement"
+        self.modvar_entc_nemomod_emissions_co2_fpr_biomass = "NemoMod :math:\\text{CO}_2 Biomass Emissions from Fuel Processing and Refinement"
+        self.modvar_entc_nemomod_emissions_co2_fpr_non_biomass = "NemoMod :math:\\text{CO}_2 Non-Biomass Emissions from Fuel Processing and Refinement"
+        self.modvar_entc_nemomod_emissions_n2o_fpr = "NemoMod :math:\\text{N}_2\\text{O} Emissions from Fuel Processing and Refinement"
+        self.modvar_entc_nemomod_emissions_ch4_mne = "NemoMod :math:\\text{CH}_4 Emissions from Fuel Mining and Extraction"
+        self.modvar_entc_nemomod_emissions_co2_mne = "NemoMod :math:\\text{CO}_2 Emissions from Fuel Mining and Extraction"
+        self.modvar_entc_nemomod_emissions_n2o_mne = "NemoMod :math:\\text{N}_2\\text{O} Emissions from Fuel Mining and Extraction"
+        self.modvar_entc_nemomod_emissions_export_ch4 = "NemoMod :math:\\text{CH}_4 Emissions from Electricity Generation for Export"
+        self.modvar_entc_nemomod_emissions_export_co2 = "NemoMod :math:\\text{CO}_2 Emissions from Electricity Generation for Export"
+        self.modvar_entc_nemomod_emissions_export_n2o = "NemoMod :math:\\text{N}_2\\text{O} Emissions from Electricity Generation for Export"
+        self.modvar_entc_nemomod_emissions_subsector_ccsq_co2 = "NemoMod :math:\\text{CO}_2 Emissions from Electricity Generation for CCSQ"
+        self.modvar_entc_nemomod_emissions_subsector_entc_co2 = "NemoMod :math:\\text{CO}_2 Emissions from Electricity Generation for Energy Technology"
+        self.modvar_entc_nemomod_emissions_subsector_inen_co2 = "NemoMod :math:\\text{CO}_2 Emissions from Electricity Generation for Industrial Energy"
+        self.modvar_entc_nemomod_emissions_subsector_scoe_co2 = "NemoMod :math:\\text{CO}_2 Emissions from Electricity Generation for SCOE"
+        self.modvar_entc_nemomod_emissions_subsector_trns_co2 = "NemoMod :math:\\text{CO}_2 Emissions from Electricity Generation for Transportation"
+        self.modvar_entc_nemomod_emissions_subsector_ccsq_ch4 = "NemoMod :math:\\text{CH}_4 Emissions from Electricity Generation for CCSQ"
+        self.modvar_entc_nemomod_emissions_subsector_entc_ch4 = "NemoMod :math:\\text{CH}_4 Emissions from Electricity Generation for Energy Technology"
+        self.modvar_entc_nemomod_emissions_subsector_inen_ch4 = "NemoMod :math:\\text{CH}_4 Emissions from Electricity Generation for Industrial Energy"
+        self.modvar_entc_nemomod_emissions_subsector_scoe_ch4 = "NemoMod :math:\\text{CH}_4 Emissions from Electricity Generation for SCOE"
+        self.modvar_entc_nemomod_emissions_subsector_trns_ch4 = "NemoMod :math:\\text{CH}_4 Emissions from Electricity Generation for Transportation"
+        self.modvar_entc_nemomod_emissions_subsector_ccsq_n2o = "NemoMod :math:\\text{N}_2\\text{O} Emissions from Electricity Generation for CCSQ"
+        self.modvar_entc_nemomod_emissions_subsector_entc_n2o = "NemoMod :math:\\text{N}_2\\text{O} Emissions from Electricity Generation for Energy Technology"
+        self.modvar_entc_nemomod_emissions_subsector_inen_n2o = "NemoMod :math:\\text{N}_2\\text{O} Emissions from Electricity Generation for Industrial Energy"
+        self.modvar_entc_nemomod_emissions_subsector_scoe_n2o = "NemoMod :math:\\text{N}_2\\text{O} Emissions from Electricity Generation for SCOE"
+        self.modvar_entc_nemomod_emissions_subsector_trns_n2o = "NemoMod :math:\\text{N}_2\\text{O} Emissions from Electricity Generation for Transportation"
+        self.modvar_entc_nemomod_fixed_cost = "NemoMod FixedCost"
+        self.modvar_entc_nemomod_generation_capacity = "NemoMod Generation Capacity"
+        self.modvar_entc_nemomod_min_share_production = "NemoMod MinShareProduction"
+        self.modvar_entc_nemomod_production_by_technology = "NemoMod Production by Technology"
+        self.modvar_entc_nemomod_renewable_tag_technology = "NemoMod RETagTechnology"
+        self.modvar_entc_nemomod_reserve_margin_tag_technology = "NemoMod ReserveMarginTagTechnology"
+        self.modvar_entc_nemomod_residual_capacity = "NemoMod ResidualCapacity"
+        self.modvar_entc_nemomod_scalar_availability_factor = "NemoMod AvailabilityFactor Scalar"
+        self.modvar_entc_nemomod_total_annual_max_capacity = "NemoMod TotalAnnualMaxCapacity"
+        self.modvar_entc_nemomod_total_annual_max_capacity_investment = "NemoMod TotalAnnualMaxCapacityInvestment"
+        self.modvar_entc_nemomod_total_annual_min_capacity = "NemoMod TotalAnnualMinCapacity"
+        self.modvar_entc_nemomod_total_annual_min_capacity_investment = "NemoMod TotalAnnualMinCapacityInvestment"
+        self.modvar_entc_nemomod_variable_cost = "NemoMod VariableCost"
+        """
         # set dictionaries 
         self._set_dict_enfu_fuel_categories_to_entc_variables()
 
@@ -1113,7 +1155,6 @@ class EnergyProduction:
             * self.modvar_enst_****
         """
 
-        # Energy (Electricity) Storage Variables
         self.model_attributes.assign_subsector_variable_names_from_varcodes(
             self,
             self.model_attributes.subsec_name_enst,
@@ -1205,7 +1246,7 @@ class EnergyProduction:
         vector: list,
         time_period_as_year: bool = None,
         direction: str = "to_nemomod",
-        shift: int = 1000,
+        shift: int = 1000
     ) -> np.ndarray:
         """
         Transform a year field if necessary to ensure that the minimum is 
@@ -1227,11 +1268,7 @@ class EnergyProduction:
         """
 
         sf.check_set_values([direction], ["to_nemomod", "from_nemomod"])
-        time_period_as_year = (
-            self.nemomod_time_period_as_year 
-            if (time_period_as_year is None) 
-            else time_period_as_year
-        )
+        time_period_as_year = self.nemomod_time_period_as_year if (time_period_as_year is None) else time_period_as_year
 
         vector_out = np.array(vector)
         if time_period_as_year:
@@ -1250,28 +1287,25 @@ class EnergyProduction:
 
     def add_index_field_from_key_values(self,
         df_input: pd.DataFrame,
-        index_values: List[str],
+        index_values: list,
         field_index: str,
-        outer_prod: bool = True,
+        outer_prod: bool = True
     ) -> pd.DataFrame:
-        """Add a field (if necessary) to input dataframe if it is missing based 
-            on input index_values.
+        """
+        Add a field (if necessary) to input dataframe if it is missing based on 
+            input index_values.
 
         Function Arguments
         ------------------
-        df_input : DataFrame
-            Input data frame to modify
-        index_values : List[str]
-            Values to expand the data frame along
-        field_index : str
-            New field to add
+        - df_input: input data frame to modify
+        - index_values: values to expand the data frame along
+        - field_index: new field to add
 
         Keyword Arguments
         -----------------
-        outer_prod : bool 
-            True:   Assume data frame is repeated to all regions. 
-            False:  Assume that the index values are applied as a column only 
-                        (must be one element or of the same length as df_input)
+        - outer_prod: assume data frame is repeated to all regions. If not, 
+            assume that the index values are applied as a column only (must be 
+            one element or of the same length as df_input)
         """
 
         field_dummy = "merge_key"
@@ -1285,12 +1319,10 @@ class EnergyProduction:
                 df_merge = pd.DataFrame({field_index: index_values})
                 df_merge[field_dummy] = 0
                 df_input[field_dummy] = 0
-
                 # order columns and do outer product
                 order_cols = list(df_input.columns)
                 df_input = pd.merge(df_input, df_merge, on = field_dummy, how = "outer")
                 df_input = df_input[[field_index] + [x for x in order_cols if (x != field_dummy)]]
-            
             else:
                 # check shape
                 if (len(df_input) == len(index_values)) or (not (isinstance(index_values, list) or isinstance(index_values, np.ndarray))):
@@ -1308,7 +1340,8 @@ class EnergyProduction:
         outer_prod: bool = True,
         restriction_fuels: list = None
     ) -> pd.DataFrame:
-        """Add a fuel field (if necessary) to input dataframe if it is missing. 
+        """
+        Add a fuel field (if necessary) to input dataframe if it is missing. 
             Defaults to all defined fuels, and assumes that the input data frame 
             is repeated across all fuels.
 
@@ -1325,22 +1358,12 @@ class EnergyProduction:
         """
 
         field_fuel = self.field_nemomod_fuel if (field_fuel is None) else field_fuel
-        
+
         # get regions
-        fuels = self.attr_enfu.key_values
-        fuels = (
-            [x for x in fuels if x in restriction_fuels] 
-            if (restriction_fuels is not None) 
-            else fuels
-        )
-        
+        fuels = self.model_attributes.get_attribute_table(self.subsec_name_enfu).key_values
+        fuels = [x for x in fuels if x in restriction_fuels] if (restriction_fuels is not None) else fuels
         # add to output using outer product
-        df_input = self.add_index_field_from_key_values(
-            df_input, 
-            fuels, 
-            field_fuel, 
-            outer_prod = outer_prod,
-        )
+        df_input = self.add_index_field_from_key_values(df_input, fuels, field_fuel, outer_prod = outer_prod)
 
         return df_input
 
@@ -1683,7 +1706,7 @@ class EnergyProduction:
         )
 
         # get the fuel source index to use to allocate emissions
-        attr_enfu = self.attr_enfu
+        attr_enfu = self.model_attributes.get_attribute_table(self.model_attributes.subsec_name_enfu)
         ind_enfu_energy_source = attr_enfu.get_key_value_index(cat_enfu_energy_source)
 
 
@@ -1878,44 +1901,37 @@ class EnergyProduction:
         attribute_technology: Union[AttributeTable, None] = None,
         override_time_period_transformation: Union[bool, None] = None
     ) -> pd.DataFrame:
-        """Build costs for dummy techs based on an input price.
+        """
+        Build costs for dummy techs based on an input price.
 
         Function Arguments
         ------------------
-        price : Union[int, float]
-            Variable cost to assign to dummy technologies. Should be large 
+        - price: variable cost to assign to dummy technologies. Should be large 
             relative to other technologies.
-        cost_type : str
-            One of
+        - cost_type: one of
             * "capital": capital cost [t, y, val]
             * "fixed": fixed cost [t, y, val]
             * "variable": variable cost [t, y, mode, val]
 
         Keyword Arguments
         -----------------
-        Attribute_technology : Union[AttributeTable, None]
-            Attribute table used to obtain dummy technologies. If None, use 
-            ModelAttributes default.
+        - attribute_technology: attribute table used to obtain dummy 
+            technologies. If None, use ModelAttributes default.
         """
         # some attribute initializations
-        attribute_technology = self.get_attribute_entc(attribute_technology, )
-        dict_tech_info = self.get_tech_info_dict(
-            attribute_technology = attribute_technology,
+        attribute_technology = (
+            self.model_attributes.get_attribute_table(self.subsec_name_entc) 
+            if (attribute_technology is None) 
+            else attribute_technology
         )
+        dict_tech_info = self.get_tech_info_dict(attribute_technology = attribute_technology)
+        cost_type = cost_type if (cost_type in ["capital", "fixed", "variable"]) else "variable"
 
-        cost_type = (
-            cost_type 
-            if (cost_type in ["capital", "fixed", "variable"]) 
-            else "variable"
-        )
-
-        # build the output dataframe
         df_out = {
             self.field_nemomod_technology: dict_tech_info.get("all_techs_dummy"),
             self.field_nemomod_value: price
         }
-        if (cost_type == "variable"): df_out.update({self.field_nemomod_mode: self.cat_enmo_gnrt}) 
-        
+        df_out.update({self.field_nemomod_mode: self.cat_enmo_gnrt}) if (cost_type == "variable") else None
         df_out = pd.DataFrame(df_out)
 
         # order and add multifields
@@ -1924,9 +1940,7 @@ class EnergyProduction:
             self.field_nemomod_year,
             self.field_nemomod_value
         ]
-
-        if (cost_type == "variable"): fields_for_multifield.append(self.field_nemomod_mode) 
-        
+        fields_for_multifield.append(self.field_nemomod_mode) if (cost_type == "variable") else None
         df_out = self.add_multifields_from_key_values(
             df_out, 
             fields_for_multifield,
@@ -2007,60 +2021,62 @@ class EnergyProduction:
 
 
     def get_attribute_enfu(self,
-        attribute_enfu: Union['AttributeTable', None] = None,
-        **kwargs,
+        **kwargs
     ) -> AttributeTable:
-        """Shortcut to get the Energy Fuels attribute table
         """
-        if not is_attribute_table(attribute_enfu, ):
-            return self.attr_enfu
+        Shortcut to get the Energy Fuels attribute table
+        """
 
-        return attribute_enfu
+        out = self.model_attributes.get_attribute_table(
+            self.model_attributes.subsec_name_enfu,
+            **kwargs
+        )
+
+        return out
     
 
 
     def get_attribute_entc(self,
-        attribute_entc: Union['AttributeTable', None] = None,
         **kwargs
     ) -> AttributeTable:
-        """Shortcut to get the Energy Technology attribute table
         """
-        if not is_attribute_table(attribute_entc, ):
-            return self.attr_entc
+        Shortcut to get the Energy Technology attribute table
+        """
 
-        return attribute_entc
+        out = self.model_attributes.get_attribute_table(
+            self.model_attributes.subsec_name_entc,
+            **kwargs
+        )
+
+        return out
 
 
 
     def get_attribute_region(self,
-        attribute_region: Union['AttributeTable', None] = None,
     ) -> AttributeTable:
-        """Shortcut to get the region table
         """
-        if not is_attribute_table(attribute_region, ):
-            attribute_region = self.model_attributes.get_other_attribute_table(
-                self.model_attributes.dim_region,
-            )
+        Shortcut to get the region table
+        """
 
-            return attribute_region
+        out = self.model_attributes.get_other_attribute_table(
+            self.model_attributes.dim_region,
+        )
 
-        return attribute_region
+        return out
 
 
 
     def get_attribute_time_period(self,
-        attribute_time_period: Union['AttributeTable', None] = None,
     ) -> AttributeTable:
-        """Shortcut to get the time period attribute table
         """
-        if not is_attribute_table(attribute_time_period, ):
-            attribute_time_period = self.model_attributes.get_dimensional_attribute_table(
-                self.model_attributes.dim_time_period,
-            )
+        Shortcut to get the time period attribute table
+        """
 
-            return attribute_time_period
+        out = self.model_attributes.get_dimensional_attribute_table(
+            self.model_attributes.dim_time_period,
+        )
 
-        return attribute_time_period
+        return out
 
 
 
@@ -2119,65 +2135,6 @@ class EnergyProduction:
             )
 
             #
-            if tuple_biogas is None: continue
-            
-            # get mass of waste incinerated,
-            modvar_biogas, array_mass_biogas = tuple_biogas
-            vec_mass_biogas = np.sum(array_mass_biogas, axis = 1)
-
-            # convert units -- first, in terms of mass incinerated, then in terms of energy density
-            vec_enfu_energy_density_cur = vec_enfu_energy_density_gravimetric/self.model_attributes.get_variable_unit_conversion_factor(
-                self.modvar_enfu_energy_density_gravimetric,
-                modvar_biogas,
-                "mass"
-            )
-            vec_enfu_energy_density_cur *= self.get_nemomod_energy_scalar(self.modvar_enfu_energy_density_gravimetric)
-            vec_enfu_total_energy_biogas += vec_enfu_energy_density_cur*vec_mass_biogas
-
-        # get minimum fraction to electricity
-        vec_enfu_minimum_fuel_energy_to_electricity_biogas = vec_enfu_total_energy_biogas*vec_enfu_minimum_fuel_frac_to_elec
-
-        out = (
-            vec_enfu_total_energy_biogas, 
-            vec_enfu_minimum_fuel_energy_to_electricity_biogas,
-        )
-
-        return out
-    
-
-
-    def get_biomass_components(self,
-        df_elec_trajectories: pd.DataFrame
-    ) -> tuple:
-        """Retrieve total biomass used from fuelwood and residue (including
-            bagasse) sources
-
-        Function Arguments
-        ------------------
-        df_elec_trajectories : pd.DataFrame 
-            DataFrame of input variables, which must include livestock manure 
-            management and wastewater treatment sector outputs used to calcualte 
-            emission factors
-        """
-        # initialize of some variables
-        vec_enfu_total_energy_biogas = 0.0
-
-        modvar_const_cr = self.modvar_entc_fuel_constraint_crop_residues
-        modvar_const_fw = self.modvar_entc_fuel_constraint_fuelwood
-
-
-        # iterate to add total biogas collected
-        for modvar in modvars_biogas:
-            # retrieve biogas totals
-            tuple_biogas = self.model_attributes.get_optional_or_integrated_standard_variable(
-                df_elec_trajectories,
-                modvar,
-                None,
-                override_vector_for_single_mv_q = True,
-                return_type = "array_base"
-            )
-
-            #
             if tuple_biogas is not None:
                 # get mass of waste incinerated,
                 modvar_biogas, array_mass_biogas = tuple_biogas
@@ -2195,7 +2152,115 @@ class EnergyProduction:
         # get minimum fraction to electricity
         vec_enfu_minimum_fuel_energy_to_electricity_biogas = vec_enfu_total_energy_biogas*vec_enfu_minimum_fuel_frac_to_elec
 
-        out = (vec_enfu_total_energy_biogas, vec_enfu_minimum_fuel_energy_to_electricity_biogas)
+        out = (
+            vec_enfu_total_energy_biogas, 
+            vec_enfu_minimum_fuel_energy_to_electricity_biogas,
+        )
+
+        return out
+    
+
+
+    def get_biomass_components(self,
+        df_elec_trajectories: pd.DataFrame
+    ) -> tuple:
+        """Retrieve total energy available from biogas collection and the 
+            minimum use
+
+        Function Arguments
+        ------------------
+        df_elec_trajectories : pd.DataFrame 
+            DataFrame of input variables, which must include livestock manure 
+            management and wastewater treatment sector outputs used to calcualte 
+            emission factors
+        """
+        
+        ##  INITIALIZE
+        #  
+        matt = self.model_attributes
+
+        # fuel constraint for residues and fuelwood
+        modvar_cr = matt.get_variable(
+            self.modvar_entc_fuel_constraint_crop_residues,
+        )
+        modvar_fw = matt.get_variable(
+            self.modvar_entc_fuel_constraint_fuelwood,
+        )
+
+        # emission factor vars
+        modvar_enfu_ef_avg = matt.get_variable(
+            self.model_enercons.modvar_enfu_ef_combustion_co2,
+        )
+        modvar_entc_ef_avg = matt.get_variable(
+            self.modvar_entc_ef_combustion_co2_biomass_integrated,
+        )
+
+
+        ##  TRU TO RETRIEVE INTEGRATED DATA
+
+        # constraints for biomass
+        modvar_cr_out, vec_entc_constraint_cr = self.model_attributes.get_optional_or_integrated_standard_variable(
+            df_elec_trajectories,
+            modvar_cr,
+            None,
+            return_type = "array_base",
+            var_bounds = (0, np.inf, ), 
+        )
+
+        modvar_fw_out, vec_entc_constraint_fw = self.model_attributes.get_optional_or_integrated_standard_variable(
+            df_elec_trajectories,
+            modvar_fw,
+            None,
+            return_type = "array_base",
+            var_bounds = (0, np.inf, ),
+        )
+
+        # average emission factor--ENFU biomass is overwritten, EAR for pp_biomass has to be passed
+        modvar_entc_ef_avg_out, vec_entc_ef_avg = self.model_attributes.get_optional_or_integrated_standard_variable(
+            df_elec_trajectories,
+            modvar_entc_ef_avg,
+            None,
+            return_type = "array_base",
+            var_bounds = (0, np.inf, ),
+        )
+
+
+        ##  BUILD TOTAL BIOMASS CONSTRAINT IN TERMS OF get_units_energy_nemo()
+
+        # convert both to nemo units
+        scalar_cr = matt.get_energy_equivalent(
+            matt.get_variable_characteristic(
+                modvar_cr,
+                "unit_energy",
+            ),
+            self.get_units_energy_nemo(),
+        )
+        scalar_fw = matt.get_energy_equivalent(
+            matt.get_variable_characteristic(
+                modvar_fw,
+                "unit_energy",
+            ),
+            self.get_units_energy_nemo(),
+        )
+
+        # aggregate constraint in terms of 
+        vec_entc_constraint = (
+            vec_entc_constraint_cr*scalar_cr
+            + vec_entc_constraint_fw*scalar_fw
+        )
+
+
+        ##  BUILD EMISSION ACTIVITY RATIO IN TERMS OF EAR VAR
+
+        # HEREHERE12345
+
+
+
+        ##  SET OUTPUT
+
+        out = (
+            vec_entc_constraint,
+        )
 
         return out
     
@@ -2215,10 +2280,19 @@ class EnergyProduction:
         )
 
         # get dictionary mapping power plants to tech type
-        (
+        dict_cat_pp_to_cat_enfu = self.model_attributes.get_ordered_category_attribute(
+            self.model_attributes.subsec_name_entc,
+            f"electricity_generation_{pycat_enfu}",
+            clean_attribute_schema_q = True,
+            return_type = dict,
+            skip_none_q = True,
+        )
+
+        # reverse the dictionary
+        dict_fuel_to_pp_techs = sf.reverse_dict(
             dict_cat_pp_to_cat_enfu,
-            dict_fuel_to_pp_techs,
-        ) = self.get_dicts_tech_to_fuel()
+            allow_multi_keys = True,
+        )
         
         # get the final return categories
         pp_techs_biomass = dict_fuel_to_pp_techs.get(self.cat_enfu_bmas, [])
@@ -2245,10 +2319,11 @@ class EnergyProduction:
             Prependage to category field storing the CCS tech associated with base
             technology
         """
+        subsec = self.model_attributes.subsec_name_entc
         
         # get the attribute 
-        attr_entc = self.attr_entc
-        pycat_tech = self.pycat_entc
+        attr_entc = self.model_attributes.get_attribute_table(subsec)
+        pycat_tech = self.model_attributes.get_subsector_attribute(subsec, "pycategory_primary_element")
         field_ccs_tech = f"{field_prepend_ccs}_{pycat_tech}"
 
         # filter
@@ -2267,48 +2342,6 @@ class EnergyProduction:
 
         return dict_out
 
-
-
-    def get_dicts_tech_to_fuel(self,
-        allow_multi_keys: bool = True,
-        attribute_prefix: str = _PREFIX_ATTRIBUTE_ENTC_ELEC_GEN,
-    ) -> Tuple[Dict[str, str], Dict[str, str]]:
-        """Get dictionaries mapping techs to fuels and and fuels to techs.
-
-            Returns a tuple of the form:
-
-            (
-                dict_cat_pp_to_cat_enfu,
-                dict_cat_enfu_to_cat_pp
-            )
-        """
-        # get the ENFU pycategory
-        pycat_enfu = self.model_attributes.get_subsector_attribute(
-            self.subsec_name_enfu, 
-            "pycategory_primary_element",
-        )
-
-        dict_cat_pp_to_cat_enfu = self.model_attributes.get_ordered_category_attribute(
-            self.model_attributes.subsec_name_entc,
-            f"{attribute_prefix}_{pycat_enfu}",
-            clean_attribute_schema_q = True,
-            return_type = dict,
-            skip_none_q = True,
-        )
-
-        # reverse the dictionary
-        dict_cat_enfu_to_cat_pp = sf.reverse_dict(
-            dict_cat_pp_to_cat_enfu,
-            allow_multi_keys = allow_multi_keys,
-        )
-
-        out = (
-            dict_cat_pp_to_cat_enfu,
-            dict_cat_enfu_to_cat_pp
-        )
-
-        return out
-    
 
 
     def get_dummy_fuel_description(self,
@@ -2374,7 +2407,11 @@ class EnergyProduction:
             (not self.include_supply_techs_for_all_fuels)
         - return_type: "dict" or "pd.DataFrame". Default is dictionary.
         """
-        attribute_fuel = self.get_attribute_enfu(attribute_fuel, )
+        attribute_fuel = (
+            self.model_attributes.get_attribute_table(self.subsec_name_enfu) 
+            if (attribute_fuel is None) 
+            else attribute_fuel
+        )
 
         drop_activity_ratio_fuels = (
             (not self.include_supply_techs_for_all_fuels) 
@@ -2425,7 +2462,11 @@ class EnergyProduction:
             use ModelAttributes default.
         """
         # get some defaults
-        attribute_technology = self.get_attribute_entc(attribute_technology, )
+        attribute_technology = (
+            self.model_attributes.get_attribute_table(self.subsec_name_entc) 
+            if (attribute_technology is None) 
+            else attribute_technology
+        )
         pycat_enfu = self.model_attributes.get_subsector_attribute(
             self.subsec_name_enfu, 
             "pycategory_primary_element",
@@ -2719,7 +2760,11 @@ class EnergyProduction:
             * "upstream_fuels": list of upstream fuels
         """
         # initialize the ENFU attribute table
-        attribute_fuel = self.get_attribute_enfu(attribute_fuel, )
+        attribute_fuel = (
+            self.model_attributes.get_attribute_table(self.model_attributes.subsec_name_enfu) 
+            if (attribute_fuel is None) 
+            else attribute_fuel
+        )
 
         # initialize some dictionaries
         dict_upstream_fuel = attribute_fuel.field_maps.get(
@@ -2819,11 +2864,9 @@ class EnergyProduction:
     def get_entc_cat_for_integration(self,
         cat_name: str
     ) -> str:
-        """Get the ENTC category used for:
-            
-            * Biogas (integrated with outputs from AFOLU and CircularEconomy)
-            * Biomass (integrated with outputs from AFOLU)
-            * Waste incineration
+        """
+        Get the ENTC category used for waste incineration or biogas (integrated 
+            with outputs from CircularEconomy)
 
         Function Arguments
         ------------------
@@ -2840,8 +2883,6 @@ class EnergyProduction:
         dict_cat_name_to_cat = {
             "bgas": self.cat_enfu_bgas,
             "biogas": self.cat_enfu_bgas,
-            "biomass": self.cat_enfu_bmas,
-            "bmas": self.cat_enfu_bmas,
             "hpwr": self.cat_enfu_hpwr,
             "hydropower": self.cat_enfu_hpwr,
             "waste": self.cat_enfu_wste,
@@ -2991,9 +3032,23 @@ class EnergyProduction:
         """
         
         # get some information
-        attribute_fuel = self.get_attribute_enfu(attribute_fuel, )
-        attribute_technology = self.get_attribute_entc(attribute_technology, )
-        attribute_time_period = self.get_attribute_time_period(attribute_time_period, )
+        attribute_fuel = (
+            self.get_attribute_enfu()
+            if not is_attribute_table(attribute_fuel, ) 
+            else attribute_fuel
+        )
+
+        attribute_technology = (
+            self.get_attribute_entc()
+            if not is_attribute_table(attribute_technology, ) 
+            else attribute_technology
+        )
+
+        attribute_time_period = (
+            self.get_attribute_time_period()
+            if not is_attribute_table(attribute_time_period, ) 
+            else attribute_time_period
+        )
 
         dict_tech_info = self.get_tech_info_dict()
         dict_fuel_cats = self.dict_entc_fuel_categories_to_fuel_variables
@@ -3185,8 +3240,17 @@ class EnergyProduction:
             )
         """
         # do some initialization from inputs
-        attribute_fuel = self.get_attribute_enfu(attribute_fuel, )
-        attribute_technology = self.get_attribute_entc(attribute_technology, )
+        attribute_fuel = (
+            self.model_attributes.get_attribute_table(self.subsec_name_enfu) 
+            if (attribute_fuel is None) 
+            else attribute_fuel
+        )
+
+        attribute_technology = (
+            self.model_attributes.get_attribute_table(self.subsec_name_entc) 
+            if (attribute_technology is None) 
+            else attribute_technology
+        )
 
         dict_tech_info = (
             self.get_tech_info_dict(attribute_technology = attribute_technology) 
@@ -3199,6 +3263,8 @@ class EnergyProduction:
         # initialize some shortcuts
         cats_entc_msp = self.model_attributes.get_variable_categories(modvar_msp)
         dict_fuel_cats = self.dict_entc_fuel_categories_to_fuel_variables
+        subsec_name_enfu = self.model_attributes.subsec_name_enfu
+        subsec_name_entc = self.model_attributes.subsec_name_entc
         
         # retrieve input MSP that has been adjusted to the presence of max production limits
         (
@@ -3431,9 +3497,16 @@ class EnergyProduction:
         
         ##  INITIALIZATION
         
-        attribute_fuel = self.get_attribute_enfu(attribute_fuel, )
-        attribute_technology = self.get_attribute_entc(attribute_technology, )
-
+        attribute_technology = (
+            self.model_attributes.get_attribute_table(self.subsec_name_entc) 
+            if (attribute_technology is None) 
+            else attribute_technology
+        )
+        attribute_fuel = (
+            self.model_attributes.get_attribute_table(self.subsec_name_enfu) 
+            if (attribute_fuel is None) 
+            else attribute_fuel
+        )
         drop_flag = (
             self.drop_flag_tech_capacities 
             if (drop_flag is None) 
@@ -3486,7 +3559,7 @@ class EnergyProduction:
         tuple_enfu_production_and_demands = (
             self.model_enercons.project_enfu_production_and_demands(
                 df_elec_trajectories, 
-                target_energy_units = self.model_attributes.configuration.get("energy_units_nemomod")
+                target_energy_units = self.get_units_energy_nemo(),
             )
             if tuple_enfu_production_and_demands is None
             else tuple_enfu_production_and_demands
@@ -3674,25 +3747,23 @@ class EnergyProduction:
         attribute_technology: Union[AttributeTable, None] = None,
         attribute_time_period: Union[AttributeTable, None] = None
     ) -> Union[pd.DataFrame, None]:
-        """If waste composition is known from CircularEconomy, emission factors
+        """
+        If waste composition is known from CircularEconomy, emission factors
             can be derived from the integrated model. Pulls emission factors
             from waste data in CircularEconomy.
 
         Function Arguments
         ------------------
-        df_elec_trajectories : DataFrame 
-            DataFrameof model variable input trajectories
+        - df_elec_trajectories: data frame of model variable input trajectories
 
         Keyword Arguments
         -----------------
-        attribute_fuel : Union[AttributeTable, None]
-            Attribute table used for fuels. If None, defaults to self.attr_enfu
-        attribute_technology: Union[AttributeTable, None]
-            Attribute table used for technologies. If None, defaults to 
-            self.attr_entc
-        attribute_time_period : Union[AttributeTable, None]
-            Attribute table used for time period. If None, defaults to
-            self.model_attributes.get_dimensional_attribute_table("time_period")
+        - attribute_fuel: attribute table used for fuels. If None,
+            defaults to self.model_attributes
+        - attribute_technology: attribute table used for technology. If None,
+            defaults to self.model_attributes
+        - attribute_time_period: attribute table used for time period. If None,
+            defaults to self.model_attributes
         """
         # get tech category for waste
         cat_entc_pp_waste = self.get_entc_cat_for_integration("wste") 
@@ -3751,12 +3822,16 @@ class EnergyProduction:
             configuration units if not associated with energy
 
         """
-        units_source = self.model_attributes.get_variable_characteristic(
-            modvar, 
-            self.model_attributes.varchar_str_unit_energy
-        ) if (modvar is not None) else self.model_attributes.configuration.get("energy_units")
         units_source = (
-            self.model_attributes.configuration.get("energy_units") 
+            self.model_attributes.get_variable_characteristic(
+                modvar, 
+                self.model_attributes.varchar_str_unit_energy
+            ) 
+            if (modvar is not None) 
+            else self.get_units_energy()
+        )
+        units_source = (
+            self.get_units_energy()
             if (units_source is None) and force_modvar_to_config_on_none
             else units_source
         )
@@ -3835,13 +3910,30 @@ class EnergyProduction:
             divide techs. If None, uses ModelAttributes default.
         """
         # set some defaults
-        attribute_fuel = self.get_attribute_enfu(attribute_fuel, )
-        attribute_technology = self.get_attribute_entc(attribute_technology, )
+        attribute_fuel = (
+            self.model_attributes.get_attribute_table(self.subsec_name_enfu) 
+            if (attribute_fuel is None) 
+            else attribute_fuel
+        )
+        attribute_technology = (
+            self.model_attributes.get_attribute_table(self.subsec_name_entc) 
+            if (attribute_technology is None) 
+            else attribute_technology
+        )
 
         # get some categories associated with elements
-        pycat_enfu = self.pycat_enfu
-        pycat_entc = self.pycat_entc
-        pycat_strg = self.pycat_enst
+        pycat_enfu = self.model_attributes.get_subsector_attribute(
+            self.subsec_name_enfu, 
+            "pycategory_primary_element",
+        )
+        pychat_entc = self.model_attributes.get_subsector_attribute(
+            self.subsec_name_entc, 
+            "pycategory_primary_element",
+        )
+        pycat_strg = self.model_attributes.get_subsector_attribute(
+            self.subsec_name_enst, 
+            "pycategory_primary_element",
+        )
 
         # tech -> fuel and fuel -> tech dictionaries
         dict_gnrt_tech_to_fuel = self.model_attributes.get_ordered_category_attribute(
@@ -4108,7 +4200,11 @@ class EnergyProduction:
             Calculate emission factors?
         """
         # some attribute initializations
-        attribute_technology = self.get_attribute_entc(attribute_technology, )
+        attribute_technology = (
+            self.model_attributes.get_attribute_table(self.subsec_name_entc) 
+            if (attribute_technology is None) 
+            else attribute_technology
+        )
 
         # output variable initialization
         dict_efs = {}
@@ -4125,7 +4221,6 @@ class EnergyProduction:
 
         #
         if tuple_waso_incineration is not None:
-
             # get mass of waste incinerated,
             modvar_waso_mass_incinerated, array_waso_mass_incinerated = tuple_waso_incineration
             vec_waso_mass_incinerated = np.sum(array_waso_mass_incinerated, axis = 1)
@@ -4160,7 +4255,7 @@ class EnergyProduction:
             vec_enfu_energy_density_gravimetric *= self.get_nemomod_energy_scalar(self.modvar_enfu_energy_density_gravimetric)
             vec_enfu_total_energy_waste = vec_enfu_energy_density_gravimetric*vec_waso_mass_incinerated
 
-            # get minimum energy to electricity
+            # get minimum fraction to electricity
             vec_enfu_minimum_fuel_energy_to_electricity_waste = vec_enfu_total_energy_waste*vec_enfu_minimum_fuel_frac_to_elec
 
 
@@ -4221,7 +4316,7 @@ class EnergyProduction:
         tup_out = (
             vec_enfu_total_energy_waste, 
             vec_enfu_minimum_fuel_energy_to_electricity_waste, 
-            dict_efs,
+            dict_efs
         )
 
         return tup_out
@@ -4242,7 +4337,8 @@ class EnergyProduction:
         scalar_to_nemomod_units: Union[float, None] = 1,
         **kwargs
     ) -> pd.DataFrame:
-        """Format a SISEPUEDE variable as a NEMO input table.
+        """
+        Format a SISEPUEDE variable as a nemo mod input table.
 
         Function Arguments
         ------------------
@@ -4366,13 +4462,11 @@ class EnergyProduction:
     def format_dummy_tech_description_from_fuel(self, 
         fuel: str
     ) -> str:
-        out = f"""Dummy supply technology for fuel {fuel}:
-            Allows for solutions that would otherwise be infeasible.
-        """
-        return out
+        return f"Dummy supply technology for fuel {fuel} -- allows for solutions that would otherwise be infeasible."
 
 
 
+    # defin a function to compare max/min for related constraints
     def verify_min_max_constraint_inputs(self,
         df_max: pd.DataFrame,
         df_min: pd.DataFrame,
@@ -4383,17 +4477,12 @@ class EnergyProduction:
         drop_invalid_comparisons_on_strong: bool = True,
         max_min_distance_scalar: Union[int, float] = 1,
         field_id: str = None,
-        return_passthrough: bool = False,
-    ) -> Union[None, Tuple[pd.DataFrame]]:
-        """Verify that a minimum trajectory is less than or equal (weak) or less 
+        return_passthrough: bool = False
+    ) -> Union[None, dict]:
+        """
+        Verify that a minimum trajectory is less than or equal (weak) or less 
             than (strong) a maximum trajectory. Data frames must have comparable 
             indices.
-
-        If there are conflicts OR return_passthrough == True, returns a tuple of 
-            DataFrames if conflict_resolution_option != "error":
-
-            (df_max, df_min, ) 
-
 
         Function Arguments
         ------------------
@@ -4433,12 +4522,10 @@ class EnergyProduction:
 
         suffix_max = "max"
         suffix_min = "min"
-
         # check for required field
         field_id = self.field_nemomod_id if (field_id is None) else field_id
         sf.check_fields(df_max, [field_id, field_max])
         sf.check_fields(df_min, [field_id, field_min])
-
         # temporary fields
         field_id_max = f"{field_id}_{suffix_max}"
         field_id_min = f"{field_id}_{suffix_min}"
@@ -4448,91 +4535,50 @@ class EnergyProduction:
         fields_shared = [x for x in fields_shared if x not in [field_min, field_max, field_id]]
         fields_max = fields_shared + [field_max]
         fields_min = fields_shared + [field_min]
-
         df_compare = pd.merge(
             df_max[fields_max],
             df_min[fields_min],
             on = fields_shared,
-            suffixes = (f"_{suffix_max}", f"_{suffix_min}"),
+            suffixes = (f"_{suffix_max}", f"_{suffix_min}")
         )
 
         # set fields to use for comparison
         field_maxm = f"{field_max}_{suffix_max}" if (field_max == field_min) else field_max
         field_minm = f"{field_min}_{suffix_min}" if (field_max == field_min) else field_min
-        
-        # run comparison
+        #
         vec_comparison = np.array(df_compare[[field_minm, field_maxm]])
-        w_resolve = (
-            np.where(vec_comparison[:, 1] < vec_comparison[:, 0]) 
-            if (comparison == "weak") 
-            else np.where(vec_comparison[:, 1] <= vec_comparison[:, 0])[0]
-        )
-        
-        # case where no conflicts--return None, or passthrough if requested
-        if (len(w_resolve) == 0):
-            out = (
-                (df_max, df_min, ) 
-                if return_passthrough 
-                else None
-            )
+        w_resolve = np.where(vec_comparison[:, 1] < vec_comparison[:, 0]) if (comparison == "weak") else np.where(vec_comparison[:, 1] <= vec_comparison[:, 0])[0]
 
-            return out
-        
+        if (len(w_resolve) > 0):
+            if conflict_resolution_option != "error":
+                df_new_vals = df_compare[[field_minm, field_maxm]].apply(
+                    self.conflict_resolution_func_vmmci,
+                    approach = conflict_resolution_option,
+                    max_min_distance_scalar = max_min_distance_scalar,
+                    axis = 1,
+                    raw = True
+                )
+                # some replacements
+                df_max_replace = pd.concat([df_compare[fields_shared], df_new_vals[[field_maxm]]], axis = 1).rename(
+                    columns = {
+                        field_id_max: field_id,
+                        field_maxm: field_max
+                    }
+                )
+                df_min_replace = pd.concat([df_compare[fields_shared], df_new_vals[[field_minm]]], axis = 1).rename(
+                    columns = {
+                        field_id_min: field_id,
+                        field_minm: field_min
+                    }
+                )
+                df_max_out = sf.replace_numerical_column_from_merge(df_max, df_max_replace, field_max)
+                df_min_out = sf.replace_numerical_column_from_merge(df_min, df_min_replace, field_min)
+            else:
+                raise ValueError(f"Error in verify_min_max_constraint_inputs: minimum trajectory meets or exceeds maximum trajectory in at least one row.")
 
-        ##  IF CONFLICTS ARE PRESENT, DEAL WITH THEM BASED ON conflict_resolution_option
-
-        if conflict_resolution_option == "error":
-            raise ValueError(f"Error in verify_min_max_constraint_inputs: minimum trajectory meets or exceeds maximum trajectory in at least one row.")
-        
-        # use conflict_resolution_func_vmmci to resolve
-        df_new_vals = (
-            df_compare[[field_minm, field_maxm]]
-            .apply(
-                self.conflict_resolution_func_vmmci,
-                approach = conflict_resolution_option,
-                max_min_distance_scalar = max_min_distance_scalar,
-                axis = 1,
-                raw = True,
-            )
-        )
-
-        # some replacements
-        df_max_replace = (
-            pd.concat(
-                [df_compare[fields_shared], df_new_vals[[field_maxm]]], 
-                axis = 1,
-            )
-            .rename(
-                columns = {
-                    field_id_max: field_id,
-                    field_maxm: field_max
-                }
-            )
-        )
-
-        # replacements for min
-        df_min_replace = (
-            pd.concat(
-                [df_compare[fields_shared], df_new_vals[[field_minm]]], 
-                axis = 1
-            )
-            .rename(
-                columns = {
-                    field_id_min: field_id,
-                    field_minm: field_min
-                }
-            )
-        )
-
-        df_max_out = sf.replace_numerical_column_from_merge(df_max, df_max_replace, field_max)
-        df_min_out = sf.replace_numerical_column_from_merge(df_min, df_min_replace, field_min)
-
-        out = (
-            df_max_out, 
-            df_min_out,
-        )
-
-        return out
+            return df_max_out, df_min_out
+        else:
+            return (df_max, df_min) if return_passthrough else None
 
 
 
@@ -4585,7 +4631,7 @@ class EnergyProduction:
             .reset_index(drop = True)
         )
 
-        dict_out = {self.model_attributes.table_nemomod_emission: df_out, }
+        dict_out = {self.model_attributes.table_nemomod_emission: df_out}
 
         return dict_out
 
@@ -4594,7 +4640,8 @@ class EnergyProduction:
         attribute_fuel: AttributeTable = None,
         dict_rename: dict = None
     ) -> pd.DataFrame:
-        """Format the FUEL dimension table for NemoMod based on SISEPUEDE 
+        """
+        Format the FUEL dimension table for NemoMod based on SISEPUEDE 
             configuration parameters, input variables, integrated model outputs, 
             and reference tables.
 
@@ -4607,8 +4654,16 @@ class EnergyProduction:
         """
 
         # set some defaults
-        attribute_fuel = self.get_attribute_enfu(attribute_fuel, )
-        pycat_fuel = self.pycat_enfu
+        attribute_fuel = (
+            self.get_attribute_enfu()
+            if (attribute_fuel is None) 
+            else attribute_fuel
+        )
+
+        pycat_fuel = self.model_attributes.get_subsector_attribute(
+            self.subsec_name_enfu, 
+            "pycategory_primary_element"
+        )
 
         dict_rename = (
             {
@@ -4730,7 +4785,12 @@ class EnergyProduction:
         """
 
         # get the region attribute - reduce only to applicable regions
-        attribute_region = self.get_attribute_region(attribute_region, )
+        attribute_region = (
+            self.get_attribute_region()
+            if (attribute_region is None) 
+            else attribute_region
+        )
+
         dict_rename = (
             {
                 self.model_attributes.dim_region: self.field_nemomod_value, 
@@ -4828,12 +4888,23 @@ class EnergyProduction:
             NemoMod
         """
 
-        ##  INITIALIZATION
-
         # set some defaults
-        attribute_fuel = self.get_attribute_enfu(attribute_fuel, )
-        attribute_technology = self.get_attribute_entc(attribute_technology, )
-        pycat_entc = self.pycat_entc
+        attribute_fuel = (
+            self.model_attributes.get_attribute_table(self.subsec_name_enfu) 
+            if (attribute_fuel is None) 
+            else attribute_fuel
+        )
+
+        attribute_technology = (
+            self.model_attributes.get_attribute_table(self.subsec_name_entc) 
+            if (attribute_technology is None) 
+            else attribute_technology
+        )
+
+        pycat_entc = self.model_attributes.get_subsector_attribute(
+            self.subsec_name_entc, 
+            "pycategory_primary_element",
+        )
 
         dict_rename = (
             {
@@ -4847,11 +4918,7 @@ class EnergyProduction:
         # add dummies
         dict_fuels_to_dummy_techs = self.get_dummy_fuel_techs(attribute_fuel = attribute_fuel)
 
-        df_out_dummies = pd.DataFrame(
-            {
-                self.field_nemomod_fuel: list(dict_fuels_to_dummy_techs.keys())
-            }
-        )
+        df_out_dummies = pd.DataFrame({self.field_nemomod_fuel: list(dict_fuels_to_dummy_techs.keys())})
         df_out_dummies[self.field_nemomod_value] = (
             df_out_dummies[self.field_nemomod_fuel]
             .replace(dict_fuels_to_dummy_techs)
@@ -4977,7 +5044,11 @@ class EnergyProduction:
             else attribute_emission
         )
 
-        attribute_time_period = self.get_attribute_time_period(attribute_time_period, )
+        attribute_time_period = (
+            self.get_attribute_time_period() 
+            if (attribute_time_period is None) 
+            else attribute_time_period
+        )
 
         drop_flag = self.drop_flag_tech_capacities if (drop_flag is None) else drop_flag
 
@@ -5093,8 +5164,17 @@ class EnergyProduction:
         sf.check_fields(df_reference_availability_factor, fields_req)
 
         # attribute tables
-        attribute_region = self.get_attribute_region(attribute_region, )
-        attribute_technology = self.get_attribute_entc(attribute_technology, )
+        attribute_technology = (
+            self.get_attribute_entc()
+            if (attribute_technology is None) 
+            else attribute_technology
+        )
+
+        attribute_region = (
+            self.get_attribute_region()
+            if (attribute_region is None) 
+            else attribute_region
+        )
 
         # get scalars 
         modvar_scalar = self.model_attributes.get_variable(
@@ -5299,31 +5379,28 @@ class EnergyProduction:
         flag_dummy_price: Union[int, float] = -999,
         minimum_dummy_price: Union[int, float] = 100,
         regions: Union[List[str], None] = None,
-        tables_with_dummy: List[str] = ["CapitalCost", "FixedCost", "VariableCost"],
+        tables_with_dummy: List[str] = ["CapitalCost", "FixedCost", "VariableCost"]
     ) -> pd.DataFrame:
-        """Format the CapitalCost, FixedCost, and VaribleCost input tables for 
+        """
+        Format the CapitalCost, FixedCost, and VaribleCost input tables for 
             NemoMod based on SISEPUEDE configuration parameters, input 
             variables, integrated model outputs, and reference tables.
 
         Function Arguments
         ------------------
-        df_elec_trajectories: DataFrame
-            DataFrame of model variable input trajectories
+        - df_elec_trajectories: data frame of model variable input trajectories
 
         Keyword Arguments
         -----------------
-        attribute_fuel : Union[AttributeTable, None]
-            Attribute table used for fuels. If None, defaults to 
+        - attribute_fuel: attribute table used for fuels. If None, defaults to 
             self.model_attributes default
-        flag_dummy_price : Union[int, float]
-            Initial price to use, which is later replaced. Should be a large 
-            magnitude negative number.
-        minimum_dummy_price : Union[int, float]
-            Minimum price for dummy technologies
-        regions : Union[List[str], None]
-            Regions to specify. If None, defaults to configuration regions
-        tables_with_dummy : List[str]
-            List of tables to include dummy tech costs in. Acceptable values are:
+        - flag_dummy_price: initial price to use, which is later replaced. 
+            Should be a large magnitude negative number.
+        - minimum_dummy_price: minimum price for dummy technologies
+        - regions: regions to specify. If None, defaults to configuration 
+            regions
+        - tables_with_dummy: list of tables to include dummy tech costs in. 
+            Acceptable values are:
 
             * "CapitalCost"
             * "FixedCost"
@@ -5331,8 +5408,15 @@ class EnergyProduction:
         """
 
         # initialize some attribute components
-        attr_enfu = self.get_attribute_enfu(attribute_fuel, )
-        pycat_enfu = self.pycat_enfu
+        attr_enfu = (
+            self.model_attributes.get_attribute_table(self.model_attributes.subsec_name_enfu) 
+            if not is_attribute_table(attribute_fuel, ) 
+            else attribute_fuel
+        )
+        pycat_enfu = self.model_attributes.get_subsector_attribute(
+            self.model_attributes.subsec_name_enfu,
+            "pycategory_primary_element"
+        )
 
         dict_return = {}
         flag_dummy_price = min(flag_dummy_price, -1)
@@ -5489,39 +5573,17 @@ class EnergyProduction:
         cats_entc_dummy = list(self.get_dummy_fuel_techs().values())
         cats_no_cost = set(cats_entc_dummy) - set(cats_entc_dummy_with_high_cost)
         
-        
-
         for table_name in list(dict_return.keys()):
             df_tmp = dict_return.get(table_name)
 
             # set high price relative to other prices & determine where to keep specified costs (vec_high_cost_bool = 0 if it is contained in cats_no_cost)
-            price_high = max(
-                10 + 2*np.round(
-                    max(df_tmp[self.field_nemomod_value])*2
-                ), 
-                minimum_dummy_price,
-            )
-
-            vec_high_cost_bool = (
-                np.array(
-                    [
-                        (x not in cats_no_cost) 
-                        for x in df_tmp[self.field_nemomod_technology].to_numpy()
-                    ]
-                )
-                .astype(int)
-            )
-
-            vals_new = (
-                np.array(
-                    df_tmp[self.field_nemomod_value]
-                    .replace({flag_dummy_price: price_high, })
-                ) 
-                *vec_high_cost_bool
-            )
+            price_high = max(np.round(max(df_tmp[self.field_nemomod_value])*2)*10 + 10, minimum_dummy_price)
+            vec_high_cost_bool = np.array([(x not in cats_no_cost) for x in list(df_tmp[self.field_nemomod_technology])]).astype(int)
+            vals_new = np.array(df_tmp[self.field_nemomod_value].replace({flag_dummy_price: price_high})) * vec_high_cost_bool
             
             df_tmp[self.field_nemomod_value] = vals_new
-            dict_return.update({table_name: df_tmp, })
+
+            dict_return.update({table_name: df_tmp})
         
         return dict_return
 
@@ -5677,8 +5739,7 @@ class EnergyProduction:
         attribute_time_period: Union[AttributeTable, None] = None,
         regions: Union[List[str], None] = None,
     ) -> pd.DataFrame:
-        """
-        Format the EmissionsActivityRatio input table for NemoMod based on 
+        """Format the EmissionsActivityRatio input table for NemoMod based on 
             SISEPUEDE configuration parameters, input variables, integrated 
             model outputs, and reference tables.
 
@@ -5700,12 +5761,23 @@ class EnergyProduction:
 
         ##  CATEGORY AND ATTRIBUTE INITIALIZATION
 
-        attr_enfu = self.get_attribute_enfu(attribute_fuel, )
-        attr_entc = self.get_attribute_entc(attribute_technology, )
-        pycat_enfu = self.pycat_enfu
+        attr_enfu = (
+            self.model_attributes.get_attribute_table(self.model_attributes.subsec_name_enfu) 
+            if not is_attribute_table(attribute_fuel, ) 
+            else attribute_fuel
+        )
+        attr_entc = (
+            self.model_attributes.get_attribute_table(self.model_attributes.subsec_name_entc) 
+            if not is_attribute_table(attribute_technology, ) 
+            else attribute_technology
+        )
+        pycat_enfu = self.model_attributes.get_subsector_attribute(
+            self.subsec_name_enfu, 
+            "pycategory_primary_element",
+        )
 
         # get technology info and cat to fuel dictionary
-        dict_tech_info = self.get_tech_info_dict(attribute_fuel = attribute_fuel)
+        dict_tech_info = self.get_tech_info_dict(attribute_fuel = attribute_fuel, )
         dict_techs_to_fuel = self.model_attributes.get_ordered_category_attribute(
             self.model_attributes.subsec_name_entc,
             f"electricity_generation_{pycat_enfu}",
@@ -5757,6 +5829,7 @@ class EnergyProduction:
             arr_enfu_tmp *= self.model_attributes.get_scalar(modvar, "mass")
             arr_enfu_tmp /= self.get_nemomod_energy_scalar(modvar)
             dict_enfu_arrs_efs_scaled_to_nemomod.update({modvar: arr_enfu_tmp})
+
             # get ordered indices for each fuel associated with a generation tech
             arr_enfu_tmp = arr_enfu_tmp[:, inds_enfu_extract]
             
@@ -5780,7 +5853,7 @@ class EnergyProduction:
             )
 
             arr_entc_tmp *= arr_enfu_scalar
-
+            
             # incorporate efficiency of technology
             arr_entc_eff_techs = self.model_attributes.extract_model_variable(
                 df_elec_trajectories,
@@ -5793,6 +5866,7 @@ class EnergyProduction:
 
             # divide by efficiency to ensure emissions are reflected 
             arr_entc_tmp /= arr_entc_eff_techs
+
 
 
             ##  FORMAT AS DATA FRAME
@@ -6005,9 +6079,18 @@ class EnergyProduction:
         """
 
         ##  CATEGORY AND ATTRIBUTE INITIALIZATION
+        attribute_fuel = (
+            self.model_attributes.get_attribute_table(self.subsec_name_enfu) 
+            if (attribute_fuel is None) 
+            else attribute_fuel
+        )
 
-        attribute_fuel = self.get_attribute_enfu(attribute_fuel, )
-        attribute_technology = self.get_attribute_entc(attribute_technology, )
+        attribute_technology = (
+            self.model_attributes.get_attribute_table(self.subsec_name_entc) 
+            if (attribute_technology is None) 
+            else attribute_technology
+        )
+
 
         # cat to fuel dictionary + reverse
         dict_tech_info = self.get_tech_info_dict(
@@ -6254,9 +6337,16 @@ class EnergyProduction:
             )
         """
         # do some initialization
-        attribute_fuel = self.get_attribute_enfu(attribute_fuel, )
-        attribute_technology = self.get_attribute_entc(attribute_technology, )
-
+        attribute_fuel = (
+            self.model_attributes.get_attribute_table(self.subsec_name_enfu) 
+            if (attribute_fuel is None) 
+            else attribute_fuel
+        )
+        attribute_technology = (
+            self.model_attributes.get_attribute_table(self.subsec_name_entc) 
+            if (attribute_technology is None) 
+            else attribute_technology
+        )
         dict_tech_info = self.get_tech_info_dict(
             attribute_technology = attribute_technology
         )
@@ -6273,7 +6363,7 @@ class EnergyProduction:
         tuple_enfu_production_and_demands = (
             self.model_enercons.project_enfu_production_and_demands(
                 df_elec_trajectories, 
-                target_energy_units = self.model_attributes.configuration.get("energy_units_nemomod")
+                target_energy_units = self.get_units_energy_nemo(),
             )
             if tuple_enfu_production_and_demands is None
             else tuple_enfu_production_and_demands
@@ -6353,7 +6443,7 @@ class EnergyProduction:
         # conflicting constraints between MinShareProduction/ReMinProductionTarget
         vec_entc_elec_demand_frac_from_tech_lower_limit = self.estimate_production_share_from_activity_limits(
             df_elec_trajectories,
-            tuple_enfu_production_and_demands = tuple_enfu_production_and_demands,
+            tuple_enfu_production_and_demands = tuple_enfu_production_and_demands
         )
         
         # copy and add fractions of demand represented by TechnologyTotalAnnualLowerLimit
@@ -6548,9 +6638,15 @@ class EnergyProduction:
             if (attribute_storage is None) 
             else attribute_storage
         )
-
-        attribute_technology = self.get_attribute_entc(attribute_technology, )
-        pycat_strg = self.pycat_enst
+        attribute_technology = (
+            self.model_attributes.get_attribute_table(self.subsec_name_entc) 
+            if (attribute_technology is None) 
+            else attribute_technology
+        )
+        pycat_strg = self.model_attributes.get_subsector_attribute(
+            self.subsec_name_enst, 
+            "pycategory_primary_element",
+        )
 
         # cat storage dictionary
         dict_storage_techs_to_storage = self.model_attributes.get_ordered_category_attribute(
@@ -6657,8 +6753,17 @@ class EnergyProduction:
         
         ##  CATEGORY AND ATTRIBUTE INITIALIZATION
 
-        attribute_fuel = self.get_attribute_enfu(attribute_fuel, )
-        attribute_technology = self.get_attribute_entc(attribute_technology, )
+        attribute_fuel = (
+            self.model_attributes.get_attribute_table(self.subsec_name_enfu) 
+            if (attribute_fuel is None) 
+            else attribute_fuel
+        )
+
+        attribute_technology = (
+            self.model_attributes.get_attribute_table(self.subsec_name_entc) 
+            if (attribute_technology is None) 
+            else attribute_technology
+        )
 
 
         ##  BUILD DUMMY SUPPLY TECHNOLOGIES FOR FUELS WITHOUT SPECIFIED OUTPUT ACTIVITY RATIOS
@@ -6832,17 +6937,9 @@ class EnergyProduction:
         
         """
         # perform some initialization
-        attribute_fuel = self.get_attribute_enfu(attribute_fuel, )
-        modvar_import_fraction = (
-            self.modvar_enfu_frac_fuel_demand_imported 
-            if (modvar_import_fraction is None) 
-            else modvar_import_fraction
-        )
-        modvar_renewable_target = (
-            self.modvar_enfu_nemomod_renewable_production_target 
-            if (modvar_renewable_target is None) 
-            else modvar_renewable_target
-        )
+        attribute_fuel = self.model_attributes.get_attribute_table(self.subsec_name_enfu) if (attribute_fuel is None) else attribute_fuel
+        modvar_import_fraction = self.modvar_enfu_frac_fuel_demand_imported if (modvar_import_fraction is None) else modvar_import_fraction
+        modvar_renewable_target = self.modvar_enfu_nemomod_renewable_production_target if (modvar_renewable_target is None) else modvar_renewable_target
 
         # get imports and renewable energy minimum production targets 
         arr_enfu_imports = self.model_attributes.extract_model_variable(#
@@ -7167,13 +7264,12 @@ class EnergyProduction:
 
         Function Arguments
         ------------------
-        df_elec_trajectories : pd.DataFrame
-            DataFrame of model variable input trajectories
+        - df_elec_trajectories: data frame of model variable input trajectories
 
         Keyword Arguments
         -----------------
-        tuple_enfu_production_and_demands : Union[Tuple[pd.DataFrame], None]
-            Optional tuple of energy fuel demands produced by 
+        - tuple_enfu_production_and_demands: optional tuple of energy fuel 
+            demands produced by 
             self.model_enercons.project_enfu_production_and_demands():
 
             (
@@ -7205,7 +7301,7 @@ class EnergyProduction:
         tuple_enfu_production_and_demands = (
             self.model_enercons.project_enfu_production_and_demands(
                 df_elec_trajectories, 
-                target_energy_units = self.model_attributes.configuration.get("energy_units_nemomod")
+                target_energy_units = self.get_units_energy_nemo(),
             ) 
             if (tuple_enfu_production_and_demands is None) 
             else tuple_enfu_production_and_demands
@@ -7247,13 +7343,7 @@ class EnergyProduction:
 
         #    NOTE: This fraction is >= than the true fraction, since demands for electricity increase with fuel production
         table_name = self.model_attributes.table_nemomod_total_technology_annual_activity_lower_limit
-        df_tech_lower_limit = (
-            self.get_total_technology_activity_lower_limit_no_msp_adjustment(
-                df_elec_trajectories
-            )
-            .get(table_name)
-        )
-
+        df_tech_lower_limit = self.get_total_technology_activity_lower_limit_no_msp_adjustment(df_elec_trajectories).get(table_name)
         vector_reference_time_period = list(df_elec_trajectories[self.model_attributes.dim_time_period])
 
         # 
@@ -7286,25 +7376,25 @@ class EnergyProduction:
         regions: Union[List[str], None] = None,
         tuple_enfu_production_and_demands: Union[Tuple[pd.DataFrame], None] = None
     ) -> pd.DataFrame:
-        """Format the SpecifiedAnnualDemand input table for NemoMod based on 
+        """
+        Format the SpecifiedAnnualDemand input table for NemoMod based on 
             SISEPUEDE configuration parameters, input variables, integrated 
             model outputs, and reference tables.
 
         Function Arguments
         ------------------
-        df_elec_trajectories: data frame of model variable input trajectories
+        - df_elec_trajectories: data frame of model variable input trajectories
 
         Keyword Arguments
         -----------------
-        attribute_fuel : AttributeTable
-            AttributeTable used for fuels
-        attribute_time_period : AttributeTable
-            AttributeTable mapping ModelAttributes.dim_time_period to year. If 
-            None, use ModelAttributes default.
-        regions : 
-            Regions to specify. If None, defaults to configuration regions
-        tuple_enfu_production_and_demands : Union[Tuple, None]
-            Optional tuple of energy fuel demands produced by 
+        - attribute_fuel: AttributeTable used for fuels
+        - attribute_time_period: AttributeTable mapping 
+            ModelAttributes.dim_time_period to year. If None, use 
+            ModelAttributes default.
+        - regions: regions to specify. If None, defaults to configuration 
+            regions
+        - tuple_enfu_production_and_demands: optional tuple of energy fuel 
+            demands produced by 
             self.model_enercons.project_enfu_production_and_demands():
 
             (
@@ -7325,7 +7415,11 @@ class EnergyProduction:
             method.
         """
 
-        attribute_fuel = self.get_attribute_enfu(attribute_fuel, )
+        attribute_fuel = (
+            self.model_attributes.get_attribute_table(self.subsec_name_enfu) 
+            if (attribute_fuel is None) 
+            else attribute_fuel
+        )
        
 
         ##  GET PRODUCTION DEMAND FROM INTEGRATED MODEL
@@ -7334,7 +7428,7 @@ class EnergyProduction:
         tuple_enfu_production_and_demands = (
             self.model_enercons.project_enfu_production_and_demands(
                 df_elec_trajectories, 
-                target_energy_units = self.model_attributes.configuration.get("energy_units_nemomod")
+                target_energy_units = self.get_units_energy_nemo(),
             ) 
             if (tuple_enfu_production_and_demands is None) 
             else tuple_enfu_production_and_demands
@@ -7463,8 +7557,18 @@ class EnergyProduction:
 
         ##  INITIAlIZATION
 
-        attribute_fuel = self.get_attribute_enfu(attribute_fuel, )
-        attribute_region = self.get_attribute_region(attribute_region, )
+        attribute_fuel = (
+            self.get_attribute_enfu() 
+            if (attribute_fuel is None) 
+            else attribute_fuel
+        )
+
+        attribute_region = (
+            self.get_attribute_region() 
+            if (attribute_region is None) 
+            else attribute_region
+        )
+
         attribute_time_slice = (
             self.model_attributes.get_other_attribute_table("time_slice") 
             if (attribute_time_slice is None) 
@@ -7711,9 +7815,15 @@ class EnergyProduction:
             if (attribute_storage is None) 
             else attribute_storage
         )
-
-        attribute_technology = self.get_attribute_entc(attribute_technology, )
-        pycat_strg = self.pycat_enst
+        attribute_technology = (
+            self.model_attributes.get_attribute_table(self.subsec_name_entc) 
+            if (attribute_technology is None) 
+            else attribute_technology
+        )
+        pycat_strg = self.model_attributes.get_subsector_attribute(
+            self.subsec_name_enst, 
+            "pycategory_primary_element",
+        )
 
 
         # cat storage dictionary
@@ -8261,9 +8371,16 @@ class EnergyProduction:
         """
 
         # some initialization
-        attribute_fuel = self.get_attribute_enfu(attribute_fuel, )
-        attribute_technology = self.get_attribute_entc(attribute_technology, )
-
+        attribute_fuel = (
+            self.model_attributes.get_attribute_table(self.subsec_name_enfu) 
+            if (attribute_fuel is None) 
+            else attribute_fuel
+        )
+        attribute_technology = (
+            self.model_attributes.get_attribute_table(self.subsec_name_entc) 
+            if (attribute_technology is None) 
+            else attribute_technology
+        )
         drop_flag = self.drop_flag_tech_capacities if (drop_flag is None) else drop_flag
         table_name = self.model_attributes.table_nemomod_total_technology_annual_activity_lower_limit
     
@@ -8305,7 +8422,8 @@ class EnergyProduction:
         tuple_enfu_production_and_demands: Union[Tuple[pd.DataFrame], None] = None,
         **kwargs
     ) -> Dict[str, pd.DataFrame]:
-        """Format the TotalTechnologyAnnualActivityUpperLimit input tables for 
+        """
+        Format the TotalTechnologyAnnualActivityUpperLimit input tables for 
             NemoMod based on SISEPUEDE configuration parameters, input 
             variables, integrated model outputs, and reference tables.
 
@@ -8354,9 +8472,16 @@ class EnergyProduction:
         """
 
         # some initialization
-        attribute_fuel = self.get_attribute_enfu(attribute_fuel, )
-        attribute_technology = self.get_attribute_entc(attribute_technology, )
-        
+        attribute_fuel = (
+            self.model_attributes.get_attribute_table(self.subsec_name_enfu) 
+            if (attribute_fuel is None) 
+            else attribute_fuel
+        )
+        attribute_technology = (
+            self.model_attributes.get_attribute_table(self.subsec_name_entc) 
+            if (attribute_technology is None) 
+            else attribute_technology
+        )
         drop_flag = self.drop_flag_tech_capacities if (drop_flag is None) else drop_flag
         table_name = self.model_attributes.table_nemomod_total_technology_annual_activity_upper_limit
     
@@ -8394,8 +8519,9 @@ class EnergyProduction:
         regions: Union[List[str], None] = None, 
         return_type: str = "NemoMod",
     ) -> Dict[str, pd.DataFrame]:
-        """Construct the TotalTechnologyAnnualActivityLowerLimit input tables 
-            for NemoMod based on SISEPUEDE configuration parameters, input 
+        """
+        Construct the TotalTechnologyAnnualActivityLowerLimit input tables for 
+            NemoMod based on SISEPUEDE configuration parameters, input 
             variables, integrated model outputs, and reference tables WITHOUT
             adjusting for the implementation of the Max Production Inrease from
             MinShareProduction. 
@@ -8436,7 +8562,11 @@ class EnergyProduction:
             return_type = "NemoMod"
 
         # some attribute initializations
-        attribute_technology = self.get_attribute_entc(attribute_technology, )
+        attribute_technology = (
+            self.model_attributes.get_attribute_table(self.subsec_name_entc) 
+            if (attribute_technology is None) 
+            else attribute_technology
+        )
 
         # get some categories and keys
         cat_entc_pp_biogas = self.get_entc_cat_for_integration("bgas")
@@ -8446,9 +8576,10 @@ class EnergyProduction:
 
         # get some scalars to use if returning a capacity constraint dataframe
         if return_type == "CapacityCheck":
-            units_energy_config = self.model_attributes.configuration.get("energy_units")
-            units_power_config = self.model_attributes.configuration.get("power_units")
+            units_energy_config = self.get_units_energy()
+            units_power_config = self.get_units_power()
             units_energy_power_equivalent = self.model_attributes.get_energy_power_swap(units_power_config)
+            
             scalar_energy_to_power_cur = self.model_attributes.get_energy_equivalent(
                 units_energy_config, 
                 units_energy_power_equivalent
@@ -8472,7 +8603,6 @@ class EnergyProduction:
             df_elec_trajectories,
         )
         vec_enfu_min_energy_to_elec_biogas *= arr_entc_efficiencies[:, ind_entc_pp_biogas]
-        
         # get waste supply available
         vec_enfu_total_energy_supply_waste, vec_enfu_min_energy_to_elec_waste, dict_efs = self.get_waste_energy_components(
             df_elec_trajectories,
@@ -8489,14 +8619,12 @@ class EnergyProduction:
             self.field_nemomod_value: vec_enfu_min_energy_to_elec_biogas,
             self.field_nemomod_year: list(df_elec_trajectories[self.model_attributes.dim_time_period])
         })
-
         # waste component
         df_waste = pd.DataFrame({
             self.field_nemomod_technology: cat_entc_pp_waste,
             self.field_nemomod_value: vec_enfu_min_energy_to_elec_waste,
             self.field_nemomod_year: list(df_elec_trajectories[self.model_attributes.dim_time_period])
         })
-
         # concatenate into output data frame
         df_out = pd.concat([df_biogas, df_waste], axis = 0)
         df_out = self.model_attributes.exchange_year_time_period(
@@ -8505,7 +8633,6 @@ class EnergyProduction:
             df_out[self.field_nemomod_year],
             direction = self.direction_exchange_year_time_period
         )
-        
         # add key values
         df_out = self.add_multifields_from_key_values(df_out,
             [
@@ -8530,7 +8657,7 @@ class EnergyProduction:
         return dict_return
     
 
-    #HEREHERE--START
+
     def get_total_technology_activity_upper_limit_no_msp_adjustment(self,
         df_elec_trajectories: pd.DataFrame,
         attribute_technology: AttributeTable = None,
@@ -8579,7 +8706,11 @@ class EnergyProduction:
             return_type = "NemoMod"
 
         # some attribute initializations
-        attribute_technology = self.get_attribute_entc(attribute_technology, )
+        attribute_technology = (
+            self.model_attributes.get_attribute_table(self.subsec_name_entc) 
+            if (attribute_technology is None) 
+            else attribute_technology
+        )
 
         # get some categories and keys
         cat_entc_pp_biogas = self.get_entc_cat_for_integration("bgas")
@@ -8589,8 +8720,8 @@ class EnergyProduction:
 
         # get some scalars to use if returning a capacity constraint dataframe
         if return_type == "CapacityCheck":
-            units_energy_config = self.model_attributes.configuration.get("energy_units")
-            units_power_config = self.model_attributes.configuration.get("power_units")
+            units_energy_config = self.get_units_energy()
+            units_power_config = self.get_units_power()
             units_energy_power_equivalent = self.model_attributes.get_energy_power_swap(units_power_config)
 
             scalar_energy_to_power_cur = self.model_attributes.get_energy_equivalent(
@@ -8713,14 +8844,14 @@ class EnergyProduction:
             self.get_dict_tech_base_to_ccs()
         modvar_mix : Union[str, ModelVariable]
             ModelVariable used to denote mixing fraction. Defaults to 
-            self.modvar_entc_ccs_achievement_frac
+            self.modvar_ccs_achievement_frac
             **NOTE** that the fraction mix is in terms of bound 1
         """
         ##  INITIALIZE SOME PIECES
         
         # get mixing model variables
         modvar_mix = (
-            self.modvar_entc_ccs_achievement_frac
+            self.modvar_ccs_achievement_frac
             if modvar_mix is None
             else modvar_mix
         )
@@ -8831,9 +8962,16 @@ class EnergyProduction:
         """
 
         # some initialization
-        attribute_fuel = self.get_attribute_enfu(attribute_fuel, )
-        attribute_technology = self.get_attribute_entc(attribute_technology, )
-
+        attribute_fuel = (
+            self.model_attributes.get_attribute_table(self.subsec_name_enfu) 
+            if (attribute_fuel is None) 
+            else attribute_fuel
+        )
+        attribute_technology = (
+            self.model_attributes.get_attribute_table(self.subsec_name_entc) 
+            if (attribute_technology is None) 
+            else attribute_technology
+        )
         drop_flag = self.drop_flag_tech_capacities if (drop_flag is None) else drop_flag
         table_name = list(dict_ttal.keys())[0] if (key_ttal is None) else key_ttal
 
@@ -8960,7 +9098,12 @@ class EnergyProduction:
             )
 
         else:
-            attribute_time_period = self.get_attribute_time_period(attribute_time_period, )
+            attribute_time_period = (
+                self.get_attribute_time_period()
+                if (attribute_time_period is None) 
+                else attribute_time_period
+            )
+            
             dict_map = attribute_time_period.field_maps.get(f"{field_year}_to_{attribute_time_period.key}")
 
         df_out = (
@@ -9355,7 +9498,11 @@ class EnergyProduction:
 
         ##  INITIALIZATION
 
-        attribute_fuel = self.get_attribute_enfu(attribute_fuel, )
+        attribute_fuel = (
+            self.model_attributes.get_attribute_table(self.subsec_name_enfu) 
+            if (attribute_fuel is None) 
+            else attribute_fuel
+        )
         table_name = (
             self.model_attributes.table_nemomod_use_by_technology 
             if (table_name is None) 
@@ -9694,7 +9841,11 @@ class EnergyProduction:
             and exporting.
         """
         # initialize some pieces
-        attribute_fuel = self.get_attribute_enfu(attribute_fuel, )
+        attribute_fuel = (
+            self.model_attributes.get_attribute_table(self.subsec_name_enfu) 
+            if (attribute_fuel is None) 
+            else attribute_fuel
+        )
         table_name_demand_annual = (
             self.model_attributes.table_nemomod_annual_demand_nn 
             if (table_name_demand_annual is None) 
@@ -9716,7 +9867,7 @@ class EnergyProduction:
         tuple_enfu_production_and_demands = (
             self.model_enercons.project_enfu_production_and_demands(
                 df_elec_trajectories, 
-                target_energy_units = self.model_attributes.configuration.get("energy_units_nemomod"),
+                target_energy_units = self.get_units_energy_nemo(),
             ) 
             if (tuple_enfu_production_and_demands is None) 
             else tuple_enfu_production_and_demands
@@ -9990,9 +10141,8 @@ class EnergyProduction:
         attr_tech = (
             attr 
             if (subsec == self.subsec_name_entc) 
-            else self.attr_entc
+            else self.model_attributes.get_attribute_table(self.subsec_name_entc)
         )
-
         dict_tech_info = self.get_tech_info_dict(attribute_technology = attr_tech)
         field_pivot = self.field_nemomod_technology if (field_pivot is None) else field_pivot
 
@@ -10198,7 +10348,7 @@ class EnergyProduction:
         tuple_enfu_production_and_demands = (
             self.model_enercons.project_enfu_production_and_demands(
                 df_elec_trajectories, 
-                target_energy_units = self.model_attributes.configuration.get("energy_units_nemomod")
+                target_energy_units = self.get_units_energy_nemo(),
             )
             if tuple_enfu_production_and_demands is None
             else tuple_enfu_production_and_demands
@@ -10752,7 +10902,7 @@ class EnergyProduction:
         # get shared energy variables that are required before and after NemoMod runs
         tuple_enfu_production_and_demands = self.model_enercons.project_enfu_production_and_demands(
             df_elec_trajectories, 
-            target_energy_units = self.model_attributes.configuration.get("energy_units_nemomod")
+            target_energy_units = self.get_units_energy_nemo(),
         )
 
         # get data for the database
@@ -10921,20 +11071,15 @@ class EnergyProduction:
             )
             add_unused_fuel = False
 
-
-        ##  GET FUEL SUPPLIES/CONSTRAINTS FROM OTHER PARTS OF THE MODEL
-
-        (
-            vec_enfu_total_energy_supply_biogas, 
-            vec_enfu_min_energy_to_elec_biogas,
-        ) = self.get_biogas_components(
-            df_elec_trajectories,
+        # get biogas and waste supply available
+        vec_enfu_total_energy_supply_biogas, vec_enfu_min_energy_to_elec_biogas = self.get_biogas_components(
+            df_elec_trajectories
         )
 
         (
             vec_enfu_total_energy_supply_waste, 
             vec_enfu_min_energy_to_elec_waste, 
-            dict_efs,
+            dict_efs
         ) = self.get_waste_energy_components(
             df_elec_trajectories,
             return_emission_factors = False,
@@ -10948,7 +11093,6 @@ class EnergyProduction:
         # adjust by fuel used?
         vec_used_bgas = 0.0
         vec_used_wste = 0.0
-
         if add_unused_fuel:
             # do units converison
             arr_enfu_fuel_demand_elec *= self.model_attributes.get_variable_unit_conversion_factor(
@@ -10974,11 +11118,7 @@ class EnergyProduction:
 
 
         # concatenate and add subsector emission totals
-        df_out = sf.merge_output_df_list(
-            df_out, 
-            self.model_attributes, 
-            merge_type = "concatenate",
-        )
+        df_out = sf.merge_output_df_list(df_out, self.model_attributes, merge_type = "concatenate")
         self.model_attributes.add_subsector_emissions_aggregates(df_out, [self.subsec_name_entc], False)
 
 
