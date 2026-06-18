@@ -115,7 +115,7 @@ class EnergyProduction:
         self.model_attributes = model_attributes
 
         # initialize names and shared fields
-        self._initialize_subsector_names()
+        self._initialize_subsector_properties()
         self._initialize_nemomod_fields()
         self._initialize_input_output_components()
         self._initialize_other_properties(
@@ -898,24 +898,47 @@ class EnergyProduction:
 
 
 
-    def _initialize_subsector_names(self,
+    def _initialize_subsector_properties(self,
     ) -> None:
         """
         Set subsector names (self.subsec_name_####)
         """
+
+        ##  ATTRIBUTE TABLES
+
+        attr_enfu = self.model_attributes.get_attribute_table(
+            self.model_attributes.subsec_name_enfu,
+        )
+
+        attr_enst = self.model_attributes.get_attribute_table(
+            self.model_attributes.subsec_name_enst,
+        )
+
+        attr_entc = self.model_attributes.get_attribute_table(
+            self.model_attributes.subsec_name_entc,
+        )
+
+
+        ##  SET PROPERTIES
+
+        # attribute tables
+        self.attr_enfu = attr_enfu
+        self.attr_enst = attr_enst
+        self.attr_entc = attr_entc
+
         # some subector reference variables
-        self.subsec_name_ccsq = "Carbon Capture and Sequestration"
-        self.subsec_name_econ = "Economy"
-        self.subsec_name_enfu = "Energy Fuels"
-        self.subsec_name_enst = "Energy Storage"
-        self.subsec_name_entc = "Energy Technology"
-        self.subsec_name_fgtv = "Fugitive Emissions"
-        self.subsec_name_gnrl = "General"
-        self.subsec_name_inen = "Industrial Energy"
-        self.subsec_name_ippu = "IPPU"
-        self.subsec_name_scoe = "Stationary Combustion and Other Energy"
-        self.subsec_name_trns = "Transportation"
-        self.subsec_name_trde = "Transportation Demand"
+        self.subsec_name_ccsq = self.model_attributes.subsec_name_ccsq
+        self.subsec_name_econ = self.model_attributes.subsec_name_econ
+        self.subsec_name_enfu = self.model_attributes.subsec_name_enfu
+        self.subsec_name_enst = self.model_attributes.subsec_name_enst
+        self.subsec_name_entc = self.model_attributes.subsec_name_entc
+        self.subsec_name_fgtv = self.model_attributes.subsec_name_fgtv
+        self.subsec_name_gnrl = self.model_attributes.subsec_name_gnrl
+        self.subsec_name_inen = self.model_attributes.subsec_name_inen
+        self.subsec_name_ippu = self.model_attributes.subsec_name_ippu
+        self.subsec_name_scoe = self.model_attributes.subsec_name_scoe
+        self.subsec_name_trns = self.model_attributes.subsec_name_trns
+        self.subsec_name_trde = self.model_attributes.subsec_name_trde
 
         return None
 
@@ -2165,7 +2188,20 @@ class EnergyProduction:
         df_elec_trajectories: pd.DataFrame
     ) -> tuple:
         """Retrieve total energy available from biogas collection and the 
-            minimum use
+            minimum use.
+
+        Returns a tuple of the form:
+
+            (
+                vec_entc_constraint,    # Constraints on ENTC biomass production 
+                                        #   in terms of NEMO energy units
+                vec_entc_ef_avg_out,    # Average emission factor--UNADJUSTED
+                                        #   FOR EFFICIENCY (i.e., assuming IAR
+                                        #   of 1--for biomass. Must be adjusted
+                                        #   by InputActivityRatio. In terms of
+                                        #   NEMO emission mass units per NEMO
+                                        #   energy units
+            )
 
         Function Arguments
         ------------------
@@ -2187,6 +2223,11 @@ class EnergyProduction:
             self.modvar_entc_fuel_constraint_fuelwood,
         )
 
+        # efficiency
+        modvar_entc_efficiency = self.model_attributes.get_variable(
+            self.modvar_entc_efficiency_factor_technology,
+        )
+        
         # emission factor vars
         modvar_enfu_ef_avg = matt.get_variable(
             self.model_enercons.modvar_enfu_ef_combustion_co2,
@@ -2196,7 +2237,7 @@ class EnergyProduction:
         )
 
 
-        ##  TRU TO RETRIEVE INTEGRATED DATA
+        ##  TRY TO RETRIEVE INTEGRATED DATA
 
         # constraints for biomass
         modvar_cr_out, vec_entc_constraint_cr = self.model_attributes.get_optional_or_integrated_standard_variable(
@@ -2243,23 +2284,68 @@ class EnergyProduction:
             self.get_units_energy_nemo(),
         )
 
-        # aggregate constraint in terms of 
-        vec_entc_constraint = (
-            vec_entc_constraint_cr*scalar_cr
-            + vec_entc_constraint_fw*scalar_fw
-        )
+        # set constraint; depends on variable availability
+        if (vec_entc_constraint_cr is None) and (vec_entc_constraint_fw is None):
+            vec_entc_constraint = None
+        
+        elif vec_entc_constraint_cr is None:
+            vec_entc_constraint = vec_entc_constraint_fw*scalar_fw
+        
+        elif vec_entc_constraint_fw is None:
+            vec_entc_constraint = vec_entc_constraint_cr*scalar_cr
+
+        else:
+            vec_entc_constraint = (
+                vec_entc_constraint_cr*scalar_cr
+                + vec_entc_constraint_fw*scalar_fw
+            )
 
 
         ##  BUILD EMISSION ACTIVITY RATIO IN TERMS OF EAR VAR
 
-        # HEREHERE12345
+        # condition on array being returned
+        if vec_entc_ef_avg is not None:
+            
+            # get categories/indices
+            cats_entc_bmass = self.get_biomass_pp_techs()
+            inds_entc_bmass = [
+                self.attr_entc.get_key_value_index(x) for x in cats_entc_bmass
+            ]
 
+            # get efficiency factor
+            arr_efficiency_factors = self.model_attributes.extract_model_variable(
+                df_elec_trajectories,
+                modvar_entc_efficiency,
+                all_cats_missing_val = 0.0,
+                expand_to_all_cats = True,
+                return_type = "array_base",
+                var_bounds = (0, np.inf), 
+            )
+
+            # get and apply scalar
+            scalar_ef = matt.get_energy_equivalent(
+                matt.get_variable_characteristic(
+                    modvar_entc_ef_avg,
+                    "unit_energy",
+                ),
+                self.get_units_energy_nemo(),
+            )
+                
+            vec_entc_ef_avg_out = (
+                vec_entc_ef_avg
+                *self.model_attributes.get_scalar(modvar_entc_ef_avg, "mass", )
+                /scalar_ef
+            )
+
+            # expand by efficiency
+            vec_entc_ef_avg_out /= arr_efficiency_factors[:, inds_entc_bmass[0]]
 
 
         ##  SET OUTPUT
 
         out = (
             vec_entc_constraint,
+            vec_entc_ef_avg_out,
         )
 
         return out
@@ -2883,6 +2969,8 @@ class EnergyProduction:
         dict_cat_name_to_cat = {
             "bgas": self.cat_enfu_bgas,
             "biogas": self.cat_enfu_bgas,
+            "bmas": self.cat_enfu_bmas,
+            "biomass": self.cat_enfu_bmas,
             "hpwr": self.cat_enfu_hpwr,
             "hydropower": self.cat_enfu_hpwr,
             "waste": self.cat_enfu_wste,
@@ -3747,8 +3835,7 @@ class EnergyProduction:
         attribute_technology: Union[AttributeTable, None] = None,
         attribute_time_period: Union[AttributeTable, None] = None
     ) -> Union[pd.DataFrame, None]:
-        """
-        If waste composition is known from CircularEconomy, emission factors
+        """If waste composition is known from CircularEconomy, emission factors
             can be derived from the integrated model. Pulls emission factors
             from waste data in CircularEconomy.
 
@@ -3772,7 +3859,7 @@ class EnergyProduction:
         vec_enfu_total_energy_waste, vec_enfu_min_energy_to_elec_waste, dict_efs = self.get_waste_energy_components(
             df_elec_trajectories,
             attribute_technology = attribute_technology,
-            return_emission_factors = True
+            return_emission_factors = True,
         )
 
         # format to a new data frame
@@ -3784,20 +3871,26 @@ class EnergyProduction:
             df_enfu_efs_waste = pd.DataFrame(dict_efs)
             df_enfu_efs_waste[self.field_nemomod_technology] = cat_entc_pp_waste
             df_enfu_efs_waste[self.field_nemomod_mode] = self.cat_enmo_gnrt
+
             df_enfu_efs_waste = self.model_attributes.exchange_year_time_period(
                 df_enfu_efs_waste,
                 self.field_nemomod_year,
                 df_elec_trajectories[self.model_attributes.dim_time_period],
                 attribute_time_period = attribute_time_period,
-                direction = self.direction_exchange_year_time_period
+                direction = self.direction_exchange_year_time_period,
             )
+
             # melt into a long form table
             df_enfu_efs_waste = pd.melt(
                 df_enfu_efs_waste,
-                [self.field_nemomod_technology, self.field_nemomod_mode, self.field_nemomod_year],
+                [
+                    self.field_nemomod_technology, 
+                    self.field_nemomod_mode, 
+                    self.field_nemomod_year
+                ],
                 list(dict_efs.keys()),
                 var_name = self.field_nemomod_emission,
-                value_name = self.field_nemomod_value
+                value_name = self.field_nemomod_value,
             )
 
         return df_enfu_efs_waste
@@ -5760,14 +5853,14 @@ class EnergyProduction:
         """
 
         ##  CATEGORY AND ATTRIBUTE INITIALIZATION
-
+        #
         attr_enfu = (
-            self.model_attributes.get_attribute_table(self.model_attributes.subsec_name_enfu) 
+            self.attr_enfu
             if not is_attribute_table(attribute_fuel, ) 
             else attribute_fuel
         )
         attr_entc = (
-            self.model_attributes.get_attribute_table(self.model_attributes.subsec_name_entc) 
+            self.attr_entc
             if not is_attribute_table(attribute_technology, ) 
             else attribute_technology
         )
@@ -5790,6 +5883,7 @@ class EnergyProduction:
         dict_pp_tech_to_fuel = dict_tech_info.get("dict_pp_tech_to_fuel")
 
         # get some categories and ordered indexing to convert
+        cat_entc_pp_bmass = self.get_entc_cat_for_integration("bmas")
         cat_entc_pp_waste = self.get_entc_cat_for_integration("wste") 
         cats_entc_ordered = [x for x in attr_entc.key_values if x in dict_pp_tech_to_fuel.keys()]
         inds_enfu_extract = [attr_enfu.get_key_value_index(dict_pp_tech_to_fuel.get(x)) for x in cats_entc_ordered]
@@ -5826,9 +5920,9 @@ class EnergyProduction:
             )
 
             # convert emissions mass (configuration) and energy (self.modvar_enfu_energy_demand_by_fuel_total) to the units for NemoMod
-            arr_enfu_tmp *= self.model_attributes.get_scalar(modvar, "mass")
-            arr_enfu_tmp /= self.get_nemomod_energy_scalar(modvar)
-            dict_enfu_arrs_efs_scaled_to_nemomod.update({modvar: arr_enfu_tmp})
+            arr_enfu_tmp *= self.model_attributes.get_scalar(modvar, "mass", )
+            arr_enfu_tmp /= self.get_nemomod_energy_scalar(modvar, )
+            dict_enfu_arrs_efs_scaled_to_nemomod.update({modvar: arr_enfu_tmp, })
 
             # get ordered indices for each fuel associated with a generation tech
             arr_enfu_tmp = arr_enfu_tmp[:, inds_enfu_extract]
@@ -5912,7 +6006,7 @@ class EnergyProduction:
         df_enfu_efs_waste = self.get_integrated_waste_emissions_activity_ratio(
             df_elec_trajectories,
             attribute_technology = attribute_technology,
-            attribute_time_period = attribute_time_period
+            attribute_time_period = attribute_time_period,
         )
 
         # concatenate and replace waste if applicable
