@@ -2196,7 +2196,7 @@ class AFOLU:
     def estimate_biomass_demand_entc(self,
         df_energy_trajectories: pd.DataFrame,
         vec_fuel_demand_electricity: np.ndarray,
-        kludge_inflation_factor: float = 0.05,
+        kludge_inflation_factor: float = 0.0,
         **kwargs,
     ) -> np.ndarray:
         """Estimate the demand for biomass coming from ENTC. Returns vector of

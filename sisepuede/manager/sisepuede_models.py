@@ -692,7 +692,7 @@ class SISEPUEDEModels:
         ##  5. Run Fuel Production and collect output
 
         if ("Energy" in models_run) and include_nemo_fuel_production and self.allow_electricity_run:
-
+            
             self._log(
                 "Running Energy model (Electricity and Fuel Production: trying to call Julia)", 
                 type_log = "info",
@@ -705,6 +705,11 @@ class SISEPUEDEModels:
                     self.model_enerprod.integration_variables
                 )
 
+            # global dfi
+            # dfi = df_input_data.copy()
+            # print("returning")
+            # return df_input_data
+            # print("contining")
             # create the engine and try to run Electricity
             engine = sqlalchemy.create_engine(f"sqlite:///{self.fp_nemomod_temp_sqlite_db}")
             try:
@@ -730,6 +735,7 @@ class SISEPUEDEModels:
                 )
 
             except Exception as e:
+                print(e)
                 self._log(
                     f"Error running EnergyProduction model: {e}", 
                     type_log = "error",

@@ -183,7 +183,7 @@ class EnergyProduction:
 
 
     def check_df_fields(self,
-        df_elec_trajectories: pd.DataFrame,
+        df_enerprod_trajectories: pd.DataFrame,
         subsector: str = "All",
         var_type: str = "input",
         msg_prepend: Union[str, None] = None
@@ -205,7 +205,7 @@ class EnergyProduction:
             
             msg_prepend = msg_prepend if (msg_prepend is not None) else subsector
 
-        sf.check_fields(df_elec_trajectories, check_fields, f"{msg_prepend} projection cannot proceed: fields ")
+        sf.check_fields(df_enerprod_trajectories, check_fields, f"{msg_prepend} projection cannot proceed: fields ")
 
         return None
 
@@ -388,10 +388,14 @@ class EnergyProduction:
 
             * self.required_variables
         """
+
         # set the integration variables
         self.integration_variables = [
             # AFOLU variables
             self.model_afolu.modvar_lsmm_recovered_biogas,
+            self.modvar_entc_ef_combustion_co2_biomass_integrated,
+            self.modvar_entc_fuel_constraint_crop_residues, # biomass constraint
+            self.modvar_entc_fuel_constraint_fuelwood,      # biomass constraint
             # CircularEconomy variables
             self.model_circecon.modvar_trww_recovered_biogas,
             self.model_circecon.modvar_waso_emissions_ch4_incineration,
@@ -681,6 +685,7 @@ class EnergyProduction:
 
         self.required_nemomod_output_tables = [
             self.model_attributes.table_nemomod_annual_demand_nn,
+            self.model_attributes.table_nemomod_annual_emissions,
             self.model_attributes.table_nemomod_annual_emissions_by_technology,
             self.model_attributes.table_nemomod_capital_investment_discounted,
             self.model_attributes.table_nemomod_capital_investment_storage_discounted,
@@ -892,7 +897,7 @@ class EnergyProduction:
         )
         self.include_supply_techs_for_all_fuels = include_supply_techs_for_all_fuels
         self.is_sisepuede_model_fuel_production = True
-        self.units_energy_nemomod = self.get_units_energy_nemo(),
+        self.units_energy_nemomod = self.get_units_energy_nemo()
 
         return None
 
@@ -1653,7 +1658,7 @@ class EnergyProduction:
 
 
     def allocate_entc_emissions_by_energy_demand(self,
-        df_elec_trajectories: pd.DataFrame,
+        df_enerprod_trajectories: pd.DataFrame,
         df_retrieval_trajectories: pd.DataFrame,
         cat_enfu_energy_source: Union[str, None] = None,
         dict_enfu_subsectors_to_energy_variables: Union[Dict, None] = None,
@@ -1667,7 +1672,7 @@ class EnergyProduction:
 
         Function Arguments
         ------------------
-        - df_elec_trajectories: data frame of inputs to the electricity model
+        - df_enerprod_trajectories: data frame of inputs to the electricity model
         - df_retrieval_trajectories: data frame of output trajectories from
             NemoMod containing energy and emissions data
 
@@ -1776,7 +1781,7 @@ class EnergyProduction:
                 # if neither works, save error and move on
                 try: 
                     vec_demand_subsec_cur = self.model_attributes.extract_model_variable(#
-                        df_elec_trajectories,
+                        df_enerprod_trajectories,
                         dict_energy_vars_cur.get("energy_demand"),
                         expand_to_all_cats = True,
                         return_type = "array_base",
@@ -2104,14 +2109,14 @@ class EnergyProduction:
 
 
     def get_biogas_components(self,
-        df_elec_trajectories: pd.DataFrame
+        df_enerprod_trajectories: pd.DataFrame
     ) -> tuple:
         """Retrieve total energy available from biogas collection and the 
             minimum use
 
         Function Arguments
         ------------------
-        df_elec_trajectories : pd.DataFrame 
+        df_enerprod_trajectories : pd.DataFrame 
             DataFrame of input variables, which must include livestock manure 
             management and wastewater treatment sector outputs used to calcualte 
             emission factors
@@ -2127,7 +2132,7 @@ class EnergyProduction:
 
         # get gravimetric density (aka specific energy)
         vec_enfu_energy_density_gravimetric = self.model_attributes.extract_model_variable(#
-            df_elec_trajectories,
+            df_enerprod_trajectories,
             self.modvar_enfu_energy_density_gravimetric,
             expand_to_all_cats = True,
             override_vector_for_single_mv_q = True,
@@ -2137,7 +2142,7 @@ class EnergyProduction:
 
         # get minimum fuel fraction to electricity
         vec_enfu_minimum_fuel_frac_to_elec = self.model_attributes.extract_model_variable(#
-            df_elec_trajectories,
+            df_enerprod_trajectories,
             self.modvar_enfu_minimum_frac_fuel_used_for_electricity,
             expand_to_all_cats = True,
             override_vector_for_single_mv_q = True,
@@ -2150,7 +2155,7 @@ class EnergyProduction:
         for modvar in modvars_biogas:
             # retrieve biogas totals
             tuple_biogas = self.model_attributes.get_optional_or_integrated_standard_variable(
-                df_elec_trajectories,
+                df_enerprod_trajectories,
                 modvar,
                 None,
                 override_vector_for_single_mv_q = True,
@@ -2185,7 +2190,7 @@ class EnergyProduction:
 
 
     def get_biomass_components(self,
-        df_elec_trajectories: pd.DataFrame
+        df_enerprod_trajectories: pd.DataFrame
     ) -> tuple:
         """Retrieve total energy available from biogas collection and the 
             minimum use.
@@ -2193,6 +2198,8 @@ class EnergyProduction:
         Returns a tuple of the form:
 
             (
+                df_ear_co2,             # DataFrame storing Emission Activity
+                                        #   Ratio rows for CO2
                 vec_entc_constraint,    # Constraints on ENTC biomass production 
                                         #   in terms of NEMO energy units
                 vec_entc_ef_avg_out,    # Average emission factor--UNADJUSTED
@@ -2205,7 +2212,7 @@ class EnergyProduction:
 
         Function Arguments
         ------------------
-        df_elec_trajectories : pd.DataFrame 
+        df_enerprod_trajectories : pd.DataFrame 
             DataFrame of input variables, which must include livestock manure 
             management and wastewater treatment sector outputs used to calcualte 
             emission factors
@@ -2240,30 +2247,33 @@ class EnergyProduction:
         ##  TRY TO RETRIEVE INTEGRATED DATA
 
         # constraints for biomass
-        modvar_cr_out, vec_entc_constraint_cr = self.model_attributes.get_optional_or_integrated_standard_variable(
-            df_elec_trajectories,
+        tup_cr = self.model_attributes.get_optional_or_integrated_standard_variable(
+            df_enerprod_trajectories,
             modvar_cr,
             None,
             return_type = "array_base",
             var_bounds = (0, np.inf, ), 
         )
+        modvar_cr_out, vec_entc_constraint_cr = tup_cr if isinstance(tup_cr, tuple) else (None, None, )
 
-        modvar_fw_out, vec_entc_constraint_fw = self.model_attributes.get_optional_or_integrated_standard_variable(
-            df_elec_trajectories,
+        tup_fw = self.model_attributes.get_optional_or_integrated_standard_variable(
+            df_enerprod_trajectories,
             modvar_fw,
             None,
             return_type = "array_base",
             var_bounds = (0, np.inf, ),
         )
+        modvar_fw_out, vec_entc_constraint_fw = tup_fw if isinstance(tup_fw, tuple) else (None, None, )
 
         # average emission factor--ENFU biomass is overwritten, EAR for pp_biomass has to be passed
-        modvar_entc_ef_avg_out, vec_entc_ef_avg = self.model_attributes.get_optional_or_integrated_standard_variable(
-            df_elec_trajectories,
+        tup_ef = self.model_attributes.get_optional_or_integrated_standard_variable(
+            df_enerprod_trajectories,
             modvar_entc_ef_avg,
             None,
             return_type = "array_base",
             var_bounds = (0, np.inf, ),
         )
+        modvar_entc_ef_avg_out, vec_entc_ef_avg = tup_ef if isinstance(tup_ef, tuple) else (None, None, )
 
 
         ##  BUILD TOTAL BIOMASS CONSTRAINT IN TERMS OF get_units_energy_nemo()
@@ -2307,14 +2317,12 @@ class EnergyProduction:
         if vec_entc_ef_avg is not None:
             
             # get categories/indices
-            cats_entc_bmass = self.get_biomass_pp_techs()
-            inds_entc_bmass = [
-                self.attr_entc.get_key_value_index(x) for x in cats_entc_bmass
-            ]
+            cat_entc_bmass = self.get_entc_cat_for_integration("bmas")
+            ind_entc_bmass = self.attr_entc.get_key_value_index(cat_entc_bmass)
 
             # get efficiency factor
             arr_efficiency_factors = self.model_attributes.extract_model_variable(
-                df_elec_trajectories,
+                df_enerprod_trajectories,
                 modvar_entc_efficiency,
                 all_cats_missing_val = 0.0,
                 expand_to_all_cats = True,
@@ -2338,12 +2346,19 @@ class EnergyProduction:
             )
 
             # expand by efficiency
-            vec_entc_ef_avg_out /= arr_efficiency_factors[:, inds_entc_bmass[0]]
+            vec_entc_ef_avg_out /= arr_efficiency_factors[:, ind_entc_bmass]
+
+        # get DataFrame for EAR--will return None if vec_entc_ef_avg_out is None
+        df_ear_co2 = self.format_biomass_ear_df(
+            df_enerprod_trajectories,
+            vec_entc_ef_avg_out, 
+        )
 
 
         ##  SET OUTPUT
 
         out = (
+            df_ear_co2,
             vec_entc_constraint,
             vec_entc_ef_avg_out,
         )
@@ -2647,7 +2662,7 @@ class EnergyProduction:
             table pulled from NemoMod database
         - vector_reference_time_period: reference time periods to use in 
             merge--e.g., 
-            df_elec_trajectories[EnergyProduction.model_attributes.dim_time_period]
+            df_enerprod_trajectories[EnergyProduction.model_attributes.dim_time_period]
 
         Keyword Arguments
         -----------------
@@ -2768,7 +2783,7 @@ class EnergyProduction:
             * UNITS: NEMO MOD UNITS (may need to adjust)
         vector_reference_time_period : Union[list, np.ndarray]
             Reference time periods to use in merge--e.g., 
-            df_elec_trajectories[EnergyProduction.model_attributes.dim_time_period]
+            df_enerprod_trajectories[EnergyProduction.model_attributes.dim_time_period]
 
         Keyword Arguments
         -----------------
@@ -2994,7 +3009,7 @@ class EnergyProduction:
     
 
     def get_entc_emissions_activity_ratio_comp_fp(self,
-        df_elec_trajectories: pd.DataFrame,
+        df_enerprod_trajectories: pd.DataFrame,
         list_entc_modvars_fp_ear: Union[List[str], None] = None,
         regions: Union[List[str], None] = None
     ) -> Union[pd.DataFrame, None]:
@@ -3004,7 +3019,8 @@ class EnergyProduction:
         
         Function Arguments
         ------------------
-        - df_elec_trajectories: data frame of model variable input trajectories
+        df_enerprod_trajectories : DataFrame
+            DataFrame of model variable input trajectories
         - dict_enfu_arrs_efs_scaled_to_nemomod: dictionary mapping combustion 
             factor variables to arrays adjusted EmissionsActivityRatio factors 
             (NemoMod emission mass/NemoMod unit energy)
@@ -3019,8 +3035,8 @@ class EnergyProduction:
                 defaults to self.model_attributes
         - list_entc_modvars_fp_ear: list of ENTC emissions activity ratio model 
             variables by gas.
-        - regions: regions to specify. If None, defaults to configuration 
-            regions
+        regions : Union[List[str], None]
+            Regions to specify. If None, defaults to configuration regions
         """
         
         #
@@ -3044,7 +3060,7 @@ class EnergyProduction:
             
             # get the model variable and pivot
             df_tmp = self.format_model_variable_as_nemomod_table(
-                df_elec_trajectories,
+                df_enerprod_trajectories,
                 modvar,
                 "TMP",
                 [
@@ -3086,7 +3102,7 @@ class EnergyProduction:
 
 
     def get_entc_emissions_activity_ratio_comp_me(self,
-        df_elec_trajectories: pd.DataFrame,
+        df_enerprod_trajectories: pd.DataFrame,
         dict_enfu_arrs_efs_scaled_to_nemomod: Dict[str, np.ndarray],
         attribute_fuel: Union[AttributeTable, None] = None,
         attribute_technology: Union[AttributeTable, None] = None,
@@ -3102,7 +3118,8 @@ class EnergyProduction:
         
         Function Arguments
         ------------------
-        - df_elec_trajectories: data frame of model variable input trajectories
+        df_enerprod_trajectories : DataFrame
+            DataFrame of model variable input trajectories
         - dict_enfu_arrs_efs_scaled_to_nemomod: dictionary mapping combustion 
             factor variables to arrays adjusted EmissionsActivityRatio factors 
             (NemoMod emission mass/NemoMod unit energy)
@@ -3115,8 +3132,8 @@ class EnergyProduction:
             defaults to self.model_attributes
         - attribute_time_period: attribute table used for time period. If None,
                 defaults to self.model_attributes
-        - regions: regions to specify. If None, defaults to configuration 
-            regions
+        regions : Union[List[str], None]
+            Regions to specify. If None, defaults to configuration regions
         """
         
         # get some information
@@ -3169,7 +3186,7 @@ class EnergyProduction:
                         # retrieve array
                         if (cat not in dict_enfu_arrs_iar.keys()):
                             arr_entc_iar = self.model_attributes.extract_model_variable(#
-                                df_elec_trajectories,
+                                df_enerprod_trajectories,
                                 modvar_iar,
                                 expand_to_all_cats = True,
                                 return_type = "array_base", 
@@ -3228,7 +3245,7 @@ class EnergyProduction:
             df_entc_tmp = self.model_attributes.exchange_year_time_period(
                 df_entc_tmp,
                 self.field_nemomod_year,
-                df_elec_trajectories[self.model_attributes.dim_time_period],
+                df_enerprod_trajectories[self.model_attributes.dim_time_period],
                 attribute_time_period = attribute_time_period,
                 direction = self.direction_exchange_year_time_period
             )
@@ -3267,7 +3284,7 @@ class EnergyProduction:
 
     
     def get_entc_import_adjusted_msp(self,
-        df_elec_trajectories: pd.DataFrame,
+        df_enerprod_trajectories: pd.DataFrame,
         arr_enfu_import_fractions_adj: np.ndarray,
         attribute_fuel: Union[AttributeTable, None] = None,
         attribute_technology: Union[AttributeTable, None] = None,
@@ -3290,7 +3307,8 @@ class EnergyProduction:
         
         Function Arguments
         ------------------
-        - df_elec_trajectories: data frame of model variable input trajectories
+        df_enerprod_trajectories : DataFrame
+            DataFrame of model variable input trajectories
         - arr_enfu_import_fractions_adj: np.ndarray, wide by all fuel 
             categories, of adjusted import fractions (after accounting for the 
             integration of exports into SpecifiedAnnualDemands). This array is 
@@ -3304,7 +3322,8 @@ class EnergyProduction:
             MinShareProductions
         - dict_tech_info: optional tech_info dictionary specified by
             .get_tech_info_dict() method (can be passed to reduce computation)
-        - drop_flag: optional specification of a drop flag used to indicate 
+        drop_flag : Union[float, int, None]
+            Optional specification of a drop flag used to indicate 
             rows/variables for which the MSP Max Production constraint is not 
             applicable (see 
             EnergyProduction.get_entc_maxprod_increase_adjusted_msp for more 
@@ -3313,10 +3332,10 @@ class EnergyProduction:
             maximum production increase (as a fraction of estimated last period
             with free production) allowable due to exogenous MinShareProduction
         - modvar_msp: model variable used to specify MinShareProduction (ENTC)
-        - regions: regions to specify. If None, defaults to configuration 
-            regions
-        - tuple_enfu_production_and_demands: optional tuple of energy fuel 
-            demands produced by 
+        regions : Union[List[str], None]
+            Regions to specify. If None, defaults to configuration regions
+        tuple_enfu_production_and_demands : Union[Tuple[np.ndarray], None]
+            Optional tuple of energy fuel demands produced by 
             self.model_enercons.project_enfu_production_and_demands():
 
             (
@@ -3346,7 +3365,11 @@ class EnergyProduction:
             else dict_tech_info
         )
 
-        modvar_msp = self.modvar_entc_nemomod_min_share_production if (modvar_msp is None) else modvar_msp
+        modvar_msp = (
+            self.modvar_entc_nemomod_min_share_production 
+            if (modvar_msp is None) 
+            else modvar_msp
+        )
         
         # initialize some shortcuts
         cats_entc_msp = self.model_attributes.get_variable_categories(modvar_msp)
@@ -3360,7 +3383,7 @@ class EnergyProduction:
             arr_entc_activity_limits,
             vec_frac_msp_accounted_for_by_growth_limit
         ) = self.get_entc_maxprod_increase_adjusted_msp(
-            df_elec_trajectories,
+            df_enerprod_trajectories,
             adjust_free_msps_in_response = True,
             attribute_fuel = attribute_fuel,
             attribute_technology = attribute_technology,
@@ -3462,7 +3485,7 @@ class EnergyProduction:
             modvar_msp,
             reduce_from_all_cats_to_specified_cats = True
         )
-        df_entc_msp_formatted[self.model_attributes.dim_time_period] = list(df_elec_trajectories[self.model_attributes.dim_time_period])
+        df_entc_msp_formatted[self.model_attributes.dim_time_period] = list(df_enerprod_trajectories[self.model_attributes.dim_time_period])
          
         # get formatted data frame and drop all-0 groupings
         df_entc_msp_formatted = self.format_model_variable_as_nemomod_table( 
@@ -3498,7 +3521,7 @@ class EnergyProduction:
 
 
     def get_entc_maxprod_increase_adjusted_msp(self,
-        df_elec_trajectories: pd.DataFrame,
+        df_enerprod_trajectories: pd.DataFrame,
         adjust_free_msps_in_response: bool = True,
         attribute_fuel: Union[AttributeTable, None] = None,
         attribute_technology: Union[AttributeTable, None] = None,
@@ -3540,12 +3563,13 @@ class EnergyProduction:
             exogenous specification is returned. 
             
         * Returns an np.ndarray wide by all ENTC categories and long by rows in
-            df_elec_trajectories.
+            df_enerprod_trajectories.
             
 
         Function Arguments
         ------------------
-        - df_elec_trajectories: data frame of model variable input trajectories
+        df_enerprod_trajectories : DataFrame
+            DataFrame of model variable input trajectories
 
         Keyword Arguments
         -----------------
@@ -3570,8 +3594,8 @@ class EnergyProduction:
             maximum production increase (as a fraction of estimated last period
             with free production) allowable due to exogenous MinShareProduction
         - modvar_msp: SISEPUEDE model variable storing the MinShareProduction
-        - tuple_enfu_production_and_demands: optional tuple of energy fuel 
-            demands produced by 
+        tuple_enfu_production_and_demands : Union[Tuple[np.ndarray], None]
+            Optional tuple of energy fuel demands produced by 
             self.model_enercons.project_enfu_production_and_demands():
 
             (
@@ -3613,7 +3637,7 @@ class EnergyProduction:
 
         # 
         arr_entc_maxprod_msp_increase = self.model_attributes.extract_model_variable(#
-            df_elec_trajectories, 
+            df_enerprod_trajectories, 
             modvar_maxprod_msp_increase,
             all_cats_missing_val = drop_flag,
             expand_to_all_cats = True,
@@ -3622,7 +3646,7 @@ class EnergyProduction:
         
         # get unadjusted MSP
         arr_entc_msp = self.model_attributes.extract_model_variable(#
-            df_elec_trajectories,
+            df_enerprod_trajectories,
             modvar_msp,
             expand_to_all_cats = True,
             return_type = "array_base",
@@ -3646,7 +3670,7 @@ class EnergyProduction:
         # retrieve production (units do not matter since we'll work with adjusting fractions)
         tuple_enfu_production_and_demands = (
             self.model_enercons.project_enfu_production_and_demands(
-                df_elec_trajectories, 
+                df_enerprod_trajectories, 
                 target_energy_units = self.get_units_energy_nemo(),
             )
             if tuple_enfu_production_and_demands is None
@@ -3687,7 +3711,7 @@ class EnergyProduction:
             cats_response = [x for x in cats_modvar if x not in cats_no_growth]
 
             # initialize fraction accounted for by MSP Max applicable categories
-            vec_frac_msp_accounted_for_by_growth_limit = np.zeros(len(df_elec_trajectories))
+            vec_frac_msp_accounted_for_by_growth_limit = np.zeros(len(df_enerprod_trajectories))
 
             # get column indices of categories that won't grow + those that respond & check sum of MSPs that are subject to non-growth
             inds_no_growth = [attribute_technology.get_key_value_index(x) for x in cats_no_growth]
@@ -3750,7 +3774,11 @@ class EnergyProduction:
             arr_entc_msp[w_set_to_no_growth[0], w_set_to_no_growth[1]] = 0.0
 
         # return MSP adjusted, activity limits, and the fraction of MSP accountred for by the new growth limit
-        tup_out = arr_entc_msp, arr_entc_activity_limits, vec_frac_msp_accounted_for_by_growth_limit
+        tup_out = (
+            arr_entc_msp, 
+            arr_entc_activity_limits, 
+            vec_frac_msp_accounted_for_by_growth_limit,
+        )
 
         return tup_out
 
@@ -3774,7 +3802,7 @@ class EnergyProduction:
 
 
     def get_gnrl_ccf_hydropower_factor_df(self,
-        df_elec_trajectories: pd.DataFrame,
+        df_enerprod_trajectories: pd.DataFrame,
     ) -> Tuple[pd.DataFrame, str]:
         """Retrieve a data frame with time period, hydropower tech, and the climate
             change factor for hydropower production. Returns a tuple with two
@@ -3793,14 +3821,14 @@ class EnergyProduction:
 
         # get hydropower climate change factor
         df_gnrl_ccf_hydropower = self.model_attributes.extract_model_variable(#
-            df_elec_trajectories,
+            df_enerprod_trajectories,
             self.model_socioeconomic.modvar_gnrl_climate_change_hydropower_availability,
             include_time_period = True,
             return_type = "data_frame",
         )
 
-        if field_region in df_elec_trajectories.columns:
-            df_gnrl_ccf_hydropower[field_region] = list(df_elec_trajectories[field_region])
+        if field_region in df_enerprod_trajectories.columns:
+            df_gnrl_ccf_hydropower[field_region] = list(df_enerprod_trajectories[field_region])
 
         # add technology for hydro
         cat_entc_hpwr = self.get_entc_cat_for_integration("hpwr")
@@ -3831,7 +3859,7 @@ class EnergyProduction:
 
 
     def get_integrated_waste_emissions_activity_ratio(self,
-        df_elec_trajectories: pd.DataFrame,
+        df_enerprod_trajectories: pd.DataFrame,
         attribute_technology: Union[AttributeTable, None] = None,
         attribute_time_period: Union[AttributeTable, None] = None
     ) -> Union[pd.DataFrame, None]:
@@ -3841,7 +3869,8 @@ class EnergyProduction:
 
         Function Arguments
         ------------------
-        - df_elec_trajectories: data frame of model variable input trajectories
+        df_enerprod_trajectories : DataFrame
+            DataFrame of model variable input trajectories
 
         Keyword Arguments
         -----------------
@@ -3857,7 +3886,7 @@ class EnergyProduction:
 
         # get total waste and emission factors from incineration as derived from solid waste - note: ef scalars are applied within get_waste_energy_components
         vec_enfu_total_energy_waste, vec_enfu_min_energy_to_elec_waste, dict_efs = self.get_waste_energy_components(
-            df_elec_trajectories,
+            df_enerprod_trajectories,
             attribute_technology = attribute_technology,
             return_emission_factors = True,
         )
@@ -3875,7 +3904,7 @@ class EnergyProduction:
             df_enfu_efs_waste = self.model_attributes.exchange_year_time_period(
                 df_enfu_efs_waste,
                 self.field_nemomod_year,
-                df_elec_trajectories[self.model_attributes.dim_time_period],
+                df_enerprod_trajectories[self.model_attributes.dim_time_period],
                 attribute_time_period = attribute_time_period,
                 direction = self.direction_exchange_year_time_period,
             )
@@ -3923,15 +3952,21 @@ class EnergyProduction:
             if (modvar is not None) 
             else self.get_units_energy()
         )
+
         units_source = (
             self.get_units_energy()
             if (units_source is None) and force_modvar_to_config_on_none
             else units_source
         )
 
-        scalar = self.model_attributes.get_energy_equivalent(units_source, self.units_energy_nemomod)
+        scalar = self.model_attributes.get_energy_equivalent(
+            units_source, 
+            self.units_energy_nemomod,
+        )
         
-        return (scalar if (scalar is not None) else 1)
+        out = scalar if (scalar is not None) else 1
+
+        return out
     
 
 
@@ -4076,7 +4111,7 @@ class EnergyProduction:
 
 
     def get_variable_cost_fuels_gravimetric_density(self,
-        df_elec_trajectories: pd.DataFrame,
+        df_enerprod_trajectories: pd.DataFrame,
         override_time_period_transformation: bool = False,
         regions: Union[List[str], None] = None,
     ) -> pd.DataFrame:
@@ -4089,14 +4124,14 @@ class EnergyProduction:
 
         Function Arguments
         ------------------
-        - df_elec_trajectories: data frame containing input variables as columns
+        - df_enerprod_trajectories: data frame containing input variables as columns
 
         Keyword Arguments
         -----------------
         - override_time_period_transformation: if True, return raw time periods 
             instead of those transformed to fit NemoMod approach.
-        - regions: regions to specify. If None, defaults to configuration 
-            regions
+        regions : Union[List[str], None]
+            Regions to specify. If None, defaults to configuration regions
         """
 
         ##  PREPARE SCALARS
@@ -4119,7 +4154,7 @@ class EnergyProduction:
 
         # Fuel costs (enter as supply) - Gravimetric price in configuration Monetary/Mass (mass of modvar_enfu_energy_density_gravimetric)
         df_price = self.format_model_variable_as_nemomod_table(
-            df_elec_trajectories,
+            df_enerprod_trajectories,
             self.modvar_enfu_price_gravimetric,
             self.model_attributes.table_nemomod_variable_cost,
             [
@@ -4137,7 +4172,7 @@ class EnergyProduction:
 
         # get the energy density in terms of configuration Energy/Mass (mass of modvar_enfu_energy_density_gravimetric)
         df_density = self.format_model_variable_as_nemomod_table(
-            df_elec_trajectories,
+            df_enerprod_trajectories,
             self.modvar_enfu_energy_density_gravimetric,
             self.model_attributes.table_nemomod_variable_cost,
             [
@@ -4175,7 +4210,7 @@ class EnergyProduction:
 
 
     def get_variable_cost_fuels_volumetric_density(self,
-        df_elec_trajectories: pd.DataFrame,
+        df_enerprod_trajectories: pd.DataFrame,
         regions: Union[List[str], None] = None,
     ):
         """
@@ -4187,12 +4222,12 @@ class EnergyProduction:
 
         Function Arguments
         ------------------
-        - df_elec_trajectories: data frame containing input variables as columns
+        - df_enerprod_trajectories: data frame containing input variables as columns
 
         Keyword Arguments
         -----------------
-        - regions: regions to specify. If None, defaults to configuration 
-            regions
+        regions : Union[List[str], None]
+            Regions to specify. If None, defaults to configuration regions
         """
 
         ##  PREPARE SCALARS
@@ -4214,7 +4249,7 @@ class EnergyProduction:
 
         # Fuel costs (enter as supply) - Volumetric price in configuration Monetary/Mass (mass of modvar_enfu_energy_density_gravimetric)
         df_price = self.format_model_variable_as_nemomod_table(
-            df_elec_trajectories,
+            df_enerprod_trajectories,
             self.modvar_enfu_price_volumetric,
             self.model_attributes.table_nemomod_variable_cost,
             [
@@ -4231,7 +4266,7 @@ class EnergyProduction:
 
         # get the energy density in terms of configuration Energy/Mass (mass of modvar_enfu_energy_density_gravimetric)
         df_density = self.format_model_variable_as_nemomod_table(
-            df_elec_trajectories,
+            df_enerprod_trajectories,
             self.modvar_enfu_energy_density_volumetric,
             self.model_attributes.table_nemomod_variable_cost,
             [
@@ -4270,7 +4305,7 @@ class EnergyProduction:
 
 
     def get_waste_energy_components(self,
-        df_elec_trajectories: pd.DataFrame,
+        df_enerprod_trajectories: pd.DataFrame,
         attribute_technology: Union[AttributeTable, None] = None,
         return_emission_factors: bool = True,
     ) -> tuple:
@@ -4280,7 +4315,7 @@ class EnergyProduction:
 
         Function Arguments
         ------------------
-        df_elec_trajectories : pd.DataFrame 
+        df_enerprod_trajectories : pd.DataFrame 
             DataFrame of input variables, which must include waste sector 
             outputs used to calcualte emission factors
         
@@ -4305,7 +4340,7 @@ class EnergyProduction:
 
         # retrieve waste totals incinerated (in solid waste only)
         tuple_waso_incineration = self.model_attributes.get_optional_or_integrated_standard_variable(
-            df_elec_trajectories,
+            df_enerprod_trajectories,
             self.model_circecon.modvar_waso_waste_total_incineration,
             None,
             override_vector_for_single_mv_q = True,
@@ -4320,7 +4355,7 @@ class EnergyProduction:
 
             # convert to energy units using gravimetric density (aka specific energy)
             vec_enfu_energy_density_gravimetric = self.model_attributes.extract_model_variable(#
-                df_elec_trajectories,
+                df_enerprod_trajectories,
                 self.modvar_enfu_energy_density_gravimetric,
                 expand_to_all_cats = True,
                 override_vector_for_single_mv_q = True,
@@ -4330,7 +4365,7 @@ class EnergyProduction:
 
             # also get minimum fuel fraction to electricity
             vec_enfu_minimum_fuel_frac_to_elec = self.model_attributes.extract_model_variable(#
-                df_elec_trajectories,
+                df_enerprod_trajectories,
                 self.modvar_enfu_minimum_frac_fuel_used_for_electricity,
                 expand_to_all_cats = True,
                 override_vector_for_single_mv_q = True,
@@ -4368,7 +4403,7 @@ class EnergyProduction:
                 modvar, modvar_scalar = modvars
 
                 vec_waso_emissions_incineration = self.model_attributes.get_optional_or_integrated_standard_variable(
-                    df_elec_trajectories,
+                    df_enerprod_trajectories,
                     modvar,
                     None,
                     override_vector_for_single_mv_q = False,
@@ -4380,7 +4415,7 @@ class EnergyProduction:
                     continue
                 
                 # if the data are available, calculate the factor and add it to 
-                # the dictionary (long by time periods in df_elec_trajectories)
+                # the dictionary (long by time periods in df_enerprod_trajectories)
 
                 # get incineration emissions total and scale units
                 emission = self.model_attributes.get_variable_characteristic(modvar, self.model_attributes.varchar_str_emission_gas)
@@ -4389,7 +4424,7 @@ class EnergyProduction:
 
                 # get control scalar on reductions
                 vec_entc_ear_scalar = self.model_attributes.extract_model_variable(#
-                    df_elec_trajectories,
+                    df_enerprod_trajectories,
                     modvar_scalar,
                     expand_to_all_cats = True,
                     override_vector_for_single_mv_q = True,
@@ -4409,15 +4444,74 @@ class EnergyProduction:
         tup_out = (
             vec_enfu_total_energy_waste, 
             vec_enfu_minimum_fuel_energy_to_electricity_waste, 
-            dict_efs
+            dict_efs,
         )
 
         return tup_out
 
 
 
+    def format_biomass_ear_df(self,
+        df_enerprod_trajectories: pd.DataFrame,
+        vec_entc_ef_avg_out: np.ndarray,
+    ) -> pd.DataFrame:
+        """Using biomass components (from get_biomass_components), get the 
+            DataFrame that will be used to overwrite biomass co2 emission
+            activity ratios.
+        """
+
+        if vec_entc_ef_avg_out is None:
+            return None
+
+        ##  INITIALIZE SOME ELEMENTS
+
+        # attribute table
+        attribute_time_period = self.get_attribute_time_period() 
+        
+        # co2 gas
+        gas = self.model_attributes.get_variable_characteristic(
+            self.modvar_entc_ef_scalar_co2, 
+            "emission_gas",
+        )
+
+        # ENTC categories
+        cat_entc_biomass = self.get_entc_cat_for_integration("bmas")
+        dict_ear = {gas: vec_entc_ef_avg_out, }
+
+        
+        ##  BUILD AND FORMAT DATAFRAME
+
+        df_enfu_efs_biomass = pd.DataFrame(dict_ear, )
+        df_enfu_efs_biomass[self.field_nemomod_technology] = cat_entc_biomass
+        df_enfu_efs_biomass[self.field_nemomod_mode] = self.cat_enmo_gnrt
+
+        df_enfu_efs_biomass = self.model_attributes.exchange_year_time_period(
+            df_enfu_efs_biomass,
+            self.field_nemomod_year,
+            df_enerprod_trajectories[self.model_attributes.dim_time_period],
+            attribute_time_period = attribute_time_period,
+            direction = self.direction_exchange_year_time_period,
+        )
+
+        # melt into a long form table
+        df_enfu_efs_biomass = pd.melt(
+            df_enfu_efs_biomass,
+            [
+                self.field_nemomod_technology, 
+                self.field_nemomod_mode, 
+                self.field_nemomod_year
+            ],
+            list(dict_ear.keys()),
+            var_name = self.field_nemomod_emission,
+            value_name = self.field_nemomod_value,
+        )
+
+        return df_enfu_efs_biomass
+    
+
+
     def format_model_variable_as_nemomod_table(self,
-        df_elec_trajectories: pd.DataFrame,
+        df_enerprod_trajectories: pd.DataFrame,
         modvar: str,
         table_nemomod: str,
         fields_index_nemomod: list,
@@ -4435,7 +4529,7 @@ class EnergyProduction:
 
         Function Arguments
         ------------------
-        - df_elec_trajectories: data frame containing input variables to be 
+        - df_enerprod_trajectories: data frame containing input variables to be 
             reformatted
         - modvar: SISEPUEDE model variable to extract and reshape
         - table_nemomod: target NemoMod table
@@ -4455,8 +4549,8 @@ class EnergyProduction:
         - override_time_period_transformation: override the time series 
             transformation? data frames will return raw years instead of 
             transformed years.
-        - regions: regions to specify. If None, defaults to configuration 
-            regions
+        regions : Union[List[str], None]
+            Regions to specify. If None, defaults to configuration regions
         - scalar_to_nemomod_units: scalar applied to the values to convert to 
             proper units
         **kwargs: passed to ModelAttributes.extract_model_variable(#)
@@ -4482,7 +4576,7 @@ class EnergyProduction:
         # get the variable from the data frame
         df_out = (
             self.model_attributes.extract_model_variable(#
-                df_elec_trajectories,
+                df_enerprod_trajectories,
                 modvar,
                 expand_to_all_cats = False,
                 override_vector_for_single_mv_q = True,
@@ -4490,7 +4584,7 @@ class EnergyProduction:
                 **kwargs
             )
             if modvar != subsector
-            else np.array(df_elec_trajectories[[x for x in attr.key_values if x in df_elec_trajectories.columns]])
+            else np.array(df_enerprod_trajectories[[x for x in attr.key_values if x in df_enerprod_trajectories.columns]])
         )
 
         # do any conversions and initialize the output dataframe
@@ -4505,12 +4599,12 @@ class EnergyProduction:
 
         # add a year (would not be in data frame)
         exchange_year_tp = (self.field_nemomod_year in fields_index_nemomod)
-        exchange_year_tp &= (self.model_attributes.dim_time_period in df_elec_trajectories.columns)
+        exchange_year_tp &= (self.model_attributes.dim_time_period in df_enerprod_trajectories.columns)
         if exchange_year_tp:
             df_out = self.model_attributes.exchange_year_time_period(
                 df_out,
                 self.field_nemomod_year,
-                df_elec_trajectories[self.model_attributes.dim_time_period],
+                df_enerprod_trajectories[self.model_attributes.dim_time_period],
                 direction = self.direction_exchange_year_time_period
             )
 
@@ -4873,8 +4967,8 @@ class EnergyProduction:
             ModelAttributes default.
         - dict_rename: dictionary to rename to "val" and "desc" fields for 
             NemoMod
-        - regions: regions to specify. If None, defaults to configuration 
-            regions
+        regions : Union[List[str], None]
+            Regions to specify. If None, defaults to configuration regions
         """
 
         # get the region attribute - reduce only to applicable regions
@@ -5094,7 +5188,7 @@ class EnergyProduction:
     ###########################################################
 
     def format_nemomod_table_annual_emission_limit(self,
-        df_elec_trajectories: pd.DataFrame,
+        df_enerprod_trajectories: pd.DataFrame,
         attribute_emission: AttributeTable = None,
         attribute_time_period: AttributeTable = None,
         dict_gas_to_emission_fields: dict = None,
@@ -5108,7 +5202,8 @@ class EnergyProduction:
 
         Function Arguments
         ------------------
-        - df_elec_trajectories: data frame of model variable input trajectories
+        df_enerprod_trajectories : DataFrame
+            DataFrame of model variable input trajectories
 
         Keyword Arguments
         -----------------
@@ -5120,8 +5215,8 @@ class EnergyProduction:
             as keys that map to fields to use to calculate total exogenous 
             emissions
         - drop_flag: values to drop
-        - regions: regions to specify. If None, defaults to configuration 
-            regions
+        regions : Union[List[str], None]
+            Regions to specify. If None, defaults to configuration regions
         """
 
         # get some defaults and attribute tables
@@ -5163,12 +5258,12 @@ class EnergyProduction:
             gwp = self.model_attributes.get_gwp(emission)
 
             # then, get total exogenous emissions
-            fields = list(set(dict_gas_to_emission_fields[emission]) & set(df_elec_trajectories.columns))
-            vec_exogenous_emissions = np.sum(np.array(df_elec_trajectories[fields]), axis = 1)
+            fields = list(set(dict_gas_to_emission_fields[emission]) & set(df_enerprod_trajectories.columns))
+            vec_exogenous_emissions = np.sum(np.array(df_enerprod_trajectories[fields]), axis = 1)
             
             # retrieve the limit, store the origina (for dropping), and convert units
             vec_emission_limit = self.model_attributes.extract_model_variable(#
-                df_elec_trajectories,
+                df_enerprod_trajectories,
                 modvar,
                 return_type = "array_base",
             )
@@ -5188,7 +5283,7 @@ class EnergyProduction:
             df_lim = self.model_attributes.exchange_year_time_period(
                 df_lim,
                 self.field_nemomod_year,
-                df_elec_trajectories[self.model_attributes.dim_time_period],
+                df_enerprod_trajectories[self.model_attributes.dim_time_period],
                 attribute_time_period = attribute_time_period,
                 direction = self.direction_exchange_year_time_period,
             )
@@ -5221,7 +5316,7 @@ class EnergyProduction:
 
 
     def format_nemomod_table_availability_factor(self,
-        df_elec_trajectories: pd.DataFrame,
+        df_enerprod_trajectories: pd.DataFrame,
         df_reference_availability_factor: pd.DataFrame,
         attribute_technology: AttributeTable = None,
         attribute_region: AttributeTable = None,
@@ -5235,7 +5330,8 @@ class EnergyProduction:
 
         Function Arguments
         ------------------
-        - df_elec_trajectories: data frame of model variable input trajectories
+        df_enerprod_trajectories : DataFrame
+            DataFrame of model variable input trajectories
         - df_reference_availability_factor: data frame of regional capacity factors 
             for technologies that vary (others revert to default)
 
@@ -5277,7 +5373,7 @@ class EnergyProduction:
             self
             .model_attributes
             .extract_model_variable(
-                df_elec_trajectories,
+                df_enerprod_trajectories,
                 modvar_scalar,
                 all_cats_missing_val = 1,
                 expand_to_all_cats = True,
@@ -5316,7 +5412,7 @@ class EnergyProduction:
             df_gnrl_ccf_hydropower, 
             field_gnrl_ccf_hydropower
         ) = self.get_gnrl_ccf_hydropower_factor_df(
-            df_elec_trajectories
+            df_enerprod_trajectories
         )
     
 
@@ -5427,8 +5523,8 @@ class EnergyProduction:
 
         Keyword Arguments
         -----------------
-        - regions: regions to specify. If None, defaults to configuration 
-            regions
+        regions : Union[List[str], None]
+            Regions to specify. If None, defaults to configuration regions
         - return_type: "table" or "value". If value, returns only the 
         CapacityToActivityUnit value for all techs (used in DefaultParams)
             * Based on configuration parameters
@@ -5467,7 +5563,7 @@ class EnergyProduction:
 
 
     def format_nemomod_table_costs_technology(self,
-        df_elec_trajectories: pd.DataFrame,
+        df_enerprod_trajectories: pd.DataFrame,
         attribute_fuel: Union[AttributeTable, None] = None,
         flag_dummy_price: Union[int, float] = -999,
         minimum_dummy_price: Union[int, float] = 100,
@@ -5481,7 +5577,8 @@ class EnergyProduction:
 
         Function Arguments
         ------------------
-        - df_elec_trajectories: data frame of model variable input trajectories
+        df_enerprod_trajectories : DataFrame
+            DataFrame of model variable input trajectories
 
         Keyword Arguments
         -----------------
@@ -5490,8 +5587,8 @@ class EnergyProduction:
         - flag_dummy_price: initial price to use, which is later replaced. 
             Should be a large magnitude negative number.
         - minimum_dummy_price: minimum price for dummy technologies
-        - regions: regions to specify. If None, defaults to configuration 
-            regions
+        regions : Union[List[str], None]
+            Regions to specify. If None, defaults to configuration regions
         - tables_with_dummy: list of tables to include dummy tech costs in. 
             Acceptable values are:
 
@@ -5535,7 +5632,7 @@ class EnergyProduction:
 
         dict_return.update(
             self.format_model_variable_as_nemomod_table(
-                df_elec_trajectories,
+                df_enerprod_trajectories,
                 self.modvar_entc_nemomod_capital_cost,
                 self.model_attributes.table_nemomod_capital_cost,
                 [
@@ -5564,7 +5661,7 @@ class EnergyProduction:
         
         dict_return.update(
             self.format_model_variable_as_nemomod_table(
-                df_elec_trajectories,
+                df_enerprod_trajectories,
                 self.modvar_entc_nemomod_fixed_cost,
                 self.model_attributes.table_nemomod_fixed_cost,
                 [
@@ -5589,20 +5686,20 @@ class EnergyProduction:
             self.model_attributes.varchar_str_unit_monetary
         )
         arr_enfu_costs = self.model_enercons.get_enfu_fuel_costs_per_energy(
-            df_elec_trajectories,
+            df_enerprod_trajectories,
             modvar_for_units_energy = self.modvar_entc_nemomod_variable_cost,
             units_monetary = units_enfu_costs_monetary
         )
 
         # get variable costs, add fuel costs, and create data frame to pass
         df_entc_variable_costs = self.model_attributes.extract_model_variable(#
-            df_elec_trajectories,
+            df_enerprod_trajectories,
             self.modvar_entc_nemomod_variable_cost,
             return_type = "data_frame",
         )
         
         # add time period and get categories associated with each field (ordered the same as fields)
-        df_entc_variable_costs[self.model_attributes.dim_time_period] = df_elec_trajectories[self.model_attributes.dim_time_period]
+        df_entc_variable_costs[self.model_attributes.dim_time_period] = df_enerprod_trajectories[self.model_attributes.dim_time_period]
         cats_df_variable_costs = self.model_attributes.get_variable_categories(self.modvar_entc_nemomod_variable_cost)
 
         # loop over techs and find any associated fuels; if so, pull from arr_enfu_costs
@@ -5683,7 +5780,7 @@ class EnergyProduction:
 
 
     def format_nemomod_table_costs_storage(self,
-        df_elec_trajectories: pd.DataFrame,
+        df_enerprod_trajectories: pd.DataFrame,
         regions: Union[List[str], None] = None,
     ) -> pd.DataFrame:
         """
@@ -5693,12 +5790,13 @@ class EnergyProduction:
 
         Function Arguments
         ------------------
-        - df_elec_trajectories: data frame of model variable input trajectories
+        df_enerprod_trajectories : DataFrame
+            DataFrame of model variable input trajectories
 
         Keyword Arguments
         -----------------
-        - regions: regions to specify. If None, defaults to configuration 
-            regions
+        regions : Union[List[str], None]
+            Regions to specify. If None, defaults to configuration regions
         """
 
         dict_return = {}
@@ -5710,7 +5808,7 @@ class EnergyProduction:
         # CapitalCostStorage
         dict_return.update(
             self.format_model_variable_as_nemomod_table(
-                df_elec_trajectories,
+                df_enerprod_trajectories,
                 self.modvar_enst_nemomod_capital_cost_storage,
                 self.model_attributes.table_nemomod_capital_cost_storage,
                 [
@@ -5796,8 +5894,8 @@ class EnergyProduction:
 
         Keyword Arguments
         -----------------
-        - regions: regions to specify. If None, defaults to configuration 
-            regions
+        regions : Union[List[str], None]
+            Regions to specify. If None, defaults to configuration regions
         - return_type: "table" or "value". If value, returns only the 
             DiscountRate
             * Based on configuration specification of discount_rate
@@ -5826,7 +5924,7 @@ class EnergyProduction:
 
 
     def format_nemomod_table_emissions_activity_ratio(self,
-        df_elec_trajectories: pd.DataFrame,
+        df_enerprod_trajectories: pd.DataFrame,
         attribute_fuel: Union[AttributeTable, None] = None,
         attribute_technology: Union[AttributeTable, None] = None,
         attribute_time_period: Union[AttributeTable, None] = None,
@@ -5838,7 +5936,8 @@ class EnergyProduction:
 
         Function Arguments
         ------------------
-        - df_elec_trajectories: data frame of model variable input trajectories
+        df_enerprod_trajectories : DataFrame
+            DataFrame of model variable input trajectories
 
         Keyword Arguments
         -----------------
@@ -5848,8 +5947,8 @@ class EnergyProduction:
             defaults to self.model_attributes
         - attribute_time_period: attribute table used for time period. If None,
             defaults to self.model_attributes
-        - regions: regions to specify. If None, defaults to configuration 
-            regions
+        regions : Union[List[str], None]
+            Regions to specify. If None, defaults to configuration regions
         """
 
         ##  CATEGORY AND ATTRIBUTE INITIALIZATION
@@ -5912,7 +6011,7 @@ class EnergyProduction:
 
             # get the fuel factors
             arr_enfu_tmp = self.model_attributes.extract_model_variable(#
-                df_elec_trajectories, 
+                df_enerprod_trajectories, 
                 modvar, 
                 expand_to_all_cats = False,
                 override_vector_for_single_mv_q = True, 
@@ -5938,7 +6037,7 @@ class EnergyProduction:
 
             # apply scalar
             arr_enfu_scalar = self.model_attributes.extract_model_variable(#
-                df_elec_trajectories,
+                df_enerprod_trajectories,
                 modvar_scalar,
                 expand_to_all_cats = True,
                 override_vector_for_single_mv_q = True,
@@ -5950,7 +6049,7 @@ class EnergyProduction:
             
             # incorporate efficiency of technology
             arr_entc_eff_techs = self.model_attributes.extract_model_variable(
-                df_elec_trajectories,
+                df_enerprod_trajectories,
                 self.modvar_entc_efficiency_factor_technology,
                 all_cats_missing_val = 1.0,
                 expand_to_all_cats = True,
@@ -5975,7 +6074,7 @@ class EnergyProduction:
             df_entc_tmp = self.model_attributes.exchange_year_time_period(
                 df_entc_tmp,
                 self.field_nemomod_year,
-                df_elec_trajectories[self.model_attributes.dim_time_period],
+                df_enerprod_trajectories[self.model_attributes.dim_time_period],
                 attribute_time_period = attribute_time_period,
                 direction = self.direction_exchange_year_time_period
             )
@@ -5999,22 +6098,50 @@ class EnergyProduction:
                 df_out[ind] = df_entc_tmp[df_out[0].columns]
 
 
-        ################################################
-        #    2. ESTIMATE INTEGRATED WASTE EMISSIONS    #
-        ################################################
+        ################################################################
+        #    2. ADD INTEGRATED EMISSION ACTIVITY RATIOS AND FORMAT DF  #
+        ################################################################
         
+        # concatenate and replace if applicable
+        df_out = sf._concat_df(df_out, )
+        dfs_append = []
+
+
+        ##  GET WASTE
+
         df_enfu_efs_waste = self.get_integrated_waste_emissions_activity_ratio(
-            df_elec_trajectories,
+            df_enerprod_trajectories,
             attribute_technology = attribute_technology,
             attribute_time_period = attribute_time_period,
         )
 
-        # concatenate and replace waste if applicable
-        df_out = pd.concat(df_out, axis = 0).reset_index(drop = True)
         if df_enfu_efs_waste is not None:
-            df_out = df_out[~df_out[self.field_nemomod_technology].isin([cat_entc_pp_waste])]
-            df_out = pd.concat([df_out, df_enfu_efs_waste], axis = 0).reset_index(drop = True)
+            df_out = df_out[
+                ~df_out[self.field_nemomod_technology].isin([cat_entc_pp_waste])
+            ]
+            dfs_append.append(df_enfu_efs_waste, )
+        
 
+        ##  GET BIOMASS HEREHERE123
+
+        df_entc_efs_biomass, _, _ = self.get_biomass_components(
+            df_enerprod_trajectories,
+        )
+
+        if df_entc_efs_biomass is not None:
+            gasses = df_entc_efs_biomass[self.field_nemomod_emission].unique()
+            techs = df_entc_efs_biomass[self.field_nemomod_technology].unique()
+
+            df_out = df_out[
+                ~(
+                    df_out[self.field_nemomod_emission].isin(gasses, )
+                    & df_out[self.field_nemomod_technology].isin(techs, )
+                )
+            ]
+            dfs_append.append(df_entc_efs_biomass, )
+
+        # re-append and add needed dimensions 
+        df_out = sf._concat_df([df_out] + dfs_append, )
         df_out = self.add_multifields_from_key_values(
             df_out,
             [
@@ -6035,7 +6162,7 @@ class EnergyProduction:
         #####################################################################################
 
         df_out_me = self.get_entc_emissions_activity_ratio_comp_me(
-            df_elec_trajectories,
+            df_enerprod_trajectories,
             dict_enfu_arrs_efs_scaled_to_nemomod,
             attribute_fuel = attribute_fuel,
             attribute_technology = attribute_technology,
@@ -6044,7 +6171,7 @@ class EnergyProduction:
         )
 
         df_out_fp = self.get_entc_emissions_activity_ratio_comp_fp(
-            df_elec_trajectories,
+            df_enerprod_trajectories,
             regions = regions
         )
         
@@ -6084,7 +6211,7 @@ class EnergyProduction:
 
     ##  format FixedCost for NemoMod
     def format_nemomod_table_fixed_cost(self,
-        df_elec_trajectories: pd.DataFrame
+        df_enerprod_trajectories: pd.DataFrame
     ) -> pd.DataFrame:
         """
         Format the FixedCost input table for NemoMod based on SISEPUEDE 
@@ -6093,7 +6220,8 @@ class EnergyProduction:
 
         Function Arguments
         ------------------
-        - df_elec_trajectories: data frame of model variable input trajectories
+        df_enerprod_trajectories : DataFrame
+            DataFrame of model variable input trajectories
         """
 
         return None
@@ -6102,7 +6230,7 @@ class EnergyProduction:
 
     ##  format InterestRateStorage for NemoMod
     def format_nemomod_table_interest_rate_storage(self,
-        df_elec_trajectories: pd.DataFrame
+        df_enerprod_trajectories: pd.DataFrame
     ) -> pd.DataFrame:
         """
         Format the InterestRateStorage input table for NemoMod based on 
@@ -6111,7 +6239,8 @@ class EnergyProduction:
 
         Function Arguments
         ------------------
-        - df_elec_trajectories: data frame of model variable input trajectories
+        df_enerprod_trajectories : DataFrame
+            DataFrame of model variable input trajectories
         """
 
         return None
@@ -6120,7 +6249,7 @@ class EnergyProduction:
 
     ##  format InterestRateTechnology for NemoMod
     def format_nemomod_table_interest_rate_technology(self,
-        df_elec_trajectories: pd.DataFrame
+        df_enerprod_trajectories: pd.DataFrame
     ) -> pd.DataFrame:
         """
         Format the InterestRateTechnology input table for NemoMod based on 
@@ -6129,7 +6258,8 @@ class EnergyProduction:
 
         Function Arguments
         ------------------
-        - df_elec_trajectories: data frame of model variable input trajectories
+        df_enerprod_trajectories : DataFrame
+            DataFrame of model variable input trajectories
         """
 
         return None
@@ -6137,7 +6267,7 @@ class EnergyProduction:
 
 
     def format_nemomod_table_input_activity_ratio(self,
-        df_elec_trajectories: pd.DataFrame,
+        df_enerprod_trajectories: pd.DataFrame,
         attribute_fuel: Union[AttributeTable, None] = None,
         attribute_technology: Union[AttributeTable, None] = None,
         max_ratio: float = 1000000.0,
@@ -6150,7 +6280,8 @@ class EnergyProduction:
 
         Function Arguments
         ------------------
-        - df_elec_trajectories: data frame of model variable input trajectories
+        df_enerprod_trajectories : DataFrame
+            DataFrame of model variable input trajectories
 
         Keyword Arguments
         -----------------
@@ -6159,8 +6290,8 @@ class EnergyProduction:
             technologies from storage and identify primary fuels.
         - max_ratio: replacement for any input_activity_ratio values derived 
             from efficiencies of 0
-        - regions: regions to specify. If None, defaults to configuration 
-            regions
+        regions : Union[List[str], None]
+            Regions to specify. If None, defaults to configuration regions
 
         Model Notes
         -----------
@@ -6213,7 +6344,7 @@ class EnergyProduction:
         # Initialize InputActivityRatio
         dict_return.update(
             self.format_model_variable_as_nemomod_table(
-                df_elec_trajectories,
+                df_enerprod_trajectories,
                 self.modvar_entc_efficiency_factor_technology,
                 self.model_attributes.table_nemomod_input_activity_ratio,
                 [
@@ -6275,7 +6406,7 @@ class EnergyProduction:
             if modvar_iar is not None:
 
                 df_tmp = self.format_model_variable_as_nemomod_table( 
-                    df_elec_trajectories,
+                    df_enerprod_trajectories,
                     modvar_iar,
                     self.model_attributes.table_nemomod_input_activity_ratio,
                     [
@@ -6339,7 +6470,7 @@ class EnergyProduction:
         ##  ADD IN TRANSMISSION LOSS IN ELECTRICITY
 
         df_transmission_loss = self.format_model_variable_as_nemomod_table( 
-            df_elec_trajectories,
+            df_enerprod_trajectories,
             self.modvar_enfu_transmission_loss_frac_electricity,
             "TMP",
             [
@@ -6392,7 +6523,7 @@ class EnergyProduction:
 
 
     def format_nemomod_table_min_share_production(self,
-        df_elec_trajectories: pd.DataFrame,
+        df_enerprod_trajectories: pd.DataFrame,
         attribute_fuel: Union[AttributeTable, None] = None,
         attribute_technology: Union[AttributeTable, None] = None,
         modvar_import_fraction: str = None,
@@ -6406,7 +6537,8 @@ class EnergyProduction:
 
         Function Arguments
         ------------------
-        - df_elec_trajectories: data frame of model variable input trajectories
+        df_enerprod_trajectories : DataFrame
+            DataFrame of model variable input trajectories
 
         Keyword Arguments
         -----------------
@@ -6416,10 +6548,10 @@ class EnergyProduction:
         - modvar_import_fraction: SISEPUEDE model variable giving the import 
             fraction. If None, default to 
             EnergyConsumption.modvar_enfu_frac_fuel_demand_imported
-        - regions: regions to specify. If None, defaults to configuration 
-            regions
-        - tuple_enfu_production_and_demands: optional tuple of energy fuel 
-            demands produced by 
+        regions : Union[List[str], None]
+            Regions to specify. If None, defaults to configuration regions
+        tuple_enfu_production_and_demands : Union[Tuple[np.ndarray], None]
+            Optional tuple of energy fuel demands produced by 
             self.model_enercons.project_enfu_production_and_demands():
 
             (
@@ -6451,12 +6583,12 @@ class EnergyProduction:
         )
 
         # get production, imports, exports, and demands to adjust import fractions
-        if (tuple_enfu_production_and_demands is None) and (df_elec_trajectories is None):
-            raise ValueError(f"Error in format_nemomod_table_min_share_production: tuple_enfu_production_and_demands and df_elec_trajectories cannot both be None.")
+        if (tuple_enfu_production_and_demands is None) and (df_enerprod_trajectories is None):
+            raise ValueError(f"Error in format_nemomod_table_min_share_production: tuple_enfu_production_and_demands and df_enerprod_trajectories cannot both be None.")
 
         tuple_enfu_production_and_demands = (
             self.model_enercons.project_enfu_production_and_demands(
-                df_elec_trajectories, 
+                df_enerprod_trajectories, 
                 target_energy_units = self.get_units_energy_nemo(),
             )
             if tuple_enfu_production_and_demands is None
@@ -6467,7 +6599,7 @@ class EnergyProduction:
         ##  ADJUST IMPORT FRACTIONS TO ACCOUNT FOR THE INCLUSION OF EXPORTS IN SpecifiedAnnualDemands
 
         arr_enfu_import_fractions = self.model_attributes.extract_model_variable(#
-            df_elec_trajectories,
+            df_enerprod_trajectories,
             modvar_import_fraction,
             expand_to_all_cats = True,
             return_type = "array_base",
@@ -6483,8 +6615,8 @@ class EnergyProduction:
 
         # pass via dummy dataframe
         df_fracs_adj = [
-            df_elec_trajectories[
-                [x for x in df_elec_trajectories.columns if x in self.model_attributes.sort_ordered_dimensions_of_analysis]
+            df_enerprod_trajectories[
+                [x for x in df_enerprod_trajectories.columns if x in self.model_attributes.sort_ordered_dimensions_of_analysis]
             ].copy()
         ]
         df_fracs_adj += [
@@ -6536,7 +6668,7 @@ class EnergyProduction:
         # TotalTechnologyAnnualActivityLowerLimit. Use this function to avoid 
         # conflicting constraints between MinShareProduction/ReMinProductionTarget
         vec_entc_elec_demand_frac_from_tech_lower_limit = self.estimate_production_share_from_activity_limits(
-            df_elec_trajectories,
+            df_enerprod_trajectories,
             tuple_enfu_production_and_demands = tuple_enfu_production_and_demands
         )
         
@@ -6546,7 +6678,7 @@ class EnergyProduction:
         arr_enfu_import_fractions_adj_for_msp_adj[:, self.ind_enfu_elec] += vec_entc_elec_demand_frac_from_tech_lower_limit
         
         df_entc_msp = self.get_entc_import_adjusted_msp(
-            df_elec_trajectories,
+            df_enerprod_trajectories,
             arr_enfu_import_fractions_adj_for_msp_adj,
             attribute_fuel = attribute_fuel,
             attribute_technology = attribute_technology,
@@ -6555,8 +6687,30 @@ class EnergyProduction:
             tuple_enfu_production_and_demands = tuple_enfu_production_and_demands,
         )
 
+        df_out = sf._concat_df([df_out, df_entc_msp[df_out.columns]], )
+
+
+        ##  FINALLY, IF RUNNING WITH INTEGRATED BIOMASS, DROP FROM MSP 
+        #
+        #    biomass is dealt with using activity limits
+
+        _, vec_entc_constraint, _ = self.get_biomass_components(
+            df_enerprod_trajectories, 
+        )
+
+        if vec_entc_constraint is not None:
+            cat_entc_biomass = self.get_entc_cat_for_integration("bmas")
+            df_out = (
+                df_out[
+                    ~df_out[self.field_nemomod_technology].isin([cat_entc_biomass])
+                ]
+                .reset_index(drop = True, )
+            )
+
+
+        # add keys/ids
         df_out = self.add_multifields_from_key_values(
-            pd.concat([df_out, df_entc_msp[df_out.columns]], axis = 0),
+            df_out,
             [
                 self.field_nemomod_id,
                 self.field_nemomod_region,
@@ -6566,17 +6720,19 @@ class EnergyProduction:
                 self.field_nemomod_value
             ],
             override_time_period_transformation = True,
-            regions = regions
+            regions = regions,
         )
-
-        dict_return = {self.model_attributes.table_nemomod_min_share_production: df_out}
+        
+        dict_return = {
+            self.model_attributes.table_nemomod_min_share_production: df_out,
+        }
         
         return dict_return
 
 
 
     def format_nemomod_table_min_storage_charge(self,
-        df_elec_trajectories: pd.DataFrame,
+        df_enerprod_trajectories: pd.DataFrame,
         attribute_storage: AttributeTable = None,
         field_attribute_min_charge: str = "minimum_charge_fraction",
         regions: Union[List[str], None] = None,
@@ -6588,7 +6744,8 @@ class EnergyProduction:
 
         Function Arguments
         ------------------
-        - df_elec_trajectories: data frame of model variable input trajectories
+        df_enerprod_trajectories : DataFrame
+            DataFrame of model variable input trajectories
 
         Keyword Arguments
         -----------------
@@ -6597,8 +6754,8 @@ class EnergyProduction:
             cat_storage table
         - field_attribute_min_charge: field in attribute_storage containing the 
             minimum storage charge fraction by storage type
-        - regions: regions to specify. If None, defaults to configuration 
-            regions
+        regions : Union[List[str], None]
+            Regions to specify. If None, defaults to configuration regions
         """
 
         ##
@@ -6642,7 +6799,7 @@ class EnergyProduction:
 
     ##  format MinimumUtilization for NemoMod
     def format_nemomod_table_minimum_utilization(self,
-        df_elec_trajectories: pd.DataFrame
+        df_enerprod_trajectories: pd.DataFrame
     ) -> pd.DataFrame:
         """
         Format the MinimumUtilization input table for NemoMod based on 
@@ -6651,7 +6808,8 @@ class EnergyProduction:
 
         Function Arguments
         ------------------
-        - df_elec_trajectories: data frame of model variable input trajectories
+        df_enerprod_trajectories : DataFrame
+            DataFrame of model variable input trajectories
         """
 
         return None
@@ -6660,7 +6818,7 @@ class EnergyProduction:
 
     ##  format ModelPeriodEmissionLimit for NemoMod
     def format_nemomod_table_model_period_emission_limit(self,
-        df_elec_trajectories: pd.DataFrame
+        df_enerprod_trajectories: pd.DataFrame
     ) -> pd.DataFrame:
         """
         Format the ModelPeriodEmissionLimit input table for NemoMod based on 
@@ -6669,7 +6827,8 @@ class EnergyProduction:
 
         Function Arguments
         ------------------
-        - df_elec_trajectories: data frame of model variable input trajectories
+        df_enerprod_trajectories : DataFrame
+            DataFrame of model variable input trajectories
         """
 
         return None
@@ -6678,7 +6837,7 @@ class EnergyProduction:
 
     ##  format ModelPeriodExogenousEmission for NemoMod
     def format_nemomod_table_model_period_exogenous_emission(self,
-        df_elec_trajectories: pd.DataFrame
+        df_enerprod_trajectories: pd.DataFrame
     ) -> pd.DataFrame:
         """
         Format the ModelPeriodExogenousEmission input table for NemoMod based on 
@@ -6687,7 +6846,8 @@ class EnergyProduction:
 
         Function Arguments
         ------------------
-        - df_elec_trajectories: data frame of model variable input trajectories
+        df_enerprod_trajectories : DataFrame
+            DataFrame of model variable input trajectories
         """
 
         return None
@@ -6718,8 +6878,8 @@ class EnergyProduction:
             use ModelAttributes default.
         - operational_life_dummies: Operational life for dummy technologies that 
             are entered to account for fuel inputs.
-        - regions: regions to specify. If None, defaults to configuration 
-            regions
+        regions : Union[List[str], None]
+            Regions to specify. If None, defaults to configuration regions
 
         Notes:
         - Validity checks for operational lives are performed on initialization 
@@ -6821,7 +6981,7 @@ class EnergyProduction:
 
 
     def format_nemomod_table_output_activity_ratio(self,
-        df_elec_trajectories: pd.DataFrame,
+        df_enerprod_trajectories: pd.DataFrame,
         attribute_fuel: Union[AttributeTable, None] = None,
         attribute_technology:  Union[AttributeTable, None] = None,
         regions: Union[List[str], None] = None,
@@ -6833,16 +6993,18 @@ class EnergyProduction:
 
         Function Arguments
         ------------------
-        - df_elec_trajectories: data frame of model variable input trajectories
+        df_enerprod_trajectories : DataFrame
+            DataFrame of model variable input trajectories
 
         Keyword Arguments
         -----------------
-        - attribute_fuel: AttributeTable for fuels, used to identify fuels that
+        attribute_fuel : AttributeTable 
+            AttributeTable for fuels, used to identify fuels that
             require dummy supply techs
         - attribute_technology:  AttributeTable for technology, used to separate 
             technologies from storage and identify primary fuels.
-        - regions: regions to specify. If None, defaults to configuration 
-            regions
+        regions : Union[List[str], None]
+            Regions to specify. If None, defaults to configuration regions
         """
         
         ##  CATEGORY AND ATTRIBUTE INITIALIZATION
@@ -6907,7 +7069,7 @@ class EnergyProduction:
             if modvar_oar is not None:
 
                 df_tmp = self.format_model_variable_as_nemomod_table( 
-                    df_elec_trajectories,
+                    df_enerprod_trajectories,
                     modvar_oar,
                     self.model_attributes.table_nemomod_output_activity_ratio,
                     [
@@ -6987,7 +7149,7 @@ class EnergyProduction:
 
 
     def format_nemomod_table_re_min_production_target(self,
-        df_elec_trajectories: pd.DataFrame,
+        df_enerprod_trajectories: pd.DataFrame,
         attribute_fuel: Union[AttributeTable, None] = None,
         modvar_import_fraction: Union[str, None] = None,
         modvar_renewable_target: Union[str, None] = None,
@@ -7001,7 +7163,8 @@ class EnergyProduction:
 
         Function Arguments
         ------------------
-        - df_elec_trajectories: data frame of model variable input trajectories
+        df_enerprod_trajectories : DataFrame
+            DataFrame of model variable input trajectories
 
         Keyword Arguments
         -----------------
@@ -7011,8 +7174,8 @@ class EnergyProduction:
         - modvar_renewable_target: model variable used to specify renewable 
             energy target fractions. Defaults to 
             self.modvar_enfu_nemomod_renewable_production_target
-        - regions: regions to specify. If None, defaults to configuration 
-            regions
+        regions : Union[List[str], None]
+            Regions to specify. If None, defaults to configuration regions
 
         Important Note - Conflicting Constratints
         -----------------------------------------
@@ -7037,7 +7200,7 @@ class EnergyProduction:
 
         # get imports and renewable energy minimum production targets 
         arr_enfu_imports = self.model_attributes.extract_model_variable(#
-            df_elec_trajectories,
+            df_enerprod_trajectories,
             modvar_import_fraction,
             expand_to_all_cats = True,
             return_type = "array_base",
@@ -7045,7 +7208,7 @@ class EnergyProduction:
         )
 
         arr_enfu_re_target = self.model_attributes.extract_model_variable(#
-            df_elec_trajectories,
+            df_enerprod_trajectories,
             modvar_renewable_target,
             expand_to_all_cats = True,
             return_type = "array_base",
@@ -7059,7 +7222,7 @@ class EnergyProduction:
             modvar_renewable_target,
             reduce_from_all_cats_to_specified_cats = True
         )
-        df_return[self.model_attributes.dim_time_period] = list(df_elec_trajectories[self.model_attributes.dim_time_period])
+        df_return[self.model_attributes.dim_time_period] = list(df_enerprod_trajectories[self.model_attributes.dim_time_period])
 
         # check technologies that are optional from optional input
         df_return = self.format_model_variable_as_nemomod_table(
@@ -7091,7 +7254,7 @@ class EnergyProduction:
 
 
     def format_nemomod_table_re_tag_technology(self,
-        df_elec_trajectories: Union[pd.DataFrame, None],
+        df_enerprod_trajectories: Union[pd.DataFrame, None],
         regions: Union[List[str], None] = None,
     ) -> pd.DataFrame:
         """
@@ -7101,20 +7264,21 @@ class EnergyProduction:
 
         Function Arguments
         ------------------
-        - df_elec_trajectories: data frame of model variable input trajectories.
+        df_enerprod_trajectories : DataFrame
+            DataFrame of model variable input trajectories.
             * Note: If None, specifies renewable energy *only* according to 
             $CAT-TECHNOLOGY$ attribute table.
 
         Keyword Arguments
         -----------------
-        - regions: regions to specify. If None, defaults to configuration 
-            regions
+        regions : Union[List[str], None]
+            Regions to specify. If None, defaults to configuration regions
 
         """
 
         # check technologies that are optional from optional input
         df_entc_re_tag = self.format_model_variable_as_nemomod_table(
-            df_elec_trajectories,
+            df_enerprod_trajectories,
             self.modvar_entc_nemomod_renewable_tag_technology,
             "TMP",
             [
@@ -7158,7 +7322,7 @@ class EnergyProduction:
 
 
     def format_nemomod_table_reserve_margin(self,
-        df_elec_trajectories: pd.DataFrame,
+        df_enerprod_trajectories: pd.DataFrame,
         regions: Union[List[str], None] = None,
     ) -> pd.DataFrame:
         """Format the ReserveMargin input table for NemoMod based on SISEPUEDE 
@@ -7167,7 +7331,7 @@ class EnergyProduction:
 
         Function Arguments
         ------------------
-        df_elec_trajectories : pd.DataFrame
+        df_enerprod_trajectories : pd.DataFrame
             Data frame of model variable input trajectories
 
         Keyword Arguments
@@ -7181,7 +7345,7 @@ class EnergyProduction:
         # ReserveMargin
         dict_return.update(
             self.format_model_variable_as_nemomod_table(
-                df_elec_trajectories,
+                df_enerprod_trajectories,
                 self.modvar_enfu_nemomod_reserve_margin,
                 self.model_attributes.table_nemomod_reserve_margin,
                 [
@@ -7200,7 +7364,7 @@ class EnergyProduction:
 
 
     def format_nemomod_table_reserve_margin_tag_technology(self,
-        df_elec_trajectories: pd.DataFrame,
+        df_enerprod_trajectories: pd.DataFrame,
         regions: Union[List[str], None] = None,
     ) -> pd.DataFrame:
         """
@@ -7210,12 +7374,13 @@ class EnergyProduction:
 
         Function Arguments
         ------------------
-        - df_elec_trajectories: data frame of model variable input trajectories
+        df_enerprod_trajectories : DataFrame
+            DataFrame of model variable input trajectories
 
         Keyword Arguments
         -----------------
-        - regions: regions to specify. If None, defaults to configuration 
-            regions
+        regions : Union[List[str], None]
+            Regions to specify. If None, defaults to configuration regions
         """
 
         dict_return = {}
@@ -7223,7 +7388,7 @@ class EnergyProduction:
         # ReserveMarginTagTechnology for generation
         dict_return.update(
             self.format_model_variable_as_nemomod_table(
-                df_elec_trajectories,
+                df_enerprod_trajectories,
                 self.modvar_entc_nemomod_reserve_margin_tag_technology,
                 self.model_attributes.table_nemomod_reserve_margin_tag_technology,
                 [
@@ -7245,7 +7410,7 @@ class EnergyProduction:
 
 
     def format_nemomod_table_residual_capacity(self,
-        df_elec_trajectories: pd.DataFrame,
+        df_enerprod_trajectories: pd.DataFrame,
         regions: Union[List[str], None] = None,
     ) -> pd.DataFrame:
         """
@@ -7255,12 +7420,13 @@ class EnergyProduction:
 
         Function Arguments
         ------------------
-        - df_elec_trajectories: data frame of model variable input trajectories
+        df_enerprod_trajectories : DataFrame
+            DataFrame of model variable input trajectories
 
         Keyword Arguments
         -----------------
-        - regions: regions to specify. If None, defaults to configuration 
-            regions
+        regions : Union[List[str], None]
+            Regions to specify. If None, defaults to configuration regions
         """
 
         dict_return = {}
@@ -7269,7 +7435,7 @@ class EnergyProduction:
         # ResidualCapacity
         dict_return.update(
             self.format_model_variable_as_nemomod_table(
-                df_elec_trajectories,
+                df_enerprod_trajectories,
                 self.modvar_entc_nemomod_residual_capacity,
                 self.model_attributes.table_nemomod_residual_capacity,
                 [
@@ -7289,7 +7455,7 @@ class EnergyProduction:
 
 
     def format_nemomod_table_residual_storage_capacity(self,
-        df_elec_trajectories: pd.DataFrame,
+        df_enerprod_trajectories: pd.DataFrame,
         regions: Union[List[str], None] = None,
     ) -> pd.DataFrame:
         """
@@ -7299,12 +7465,13 @@ class EnergyProduction:
 
         Function Arguments
         ------------------
-        - df_elec_trajectories: data frame of model variable input trajectories
+        df_enerprod_trajectories : DataFrame
+            DataFrame of model variable input trajectories
 
         Keyword Arguments
         -----------------
-        - regions: regions to specify. If None, defaults to configuration 
-            regions
+        regions : Union[List[str], None]
+            Regions to specify. If None, defaults to configuration regions
         """
 
         dict_return = {}
@@ -7313,7 +7480,7 @@ class EnergyProduction:
         # ResidualCapacity
         dict_return.update(
             self.format_model_variable_as_nemomod_table(
-                df_elec_trajectories,
+                df_enerprod_trajectories,
                 self.modvar_enst_nemomod_residual_capacity,
                 self.model_attributes.table_nemomod_residual_storage_capacity,
                 [
@@ -7333,7 +7500,7 @@ class EnergyProduction:
 
 
     def estimate_production_share_from_activity_limits(self,
-        df_elec_trajectories: pd.DataFrame,
+        df_enerprod_trajectories: pd.DataFrame,
         tuple_enfu_production_and_demands: Union[Tuple[pd.DataFrame], None] = None,
     ) -> np.ndarray:
         """Estimate production share of techs specified with a 
@@ -7358,12 +7525,13 @@ class EnergyProduction:
 
         Function Arguments
         ------------------
-        - df_elec_trajectories: data frame of model variable input trajectories
+        df_enerprod_trajectories : DataFrame
+            DataFrame of model variable input trajectories
 
         Keyword Arguments
         -----------------
-        - tuple_enfu_production_and_demands: optional tuple of energy fuel 
-            demands produced by 
+        tuple_enfu_production_and_demands : Union[Tuple[np.ndarray], None]
+            Optional tuple of energy fuel demands produced by 
             self.model_enercons.project_enfu_production_and_demands():
 
             (
@@ -7394,7 +7562,7 @@ class EnergyProduction:
         # calculate total grid demand for electricity
         tuple_enfu_production_and_demands = (
             self.model_enercons.project_enfu_production_and_demands(
-                df_elec_trajectories, 
+                df_enerprod_trajectories, 
                 target_energy_units = self.get_units_energy_nemo(),
             ) 
             if (tuple_enfu_production_and_demands is None) 
@@ -7418,7 +7586,7 @@ class EnergyProduction:
         # get transmission loss and calculate final demand
         #   NOTE: transmission loss in ENTC is modeled as an increase in input activity ratio *= (1/(1 - loss))
         arr_transmission_loss = self.model_attributes.extract_model_variable(#
-            df_elec_trajectories, 
+            df_enerprod_trajectories, 
             self.modvar_enfu_transmission_loss_frac_electricity, 
             expand_to_all_cats = True,
             override_vector_for_single_mv_q = False, 
@@ -7437,8 +7605,8 @@ class EnergyProduction:
 
         #    NOTE: This fraction is >= than the true fraction, since demands for electricity increase with fuel production
         table_name = self.model_attributes.table_nemomod_total_technology_annual_activity_lower_limit
-        df_tech_lower_limit = self.get_total_technology_activity_lower_limit_no_msp_adjustment(df_elec_trajectories).get(table_name)
-        vector_reference_time_period = list(df_elec_trajectories[self.model_attributes.dim_time_period])
+        df_tech_lower_limit = self.get_total_technology_activity_lower_limit_no_msp_adjustment(df_enerprod_trajectories).get(table_name)
+        vector_reference_time_period = list(df_enerprod_trajectories[self.model_attributes.dim_time_period])
 
         # 
         vec_entc_prod_lower_limit = np.array(
@@ -7464,7 +7632,7 @@ class EnergyProduction:
 
 
     def format_nemomod_table_specified_annual_demand(self,
-        df_elec_trajectories: pd.DataFrame,
+        df_enerprod_trajectories: pd.DataFrame,
         attribute_fuel: Union[AttributeTable, None] = None,
         attribute_time_period: Union[AttributeTable, None] = None,
         regions: Union[List[str], None] = None,
@@ -7477,7 +7645,8 @@ class EnergyProduction:
 
         Function Arguments
         ------------------
-        - df_elec_trajectories: data frame of model variable input trajectories
+        df_enerprod_trajectories : DataFrame
+            DataFrame of model variable input trajectories
 
         Keyword Arguments
         -----------------
@@ -7485,10 +7654,10 @@ class EnergyProduction:
         - attribute_time_period: AttributeTable mapping 
             ModelAttributes.dim_time_period to year. If None, use 
             ModelAttributes default.
-        - regions: regions to specify. If None, defaults to configuration 
-            regions
-        - tuple_enfu_production_and_demands: optional tuple of energy fuel 
-            demands produced by 
+        regions : Union[List[str], None]
+            Regions to specify. If None, defaults to configuration regions
+        tuple_enfu_production_and_demands : Union[Tuple[np.ndarray], None]
+            Optional tuple of energy fuel demands produced by 
             self.model_enercons.project_enfu_production_and_demands():
 
             (
@@ -7521,7 +7690,7 @@ class EnergyProduction:
         # calculate total grid demand for electricity
         tuple_enfu_production_and_demands = (
             self.model_enercons.project_enfu_production_and_demands(
-                df_elec_trajectories, 
+                df_enerprod_trajectories, 
                 target_energy_units = self.get_units_energy_nemo(),
             ) 
             if (tuple_enfu_production_and_demands is None) 
@@ -7545,7 +7714,7 @@ class EnergyProduction:
         # get transmission loss and calculate final demand
         #   NOTE: transmission loss in ENTC is modeled as an increase in input activity ratio *= (1/(1 - loss))
         arr_transmission_loss = self.model_attributes.extract_model_variable(#
-            df_elec_trajectories, 
+            df_enerprod_trajectories, 
             self.modvar_enfu_transmission_loss_frac_electricity, 
             expand_to_all_cats = True, 
             return_type = "array_base",
@@ -7577,7 +7746,7 @@ class EnergyProduction:
         df_enfu_production = self.model_attributes.exchange_year_time_period(
             df_enfu_production,
             self.field_nemomod_year,
-            df_elec_trajectories[self.model_attributes.dim_time_period],
+            df_enerprod_trajectories[self.model_attributes.dim_time_period],
             attribute_time_period = attribute_time_period,
             direction = self.direction_exchange_year_time_period
         )
@@ -7640,13 +7809,13 @@ class EnergyProduction:
             reference data.
         - attribute_region: AttributeTable for regions. If None, defaults to 
             ModelAttributes attribute table.
-        - regions: regions to specify. If None, defaults to configuration 
-            regions
+        regions : Union[List[str], None]
+            Regions to specify. If None, defaults to configuration regions
         - fuels_to_specify: list of fuels to specify demand profiles for (can be
             passed from SpecifiedAnnualDemand input table). If None, defaults to
             all fuels.
-        - regions: regions to specify. If None, defaults to configuration 
-            regions
+        regions : Union[List[str], None]
+            Regions to specify. If None, defaults to configuration regions
         """
 
         ##  INITIAlIZATION
@@ -7776,7 +7945,7 @@ class EnergyProduction:
 
     ##  format StorageMaxChargeRate, StorageMaxDishargeRate, and StorageStartLevel for NemoMod
     def format_nemomod_table_storage_attributes(self,
-        df_elec_trajectories: pd.DataFrame,
+        df_enerprod_trajectories: pd.DataFrame,
         attribute_storage: AttributeTable = None,
         field_attribute_min_charge: str = "minimum_charge_fraction",
         field_tmp: str = "TMPNEW",
@@ -7790,7 +7959,8 @@ class EnergyProduction:
 
         Function Arguments
         ------------------
-        - df_elec_trajectories: data frame of model variable input trajectories
+        df_enerprod_trajectories : DataFrame
+            DataFrame of model variable input trajectories
 
         Keyword Arguments
         -----------------
@@ -7801,8 +7971,8 @@ class EnergyProduction:
             identify minimum required storage for each type of storage. If None, 
             use ModelAttributes default.
         - field_tmp: temporary field used in data frame
-        - regions: regions to specify. If None, defaults to configuration 
-            regions
+        regions : Union[List[str], None]
+            Regions to specify. If None, defaults to configuration regions
 
         """
 
@@ -7822,7 +7992,7 @@ class EnergyProduction:
         # StorageStartLevel
         dict_return.update(
             self.format_model_variable_as_nemomod_table(
-                df_elec_trajectories,
+                df_enerprod_trajectories,
                 self.modvar_enst_nemomod_storage_start_level,
                 self.model_attributes.table_nemomod_storage_level_start,
                 [
@@ -7865,7 +8035,7 @@ class EnergyProduction:
 
     ##  format StorageStartLevel for NemoMod
     def format_nemomod_table_storage_start_level(self,
-        df_elec_trajectories: pd.DataFrame
+        df_enerprod_trajectories: pd.DataFrame
     ) -> pd.DataFrame:
         """
         Format the StorageStartLevel input table for NemoMod based on SISEPUEDE 
@@ -7874,7 +8044,8 @@ class EnergyProduction:
 
         Function Arguments
         ------------------
-        - df_elec_trajectories: data frame of model variable input trajectories
+        df_enerprod_trajectories : DataFrame
+            DataFrame of model variable input trajectories
         """
 
         return None
@@ -7895,11 +8066,10 @@ class EnergyProduction:
         -----------------
         - attribute_storage: AttributeTable for storage, used to identify 
             storage characteristics. If None, use ModelAttributes default.
-        - attribute_technology: AttributeTable for technology, used to identify 
-            whether or not a technology can charge a storage. If None, use 
-            ModelAttributes default.
-        - regions: regions to specify. If None, defaults to configuration 
-            regions
+        attribute_technology : AttributeTable 
+            AttributeTable for technology. If None, use ModelAttributes default
+        regions : Union[List[str], None]
+            Regions to specify. If None, defaults to configuration regions
         """
 
 
@@ -8123,7 +8293,7 @@ class EnergyProduction:
 
 
     def format_nemomod_table_total_capacity_tables(self,
-        df_elec_trajectories: pd.DataFrame,
+        df_enerprod_trajectories: pd.DataFrame,
         regions: Union[List[str], None] = None,
     ) -> pd.DataFrame:
         """
@@ -8140,9 +8310,10 @@ class EnergyProduction:
 
         Function Arguments
         ------------------
-        - df_elec_trajectories: data frame of model variable input trajectories
-        - regions: regions to specify. If None, defaults to configuration 
-            regions
+        df_enerprod_trajectories : DataFrame
+            DataFrame of model variable input trajectories
+        regions : Union[List[str], None]
+            Regions to specify. If None, defaults to configuration regions
         """
 
         dict_return = {}
@@ -8156,7 +8327,7 @@ class EnergyProduction:
         # TotalAnnualMaxCapacity
         dict_return.update(
             self.format_model_variable_as_nemomod_table(
-                df_elec_trajectories,
+                df_enerprod_trajectories,
                 self.modvar_entc_nemomod_total_annual_max_capacity,
                 self.model_attributes.table_nemomod_total_annual_max_capacity,
                 [
@@ -8174,7 +8345,7 @@ class EnergyProduction:
         # TotalAnnualMaxCapacityInvestment
         dict_return.update(
             self.format_model_variable_as_nemomod_table(
-                df_elec_trajectories,
+                df_enerprod_trajectories,
                 self.modvar_entc_nemomod_total_annual_max_capacity_investment,
                 self.model_attributes.table_nemomod_total_annual_max_capacity_investment,
                 [
@@ -8192,7 +8363,7 @@ class EnergyProduction:
         # TotalAnnualMinCapacity
         dict_return.update(
             self.format_model_variable_as_nemomod_table(
-                df_elec_trajectories,
+                df_enerprod_trajectories,
                 self.modvar_entc_nemomod_total_annual_min_capacity,
                 self.model_attributes.table_nemomod_total_annual_min_capacity,
                 [
@@ -8210,7 +8381,7 @@ class EnergyProduction:
         # TotalAnnualMinCapacityInvestment
         dict_return.update(
             self.format_model_variable_as_nemomod_table(
-                df_elec_trajectories,
+                df_enerprod_trajectories,
                 self.modvar_entc_nemomod_total_annual_min_capacity_investment,
                 self.model_attributes.table_nemomod_total_annual_min_capacity_investment,
                 [
@@ -8266,7 +8437,7 @@ class EnergyProduction:
 
     ##  format TotalAnnualMaxCapacityStorage, TotalAnnualMaxCapacityInvestmentStorage, TotalAnnualMinCapacityStorage, TotalAnnualMinCapacityInvestmentStorage for NemoMod
     def format_nemomod_table_total_capacity_storage_tables(self,
-        df_elec_trajectories: pd.DataFrame,
+        df_enerprod_trajectories: pd.DataFrame,
         regions: Union[List[str], None] = None,
     ) -> pd.DataFrame:
         """
@@ -8282,12 +8453,13 @@ class EnergyProduction:
 
         Function Arguments
         ------------------
-        - df_elec_trajectories: data frame of model variable input trajectories
+        df_enerprod_trajectories : DataFrame
+            DataFrame of model variable input trajectories
 
         Keyword Arguments
         -----------------
-        - regions: regions to specify. If None, defaults to configuration 
-            regions
+        regions : Union[List[str], None]
+            Regions to specify. If None, defaults to configuration regions
         """
 
         dict_return = {}
@@ -8300,7 +8472,7 @@ class EnergyProduction:
         # TotalAnnualMaxCapacityStorage
         dict_return.update(
             self.format_model_variable_as_nemomod_table(
-                df_elec_trajectories,
+                df_enerprod_trajectories,
                 self.modvar_enst_nemomod_total_annual_max_capacity_storage,
                 self.model_attributes.table_nemomod_total_annual_max_capacity_storage,
                 [
@@ -8317,7 +8489,7 @@ class EnergyProduction:
         # TotalAnnualMaxCapacityInvestmentStorage
         dict_return.update(
             self.format_model_variable_as_nemomod_table(
-                df_elec_trajectories,
+                df_enerprod_trajectories,
                 self.modvar_enst_nemomod_total_annual_max_capacity_investment_storage,
                 self.model_attributes.table_nemomod_total_annual_max_capacity_investment_storage,
                 [
@@ -8334,7 +8506,7 @@ class EnergyProduction:
         # TotalAnnualMinCapacityStorage
         dict_return.update(
             self.format_model_variable_as_nemomod_table(
-                df_elec_trajectories,
+                df_enerprod_trajectories,
                 self.modvar_enst_nemomod_total_annual_min_capacity_storage,
                 self.model_attributes.table_nemomod_total_annual_min_capacity_storage,
                 [
@@ -8351,7 +8523,7 @@ class EnergyProduction:
         # TotalAnnualMinCapacityInvestmentStorage
         dict_return.update(
             self.format_model_variable_as_nemomod_table(
-                df_elec_trajectories,
+                df_enerprod_trajectories,
                 self.modvar_enst_nemomod_total_annual_min_capacity_investment_storage,
                 self.model_attributes.table_nemomod_total_annual_min_capacity_investment_storage,
                 [
@@ -8406,7 +8578,7 @@ class EnergyProduction:
 
 
     def format_nemomod_table_total_technology_activity_lower_limit(self,
-        df_elec_trajectories: pd.DataFrame,
+        df_enerprod_trajectories: pd.DataFrame,
         attribute_fuel: AttributeTable = None,
         attribute_technology: AttributeTable = None,
         drop_flag: Union[float, int] = None,
@@ -8428,30 +8600,33 @@ class EnergyProduction:
 
         Function Arguments
         ------------------
-        - df_elec_trajectories: data frame of model variable input trajectories
+        df_enerprod_trajectories : DataFrame
+            DataFrame of model variable input trajectories
 
         Keyword Arguments
         -----------------
-        - attribute_fuel: AttributeTable for fuels
-        - attribute_technology: AttributeTable for technology, used to identify 
-            whether or not a technology can charge a storage. If None, use 
-            ModelAttributes default.
-        - drop_flag: optional specification of a drop flag used to indicate 
+        attribute_fuel : AttributeTable 
+            AttributeTable for fuels
+        attribute_technology : AttributeTable 
+            AttributeTable for technology. If None, use ModelAttributes default
+        drop_flag : Union[float, int, None]
+            Optional specification of a drop flag used to indicate 
             rows/variables for which the MSP Max Production constraint is not 
             applicable (see 
             EnergyProduction.get_entc_maxprod_increase_adjusted_msp for more 
             info). Defaults to self.drop_flag_tech_capacities if None.
-        - regions: regions to specify. If None, defaults to configuration 
-            regions
-        - return_type: type of return. Acceptable values are "NemoMod" and 
-            "CapacityCheck". Invalid entries default to "NemoMod"
+        regions : Union[List[str], None]
+            Regions to specify. If None, defaults to configuration regions
+        return_type : str
+            Type of return. Acceptable values are:
             * NemoMod (default): return the 
                 TotalTechnologyAnnualActivityLowerLimit input table for the 
                 NemoMod database
             * CapacityCheck: return a table of specified minimum capacities
                  associated with the technology.
-        - tuple_enfu_production_and_demands: optional tuple of energy fuel 
-            demands produced by 
+            Invalid entries default to "NemoMod".
+        tuple_enfu_production_and_demands : Union[Tuple[np.ndarray], None]
+            Optional tuple of energy fuel demands produced by 
             self.model_enercons.project_enfu_production_and_demands():
 
             (
@@ -8483,7 +8658,7 @@ class EnergyProduction:
 
         # get baseline TTALL
         dict_out = self.get_total_technology_activity_lower_limit_no_msp_adjustment(
-            df_elec_trajectories,
+            df_enerprod_trajectories,
             attribute_technology = attribute_technology, 
             regions = regions,
             return_type = "NemoMod",
@@ -8491,7 +8666,7 @@ class EnergyProduction:
 
         # update with MSP
         dict_out = self.update_ttal_dictionary_with_limit_from_msp(
-            df_elec_trajectories,
+            df_enerprod_trajectories,
             dict_out,
             attribute_fuel = attribute_fuel,
             attribute_technology = attribute_technology,
@@ -8507,52 +8682,63 @@ class EnergyProduction:
 
 
     def format_nemomod_table_total_technology_activity_upper_limit(self,
-        df_elec_trajectories: pd.DataFrame,
+        df_enerprod_trajectories: pd.DataFrame,
         attribute_fuel: AttributeTable = None,
         attribute_technology: AttributeTable = None,
-        drop_flag: Union[float, int] = None,
+        drop_flag: Union[float, int, None] = None,
         regions: Union[List[str], None] = None, 
         return_type: str = "NemoMod",
-        tuple_enfu_production_and_demands: Union[Tuple[pd.DataFrame], None] = None,
+        tuple_enfu_production_and_demands: Union[Tuple[np.ndarray], None] = None,
         **kwargs
     ) -> Dict[str, pd.DataFrame]:
-        """
-        Format the TotalTechnologyAnnualActivityUpperLimit input tables for 
+        """Format the TotalTechnologyAnnualActivityUpperLimit input tables for 
             NemoMod based on SISEPUEDE configuration parameters, input 
             variables, integrated model outputs, and reference tables.
 
         In SISEPUEDE, this table is used in conjunction with 
-            TotalTechnologyAnnualActivityLowerLimit to pass biogas and waste
-            incineration production from collection in Circular Economy and 
-            AFOLU.
+            TotalTechnologyAnnualActivityLowerLimit to pass integrated limits
+            from:
+                * biogas
+                    Collected from livestock manure management, wastewater 
+                    treatment, and solid waste management.
+                * biomass
+                    Collected from fuelwood (removed from secondary and primary
+                    forests) and crop residues (solved in Livestock Dietary 
+                    Estimator, LDE)
+                * waste
+                    Collected from solid waste management pathways
+                    
 
 
         Function Arguments
         ------------------
-        - df_elec_trajectories: data frame of model variable input trajectories
+        df_enerprod_trajectories : DataFrame
+            DataFrame of model variable input trajectories
 
         Keyword Arguments
         -----------------
-        - attribute_fuel: AttributeTable for fuels
-        - attribute_technology: AttributeTable for technology, used to identify 
-            whether or not a technology can charge a storage. If None, use 
-            ModelAttributes default.
-        - drop_flag: optional specification of a drop flag used to indicate 
+        attribute_fuel : AttributeTable 
+            AttributeTable for fuels
+        attribute_technology : AttributeTable 
+            AttributeTable for technology. If None, use ModelAttributes default
+        drop_flag : Union[float, int, None]
+            Optional specification of a drop flag used to indicate 
             rows/variables for which the MSP Max Production constraint is not 
             applicable (see 
             EnergyProduction.get_entc_maxprod_increase_adjusted_msp for more 
             info). Defaults to self.drop_flag_tech_capacities if None.
-        - regions: regions to specify. If None, defaults to configuration 
-            regions
-        - return_type: type of return. Acceptable values are "NemoMod" and 
-            "CapacityCheck". Invalid entries default to "NemoMod"
+        regions : Union[List[str], None]
+            Regions to specify. If None, defaults to configuration regions
+        return_type : str
+            Type of return. Acceptable values are:
             * NemoMod (default): return the 
                 TotalTechnologyAnnualActivityLowerLimit input table for the 
                 NemoMod database
             * CapacityCheck: return a table of specified minimum capacities
                  associated with the technology.
-        - tuple_enfu_production_and_demands: optional tuple of energy fuel 
-            demands produced by 
+            Invalid entries default to "NemoMod".
+        tuple_enfu_production_and_demands : Union[Tuple[np.ndarray], None]
+            Optional tuple of energy fuel demands produced by 
             self.model_enercons.project_enfu_production_and_demands():
 
             (
@@ -8562,7 +8748,8 @@ class EnergyProduction:
                 arr_enfu_imports, 
                 arr_enfu_production
             )
-        - **kwargs: passed to self.get_entc_maxprod_increase_adjusted_msp
+        **kwargs : 
+            Passed to self.get_entc_maxprod_increase_adjusted_msp
         """
 
         # some initialization
@@ -8584,7 +8771,7 @@ class EnergyProduction:
 
         # get baseline TTALL
         dict_out = self.get_total_technology_activity_upper_limit_no_msp_adjustment(
-            df_elec_trajectories,
+            df_enerprod_trajectories,
             attribute_technology = attribute_technology, 
             regions = regions,
             return_type = "NemoMod",
@@ -8592,7 +8779,7 @@ class EnergyProduction:
 
         # update with MSP
         dict_out = self.update_ttal_dictionary_with_limit_from_msp(
-            df_elec_trajectories,
+            df_enerprod_trajectories,
             dict_out,
             attribute_fuel = attribute_fuel,
             attribute_technology = attribute_technology,
@@ -8607,45 +8794,36 @@ class EnergyProduction:
 
 
 
-    def get_total_technology_activity_lower_limit_no_msp_adjustment(self,
-        df_elec_trajectories: pd.DataFrame,
+    def get_total_technology_activity_limit_no_msp_adjustment(self,
+        df_enerprod_trajectories: pd.DataFrame,
         attribute_technology: AttributeTable = None,
         regions: Union[List[str], None] = None, 
         return_type: str = "NemoMod",
-    ) -> Dict[str, pd.DataFrame]:
-        """
-        Construct the TotalTechnologyAnnualActivityLowerLimit input tables for 
-            NemoMod based on SISEPUEDE configuration parameters, input 
-            variables, integrated model outputs, and reference tables WITHOUT
-            adjusting for the implementation of the Max Production Inrease from
-            MinShareProduction. 
+    ) -> pd.DataFrame:
+        """Base fuction for 
 
-        NOTE: this table is called elsewhere in EnergyProduction 
-        
-        In SISEPUEDE, this table is used in conjunction with 
-            TotalTechnologyAnnualActivityUpperLimit to pass biogas and waste
-            incineration production from collection in Circular Economy and 
-            AFOLU.
-
+            get_total_technology_activity_lower_limit_no_msp_adjustment
+            get_total_technology_activity_upper_limit_no_msp_adjustment
 
         Function Arguments
         ------------------
-        - df_elec_trajectories: data frame of model variable input trajectories
+        df_enerprod_trajectories : DataFrame
+            DataFrame of model variable input trajectories
 
         Keyword Arguments
         -----------------
-        - attribute_technology: AttributeTable for technology, used to identify 
-            whether or not a technology can charge a storage. If None, use 
-            ModelAttributes default.
-        - regions: regions to specify. If None, defaults to configuration 
-            regions
-        - return_type: type of return. Acceptable values are "NemoMod" and 
-            "CapacityCheck". Invalid entries default to "NemoMod"
+        attribute_technology : AttributeTable 
+            AttributeTable for technology. If None, use ModelAttributes default
+        regions : Union[List[str], None]
+            Regions to specify. If None, defaults to configuration regions
+        return_type : str
+            Type of return. Acceptable values are:
             * NemoMod (default): return the 
                 TotalTechnologyAnnualActivityLowerLimit input table for the 
                 NemoMod database
             * CapacityCheck: return a table of specified minimum capacities
                  associated with the technology.
+            Invalid entries default to "NemoMod".
         """
 
         # check input of return_type
@@ -8657,34 +8835,41 @@ class EnergyProduction:
 
         # some attribute initializations
         attribute_technology = (
-            self.model_attributes.get_attribute_table(self.subsec_name_entc) 
-            if (attribute_technology is None) 
+            self.get_attribute_entc()
+            if not is_attribute_table(attribute_technology, )
             else attribute_technology
         )
 
         # get some categories and keys
         cat_entc_pp_biogas = self.get_entc_cat_for_integration("bgas")
+        cat_entc_pp_biomass = self.get_entc_cat_for_integration("bmas")
         cat_entc_pp_waste = self.get_entc_cat_for_integration("wste")
-        ind_entc_pp_biogas = attribute_technology.get_key_value_index(cat_entc_pp_biogas)
-        ind_entc_pp_waste = attribute_technology.get_key_value_index(cat_entc_pp_waste)
+
+        ind_entc_pp_biogas = attribute_technology.get_key_value_index(cat_entc_pp_biogas, )
+        ind_entc_pp_biomass = attribute_technology.get_key_value_index(cat_entc_pp_biomass, )
+        ind_entc_pp_waste = attribute_technology.get_key_value_index(cat_entc_pp_waste, )
 
         # get some scalars to use if returning a capacity constraint dataframe
         if return_type == "CapacityCheck":
             units_energy_config = self.get_units_energy()
             units_power_config = self.get_units_power()
             units_energy_power_equivalent = self.model_attributes.get_energy_power_swap(units_power_config)
-            
+
             scalar_energy_to_power_cur = self.model_attributes.get_energy_equivalent(
                 units_energy_config, 
-                units_energy_power_equivalent
+                units_energy_power_equivalent,
             )
 
+        
+        ######################################################
+        #   GET SUPPLY TO USE (MIN) AND TECH EFFICIENCIES    #
+        ######################################################
+        # for biogas, biomass, and waste get efficiency factors--total  
+        #   production should match up to min supply utilization * efficiency
 
-        ##  GET SUPPLY TO USE (MIN) AND TECH EFFICIENCIES
-
-        # get efficiency factors--total production should match up to min supply utilization * efficiency
+        # get efficiencies
         arr_entc_efficiencies = self.model_attributes.extract_model_variable(#
-            df_elec_trajectories,
+            df_enerprod_trajectories,
             self.modvar_entc_efficiency_factor_technology,
             expand_to_all_cats = True,
             override_vector_for_single_mv_q = True,
@@ -8692,41 +8877,61 @@ class EnergyProduction:
             var_bounds = (0, 1),
         )
 
-        # get biogas supply available
+
+        ## SUPPLIES
+
+        # biogas
         vec_enfu_total_energy_supply_biogas, vec_enfu_min_energy_to_elec_biogas = self.get_biogas_components(
-            df_elec_trajectories,
+            df_enerprod_trajectories
         )
         vec_enfu_min_energy_to_elec_biogas *= arr_entc_efficiencies[:, ind_entc_pp_biogas]
-        # get waste supply available
-        vec_enfu_total_energy_supply_waste, vec_enfu_min_energy_to_elec_waste, dict_efs = self.get_waste_energy_components(
-            df_elec_trajectories,
-            return_emission_factors = True
+
+        # biomass
+        _, vec_entc_constraints_biomass, _ = self.get_biomass_components(df_enerprod_trajectories, )
+        if vec_entc_constraints_biomass is not None:
+            vec_entc_constraints_biomass *= arr_entc_efficiencies[:, ind_entc_pp_biomass]
+
+        # waste
+        _, vec_enfu_min_energy_to_elec_waste, _ = self.get_waste_energy_components(
+            df_enerprod_trajectories,
+            return_emission_factors = True,
         )
+
         vec_enfu_min_energy_to_elec_waste *= arr_entc_efficiencies[:, ind_entc_pp_waste]
 
 
-        ##  BUILD OUTPUT DATAFRAME - ALLOW FOR
+        ##  BUILD OUTPUT DATAFRAME FOR BIOGAS, BIOMASS, AND WASTE
 
-        # biogas component
-        df_biogas = pd.DataFrame({
-            self.field_nemomod_technology: cat_entc_pp_biogas,
-            self.field_nemomod_value: vec_enfu_min_energy_to_elec_biogas,
-            self.field_nemomod_year: list(df_elec_trajectories[self.model_attributes.dim_time_period])
-        })
-        # waste component
-        df_waste = pd.DataFrame({
-            self.field_nemomod_technology: cat_entc_pp_waste,
-            self.field_nemomod_value: vec_enfu_min_energy_to_elec_waste,
-            self.field_nemomod_year: list(df_elec_trajectories[self.model_attributes.dim_time_period])
-        })
+        tups_cat_vec = [
+            (cat_entc_pp_biogas, vec_enfu_min_energy_to_elec_biogas, ),
+            (cat_entc_pp_waste, vec_enfu_min_energy_to_elec_waste, )
+        ]
+        # add biomass if contraint is passed
+        if vec_entc_constraints_biomass is not None:
+            tups_cat_vec.append(
+                (cat_entc_pp_biomass, vec_entc_constraints_biomass, ),
+            )
+
+        df_out = []
+        for elem in tups_cat_vec:
+            df_out.append(
+                self.get_tta_limit_component_dfs(
+                    df_enerprod_trajectories,
+                    elem[0],
+                    elem[1],
+                )
+            )
+
+
         # concatenate into output data frame
-        df_out = pd.concat([df_biogas, df_waste], axis = 0)
+        df_out = sf._concat_df(df_out, )
         df_out = self.model_attributes.exchange_year_time_period(
             df_out,
             self.field_nemomod_year,
             df_out[self.field_nemomod_year],
-            direction = self.direction_exchange_year_time_period
+            direction = self.direction_exchange_year_time_period,
         )
+
         # add key values
         df_out = self.add_multifields_from_key_values(df_out,
             [
@@ -8741,9 +8946,64 @@ class EnergyProduction:
 
         # scale to power units if doing capacity check
         if return_type == "CapacityCheck":
-            df_out[self.field_nemomod_value] = np.array(df_out[self.field_nemomod_value])*scalar_energy_to_power_cur
+            df_out[self.field_nemomod_value] = (
+                df_out[self.field_nemomod_value].to_numpy()
+                *scalar_energy_to_power_cur
+            )
 
-        # setup output dictionary and return
+        return df_out
+    
+
+
+    def get_total_technology_activity_lower_limit_no_msp_adjustment(self,
+        df_enerprod_trajectories: pd.DataFrame,
+        attribute_technology: AttributeTable = None,
+        regions: Union[List[str], None] = None, 
+        return_type: str = "NemoMod",
+    ) -> Dict[str, pd.DataFrame]:
+        """Construct the TotalTechnologyAnnualActivityLowerLimit input tables 
+            for NemoMod based on SISEPUEDE configuration parameters, input 
+            variables, integrated model outputs, and reference tables WITHOUT
+            adjusting for the implementation of the Max Production Inrease from
+            MinShareProduction. 
+
+        NOTE: this table is called elsewhere in EnergyProduction 
+        
+        In SISEPUEDE, this table is used in conjunction with 
+            TotalTechnologyAnnualActivityUpperLimit to pass biogas and waste
+            incineration production from collection in Circular Economy and 
+            AFOLU.
+
+
+        Function Arguments
+        ------------------
+        df_enerprod_trajectories : DataFrame
+            DataFrame of model variable input trajectories
+
+        Keyword Arguments
+        -----------------
+        attribute_technology : AttributeTable 
+            AttributeTable for technology. If None, use ModelAttributes default
+        regions : Union[List[str], None]
+            Regions to specify. If None, defaults to configuration regions
+        return_type : str
+            Type of return. Acceptable values are:
+            * NemoMod (default): return the 
+                TotalTechnologyAnnualActivityLowerLimit input table for the 
+                NemoMod database
+            * CapacityCheck: return a table of specified minimum capacities
+                 associated with the technology.
+            Invalid entries default to "NemoMod".
+        """
+        
+        # get df and return dictionary
+        df_out = self.get_total_technology_activity_limit_no_msp_adjustment(
+            df_enerprod_trajectories,
+            attribute_technology = attribute_technology,
+            regions = regions,
+            return_type = return_type,
+        )
+
         dict_return = {
             self.model_attributes.table_nemomod_total_technology_annual_activity_lower_limit: df_out
         }
@@ -8753,10 +9013,10 @@ class EnergyProduction:
 
 
     def get_total_technology_activity_upper_limit_no_msp_adjustment(self,
-        df_elec_trajectories: pd.DataFrame,
+        df_enerprod_trajectories: pd.DataFrame,
         attribute_technology: AttributeTable = None,
         regions: Union[List[str], None] = None, 
-        return_type: str = "NemoMod"
+        return_type: str = "NemoMod",
     ) -> pd.DataFrame:
         """Construct the TotalTechnologyAnnualActivityUpperLimit input tables 
             for NemoMod based on SISEPUEDE configuration parameters, input 
@@ -8774,134 +9034,65 @@ class EnergyProduction:
 
         Function Arguments
         ------------------
-        - df_elec_trajectories: data frame of model variable input trajectories
+        df_enerprod_trajectories : DataFrame
+            DataFrame of model variable input trajectories
 
         Keyword Arguments
         -----------------
-        - attribute_technology: AttributeTable for technology, used to identify 
-            whether or not a technology can charge a storage. If None, use 
-            ModelAttributes default.
-        - regions: regions to specify. If None, defaults to configuration 
-            regions
-        - return_type: type of return. Acceptable values are "NemoMod" and 
-            "CapacityCheck". Invalid entries default to "NemoMod"
+        attribute_technology : AttributeTable 
+            AttributeTable for technology. If None, use ModelAttributes default
+        regions : Union[List[str], None]
+            Regions to specify. If None, defaults to configuration regions
+        return_type : str
+            Type of return. Acceptable values are:
             * NemoMod (default): return the 
-                TotalTechnologyAnnualActivityUpperLimit input table for the 
+                TotalTechnologyAnnualActivityLowerLimit input table for the 
                 NemoMod database
             * CapacityCheck: return a table of specified minimum capacities
                  associated with the technology.
+            Invalid entries default to "NemoMod".
         """
-
-        # check input of return_type
-        try:
-            sf.check_set_values([return_type], ["NemoMod", "CapacityCheck"])
-        except:
-            # LOG HERE
-            return_type = "NemoMod"
-
-        # some attribute initializations
-        attribute_technology = (
-            self.model_attributes.get_attribute_table(self.subsec_name_entc) 
-            if (attribute_technology is None) 
-            else attribute_technology
+        # get df and return dictionary
+        df_out = self.get_total_technology_activity_limit_no_msp_adjustment(
+            df_enerprod_trajectories,
+            attribute_technology = attribute_technology,
+            regions = regions,
+            return_type = return_type,
         )
 
-        # get some categories and keys
-        cat_entc_pp_biogas = self.get_entc_cat_for_integration("bgas")
-        cat_entc_pp_waste = self.get_entc_cat_for_integration("wste")
-        ind_entc_pp_biogas = attribute_technology.get_key_value_index(cat_entc_pp_biogas)
-        ind_entc_pp_waste = attribute_technology.get_key_value_index(cat_entc_pp_waste)
-
-        # get some scalars to use if returning a capacity constraint dataframe
-        if return_type == "CapacityCheck":
-            units_energy_config = self.get_units_energy()
-            units_power_config = self.get_units_power()
-            units_energy_power_equivalent = self.model_attributes.get_energy_power_swap(units_power_config)
-
-            scalar_energy_to_power_cur = self.model_attributes.get_energy_equivalent(
-                units_energy_config, 
-                units_energy_power_equivalent,
-            )
-
-
-        ##  GET SUPPLY TO USE (MIN) AND TECH EFFICIENCIES
-
-        # get efficiency factors--total production should match up to min supply utilization * efficiency
-        arr_entc_efficiencies = self.model_attributes.extract_model_variable(#
-            df_elec_trajectories,
-            self.modvar_entc_efficiency_factor_technology,
-            expand_to_all_cats = True,
-            override_vector_for_single_mv_q = True,
-            return_type = "array_base",
-            var_bounds = (0, 1),
-        )
-
-        # get biogas supply available
-        vec_enfu_total_energy_supply_biogas, vec_enfu_min_energy_to_elec_biogas = self.get_biogas_components(
-            df_elec_trajectories
-        )
-        vec_enfu_min_energy_to_elec_biogas *= arr_entc_efficiencies[:, ind_entc_pp_biogas]
-
-        # get waste supply available
-        (
-            vec_enfu_total_energy_supply_waste, 
-            vec_enfu_min_energy_to_elec_waste, 
-            dict_efs
-        ) = self.get_waste_energy_components(
-            df_elec_trajectories,
-            return_emission_factors = True,
-        )
-
-        vec_enfu_min_energy_to_elec_waste *= arr_entc_efficiencies[:, ind_entc_pp_waste]
-
-
-        ##  BUILD OUTPUT DATAFRAME - ALLOW FOR
-
-        # biogas component
-        df_biogas = pd.DataFrame({
-            self.field_nemomod_technology: cat_entc_pp_biogas,
-            self.field_nemomod_value: vec_enfu_min_energy_to_elec_biogas,
-            self.field_nemomod_year: list(df_elec_trajectories[self.model_attributes.dim_time_period])
-        })
-
-        # waste component
-        df_waste = pd.DataFrame({
-            self.field_nemomod_technology: cat_entc_pp_waste,
-            self.field_nemomod_value: vec_enfu_min_energy_to_elec_waste,
-            self.field_nemomod_year: list(df_elec_trajectories[self.model_attributes.dim_time_period])
-        })
-
-        # concatenate into output data frame
-        df_out = pd.concat([df_biogas, df_waste], axis = 0)
-        df_out = self.model_attributes.exchange_year_time_period(
-            df_out,
-            self.field_nemomod_year,
-            df_out[self.field_nemomod_year],
-            direction = self.direction_exchange_year_time_period
-        )
-
-        # add key values
-        df_out = self.add_multifields_from_key_values(df_out,
-            [
-                self.field_nemomod_id,
-                self.field_nemomod_region,
-                self.field_nemomod_technology,
-                self.field_nemomod_year,
-                self.field_nemomod_value
-            ],
-            regions = regions
-        )
-
-        # scale to power units if doing capacity check
-        if return_type == "CapacityCheck":
-            df_out[self.field_nemomod_value] = np.array(df_out[self.field_nemomod_value])*scalar_energy_to_power_cur
-
-        # setup output dictionary and return
         dict_return = {
             self.model_attributes.table_nemomod_total_technology_annual_activity_upper_limit: df_out
         }
 
         return dict_return
+    
+
+
+    def get_tta_limit_component_dfs(self,
+        df_enerprod_trajectories: pd.DataFrame,
+        cat_entc: str,
+        vec_value: str,
+    ) -> pd.DataFrame:
+        """Support function for total_technology_activity_upper_limit and
+            total_technology_activity_lower_limit
+        """
+
+        vec_time_period = (
+            df_enerprod_trajectories[
+                self.model_attributes.dim_time_period
+            ]
+            .to_numpy()
+        )
+
+        df_out = pd.DataFrame(
+            {
+                self.field_nemomod_technology: cat_entc,
+                self.field_nemomod_value: vec_value,
+                self.field_nemomod_year: vec_time_period,
+            }
+        )
+
+        return df_out
     
 
 
@@ -8945,7 +9136,7 @@ class EnergyProduction:
         
         # get mixing model variables
         modvar_mix = (
-            self.modvar_ccs_achievement_frac
+            self.modvar_entc_ccs_achievement_frac
             if modvar_mix is None
             else modvar_mix
         )
@@ -8990,7 +9181,7 @@ class EnergyProduction:
 
 
     def update_ttal_dictionary_with_limit_from_msp(self,
-        df_elec_trajectories: pd.DataFrame,
+        df_enerprod_trajectories: pd.DataFrame,
         dict_ttal: Union[Dict[str, pd.DataFrame], None],
         attribute_fuel: AttributeTable = None,
         attribute_technology: AttributeTable = None,
@@ -9013,17 +9204,19 @@ class EnergyProduction:
 
         Function Arguments
         ------------------
-        - df_elec_trajectories: data frame of model variable input trajectories
+        df_enerprod_trajectories : DataFrame
+            DataFrame of model variable input trajectories
         - dict_ttal: dictionary from TotalTechnologyActivityLowerLimit or
             TotalTechnologyActivityUpperLimit 
 
         Keyword Arguments
         -----------------
-        - attribute_fuel: AttributeTable for fuels
-        - attribute_technology: AttributeTable for technology, used to identify 
-            whether or not a technology can charge a storage. If None, use 
-            ModelAttributes default.
-        - drop_flag: optional specification of a drop flag used to indicate 
+        attribute_fuel : AttributeTable 
+            AttributeTable for fuels
+        attribute_technology : AttributeTable 
+            AttributeTable for technology. If None, use ModelAttributes default
+        drop_flag : Union[float, int, None]
+            Optional specification of a drop flag used to indicate 
             rows/variables for which the MSP Max Production constraint is not 
             applicable (see 
             EnergyProduction.get_entc_maxprod_increase_adjusted_msp for more 
@@ -9031,17 +9224,18 @@ class EnergyProduction:
         - key_ttal: key in dict_ttal that includes maps to the table to modify.
             If None, calls first key available (will not present any issues if 
             only one key is passed)
-        - regions: regions to specify. If None, defaults to configuration 
-            regions
-        - return_type: type of return. Acceptable values are "NemoMod" and 
-            "CapacityCheck". Invalid entries default to "NemoMod"
+        regions : Union[List[str], None]
+            Regions to specify. If None, defaults to configuration regions
+        return_type : str
+            Type of return. Acceptable values are:
             * NemoMod (default): return the 
                 TotalTechnologyAnnualActivityLowerLimit input table for the 
                 NemoMod database
             * CapacityCheck: return a table of specified minimum capacities
                  associated with the technology.
-        - tuple_enfu_production_and_demands: optional tuple of energy fuel 
-            demands produced by 
+            Invalid entries default to "NemoMod".
+        tuple_enfu_production_and_demands : Union[Tuple[np.ndarray], None]
+            Optional tuple of energy fuel demands produced by 
             self.model_enercons.project_enfu_production_and_demands():
 
             (
@@ -9057,12 +9251,12 @@ class EnergyProduction:
 
         # some initialization
         attribute_fuel = (
-            self.model_attributes.get_attribute_table(self.subsec_name_enfu) 
+            self.get_attribute_enfu()
             if (attribute_fuel is None) 
             else attribute_fuel
         )
         attribute_technology = (
-            self.model_attributes.get_attribute_table(self.subsec_name_entc) 
+            self.get_attribute_entc()
             if (attribute_technology is None) 
             else attribute_technology
         )
@@ -9076,7 +9270,7 @@ class EnergyProduction:
             arr_entc_activity_limits, 
             vec_frac_msp_accounted_for_by_growth_limit
         ) = self.get_entc_maxprod_increase_adjusted_msp(
-            df_elec_trajectories,
+            df_enerprod_trajectories,
             adjust_free_msps_in_response = True,
             attribute_fuel = attribute_fuel,
             attribute_technology = attribute_technology,
@@ -9092,7 +9286,7 @@ class EnergyProduction:
                 arr_entc_activity_limits,
                 columns = attribute_technology.key_values
             )
-            df_entc_activity_limits_append[self.model_attributes.dim_time_period] = list(df_elec_trajectories[self.model_attributes.dim_time_period])
+            df_entc_activity_limits_append[self.model_attributes.dim_time_period] = list(df_enerprod_trajectories[self.model_attributes.dim_time_period])
 
             # reformat for NemoMod input
             df_entc_activity_limits_append = self.format_model_variable_as_nemomod_table(
@@ -9236,7 +9430,7 @@ class EnergyProduction:
             SQLalchemy Engine used to retrieve this table
         vector_reference_time_period : Union[list, np.ndarray]
             Reference time periods to use in merge--e.g., 
-            df_elec_trajectories[EnergyProduction.model_attributes.dim_time_period]
+            df_enerprod_trajectories[EnergyProduction.model_attributes.dim_time_period]
 
         Keyword Arguments
         -----------------
@@ -9285,7 +9479,7 @@ class EnergyProduction:
             SQLalchemy Engine used to retrieve this table
         vector_reference_time_period : Union[list, np.ndarray]
             Reference time periods to use in merge--e.g., 
-            df_elec_trajectories[EnergyProduction.model_attributes.dim_time_period]
+            df_enerprod_trajectories[EnergyProduction.model_attributes.dim_time_period]
 
         Keyword Arguments
         -----------------
@@ -9337,7 +9531,7 @@ class EnergyProduction:
             SQLalchemy Engine used to retrieve this table
         vector_reference_time_period : Union[list, np.ndarray]
             Reference time periods to use in merge--e.g., 
-            df_elec_trajectories[EnergyProduction.model_attributes.dim_time_period]
+            df_enerprod_trajectories[EnergyProduction.model_attributes.dim_time_period]
 
         Keyword Arguments
         -----------------
@@ -9383,7 +9577,7 @@ class EnergyProduction:
             SQLalchemy Engine used to retrieve this table
         vector_reference_time_period : Union[list, np.ndarray]
             Reference time periods to use in merge--e.g., 
-            df_elec_trajectories[EnergyProduction.model_attributes.dim_time_period]
+            df_enerprod_trajectories[EnergyProduction.model_attributes.dim_time_period]
 
         Keyword Arguments
         -----------------
@@ -9429,7 +9623,7 @@ class EnergyProduction:
             SQLalchemy Engine used to retrieve this table
         vector_reference_time_period : Union[list, np.ndarray]
             Reference time periods to use in merge--e.g., 
-            df_elec_trajectories[EnergyProduction.model_attributes.dim_time_period]
+            df_enerprod_trajectories[EnergyProduction.model_attributes.dim_time_period]
 
         Keyword Arguments
         -----------------
@@ -9565,7 +9759,7 @@ class EnergyProduction:
             SQLalchemy Engine used to retrieve this table
         vector_reference_time_period : Union[list, np.ndarray]
             Reference time periods to use in merge--e.g., 
-            df_elec_trajectories[EnergyProduction.model_attributes.dim_time_period]
+            df_enerprod_trajectories[EnergyProduction.model_attributes.dim_time_period]
 
         Keyword Arguments
         -----------------
@@ -9794,7 +9988,7 @@ class EnergyProduction:
             SQLalchemy Engine used to retrieve this table
         vector_reference_time_period : Union[list, np.ndarray]
             Reference time periods to use in merge--e.g., 
-            df_elec_trajectories[EnergyProduction.model_attributes.dim_time_period]
+            df_enerprod_trajectories[EnergyProduction.model_attributes.dim_time_period]
 
         Keyword Arguments
         -----------------
@@ -9831,7 +10025,7 @@ class EnergyProduction:
     def retrieve_nemomod_tables_fuel_production_demand_and_trade(self,
         engine: sqlalchemy.engine.Engine,
         vector_reference_time_period: Union[list, np.ndarray],
-        df_elec_trajectories: Union[pd.DataFrame, None],
+        df_enerprod_trajectories: Union[pd.DataFrame, None],
         attribute_fuel: Union[AttributeTable, None] = None,
         attribute_technology: Union[AttributeTable, None] = None,
         dict_scale_values: Union[Dict[str, float], None] = None,
@@ -9849,8 +10043,8 @@ class EnergyProduction:
             SQLalchemy Engine used to retrieve this table
         vector_reference_time_period : Union[list, np.ndarray]
             Reference time periods to use in merge--e.g., 
-            df_elec_trajectories[EnergyProduction.model_attributes.dim_time_period]
-        df_elec_trajectories : Union[pd.DataFrame, None]
+            df_enerprod_trajectories[EnergyProduction.model_attributes.dim_time_period]
+        df_enerprod_trajectories : Union[pd.DataFrame, None]
             DataFrame containing trajectories of input variables to SISEPUEDE 
             for EnergyConsumption. 
             * NOTE: required for extracting transmission losses total fuel use
@@ -9895,7 +10089,7 @@ class EnergyProduction:
 
             * NOTES: 
                 * MUST BE IN NEMO MOD ENERGY UNITS
-                * If None, extracts from df_elec_trajectories
+                * If None, extracts from df_enerprod_trajectories
         
         Model Notes
         -----------
@@ -9960,7 +10154,7 @@ class EnergyProduction:
         # get fuel production and demands (pre-entc)
         tuple_enfu_production_and_demands = (
             self.model_enercons.project_enfu_production_and_demands(
-                df_elec_trajectories, 
+                df_enerprod_trajectories, 
                 target_energy_units = self.get_units_energy_nemo(),
             ) 
             if (tuple_enfu_production_and_demands is None) 
@@ -9994,7 +10188,7 @@ class EnergyProduction:
 
         # 1. retrieve transmission loss fraction (adjusts demands)
         arr_transmission_loss_frac = self.model_attributes.extract_model_variable(#
-            df_elec_trajectories, 
+            df_enerprod_trajectories, 
             self.modvar_enfu_transmission_loss_frac_electricity, 
             expand_to_all_cats = True, 
             return_type = "array_base",
@@ -10079,7 +10273,7 @@ class EnergyProduction:
         #  - configuration monetary units (get_enfu_fuel_costs_per_energy default) and 
         #  - units of modvar_enfu_energy_demand_by_fuel_entc
         arr_entc_total_fuel_value = self.model_enercons.get_enfu_fuel_costs_per_energy(
-            df_elec_trajectories,
+            df_enerprod_trajectories,
             modvar_for_units_energy = self.modvar_enfu_energy_demand_by_fuel_entc
         )
         # multply by   scalar_enfu_demand_entc_to_config_energy   to conver everything to configuration energy units
@@ -10174,7 +10368,7 @@ class EnergyProduction:
             Name in the database of the table to retrieve
         vector_reference_time_period : Union[list, np.ndarray]
             reference time periods to use in merge--e.g., 
-            df_elec_trajectories[EnergyProduction.model_attributes.dim_time_period]
+            df_enerprod_trajectories[EnergyProduction.model_attributes.dim_time_period]
 
         Keyword Arguments
         -----------------
@@ -10375,7 +10569,7 @@ class EnergyProduction:
     ####################################################
 
     def generate_input_tables_for_sql(self,
-        df_elec_trajectories: pd.DataFrame,
+        df_enerprod_trajectories: pd.DataFrame,
         df_reference_availability_factor: pd.DataFrame,
         df_reference_specified_demand_profile: pd.DataFrame,
         dict_attributes: Dict[str, pd.DataFrame] = {},
@@ -10392,7 +10586,7 @@ class EnergyProduction:
 
         Function Arguments
         ------------------
-        - df_elec_trajectories: input of required variabels passed from other 
+        - df_enerprod_trajectories: input of required variabels passed from other 
             SISEPUEDE sectors.
         - df_reference_availability_factor: reference data frame containing 
             capacity factors
@@ -10411,8 +10605,8 @@ class EnergyProduction:
                 * attribute_technology: TECHNOLOGY attribute table
                 * attribute_time_slice: TIMESLICE attribute table
         - regions: regions to generate input tables for
-        - tuple_enfu_production_and_demands: optional tuple of energy fuel 
-            demands produced by 
+        tuple_enfu_production_and_demands : Union[Tuple[np.ndarray], None]
+            Optional tuple of energy fuel demands produced by 
             self.model_enercons.project_enfu_production_and_demands():
 
             (
@@ -10441,7 +10635,7 @@ class EnergyProduction:
         regions = self.model_attributes.get_region_list_filtered(regions, attribute_region = attribute_region)
         tuple_enfu_production_and_demands = (
             self.model_enercons.project_enfu_production_and_demands(
-                df_elec_trajectories, 
+                df_enerprod_trajectories, 
                 target_energy_units = self.get_units_energy_nemo(),
             )
             if tuple_enfu_production_and_demands is None
@@ -10505,7 +10699,7 @@ class EnergyProduction:
         )
 
 
-        ##  2. ADD TABLES THAT ARE INDEPENDENT OF MODEL PASS THROUGH (df_elec_trajectories)
+        ##  2. ADD TABLES THAT ARE INDEPENDENT OF MODEL PASS THROUGH (df_enerprod_trajectories)
 
         # DefaultParams
         dict_out.update(
@@ -10532,13 +10726,13 @@ class EnergyProduction:
         )
 
 
-        ##  3. ADD TABLES DEPENDENT ON MODEL PASS THROUGH (df_elec_trajectories)
+        ##  3. ADD TABLES DEPENDENT ON MODEL PASS THROUGH (df_enerprod_trajectories)
         
-        if df_elec_trajectories is not None:
+        if df_enerprod_trajectories is not None:
             # AnnualEmissionLimit
             dict_out.update(
                 self.format_nemomod_table_annual_emission_limit(
-                    df_elec_trajectories,
+                    df_enerprod_trajectories,
                     attribute_emission = attribute_emission,
                     attribute_time_period = attribute_time_period,
                     regions = regions
@@ -10547,14 +10741,14 @@ class EnergyProduction:
             # CapitalCostStorage
             dict_out.update(
                 self.format_nemomod_table_costs_storage(
-                    df_elec_trajectories,
+                    df_enerprod_trajectories,
                     regions = regions
                 )
             )
             # CapitalCost, FixedCost, and VariableCost -- Costs (Technology)
             dict_out.update(
                 self.format_nemomod_table_costs_technology(
-                    df_elec_trajectories,
+                    df_enerprod_trajectories,
                     attribute_fuel = attribute_fuel,
                     regions = regions
                 )
@@ -10562,7 +10756,7 @@ class EnergyProduction:
             # EmissionsActivityRatio - Emission Factors
             dict_out.update(
                 self.format_nemomod_table_emissions_activity_ratio(
-                    df_elec_trajectories, 
+                    df_enerprod_trajectories, 
                     attribute_fuel = attribute_fuel, 
                     attribute_technology = attribute_technology, 
                     attribute_time_period = attribute_time_period,
@@ -10572,7 +10766,7 @@ class EnergyProduction:
             # InputActivityRatio
             dict_out.update(
                 self.format_nemomod_table_input_activity_ratio(
-                    df_elec_trajectories, 
+                    df_enerprod_trajectories, 
                     attribute_technology = attribute_technology,
                     regions = regions
                 )
@@ -10580,7 +10774,7 @@ class EnergyProduction:
             # MinShareProduction
             dict_out.update(
                 self.format_nemomod_table_min_share_production(
-                    df_elec_trajectories, 
+                    df_enerprod_trajectories, 
                     attribute_fuel = attribute_fuel,
                     regions = regions,
                     tuple_enfu_production_and_demands = tuple_enfu_production_and_demands
@@ -10590,7 +10784,7 @@ class EnergyProduction:
             if False:
                 dict_out.update(
                     self.format_nemomod_table_min_storage_charge(
-                        df_elec_trajectories, 
+                        df_enerprod_trajectories, 
                         attribute_storage = attribute_storage,
                         regions = regions
                     )
@@ -10598,7 +10792,7 @@ class EnergyProduction:
             # OutputActivityRatio
             dict_out.update(
                 self.format_nemomod_table_output_activity_ratio(
-                    df_elec_trajectories, 
+                    df_enerprod_trajectories, 
                     attribute_fuel = attribute_fuel, 
                     attribute_technology = attribute_technology,
                     regions = regions
@@ -10607,35 +10801,35 @@ class EnergyProduction:
             # ReserveMargin
             dict_out.update(
                 self.format_nemomod_table_reserve_margin(
-                    df_elec_trajectories,
+                    df_enerprod_trajectories,
                     regions = regions
                 )
             )
             # ReserveMarginTagTechnology
             dict_out.update(
                 self.format_nemomod_table_reserve_margin_tag_technology(
-                    df_elec_trajectories,
+                    df_enerprod_trajectories,
                     regions = regions
                 )
             )
             # ResidualCapacity
             dict_out.update(
                 self.format_nemomod_table_residual_capacity(
-                    df_elec_trajectories,
+                    df_enerprod_trajectories,
                     regions = regions
                 )
             )
             # ResidualStorageCapacity
             dict_out.update(
                 self.format_nemomod_table_residual_storage_capacity(
-                    df_elec_trajectories,
+                    df_enerprod_trajectories,
                     regions = regions
                 )
             )
             # REMinProductionTarget
             dict_out.update(
                 self.format_nemomod_table_re_min_production_target(
-                    df_elec_trajectories,
+                    df_enerprod_trajectories,
                     attribute_fuel = attribute_fuel,
                     regions = regions
                 )
@@ -10643,14 +10837,14 @@ class EnergyProduction:
             # RETagTechnology
             dict_out.update(
                 self.format_nemomod_table_re_tag_technology(
-                    df_elec_trajectories,
+                    df_enerprod_trajectories,
                     regions = regions
                 )
             )
             # SpecifiedAnnualDemand
             dict_out.update(
                 self.format_nemomod_table_specified_annual_demand(
-                    df_elec_trajectories, 
+                    df_enerprod_trajectories, 
                     attribute_time_period = attribute_time_period, 
                     regions = regions,
                     tuple_enfu_production_and_demands = tuple_enfu_production_and_demands
@@ -10659,28 +10853,28 @@ class EnergyProduction:
             # StorageMaxChargeRate (if included), StorageMaxDishargeRate (if included), and StorageStartLevel
             dict_out.update(
                 self.format_nemomod_table_storage_attributes(
-                    df_elec_trajectories,
+                    df_enerprod_trajectories,
                     regions = regions
                 )
             )
             # TotalAnnualMax/MinCapacity +/-Investment
             dict_out.update(
                 self.format_nemomod_table_total_capacity_tables(
-                    df_elec_trajectories,
+                    df_enerprod_trajectories,
                     regions = regions
                 )
             )
             # TotalAnnualMax/MinCapacity +/-Investment Storage
             dict_out.update(
                 self.format_nemomod_table_total_capacity_storage_tables(
-                    df_elec_trajectories,
+                    df_enerprod_trajectories,
                     regions = regions
                 )
             )
             # TotalTechnologyAnnualActivityLowerLimit
             dict_out.update(
                 self.format_nemomod_table_total_technology_activity_lower_limit(
-                    df_elec_trajectories, 
+                    df_enerprod_trajectories, 
                     attribute_technology = attribute_technology,
                     regions = regions,
                     tuple_enfu_production_and_demands = tuple_enfu_production_and_demands
@@ -10689,7 +10883,7 @@ class EnergyProduction:
             # TotalTechnologyAnnualActivityUpperLimit
             dict_out.update(
                 self.format_nemomod_table_total_technology_activity_upper_limit(
-                    df_elec_trajectories, 
+                    df_enerprod_trajectories, 
                     attribute_technology = attribute_technology,
                     regions = regions,
                     tuple_enfu_production_and_demands = tuple_enfu_production_and_demands
@@ -10701,7 +10895,7 @@ class EnergyProduction:
         if df_reference_availability_factor is not None:
             dict_out.update(
                 self.format_nemomod_table_availability_factor(
-                    df_elec_trajectories,
+                    df_enerprod_trajectories,
                     df_reference_availability_factor,
                     attribute_technology = attribute_technology,
                     attribute_region = attribute_region,
@@ -10733,7 +10927,7 @@ class EnergyProduction:
 
     def retrieve_output_tables_from_sql(self,
         engine: sqlalchemy.engine.Engine,
-        df_elec_trajectories: pd.DataFrame,
+        df_enerprod_trajectories: pd.DataFrame,
         dict_optimizer_attributes: Union[Dict[str, Any], None] = None,
         solver: Union[str, None] = None,
         tuple_enfu_production_and_demands: Union[Tuple[pd.DataFrame], None] = None,
@@ -10741,13 +10935,13 @@ class EnergyProduction:
         """
         Retrieve tables from applicable inputs and format as dictionary. Returns 
             a data frame ordered by time period that can be concatenated with 
-            df_elec_trajectories.
+            df_enerprod_trajectories.
 
         Function Arguments
         ------------------
         engine : sqlalchemy.engine.Engine
             SQLalchemy engine used to connect to output database
-        df_elec_trajectories : pd.DataFrame
+        df_enerprod_trajectories : pd.DataFrame
             Input DataFrame containing required variabels passed from other 
             SISEPUEDE sectors.
 
@@ -10774,7 +10968,7 @@ class EnergyProduction:
         ##  INITIALIZATION
 
         # ordered time periods
-        vec_time_period = list(df_elec_trajectories[self.model_attributes.dim_time_period])
+        vec_time_period = list(df_enerprod_trajectories[self.model_attributes.dim_time_period])
 
         # get any scalars for tables based on the
         dict_scalar = self.build_dict_scalars(
@@ -10785,7 +10979,7 @@ class EnergyProduction:
         ##  BUILD OUTPUT VARIABLES
 
         df_out = [
-            df_elec_trajectories[[self.model_attributes.dim_time_period]],
+            df_enerprod_trajectories[[self.model_attributes.dim_time_period]],
             self.retrieve_nemomod_table_discounted_capital_invesment(
                 engine, 
                 vec_time_period,
@@ -10824,7 +11018,7 @@ class EnergyProduction:
         df_entc_fuelprod = self.retrieve_nemomod_tables_fuel_production_demand_and_trade(
             engine, 
             vec_time_period, 
-            df_elec_trajectories,
+            df_enerprod_trajectories,
             dict_scale_values = dict_scalar,
             tuple_enfu_production_and_demands = tuple_enfu_production_and_demands
         )
@@ -10844,7 +11038,7 @@ class EnergyProduction:
 
             # add allocation of emissions by energy demand
             self.allocate_entc_emissions_by_energy_demand(
-                df_elec_trajectories,
+                df_enerprod_trajectories,
                 df_entc_emissions_and_fuel_prod,
                 cat_enfu_energy_source = self.cat_enfu_elec
             )
@@ -10867,7 +11061,7 @@ class EnergyProduction:
     ###############################
 
     def project(self,
-        df_elec_trajectories: pd.DataFrame,
+        df_enerprod_trajectories: pd.DataFrame,
         dict_optimizer_attributes: Union[Dict[str, Any], None] = None,
         dict_ref_tables: Dict[str, pd.DataFrame] = None,
         engine: sqlalchemy.engine.Engine = None,
@@ -10885,7 +11079,7 @@ class EnergyProduction:
 
         Function Arguments
         ------------------
-        df_elec_trajectories : pd.DataFrame
+        df_enerprod_trajectories : pd.DataFrame
 		    DataFrame of input trajectories
 
         Keyword Arguments
@@ -10939,24 +11133,24 @@ class EnergyProduction:
         ##  CHECKS AND INITIALIZATION
 
         # make sure socioeconomic variables are added and
-        df_elec_trajectories, _ = self.model_socioeconomic.project(df_elec_trajectories)
+        df_enerprod_trajectories, _ = self.model_socioeconomic.project(df_enerprod_trajectories)
         
         # check that all required fields are contained—assume that it is ordered by time period
-        self.check_df_fields(df_elec_trajectories)
+        self.check_df_fields(df_enerprod_trajectories)
         (
             dict_dims, 
-            df_elec_trajectories, 
+            df_enerprod_trajectories, 
             n_projection_time_periods, 
             projection_time_periods
         ) = self.model_attributes.check_projection_input_df(
-            df_elec_trajectories, 
+            df_enerprod_trajectories, 
             True,
             True, 
             True,
         )
 
         # overwrite CCS characteristic variables using mix
-        df_elec_trajectories = self.overwrite_ccs_variables(df_elec_trajectories, )
+        df_enerprod_trajectories = self.overwrite_ccs_variables(df_enerprod_trajectories, )
 
         # check the dictionary of reference tables
         dict_ref_tables = self.dict_nemomod_reference_tables if (dict_ref_tables is None) else dict_ref_tables
@@ -10966,8 +11160,8 @@ class EnergyProduction:
         ])
 
         # initialize output
-        df_out = [df_elec_trajectories[self.required_dimensions].copy()]
-
+        df_out = [df_enerprod_trajectories[self.required_dimensions].copy()]
+        
 
         ####################################
         #    BEGIN NEMO MOD INTEGRATION    #
@@ -10995,13 +11189,13 @@ class EnergyProduction:
 
         # get shared energy variables that are required before and after NemoMod runs
         tuple_enfu_production_and_demands = self.model_enercons.project_enfu_production_and_demands(
-            df_elec_trajectories, 
+            df_enerprod_trajectories, 
             target_energy_units = self.get_units_energy_nemo(),
         )
 
         # get data for the database
         dict_to_sql = self.generate_input_tables_for_sql(
-            df_elec_trajectories,
+            df_enerprod_trajectories,
             dict_ref_tables.get(self.model_attributes.table_nemomod_availability_factor),
             dict_ref_tables.get(self.model_attributes.table_nemomod_specified_demand_profile),
             regions = regions,
@@ -11023,7 +11217,7 @@ class EnergyProduction:
         ##  2. SET UP AND CALL NEMOMOD
         
         # all available time periods
-        all_time_periods = list(df_elec_trajectories[self.model_attributes.dim_time_period])
+        all_time_periods = list(df_enerprod_trajectories[self.model_attributes.dim_time_period])
         
         # get calculation time periods
         attr_time_period = self.get_attribute_time_period()
@@ -11075,6 +11269,9 @@ class EnergyProduction:
         )
         vars_to_save = ", ".join(self.required_nemomod_output_tables)
         
+        global vec_calcyears2
+        vec_calcyears2 = vec_calcyears
+
         try:
             # call nemo mod
             result = self.julia_main.NemoMod.calculatescenario(
@@ -11086,8 +11283,10 @@ class EnergyProduction:
                 reportzeros = False,
                 varstosave = vars_to_save,
             )
+            print("successfully run")
 
         except Exception as e:
+            print(e)
             # LOG THE ERROR HERE
             self._log(
                 f"Error in EnergyProduction when trying to run NemoMod: {e}", 
@@ -11107,7 +11306,7 @@ class EnergyProduction:
                 df_out += [
                     self.retrieve_output_tables_from_sql(
                         engine, 
-                        df_elec_trajectories, 
+                        df_enerprod_trajectories, 
                         dict_optimizer_attributes = dict_optimizer_attributes,
                         solver = solver,
                         tuple_enfu_production_and_demands = tuple_enfu_production_and_demands,
@@ -11132,7 +11331,7 @@ class EnergyProduction:
             df_out += [
                 self.model_attributes.instantiate_blank_modvar_df_by_categories(
                     modvar, 
-                    n = len(df_elec_trajectories), 
+                    n = len(df_enerprod_trajectories), 
                     blank_val = missing_vals_on_error
                 ) for modvar in modvars_instantiate
             ]
@@ -11167,7 +11366,7 @@ class EnergyProduction:
 
         # get biogas and waste supply available
         vec_enfu_total_energy_supply_biogas, vec_enfu_min_energy_to_elec_biogas = self.get_biogas_components(
-            df_elec_trajectories
+            df_enerprod_trajectories
         )
 
         (
@@ -11175,7 +11374,7 @@ class EnergyProduction:
             vec_enfu_min_energy_to_elec_waste, 
             dict_efs
         ) = self.get_waste_energy_components(
-            df_elec_trajectories,
+            df_enerprod_trajectories,
             return_emission_factors = False,
         )
 
@@ -11198,7 +11397,7 @@ class EnergyProduction:
             vec_used_wste = arr_enfu_fuel_demand_elec[:, self.ind_enfu_wste]
 
         # initialize output, add biogas/waste unused (presumed exported), and add to dataframe
-        arr_enfu_total_unused_fuel_exported = np.zeros((len(df_elec_trajectories), self.model_attributes.get_attribute_table(self.subsec_name_enfu).n_key_values))
+        arr_enfu_total_unused_fuel_exported = np.zeros((len(df_enerprod_trajectories), self.model_attributes.get_attribute_table(self.subsec_name_enfu).n_key_values))
         arr_enfu_total_unused_fuel_exported[:, self.ind_enfu_bgas] = sf.vec_bounds(vec_enfu_total_energy_supply_biogas - vec_used_bgas, (0, np.inf))
         arr_enfu_total_unused_fuel_exported[:, self.ind_enfu_wste] = sf.vec_bounds(vec_enfu_total_energy_supply_waste - vec_used_wste, (0, np.inf))
 

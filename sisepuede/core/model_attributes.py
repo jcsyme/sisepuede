@@ -881,6 +881,7 @@ class ModelAttributes:
 
         # nemomod shared tables - output variables
         self.table_nemomod_annual_demand_nn = "vdemandannualnn"
+        self.table_nemomod_annual_emissions = "vannualemissions"
         self.table_nemomod_annual_emissions_by_technology = "vannualtechnologyemission"
         self.table_nemomod_capital_investment = "vcapitalinvestment"
         self.table_nemomod_capital_investment_discounted = "vdiscountedcapitalinvestment"
