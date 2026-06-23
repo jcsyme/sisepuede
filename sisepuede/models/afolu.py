@@ -4420,6 +4420,15 @@ class AFOLU:
             vec_biomass_scalar_from_bcl,    
         )
 
+
+        # (4) add scalar to output
+        df_out += [
+            self.model_attributes.array_to_df(
+                vec_biomass_scalar_from_bcl,
+                self.modvar_frst_biomass_demand_scalar,
+            )
+        ]
+
         return df_out
 
 
@@ -4692,6 +4701,9 @@ class AFOLU:
 
             * total estimated energy consumption of biomass in ENTC (used to
                 set total technology upper and lower limits)
+            * adjusted MinShareProduction numbers to account for substitution
+                (use "Biomass substitution fuel" variable to set allowable 
+                candidates)
         """
 
         ##  INITIALIZATION

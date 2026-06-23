@@ -393,6 +393,7 @@ class EnergyProduction:
         self.integration_variables = [
             # AFOLU variables
             self.model_afolu.modvar_lsmm_recovered_biogas,
+            self.model_afolu.modvar_frst_biomass_demand_scalar,
             self.modvar_entc_ef_combustion_co2_biomass_integrated,
             self.modvar_entc_fuel_constraint_crop_residues, # biomass constraint
             self.modvar_entc_fuel_constraint_fuelwood,      # biomass constraint
