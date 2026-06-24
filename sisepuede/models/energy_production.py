@@ -18,6 +18,7 @@ from sisepuede.models.afolu import AFOLU
 from sisepuede.models.circular_economy import CircularEconomy
 from sisepuede.models.energy_consumption import EnergyConsumption
 from sisepuede.models.socioeconomic import Socioeconomic
+import sisepuede.utilities._classes as suc
 import sisepuede.utilities._sql as sqlutil
 import sisepuede.utilities._toolbox as sf
 
@@ -966,44 +967,6 @@ class EnergyProduction:
             self.model_attributes.subsec_name_enfu,
             stop_on_error = True, 
         )
-        """
-        # Energy Fuel model variables
-        self.modvar_enfu_ef_combustion_co2 = ":math:\\text{CO}_2 Combustion Emission Factor"
-        self.modvar_enfu_ef_combustion_mobile_ch4 = ":math:\\text{CH}_4 Mobile Combustion Emission Factor"
-        self.modvar_enfu_ef_combustion_mobile_n2o = ":math:\\text{N}_2\\text{O} Mobile Combustion Emission Factor"
-        self.modvar_enfu_ef_combustion_stationary_ch4 = ":math:\\text{CH}_4 Stationary Combustion Emission Factor"
-        self.modvar_enfu_ef_combustion_stationary_n2o = ":math:\\text{N}_2\\text{O} Stationary Combustion Emission Factor"
-        self.modvar_enfu_efficiency_factor_industrial_energy = "Average Industrial Energy Fuel Efficiency Factor"
-        self.modvar_enfu_energy_demand_by_fuel_ccsq = "Energy Demand by Fuel in CCSQ"
-        self.modvar_enfu_energy_demand_by_fuel_entc = "Energy Demand by Fuel in Energy Technology"
-        self.modvar_enfu_energy_demand_by_fuel_inen = "Energy Demand by Fuel in Industrial Energy"
-        self.modvar_enfu_energy_demand_by_fuel_scoe = "Energy Demand by Fuel in SCOE"
-        self.modvar_enfu_energy_demand_by_fuel_total = "Total Energy Demand by Fuel"
-        self.modvar_enfu_energy_demand_by_fuel_trns = "Energy Demand by Fuel in Transportation"
-        self.modvar_enfu_energy_density_gravimetric = "Gravimetric Energy Density"
-        self.modvar_enfu_energy_density_volumetric = "Volumetric Energy Density"
-        self.modvar_enfu_exports_fuel = "Fuel Exports"
-        self.modvar_enfu_exports_fuel_adjusted = "Adjusted Fuel Exports"
-        self.modvar_enfu_frac_fuel_demand_imported = "Fraction of Fuel Demand Imported"
-        self.modvar_enfu_imports_fuel = "Fuel Imports"
-        self.modvar_enfu_minimum_frac_fuel_used_for_electricity = "Minimum Fraction of Fuel Used for Electricity Generation"
-        self.modvar_enfu_nemomod_renewable_production_target = "NemoMod REMinProductionTarget"
-        self.modvar_enfu_nemomod_reserve_margin = "NemoMod ReserveMargin"
-        self.modvar_enfu_price_gravimetric = "Gravimetric Fuel Price"
-        self.modvar_enfu_price_thermal = "Thermal Fuel Price"
-        self.modvar_enfu_price_volumetric = "Volumetric Fuel Price"
-        self.modvar_enfu_production_frac_petroleum_refinement = "Petroleum Refinery Production Fraction"
-        self.modvar_enfu_production_frac_natural_gas_processing = "Natural Gas Processing Fraction"
-        self.modvar_enfu_production_fuel = "Fuel Production"
-        self.modvar_enfu_transmission_loss_electricity = "Electrical Transmission Loss"
-        self.modvar_enfu_transmission_loss_frac_electricity = "Electrical Transmission Loss Fraction"
-        self.modvar_enfu_unused_fuel_exported = "Unused Fuel Exported"
-        self.modvar_enfu_value_of_fuel_ccsq = "Value of Fuel Consumed in CCSQ"
-        self.modvar_enfu_value_of_fuel_entc = "Value of Fuel Consumed in Energy Technology"
-        self.modvar_enfu_value_of_fuel_inen = "Value of Fuel Consumed in Industrial Energy"
-        self.modvar_enfu_value_of_fuel_scoe = "Value of Fuel Consumed in SCOE"
-        self.modvar_enfu_value_of_fuel_trns = "Value of Fuel Consumed in Transportation"
-        """
 
         # key categories
         self.cat_enfu_bgas = self.model_attributes.filter_keys_by_attribute(
@@ -1086,81 +1049,7 @@ class EnergyProduction:
             stop_on_error = True, 
         )
         
-        """
-        # Energy (Electricity) Technology Variables
-        self.modvar_ccs_achievement_frac = "Carbon Capture Achievement Fraction"
-        self.modvar_entc_ef_scalar_ch4 = ":math:\\text{CH}_4 NemoMod EmissionsActivityRatio Scalar"
-        self.modvar_entc_ef_scalar_co2 = ":math:\\text{CO}_2 NemoMod EmissionsActivityRatio Scalar"
-        self.modvar_entc_ef_scalar_n2o = ":math:\\text{N}_2\\text{O} NemoMod EmissionsActivityRatio Scalar"
-        self.modvar_entc_efficiency_factor_technology = "Technology Efficiency of Fuel Use"
-        self.modvar_entc_fuelprod_emissions_activity_ratio_ch4 = ":math:\\text{CH}_4 Fuel Production NemoMod EmissionsActivityRatio"
-        self.modvar_entc_fuelprod_emissions_activity_ratio_co2 = ":math:\\text{CO}_2 Fuel Production NemoMod EmissionsActivityRatio"
-        self.modvar_entc_fuelprod_emissions_activity_ratio_n2o = ":math:\\text{N}_2\\text{O} Fuel Production NemoMod EmissionsActivityRatio"
-        self.modvar_entc_fuelprod_input_activity_ratio_coal_deposits = "Fuel Production NemoMod InputActivityRatio Coal Deposits"
-        self.modvar_entc_fuelprod_input_activity_ratio_crude = "Fuel Production NemoMod InputActivityRatio Crude"
-        self.modvar_entc_fuelprod_input_activity_ratio_diesel = "Fuel Production NemoMod InputActivityRatio Diesel"
-        self.modvar_entc_fuelprod_input_activity_ratio_electricity = "Fuel Production NemoMod InputActivityRatio Electricity"
-        self.modvar_entc_fuelprod_input_activity_ratio_gasoline = "Fuel Production NemoMod InputActivityRatio Gasoline"
-        self.modvar_entc_fuelprod_input_activity_ratio_hydrogen = "Fuel Production NemoMod InputActivityRatio Hydrogen"
-        self.modvar_entc_fuelprod_input_activity_ratio_natural_gas = "Fuel Production NemoMod InputActivityRatio Natural Gas"
-        self.modvar_entc_fuelprod_input_activity_ratio_natural_gas_unprocessed = "Fuel Production NemoMod InputActivityRatio Natural Gas Unprocessed"
-        self.modvar_entc_fuelprod_input_activity_ratio_oil = "Fuel Production NemoMod InputActivityRatio Oil"
-        self.modvar_entc_fuelprod_input_activity_ratio_water = "Fuel Production NemoMod InputActivityRatio Water"
-        self.modvar_entc_fuelprod_output_activity_ratio_coal = "Fuel Production NemoMod OutputActivityRatio Coal"
-        self.modvar_entc_fuelprod_output_activity_ratio_diesel = "Fuel Production NemoMod OutputActivityRatio Diesel"
-        self.modvar_entc_fuelprod_output_activity_ratio_gasoline = "Fuel Production NemoMod OutputActivityRatio Gasoline"
-        self.modvar_entc_fuelprod_output_activity_ratio_hgl = "Fuel Production NemoMod OutputActivityRatio Hydrocarbon Gas Liquids"
-        self.modvar_entc_fuelprod_output_activity_ratio_hydrogen = "Fuel Production NemoMod OutputActivityRatio Hydrogen"
-        self.modvar_entc_fuelprod_output_activity_ratio_kerosene = "Fuel Production NemoMod OutputActivityRatio Kerosene"
-        self.modvar_entc_fuelprod_output_activity_ratio_natural_gas = "Fuel Production NemoMod OutputActivityRatio Natural Gas"
-        self.modvar_entc_fuelprod_output_activity_ratio_natural_gas_liquid = "Fuel Production NemoMod OutputActivityRatio Natural Gas Liquid"
-        self.modvar_entc_fuelprod_output_activity_ratio_oil = "Fuel Production NemoMod OutputActivityRatio Oil"
-        self.modvar_entc_max_elec_prod_increase_for_msp = "Maximum Production Increase Fraction to Satisfy MinShareProduction Electricity"
-        self.modvar_entc_nemomod_capital_cost = "NemoMod CapitalCost"
-        self.modvar_entc_nemomod_discounted_capital_investment = "NemoMod Discounted Capital Investment"
-        self.modvar_entc_nemomod_discounted_operating_costs = "NemoMod Discounted Operating Costs"
-        self.modvar_entc_nemomod_emissions_ch4_elec = "NemoMod :math:\\text{CH}_4 Emissions from Electricity Generation"
-        self.modvar_entc_nemomod_emissions_co2_elec = "NemoMod :math:\\text{CO}_2 Emissions from Electricity Generation"
-        self.modvar_entc_nemomod_emissions_n2o_elec = "NemoMod :math:\\text{N}_2\\text{O} Emissions from Electricity Generation"
-        self.modvar_entc_nemomod_emissions_ch4_fpr = "NemoMod :math:\\text{CH}_4 Emissions from Fuel Processing and Refinement"
-        self.modvar_entc_nemomod_emissions_co2_fpr_biomass = "NemoMod :math:\\text{CO}_2 Biomass Emissions from Fuel Processing and Refinement"
-        self.modvar_entc_nemomod_emissions_co2_fpr_non_biomass = "NemoMod :math:\\text{CO}_2 Non-Biomass Emissions from Fuel Processing and Refinement"
-        self.modvar_entc_nemomod_emissions_n2o_fpr = "NemoMod :math:\\text{N}_2\\text{O} Emissions from Fuel Processing and Refinement"
-        self.modvar_entc_nemomod_emissions_ch4_mne = "NemoMod :math:\\text{CH}_4 Emissions from Fuel Mining and Extraction"
-        self.modvar_entc_nemomod_emissions_co2_mne = "NemoMod :math:\\text{CO}_2 Emissions from Fuel Mining and Extraction"
-        self.modvar_entc_nemomod_emissions_n2o_mne = "NemoMod :math:\\text{N}_2\\text{O} Emissions from Fuel Mining and Extraction"
-        self.modvar_entc_nemomod_emissions_export_ch4 = "NemoMod :math:\\text{CH}_4 Emissions from Electricity Generation for Export"
-        self.modvar_entc_nemomod_emissions_export_co2 = "NemoMod :math:\\text{CO}_2 Emissions from Electricity Generation for Export"
-        self.modvar_entc_nemomod_emissions_export_n2o = "NemoMod :math:\\text{N}_2\\text{O} Emissions from Electricity Generation for Export"
-        self.modvar_entc_nemomod_emissions_subsector_ccsq_co2 = "NemoMod :math:\\text{CO}_2 Emissions from Electricity Generation for CCSQ"
-        self.modvar_entc_nemomod_emissions_subsector_entc_co2 = "NemoMod :math:\\text{CO}_2 Emissions from Electricity Generation for Energy Technology"
-        self.modvar_entc_nemomod_emissions_subsector_inen_co2 = "NemoMod :math:\\text{CO}_2 Emissions from Electricity Generation for Industrial Energy"
-        self.modvar_entc_nemomod_emissions_subsector_scoe_co2 = "NemoMod :math:\\text{CO}_2 Emissions from Electricity Generation for SCOE"
-        self.modvar_entc_nemomod_emissions_subsector_trns_co2 = "NemoMod :math:\\text{CO}_2 Emissions from Electricity Generation for Transportation"
-        self.modvar_entc_nemomod_emissions_subsector_ccsq_ch4 = "NemoMod :math:\\text{CH}_4 Emissions from Electricity Generation for CCSQ"
-        self.modvar_entc_nemomod_emissions_subsector_entc_ch4 = "NemoMod :math:\\text{CH}_4 Emissions from Electricity Generation for Energy Technology"
-        self.modvar_entc_nemomod_emissions_subsector_inen_ch4 = "NemoMod :math:\\text{CH}_4 Emissions from Electricity Generation for Industrial Energy"
-        self.modvar_entc_nemomod_emissions_subsector_scoe_ch4 = "NemoMod :math:\\text{CH}_4 Emissions from Electricity Generation for SCOE"
-        self.modvar_entc_nemomod_emissions_subsector_trns_ch4 = "NemoMod :math:\\text{CH}_4 Emissions from Electricity Generation for Transportation"
-        self.modvar_entc_nemomod_emissions_subsector_ccsq_n2o = "NemoMod :math:\\text{N}_2\\text{O} Emissions from Electricity Generation for CCSQ"
-        self.modvar_entc_nemomod_emissions_subsector_entc_n2o = "NemoMod :math:\\text{N}_2\\text{O} Emissions from Electricity Generation for Energy Technology"
-        self.modvar_entc_nemomod_emissions_subsector_inen_n2o = "NemoMod :math:\\text{N}_2\\text{O} Emissions from Electricity Generation for Industrial Energy"
-        self.modvar_entc_nemomod_emissions_subsector_scoe_n2o = "NemoMod :math:\\text{N}_2\\text{O} Emissions from Electricity Generation for SCOE"
-        self.modvar_entc_nemomod_emissions_subsector_trns_n2o = "NemoMod :math:\\text{N}_2\\text{O} Emissions from Electricity Generation for Transportation"
-        self.modvar_entc_nemomod_fixed_cost = "NemoMod FixedCost"
-        self.modvar_entc_nemomod_generation_capacity = "NemoMod Generation Capacity"
-        self.modvar_entc_nemomod_min_share_production = "NemoMod MinShareProduction"
-        self.modvar_entc_nemomod_production_by_technology = "NemoMod Production by Technology"
-        self.modvar_entc_nemomod_renewable_tag_technology = "NemoMod RETagTechnology"
-        self.modvar_entc_nemomod_reserve_margin_tag_technology = "NemoMod ReserveMarginTagTechnology"
-        self.modvar_entc_nemomod_residual_capacity = "NemoMod ResidualCapacity"
-        self.modvar_entc_nemomod_scalar_availability_factor = "NemoMod AvailabilityFactor Scalar"
-        self.modvar_entc_nemomod_total_annual_max_capacity = "NemoMod TotalAnnualMaxCapacity"
-        self.modvar_entc_nemomod_total_annual_max_capacity_investment = "NemoMod TotalAnnualMaxCapacityInvestment"
-        self.modvar_entc_nemomod_total_annual_min_capacity = "NemoMod TotalAnnualMinCapacity"
-        self.modvar_entc_nemomod_total_annual_min_capacity_investment = "NemoMod TotalAnnualMinCapacityInvestment"
-        self.modvar_entc_nemomod_variable_cost = "NemoMod VariableCost"
-        """
+        
         # set dictionaries 
         self._set_dict_enfu_fuel_categories_to_entc_variables()
 
@@ -1189,18 +1078,7 @@ class EnergyProduction:
             self.model_attributes.subsec_name_enst,
             stop_on_error = True, 
         )
-        """
-        # Energy (Electricity) Storage Variables
-        self.modvar_enst_nemomod_capital_cost_storage = "NemoMod CapitalCostStorage"
-        self.modvar_enst_nemomod_discounted_capital_investment_storage = "NemoMod Discounted Capital Investment Storage"
-        self.modvar_enst_nemomod_discounted_operating_costs_storage = "NemoMod Discounted Operating Costs Storage"
-        self.modvar_enst_nemomod_residual_capacity = "NemoMod ResidualStorageCapacity"
-        self.modvar_enst_nemomod_storage_start_level = "NemoMod StorageStartLevel"
-        self.modvar_enst_nemomod_total_annual_max_capacity_storage = "NemoMod TotalAnnualMaxCapacityStorage"
-        self.modvar_enst_nemomod_total_annual_max_capacity_investment_storage = "NemoMod TotalAnnualMaxCapacityInvestmentStorage"
-        self.modvar_enst_nemomod_total_annual_min_capacity_storage = "NemoMod TotalAnnualMinCapacityStorage"
-        self.modvar_enst_nemomod_total_annual_min_capacity_investment_storage = "NemoMod TotalAnnualMinCapacityInvestmentStorage"
-        """
+
         return None
     
 
@@ -1656,6 +1534,322 @@ class EnergyProduction:
 
         return df_input
 
+
+
+
+    def adjust_msp_for_biomass(self,
+        df_enerprod_trajectories: pd.DataFrame,
+        df_out: pd.DataFrame,
+        regions: Union[List[str], None] = None,
+    ) -> pd.DataFrame:
+        """From attribute: If biomass demands for fuelwood cannot be met due to 
+            forest withdrawal constraints, then they are reduced. This variable 
+            is used to tag technologies as available replacements for those 
+            reductions using the minimum share of production (MSP) variable. 
+            Technologies only replace biomass MSP mass if they have a MSP 
+            associated with them; otherwise, a value > 0 means nothing. 
+        
+        MSPs that are tagged (value > 0) are homogenously set to replace the 
+            fraction of biomass MSP mass specified as replaceable. If no other 
+            technologies for the fuel produced are associated with MSP, then no 
+            MSP mass is replaced if biomass production is adjusted downward, and 
+            least-cost and other constraints are used to determine the value.
+
+            
+        Function Arguments
+        ------------------
+        df_enerprod_trajectories : DataFrame
+            DataFrame of model variable input trajectories
+        df_out : DataFrame
+            DataFrame df_out from format_nemomod_table_min_share_production() 
+
+        Keyword Arguments
+        -----------------
+        regions : Union[List[str], None]
+            Optional set of regions to provided
+        """
+
+        ##  SOME INITIALIZATION
+    
+        cat_entc_biomass = self.get_entc_cat_for_integration("bmas")
+        
+        # get variables--start with fraction of biomass adjustment difference replaceable
+        vec_frac_biomass_msp_replaced = self.model_attributes.extract_model_variable(#
+            df_enerprod_trajectories,
+            self.modvar_entc_frac_msp_replaced,
+            expand_to_all_cats = False,
+            override_vector_for_single_mv_q = False,
+            return_type = "array_base",
+            var_bounds = (0, 1),
+        )
+        
+        # get the supply scalar from forestry 
+        tuple_frst_supply_scalar = self.model_attributes.get_optional_or_integrated_standard_variable(
+            df_enerprod_trajectories,
+            self.model_afolu.modvar_frst_biomass_demand_scalar,
+            None,
+            override_vector_for_single_mv_q = False,
+            return_type = "array_base",
+            var_bounds = (0, 1),
+        )
+
+        # try to retrieve the biomass components
+        _, vec_entc_constraint, _ = self.get_biomass_components(
+            df_enerprod_trajectories, 
+        )
+
+        # if the scalar isn't passed OR the constraint isn't found, assume there's no integration
+        if (tuple_frst_supply_scalar is None) | (vec_entc_constraint is None):
+            return df_out
+            
+        vec_frst_supply_scalar = tuple_frst_supply_scalar[1]
+        
+        
+        #########################################################
+        #    ITERATE OVER EACH REGION TO PERFORM ADJUSTMENTS    #
+        #########################################################
+        
+        # group by region
+        inds_out_elec = df_out[self.field_nemomod_fuel].isin([self.cat_enfu_elec])
+        inds_out_not_elec = ~inds_out_elec
+        dfg = df_out[inds_out_elec]
+        
+        # fields that can be dropped for each pivot df component
+        fields_drop = [
+            self.field_nemomod_fuel,
+            self.field_nemomod_id,
+            self.field_nemomod_region
+        ]
+        
+        # iterate over each region
+        df_pivot = sf.pivot_df_clean(
+            dfg.drop(columns = fields_drop, ),
+            [self.field_nemomod_technology],
+            [self.field_nemomod_value]
+        )
+
+        # information about each of the technologies
+        fields_tech = sorted(
+            [
+                x for x in df_pivot.columns if (x != self.field_nemomod_year)
+            ]
+        )
+        n_techs = len(fields_tech)
+        w_biomass = np.where(np.array(fields_tech) == cat_entc_biomass)[0]
+
+        # if no biomass is considered, no action is required
+        if len(w_biomass) == 0:
+            return df_out
+            
+        w_biomass = w_biomass[0]
+
+        
+        # only store data from fields_tech
+        arr_shifter = df_pivot[fields_tech].to_numpy().copy()
+
+        # how much MSP mass is actually available to shift around to meet lost biomass MSP mass (arr_shifter_avail)
+        # and how much is not subject to shifting
+        arr_shares_stationary = np.zeros(arr_shifter.shape, )
+        arr_shifter_avail = np.zeros(arr_shifter.shape, )    
+
+        
+        #######################################################################################
+        #    CALCULATE RESIDUALS (MSP MASS THAT EITHER DOESN'T MOVE OR IS UNACCOUNTED FOR)    #
+        #######################################################################################
+        
+        """Process for adjusting MSP to account for biomass MSP that is 
+            unsuplied:
+            1. initialize residuals, or total MSP unaccounted for
+            2. calculate biomass adjustment mass to account for:
+                a. multiply MSP specified for biomass by scalar to get new MSP 
+                    used to estimate activity bounds (vec_msp_biomass_adjusted)
+                b. calculate difference between original MSP for biomass and
+                    adjusted biomass (vec_msp_biomass_adj_diff)
+                c. use fraction of adjustment that can be filled with MSP from 
+                    other MSPs specified to calculate mass of MSP to be filled 
+                    (vec_msp_mass_to_fill) and mass to be shifted to residual 
+                    (vec_msp_mass_to_shift_to_resid)
+        """
+
+        ##  (1) GET BIOMASS MSP VECS
+
+        # get unadjusted and initialize shifter_avail with it, then get adjusted
+        vec_msp_biomass_unadj = arr_shifter[:, w_biomass].copy()
+        vec_msp_biomass_adj = vec_msp_biomass_unadj*vec_frst_supply_scalar
+        
+        vec_msp_biomass_adj_diff = np.clip(
+            vec_msp_biomass_unadj - vec_msp_biomass_adj,
+            0.0,
+            1.0,
+        )
+        
+        # get amount of difference that is going to be filled, then get the scalar implied (base + f*diff)
+        vec_msp_mass_to_fill = vec_msp_biomass_adj_diff*vec_frac_biomass_msp_replaced
+        vec_msp_mass_to_shift_to_resid = vec_msp_biomass_adj_diff - vec_msp_mass_to_fill
+        arr_shifter_avail[:, w_biomass] = vec_msp_biomass_adj + vec_msp_mass_to_fill
+        
+        vec_biomass_scalar_for_tss = np.nan_to_num(
+            vec_msp_biomass_adj/(vec_msp_biomass_adj + vec_msp_mass_to_fill),
+            nan = 0.0,
+            posinf = 0.0,
+        )
+
+        # setup the dictionary
+        dict_vec_scalars = {w_biomass: vec_biomass_scalar_for_tss, }
+
+        
+        ##  (2) GET RESIDUALS AND STATIONARY SHARES
+        #        * residuals are MSP mass that is unaccounted for, including:
+        #            - anything not in the base table (1 - total)
+        #            - mass that had been in biomass that is now unaccountated for 
+        #        * stationary shares are shares of production that are not available 
+        #            for shifting into biomass that needs to be shifted into
+
+        vec_residual = 1 - arr_shifter[:, 0:n_techs].sum(axis = 1)
+        vec_residual += vec_msp_mass_to_shift_to_resid
+        inds_col_to_shift = []
+        
+        for j, cat_entc in enumerate(fields_tech):
+            
+            # try getting the field storing the tag--if it doesn't exist, skip;
+            # ensures that we don't include import dummy techs
+            field = self.modvar_entc_tag_biomass_replacement_tech.build_fields(
+                category_restrictions = cat_entc,
+            )
+
+            # skip conditions; if the field isn't defined, assume the mass is stationary
+            if cat_entc == cat_entc_biomass: continue
+            if (field is None):
+                arr_shares_stationary[:, j] = arr_shifter[:, j]
+                continue
+
+            # get binary tag (sign is bounded to 0, 1)
+            vec_tag = np.clip(
+                np.sign(df_enerprod_trajectories[field].to_numpy()), 
+                0.0, 
+                1.0,
+            )
+
+            # arr_shifter_avail stores mass that can be shiftable; 
+            #   stationary shares are in arr_shares_stationary
+            arr_shifter_avail[:, j] = arr_shifter[:, j]*vec_tag
+            arr_shares_stationary[:, j] = arr_shifter[:, j]*(1 - vec_tag)
+
+            if vec_tag.max() > 0:
+                inds_col_to_shift.append(j)
+            
+
+        # if no columns are shiftable, set biomass to zero
+        if len(inds_col_to_shift) == 0:
+            # get location of biomass
+            inds_bmass = (
+                df_out[self.field_nemomod_technology]
+                .isin([cat_entc_biomass])
+            )
+
+            # set biomass MSP to 0
+            df_out.loc[inds_bmass & inds_out_elec, self.field_nemomod_value] = 0
+
+            return df_out
+        
+
+        ##  (3) USE TimeSeriesSimplexShifter TO SHIFT AROUND MASS
+        #        * Scale mass that is to shift to simplex, use shifter,
+        #            then rescale back to total shift mass
+
+        # normalize, and make sure this only operates on actual techs
+        w = np.where([x in self.attr_entc.key_values for x in fields_tech])[0]
+        vec_total_shift = arr_shifter_avail[:, w].sum(axis = 1, )
+        arr_shifter_avail_normalized = sf.check_row_sums(
+            arr_shifter_avail[:, w],
+            thresh_correction = None,
+        )
+
+        # setup TSSS and shift
+        tss = suc.TimeSeriesSimplexShifter(arr_shifter_avail_normalized, )
+        arr_shifter_avail_shifted_0 = tss.shift_mass_scalar_vectors(
+            arr_shifter_avail_normalized,
+            dict_vec_scalars,
+        )
+
+        # scale back to total
+        arr_shifter_avail_shifted_0 = sf.do_array_mult(
+            arr_shifter_avail_shifted_0,
+            vec_total_shift,
+        )
+
+        # expand back to full set
+        arr_shifter_avail_shifted = np.zeros(arr_shifter_avail.shape, )
+        for i, ind in enumerate(w):
+            arr_shifter_avail_shifted[:, ind] = arr_shifter_avail_shifted_0[:, i]
+        
+        # add back in stationary
+        arr_shifter_avail_shifted += arr_shares_stationary
+        """
+        arr_shifter_avail_shifted = (
+            sf.do_array_mult(
+                arr_shifter_avail_shifted,
+                vec_total_shift,
+            )
+            + arr_shares_stationary
+        )
+        """
+        # Note: this is the mass balance that should hold:
+        # np.abs(
+        #     arr_shifter_avail_shifted.sum(axis = 1) 
+        #     + vec_msp_mass_to_shift_to_resid 
+        #     - arr_shifter.sum(axis = 1)
+        # ).max() ≈ 0
+
+
+        ##  (4) UPDATE DATAFRAME, REMOVE BIOMASS FROM MSP, AND REFORMAT
+
+        for j, field in enumerate(fields_tech):
+
+            # remove biomass
+            df_pivot[field] = (
+                arr_shifter_avail_shifted[:, j]
+                if field != cat_entc_biomass
+                else 0.0
+            )
+
+        
+        # melt and add vars
+        df_return = (
+            df_pivot
+            .melt(
+                id_vars = [self.field_nemomod_year],
+                value_vars = fields_tech,
+                value_name = self.field_nemomod_value,
+                var_name = self.field_nemomod_technology,
+            )
+        )
+
+        df_return[self.field_nemomod_region] = df_out[self.field_nemomod_region].iloc[0]
+        df_return[self.field_nemomod_fuel] = self.cat_enfu_elec
+        
+        df_return = self.add_multifields_from_key_values(
+            sf._concat_df(
+                [
+                    df_return,
+                    df_out[inds_out_not_elec]
+                    .get(df_return.columns, )
+                ]
+            ),
+            [
+                self.field_nemomod_id,
+                self.field_nemomod_region,
+                self.field_nemomod_fuel,
+                self.field_nemomod_technology,
+                self.field_nemomod_year,
+                self.field_nemomod_value
+            ],
+            override_time_period_transformation = True,
+            regions = regions,
+        )
+        
+        return df_return
+    
 
 
     def allocate_entc_emissions_by_energy_demand(self,
@@ -2154,6 +2348,7 @@ class EnergyProduction:
 
         # iterate to add total biogas collected
         for modvar in modvars_biogas:
+
             # retrieve biogas totals
             tuple_biogas = self.model_attributes.get_optional_or_integrated_standard_variable(
                 df_enerprod_trajectories,
@@ -2163,20 +2358,28 @@ class EnergyProduction:
                 return_type = "array_base"
             )
 
-            #
-            if tuple_biogas is not None:
-                # get mass of waste incinerated,
-                modvar_biogas, array_mass_biogas = tuple_biogas
-                vec_mass_biogas = np.sum(array_mass_biogas, axis = 1)
+            # skip if var not found
+            if tuple_biogas is None: continue
 
-                # convert units -- first, in terms of mass incinerated, then in terms of energy density
-                vec_enfu_energy_density_cur = vec_enfu_energy_density_gravimetric/self.model_attributes.get_variable_unit_conversion_factor(
+            # get mass of waste incinerated,
+            modvar_biogas, array_mass_biogas = tuple_biogas
+            vec_mass_biogas = np.sum(array_mass_biogas, axis = 1)
+
+            # convert units -- first, in terms of mass incinerated, then in terms of energy density
+            vec_enfu_energy_density_cur = (
+                vec_enfu_energy_density_gravimetric
+                /self.model_attributes.get_variable_unit_conversion_factor(
                     self.modvar_enfu_energy_density_gravimetric,
                     modvar_biogas,
                     "mass"
                 )
-                vec_enfu_energy_density_cur *= self.get_nemomod_energy_scalar(self.modvar_enfu_energy_density_gravimetric)
-                vec_enfu_total_energy_biogas += vec_enfu_energy_density_cur*vec_mass_biogas
+            )
+
+            vec_enfu_energy_density_cur *= self.get_nemomod_energy_scalar(
+                self.modvar_enfu_energy_density_gravimetric,
+            )
+            vec_enfu_total_energy_biogas += vec_enfu_energy_density_cur*vec_mass_biogas
+
 
         # get minimum fraction to electricity
         vec_enfu_minimum_fuel_energy_to_electricity_biogas = vec_enfu_total_energy_biogas*vec_enfu_minimum_fuel_frac_to_elec
@@ -6691,25 +6894,17 @@ class EnergyProduction:
         df_out = sf._concat_df([df_out, df_entc_msp[df_out.columns]], )
 
 
-        ##  FINALLY, IF RUNNING WITH INTEGRATED BIOMASS, DROP FROM MSP 
+        ##  FINALLY, IF RUNNING WITH INTEGRATED BIOMASS, DROP FROM MSP AND ADJUST OTHERS
         #
         #    biomass is dealt with using activity limits
-
-        _, vec_entc_constraint, _ = self.get_biomass_components(
-            df_enerprod_trajectories, 
+        
+        df_out = self.adjust_msp_for_biomass(
+            df_enerprod_trajectories,
+            df_out,
+            regions = regions,
         )
 
-        if vec_entc_constraint is not None:
-            cat_entc_biomass = self.get_entc_cat_for_integration("bmas")
-            df_out = (
-                df_out[
-                    ~df_out[self.field_nemomod_technology].isin([cat_entc_biomass])
-                ]
-                .reset_index(drop = True, )
-            )
-
-
-        # add keys/ids
+        # add/verify keys/ids
         df_out = self.add_multifields_from_key_values(
             df_out,
             [
@@ -6723,6 +6918,10 @@ class EnergyProduction:
             override_time_period_transformation = True,
             regions = regions,
         )
+
+        global df_out2
+        df_out2 = df_out.copy()
+        raise RuntimeError("stopping")
         
         dict_return = {
             self.model_attributes.table_nemomod_min_share_production: df_out,
@@ -6738,10 +6937,9 @@ class EnergyProduction:
         field_attribute_min_charge: str = "minimum_charge_fraction",
         regions: Union[List[str], None] = None,
     ) -> pd.DataFrame:
-        """
-        Format the MinStorageCharge input table for NemoMod based on SISEPUEDE 
-            configuration parameters, input variables, integrated model outputs, 
-            and reference tables.
+        """Format the MinStorageCharge input table for NemoMod based on 
+            SISEPUEDE configuration parameters, input variables, integrated 
+            model outputs, and reference tables.
 
         Function Arguments
         ------------------
@@ -6750,11 +6948,12 @@ class EnergyProduction:
 
         Keyword Arguments
         -----------------
-        - attribute_storage: AttributeTable used to identify minimum storage 
-            charge by storage type. If None, defaults to ModelAttribute 
-            cat_storage table
-        - field_attribute_min_charge: field in attribute_storage containing the 
-            minimum storage charge fraction by storage type
+        attribute_storage : AttributeTable 
+            AttributeTable used to identify minimum storage charge by storage 
+            type. If None, defaults to ModelAttribute cat_storage table
+        field_attribute_min_charge : str
+            Field in attribute_storage containing the minimum storage charge 
+            fraction by storage type
         regions : Union[List[str], None]
             Regions to specify. If None, defaults to configuration regions
         """
