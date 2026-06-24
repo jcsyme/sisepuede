@@ -6919,9 +6919,9 @@ class EnergyProduction:
             regions = regions,
         )
 
-        global df_out2
-        df_out2 = df_out.copy()
-        raise RuntimeError("stopping")
+        #global df_out2
+        #df_out2 = df_out.copy()
+        #raise RuntimeError("stopping")
         
         dict_return = {
             self.model_attributes.table_nemomod_min_share_production: df_out,
