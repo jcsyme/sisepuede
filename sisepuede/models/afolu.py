@@ -7305,7 +7305,6 @@ class AFOLU:
                 # get a shifter
                 tss = suc.TimeSeriesSimplexShifter(arr, )
                 arr_out = tss.shift_mass_scalar_vectors(arr, dict_vec_scalars, )
-
                 
                 # output array is set for every fuel category; iterate to build
                 #   fields and extraction column indices
@@ -8859,8 +8858,10 @@ class AFOLU:
 
             # EQUATION 10.25 FOR DIRECT EMISSIONS
             arr_lsmm_emission_n2o_direct[:, index_cat_lsmm] = vec_lsmm_n_lost*arr_lsmm_ef_direct_n2o[:, index_cat_lsmm]
+            
             # EQUATION 10.28 FOR LOSSES DUE TO VOLATILISATION
             arr_lsmm_emission_n2o_indirect[:, index_cat_lsmm] = vec_lsmm_n_lost*vec_soil_ef_ef4*vec_lsmm_frac_lost_volatilisation
+            
             # EQUATION 10.29 FOR LOSSES DUE TO LEACHING
             arr_lsmm_emission_n2o_indirect[:, index_cat_lsmm] += vec_lsmm_n_lost*vec_soil_ef_ef5*vec_lsmm_frac_lost_leaching
 
@@ -8909,6 +8910,7 @@ class AFOLU:
                     # account for fraction used for fertilizer
                     vec_lsmm_nitrogen_cur = vec_lsmm_nitrogen_available*arr_lsmm_frac_used_for_fertilizer[:, index_cat_lsmm]
                     vec_lsmm_nitrogen_to_other += vec_lsmm_nitrogen_available - vec_lsmm_nitrogen_cur
+                    
                     # add to total by animal and splits by dung/urea (used in Soil Management subsector)
                     arr_lsmm_nitrogen_available[:, index_cat_lsmm] += vec_lsmm_nitrogen_cur
                     vec_lsmm_nitrogen_to_fertilizer_dung += vec_lsmm_nitrogen_cur*vec_lsmm_frac_n_in_dung
