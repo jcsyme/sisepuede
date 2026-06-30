@@ -40,6 +40,7 @@ setup(
     name = "SISEPUEDE",
     packages = [
         "sisepuede",
+        "sisepuede.calibration",
         "sisepuede.command_line",
         "sisepuede.core",
         "sisepuede.data_management",
@@ -64,7 +65,7 @@ setup(
     },
     #python_requires = py_version,
     url = "http://github.com/jcsyme/sisepuede",
-    version = "1.4.0",
+    version = "2.0.0",
     zip_safe = False
 )
 

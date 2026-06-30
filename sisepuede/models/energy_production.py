@@ -7830,7 +7830,7 @@ class EnergyProduction:
         return vec_fraction_tech
    
 
-
+    
     def format_nemomod_table_specified_annual_demand(self,
         df_enerprod_trajectories: pd.DataFrame,
         attribute_fuel: Union[AttributeTable, None] = None,
@@ -7838,8 +7838,7 @@ class EnergyProduction:
         regions: Union[List[str], None] = None,
         tuple_enfu_production_and_demands: Union[Tuple[pd.DataFrame], None] = None
     ) -> pd.DataFrame:
-        """
-        Format the SpecifiedAnnualDemand input table for NemoMod based on 
+        """Format the SpecifiedAnnualDemand input table for NemoMod based on 
             SISEPUEDE configuration parameters, input variables, integrated 
             model outputs, and reference tables.
 
@@ -7850,10 +7849,11 @@ class EnergyProduction:
 
         Keyword Arguments
         -----------------
-        - attribute_fuel: AttributeTable used for fuels
-        - attribute_time_period: AttributeTable mapping 
-            ModelAttributes.dim_time_period to year. If None, use 
-            ModelAttributes default.
+        attribute_fuel : AttributeTable 
+            AttributeTable used for fuels
+        attribute_time_period: AttributeTable 
+            AttributeTable mapping ModelAttributes.dim_time_period to year. If 
+            None, use ModelAttributes default.
         regions : Union[List[str], None]
             Regions to specify. If None, defaults to configuration regions
         tuple_enfu_production_and_demands : Union[Tuple[np.ndarray], None]
@@ -7908,10 +7908,11 @@ class EnergyProduction:
         # Demand is passed as production + imports, and import fractions are specified in MinShareProduction
         arr_enfu_imports = arr_enfu_imports_0.copy()
         arr_enfu_production = arr_enfu_production_0.copy()
-
         arr_enfu_production += arr_enfu_imports 
+        
 
-        # get transmission loss and calculate final demand
+        ##  GET TRANSMISSION LOSS AND FINAL DEMAND
+
         #   NOTE: transmission loss in ENTC is modeled as an increase in input activity ratio *= (1/(1 - loss))
         arr_transmission_loss = self.model_attributes.extract_model_variable(#
             df_enerprod_trajectories, 
