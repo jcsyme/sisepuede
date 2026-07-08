@@ -835,7 +835,7 @@ class QAdjuster:
             weights = costs_prevalence,
         )
 
-        # set the transition costs
+        # set the transition costs (n^2 x n^2)
         M_tran = np.diag(costs_transition)
         c_tran = -2*costs_transition*matrix_0.flatten()
 
@@ -1123,6 +1123,17 @@ class QAdjuster:
             msg = f"Error retrieving objective values in QAdjuster: {e}"
             raise RuntimeError(msg)
         
+        global M2
+        global Q2
+        global c2
+        global x02
+        global xt2
+
+        M2 = M
+        Q2 = Q
+        c2 = c
+        x02 = x_0
+        xt2 = x_target
 
         # try to retrieve constraint components
         try:
