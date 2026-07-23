@@ -2344,7 +2344,14 @@ class AFOLU:
             var_bounds = (0, 1),
         )
 
-        vec_sums = arr_msp.sum(axis = 1, )
+        # get indices to verify sum over (power plants)
+        dict_cat_pp_to_cat_enfu, _ = self.get_dicts_tech_to_fuel()
+        inds_check_pp = [
+            self.attr_entc.get_key_value_index(x) 
+            for x in dict_cat_pp_to_cat_enfu.keys()
+        ]
+
+        vec_sums = arr_msp[:, inds_check_pp].sum(axis = 1, )
         if (vec_sums.max() > 1) or (vec_sums.min() < 0):
             raise RuntimeError(f"Invalid {modvar_entc_msp.name} values found: sum must not exceed 1 or be below 0.")
         
@@ -5611,9 +5618,13 @@ class AFOLU:
         vec_lndu_avg_biomass_bg = vec_lndu_avg_biomass_ag * vec_lndu_biomass_c_ratio_bg_to_ag
 
         # normalize shares of land use targets to 1 for use in weighting land use
-        arr_lndu_shares_by_frst = sf.check_row_sums(
-            arr_transition_adj_frst_window,
-            thresh_correction = None,
+        arr_lndu_shares_by_frst = np.nan_to_num(
+            sf.check_row_sums(
+                arr_transition_adj_frst_window,
+                thresh_correction = None,
+            ),
+            nan = 0.0,
+            posinf = 0.0,
         )
 
         # get weighted averages
@@ -11542,6 +11553,9 @@ class AFOLU:
             scalar_int_area_to_bcl_area,
             scalar_int_mass_to_bcl_mass,
         )
+        if i == 0:
+            print("args_bcl:")
+            print(args_bcl)
 
         ledger._update(
             i, 
@@ -12317,7 +12331,7 @@ class AFOLU:
             df_afolu_trajectories, 
             vec_rates_gdp = vec_rates_gdp, 
         )
-
+        self.ledger = ledger
         (
             ledger_mangroves,
             _,

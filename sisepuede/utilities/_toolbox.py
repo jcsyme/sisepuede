@@ -618,7 +618,7 @@ def check_row_sums(
 
     if isnumber(thresh_correction):
         if max_diff > thresh_correction:
-            msg = f"""Invalid row sums in array{msg_pass}. The maximum deviance is {max_diff}, 
+            msg = f"""Invalid row sums in array {msg_pass}. The maximum deviance is {max_diff}, 
             which is greater than the threshold for correction (thresh_correction = {thresh_correction}).
             """
 

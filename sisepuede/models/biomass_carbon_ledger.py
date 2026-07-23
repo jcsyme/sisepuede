@@ -713,7 +713,7 @@ class BiomassCarbonLedger:
 
         if i == 0:
             return None
-        
+    
         # indices
         ind_tp = i if i < self.n_tp - 1 else i - 1
         ind_fs = self.ind_frst_secondary
@@ -1747,9 +1747,11 @@ class BiomassCarbonLedger:
         ##  UPDATE
 
         # 1. set arr_orig_frac_stock_available
-        vec_frac_available = (
+        vec_frac_available = np.nan_to_num(
             self.arr_orig_biomass_c_ag_average_per_area_no_ds[i]
-            /self.vec_biomass_c_ag_init_healthy_available
+            /self.vec_biomass_c_ag_init_healthy_available,
+            nan = 0.0,
+            posinf = 0.0,
         )
         self.arr_orig_frac_stock_available[i] = vec_frac_available
 
