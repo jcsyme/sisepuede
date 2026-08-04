@@ -2703,7 +2703,7 @@ class ModelAttributes:
         if subsector not in self.all_subsectors:
             if throw_error_q:
                 valid_subsectors = sf.format_print_list(self.all_subsectors)
-                raise ValueError(f"Invalid subsector specification '{subsector}': valid sectors are {valid_subsectors}")
+                raise InvalidSubsector(f"Invalid subsector specification '{subsector}': valid subsectors are {valid_subsectors}")
 
             out = None
 
@@ -3511,7 +3511,8 @@ class ModelAttributes:
 
         return regions
 
-
+    def temp(self,):
+        None
 
     def get_sector_attribute(self, #FIXED
         sector: str,

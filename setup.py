@@ -47,6 +47,7 @@ setup(
         "sisepuede.geo",
         "sisepuede.manager",
         "sisepuede.models",
+        "sisepuede.models._arrays",
         "sisepuede.pipeline",
         "sisepuede.transformers",
         "sisepuede.transformers.lib",

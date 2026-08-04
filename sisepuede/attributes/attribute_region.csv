@@ -1,218 +1,218 @@
-category_name,region,iso_alpha_3,iso_alpha_2,iso_numeric,fao_area_code,weo_country_code,ipcc_ar5_region,ipcc_estimated_afolu_region,ipcc_continent_region,un_region,un_sub_region,world_bank_global_region,latitude_population_centroid_2020,longitude_population_centroid_2020,administrative_specification
-Afghanistan,afghanistan,AFG,AF,4,2,512,South Asia,South Asia (Indian subcontinent),Asia,Asia,Southern Asia,South Asia,34.61259163,67.50738689,country_equivalent
-Albania,albania,ALB,AL,8,3,914,Economies in Transition,Eastern Europe,Europe,Europe,Southern Europe,Europe & Central Asia,41.20690222,19.85892149,country_equivalent
-Algeria,algeria,DZA,DZ,12,4,612,Middle East and North Africa,Near East (Middle East) and North Africa,Africa,Africa,Northern Africa,Middle East & North Africa,35.52456973,3.494061872,country_equivalent
-American Samoa,american_samoa,ASM,AS,16,5,-999,South-East Asia and Pacific,Oceania,Oceania,Oceania,Polynesia,East Asia & Pacific,-14.30941747,-170.690438,country_equivalent
-Andorra,andorra,AND,AD,20,6,171,Western Europe,Western Europe,Europe,Europe,Southern Europe,Europe & Central Asia,42.52407443,1.562280902,country_equivalent
-Angola,angola,AGO,AO,24,7,614,Sub Saharan Africa,Sub-Saharan Africa,Africa,Africa,Sub-Saharan Africa,Sub-Saharan Africa,-10.34426109,14.50052171,country_equivalent
-Antigua and Barbuda,antigua_and_barbuda,ATG,AG,28,8,311,Latin America and Caribbean,Latin America and the Caribbean,North America,Americas,Latin America and the Caribbean,Latin America & Caribbean,17.11104407,-61.81979962,country_equivalent
-Argentina,argentina,ARG,AR,32,9,213,Latin America and Caribbean,Latin America and the Caribbean,South America,Americas,Latin America and the Caribbean,Latin America & Caribbean,-33.02016075,-61.31178135,country_equivalent
-Armenia,armenia,ARM,AM,51,1,911,Economies in Transition,Eastern Europe,Asia,Asia,Western Asia,Europe & Central Asia,40.27137496,44.59188288,country_equivalent
-Aruba,aruba,ABW,AW,533,22,314,Latin America and Caribbean,Latin America and the Caribbean,South America,Americas,Latin America and the Caribbean,Latin America & Caribbean,12.51494042,-69.99309963,country_equivalent
-Australia,australia,AUS,AU,36,10,193,Pacific OECD,Oceania,Oceania,Oceania,Australia and New Zealand,East Asia & Pacific,-32.92057848,144.7653718,country_equivalent
-Austria,austria,AUT,AT,40,11,122,Western Europe,Western Europe,Europe,Europe,Western Europe,Europe & Central Asia,47.7843093,14.70434208,country_equivalent
-Azerbaijan,azerbaijan,AZE,AZ,31,52,912,Economies in Transition,Eastern Europe,Asia,Asia,Western Asia,Europe & Central Asia,40.26975314,48.13434452,country_equivalent
-Bahamas,bahamas,BHS,BS,44,12,313,Latin America and Caribbean,Latin America and the Caribbean,North America,Americas,Latin America and the Caribbean,Latin America & Caribbean,25.24753331,-77.41964154,country_equivalent
-Bahrain,bahrain,BHR,BH,48,13,419,Middle East and North Africa,Near East (Middle East) and North Africa,Asia,Asia,Western Asia,Middle East & North Africa,26.16813952,50.56409491,country_equivalent
-Bangladesh,bangladesh,BGD,BD,50,16,513,South Asia,South Asia (Indian subcontinent),Asia,Asia,Southern Asia,South Asia,23.94161565,90.25134606,country_equivalent
-Barbados,barbados,BRB,BB,52,14,316,Latin America and Caribbean,Latin America and the Caribbean,North America,Americas,Latin America and the Caribbean,Latin America & Caribbean,13.14289392,-59.56395913,country_equivalent
-Belarus,belarus,BLR,BY,112,57,913,Economies in Transition,Eastern Europe,Europe,Europe,Eastern Europe,Europe & Central Asia,53.53764705,27.84199916,country_equivalent
-Belgium,belgium,BEL,BE,56,255,124,Western Europe,Western Europe,Europe,Europe,Western Europe,Europe & Central Asia,50.84610282,4.439392636,country_equivalent
-Belize,belize,BLZ,BZ,84,23,339,Latin America and Caribbean,Latin America and the Caribbean,North America,Americas,Latin America and the Caribbean,Latin America & Caribbean,17.36279121,-88.5800225,country_equivalent
-Benin,benin,BEN,BJ,204,53,638,Sub Saharan Africa,Sub-Saharan Africa,Africa,Africa,Sub-Saharan Africa,Sub-Saharan Africa,8.082779044,2.298194618,country_equivalent
-Bermuda,bermuda,BMU,BM,60,17,-999,Latin America and Caribbean,Latin America and the Caribbean,North America,Americas,Northern America,North America,32.30014913,-64.78041104,country_equivalent
-Bhutan,bhutan,BTN,BT,64,18,514,South Asia,South Asia (Indian subcontinent),Asia,Asia,Southern Asia,South Asia,27.2074685,90.23061017,country_equivalent
-Bolivia,bolivia,BOL,BO,68,19,218,Latin America and Caribbean,Latin America and the Caribbean,South America,Americas,Latin America and the Caribbean,Latin America & Caribbean,-17.44805972,-65.61266248,country_equivalent
-Bosnia and Herzegovina,bosnia_and_herzegovina,BIH,BA,70,80,963,Economies in Transition,Eastern Europe,Europe,Europe,Southern Europe,Europe & Central Asia,44.33233578,17.9067081,country_equivalent
-Botswana,botswana,BWA,BW,72,20,616,Sub Saharan Africa,Sub-Saharan Africa,Africa,Africa,Sub-Saharan Africa,Sub-Saharan Africa,-22.95345029,25.62341262,country_equivalent
-Brazil,brazil,BRA,BR,76,21,223,Latin America and Caribbean,Latin America and the Caribbean,South America,Americas,Latin America and the Caribbean,Latin America & Caribbean,-16.81287905,-45.79728954,country_equivalent
-British Virgin Islands,british_virgin_islands,VGB,VG,92,239,-999,Latin America and Caribbean,Latin America and the Caribbean,North America,Americas,Latin America and the Caribbean,Latin America & Caribbean,18.43454653,-64.58711162,country_equivalent
-Brunei Darussalam,brunei_darussalam,BRN,BN,96,26,516,South-East Asia and Pacific,East Asia and South-East Asia,Asia,Asia,South-eastern Asia,East Asia & Pacific,4.847217962,114.8130058,country_equivalent
-Bulgaria,bulgaria,BGR,BG,100,27,918,Economies in Transition,Eastern Europe,Europe,Europe,Eastern Europe,Europe & Central Asia,42.72789159,25.03979296,country_equivalent
-Burkina Faso,burkina_faso,BFA,BF,854,233,748,Sub Saharan Africa,Sub-Saharan Africa,Africa,Africa,Sub-Saharan Africa,Sub-Saharan Africa,12.22023934,-1.8881693,country_equivalent
-Burundi,burundi,BDI,BI,108,29,618,Sub Saharan Africa,Sub-Saharan Africa,Africa,Africa,Sub-Saharan Africa,Sub-Saharan Africa,-3.25267382,29.84167596,country_equivalent
-Cabo Verde,cabo_verde,CPV,CV,132,35,624,Sub Saharan Africa,Sub-Saharan Africa,Africa,Africa,Sub-Saharan Africa,Sub-Saharan Africa,15.68224839,-23.98199787,country_equivalent
-Cambodia,cambodia,KHM,KH,116,115,522,South-East Asia and Pacific,East Asia and South-East Asia,Asia,Asia,South-eastern Asia,East Asia & Pacific,12.28343042,104.5353898,country_equivalent
-Cameroon,cameroon,CMR,CM,120,32,622,Sub Saharan Africa,Sub-Saharan Africa,Africa,Africa,Sub-Saharan Africa,Sub-Saharan Africa,6.173282384,11.81162782,country_equivalent
-Canada,canada,CAN,CA,124,33,156,North America,North America,North America,Americas,Northern America,North America,46.89489855,-88.24940623,country_equivalent
-Cayman Islands,cayman_islands,CYM,KY,136,36,-999,Latin America and Caribbean,Latin America and the Caribbean,North America,Americas,Latin America and the Caribbean,Latin America & Caribbean,19.31716508,-81.2869635,country_equivalent
-Central African Republic,central_african_republic,CAF,CF,140,37,626,Sub Saharan Africa,Sub-Saharan Africa,Africa,Africa,Sub-Saharan Africa,Sub-Saharan Africa,5.448575797,18.43025498,country_equivalent
-Chad,chad,TCD,TD,148,39,628,Sub Saharan Africa,Sub-Saharan Africa,Africa,Africa,Sub-Saharan Africa,Sub-Saharan Africa,11.63256136,17.53949708,country_equivalent
-Chile,chile,CHL,CL,152,40,228,Latin America and Caribbean,Latin America and the Caribbean,South America,Americas,Latin America and the Caribbean,Latin America & Caribbean,-34.05124123,-71.2707337,country_equivalent
-China,china,CHN,CN,156,351,924,East Asia,East Asia and South-East Asia,Asia,Asia,Eastern Asia,East Asia & Pacific,32.32707204,113.8166532,country_equivalent
-Colombia,colombia,COL,CO,170,44,233,Latin America and Caribbean,Latin America and the Caribbean,South America,Americas,Latin America and the Caribbean,Latin America & Caribbean,5.876475743,-74.85772312,country_equivalent
-Comoros,comoros,COM,KM,174,45,632,Sub Saharan Africa,Sub-Saharan Africa,Africa,Africa,Sub-Saharan Africa,Sub-Saharan Africa,-11.97498389,43.59058359,country_equivalent
-Costa Rica,costa_rica,CRI,CR,188,48,238,Latin America and Caribbean,Latin America and the Caribbean,North America,Americas,Latin America and the Caribbean,Latin America & Caribbean,9.973118541,-84.15880259,country_equivalent
-Cote d'Ivoire,cote_divoire,CIV,CI,384,107,662,Sub Saharan Africa,Sub-Saharan Africa,Africa,Africa,Sub-Saharan Africa,Sub-Saharan Africa,6.697578488,-5.345088772,country_equivalent
-Croatia,croatia,HRV,HR,191,98,960,Economies in Transition,Eastern Europe,Europe,Europe,Southern Europe,Europe & Central Asia,45.21783182,16.33694351,country_equivalent
-Cuba,cuba,CUB,CU,192,49,-999,Latin America and Caribbean,Latin America and the Caribbean,North America,Americas,Latin America and the Caribbean,Latin America & Caribbean,21.77846803,-79.32430745,country_equivalent
-Curacao,curacao,CUW,CW,531,279,-999,Latin America and Caribbean,Latin America and the Caribbean,South America,Americas,Latin America and the Caribbean,Latin America & Caribbean,12.14768018,-68.92284159,country_equivalent
-Cyprus,cyprus,CYP,CY,196,50,423,Economies in Transition,Eastern Europe,Asia,Asia,Western Asia,Europe & Central Asia,35.01709881,33.3068069,country_equivalent
-Czechia,czechia,CZE,CZ,203,167,935,Economies in Transition,Eastern Europe,Europe,Europe,Eastern Europe,Europe & Central Asia,49.83330044,15.52017183,country_equivalent
-Democratic People's Republic of Korea,democratic_peoples_republic_of_korea,PRK,KP,408,116,-999,East Asia,East Asia and South-East Asia,Asia,Asia,Eastern Asia,East Asia & Pacific,39.64831686,126.5917992,country_equivalent
-Democratic Republic of the Congo,democratic_republic_of_the_congo,COD,CD,180,250,636,Sub Saharan Africa,Sub-Saharan Africa,Africa,Africa,Sub-Saharan Africa,Sub-Saharan Africa,-4.195950876,23.96874854,country_equivalent
-Denmark,denmark,DNK,DK,208,54,128,Western Europe,Western Europe,Europe,Europe,Northern Europe,Europe & Central Asia,55.85169829,10.89362571,country_equivalent
-Djibouti,djibouti,DJI,DJ,262,72,611,Sub Saharan Africa,Sub-Saharan Africa,Africa,Africa,Sub-Saharan Africa,Middle East & North Africa,11.59891468,42.8523399,country_equivalent
-Dominica,dominica,DMA,DM,212,55,321,Latin America and Caribbean,Latin America and the Caribbean,North America,Americas,Latin America and the Caribbean,Latin America & Caribbean,15.38823623,-61.35328428,country_equivalent
-Dominican Republic,dominican_republic,DOM,DO,214,56,243,Latin America and Caribbean,Latin America and the Caribbean,North America,Americas,Latin America and the Caribbean,Latin America & Caribbean,18.7969215,-70.14826718,country_equivalent
-Ecuador,ecuador,ECU,EC,218,58,248,Latin America and Caribbean,Latin America and the Caribbean,South America,Americas,Latin America and the Caribbean,Latin America & Caribbean,-1.407374115,-79.28042243,country_equivalent
-Egypt,egypt,EGY,EG,818,59,469,Middle East and North Africa,Near East (Middle East) and North Africa,Africa,Africa,Northern Africa,Middle East & North Africa,29.58300113,31.23875781,country_equivalent
-El Salvador,el_salvador,SLV,SV,222,60,253,Latin America and Caribbean,Latin America and the Caribbean,North America,Americas,Latin America and the Caribbean,Latin America & Caribbean,13.72381381,-89.08136439,country_equivalent
-Equatorial Guinea,equatorial_guinea,GNQ,GQ,226,61,642,Sub Saharan Africa,Sub-Saharan Africa,Africa,Africa,Sub-Saharan Africa,Sub-Saharan Africa,2.166287548,9.935705244,country_equivalent
-Eritrea,eritrea,ERI,ER,232,178,643,Sub Saharan Africa,Sub-Saharan Africa,Africa,Africa,Sub-Saharan Africa,Sub-Saharan Africa,15.50723615,38.56002039,country_equivalent
-Estonia,estonia,EST,EE,233,63,939,Economies in Transition,Eastern Europe,Europe,Europe,Northern Europe,Europe & Central Asia,59.01777529,25.45566295,country_equivalent
-Eswatini,eswatini,SWZ,SZ,748,209,734,Sub Saharan Africa,Sub-Saharan Africa,Africa,Africa,Sub-Saharan Africa,Sub-Saharan Africa,-26.52004615,31.42538866,country_equivalent
-Ethiopia,ethiopia,ETH,ET,231,238,644,Sub Saharan Africa,Sub-Saharan Africa,Africa,Africa,Sub-Saharan Africa,Sub-Saharan Africa,9.013605978,38.6007558,country_equivalent
-Faroe Islands,faroe_islands,FRO,FO,234,64,-999,Western Europe,Western Europe,Europe,Europe,Northern Europe,Europe & Central Asia,62.04108502,-6.821704191,country_equivalent
-Fiji,fiji,FJI,FJ,242,66,819,South-East Asia and Pacific,Oceania,Oceania,Oceania,Melanesia,East Asia & Pacific,-17.71078494,169.9671866,country_equivalent
-Finland,finland,FIN,FI,246,67,172,Western Europe,Western Europe,Europe,Europe,Northern Europe,Europe & Central Asia,61.70953652,24.94823757,country_equivalent
-France,france,FRA,FR,250,68,132,Western Europe,Western Europe,Europe,Europe,Western Europe,Europe & Central Asia,47.0468682,2.642203594,country_equivalent
-French Polynesia,french_polynesia,PYF,PF,258,70,-999,South-East Asia and Pacific,Oceania,Oceania,Oceania,Polynesia,East Asia & Pacific,-17.28914643,-149.1520436,country_equivalent
-Gabon,gabon,GAB,GA,266,74,646,Sub Saharan Africa,Sub-Saharan Africa,Africa,Africa,Sub-Saharan Africa,Sub-Saharan Africa,-0.38961387,11.22762519,country_equivalent
-Gambia,gambia,GMB,GM,270,75,648,Sub Saharan Africa,Sub-Saharan Africa,Africa,Africa,Sub-Saharan Africa,Sub-Saharan Africa,13.39792624,-16.06067651,country_equivalent
-Georgia,georgia,GEO,GE,268,73,915,Economies in Transition,Eastern Europe,Asia,Asia,Western Asia,Europe & Central Asia,41.93409045,43.70139196,country_equivalent
-Germany,germany,DEU,DE,276,79,134,Western Europe,Western Europe,Europe,Europe,Western Europe,Europe & Central Asia,50.81961465,9.667407051,country_equivalent
-Ghana,ghana,GHA,GH,288,81,652,Sub Saharan Africa,Sub-Saharan Africa,Africa,Africa,Sub-Saharan Africa,Sub-Saharan Africa,6.867318574,-0.987367527,country_equivalent
-Gibraltar,gibraltar,GIB,GI,292,82,-999,Western Europe,Western Europe,Europe,Europe,Southern Europe,Europe & Central Asia,36.13716239,-5.349052973,country_equivalent
-Greece,greece,GRC,GR,300,84,174,Western Europe,Western Europe,Europe,Europe,Southern Europe,Europe & Central Asia,38.69196698,23.32912008,country_equivalent
-Greenland,greenland,GRL,GL,304,85,-999,Western Europe,Western Europe,North America,Americas,Northern America,Europe & Central Asia,65.99382487,-50.66339946,country_equivalent
-Grenada,grenada,GRD,GD,308,86,328,Latin America and Caribbean,Latin America and the Caribbean,North America,Americas,Latin America and the Caribbean,Latin America & Caribbean,12.11564567,-61.68018781,country_equivalent
-Guam,guam,GUM,GU,316,88,-999,North America,North America,Oceania,Oceania,Micronesia,East Asia & Pacific,13.48661234,144.808506,country_equivalent
-Guatemala,guatemala,GTM,GT,320,89,258,Latin America and Caribbean,Latin America and the Caribbean,North America,Americas,Latin America and the Caribbean,Latin America & Caribbean,14.97403289,-90.76264642,country_equivalent
-Guinea,guinea,GIN,GN,324,90,656,Sub Saharan Africa,Sub-Saharan Africa,Africa,Africa,Sub-Saharan Africa,Sub-Saharan Africa,10.18429006,-11.58640101,country_equivalent
-Guinea-Bissau,guinea_bissau,GNB,GW,624,175,654,Sub Saharan Africa,Sub-Saharan Africa,Africa,Africa,Sub-Saharan Africa,Sub-Saharan Africa,12.01547897,-15.24949987,country_equivalent
-Guyana,guyana,GUY,GY,328,91,336,Latin America and Caribbean,Latin America and the Caribbean,South America,Americas,Latin America and the Caribbean,Latin America & Caribbean,6.491529418,-58.21954448,country_equivalent
-Haiti,haiti,HTI,HT,332,93,263,Latin America and Caribbean,Latin America and the Caribbean,North America,Americas,Latin America and the Caribbean,Latin America & Caribbean,18.88416098,-72.60998293,country_equivalent
-Honduras,honduras,HND,HN,340,95,268,Latin America and Caribbean,Latin America and the Caribbean,North America,Americas,Latin America and the Caribbean,Latin America & Caribbean,14.77298856,-87.47288304,country_equivalent
-"Hong Kong SAR, China",hong_kong,HKG,HK,344,96,532,East Asia,East Asia and South-East Asia,Asia,Asia,Eastern Asia,East Asia & Pacific,22.35518916,114.1511387,country_equivalent
-Hungary,hungary,HUN,HU,348,97,944,Economies in Transition,Eastern Europe,Europe,Europe,Eastern Europe,Europe & Central Asia,47.31807344,19.40223395,country_equivalent
-Iceland,iceland,ISL,IS,352,99,176,Western Europe,Western Europe,Europe,Europe,Northern Europe,Europe & Central Asia,64.32640295,-21.16996985,country_equivalent
-India,india,IND,IN,356,100,534,South Asia,South Asia (Indian subcontinent),Asia,Asia,Southern Asia,South Asia,22.60543864,80.13956799,country_equivalent
-Indonesia,indonesia,IDN,ID,360,101,536,South-East Asia and Pacific,East Asia and South-East Asia,Asia,Asia,South-eastern Asia,East Asia & Pacific,-4.830386172,110.4401776,country_equivalent
-Iran,iran,IRN,IR,364,102,429,Middle East and North Africa,Near East (Middle East) and North Africa,Asia,Asia,Southern Asia,Middle East & North Africa,34.13800695,51.86885185,country_equivalent
-Iraq,iraq,IRQ,IQ,368,103,433,Middle East and North Africa,Near East (Middle East) and North Africa,Asia,Asia,Western Asia,Middle East & North Africa,33.63842864,44.60538111,country_equivalent
-Ireland,ireland,IRL,IE,372,104,178,Western Europe,Western Europe,Europe,Europe,Northern Europe,Europe & Central Asia,53.13127699,-7.388298246,country_equivalent
-Isle of Man,isle_of_man,IMN,IM,833,264,-999,Western Europe,Western Europe,Europe,Europe,Northern Europe,Europe & Central Asia,54.19176461,-4.533777915,country_equivalent
-Israel,israel,ISR,IL,376,105,436,Middle East and North Africa,Near East (Middle East) and North Africa,Asia,Asia,Western Asia,Middle East & North Africa,32.12953447,34.98385337,country_equivalent
-Italy,italy,ITA,IT,380,106,136,Western Europe,Western Europe,Europe,Europe,Southern Europe,Europe & Central Asia,42.97915498,12.04836908,country_equivalent
-Jamaica,jamaica,JAM,JM,388,109,343,Latin America and Caribbean,Latin America and the Caribbean,North America,Americas,Latin America and the Caribbean,Latin America & Caribbean,18.11847268,-77.18959556,country_equivalent
-Japan,japan,JPN,JP,392,110,158,Pacific OECD,East Asia and South-East Asia,Asia,Asia,Eastern Asia,East Asia & Pacific,35.57468045,137.1431698,country_equivalent
-Jordan,jordan,JOR,JO,400,112,439,Middle East and North Africa,Near East (Middle East) and North Africa,Asia,Asia,Western Asia,Middle East & North Africa,31.9817241,35.91598341,country_equivalent
-Kazakhstan,kazakhstan,KAZ,KZ,398,108,916,Economies in Transition,Eastern Europe,Asia,Asia,Central Asia,Europe & Central Asia,46.706756,69.858501,country_equivalent
-Kenya,kenya,KEN,KE,404,114,664,Sub Saharan Africa,Sub-Saharan Africa,Africa,Africa,Sub-Saharan Africa,Sub-Saharan Africa,-0.298942379,36.7388576,country_equivalent
-Kiribati,kiribati,KIR,KI,296,83,826,South-East Asia and Pacific,Oceania,Oceania,Oceania,Micronesia,East Asia & Pacific,1.29904656,145.212197,country_equivalent
-Kosovo,kosovo,XKX,,-999,-999,-999,Economies in Transition,Eastern Europe,Europe,Europe,Southern Europe,Europe & Central Asia,42.53855215,20.9218804,country_equivalent
-Kuwait,kuwait,KWT,KW,414,118,443,Middle East and North Africa,Near East (Middle East) and North Africa,Asia,Asia,Western Asia,Middle East & North Africa,29.22856604,47.92843854,country_equivalent
-Kyrgyzstan,kyrgyzstan,KGZ,KG,417,113,917,Economies in Transition,Eastern Europe,Asia,Asia,Central Asia,Europe & Central Asia,41.57758375,73.7317933,country_equivalent
-Lao People's Democratic Republic,lao,LAO,LA,418,120,544,South-East Asia and Pacific,East Asia and South-East Asia,Asia,Asia,South-eastern Asia,East Asia & Pacific,17.94311001,103.8104839,country_equivalent
-Latvia,latvia,LVA,LV,428,119,941,Economies in Transition,Eastern Europe,Europe,Europe,Northern Europe,Europe & Central Asia,56.83439469,24.44982316,country_equivalent
-Lebanon,lebanon,LBN,LB,422,121,446,Middle East and North Africa,Near East (Middle East) and North Africa,Asia,Asia,Western Asia,Middle East & North Africa,33.84161747,35.61796853,country_equivalent
-Lesotho,lesotho,LSO,LS,426,122,666,Sub Saharan Africa,Sub-Saharan Africa,Africa,Africa,Sub-Saharan Africa,Sub-Saharan Africa,-29.45382216,27.96121197,country_equivalent
-Liberia,liberia,LBR,LR,430,123,668,Sub Saharan Africa,Sub-Saharan Africa,Africa,Africa,Sub-Saharan Africa,Sub-Saharan Africa,6.486514404,-9.87340929,country_equivalent
-Libya,libya,LBY,LY,434,124,672,Middle East and North Africa,Near East (Middle East) and North Africa,Africa,Africa,Northern Africa,Middle East & North Africa,31.40473596,15.77068893,country_equivalent
-Liechtenstein,liechtenstein,LIE,LI,438,125,-999,Western Europe,Western Europe,Europe,Europe,Western Europe,Europe & Central Asia,47.15684296,9.549808007,country_equivalent
-Lithuania,lithuania,LTU,LT,440,126,946,Economies in Transition,Eastern Europe,Europe,Europe,Northern Europe,Europe & Central Asia,55.17593434,23.93478342,country_equivalent
-Luxembourg,luxembourg,LUX,LU,442,256,137,Western Europe,Western Europe,Europe,Europe,Western Europe,Europe & Central Asia,49.64679228,6.089335323,country_equivalent
-"Macao SAR, China",macao,MAC,MO,446,128,546,East Asia,East Asia and South-East Asia,Asia,Asia,Eastern Asia,East Asia & Pacific,22.19438365,113.5488604,country_equivalent
-Madagascar,madagascar,MDG,MG,450,129,674,Sub Saharan Africa,Sub-Saharan Africa,Africa,Africa,Sub-Saharan Africa,Sub-Saharan Africa,-19.36377613,47.25988159,country_equivalent
-Malawi,malawi,MWI,MW,454,130,676,Sub Saharan Africa,Sub-Saharan Africa,Africa,Africa,Sub-Saharan Africa,Sub-Saharan Africa,-14.18661281,34.41546002,country_equivalent
-Malaysia,malaysia,MYS,MY,458,131,548,South-East Asia and Pacific,East Asia and South-East Asia,Asia,Asia,South-eastern Asia,East Asia & Pacific,3.826874863,104.6302298,country_equivalent
-Maldives,maldives,MDV,MV,462,132,556,South Asia,South Asia (Indian subcontinent),Asia,Asia,Southern Asia,South Asia,3.855041476,73.28911118,country_equivalent
-Mali,mali,MLI,ML,466,133,678,Sub Saharan Africa,Sub-Saharan Africa,Africa,Africa,Sub-Saharan Africa,Sub-Saharan Africa,13.41001397,-6.440243239,country_equivalent
-Malta,malta,MLT,MT,470,134,181,Economies in Transition,Eastern Europe,Europe,Europe,Southern Europe,Middle East & North Africa,35.89939091,14.45653737,country_equivalent
-Marshall Islands,marshall_islands,MHL,MH,584,127,867,South-East Asia and Pacific,Oceania,Oceania,Oceania,Micronesia,East Asia & Pacific,7.695264102,169.9682424,country_equivalent
-Mauritania,mauritania,MRT,MR,478,136,682,Sub Saharan Africa,Sub-Saharan Africa,Africa,Africa,Sub-Saharan Africa,Sub-Saharan Africa,17.17190808,-12.95702991,country_equivalent
-Mauritius,mauritius,MUS,MU,480,137,684,Sub Saharan Africa,Sub-Saharan Africa,Africa,Africa,Sub-Saharan Africa,Sub-Saharan Africa,-20.21857905,57.75842527,country_equivalent
-Mexico,mexico,MEX,MX,484,138,273,Latin America and Caribbean,Latin America and the Caribbean,North America,Americas,Latin America and the Caribbean,Latin America & Caribbean,21.33784028,-100.1755584,country_equivalent
-Micronesia (Federated States of),micronesia,FSM,FM,583,145,868,South-East Asia and Pacific,Oceania,Oceania,Oceania,Micronesia,East Asia & Pacific,7.201339155,153.3768128,country_equivalent
-Monaco,monaco,MCO,MC,492,140,-999,Western Europe,Western Europe,Europe,Europe,Western Europe,Europe & Central Asia,43.73698819,7.42531897,country_equivalent
-Mongolia,mongolia,MNG,MN,496,141,948,East Asia,East Asia and South-East Asia,Asia,Asia,Eastern Asia,East Asia & Pacific,47.84542553,105.0902915,country_equivalent
-Montenegro,montenegro,MNE,ME,499,273,943,Economies in Transition,Eastern Europe,Europe,Europe,Southern Europe,Europe & Central Asia,42.5951391,19.25243704,country_equivalent
-Morocco,morocco,MAR,MA,504,143,686,Middle East and North Africa,Near East (Middle East) and North Africa,Africa,Africa,Northern Africa,Middle East & North Africa,33.18130911,-6.635732876,country_equivalent
-Mozambique,mozambique,MOZ,MZ,508,144,688,Sub Saharan Africa,Sub-Saharan Africa,Africa,Africa,Sub-Saharan Africa,Sub-Saharan Africa,-17.85846186,35.96199139,country_equivalent
-Myanmar,myanmar,MMR,MM,104,28,518,South-East Asia and Pacific,East Asia and South-East Asia,Asia,Asia,South-eastern Asia,East Asia & Pacific,19.50270132,96.14977474,country_equivalent
-Namibia,namibia,NAM,,516,147,728,Sub Saharan Africa,Sub-Saharan Africa,Africa,Africa,Sub-Saharan Africa,Sub-Saharan Africa,-20.04348225,17.01005634,country_equivalent
-Nauru,nauru,NRU,NR,520,148,836,South-East Asia and Pacific,Oceania,Oceania,Oceania,Micronesia,East Asia & Pacific,-0.530015656,166.9281723,country_equivalent
-Nepal,nepal,NPL,NP,524,149,558,South Asia,South Asia (Indian subcontinent),Asia,Asia,Southern Asia,South Asia,27.55647887,84.73982051,country_equivalent
-Netherlands,netherlands,NLD,NL,528,150,138,Western Europe,Western Europe,Europe,Europe,Western Europe,Europe & Central Asia,52.09617979,5.290960197,country_equivalent
-New Caledonia,new_caledonia,NCL,NC,540,153,-999,South-East Asia and Pacific,Oceania,Oceania,Oceania,Melanesia,East Asia & Pacific,-21.92071266,166.2250876,country_equivalent
-New Zealand,new_zealand,NZL,NZ,554,156,196,Pacific OECD,Oceania,Oceania,Oceania,Australia and New Zealand,East Asia & Pacific,-39.43756586,174.2750079,country_equivalent
-Nicaragua,nicaragua,NIC,NI,558,157,278,Latin America and Caribbean,Latin America and the Caribbean,North America,Americas,Latin America and the Caribbean,Latin America & Caribbean,12.63208575,-85.83943161,country_equivalent
-Niger,niger,NER,NE,562,158,692,Sub Saharan Africa,Sub-Saharan Africa,Africa,Africa,Sub-Saharan Africa,Sub-Saharan Africa,14.04729929,6.077812939,country_equivalent
-Nigeria,nigeria,NGA,NG,566,159,694,Sub Saharan Africa,Sub-Saharan Africa,Africa,Africa,Sub-Saharan Africa,Sub-Saharan Africa,8.655210774,7.221360221,country_equivalent
-North Macedonia,north_macedonia,MKD,MK,807,154,962,Economies in Transition,Eastern Europe,Europe,Europe,Southern Europe,Europe & Central Asia,41.72826172,21.51824386,country_equivalent
-Northern Mariana Islands,northern_mariana_islands,MNP,MP,580,163,-999,South-East Asia and Pacific,Oceania,Oceania,Oceania,Micronesia,East Asia & Pacific,15.10963199,145.6979098,country_equivalent
-Norway,norway,NOR,NO,578,162,142,Western Europe,Western Europe,Europe,Europe,Northern Europe,Europe & Central Asia,61.00286949,9.848364649,country_equivalent
-Oman,oman,OMN,OM,512,221,449,Middle East and North Africa,Near East (Middle East) and North Africa,Asia,Asia,Western Asia,Middle East & North Africa,22.7203588,57.36470841,country_equivalent
-Pakistan,pakistan,PAK,PK,586,165,564,South Asia,South Asia (Indian subcontinent),Asia,Asia,Southern Asia,South Asia,30.50820008,71.45014177,country_equivalent
-Palau,palau,PLW,PW,585,180,565,South-East Asia and Pacific,Oceania,Oceania,Oceania,Micronesia,East Asia & Pacific,7.312010697,134.4383246,country_equivalent
-Panama,panama,PAN,PA,591,166,283,Latin America and Caribbean,Latin America and the Caribbean,North America,Americas,Latin America and the Caribbean,Latin America & Caribbean,8.804347946,-80.3060801,country_equivalent
-Papua New Guinea,papua_new_guinea,PNG,PG,598,168,853,South-East Asia and Pacific,Oceania,Oceania,Oceania,Melanesia,East Asia & Pacific,-6.160782231,145.9071069,country_equivalent
-Paraguay,paraguay,PRY,PY,600,169,288,Latin America and Caribbean,Latin America and the Caribbean,South America,Americas,Latin America and the Caribbean,Latin America & Caribbean,-25.27474005,-56.67879449,country_equivalent
-Peru,peru,PER,PE,604,170,293,Latin America and Caribbean,Latin America and the Caribbean,South America,Americas,Latin America and the Caribbean,Latin America & Caribbean,-10.75576731,-76.22375697,country_equivalent
-Philippines,philippines,PHL,PH,608,171,566,South-East Asia and Pacific,East Asia and South-East Asia,Asia,Asia,South-eastern Asia,East Asia & Pacific,12.25545262,122.4837227,country_equivalent
-Poland,poland,POL,PL,616,173,964,Economies in Transition,Eastern Europe,Europe,Europe,Eastern Europe,Europe & Central Asia,51.72564191,19.2925141,country_equivalent
-Portugal,portugal,PRT,PT,620,174,182,Western Europe,Western Europe,Europe,Europe,Southern Europe,Europe & Central Asia,39.65570474,-9.224379574,country_equivalent
-Puerto Rico,puerto_rico,PRI,PR,630,177,359,Latin America and Caribbean,Latin America and the Caribbean,North America,Americas,Latin America and the Caribbean,Latin America & Caribbean,18.2801956,-66.34383718,country_equivalent
-Qatar,qatar,QAT,QA,634,179,453,Middle East and North Africa,Near East (Middle East) and North Africa,Asia,Asia,Western Asia,Middle East & North Africa,25.32084553,51.44700722,country_equivalent
-Republic of Korea,republic_of_korea,KOR,KR,410,117,542,East Asia,East Asia and South-East Asia,Asia,Asia,Eastern Asia,East Asia & Pacific,36.67030393,127.4739571,country_equivalent
-Republic of Moldova,republic_of_moldova,MDA,MD,498,146,921,Economies in Transition,Eastern Europe,Europe,Europe,Eastern Europe,Europe & Central Asia,47.16241909,28.59691406,country_equivalent
-Republic of the Congo,republic_of_the_congo,COG,CG,178,46,634,Sub Saharan Africa,Sub-Saharan Africa,Africa,Africa,Sub-Saharan Africa,Sub-Saharan Africa,-1.904521283,15.190945,country_equivalent
-Romania,romania,ROU,RO,642,183,968,Economies in Transition,Eastern Europe,Europe,Europe,Eastern Europe,Europe & Central Asia,45.05586842,26.00660895,country_equivalent
-Russian Federation,russia,RUS,RU,643,185,922,Economies in Transition,Eastern Europe,Europe,Europe,Eastern Europe,Europe & Central Asia,53.77552434,53.71719581,country_equivalent
-Rwanda,rwanda,RWA,RW,646,184,714,Sub Saharan Africa,Sub-Saharan Africa,Africa,Africa,Sub-Saharan Africa,Sub-Saharan Africa,-1.983135027,29.89430162,country_equivalent
-Saint Kitts and Nevis,saint_kitts_and_nevis,KNA,KN,659,188,361,Latin America and Caribbean,Latin America and the Caribbean,North America,Americas,Latin America and the Caribbean,Latin America & Caribbean,17.27349865,-62.70216905,country_equivalent
-Saint Lucia,saint_lucia,LCA,LC,662,189,362,Latin America and Caribbean,Latin America and the Caribbean,North America,Americas,Latin America and the Caribbean,Latin America & Caribbean,13.9261677,-60.96772246,country_equivalent
-Saint Vincent and the Grenadines,saint_vincent_and_the_grenadines,VCT,VC,670,191,364,Latin America and Caribbean,Latin America and the Caribbean,North America,Americas,Latin America and the Caribbean,Latin America & Caribbean,13.1640887,-61.20492387,country_equivalent
-Saint-Martin (French part),saint_martin,MAF,MF,663,281,-999,Latin America and Caribbean,Latin America and the Caribbean,North America,Americas,Latin America and the Caribbean,Latin America & Caribbean,18.08190092,-63.05715781,country_equivalent
-Samoa,samoa,WSM,WS,882,244,862,South-East Asia and Pacific,Oceania,Oceania,Oceania,Polynesia,East Asia & Pacific,-13.82882815,-171.9468471,country_equivalent
-San Marino,san_marino,SMR,SM,674,192,135,Western Europe,Western Europe,Europe,Europe,Southern Europe,Europe & Central Asia,43.94711425,12.46678704,country_equivalent
-Sao Tome and Principe,sao_tome_and_principe,STP,ST,678,193,716,Sub Saharan Africa,Sub-Saharan Africa,Africa,Africa,Sub-Saharan Africa,Sub-Saharan Africa,0.360878574,6.703130216,country_equivalent
-Saudi Arabia,saudi_arabia,SAU,SA,682,194,456,Middle East and North Africa,Near East (Middle East) and North Africa,Asia,Asia,Western Asia,Middle East & North Africa,23.43550059,43.62978627,country_equivalent
-Senegal,senegal,SEN,SN,686,195,722,Sub Saharan Africa,Sub-Saharan Africa,Africa,Africa,Sub-Saharan Africa,Sub-Saharan Africa,14.4997081,-16.00649388,country_equivalent
-Serbia,serbia,SRB,RS,688,272,942,Economies in Transition,Eastern Europe,Europe,Europe,Southern Europe,Europe & Central Asia,44.4473629,20.59664019,country_equivalent
-Seychelles,seychelles,SYC,SC,690,196,718,Sub Saharan Africa,Sub-Saharan Africa,Africa,Africa,Sub-Saharan Africa,Sub-Saharan Africa,-4.650426549,55.44946176,country_equivalent
-Sierra Leone,sierra_leone,SLE,SL,694,197,724,Sub Saharan Africa,Sub-Saharan Africa,Africa,Africa,Sub-Saharan Africa,Sub-Saharan Africa,8.394222042,-12.08838311,country_equivalent
-Singapore,singapore,SGP,SG,702,200,576,South-East Asia and Pacific,East Asia and South-East Asia,Asia,Asia,South-eastern Asia,East Asia & Pacific,1.362209345,103.8375065,country_equivalent
-Sint Maarten (Dutch part),sint_maarten,SXM,SX,534,280,-999,Latin America and Caribbean,Latin America and the Caribbean,North America,Americas,Latin America and the Caribbean,Latin America & Caribbean,18.04025487,-63.05943542,country_equivalent
-Slovakia,slovakia,SVK,SK,703,199,936,Economies in Transition,Eastern Europe,Europe,Europe,Eastern Europe,Europe & Central Asia,48.66675821,19.20640878,country_equivalent
-Slovenia,slovenia,SVN,SI,705,198,961,Economies in Transition,Eastern Europe,Europe,Europe,Southern Europe,Europe & Central Asia,46.15512891,14.86373053,country_equivalent
-Solomon Islands,solomon_islands,SLB,SB,90,25,813,South-East Asia and Pacific,Oceania,Oceania,Oceania,Melanesia,East Asia & Pacific,-9.052032427,159.9966479,country_equivalent
-Somalia,somalia,SOM,SO,706,201,726,Sub Saharan Africa,Sub-Saharan Africa,Africa,Africa,Sub-Saharan Africa,Sub-Saharan Africa,4.995151369,45.14090694,country_equivalent
-South Africa,south_africa,ZAF,ZA,710,202,199,Sub Saharan Africa,Sub-Saharan Africa,Africa,Africa,Sub-Saharan Africa,Sub-Saharan Africa,-28.25349795,27.50389519,country_equivalent
-South Sudan,south_sudan,SSD,SS,728,277,733,Middle East and North Africa,Near East (Middle East) and North Africa,Africa,Africa,Sub-Saharan Africa,Sub-Saharan Africa,6.354929866,31.44868666,country_equivalent
-Spain,spain,ESP,ES,724,203,184,Western Europe,Western Europe,Europe,Europe,Southern Europe,Europe & Central Asia,39.59072204,-3.143042093,country_equivalent
-Sri Lanka,sri_lanka,LKA,LK,144,38,524,South Asia,South Asia (Indian subcontinent),Asia,Asia,Southern Asia,South Asia,7.203197105,80.42615758,country_equivalent
-Sudan,sudan,SDN,SD,729,276,732,Middle East and North Africa,Near East (Middle East) and North Africa,Africa,Africa,Northern Africa,Sub-Saharan Africa,14.23239235,30.77776897,country_equivalent
-Suriname,suriname,SUR,SR,740,207,366,Latin America and Caribbean,Latin America and the Caribbean,South America,Americas,Latin America and the Caribbean,Latin America & Caribbean,5.61951551,-55.3165976,country_equivalent
-Sweden,sweden,SWE,SE,752,210,144,Western Europe,Western Europe,Europe,Europe,Northern Europe,Europe & Central Asia,58.81397895,15.54058239,country_equivalent
-Switzerland,switzerland,CHE,CH,756,211,146,Western Europe,Western Europe,Europe,Europe,Western Europe,Europe & Central Asia,47.01950723,7.949050312,country_equivalent
-Syrian Arab Republic,syrian_arab_republic,SYR,SY,760,212,463,Middle East and North Africa,Near East (Middle East) and North Africa,Asia,Asia,Western Asia,Middle East & North Africa,35.04964496,37.30191918,country_equivalent
-Taiwan,taiwan,TWN,TW,158,214,528,-,-,Asia,-,-,-,-180,-180,country_equivalent
-Tajikistan,tajikistan,TJK,TJ,762,208,923,Economies in Transition,Eastern Europe,Asia,Asia,Central Asia,Europe & Central Asia,38.71141633,69.21200904,country_equivalent
-Thailand,thailand,THA,TH,764,216,578,South-East Asia and Pacific,East Asia and South-East Asia,Asia,Asia,South-eastern Asia,East Asia & Pacific,14.12056022,101.0186239,country_equivalent
-Timor-Leste,timor_leste,TLS,TL,626,176,537,South-East Asia and Pacific,East Asia and South-East Asia,Asia,Asia,South-eastern Asia,East Asia & Pacific,-8.756684887,125.6518684,country_equivalent
-Togo,togo,TGO,TG,768,217,742,Sub Saharan Africa,Sub-Saharan Africa,Africa,Africa,Sub-Saharan Africa,Sub-Saharan Africa,7.71871787,1.056794162,country_equivalent
-Tonga,tonga,TON,TO,776,219,866,South-East Asia and Pacific,Oceania,Oceania,Oceania,Polynesia,East Asia & Pacific,-20.6784478,-175.0451465,country_equivalent
-Trinidad and Tobago,trinidad_and_tobago,TTO,TT,780,220,369,Latin America and Caribbean,Latin America and the Caribbean,North America,Americas,Latin America and the Caribbean,Latin America & Caribbean,10.52248655,-61.35454317,country_equivalent
-Tunisia,tunisia,TUN,TN,788,222,744,Middle East and North Africa,Near East (Middle East) and North Africa,Africa,Africa,Northern Africa,Middle East & North Africa,35.78307633,10.04159209,country_equivalent
-Turkey,turkey,TUR,TR,792,223,186,Western Europe,Western Europe,Asia,Asia,Western Asia,Europe & Central Asia,39.2995234,32.82518656,country_equivalent
-Turkmenistan,turkmenistan,TKM,TM,795,213,925,Economies in Transition,Eastern Europe,Asia,Asia,Central Asia,Europe & Central Asia,38.84571128,60.07927836,country_equivalent
-Turks and Caicos Islands,turks_and_caicos_islands,TCA,TC,796,224,-999,Latin America and Caribbean,Latin America and the Caribbean,North America,Americas,Latin America and the Caribbean,Latin America & Caribbean,21.73897208,-72.07549378,country_equivalent
-Tuvalu,tuvalu,TUV,TV,798,227,869,South-East Asia and Pacific,Oceania,Oceania,Oceania,Polynesia,East Asia & Pacific,-8.037346368,178.7163811,country_equivalent
-Uganda,uganda,UGA,UG,800,226,746,Sub Saharan Africa,Sub-Saharan Africa,Africa,Africa,Sub-Saharan Africa,Sub-Saharan Africa,0.944443322,32.25203488,country_equivalent
-Ukraine,ukraine,UKR,UA,804,230,926,Economies in Transition,Eastern Europe,Europe,Europe,Eastern Europe,Europe & Central Asia,48.80879525,31.57196745,country_equivalent
-United Arab Emirates,united_arab_emirates,ARE,AE,784,225,466,Middle East and North Africa,Near East (Middle East) and North Africa,Asia,Asia,Western Asia,Middle East & North Africa,24.67232462,55.13985814,country_equivalent
-United Kingdom,united_kingdom,GBR,GB,826,229,112,Western Europe,Western Europe,Europe,Europe,Northern Europe,Europe & Central Asia,52.71028084,-1.637988333,country_equivalent
-United Republic of Tanzania,united_republic_of_tanzania,TZA,TZ,834,215,738,Sub Saharan Africa,Sub-Saharan Africa,Africa,Africa,Sub-Saharan Africa,Sub-Saharan Africa,-5.472089042,35.23931051,country_equivalent
-United States of America,united_states_of_america,USA,US,840,231,111,North America,North America,North America,Americas,Northern America,North America,37.30389874,-92.451674,country_equivalent
-United States Virgin Islands,united_states_virgin_islands,VIR,VI,850,240,-999,Latin America and Caribbean,Latin America and the Caribbean,North America,Americas,Latin America and the Caribbean,Latin America & Caribbean,18.05955201,-64.84935225,country_equivalent
-Uruguay,uruguay,URY,UY,858,234,298,Latin America and Caribbean,Latin America and the Caribbean,South America,Americas,Latin America and the Caribbean,Latin America & Caribbean,-34.06979219,-56.21358359,country_equivalent
-Uzbekistan,uzbekistan,UZB,UZ,860,235,927,Economies in Transition,Eastern Europe,Asia,Asia,Central Asia,Europe & Central Asia,40.46444715,67.65315914,country_equivalent
-Vanuatu,vanuatu,VUT,VU,548,155,846,South-East Asia and Pacific,Oceania,Oceania,Oceania,Melanesia,East Asia & Pacific,-16.8258443,168.0428996,country_equivalent
-Venezuela,venezuela,VEN,VE,862,236,299,Latin America and Caribbean,Latin America and the Caribbean,South America,Americas,Latin America and the Caribbean,Latin America & Caribbean,9.748997135,-67.93409482,country_equivalent
-Viet Nam,viet_nam,VNM,VN,704,237,582,South-East Asia and Pacific,East Asia and South-East Asia,Asia,Asia,South-eastern Asia,East Asia & Pacific,15.4418607,106.4183894,country_equivalent
-Yemen,yemen,YEM,YE,887,249,474,Middle East and North Africa,Near East (Middle East) and North Africa,Asia,Asia,Western Asia,Middle East & North Africa,14.73559251,44.43427013,country_equivalent
-Zambia,zambia,ZMB,ZM,894,251,754,Sub Saharan Africa,Sub-Saharan Africa,Africa,Africa,Sub-Saharan Africa,Sub-Saharan Africa,-13.59390249,28.63540158,country_equivalent
-Zimbabwe,zimbabwe,ZWE,ZW,716,181,698,Sub Saharan Africa,Sub-Saharan Africa,Africa,Africa,Sub-Saharan Africa,Sub-Saharan Africa,-18.65242548,30.61816489,country_equivalent
-Louisiana,louisiana,LA,LN,22,800,22,none,none,North America,none,none,none,0,0,us_state
+category_name,region,fao_area_code,iso_alpha_3,iso_alpha_2,iso_numeric,m49_numeric,weo_country_code,ipcc_ar5_region,ipcc_estimated_afolu_region,ipcc_continent_region,un_region,un_sub_region,world_bank_global_region,latitude_population_centroid_2020,longitude_population_centroid_2020,administrative_specification
+Afghanistan,afghanistan,2,AFG,AF,4,4,512,South Asia,South Asia (Indian subcontinent),Asia,Asia,Southern Asia,South Asia,34.61259163,67.50738689,country_equivalent
+Albania,albania,3,ALB,AL,8,8,914,Economies in Transition,Eastern Europe,Europe,Europe,Southern Europe,Europe & Central Asia,41.20690222,19.85892149,country_equivalent
+Algeria,algeria,4,DZA,DZ,12,12,612,Middle East and North Africa,Near East (Middle East) and North Africa,Africa,Africa,Northern Africa,Middle East & North Africa,35.52456973,3.494061872,country_equivalent
+American Samoa,american_samoa,5,ASM,AS,16,16,-999,South-East Asia and Pacific,Oceania,Oceania,Oceania,Polynesia,East Asia & Pacific,-14.30941747,-170.690438,country_equivalent
+Andorra,andorra,6,AND,AD,20,20,171,Western Europe,Western Europe,Europe,Europe,Southern Europe,Europe & Central Asia,42.52407443,1.562280902,country_equivalent
+Angola,angola,7,AGO,AO,24,24,614,Sub Saharan Africa,Sub-Saharan Africa,Africa,Africa,Sub-Saharan Africa,Sub-Saharan Africa,-10.34426109,14.50052171,country_equivalent
+Antigua and Barbuda,antigua_and_barbuda,8,ATG,AG,28,28,311,Latin America and Caribbean,Latin America and the Caribbean,North America,Americas,Latin America and the Caribbean,Latin America & Caribbean,17.11104407,-61.81979962,country_equivalent
+Argentina,argentina,9,ARG,AR,32,32,213,Latin America and Caribbean,Latin America and the Caribbean,South America,Americas,Latin America and the Caribbean,Latin America & Caribbean,-33.02016075,-61.31178135,country_equivalent
+Armenia,armenia,1,ARM,AM,51,51,911,Economies in Transition,Eastern Europe,Asia,Asia,Western Asia,Europe & Central Asia,40.27137496,44.59188288,country_equivalent
+Aruba,aruba,22,ABW,AW,533,533,314,Latin America and Caribbean,Latin America and the Caribbean,South America,Americas,Latin America and the Caribbean,Latin America & Caribbean,12.51494042,-69.99309963,country_equivalent
+Australia,australia,10,AUS,AU,36,36,193,Pacific OECD,Oceania,Oceania,Oceania,Australia and New Zealand,East Asia & Pacific,-32.92057848,144.7653718,country_equivalent
+Austria,austria,11,AUT,AT,40,40,122,Western Europe,Western Europe,Europe,Europe,Western Europe,Europe & Central Asia,47.7843093,14.70434208,country_equivalent
+Azerbaijan,azerbaijan,52,AZE,AZ,31,31,912,Economies in Transition,Eastern Europe,Asia,Asia,Western Asia,Europe & Central Asia,40.26975314,48.13434452,country_equivalent
+Bahamas,bahamas,12,BHS,BS,44,44,313,Latin America and Caribbean,Latin America and the Caribbean,North America,Americas,Latin America and the Caribbean,Latin America & Caribbean,25.24753331,-77.41964154,country_equivalent
+Bahrain,bahrain,13,BHR,BH,48,48,419,Middle East and North Africa,Near East (Middle East) and North Africa,Asia,Asia,Western Asia,Middle East & North Africa,26.16813952,50.56409491,country_equivalent
+Bangladesh,bangladesh,16,BGD,BD,50,50,513,South Asia,South Asia (Indian subcontinent),Asia,Asia,Southern Asia,South Asia,23.94161565,90.25134606,country_equivalent
+Barbados,barbados,14,BRB,BB,52,52,316,Latin America and Caribbean,Latin America and the Caribbean,North America,Americas,Latin America and the Caribbean,Latin America & Caribbean,13.14289392,-59.56395913,country_equivalent
+Belarus,belarus,57,BLR,BY,112,112,913,Economies in Transition,Eastern Europe,Europe,Europe,Eastern Europe,Europe & Central Asia,53.53764705,27.84199916,country_equivalent
+Belgium,belgium,255,BEL,BE,56,56,124,Western Europe,Western Europe,Europe,Europe,Western Europe,Europe & Central Asia,50.84610282,4.439392636,country_equivalent
+Belize,belize,23,BLZ,BZ,84,84,339,Latin America and Caribbean,Latin America and the Caribbean,North America,Americas,Latin America and the Caribbean,Latin America & Caribbean,17.36279121,-88.5800225,country_equivalent
+Benin,benin,53,BEN,BJ,204,204,638,Sub Saharan Africa,Sub-Saharan Africa,Africa,Africa,Sub-Saharan Africa,Sub-Saharan Africa,8.082779044,2.298194618,country_equivalent
+Bermuda,bermuda,17,BMU,BM,60,60,-999,Latin America and Caribbean,Latin America and the Caribbean,North America,Americas,Northern America,North America,32.30014913,-64.78041104,country_equivalent
+Bhutan,bhutan,18,BTN,BT,64,64,514,South Asia,South Asia (Indian subcontinent),Asia,Asia,Southern Asia,South Asia,27.2074685,90.23061017,country_equivalent
+Bolivia,bolivia,19,BOL,BO,68,68,218,Latin America and Caribbean,Latin America and the Caribbean,South America,Americas,Latin America and the Caribbean,Latin America & Caribbean,-17.44805972,-65.61266248,country_equivalent
+Bosnia and Herzegovina,bosnia_and_herzegovina,80,BIH,BA,70,70,963,Economies in Transition,Eastern Europe,Europe,Europe,Southern Europe,Europe & Central Asia,44.33233578,17.9067081,country_equivalent
+Botswana,botswana,20,BWA,BW,72,72,616,Sub Saharan Africa,Sub-Saharan Africa,Africa,Africa,Sub-Saharan Africa,Sub-Saharan Africa,-22.95345029,25.62341262,country_equivalent
+Brazil,brazil,21,BRA,BR,76,76,223,Latin America and Caribbean,Latin America and the Caribbean,South America,Americas,Latin America and the Caribbean,Latin America & Caribbean,-16.81287905,-45.79728954,country_equivalent
+British Virgin Islands,british_virgin_islands,239,VGB,VG,92,92,-999,Latin America and Caribbean,Latin America and the Caribbean,North America,Americas,Latin America and the Caribbean,Latin America & Caribbean,18.43454653,-64.58711162,country_equivalent
+Brunei Darussalam,brunei_darussalam,26,BRN,BN,96,96,516,South-East Asia and Pacific,East Asia and South-East Asia,Asia,Asia,South-eastern Asia,East Asia & Pacific,4.847217962,114.8130058,country_equivalent
+Bulgaria,bulgaria,27,BGR,BG,100,100,918,Economies in Transition,Eastern Europe,Europe,Europe,Eastern Europe,Europe & Central Asia,42.72789159,25.03979296,country_equivalent
+Burkina Faso,burkina_faso,233,BFA,BF,854,854,748,Sub Saharan Africa,Sub-Saharan Africa,Africa,Africa,Sub-Saharan Africa,Sub-Saharan Africa,12.22023934,-1.8881693,country_equivalent
+Burundi,burundi,29,BDI,BI,108,108,618,Sub Saharan Africa,Sub-Saharan Africa,Africa,Africa,Sub-Saharan Africa,Sub-Saharan Africa,-3.25267382,29.84167596,country_equivalent
+Cabo Verde,cabo_verde,35,CPV,CV,132,132,624,Sub Saharan Africa,Sub-Saharan Africa,Africa,Africa,Sub-Saharan Africa,Sub-Saharan Africa,15.68224839,-23.98199787,country_equivalent
+Cambodia,cambodia,115,KHM,KH,116,116,522,South-East Asia and Pacific,East Asia and South-East Asia,Asia,Asia,South-eastern Asia,East Asia & Pacific,12.28343042,104.5353898,country_equivalent
+Cameroon,cameroon,32,CMR,CM,120,120,622,Sub Saharan Africa,Sub-Saharan Africa,Africa,Africa,Sub-Saharan Africa,Sub-Saharan Africa,6.173282384,11.81162782,country_equivalent
+Canada,canada,33,CAN,CA,124,124,156,North America,North America,North America,Americas,Northern America,North America,46.89489855,-88.24940623,country_equivalent
+Cayman Islands,cayman_islands,36,CYM,KY,136,136,-999,Latin America and Caribbean,Latin America and the Caribbean,North America,Americas,Latin America and the Caribbean,Latin America & Caribbean,19.31716508,-81.2869635,country_equivalent
+Central African Republic,central_african_republic,37,CAF,CF,140,140,626,Sub Saharan Africa,Sub-Saharan Africa,Africa,Africa,Sub-Saharan Africa,Sub-Saharan Africa,5.448575797,18.43025498,country_equivalent
+Chad,chad,39,TCD,TD,148,148,628,Sub Saharan Africa,Sub-Saharan Africa,Africa,Africa,Sub-Saharan Africa,Sub-Saharan Africa,11.63256136,17.53949708,country_equivalent
+Chile,chile,40,CHL,CL,152,152,228,Latin America and Caribbean,Latin America and the Caribbean,South America,Americas,Latin America and the Caribbean,Latin America & Caribbean,-34.05124123,-71.2707337,country_equivalent
+China,china,351,CHN,CN,156,156,924,East Asia,East Asia and South-East Asia,Asia,Asia,Eastern Asia,East Asia & Pacific,32.32707204,113.8166532,country_equivalent
+Colombia,colombia,44,COL,CO,170,170,233,Latin America and Caribbean,Latin America and the Caribbean,South America,Americas,Latin America and the Caribbean,Latin America & Caribbean,5.876475743,-74.85772312,country_equivalent
+Comoros,comoros,45,COM,KM,174,174,632,Sub Saharan Africa,Sub-Saharan Africa,Africa,Africa,Sub-Saharan Africa,Sub-Saharan Africa,-11.97498389,43.59058359,country_equivalent
+Costa Rica,costa_rica,48,CRI,CR,188,188,238,Latin America and Caribbean,Latin America and the Caribbean,North America,Americas,Latin America and the Caribbean,Latin America & Caribbean,9.973118541,-84.15880259,country_equivalent
+Cote d'Ivoire,cote_divoire,107,CIV,CI,384,384,662,Sub Saharan Africa,Sub-Saharan Africa,Africa,Africa,Sub-Saharan Africa,Sub-Saharan Africa,6.697578488,-5.345088772,country_equivalent
+Croatia,croatia,98,HRV,HR,191,191,960,Economies in Transition,Eastern Europe,Europe,Europe,Southern Europe,Europe & Central Asia,45.21783182,16.33694351,country_equivalent
+Cuba,cuba,49,CUB,CU,192,192,-999,Latin America and Caribbean,Latin America and the Caribbean,North America,Americas,Latin America and the Caribbean,Latin America & Caribbean,21.77846803,-79.32430745,country_equivalent
+Curacao,curacao,279,CUW,CW,531,531,-999,Latin America and Caribbean,Latin America and the Caribbean,South America,Americas,Latin America and the Caribbean,Latin America & Caribbean,12.14768018,-68.92284159,country_equivalent
+Cyprus,cyprus,50,CYP,CY,196,196,423,Economies in Transition,Eastern Europe,Asia,Asia,Western Asia,Europe & Central Asia,35.01709881,33.3068069,country_equivalent
+Czechia,czechia,167,CZE,CZ,203,203,935,Economies in Transition,Eastern Europe,Europe,Europe,Eastern Europe,Europe & Central Asia,49.83330044,15.52017183,country_equivalent
+Democratic People's Republic of Korea,democratic_peoples_republic_of_korea,116,PRK,KP,408,408,-999,East Asia,East Asia and South-East Asia,Asia,Asia,Eastern Asia,East Asia & Pacific,39.64831686,126.5917992,country_equivalent
+Democratic Republic of the Congo,democratic_republic_of_the_congo,250,COD,CD,180,180,636,Sub Saharan Africa,Sub-Saharan Africa,Africa,Africa,Sub-Saharan Africa,Sub-Saharan Africa,-4.195950876,23.96874854,country_equivalent
+Denmark,denmark,54,DNK,DK,208,208,128,Western Europe,Western Europe,Europe,Europe,Northern Europe,Europe & Central Asia,55.85169829,10.89362571,country_equivalent
+Djibouti,djibouti,72,DJI,DJ,262,262,611,Sub Saharan Africa,Sub-Saharan Africa,Africa,Africa,Sub-Saharan Africa,Middle East & North Africa,11.59891468,42.8523399,country_equivalent
+Dominica,dominica,55,DMA,DM,212,212,321,Latin America and Caribbean,Latin America and the Caribbean,North America,Americas,Latin America and the Caribbean,Latin America & Caribbean,15.38823623,-61.35328428,country_equivalent
+Dominican Republic,dominican_republic,56,DOM,DO,214,214,243,Latin America and Caribbean,Latin America and the Caribbean,North America,Americas,Latin America and the Caribbean,Latin America & Caribbean,18.7969215,-70.14826718,country_equivalent
+Ecuador,ecuador,58,ECU,EC,218,218,248,Latin America and Caribbean,Latin America and the Caribbean,South America,Americas,Latin America and the Caribbean,Latin America & Caribbean,-1.407374115,-79.28042243,country_equivalent
+Egypt,egypt,59,EGY,EG,818,818,469,Middle East and North Africa,Near East (Middle East) and North Africa,Africa,Africa,Northern Africa,Middle East & North Africa,29.58300113,31.23875781,country_equivalent
+El Salvador,el_salvador,60,SLV,SV,222,222,253,Latin America and Caribbean,Latin America and the Caribbean,North America,Americas,Latin America and the Caribbean,Latin America & Caribbean,13.72381381,-89.08136439,country_equivalent
+Equatorial Guinea,equatorial_guinea,61,GNQ,GQ,226,226,642,Sub Saharan Africa,Sub-Saharan Africa,Africa,Africa,Sub-Saharan Africa,Sub-Saharan Africa,2.166287548,9.935705244,country_equivalent
+Eritrea,eritrea,178,ERI,ER,232,232,643,Sub Saharan Africa,Sub-Saharan Africa,Africa,Africa,Sub-Saharan Africa,Sub-Saharan Africa,15.50723615,38.56002039,country_equivalent
+Estonia,estonia,63,EST,EE,233,233,939,Economies in Transition,Eastern Europe,Europe,Europe,Northern Europe,Europe & Central Asia,59.01777529,25.45566295,country_equivalent
+Eswatini,eswatini,209,SWZ,SZ,748,748,734,Sub Saharan Africa,Sub-Saharan Africa,Africa,Africa,Sub-Saharan Africa,Sub-Saharan Africa,-26.52004615,31.42538866,country_equivalent
+Ethiopia,ethiopia,238,ETH,ET,231,231,644,Sub Saharan Africa,Sub-Saharan Africa,Africa,Africa,Sub-Saharan Africa,Sub-Saharan Africa,9.013605978,38.6007558,country_equivalent
+Faroe Islands,faroe_islands,64,FRO,FO,234,234,-999,Western Europe,Western Europe,Europe,Europe,Northern Europe,Europe & Central Asia,62.04108502,-6.821704191,country_equivalent
+Fiji,fiji,66,FJI,FJ,242,242,819,South-East Asia and Pacific,Oceania,Oceania,Oceania,Melanesia,East Asia & Pacific,-17.71078494,169.9671866,country_equivalent
+Finland,finland,67,FIN,FI,246,246,172,Western Europe,Western Europe,Europe,Europe,Northern Europe,Europe & Central Asia,61.70953652,24.94823757,country_equivalent
+France,france,68,FRA,FR,250,250,132,Western Europe,Western Europe,Europe,Europe,Western Europe,Europe & Central Asia,47.0468682,2.642203594,country_equivalent
+French Polynesia,french_polynesia,70,PYF,PF,258,258,-999,South-East Asia and Pacific,Oceania,Oceania,Oceania,Polynesia,East Asia & Pacific,-17.28914643,-149.1520436,country_equivalent
+Gabon,gabon,74,GAB,GA,266,266,646,Sub Saharan Africa,Sub-Saharan Africa,Africa,Africa,Sub-Saharan Africa,Sub-Saharan Africa,-0.38961387,11.22762519,country_equivalent
+Gambia,gambia,75,GMB,GM,270,270,648,Sub Saharan Africa,Sub-Saharan Africa,Africa,Africa,Sub-Saharan Africa,Sub-Saharan Africa,13.39792624,-16.06067651,country_equivalent
+Georgia,georgia,73,GEO,GE,268,268,915,Economies in Transition,Eastern Europe,Asia,Asia,Western Asia,Europe & Central Asia,41.93409045,43.70139196,country_equivalent
+Germany,germany,79,DEU,DE,276,276,134,Western Europe,Western Europe,Europe,Europe,Western Europe,Europe & Central Asia,50.81961465,9.667407051,country_equivalent
+Ghana,ghana,81,GHA,GH,288,288,652,Sub Saharan Africa,Sub-Saharan Africa,Africa,Africa,Sub-Saharan Africa,Sub-Saharan Africa,6.867318574,-0.987367527,country_equivalent
+Gibraltar,gibraltar,82,GIB,GI,292,292,-999,Western Europe,Western Europe,Europe,Europe,Southern Europe,Europe & Central Asia,36.13716239,-5.349052973,country_equivalent
+Greece,greece,84,GRC,GR,300,300,174,Western Europe,Western Europe,Europe,Europe,Southern Europe,Europe & Central Asia,38.69196698,23.32912008,country_equivalent
+Greenland,greenland,85,GRL,GL,304,304,-999,Western Europe,Western Europe,North America,Americas,Northern America,Europe & Central Asia,65.99382487,-50.66339946,country_equivalent
+Grenada,grenada,86,GRD,GD,308,308,328,Latin America and Caribbean,Latin America and the Caribbean,North America,Americas,Latin America and the Caribbean,Latin America & Caribbean,12.11564567,-61.68018781,country_equivalent
+Guam,guam,88,GUM,GU,316,316,-999,North America,North America,Oceania,Oceania,Micronesia,East Asia & Pacific,13.48661234,144.808506,country_equivalent
+Guatemala,guatemala,89,GTM,GT,320,320,258,Latin America and Caribbean,Latin America and the Caribbean,North America,Americas,Latin America and the Caribbean,Latin America & Caribbean,14.97403289,-90.76264642,country_equivalent
+Guinea,guinea,90,GIN,GN,324,324,656,Sub Saharan Africa,Sub-Saharan Africa,Africa,Africa,Sub-Saharan Africa,Sub-Saharan Africa,10.18429006,-11.58640101,country_equivalent
+Guinea-Bissau,guinea_bissau,175,GNB,GW,624,624,654,Sub Saharan Africa,Sub-Saharan Africa,Africa,Africa,Sub-Saharan Africa,Sub-Saharan Africa,12.01547897,-15.24949987,country_equivalent
+Guyana,guyana,91,GUY,GY,328,328,336,Latin America and Caribbean,Latin America and the Caribbean,South America,Americas,Latin America and the Caribbean,Latin America & Caribbean,6.491529418,-58.21954448,country_equivalent
+Haiti,haiti,93,HTI,HT,332,332,263,Latin America and Caribbean,Latin America and the Caribbean,North America,Americas,Latin America and the Caribbean,Latin America & Caribbean,18.88416098,-72.60998293,country_equivalent
+Honduras,honduras,95,HND,HN,340,340,268,Latin America and Caribbean,Latin America and the Caribbean,North America,Americas,Latin America and the Caribbean,Latin America & Caribbean,14.77298856,-87.47288304,country_equivalent
+"Hong Kong SAR, China",hong_kong,96,HKG,HK,344,344,532,East Asia,East Asia and South-East Asia,Asia,Asia,Eastern Asia,East Asia & Pacific,22.35518916,114.1511387,country_equivalent
+Hungary,hungary,97,HUN,HU,348,348,944,Economies in Transition,Eastern Europe,Europe,Europe,Eastern Europe,Europe & Central Asia,47.31807344,19.40223395,country_equivalent
+Iceland,iceland,99,ISL,IS,352,352,176,Western Europe,Western Europe,Europe,Europe,Northern Europe,Europe & Central Asia,64.32640295,-21.16996985,country_equivalent
+India,india,100,IND,IN,356,356,534,South Asia,South Asia (Indian subcontinent),Asia,Asia,Southern Asia,South Asia,22.60543864,80.13956799,country_equivalent
+Indonesia,indonesia,101,IDN,ID,360,360,536,South-East Asia and Pacific,East Asia and South-East Asia,Asia,Asia,South-eastern Asia,East Asia & Pacific,-4.830386172,110.4401776,country_equivalent
+Iran,iran,102,IRN,IR,364,364,429,Middle East and North Africa,Near East (Middle East) and North Africa,Asia,Asia,Southern Asia,Middle East & North Africa,34.13800695,51.86885185,country_equivalent
+Iraq,iraq,103,IRQ,IQ,368,368,433,Middle East and North Africa,Near East (Middle East) and North Africa,Asia,Asia,Western Asia,Middle East & North Africa,33.63842864,44.60538111,country_equivalent
+Ireland,ireland,104,IRL,IE,372,372,178,Western Europe,Western Europe,Europe,Europe,Northern Europe,Europe & Central Asia,53.13127699,-7.388298246,country_equivalent
+Isle of Man,isle_of_man,264,IMN,IM,833,833,-999,Western Europe,Western Europe,Europe,Europe,Northern Europe,Europe & Central Asia,54.19176461,-4.533777915,country_equivalent
+Israel,israel,105,ISR,IL,376,376,436,Middle East and North Africa,Near East (Middle East) and North Africa,Asia,Asia,Western Asia,Middle East & North Africa,32.12953447,34.98385337,country_equivalent
+Italy,italy,106,ITA,IT,380,380,136,Western Europe,Western Europe,Europe,Europe,Southern Europe,Europe & Central Asia,42.97915498,12.04836908,country_equivalent
+Jamaica,jamaica,109,JAM,JM,388,388,343,Latin America and Caribbean,Latin America and the Caribbean,North America,Americas,Latin America and the Caribbean,Latin America & Caribbean,18.11847268,-77.18959556,country_equivalent
+Japan,japan,110,JPN,JP,392,392,158,Pacific OECD,East Asia and South-East Asia,Asia,Asia,Eastern Asia,East Asia & Pacific,35.57468045,137.1431698,country_equivalent
+Jordan,jordan,112,JOR,JO,400,400,439,Middle East and North Africa,Near East (Middle East) and North Africa,Asia,Asia,Western Asia,Middle East & North Africa,31.9817241,35.91598341,country_equivalent
+Kazakhstan,kazakhstan,108,KAZ,KZ,398,398,916,Economies in Transition,Eastern Europe,Asia,Asia,Central Asia,Europe & Central Asia,46.706756,69.858501,country_equivalent
+Kenya,kenya,114,KEN,KE,404,404,664,Sub Saharan Africa,Sub-Saharan Africa,Africa,Africa,Sub-Saharan Africa,Sub-Saharan Africa,-0.298942379,36.7388576,country_equivalent
+Kiribati,kiribati,83,KIR,KI,296,296,826,South-East Asia and Pacific,Oceania,Oceania,Oceania,Micronesia,East Asia & Pacific,1.29904656,145.212197,country_equivalent
+Kosovo,kosovo,-999,XKX,-999,-999,-999,-999,Economies in Transition,Eastern Europe,Europe,Europe,Southern Europe,Europe & Central Asia,42.53855215,20.9218804,country_equivalent
+Kuwait,kuwait,118,KWT,KW,414,414,443,Middle East and North Africa,Near East (Middle East) and North Africa,Asia,Asia,Western Asia,Middle East & North Africa,29.22856604,47.92843854,country_equivalent
+Kyrgyzstan,kyrgyzstan,113,KGZ,KG,417,417,917,Economies in Transition,Eastern Europe,Asia,Asia,Central Asia,Europe & Central Asia,41.57758375,73.7317933,country_equivalent
+Lao People's Democratic Republic,lao,120,LAO,LA,418,418,544,South-East Asia and Pacific,East Asia and South-East Asia,Asia,Asia,South-eastern Asia,East Asia & Pacific,17.94311001,103.8104839,country_equivalent
+Latvia,latvia,119,LVA,LV,428,428,941,Economies in Transition,Eastern Europe,Europe,Europe,Northern Europe,Europe & Central Asia,56.83439469,24.44982316,country_equivalent
+Lebanon,lebanon,121,LBN,LB,422,422,446,Middle East and North Africa,Near East (Middle East) and North Africa,Asia,Asia,Western Asia,Middle East & North Africa,33.84161747,35.61796853,country_equivalent
+Lesotho,lesotho,122,LSO,LS,426,426,666,Sub Saharan Africa,Sub-Saharan Africa,Africa,Africa,Sub-Saharan Africa,Sub-Saharan Africa,-29.45382216,27.96121197,country_equivalent
+Liberia,liberia,123,LBR,LR,430,430,668,Sub Saharan Africa,Sub-Saharan Africa,Africa,Africa,Sub-Saharan Africa,Sub-Saharan Africa,6.486514404,-9.87340929,country_equivalent
+Libya,libya,124,LBY,LY,434,434,672,Middle East and North Africa,Near East (Middle East) and North Africa,Africa,Africa,Northern Africa,Middle East & North Africa,31.40473596,15.77068893,country_equivalent
+Liechtenstein,liechtenstein,125,LIE,LI,438,438,-999,Western Europe,Western Europe,Europe,Europe,Western Europe,Europe & Central Asia,47.15684296,9.549808007,country_equivalent
+Lithuania,lithuania,126,LTU,LT,440,440,946,Economies in Transition,Eastern Europe,Europe,Europe,Northern Europe,Europe & Central Asia,55.17593434,23.93478342,country_equivalent
+Luxembourg,luxembourg,256,LUX,LU,442,442,137,Western Europe,Western Europe,Europe,Europe,Western Europe,Europe & Central Asia,49.64679228,6.089335323,country_equivalent
+"Macao SAR, China",macao,128,MAC,MO,446,446,546,East Asia,East Asia and South-East Asia,Asia,Asia,Eastern Asia,East Asia & Pacific,22.19438365,113.5488604,country_equivalent
+Madagascar,madagascar,129,MDG,MG,450,450,674,Sub Saharan Africa,Sub-Saharan Africa,Africa,Africa,Sub-Saharan Africa,Sub-Saharan Africa,-19.36377613,47.25988159,country_equivalent
+Malawi,malawi,130,MWI,MW,454,454,676,Sub Saharan Africa,Sub-Saharan Africa,Africa,Africa,Sub-Saharan Africa,Sub-Saharan Africa,-14.18661281,34.41546002,country_equivalent
+Malaysia,malaysia,131,MYS,MY,458,458,548,South-East Asia and Pacific,East Asia and South-East Asia,Asia,Asia,South-eastern Asia,East Asia & Pacific,3.826874863,104.6302298,country_equivalent
+Maldives,maldives,132,MDV,MV,462,462,556,South Asia,South Asia (Indian subcontinent),Asia,Asia,Southern Asia,South Asia,3.855041476,73.28911118,country_equivalent
+Mali,mali,133,MLI,ML,466,466,678,Sub Saharan Africa,Sub-Saharan Africa,Africa,Africa,Sub-Saharan Africa,Sub-Saharan Africa,13.41001397,-6.440243239,country_equivalent
+Malta,malta,134,MLT,MT,470,470,181,Economies in Transition,Eastern Europe,Europe,Europe,Southern Europe,Middle East & North Africa,35.89939091,14.45653737,country_equivalent
+Marshall Islands,marshall_islands,127,MHL,MH,584,584,867,South-East Asia and Pacific,Oceania,Oceania,Oceania,Micronesia,East Asia & Pacific,7.695264102,169.9682424,country_equivalent
+Mauritania,mauritania,136,MRT,MR,478,478,682,Sub Saharan Africa,Sub-Saharan Africa,Africa,Africa,Sub-Saharan Africa,Sub-Saharan Africa,17.17190808,-12.95702991,country_equivalent
+Mauritius,mauritius,137,MUS,MU,480,480,684,Sub Saharan Africa,Sub-Saharan Africa,Africa,Africa,Sub-Saharan Africa,Sub-Saharan Africa,-20.21857905,57.75842527,country_equivalent
+Mexico,mexico,138,MEX,MX,484,484,273,Latin America and Caribbean,Latin America and the Caribbean,North America,Americas,Latin America and the Caribbean,Latin America & Caribbean,21.33784028,-100.1755584,country_equivalent
+Micronesia (Federated States of),micronesia,145,FSM,FM,583,583,868,South-East Asia and Pacific,Oceania,Oceania,Oceania,Micronesia,East Asia & Pacific,7.201339155,153.3768128,country_equivalent
+Monaco,monaco,140,MCO,MC,492,492,-999,Western Europe,Western Europe,Europe,Europe,Western Europe,Europe & Central Asia,43.73698819,7.42531897,country_equivalent
+Mongolia,mongolia,141,MNG,MN,496,496,948,East Asia,East Asia and South-East Asia,Asia,Asia,Eastern Asia,East Asia & Pacific,47.84542553,105.0902915,country_equivalent
+Montenegro,montenegro,273,MNE,ME,499,499,943,Economies in Transition,Eastern Europe,Europe,Europe,Southern Europe,Europe & Central Asia,42.5951391,19.25243704,country_equivalent
+Morocco,morocco,143,MAR,MA,504,504,686,Middle East and North Africa,Near East (Middle East) and North Africa,Africa,Africa,Northern Africa,Middle East & North Africa,33.18130911,-6.635732876,country_equivalent
+Mozambique,mozambique,144,MOZ,MZ,508,508,688,Sub Saharan Africa,Sub-Saharan Africa,Africa,Africa,Sub-Saharan Africa,Sub-Saharan Africa,-17.85846186,35.96199139,country_equivalent
+Myanmar,myanmar,28,MMR,MM,104,104,518,South-East Asia and Pacific,East Asia and South-East Asia,Asia,Asia,South-eastern Asia,East Asia & Pacific,19.50270132,96.14977474,country_equivalent
+Namibia,namibia,147,NAM,-999,516,516,728,Sub Saharan Africa,Sub-Saharan Africa,Africa,Africa,Sub-Saharan Africa,Sub-Saharan Africa,-20.04348225,17.01005634,country_equivalent
+Nauru,nauru,148,NRU,NR,520,520,836,South-East Asia and Pacific,Oceania,Oceania,Oceania,Micronesia,East Asia & Pacific,-0.530015656,166.9281723,country_equivalent
+Nepal,nepal,149,NPL,NP,524,524,558,South Asia,South Asia (Indian subcontinent),Asia,Asia,Southern Asia,South Asia,27.55647887,84.73982051,country_equivalent
+Netherlands,netherlands,150,NLD,NL,528,528,138,Western Europe,Western Europe,Europe,Europe,Western Europe,Europe & Central Asia,52.09617979,5.290960197,country_equivalent
+New Caledonia,new_caledonia,153,NCL,NC,540,540,-999,South-East Asia and Pacific,Oceania,Oceania,Oceania,Melanesia,East Asia & Pacific,-21.92071266,166.2250876,country_equivalent
+New Zealand,new_zealand,156,NZL,NZ,554,554,196,Pacific OECD,Oceania,Oceania,Oceania,Australia and New Zealand,East Asia & Pacific,-39.43756586,174.2750079,country_equivalent
+Nicaragua,nicaragua,157,NIC,NI,558,558,278,Latin America and Caribbean,Latin America and the Caribbean,North America,Americas,Latin America and the Caribbean,Latin America & Caribbean,12.63208575,-85.83943161,country_equivalent
+Niger,niger,158,NER,NE,562,562,692,Sub Saharan Africa,Sub-Saharan Africa,Africa,Africa,Sub-Saharan Africa,Sub-Saharan Africa,14.04729929,6.077812939,country_equivalent
+Nigeria,nigeria,159,NGA,NG,566,566,694,Sub Saharan Africa,Sub-Saharan Africa,Africa,Africa,Sub-Saharan Africa,Sub-Saharan Africa,8.655210774,7.221360221,country_equivalent
+North Macedonia,north_macedonia,154,MKD,MK,807,807,962,Economies in Transition,Eastern Europe,Europe,Europe,Southern Europe,Europe & Central Asia,41.72826172,21.51824386,country_equivalent
+Northern Mariana Islands,northern_mariana_islands,163,MNP,MP,580,580,-999,South-East Asia and Pacific,Oceania,Oceania,Oceania,Micronesia,East Asia & Pacific,15.10963199,145.6979098,country_equivalent
+Norway,norway,162,NOR,NO,578,578,142,Western Europe,Western Europe,Europe,Europe,Northern Europe,Europe & Central Asia,61.00286949,9.848364649,country_equivalent
+Oman,oman,221,OMN,OM,512,512,449,Middle East and North Africa,Near East (Middle East) and North Africa,Asia,Asia,Western Asia,Middle East & North Africa,22.7203588,57.36470841,country_equivalent
+Pakistan,pakistan,165,PAK,PK,586,586,564,South Asia,South Asia (Indian subcontinent),Asia,Asia,Southern Asia,South Asia,30.50820008,71.45014177,country_equivalent
+Palau,palau,180,PLW,PW,585,585,565,South-East Asia and Pacific,Oceania,Oceania,Oceania,Micronesia,East Asia & Pacific,7.312010697,134.4383246,country_equivalent
+Panama,panama,166,PAN,PA,591,591,283,Latin America and Caribbean,Latin America and the Caribbean,North America,Americas,Latin America and the Caribbean,Latin America & Caribbean,8.804347946,-80.3060801,country_equivalent
+Papua New Guinea,papua_new_guinea,168,PNG,PG,598,598,853,South-East Asia and Pacific,Oceania,Oceania,Oceania,Melanesia,East Asia & Pacific,-6.160782231,145.9071069,country_equivalent
+Paraguay,paraguay,169,PRY,PY,600,600,288,Latin America and Caribbean,Latin America and the Caribbean,South America,Americas,Latin America and the Caribbean,Latin America & Caribbean,-25.27474005,-56.67879449,country_equivalent
+Peru,peru,170,PER,PE,604,604,293,Latin America and Caribbean,Latin America and the Caribbean,South America,Americas,Latin America and the Caribbean,Latin America & Caribbean,-10.75576731,-76.22375697,country_equivalent
+Philippines,philippines,171,PHL,PH,608,608,566,South-East Asia and Pacific,East Asia and South-East Asia,Asia,Asia,South-eastern Asia,East Asia & Pacific,12.25545262,122.4837227,country_equivalent
+Poland,poland,173,POL,PL,616,616,964,Economies in Transition,Eastern Europe,Europe,Europe,Eastern Europe,Europe & Central Asia,51.72564191,19.2925141,country_equivalent
+Portugal,portugal,174,PRT,PT,620,620,182,Western Europe,Western Europe,Europe,Europe,Southern Europe,Europe & Central Asia,39.65570474,-9.224379574,country_equivalent
+Puerto Rico,puerto_rico,177,PRI,PR,630,630,359,Latin America and Caribbean,Latin America and the Caribbean,North America,Americas,Latin America and the Caribbean,Latin America & Caribbean,18.2801956,-66.34383718,country_equivalent
+Qatar,qatar,179,QAT,QA,634,634,453,Middle East and North Africa,Near East (Middle East) and North Africa,Asia,Asia,Western Asia,Middle East & North Africa,25.32084553,51.44700722,country_equivalent
+Republic of Korea,republic_of_korea,117,KOR,KR,410,410,542,East Asia,East Asia and South-East Asia,Asia,Asia,Eastern Asia,East Asia & Pacific,36.67030393,127.4739571,country_equivalent
+Republic of Moldova,republic_of_moldova,146,MDA,MD,498,498,921,Economies in Transition,Eastern Europe,Europe,Europe,Eastern Europe,Europe & Central Asia,47.16241909,28.59691406,country_equivalent
+Republic of the Congo,republic_of_the_congo,46,COG,CG,178,178,634,Sub Saharan Africa,Sub-Saharan Africa,Africa,Africa,Sub-Saharan Africa,Sub-Saharan Africa,-1.904521283,15.190945,country_equivalent
+Romania,romania,183,ROU,RO,642,642,968,Economies in Transition,Eastern Europe,Europe,Europe,Eastern Europe,Europe & Central Asia,45.05586842,26.00660895,country_equivalent
+Russian Federation,russia,185,RUS,RU,643,643,922,Economies in Transition,Eastern Europe,Europe,Europe,Eastern Europe,Europe & Central Asia,53.77552434,53.71719581,country_equivalent
+Rwanda,rwanda,184,RWA,RW,646,646,714,Sub Saharan Africa,Sub-Saharan Africa,Africa,Africa,Sub-Saharan Africa,Sub-Saharan Africa,-1.983135027,29.89430162,country_equivalent
+Saint Kitts and Nevis,saint_kitts_and_nevis,188,KNA,KN,659,659,361,Latin America and Caribbean,Latin America and the Caribbean,North America,Americas,Latin America and the Caribbean,Latin America & Caribbean,17.27349865,-62.70216905,country_equivalent
+Saint Lucia,saint_lucia,189,LCA,LC,662,662,362,Latin America and Caribbean,Latin America and the Caribbean,North America,Americas,Latin America and the Caribbean,Latin America & Caribbean,13.9261677,-60.96772246,country_equivalent
+Saint Vincent and the Grenadines,saint_vincent_and_the_grenadines,191,VCT,VC,670,670,364,Latin America and Caribbean,Latin America and the Caribbean,North America,Americas,Latin America and the Caribbean,Latin America & Caribbean,13.1640887,-61.20492387,country_equivalent
+Saint-Martin (French part),saint_martin,281,MAF,MF,663,663,-999,Latin America and Caribbean,Latin America and the Caribbean,North America,Americas,Latin America and the Caribbean,Latin America & Caribbean,18.08190092,-63.05715781,country_equivalent
+Samoa,samoa,244,WSM,WS,882,882,862,South-East Asia and Pacific,Oceania,Oceania,Oceania,Polynesia,East Asia & Pacific,-13.82882815,-171.9468471,country_equivalent
+San Marino,san_marino,192,SMR,SM,674,674,135,Western Europe,Western Europe,Europe,Europe,Southern Europe,Europe & Central Asia,43.94711425,12.46678704,country_equivalent
+Sao Tome and Principe,sao_tome_and_principe,193,STP,ST,678,678,716,Sub Saharan Africa,Sub-Saharan Africa,Africa,Africa,Sub-Saharan Africa,Sub-Saharan Africa,0.360878574,6.703130216,country_equivalent
+Saudi Arabia,saudi_arabia,194,SAU,SA,682,682,456,Middle East and North Africa,Near East (Middle East) and North Africa,Asia,Asia,Western Asia,Middle East & North Africa,23.43550059,43.62978627,country_equivalent
+Senegal,senegal,195,SEN,SN,686,686,722,Sub Saharan Africa,Sub-Saharan Africa,Africa,Africa,Sub-Saharan Africa,Sub-Saharan Africa,14.4997081,-16.00649388,country_equivalent
+Serbia,serbia,272,SRB,RS,688,688,942,Economies in Transition,Eastern Europe,Europe,Europe,Southern Europe,Europe & Central Asia,44.4473629,20.59664019,country_equivalent
+Seychelles,seychelles,196,SYC,SC,690,690,718,Sub Saharan Africa,Sub-Saharan Africa,Africa,Africa,Sub-Saharan Africa,Sub-Saharan Africa,-4.650426549,55.44946176,country_equivalent
+Sierra Leone,sierra_leone,197,SLE,SL,694,694,724,Sub Saharan Africa,Sub-Saharan Africa,Africa,Africa,Sub-Saharan Africa,Sub-Saharan Africa,8.394222042,-12.08838311,country_equivalent
+Singapore,singapore,200,SGP,SG,702,702,576,South-East Asia and Pacific,East Asia and South-East Asia,Asia,Asia,South-eastern Asia,East Asia & Pacific,1.362209345,103.8375065,country_equivalent
+Sint Maarten (Dutch part),sint_maarten,280,SXM,SX,534,534,-999,Latin America and Caribbean,Latin America and the Caribbean,North America,Americas,Latin America and the Caribbean,Latin America & Caribbean,18.04025487,-63.05943542,country_equivalent
+Slovakia,slovakia,199,SVK,SK,703,703,936,Economies in Transition,Eastern Europe,Europe,Europe,Eastern Europe,Europe & Central Asia,48.66675821,19.20640878,country_equivalent
+Slovenia,slovenia,198,SVN,SI,705,705,961,Economies in Transition,Eastern Europe,Europe,Europe,Southern Europe,Europe & Central Asia,46.15512891,14.86373053,country_equivalent
+Solomon Islands,solomon_islands,25,SLB,SB,90,90,813,South-East Asia and Pacific,Oceania,Oceania,Oceania,Melanesia,East Asia & Pacific,-9.052032427,159.9966479,country_equivalent
+Somalia,somalia,201,SOM,SO,706,706,726,Sub Saharan Africa,Sub-Saharan Africa,Africa,Africa,Sub-Saharan Africa,Sub-Saharan Africa,4.995151369,45.14090694,country_equivalent
+South Africa,south_africa,202,ZAF,ZA,710,710,199,Sub Saharan Africa,Sub-Saharan Africa,Africa,Africa,Sub-Saharan Africa,Sub-Saharan Africa,-28.25349795,27.50389519,country_equivalent
+South Sudan,south_sudan,277,SSD,SS,728,728,733,Middle East and North Africa,Near East (Middle East) and North Africa,Africa,Africa,Sub-Saharan Africa,Sub-Saharan Africa,6.354929866,31.44868666,country_equivalent
+Spain,spain,203,ESP,ES,724,724,184,Western Europe,Western Europe,Europe,Europe,Southern Europe,Europe & Central Asia,39.59072204,-3.143042093,country_equivalent
+Sri Lanka,sri_lanka,38,LKA,LK,144,144,524,South Asia,South Asia (Indian subcontinent),Asia,Asia,Southern Asia,South Asia,7.203197105,80.42615758,country_equivalent
+Sudan,sudan,276,SDN,SD,729,729,732,Middle East and North Africa,Near East (Middle East) and North Africa,Africa,Africa,Northern Africa,Sub-Saharan Africa,14.23239235,30.77776897,country_equivalent
+Suriname,suriname,207,SUR,SR,740,740,366,Latin America and Caribbean,Latin America and the Caribbean,South America,Americas,Latin America and the Caribbean,Latin America & Caribbean,5.61951551,-55.3165976,country_equivalent
+Sweden,sweden,210,SWE,SE,752,752,144,Western Europe,Western Europe,Europe,Europe,Northern Europe,Europe & Central Asia,58.81397895,15.54058239,country_equivalent
+Switzerland,switzerland,211,CHE,CH,756,756,146,Western Europe,Western Europe,Europe,Europe,Western Europe,Europe & Central Asia,47.01950723,7.949050312,country_equivalent
+Syrian Arab Republic,syrian_arab_republic,212,SYR,SY,760,760,463,Middle East and North Africa,Near East (Middle East) and North Africa,Asia,Asia,Western Asia,Middle East & North Africa,35.04964496,37.30191918,country_equivalent
+Taiwan,taiwan,214,TWN,TW,158,-999,528,-,-,Asia,-,-,-,-180,-180,country_equivalent
+Tajikistan,tajikistan,208,TJK,TJ,762,762,923,Economies in Transition,Eastern Europe,Asia,Asia,Central Asia,Europe & Central Asia,38.71141633,69.21200904,country_equivalent
+Thailand,thailand,216,THA,TH,764,764,578,South-East Asia and Pacific,East Asia and South-East Asia,Asia,Asia,South-eastern Asia,East Asia & Pacific,14.12056022,101.0186239,country_equivalent
+Timor-Leste,timor_leste,176,TLS,TL,626,626,537,South-East Asia and Pacific,East Asia and South-East Asia,Asia,Asia,South-eastern Asia,East Asia & Pacific,-8.756684887,125.6518684,country_equivalent
+Togo,togo,217,TGO,TG,768,768,742,Sub Saharan Africa,Sub-Saharan Africa,Africa,Africa,Sub-Saharan Africa,Sub-Saharan Africa,7.71871787,1.056794162,country_equivalent
+Tonga,tonga,219,TON,TO,776,776,866,South-East Asia and Pacific,Oceania,Oceania,Oceania,Polynesia,East Asia & Pacific,-20.6784478,-175.0451465,country_equivalent
+Trinidad and Tobago,trinidad_and_tobago,220,TTO,TT,780,780,369,Latin America and Caribbean,Latin America and the Caribbean,North America,Americas,Latin America and the Caribbean,Latin America & Caribbean,10.52248655,-61.35454317,country_equivalent
+Tunisia,tunisia,222,TUN,TN,788,788,744,Middle East and North Africa,Near East (Middle East) and North Africa,Africa,Africa,Northern Africa,Middle East & North Africa,35.78307633,10.04159209,country_equivalent
+Turkey,turkey,223,TUR,TR,792,792,186,Western Europe,Western Europe,Asia,Asia,Western Asia,Europe & Central Asia,39.2995234,32.82518656,country_equivalent
+Turkmenistan,turkmenistan,213,TKM,TM,795,795,925,Economies in Transition,Eastern Europe,Asia,Asia,Central Asia,Europe & Central Asia,38.84571128,60.07927836,country_equivalent
+Turks and Caicos Islands,turks_and_caicos_islands,224,TCA,TC,796,796,-999,Latin America and Caribbean,Latin America and the Caribbean,North America,Americas,Latin America and the Caribbean,Latin America & Caribbean,21.73897208,-72.07549378,country_equivalent
+Tuvalu,tuvalu,227,TUV,TV,798,798,869,South-East Asia and Pacific,Oceania,Oceania,Oceania,Polynesia,East Asia & Pacific,-8.037346368,178.7163811,country_equivalent
+Uganda,uganda,226,UGA,UG,800,800,746,Sub Saharan Africa,Sub-Saharan Africa,Africa,Africa,Sub-Saharan Africa,Sub-Saharan Africa,0.944443322,32.25203488,country_equivalent
+Ukraine,ukraine,230,UKR,UA,804,804,926,Economies in Transition,Eastern Europe,Europe,Europe,Eastern Europe,Europe & Central Asia,48.80879525,31.57196745,country_equivalent
+United Arab Emirates,united_arab_emirates,225,ARE,AE,784,784,466,Middle East and North Africa,Near East (Middle East) and North Africa,Asia,Asia,Western Asia,Middle East & North Africa,24.67232462,55.13985814,country_equivalent
+United Kingdom,united_kingdom,229,GBR,GB,826,826,112,Western Europe,Western Europe,Europe,Europe,Northern Europe,Europe & Central Asia,52.71028084,-1.637988333,country_equivalent
+United Republic of Tanzania,united_republic_of_tanzania,215,TZA,TZ,834,834,738,Sub Saharan Africa,Sub-Saharan Africa,Africa,Africa,Sub-Saharan Africa,Sub-Saharan Africa,-5.472089042,35.23931051,country_equivalent
+United States of America,united_states_of_america,231,USA,US,840,840,111,North America,North America,North America,Americas,Northern America,North America,37.30389874,-92.451674,country_equivalent
+United States Virgin Islands,united_states_virgin_islands,240,VIR,VI,850,850,-999,Latin America and Caribbean,Latin America and the Caribbean,North America,Americas,Latin America and the Caribbean,Latin America & Caribbean,18.05955201,-64.84935225,country_equivalent
+Uruguay,uruguay,234,URY,UY,858,858,298,Latin America and Caribbean,Latin America and the Caribbean,South America,Americas,Latin America and the Caribbean,Latin America & Caribbean,-34.06979219,-56.21358359,country_equivalent
+Uzbekistan,uzbekistan,235,UZB,UZ,860,860,927,Economies in Transition,Eastern Europe,Asia,Asia,Central Asia,Europe & Central Asia,40.46444715,67.65315914,country_equivalent
+Vanuatu,vanuatu,155,VUT,VU,548,548,846,South-East Asia and Pacific,Oceania,Oceania,Oceania,Melanesia,East Asia & Pacific,-16.8258443,168.0428996,country_equivalent
+Venezuela,venezuela,236,VEN,VE,862,862,299,Latin America and Caribbean,Latin America and the Caribbean,South America,Americas,Latin America and the Caribbean,Latin America & Caribbean,9.748997135,-67.93409482,country_equivalent
+Viet Nam,viet_nam,237,VNM,VN,704,704,582,South-East Asia and Pacific,East Asia and South-East Asia,Asia,Asia,South-eastern Asia,East Asia & Pacific,15.4418607,106.4183894,country_equivalent
+Yemen,yemen,249,YEM,YE,887,887,474,Middle East and North Africa,Near East (Middle East) and North Africa,Asia,Asia,Western Asia,Middle East & North Africa,14.73559251,44.43427013,country_equivalent
+Zambia,zambia,251,ZMB,ZM,894,894,754,Sub Saharan Africa,Sub-Saharan Africa,Africa,Africa,Sub-Saharan Africa,Sub-Saharan Africa,-13.59390249,28.63540158,country_equivalent
+Zimbabwe,zimbabwe,181,ZWE,ZW,716,716,698,Sub Saharan Africa,Sub-Saharan Africa,Africa,Africa,Sub-Saharan Africa,Sub-Saharan Africa,-18.65242548,30.61816489,country_equivalent
+Louisiana,louisiana,800,LA,LN,22,-999,22,none,none,North America,none,none,none,0,0,us_state

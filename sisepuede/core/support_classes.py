@@ -160,22 +160,65 @@ class Regions:
 
     def _initialize_generic_dict(self,
     ) -> None:
-        """
-        Sets the following default properties, associated with different generic
-            country specifications:
+        """Sets the following default properties, associated with different 
+            generic country specifications:
 
             * self.dict_generic_countries_to_regions
         """
+        
 
         dict_generic_countries_to_regions = {
+            "algeriae": "algeria",
+            "argentinae": "argentina",
+            "australiae": "australia",
+            "bahamas,_the": "bahamas",
+            "belgiume": "belgium",
+            "brazile": "brazil",
+            "cape_verde": "cabo_verde",
+            "congo,_dem._rep.": "democratic_republic_of_the_congo",
+            "congo,_rep.": "republic_of_the_congo",
+            "cote_d'ivoire": "cote_divoire",
+            "east_timor": "timor_leste",
+            "egypt,_arab_rep.": "egypt",
+            "egypte": "egypt",
+            "ethiopia(excludes_eritrea)": "ethiopia",
+            "gambia,_the": "gambia",
+            "hong_kong,_china": "hong_kong",
+            "hungarye": "hungary",
+            "indonesiae": "indonesia",
+            "iran,_islamic_rep.": "iran",
+            "irane": "iran",
+            "italye": "italy",
+            "korea,_north": "democratic_peoples_republic_of_korea",
+            "korea,_rep.": "republic_of_korea",
+            "kyrgyz_republic": "kyrgyzstan",
+            "lao_pdr": "lao",
             "laos": "lao",
             "luxemburg": "luxembourg",
+            "micronesia,_fed._sts.": "micronesia",
+            "moldova": "republic_of_moldova",
+            "netherlandse": "netherlands",
+            "new_zealande": "new_zealand",
+            "norwaye": "norway",
+            "omane": "oman",
+            "qatare": "qatar",
+            "serbia,_fr(serbia/montenegro)": "serbia",
+            "st._kitts_and_nevis": "saint_kitts_and_nevis",
+            "st._vincent_and_the_grenadines": "saint_vincent_and_the_grenadines",
             "swaziland": "eswatini",
+            "syriae": "syrian_arab_republic",
+            "syria": "syrian_arab_republic",
+            "tanzania": "united_republic_of_tanzania",
+            "turks_and_caicos_isl.": "turks_and_caicos_islands",
+            "united_arab_emiratese": "united_arab_emirates",
             "uk": "united_kingdom",
             "usa": "united_states_of_america",
             "us": "united_states_of_america",
-            "vietnam": "viet_nam"
+            "vietnam": "viet_nam",
+            "zimbabwee": "zimbabwe",
         }
+        
+        
 
         self.dict_generic_countries_to_regions = dict_generic_countries_to_regions
 
@@ -289,11 +332,13 @@ class Regions:
 
         """
         # some fields
+        field_fao_area_code = "fao_area_code"
         field_iso = "iso_alpha_3"
         field_iso_two = "iso_alpha_2"
         field_iso_numeric = "iso_numeric"
         field_lat = "latitude_population_centroid_2020"
         field_lon = "longitude_population_centroid_2020"
+        field_m49_numeric = "m49_numeric"
         field_un_global_region = "un_region"
         field_wb_global_region = "world_bank_global_region"
 
@@ -305,14 +350,23 @@ class Regions:
         dict_iso_numeric_to_region = attributes.field_maps.get(f"{field_iso_numeric}_to_{attributes.key}")
         dict_region_to_iso = attributes.field_maps.get(f"{attributes.key}_to_{field_iso}")
         dict_region_to_iso_numeric = attributes.field_maps.get(f"{attributes.key}_to_{field_iso_numeric}")
-    
+        dict_region_to_m49_numeric = attributes.field_maps.get(f"{attributes.key}_to_{field_m49_numeric}")
+
+        # m49 requires reversal
+        dict_m49_numeric_to_region = dict(
+            (int(v), k) for k, v in dict_region_to_m49_numeric.items()
+            if (v > 0)
+        )
+
         # check numeric codes
         dict_iso_numeric_to_region = dict((int(k), v) for k, v in dict_iso_numeric_to_region.items())
         dict_region_to_iso_numeric = dict((k, int(v)) for k, v in dict_region_to_iso_numeric.items())
+        dict_region_to_m49_numeric = dict((k, int(v)) for k, v in dict_region_to_m49_numeric.items())
 
         # set up some sets
         all_isos = sorted(list(dict_iso_to_region.keys()))
         all_isos_numeric = sorted(list(dict_iso_numeric_to_region.keys()))
+        all_m49_numeric = sorted(list(dict_m49_numeric_to_region.keys()))
 
 
         ##  GET VALID REGION GROUPS
@@ -357,18 +411,22 @@ class Regions:
 
         self.all_isos = all_isos
         self.all_isos_numeric = all_isos_numeric
+        self.all_m49_numeric = all_m49_numeric
         self.all_regions = attributes.key_values
         self.all_un_regions = all_un_regions
         self.all_wb_regions = all_wb_regions
         self.attributes = attributes
         self.dict_iso_to_region = dict_iso_to_region
         self.dict_iso_numeric_to_region = dict_iso_numeric_to_region
+        self.dict_m49_numeric_to_region = dict_m49_numeric_to_region
         self.dict_region_to_iso = dict_region_to_iso
         self.dict_region_to_iso_numeric = dict_region_to_iso_numeric
+        self.dict_region_to_m49_numeric = dict_region_to_m49_numeric
         self.dict_region_to_un_region = dict_region_to_un_region
         self.dict_region_to_wb_region = dict_region_to_wb_region
         self.dict_un_region_to_region = dict_un_region_to_region
         self.dict_wb_region_to_region = dict_wb_region_to_region
+        self.field_fao_area_code = field_fao_area_code
         self.field_iso = field_iso
         self.field_iso_two = field_iso_two
         self.field_iso_numeric = field_iso_numeric
@@ -712,6 +770,11 @@ class Regions:
             return region
 
         dict_repl = dict((x, "_") for x in ["-", " "])
+        dict_repl.update(
+            dict(
+                (str(x), "") for x in range(10)
+            )
+        )
 
         out = str(region).strip().lower()
         out = sf.str_replace(out, dict_repl)
@@ -787,7 +850,7 @@ class Regions:
 
         # map the input/output type to the field in the attribute table
         dict_type_to_attribute_field = {
-            "fao_region_code": "fao_area_code",
+            "fao_region_code": self.field_fao_area_code,
             _RETURN_TYPE_ISO: self.field_iso,
             _RETURN_TYPE_ISO_NUMERIC: self.field_iso_numeric,
             _RETURN_TYPE_REGION: self.key,
@@ -799,6 +862,12 @@ class Regions:
         # next, get the fields from the attribute table
         field_input = dict_type_to_attribute_field.get(input_code_type)
         field_output = dict_type_to_attribute_field.get(output_code_type)
+
+        # try retrieving as field
+        if field_input is None:
+            if input_code_type in self.attributes.table.columns:
+                field_input = input_code_type
+
 
         # check type specifications - start with inputs
         if field_input is None:
