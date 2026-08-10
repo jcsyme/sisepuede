@@ -2351,9 +2351,14 @@ class BiomassCarbonLedger:
         
         # add as previous stock*(1 - decomp rate ) plus sequestration
         frac_decomp = self.vec_frac_biomass_ag_decomposition[i]
+        vec_ratio_areas = np.nan_to_num(
+            arr_area[i]/arr_area[i - 1],
+            nan = 0.0,
+            posinf = 0.0,
+        )
 
         self.arr_young_biomass_c_ag_stock_if_untouched[i] = (
-            self.arr_young_biomass_c_ag_stock_if_untouched[i - 1] * (1 - frac_decomp)
+            self.arr_young_biomass_c_ag_stock_if_untouched[i - 1] * (1 - frac_decomp) * vec_ratio_areas
             + arr_area[i] * self.arr_young_sf_base_by_tp_planted[i]
         )
         
