@@ -339,7 +339,7 @@ class BiomassCarbonLedger:
             CONVERSIONS FROM TIME PERIOD i.
 
         * `arr_young_biomass_c_loss_from_decomposition` (T x T)
-            Array storing loss of C assumed to decompose at time i (from dead 
+            Array storing loss of C estimated to decompose at time i (from dead 
             biomass or litter) and emit C at time j. This is estimated using the
             fraction of biomass that is estimated to die as a condition for 
             equilibrium based on primary forest factors.
@@ -412,6 +412,11 @@ class BiomassCarbonLedger:
         * `vec_young_biomass_c_bg_converted` (T x 1)
             Total below-ground C converted from T x T; sum over columns.
         
+        * `vec_young_biomass_c_loss_from_decomposition` (T x 1)
+            Vector storing loss of C estimated to decompose at time i (from dead 
+            biomass or litter). This is estimated as the sum of all losses from 
+            `arr_young_biomass_c_loss_from_decomposition`
+            
         * `vec_biomass_c_removals_from_forest_demanded` (T x 1)
             Total demand for removals from all forested land after accounting 
             for automatic removals from available converted biomass.
@@ -1152,6 +1157,7 @@ class BiomassCarbonLedger:
         vec_young_biomass_c_ag_preserved_in_conversion = np.zeros(self.n_tp, )
         vec_young_biomass_c_available_for_removals_total = np.zeros(self.n_tp, )
         vec_young_biomass_c_bg_converted = np.zeros(self.n_tp, )
+        vec_young_biomass_c_loss_from_decomposition = np.zeros(self.n_tp, )
 
         # build base sequestration factors by time period
         arr_young_sf_base_by_tp_planted = self._build_arr_young_sf_base_by_tp_planted(
@@ -1181,6 +1187,7 @@ class BiomassCarbonLedger:
         self.vec_young_biomass_c_ag_preserved_in_conversion = vec_young_biomass_c_ag_preserved_in_conversion
         self.vec_young_biomass_c_available_for_removals_total = vec_young_biomass_c_available_for_removals_total
         self.vec_young_biomass_c_bg_converted = vec_young_biomass_c_bg_converted
+        self.vec_young_biomass_c_loss_from_decomposition = vec_young_biomass_c_loss_from_decomposition
 
         return None
     
@@ -1562,7 +1569,7 @@ class BiomassCarbonLedger:
 
         # shortcuts
         c_avail_conv_young = self.vec_young_biomass_c_ag_available_from_conversion[i]
-        c_decomp_young = self.arr_young_biomass_c_loss_from_decomposition[i].sum()
+        c_decomp_young = self.vec_young_biomass_c_loss_from_decomposition[i]
         c_removed_young = self.vec_biomass_c_removed_from_young[i]
         frac_decomp = self.vec_frac_biomass_ag_decomposition[i]
         ind_fs = self.ind_frst_secondary
@@ -1829,6 +1836,7 @@ class BiomassCarbonLedger:
         # shortcuts
         vec_conv_prev = self.arr_orig_biomass_c_ag_converted_away[i - 1]
         vec_decomp_prev = self.arr_biomass_c_ag_lost_decomposition[i - 1]
+        vec_decomp_prev_young = self.vec_young_biomass_c_loss_from_decomposition[i - 1]
         vec_removals_prev = self.arr_orig_biomass_c_removed_from_forests[i - 1]
         vec_seq = self.arr_orig_sf_adjusted[i]
         vec_stock_prev = self.arr_orig_biomass_c_ag_starting[i - 1]
@@ -1836,7 +1844,7 @@ class BiomassCarbonLedger:
         vec_stock = np.clip(
             vec_stock_prev
             - vec_conv_prev
-            - vec_decomp_prev
+            - (vec_decomp_prev - vec_decomp_prev_young) # remove young decomposition from stock loss
             - vec_removals_prev
             + vec_seq*vec_area_remaining_orig,
             0,
@@ -2193,6 +2201,7 @@ class BiomassCarbonLedger:
         vec_loss = (vec_stock_prev - vec_removals_cur - vec_conv)*rate_decomp
 
         self.arr_young_biomass_c_loss_from_decomposition[i] = vec_loss
+        self.vec_young_biomass_c_loss_from_decomposition[i] = vec_loss.sum()
 
         return None
 
