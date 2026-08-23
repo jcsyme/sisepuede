@@ -1298,20 +1298,20 @@ class EnergyConsumption:
                 df_neenergy_trajectories,
                 type_conversion = "gravimetric",
                 units_energy = units_energy,
-                units_monetary = units_monetary
+                units_monetary = units_monetary,
             ),
 
             "volumetric": self.get_enfu_fuel_costs_per_energy_general(
                 df_neenergy_trajectories,
                 type_conversion = "volumetric",
                 units_energy = units_energy,
-                units_monetary = units_monetary
+                units_monetary = units_monetary,
             ),
 
             "thermal": self.get_enfu_fuel_costs_per_energy_thermal(
                 df_neenergy_trajectories,
                 units_energy = units_energy,
-                units_monetary = units_monetary
+                units_monetary = units_monetary,
             )
         }
 
@@ -1327,34 +1327,37 @@ class EnergyConsumption:
     def get_enfu_fuel_costs_per_energy_general(self,
         df_neenergy_trajectories: pd.DataFrame,
         type_conversion: str,
-        modvar_density: Union[str, None] = None,
-        modvar_price: Union[str, None] = None,
+        modvar_density: Union[str, 'ModelVariable', None] = None,
+        modvar_price: Union[str, 'ModelVariable', None] = None,
         units_energy: Union[str, None] = None,
         units_monetary: Union[str, None] = None,
     ) -> Union[pd.DataFrame, None]:
-        """
-        Retrieve the cost (in units_monetary) of fuels in terms per energy unit 
-            units_energy for fuels with gravimetric or volumetric pricing. 
+        """Retrieve the cost (in units_monetary) of fuels in terms per energy 
+            unit units_energy for fuels with gravimetric or volumetric pricing. 
 
         Function Arguments
         ------------------
-        - df_neenergy_trajectories: data frame containing input variables as 
-            columns
-        - type_conversion: either "gravimetric" or "volumetric". If invalid, 
-            returns None
+        df_neenergy_trajectories : pd.DataFrame
+            DataFrame containing input variables as columns
+        type_conversion : str
+            Either "gravimetric" or "volumetric". If invalid, returns None
 
         Keyword Arguments
         -----------------
-        - modvar_density: model variable used to specify density (e.g., 
+        modvar_density : Union[str, 'ModelVariable', None]
+            ModelVariable used to specify density (e.g., 
             self.modvar_enfu_energy_density_gravimetric). Dependent on 
             type_conversion
-        - modvar_price: model variable used to specify density (e.g., 
+        modvar_price : Union[str, 'ModelVariable', None]
+            ModelVariable used to specify density (e.g., 
             self.modvar_enfu_energy_price_gravimetric). Dependent on 
             type_conversion
-        - units_energy: valid energy unit. If None (or if invalid), default to 
+        units_energy : Union[str, None]
+            Valid energy unit. If None (or if invalid), default to configuration 
+            units.
+        units_monetary : Union[str, None]
+            Valid monetary unit. If None (or if invalid), default to 
             configuration units.
-        - units_monetary: valid monetary unit. If None (or if invalid), default 
-            to configuration units.
         """
         
         if (type_conversion not in ["gravimetric", "volumetric"]):
@@ -2718,7 +2721,7 @@ class EnergyConsumption:
         # fuel value--in terms of ccsq fuel demands
         arr_ccsq_total_fuel_value = self.get_enfu_fuel_costs_per_energy(
             df_neenergy_trajectories,
-            modvar_for_units_energy = self.modvar_enfu_energy_demand_by_fuel_ccsq
+            modvar_for_units_energy = self.modvar_enfu_energy_demand_by_fuel_ccsq,
         )
         
 

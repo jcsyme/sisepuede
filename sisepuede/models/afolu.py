@@ -7312,7 +7312,7 @@ class AFOLU:
 
             
             for cat, arr in dict_cat_to_fuel_shares.items():
-                
+
                 # get a shifter
                 tss = suc.TimeSeriesSimplexShifter(arr, )
                 arr_out = tss.shift_mass_scalar_vectors(arr, dict_vec_scalars, )
@@ -11553,9 +11553,7 @@ class AFOLU:
             scalar_int_area_to_bcl_area,
             scalar_int_mass_to_bcl_mass,
         )
-        if i == 0:
-            print("args_bcl:")
-            print(args_bcl)
+
 
         ledger._update(
             i, 

@@ -11,7 +11,7 @@ emissions_mass: MT
 # set the reporting units for energy demand (kJ, MJ, GJ, TJ, PJ, EJ, ZJ)
 energy_units: PJ
 # set the units for energy demands in NemoMod (TJ, PJ, EJ) - these should be of reasonable scale to power units to enable good numerical solutions
-energy_units_nemomod: TJ
+energy_units_nemomod: PJ
 # set the global warming potential (20, 100, 500)
 global_warming_potential: 100
 # if back-projecting solid waste, set the number of periods to back project
