@@ -229,9 +229,10 @@ class BiomassCarbonLedger:
 
         ##  INTERNAL CALCULATION VARIABLES
 
-        * `arr_area_protected_original` (T x N)
-            Area of each type (original) protected. Excludes young categories.
-            
+        * `arr_area_conversion_away_mature_forest` (T x N)
+            Area of conversion away from mature forests; removes young forest
+            conversions.
+
         * `arr_area_protected_original` (T x N)
             Area of each type (original) protected. Excludes young categories.
 
@@ -371,7 +372,7 @@ class BiomassCarbonLedger:
         * `arr_young_sf_base_by_tp_planted` (T x T)
             Array storing base sequestration factors by time period, which are
             generally based on NPP curves.
-
+        
         * `vec_area_conversion_away_young_forest` (T x 1)
             Vector of total conversion away from young forest.
 
@@ -937,6 +938,7 @@ class BiomassCarbonLedger:
 
         # shape T x N
         arr_area = np.zeros(shape_by_cat, )
+        arr_area_conversion_away_mature_forest = np.zeros(shape_by_cat, )
         arr_area_protected_original = np.zeros(shape_by_cat, )
         arr_area_protected_total = np.zeros(shape_by_cat, )
         arr_area_remaining_from_orig = np.zeros(shape_by_cat, )
@@ -1048,6 +1050,7 @@ class BiomassCarbonLedger:
         ##  SET PROPERTIES
 
         self.arr_area = arr_area
+        self.arr_area_conversion_away_mature_forest = arr_area_conversion_away_mature_forest
         self.arr_area_protected_original = arr_area_protected_original
         self.arr_area_protected_total = arr_area_protected_total
         self.arr_area_remaining_from_orig = arr_area_remaining_from_orig
@@ -1376,6 +1379,7 @@ class BiomassCarbonLedger:
             arrays:
 
             * arr_area
+            * arr_area_conversion_away_mature_forest
             * arr_area_conversion_away_total
             * arr_area_conversion_into
             * arr_area_protected_original
@@ -1460,7 +1464,7 @@ class BiomassCarbonLedger:
         ##  UPDATE PROTECTED AREAS
 
         area_protected_young = max(
-            vec_area_protected[1] - self.arr_area_remaining_from_orig_after_conversion_away[i, ind_fs],
+            vec_area_protected[ind_fs] - self.arr_area_remaining_from_orig_after_conversion_away[i, ind_fs],
             0, 
         )
         vec_protected_original = np.min(
@@ -1480,7 +1484,7 @@ class BiomassCarbonLedger:
 
         # update the hypothetical area converted away from young forest (EXCLUDING protection)
         area_conversion_away_young_forest_no_protection = -1*min(
-            self.arr_area_remaining_from_orig[i, ind_fs] - vec_area_converted_away[1],
+            self.arr_area_remaining_from_orig[i, ind_fs] - vec_area_converted_away[ind_fs],
             0
         )
         self.vec_area_conversion_away_young_forest_no_protection[i] = area_conversion_away_young_forest_no_protection
@@ -1492,6 +1496,10 @@ class BiomassCarbonLedger:
         )
         self.vec_area_conversion_away_young_forest[i] = area_conversion_away_young_forest
 
+        # update mature forest conversions
+        vec_area_converted_away_mature = vec_area_converted_away.copy()
+        vec_area_converted_away_mature[ind_fs] -= area_conversion_away_young_forest
+        self.arr_area_conversion_away_mature_forest[i] = vec_area_converted_away_mature
 
         return None
 
@@ -1898,7 +1906,7 @@ class BiomassCarbonLedger:
         # some shortcuts
         c_demanded = self.vec_total_removals_demanded[i]
         frac_c_converted_avail = self.vec_frac_biomass_from_conversion_available_for_use[i]
-        vec_area_conv = self.arr_area_conversion_away_total[i]
+        vec_area_conv = self.arr_area_conversion_away_mature_forest[i]
         vec_area_protected = self.arr_area_protected_original[i]
         vec_area_remaining = self.arr_area_remaining_from_orig_after_conversion_away[i]
         vec_c_ag_total = self.arr_orig_biomass_c_ag_starting[i]
