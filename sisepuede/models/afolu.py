@@ -4327,6 +4327,7 @@ class AFOLU:
         (
             vec_biomass_bg_to_ag_ratio,
             vec_frac_biomass_from_conversion_available_for_use,
+            vec_frac_rmv_priority_yf,
         ) = self.get_bcl_other_parameters(
             mangroves = mangroves,
         )
@@ -4357,6 +4358,7 @@ class AFOLU:
             vec_area_init,
             vec_biomass_ag_init_stst_storage,
             vec_biomass_bg_to_ag_ratio,
+            vec_frac_rmv_priority_yf,
             vec_frac_biomass_adjustment_threshold,
             vec_frac_biomass_from_conversion_available_for_use,
             vec_sf_nominal_initial,
@@ -5320,10 +5322,12 @@ class AFOLU:
 
         # fraction of converted biomass available for use
         vec_frac_biomass_from_conversion_available_for_use = self.arrays_frst.arr_frst_frac_c_converted_available
+        vec_frac_rmv_priority_yf = self.arrays_frst.arr_frst_bcl_frac_rmv_priority_yf
        
         out = (
             vec_biomass_c_bg_to_ag_ratio,
             vec_frac_biomass_from_conversion_available_for_use,
+            vec_frac_rmv_priority_yf,
         )
 
         return out

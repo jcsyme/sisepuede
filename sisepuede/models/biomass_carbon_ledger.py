@@ -95,6 +95,9 @@ class BiomassCarbonLedger:
     vec_biomass_c_bg_to_ag_ratio : np.ndarray
         Vector (length 2) giving the ratio of below-ground biomass to 
         above-ground biomass for primary and secondary forest
+    vec_biomass_c_removals_young_priority_frac : np.ndarray
+        Vector (length T) giving the fraction of young forest biomass stock 
+        available that is drawn from BEFORE drawing from mature forests.
     vec_frac_biomass_adjustment_threshold : Union[float, np.ndarray]
         Vector (length T) or float giving adjustment threshold for 
         sequestration. If the average carbon stock level per area falls below 
@@ -198,6 +201,10 @@ class BiomassCarbonLedger:
             biomass. This is used to produced crude estimates of below-ground
             biomass stock.
 
+        * `vec_biomass_c_removals_young_priority_frac` (T x 1)
+            Fraction of young forest biomass stock available that is drawn from
+            BEFORE drawing from mature forests.
+            
         * `vec_frac_biomass_adjustment_threshold` (T x 1) 
             Vector storing the biomass sequestration adjustment threshold by 
             time period. If the average carbon stock per area relative to the 
@@ -421,7 +428,7 @@ class BiomassCarbonLedger:
         * `vec_biomass_c_removals_from_forest_demanded` (T x 1)
             Total demand for removals from all forested land after accounting 
             for automatic removals from available converted biomass.
-
+        
         * `vec_biomass_c_removed_from_original_demanded` (T x 1)
             Demand for removals from original forested land after accounting for
             automatic removals from available converted biomass.
@@ -429,9 +436,13 @@ class BiomassCarbonLedger:
         * `vec_biomass_c_removed_from_original_unmet` (T x N)
             Demand for removals unmet by original forests.
 
-        * `vec_biomass_c_removed_from_young` (T x 1)
+        * `vec_biomass_c_removed_from_young_post_orig` (T x 1)
             Vector storing the mass of biomass removed from young forests at
-            time t
+            time t AFTER removals from original
+
+        * `vec_biomass_c_removed_from_young_pre_orig` (T x 1)
+            Vector storing the mass of biomass removed from young forests at
+            time t BEFORE removals from original
         
         * `vec_orig_biomass_c_accessible_pool` (T x 1)
             Vector storing the total mass of biomass accessible. Used to
@@ -516,6 +527,7 @@ class BiomassCarbonLedger:
         vec_area_init: np.ndarray,
         vec_biomass_c_ag_init_stst_storage: np.ndarray,
         vec_biomass_c_bg_to_ag_ratio: np.ndarray,
+        vec_biomass_c_removals_young_priority_frac: np.ndarray,
         vec_frac_biomass_adjustment_threshold: Union[float, np.ndarray],
         vec_frac_biomass_from_conversion_available_for_use: Union[float, int, np.ndarray],
         vec_sf_nominal_initial: np.ndarray,
@@ -540,6 +552,7 @@ class BiomassCarbonLedger:
             vec_area_init,
             vec_biomass_c_ag_init_stst_storage,
             vec_biomass_c_bg_to_ag_ratio,
+            vec_biomass_c_removals_young_priority_frac,
             vec_frac_biomass_adjustment_threshold,
             vec_frac_biomass_from_conversion_available_for_use,
             vec_sf_nominal_initial,
@@ -580,6 +593,7 @@ class BiomassCarbonLedger:
         vec_area_init: np.ndarray,
         vec_biomass_c_ag_init_stst_storage: np.ndarray,
         vec_biomass_c_bg_to_ag_ratio: np.ndarray,
+        vec_biomass_c_removals_young_priority_frac: np.ndarray,
         vec_frac_biomass_adjustment_threshold: Union[float, np.ndarray],
         vec_frac_biomass_from_conversion_available_for_use: Union[float, int, np.ndarray],
         vec_sf_nominal_initial: np.ndarray,
@@ -625,6 +639,13 @@ class BiomassCarbonLedger:
             "vec_biomass_c_bg_to_ag_ratio",
         )
 
+        # priority removal fraction from young forest available stock
+        vec_biomass_c_removals_young_priority_frac = self._verify_convert_array_input_to_array(
+            vec_biomass_c_removals_young_priority_frac,
+            self.n_tp,
+            "vec_biomass_c_removals_young_priority_frac",
+        )
+
         # removals adjustment threshold
         vec_frac_biomass_adjustment_threshold = self._verify_convert_array_input_to_array(
             vec_frac_biomass_adjustment_threshold,
@@ -656,8 +677,16 @@ class BiomassCarbonLedger:
 
         ##  INITIALIZE SOME OTHER DEPENDENTS
 
+        # some derivative inputs
         vec_biomass_c_ag_min_reqd_per_area = vec_biomass_c_ag_init_stst_storage*arr_frac_biomass_dead_storage[0]
         vec_biomass_c_ag_init_healthy_available = vec_biomass_c_ag_init_stst_storage - vec_biomass_c_ag_min_reqd_per_area
+
+        # clip fractions
+        vec_biomass_c_removals_young_priority_frac = np.clip(
+            vec_biomass_c_removals_young_priority_frac,
+            0.0,
+            1.0,
+        )
 
 
         ##  RETURN
@@ -670,6 +699,7 @@ class BiomassCarbonLedger:
             vec_biomass_c_ag_init_stst_storage,
             vec_biomass_c_ag_min_reqd_per_area,
             vec_biomass_c_bg_to_ag_ratio,
+            vec_biomass_c_removals_young_priority_frac,
             vec_frac_biomass_adjustment_threshold,
             vec_frac_biomass_from_conversion_available_for_use,
             vec_sf_nominal_initial,
@@ -914,6 +944,7 @@ class BiomassCarbonLedger:
         vec_area_init: np.ndarray,
         vec_biomass_c_ag_init_stst_storage: np.ndarray,
         vec_biomass_c_bg_to_ag_ratio: np.ndarray,
+        vec_biomass_c_removals_young_priority_frac: np.ndarray,
         vec_frac_biomass_adjustment_threshold: Union[float, np.ndarray],
         vec_frac_biomass_from_conversion_available_for_use: Union[float, int, np.ndarray],
         vec_sf_nominal_initial: np.ndarray,
@@ -989,7 +1020,8 @@ class BiomassCarbonLedger:
         vec_biomass_c_removals_from_forest_demanded = np.zeros(n_tp, )
         vec_biomass_c_removed_from_original_demanded = np.zeros(n_tp, )
         vec_biomass_c_removed_from_original_unmet = np.zeros(n_tp, )
-        vec_biomass_c_removed_from_young = np.zeros(n_tp, )
+        vec_biomass_c_removed_from_young_post_orig = np.zeros(n_tp, )
+        vec_biomass_c_removed_from_young_pre_orig = np.zeros(n_tp, )
         vec_orig_biomass_c_accessible_pool = np.zeros(n_tp, )
         vec_total_removals_met = np.zeros(n_tp, )
         vec_young_biomass_c_ag_available_from_conversion = np.zeros(n_tp, )
@@ -1010,6 +1042,7 @@ class BiomassCarbonLedger:
             vec_biomass_c_ag_init_stst_storage,
             vec_biomass_c_ag_min_reqd_per_area,
             vec_biomass_c_bg_to_ag_ratio,
+            vec_biomass_c_removals_young_priority_frac,
             vec_frac_biomass_adjustment_threshold,
             vec_frac_biomass_from_conversion_available_for_use,
             vec_sf_nominal_initial,
@@ -1020,6 +1053,7 @@ class BiomassCarbonLedger:
             vec_area_init,
             vec_biomass_c_ag_init_stst_storage,
             vec_biomass_c_bg_to_ag_ratio,
+            vec_biomass_c_removals_young_priority_frac,
             vec_frac_biomass_adjustment_threshold,
             vec_frac_biomass_from_conversion_available_for_use,
             vec_sf_nominal_initial,
@@ -1097,9 +1131,11 @@ class BiomassCarbonLedger:
         self.vec_biomass_c_bg_to_ag_ratio = vec_biomass_c_bg_to_ag_ratio
         self.vec_biomass_c_removals_from_converted = vec_biomass_c_removals_from_converted
         self.vec_biomass_c_removals_from_forest_demanded = vec_biomass_c_removals_from_forest_demanded
+        self.vec_biomass_c_removals_young_priority_frac = vec_biomass_c_removals_young_priority_frac
         self.vec_biomass_c_removed_from_original_demanded = vec_biomass_c_removed_from_original_demanded
         self.vec_biomass_c_removed_from_original_unmet = vec_biomass_c_removed_from_original_unmet
-        self.vec_biomass_c_removed_from_young = vec_biomass_c_removed_from_young
+        self.vec_biomass_c_removed_from_young_post_orig = vec_biomass_c_removed_from_young_post_orig
+        self.vec_biomass_c_removed_from_young_pre_orig = vec_biomass_c_removed_from_young_pre_orig
         self.vec_frac_biomass_adjustment_threshold = vec_frac_biomass_adjustment_threshold
         self.vec_frac_biomass_ag_decomposition = vec_frac_biomass_ag_decomposition
         self.vec_frac_biomass_from_conversion_available_for_use = vec_frac_biomass_from_conversion_available_for_use
@@ -1578,7 +1614,10 @@ class BiomassCarbonLedger:
         # shortcuts
         c_avail_conv_young = self.vec_young_biomass_c_ag_available_from_conversion[i]
         c_decomp_young = self.vec_young_biomass_c_loss_from_decomposition[i]
-        c_removed_young = self.vec_biomass_c_removed_from_young[i]
+        c_removed_young = (
+            self.vec_biomass_c_removed_from_young_post_orig[i]
+            + self.vec_biomass_c_removed_from_young_pre_orig[i]
+        )
         frac_decomp = self.vec_frac_biomass_ag_decomposition[i]
         ind_fs = self.ind_frst_secondary
         removals_from_conv = self.vec_biomass_c_removals_from_converted[i]
@@ -1688,7 +1727,7 @@ class BiomassCarbonLedger:
             * vec_biomass_c_removals_from_forest_demanded
             * vec_biomass_c_removed_from_original_demanded
             * vec_biomass_c_removed_from_original_unmet
-            * vec_biomass_c_removed_from_young
+            * vec_biomass_c_removed_from_young_post_orig
             
         """
 
@@ -1701,6 +1740,7 @@ class BiomassCarbonLedger:
         c_available_young = self.vec_young_biomass_c_available_for_removals_total[i]
         c_demanded = self.vec_total_removals_demanded[i]
         c_rmv_from_conv = self.vec_biomass_c_removals_from_converted[i]
+        c_rmv_priority_frac_yf = self.vec_biomass_c_removals_young_priority_frac[i]
         vec_orig_frac_removals_alloc = self.arr_orig_allocation_removals[i]
 
 
@@ -1710,30 +1750,36 @@ class BiomassCarbonLedger:
         c_demanded_from_forest = max(c_demanded - c_rmv_from_conv, 0)
         self.vec_biomass_c_removals_from_forest_demanded[i] = c_demanded_from_forest
 
+        # 2. get first-priority removals from young forests HEREHEREHERE
+        c_removed_from_young_pre_orig = min(c_demanded_from_forest, c_available_young*c_rmv_priority_frac_yf)
+        self.vec_biomass_c_removed_from_young_pre_orig[i] = c_removed_from_young_pre_orig
 
-        # 2. get actual removals from original forests
-        c_removed_from_orig = min(c_demanded_from_forest, c_available_orig)
+        # 3. get actual removals from original forests
+        c_removed_from_orig = min(
+            max(c_demanded_from_forest - c_removed_from_young_pre_orig), 
+            c_available_orig,
+        )
         self.vec_biomass_c_removed_from_original_demanded[i] = c_removed_from_orig
         
 
-        # 3. unmet demand: vec_biomass_c_removed_from_original_unmet
-        c_demand_unmet = c_demanded_from_forest - c_removed_from_orig
+        # 4. unmet demand: vec_biomass_c_removed_from_original_unmet
+        c_demand_unmet = c_demanded_from_forest - c_removed_from_orig - c_removed_from_young_pre_orig
         self.vec_biomass_c_removed_from_original_unmet[i] = c_demand_unmet
 
 
-        # 4. biomass removed from young forests: vec_biomass_c_removed_from_young
-        c_removed_from_young = min(c_demand_unmet, c_available_young, )
-        self.vec_biomass_c_removed_from_young[i] = c_removed_from_young
+        # 5. biomass removed from young forests POST original: vec_biomass_c_removed_from_young_post_orig
+        c_removed_from_young_post_orig = min(c_demand_unmet, c_available_young - c_removed_from_young_pre_orig, )
+        self.vec_biomass_c_removed_from_young_post_orig[i] = c_removed_from_young_post_orig
 
 
-        # 5. get total biomass taken from each original forest type: arr_orig_biomass_c_removed_from_forests
+        # 6. get total biomass taken from each original forest type: arr_orig_biomass_c_removed_from_forests
         vec_orig_removals = vec_orig_frac_removals_alloc*c_removed_from_orig
         self.arr_orig_biomass_c_removed_from_forests[i] = vec_orig_removals
 
 
-        # 6. get total biomass taken from each forest type (incl. young): arr_biomass_c_removed_from_forests_excluding_conversion
+        # 7. get total biomass taken from each forest type (incl. young): arr_biomass_c_removed_from_forests_excluding_conversion
         vec_total_removals = vec_orig_removals.copy()
-        vec_total_removals[ind_fs] += c_removed_from_young
+        vec_total_removals[ind_fs] += c_removed_from_young_pre_orig + c_removed_from_young_post_orig 
         self.arr_biomass_c_removed_from_forests_excluding_conversion[i] = vec_total_removals
 
         return None
@@ -2270,7 +2316,7 @@ class BiomassCarbonLedger:
         
         # shortcuts
         arr_alloc = self.arr_young_biomass_c_stock_removal_allocation
-        c_removals_demanded_from_young = self.vec_biomass_c_removed_from_young[i]
+        c_removals_demanded_from_young = self.vec_biomass_c_removed_from_young_post_orig[i]
         vec_aux = self.arr_young_biomass_c_stock_removal_allocation_aux[i]
 
         # iterate to add 

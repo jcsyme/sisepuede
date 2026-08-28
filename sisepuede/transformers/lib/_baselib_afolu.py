@@ -180,7 +180,7 @@ def transformation_agrc_improve_rice_management(
         df_input,
         model_attributes,
         {
-            model_afolu.modvar_agrc_ef_ch4: {
+            model_afolu.modvar_agrc_ef_ch4_crop_decomposition: {
                 "bounds": (0, np.inf),
                 "categories": ["rice"],
                 "magnitude": magnitude,

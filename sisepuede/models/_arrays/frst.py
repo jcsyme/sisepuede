@@ -75,7 +75,15 @@ class ArraysFRST(ma.SubsectorArraysCollection):
             set_property = True,
             var_bounds = (0, 1),
         )
-        
+
+        # priority fraction for removals from young forests
+        self.get_modvar_array(
+            df_trajectories,
+            self.modvar_frst_bcl_frac_rmv_priority_yf,
+            override_vector_for_single_mv_q = False, 
+            set_property = True,
+            var_bounds = (0, 1),
+        )
        
 
         return None
