@@ -1756,7 +1756,7 @@ class BiomassCarbonLedger:
 
         # 3. get actual removals from original forests
         c_removed_from_orig = min(
-            max(c_demanded_from_forest - c_removed_from_young_pre_orig), 
+            max(c_demanded_from_forest - c_removed_from_young_pre_orig, 0), 
             c_available_orig,
         )
         self.vec_biomass_c_removed_from_original_demanded[i] = c_removed_from_orig

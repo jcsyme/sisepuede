@@ -38,6 +38,10 @@ import sisepuede.utilities._toolbox as sf
 #    SET SOME GLOBAL VARIABLES    #
 ###################################
 
+# SOME DEFAULT TRANSFORMER VALUES
+_DEFAULT_VALUE_TRANSFORMER_DECREASE_MCF = 0.5
+
+
 # SOME DEFAULT VALUES
 _DEFAULT_VALUE_VIR_ALPHA_LOGISTIC = 0.0
 _DEFAULT_VALUE_VIR_RENEWABLE_CAP_DELTA_FRAC = 0.0075
@@ -746,6 +750,7 @@ class Transformers:
         self.code_baseline = code_baseline
         self.config = config
         self.key_config_alpha_logistic = "alpha_logistic"
+        self.key_config_apply_renewable_target = "apply_renewable_target"
         self.key_config_baseline = key_baseline
         self.key_config_cats_entc_max_investment_ramp = "categories_entc_max_investment_ramp"
         self.key_config_cats_entc_pps_to_cap = "categories_entc_pps_to_cap"
@@ -756,6 +761,7 @@ class Transformers:
         self.key_config_general = key_general
         self.key_config_magnitude_lurf = "magnitude_lurf" # MUST be same as kwarg in _trfunc_baseline
         self.key_config_n_tp_ramp = "n_tp_ramp"
+        self.key_config_scale_non_renewables_to_match_surplus_msp = "scale_non_renewables_to_match_surplus_msp"
         self.key_config_tp_0_ramp = "tp_0_ramp" 
         self.key_config_vec_implementation_ramp = "vec_implementation_ramp"
         self.key_config_vir_renewable_cap_delta_frac = "vir_renewable_cap_delta_frac"
@@ -957,7 +963,9 @@ class Transformers:
         # check if baseline includes partial land use reallocation factor
         baseline_with_lurf = self.config.get(
             f"{self.key_config_baseline}.{self.key_config_magnitude_lurf}"
-        ) > 0.0
+        ) 
+        if sf.isnumber(baseline_with_lurf):
+            baseline_with_lurf = baseline_with_lurf > 0.0
 
 
         ##  SET PROPERTIES
@@ -1326,6 +1334,14 @@ class Transformers:
         )
         all_transformers.append(self.waso_descrease_consumer_food_waste)
 
+
+        self.waso_descrease_mcf_landfills = Transformer(
+            f"{_MODULE_CODE_SIGNATURE}:WASO:DEC_MCF_LANDFILLS",
+            self._trfunc_waso_decrease_mcf_landfills, 
+            attr_transformer_code
+        )
+        all_transformers.append(self.waso_descrease_mcf_landfills)
+        
         
         self.waso_increase_anaerobic_treatment_and_composting = Transformer(
             f"{_MODULE_CODE_SIGNATURE}:WASO:INC_ANAEROBIC_AND_COMPOST", 
@@ -2058,16 +2074,18 @@ class Transformers:
         cats_renewable: Union[List[str], None], 
         dict_entc_renewable_target_msp: dict,
     ) -> List[str]:
-        """Set any targets for renewable energy categories. Relies on 
+        """
+        Set any targets for renewable energy categories. Relies on 
             cats_renewable to verify keys in renewable_target_entc
         
         Keyword Arguments
         -----------------
-        cats_renewable : Union[List[str], None]
-            Categories considered renewable
-        dict_entc_renewable_target_msp : Dict[str, Union[float, int]]
-            Dictionary of renewable energy categories mapped to MSP targets 
-            under the renewable target transformation
+        - dict_config: dictionary mapping input configuration arguments to key 
+            values. Must include the following keys:
+
+            * dict_entc_renewable_target_msp: dictionary of renewable energy
+                categories mapped to MSP targets under the renewable target
+                transformation
         """
         dict_entc_renewable_target_msp = (
             {}
@@ -2869,11 +2887,13 @@ class Transformers:
 
     def _trfunc_baseline(self,
         df_input: pd.DataFrame,
+        apply_renewable_target: Union[bool, None] = None,
         categories_entc_max_investment_ramp: Union[List[str], None] = None,
         categories_entc_pps_to_cap: Union[List[str], None] = None,
         categories_entc_renewable: Union[List[str], None] = None,
         dict_entc_renewable_target_msp_baseline: dict = {},
         magnitude_lurf: Union[float, None] = None,
+        scale_non_renewables_to_match_surplus_msp: Union[bool, None] = None,
         strat: Union[int, None] = None,
         vec_implementation_ramp: Union[np.ndarray, Dict[str, int], None] = None,
     ) -> pd.DataFrame:
@@ -2887,6 +2907,9 @@ class Transformers:
 
         Keyword Arguments
         -----------------
+        apply_renewable_target : bool
+            Apply a renewable energy target? If False, no renewable target
+            variables will be used. 
         - categories_entc_max_investment_ramp: categories to cap investments in
         - categories_entc_pps_to_cap: ENTC categories to cap at current levels 
             when projecting minimum share of production (MSP) forward.
@@ -2898,6 +2921,8 @@ class Transformers:
             base case.
         - magnitude_lurf: magnitude of the land use reallocation factor under
             baseline
+        scale_non_renewables_to_match_surplus_msp : bool
+            Scale renewables if applying a baseline target? 
         - vec_implementation_ramp: optional vector specifying the implementation
             scalar ramp for the transformation. If None, defaults to a uniform 
             ramp that starts at the time specified in the configuration.
@@ -2940,12 +2965,28 @@ class Transformers:
             
         magnitude_lurf = self.bounded_real_magnitude(magnitude_lurf, 0.0)
 
-        
+
+        ##  RENEWABLE TARGETS
+
+        if apply_renewable_target is not None:
+            apply_renewable_target = self.config.get(
+                f"{self.key_config_baseline}.{self.key_config_apply_renewable_target}",
+                return_on_none = True,
+            )
+
+        # scale?
+        if scale_non_renewables_to_match_surplus_msp is None:
+            scale_non_renewables_to_match_surplus_msp = self.config.get(
+                f"{self.key_config_baseline}.{self.key_config_scale_non_renewables_to_match_surplus_msp}",
+                return_on_none = True,
+            )
+
         # dictionary mapping to target minimum shares of production
         dict_entc_renewable_target_msp_baseline = self.get_entc_dict_renewable_target_msp(
             cats_renewable = categories_entc_renewable,
             dict_entc_renewable_target_msp = dict_entc_renewable_target_msp_baseline,
         )
+
 
         # characteristics for BASELINE MSP ramp 
         (
@@ -2957,26 +2998,28 @@ class Transformers:
             categories_entc_max_investment_ramp = categories_entc_max_investment_ramp,
             vec_implementation_ramp = vec_implementation_ramp,
         )
-
+        
         self.categories_entc_max_investment_ramp = categories_entc_max_investment_ramp
+
 
         ##  AFOLU BASE
 
-        # set land use reallocation factor
-        df_out = tbg.transformation_general(
-            df_out,
-            self.model_attributes,
-            {
-                self.model_afolu.modvar_lndu_reallocation_factor: {
-                    "bounds": (0.0, 1.0),
-                    "magnitude": magnitude_lurf,
-                    "magnitude_type": "final_value",
-                    "vec_ramp": vec_implementation_ramp
-                }
-            },
-            field_region = self.key_region,
-            strategy_id = strat,
-        )
+        # set land use reallocation factor if the baseline with lurf isn't None
+        if self.baseline_with_lurf is not None:
+            df_out = tbg.transformation_general(
+                df_out,
+                self.model_attributes,
+                {
+                    self.model_afolu.modvar_lndu_reallocation_factor: {
+                        "bounds": (0.0, 1.0),
+                        "magnitude": magnitude_lurf,
+                        "magnitude_type": "final_value",
+                        "vec_ramp": vec_implementation_ramp
+                    }
+                },
+                field_region = self.key_region,
+                strategy_id = strat,
+            )
 
 
         ##  CIRCULAR ECONOMY BASE
@@ -2996,24 +3039,25 @@ class Transformers:
         # NEW ADDITION (2023-09-27): ALLOW FOR BASELINE INCREASE IN RENEWABLE ADOPTION
 
         target_renewables_value_min = sum(dict_entc_renewable_target_msp_baseline.values())
-
-        # apply transformation
-        df_out = tbe.transformation_entc_renewable_target(
-            df_out,
-            target_renewables_value_min,
-            vec_implementation_ramp,
-            self.model_enerprod,
-            dict_cats_entc_max_investment = dict_entc_renewable_target_cats_max_investment,
-            field_region = self.key_region,
-            include_target = False, # only want to adjust MSPs in line with this
-            magnitude_as_floor = True,
-            magnitude_renewables = dict_entc_renewable_target_msp_baseline,
-            scale_non_renewables_to_match_surplus_msp = True,
-            strategy_id = strat,
-            #**kwargs,
-        )
-
-
+        
+        if apply_renewable_target:
+            # apply transformation
+            df_out = tbe.transformation_entc_renewable_target(
+                df_out,
+                target_renewables_value_min,
+                vec_implementation_ramp,
+                self.model_enerprod,
+                dict_cats_entc_max_investment = dict_entc_renewable_target_cats_max_investment,
+                field_region = self.key_region,
+                include_target = False, # only want to adjust MSPs in line with this
+                magnitude_as_floor = True,
+                magnitude_renewables = dict_entc_renewable_target_msp_baseline,
+                scale_non_renewables_to_match_surplus_msp = scale_non_renewables_to_match_surplus_msp,
+                strategy_id = strat,
+                #**kwargs,
+            )
+        
+        
         ##  IPPU BASE
 
 
@@ -3747,6 +3791,9 @@ class Transformers:
             vec_implementation_ramp,
             df_input,
         )
+
+        global dfi
+        dfi = df_input.copy()
         """
         ##  BEGIN modify ramp to be a binary/start in another year HEREHERE - TEMP  ##
         vec_ramp = np.array(
@@ -4050,6 +4097,10 @@ class Transformers:
             df_input,
         )
 
+        # if baseline lurf is explicit, assume this is explicit as well
+        if self.baseline_with_lurf is None:
+            return df_out
+        
         # if baseline includes LURF, don't modify unless forced to do so
         if (not self.baseline_with_lurf) | force:
             df_out = tbg.transformation_general(
@@ -5168,6 +5219,66 @@ class Transformers:
             field_region = self.key_region,
             model_circecon = self.model_circular_economy,
             strategy_id = strat
+        )
+
+        return df_out
+    
+
+
+    def _trfunc_waso_decrease_mcf_landfills(self,
+        df_input: Union[pd.DataFrame, None] = None,
+        magnitude: float = _DEFAULT_VALUE_TRANSFORMER_DECREASE_MCF,
+        strat: Union[int, None] = None,
+        vec_implementation_ramp: Union[np.ndarray, None] = None,
+    ) -> pd.DataFrame:
+        """Implement the "Decrease Methane Correction Factor in Landfills" WASO transformer on input DataFrame df_input. Can be used to represent a shift to semi-aerobic lanfills.
+        
+        Parameters
+        ----------
+        df_input : pd.DataFrame
+            Optional data frame containing trajectories to modify
+        dict_magnitude : 
+            % Reduction in MCF at landfills. E.g., 0.5 will _reduce_ the methane correction factor by 50%.
+        strat : int
+            Optional strategy value to specify for the transformation
+        vec_implementation_ramp : Union[np.ndarray, Dict[str, int], None]
+            Optional vector or dictionary specifying the implementation scalar ramp for the transformation. If None, defaults to a uniform ramp that starts at the time specified in the configuration.
+        """
+        # check input dataframe
+        df_input = (
+            self.baseline_inputs
+            if not isinstance(df_input, pd.DataFrame) 
+            else df_input
+        )
+
+        # check implementation ramp
+        vec_implementation_ramp = self.check_implementation_ramp(
+            vec_implementation_ramp,
+            df_input,
+        )
+
+        if not sf.isnumber(magnitude):
+            magnitude = 0.5
+        
+        magnitude = (
+            max(min(magnitude, 1.0), 0.0)
+            if magnitude >= 0
+            else 1 - magnitude
+        )
+
+        df_out = tbg.transformation_general(
+            df_input,
+            self.model_attributes,
+            {
+                self.model_circular_economy.modvar_waso_mcf_landfills_average: {
+                    "bounds": (0, np.inf),
+                    "magnitude": magnitude,
+                    "magnitude_type": "baseline_scalar",
+                    "vec_ramp": vec_implementation_ramp
+                }
+            },
+            field_region = self.key_region,
+            strategy_id = strat,
         )
 
         return df_out
@@ -6424,7 +6535,8 @@ class Transformers:
 
     def _trfunc_scoe_increase_applicance_efficiency(self,
         df_input: Union[pd.DataFrame, None] = None,
-        magnitude: float = 0.5,
+        categories: Union[List[str], None] = None,
+        magnitude: Union[Dict[str, float], float] = 0.5,
         strat: Union[int, None] = None,
         vec_implementation_ramp: Union[np.ndarray, None] = None,
     ) -> pd.DataFrame:
@@ -6435,7 +6547,8 @@ class Transformers:
         df_input : pd.DataFrame
             Optional data frame containing trajectories to modify
         magnitude : float
-            Fractional increase in applieance energy efficiency
+            Fractional increase in applieance energy efficiency OR dictionary 
+            mapping SCOE category to fractional increase
         strat : int
             Optional strategy value to specify for the transformation
         vec_implementation_ramp : Union[np.ndarray, Dict[str, int], None]
@@ -6454,13 +6567,14 @@ class Transformers:
             df_input,
         )
 
-        magnitude = self.bounded_real_magnitude(magnitude, 0.5)
+        magnitude = self.bounded_real_magnitude(magnitude, 0.75)
 
         df_strat_cur = tbe.transformation_scoe_decrease_demand_for_appliance_energy(
             df_input,
             magnitude,
             vec_implementation_ramp,
             self.model_attributes,
+            categories = categories,
             field_region = self.key_region,
             model_enercons = self.model_enercons,
             strategy_id = strat
@@ -7345,6 +7459,7 @@ class Transformers:
         dict_categories_target_out = self.check_trns_tech_allocation_dict(
             dict_categories_target,
             {
+
                 "road_heavy_regional": 1.0,
             }
         )
@@ -7972,4 +8087,3 @@ def is_transformers(
     )
 
     return out
-

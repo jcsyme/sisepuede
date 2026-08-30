@@ -2796,9 +2796,7 @@ class EnergyConsumption:
         n_projection_time_periods: int = None,
         projection_time_periods: list = None
     ) -> pd.DataFrame:
-
-        """
-        SISEPUEDE model for Fugitive Emissions (FGTV). Calculate fugitive 
+        """SISEPUEDE model for Fugitive Emissions (FGTV). Calculate fugitive 
             emissions of gasses due to the production, transmission, and 
             distribution of coal, oil, and gas. Excludes process and combustion 
             emissions from mining, exploration, processing, and/or refinement of 
