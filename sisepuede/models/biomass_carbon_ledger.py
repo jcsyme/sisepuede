@@ -1763,7 +1763,7 @@ class BiomassCarbonLedger:
         
 
         # 4. unmet demand: vec_biomass_c_removed_from_original_unmet
-        c_demand_unmet = c_demanded_from_forest - c_removed_from_orig - c_removed_from_young_pre_orig
+        c_demand_unmet = max(c_demanded_from_forest - c_removed_from_orig - c_removed_from_young_pre_orig, 0)
         self.vec_biomass_c_removed_from_original_unmet[i] = c_demand_unmet
 
 
