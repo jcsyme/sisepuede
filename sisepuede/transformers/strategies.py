@@ -1459,17 +1459,18 @@ class Strategies:
                 
 
             ##  ITERATE OVER FUNCTIONAL TRANSFORMATIONS
-
+            
             for i, strat in enumerate(strategies):
 
                 t0_cur = time.time()
                 strategy = self.get_strategy(strat)
-
+                print(f"{strat} running")
                 if strategy is None:
                     self._log(
                         f"\tStrategy {self.key_strategy} not found: check that a Strategy object has been defined associated with the id.",
                         type_log = "warning"
                     )
+                    
                     continue
 
 

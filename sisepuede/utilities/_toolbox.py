@@ -1,5 +1,6 @@
 import inspect
 import logging
+import matplotlib.pyplot as plt
 import munch
 import numpy as np
 import os, os.path
@@ -3935,6 +3936,28 @@ def reverse_dict(
         )
 
     return dict_out
+
+
+
+def rgb2hex(
+    r: int,
+    g: int,
+    b: int, 
+) -> str:
+    """From: https://stackoverflow.com/questions/3380726/converting-an-rgb-color-tuple-to-a-hexidecimal-string
+    """
+    out = "#{:02x}{:02x}{:02x}".format(r, g, b, )
+    return out
+
+
+
+def rgbtup_from_ctup(
+    ctup: Tuple[str, float],
+) -> Tuple[float]:
+    """Convert a cmap tuple to rgb
+    """
+    out = plt.colormaps.get(ctup[0])(ctup[1], )
+    return out
 
 
 

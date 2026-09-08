@@ -4,9 +4,9 @@ Flooded Lands,``flooded``,"Flooded lands are areas that are consistently inundat
 Forests - Mangroves,``forests_mangroves``,Forested land covered in mangroves or other partially inundated trees.,,,,``mangroves``,1,0,0,0,0,0,0,0,0,0,0
 Forests - Primary,``forests_primary``,Area of land covered in primary forest.,,,,``primary``,1,1,0,0,0,0,0,0,0,0,0
 Forests - Secondary,``forests_secondary``,"Area of land covered in secondary forest, including plantations",,,,``secondary``,1,0,0,0,0,0,0,0,0,0,0
-Unmanaged Grasslands,``grasslands``,"Area of unmanaged grasslands, including native praries, steppe, and savanna. ",,,,none,1,0,0,0,0,1,0,0,0,0,0
+Grasslands,``grasslands``,"Area of unmanaged grasslands, including native praries, steppe, and savanna. ",,,,none,1,0,0,0,0,1,0,0,0,0,0
 Other,``other``,"Other land use categories, including permanent snow and glaciers, barren land, sand dunes, etc.",,,,none,0,0,0,0,0,0,1,0,0,0,0
-Pastures,``pastures``,Pastures are managed grasslands used for grazing.,,,,none,0,0,0,0,0,0,0,1,0,0,0
+Pastures and Managed Grazelands,``pastures``,Pastures are managed grasslands used for grazing.,,,,none,0,0,0,0,0,0,0,1,0,0,0
 Settlements,``settlements``,Area of land devoted to urban/suburban development. Assume no emissions from land use (primary emissions captured elsewhere).,,,,none,0,0,1,0,0,0,0,0,1,0,0
 Shrublands,``shrublands``,"Shrublands, including scrublands, chapparal, and maquis; lands with some sequestration in perennial woody biomass, but without uses for forestry or grazing. ",,,,none,0,0,0,0,0,0,0,0,0,1,0
 Wetlands,``wetlands``,"Wetlands, which emit :math:`\text{CH}_4`. Include wetlands, swamps, marshes, etc.",,,,none,0,0,0,0,0,0,0,0,0,0,1

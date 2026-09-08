@@ -1161,6 +1161,14 @@ class Transformers:
         )
         all_transformers.append(self.lndu_expand_sustainable_grazing)
 
+        
+        self.lndu_increase_pasture_productivity = Transformer(
+            f"{_MODULE_CODE_SIGNATURE}:LNDU:INC_PRODUCTIVITY_PASTURES", 
+            self._trfunc_lndu_increase_pasture_productivity,
+            attr_transformer_code
+        )
+        all_transformers.append(self.lndu_increase_pasture_productivity)
+
 
         self.lndu_increase_reforestation = Transformer(
             f"{_MODULE_CODE_SIGNATURE}:LNDU:INC_REFORESTATION", 
@@ -3703,6 +3711,78 @@ class Transformers:
     
 
 
+    def _trfunc_lndu_increase_pasture_productivity(self,
+        df_input: Union[pd.DataFrame, None] = None,
+        magnitude: Union[float, Dict[str, float]] = 0.2,
+        strat: Union[int, None] = None,
+        vec_implementation_ramp: Union[np.ndarray, Dict[str, int], None] = None,
+    ) -> pd.DataFrame:
+        """Implement the "Increase Pasture Productivity" LNDU transformer on input DataFrame df_input, which increases dry matter production in pastures. 
+        
+        Parameters
+        ----------
+        df_input : pd.DataFrame
+            Optional data frame containing trajectories to modify
+        magnitude : Union[float, Dict[str, float]]
+            Magnitude of productivity increase to apply to pasture yields (e.g., a 20% increase is entered as 0.2). Note that pasture yields are bounded from above by the Maximum Pasture Dry Matter Yield Factor.
+        strat : int
+            Optional strategy value to specify for the transformation
+        vec_implementation_ramp : Union[np.ndarray, Dict[str, int], None]
+            Optional vector or dictionary specifying the implementation scalar ramp for the transformation. If None, defaults to a uniform ramp that starts at the time specified in the configuration.
+        """
+        # check input dataframe
+        df_input = (
+            self.baseline_inputs
+            if not isinstance(df_input, pd.DataFrame) 
+            else df_input
+        )
+
+        # set the magnitude in case of none
+        magnitude = (
+            0.2 
+            if not sf.isnumber(magnitude)
+            else magnitude
+        )
+        magnitude = 1 + magnitude
+
+        # check implementation ramp
+        vec_implementation_ramp = self.check_implementation_ramp(
+            vec_implementation_ramp,
+            df_input,
+        )
+
+
+        ##  GET MODEL VARIABLES AND APPLY GENERAL TRANSFORMATION
+
+        modvar_ub = self.model_afolu.modvar_lndu_yf_pasture_sup
+        modvar_yf = self.model_afolu.modvar_lndu_yf_pasture_avg
+
+        df_out = tbg.transformation_general(
+            df_input,
+            self.model_attributes,
+            {
+                modvar_yf: {
+                    "bounds": (0.0, np.inf),
+                    "magnitude": magnitude,
+                    "magnitude_type": "baseline_scalar",
+                    "vec_ramp": vec_implementation_ramp
+                }
+            },
+            field_region = self.key_region,
+            strategy_id = strat,
+        )
+
+        # clip, don't need to group by region
+        df_out[modvar_yf.fields[0]] = np.clip(
+            df_out[modvar_yf.fields[0]].to_numpy(),
+            0.0,
+            df_out[modvar_ub.fields[0]].to_numpy(),
+        )
+
+        return df_out
+
+
+    
     def _trfunc_lndu_increase_reforestation(self,
         df_input: Union[pd.DataFrame, None] = None,
         cats_inflow_restriction: Union[List[str], None] = ["croplands", "other"],
@@ -7846,7 +7926,7 @@ class Transformers:
             df_input,
         )
 
-        
+
         df_out = tbg.transformation_general(
             df_input,
             self.model_attributes,

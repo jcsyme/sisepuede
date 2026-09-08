@@ -1347,7 +1347,7 @@ class BiomassCarbonLedger:
 
 
         ##  PERFORM UPDATES IN ORDER
-
+        
         # update removals first since everything downstream depends on them
         self._update_additional_biomass_removals(
             i, 

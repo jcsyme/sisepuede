@@ -9,9 +9,9 @@ from typing import *
 
 from sisepuede.core.attribute_table import *
 from sisepuede.core.model_attributes import ModelAttributes
-from sisepuede.manager.sisepuede_experimental_manager import *
 from sisepuede.manager.sisepuede_file_structure import *
 import sisepuede.core.support_classes as sc
+import sisepuede.manager.sisepuede_experimental_manager as sem
 import sisepuede.manager.sisepuede_models as sm
 import sisepuede.manager.sisepuede_output_database as sod
 import sisepuede.transformers as trf
@@ -615,7 +615,7 @@ class SISEPUEDE:
 
 
         try:
-            self.experimental_manager = SISEPUEDEExperimentalManager(
+            self.experimental_manager = sem.SISEPUEDEExperimentalManager(
                 self.attribute_design,
                 self.model_attributes,
                 self.dir_templates,
@@ -1114,12 +1114,11 @@ class SISEPUEDE:
 
 
 
-    def get_lhs_trajectories(
+    def get_lhs_trajectories(self,
         key_specification: Union[dict, int],
         region: str,
     ) -> Tuple[pd.Series, pd.Series, bool]:
-        """
-        Get LHS trajectories for input to generator. Returns a tuple of the 
+        """Get LHS trajectories for input to generator. Returns a tuple of the 
             following form:
 
             (lhs_l, lhs_x, base_future_q)

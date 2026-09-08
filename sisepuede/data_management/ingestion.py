@@ -38,23 +38,20 @@ class InputTemplate:
     template : Union[str, dict, None]
         The InputTemplate can be initialized using a file path to an 
         Excel file or a dictionary of
-        * path : 
-        if initializing using a path, the template should point to an 
-            Excel workbook containing the input data template. A description of 
-            the workbook's format is found below under "Template Formatting".
-        * dict : 
-        if initializing using a dictionary, the dictionary should have 
-            the following structure:
-            {
-                "strategy_id-X0" : 
-        pd.DataFrame(),
-                "strategy_id-X1" : 
-        pd.DataFrame()...
-            }
+        * path: If initializing using a path, the template should point to an 
+                Excel workbook containing the input data template. A description 
+                of the workbook's format is found below under "Template 
+                Formatting".
+        * dict: If initializing using a dictionary, the dictionary should have 
+                the following structure:
+                    {
+                        "strategy_id-X0" : pd.DataFrame(),
+                        "strategy_id-X1" : pd.DataFrame()...
+                    }
 
-            I.e., keys should follow the
+                where Xi are integer indices
 
-    model_attributes : Union[str, dict, None]
+    model_attributes : ModelAttributes
         a ModelAttributes data structure used to coordinate
         variables and inputs
 
@@ -583,7 +580,7 @@ class InputTemplate:
             df_sheet = dict_strategies_to_sheet.get(strat)
             df_sheet = self.model_attributes.add_index_fields(
                 df_sheet,
-                strategy_id = strat
+                strategy_id = strat,
             )
 
             if strat != strat_base:

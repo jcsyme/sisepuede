@@ -164,7 +164,7 @@ def transformation_general(
     df_input: pd.DataFrame,
     model_attributes: ma.ModelAttributes,
     dict_modvar_specs: Dict[str, Dict[str, str]],
-    field_region: str = "nation",
+    field_region: str = "region",
     regions_apply: Union[List[str], None] = None,
     strategy_id: Union[int, None] = None,
 ) -> pd.DataFrame:
@@ -294,7 +294,12 @@ def transformation_general(
 
     ##  CHECK SPECIFICATION DICTIONARY
 
-    modvars = sorted([x for x in dict_modvar_specs.keys() if x in model_attributes.all_variables])
+    modvars = sorted(
+        [
+            x for x in dict_modvar_specs.keys() 
+            if model_attributes.get_variable(x) is not None
+        ]
+    )
     dict_modvar_specs_clean = {}
 
     for modvar in modvars:

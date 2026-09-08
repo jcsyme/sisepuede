@@ -12768,7 +12768,7 @@ class AFOLU:
                 vec_lvst_aggregate_animal_mass,
                 residues_to_entc_only = residues_to_entc_only,
             )
-            
+
 
             ##  CALCULATE FINAL LAND CONVERSION AND EMISSIONS 
 

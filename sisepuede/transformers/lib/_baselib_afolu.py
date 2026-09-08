@@ -1114,7 +1114,7 @@ def transformation_support_lndu_specify_transitions(
 
 
     # get transition matrices and emission factors
-    qs, efs = model_afolu.get_markov_matrices(
+    qs, _, _, _ = model_afolu.get_markov_matrices(
         df_input, 
         len(df_input)
     )
@@ -1333,7 +1333,7 @@ def transformation_support_lndu_transition_to_category_targets_single_region(
     ind_last_zero = ind_first_nz - 1
 
     # get transition matrices and emission factors
-    qs, efs = model_afolu.get_markov_matrices(
+    qs, efs, _, _ = model_afolu.get_markov_matrices(
         df_input, 
         len(df_input)
     )
