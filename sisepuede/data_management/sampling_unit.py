@@ -2850,8 +2850,7 @@ class FutureTrajectories:
         drop_duplicates: bool = False,
         sample_unit_id: Any = None,
     ) -> pd.DataFrame:
-        """
-        Prepare an input data frame for initializing SamplingUnit within
+        """Prepare an input data frame for initializing SamplingUnit within
             FutureTrajectories. Ensures that all dimensions that are specified
             in the global database are defined in the Sampling Unit. Replaces
             missing dimensions with core baseline (e.g., (0, 0, 0)).

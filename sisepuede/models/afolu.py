@@ -4053,6 +4053,8 @@ class AFOLU:
 
         ##  ASSIGN TO IMPORTS OUT
 
+        # print(f"vec_lde_imports_cereals = {vec_lde_imports_cereals.astype(int)}")
+        # print(f"vec_lde_imports_non_cereals = {vec_lde_imports_non_cereals.astype(int)}")
         arr_agrc_imports_feed = np.zeros(arr_agrc_frac_animal_feed.shape, )
         arr_agrc_imports_feed[:, self.inds_agrc_non_cereal] = sf.do_array_mult(
             arr_w_non_cereals,
@@ -6032,6 +6034,7 @@ class AFOLU:
             Vector of the expected yield
         """
         # set some vecs
+        vec_exports = self.arrays_agrc.arr_agrc_equivalent_exports[i]
         vec_frac_feed = self.arrays_agrc.arr_agrc_frac_animal_feed[i]
         vec_frac_imports = self.arrays_agrc.arr_agrc_frac_demand_imported[i]
 
@@ -6043,7 +6046,30 @@ class AFOLU:
         vec_weights /= vec_weights.sum()
         frac_imports_nc = np.dot(vec_weights, vec_frac_imports[inds_nc])
 
-        imports_total_nc = vec_agrc_yield[inds_nc].sum()
+        # get total imports of non-cereals
+        #   D = Y - E + I
+        #   I = fD = I/D
+        #   (I - fI)/f = Y - E
+        #   I = f(Y - E)/(1 - f)
+        vec_f_nc = vec_frac_imports[inds_nc]
+        imports_total_nc = np.nan_to_num(
+            vec_f_nc*(vec_agrc_yield[inds_nc] - vec_exports[inds_nc])/(1 - vec_f_nc),
+            nan = 0.0,
+            posinf = 0.0,
+        )
+        imports_total_nc = imports_total_nc.sum()
+
+        # get imports of cereals
+        exp = vec_exports[self.ind_agrc_cereals]
+        f_cereals = vec_frac_imports[self.ind_agrc_cereals]
+        y = vec_agrc_yield[self.ind_agrc_cereals]
+
+        imports_total_c = np.nan_to_num(
+            f_cereals*(y - exp)/(1 - f_cereals),
+            nan = 0.0,
+            posinf = 0.0,
+        )
+
 
         
         ##  SET OUTPUTS
@@ -6051,7 +6077,7 @@ class AFOLU:
         # fractions of imports
         vec_frac_imports = np.array(
             [
-                vec_frac_imports[self.ind_agrc_cereals],
+                f_cereals,
                 frac_imports_nc
             ]
         )
@@ -6059,7 +6085,7 @@ class AFOLU:
         # import totals
         vec_imports = np.array(
             [
-                vec_agrc_yield[self.ind_agrc_cereals],
+                imports_total_c,
                 imports_total_nc,
                 0, # pasture imports
             ]
@@ -6336,7 +6362,7 @@ class AFOLU:
             vec_lvst_annual_feed_per_capita,
         )
 
-
+    
         (
             sol_init, 
             factor_dmf, 
@@ -12424,6 +12450,7 @@ class AFOLU:
         #       feed. carrying capacity can increase this
         #   vec_agrc_frac_imports_for_lvst:
         #       estimated fraction of imports that are used for feed
+
         (
             sol_init,
             factor_lvst_dietary_mass_balance_adjustment,
@@ -12442,6 +12469,9 @@ class AFOLU:
             arr_lvst_dem[i],
             method = lde_method,
         )
+        # print(f"factor_lvst_dietary_mass_balance_adjustment = {factor_lvst_dietary_mass_balance_adjustment}")
+        # print(f"factor_lvst_graze_rate = {factor_lvst_graze_rate}")
+        # print(f"vec_agrc_frac_imports_for_lvst = {vec_agrc_frac_imports_for_lvst.astype(int)}")
         
         # initialize imports
         self._update_lde_tracking_vectors(
@@ -12450,6 +12480,7 @@ class AFOLU:
             vec_lde_crop_imports_cereals,
             vec_lde_crop_imports_non_cereals,
         )
+        self.sol_init = sol_init
 
 
         global dict_sol_final
@@ -12592,16 +12623,24 @@ class AFOLU:
                 self.ind_lndu_stlm: area_target_stlm,
             }
 
-            arr_transition_adj = self.qadj_adjust_transitions(
-                arrs_transitions[i_tr],
-                x,
-                dict_area_targets_exog,
-                arr_lndu_constraints_inf[i + 1],
-                arr_lndu_constraints_sup[i + 1],
-                area = vec_gnrl_area[i],
-                prohibit_forest_transitions = prohibit_forest_transitions,
-                x_proj_unadj = x_proj_unadj,
-                solver = "quadprog",
+            # though math *ideally* works if lurf==0, why go through the 
+            #   computational hassle if not needed? 
+            #   Additionally, numerical issues can lead to some differences in
+            #   solutions if transitions are small or demands are small
+            arr_transition_adj = (
+                self.qadj_adjust_transitions(
+                    arrs_transitions[i_tr],
+                    x,
+                    dict_area_targets_exog,
+                    arr_lndu_constraints_inf[i + 1],
+                    arr_lndu_constraints_sup[i + 1],
+                    area = vec_gnrl_area[i],
+                    prohibit_forest_transitions = prohibit_forest_transitions,
+                    x_proj_unadj = x_proj_unadj,
+                    solver = "quadprog",
+                )
+                if lurf > 0 
+                else arrs_transitions[i_tr]
             )
 
             x_next  = np.matmul(x, arr_transition_adj)
@@ -13826,9 +13865,10 @@ class AFOLU:
             i, 
             vec_agrc_area*vec_agrc_yield_factors, 
         )
+        # print(f"vec_lde_imports = {vec_lde_imports}")
         if isinstance(vec_agrc_frac_imports_for_lvst, np.ndarray):
             vec_lde_imports = vec_lde_imports*vec_agrc_frac_imports_for_lvst
-        
+
         # get supply
         vec_lde_supply = self.get_lde_vector_supply(
             factor_lndu_yf_pasture_avg,   #
@@ -13851,7 +13891,6 @@ class AFOLU:
         while sol is None:
 
             factor = (1 - j/iter_step)
-
             attempt = self.lde.solve(
                 vec_costs,
                 vec_lvst_feed_demands*factor,
@@ -13865,7 +13904,12 @@ class AFOLU:
                 stop_on_error = True,
                 sup_carrying_capacity_scalar = sup_carrying_capacity_scalar,
             )
-        
+
+            #if j == 50:
+            #    self.vec_lvst_feed_demands = vec_lvst_feed_demands
+            #    self.vec_lde_supply = vec_lde_supply
+            #    self.args_bounds = args_bounds
+            #    raise RuntimeError("stopping")
             j += 1
             sol = attempt.x
             
