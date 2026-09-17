@@ -1127,6 +1127,14 @@ class Transformers:
 
         ##  FRST TRANSFORMERS
 
+        self.frst_increase_deadwood_removals = Transformer(
+            f"{_MODULE_CODE_SIGNATURE}:FRST:TARGET_REMOVALS_DW", 
+            self._trfunc_frst_increase_removals_deadwood,
+            attr_transformer_code
+        )
+        all_transformers.append(self.frst_increase_deadwood_removals, )
+
+
         self.frst_increase_sequestration = Transformer(
             f"{_MODULE_CODE_SIGNATURE}:FRST:INCREASE_SEQUESTRATION", 
             self._trfunc_frst_increase_sequestration,
@@ -1263,6 +1271,14 @@ class Transformers:
             attr_transformer_code
         )
         all_transformers.append(self.lvst_reduce_enteric_fermentation)
+
+
+        self.lvst_shift_dietary_bounds = Transformer(
+            f"{_MODULE_CODE_SIGNATURE}:LVST:SHIFT_DIETARY_BOUNDS", 
+            self._trfunc_lvst_shift_dietary_bounds,
+            attr_transformer_code
+        )
+        all_transformers.append(self.lvst_shift_dietary_bounds)
         
 
 
@@ -3535,6 +3551,60 @@ class Transformers:
     #    FRST (LNDU) TRANSFORMER FUNCTIONS    #
     ###########################################
 
+    def _trfunc_frst_increase_removals_deadwood(self,
+        df_input: Union[pd.DataFrame, None] = None,
+        magnitude: float = 0.5,
+        strat: Union[int, None] = None,
+        vec_implementation_ramp: Union[np.ndarray, Dict[str, int], None] = None,
+    ) -> pd.DataFrame:
+        """Implement the "Adjust Exports" ENFU transformer on input DataFrame df_input (decrease by 20%). Allows for increases in exports (positive magnitude) or decreases (negative magnitude).
+
+        Parameters
+        ----------
+        df_input : pd.DataFrame
+            Optional data frame containing trajectories to modify
+        magnitude : float
+            Magnitude of decrease in exports--e.g., a 20% decrease is entered as 0.8. If using the default value of `magnitude_type == "scalar"`, this magnitude will scale the final time value downward by this factor. 
+            NOTE: If magnitude_type changes, then the behavior of the transformation will change.
+        strat : int
+            Optional strategy value to specify for the transformation
+        vec_implementation_ramp : Union[np.ndarray, Dict[str, int], None]
+            Optional vector or dictionary specifying the implementation scalar ramp for the transformation. If None, defaults to a uniform ramp that starts at the time specified in the configuration.
+        """
+        # check input dataframe
+        df_input = (
+            self.baseline_inputs
+            if not isinstance(df_input, pd.DataFrame) 
+            else df_input
+        )
+
+        # check implementation ramp
+        vec_implementation_ramp = self.check_implementation_ramp(
+            vec_implementation_ramp,
+            df_input,
+        )
+
+        # get the model variable and set a target
+        modvar = self.model_afolu.modvar_frst_bcl_frac_deadwood_removed
+        df_out = tbg.transformation_general(
+            df_input,
+            self.model_attributes,
+            {
+                modvar: {
+                    "bounds": (0.0, 1.0),
+                    "magnitude": magnitude,
+                    "magnitude_type": "final_value",
+                    "vec_ramp": vec_implementation_ramp
+                }
+            },
+            field_region = self.key_region,
+            strategy_id = strat,
+        )
+        
+        return df_out
+
+    
+
     def _trfunc_frst_increase_sequestration(self,
         cats_frst: Union[List[str], None] = None,
         df_input: Union[pd.DataFrame, None] = None,
@@ -4747,6 +4817,94 @@ class Transformers:
             model_afolu = self.model_afolu,
             strategy_id = strat,
         )
+        
+        return df_out
+
+
+
+    def _trfunc_lvst_shift_dietary_bounds(self,
+        df_input: Union[pd.DataFrame, None] = None,
+        dict_lvst_shifts: Union[dict, None] = None,
+        return_lvst_shifts_dict: bool = False,
+        strat: Union[int, None] = None,
+        vec_implementation_ramp: Union[np.ndarray, Dict[str, int], None] = None,
+    ) -> pd.DataFrame:
+        """Implement the "Reduce Enteric Fermentation" LVST transformer on input DataFrame df_input. 
+        
+        *IMPORTANT*: For each defined livestock type, maximum and/or minimum fractions from each feed type can be specifed. Note that, for a given livestock class, minimum fractions by type cannot sum to greater than 1, while maximum fractions by type cannot sum to less than 1. Dietary fractions are solved for using the livestock dietary estimator (LDE).
+        
+        Parameters
+        ----------
+        df_input : pd.DataFrame
+            Optional data frame containing trajectories to modify
+        dict_lvst_shifts : Union[dict, None]
+            Dictionary allocating mapping livestock categories to dietary bounds. Takes the following form:
+
+            {
+                cat_lvst_i: {
+                    type_feed_j: (min, max),
+                    ...
+                    ...
+                },
+                ...
+            }
+
+            where `min` and `max` can be None if *no change* is applied. 
+
+            If no dictionary is provided, defaults to the following:
+                DEFAULT MISSING
+
+        return_lvst_shifts_dict : bool
+            Return the dict_lvst_shifts dictionary only? NOTE: DO NOT SPECIFY IN CONFIGURATION YAMLS
+        strat : int
+            Optional strategy value to specify for the transformation
+        vec_implementation_ramp : Union[np.ndarray, Dict[str, int], None]
+            Optional vector or dictionary specifying the implementation scalar ramp for the transformation. If None, defaults to a uniform ramp that starts at the time specified in the configuration.
+        """
+        # check input dataframe
+        df_input = (
+            self.baseline_inputs
+            if not isinstance(df_input, pd.DataFrame) 
+            else df_input
+        )
+
+        # check implementation ramp
+        vec_implementation_ramp = self.check_implementation_ramp(
+            vec_implementation_ramp,
+            df_input,
+        )
+
+        print("Note: Transformer TFR:LVST:SHIFT_DIETARY_BOUNDS not yet implemented.")
+        return df_input
+        """
+        dict_lvst_reductions = (
+            {
+                "buffalo": 0.4, # CHANGEDFORINDIA 0.4
+                "cattle_dairy": 0.4, # CHANGEDFORINDIA 0.4
+                "cattle_nondairy": 0.4, # CHANGEDFORINDIA 0.4
+                "goats": 0.56,
+                "sheep": 0.56
+            }
+            if not isinstance(dict_lvst_reductions, dict)
+            else dict_lvst_reductions
+
+        )
+
+        if return_reductions_dict:
+            return dict_lvst_reductions
+        
+
+        
+        df_out = tba.transformation_lvst_reduce_enteric_fermentation(
+            df_input,
+            dict_lvst_reductions,
+            vec_implementation_ramp,
+            self.model_attributes,
+            field_region = self.key_region,
+            model_afolu = self.model_afolu,
+            strategy_id = strat,
+        )
+        """
         
         return df_out
 
