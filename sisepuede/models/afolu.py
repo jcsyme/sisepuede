@@ -43,7 +43,7 @@ _FIELD_NPP_ORD_3 = "primary"
 _MODULE_UUID = "53E0A234-5674-47C8-B950-5A419EEAAF00"  
 
 # integration information
-_NPP_INTEGRATION_WINDOWS = [20, 480, 1000]
+_NPP_INTEGRATION_WINDOWS = [20, 180, 300]#[20, 480, 1000]
 
 # prefixes--can't import from other modules
 _PREFIX_ATTRIBUTE_ENTC_ELEC_GEN = "electricity_generation"
@@ -3259,10 +3259,10 @@ class AFOLU:
         )
         
         # build vector
-        vec_frst_c_stock_decomposition = ledger.arr_biomass_c_ag_lost_decomposition.sum(axis = 1, )
-        vec_frst_c_stock_decomposition += ledger.arr_biomass_c_bg_lost_decomposition.sum(axis = 1, )
-        vec_frst_c_stock_decomposition += ledger_mangroves.arr_biomass_c_ag_lost_decomposition[:, 1]
-        vec_frst_c_stock_decomposition += ledger_mangroves.arr_biomass_c_bg_lost_decomposition[:, 1]
+        vec_frst_c_stock_decomposition = ledger.arr_biomass_c_ag_lost_dom.sum(axis = 1, )
+        vec_frst_c_stock_decomposition += ledger.arr_biomass_c_bg_lost_dom.sum(axis = 1, )
+        vec_frst_c_stock_decomposition += ledger_mangroves.arr_biomass_c_ag_lost_dom[:, 1]
+        vec_frst_c_stock_decomposition += ledger_mangroves.arr_biomass_c_bg_lost_dom[:, 1]
         vec_frst_c_stock_decomposition *= vec_frst_frac_dm
 
         # add to output data frame
@@ -3409,10 +3409,10 @@ class AFOLU:
         )
 
         # get primary/secondary forest above- and below-ground from ledgers
-        arr_frst_emissions_co2_decomposition[:, inds_ps] = ledger.arr_biomass_c_ag_lost_decomposition.copy()
-        arr_frst_emissions_co2_decomposition[:, inds_ps] += ledger.arr_biomass_c_bg_lost_decomposition.copy()
-        arr_frst_emissions_co2_decomposition[:, ind_m] = ledger_mangroves.arr_biomass_c_bg_lost_decomposition[:, 1].copy()
-        arr_frst_emissions_co2_decomposition[:, ind_m] += ledger_mangroves.arr_biomass_c_bg_lost_decomposition[:, 1].copy()
+        arr_frst_emissions_co2_decomposition[:, inds_ps] = ledger.arr_biomass_c_ag_lost_dom.copy()
+        arr_frst_emissions_co2_decomposition[:, inds_ps] += ledger.arr_biomass_c_bg_lost_dom.copy()
+        arr_frst_emissions_co2_decomposition[:, ind_m] = ledger_mangroves.arr_biomass_c_ag_lost_dom[:, 1].copy()
+        arr_frst_emissions_co2_decomposition[:, ind_m] += ledger_mangroves.arr_biomass_c_bg_lost_dom[:, 1].copy()
 
         # multiply by C fraction dry matter and then convert C to CO2
         arr_frst_emissions_co2_decomposition = sf.do_array_mult(
@@ -4329,6 +4329,8 @@ class AFOLU:
         (
             vec_biomass_bg_to_ag_ratio,
             vec_frac_biomass_from_conversion_available_for_use,
+            vec_frac_dom_dead_wood,
+            vec_frac_dw_removed,
             vec_frac_rmv_priority_yf,
         ) = self.get_bcl_other_parameters(
             mangroves = mangroves,
@@ -4363,6 +4365,8 @@ class AFOLU:
             vec_frac_rmv_priority_yf,
             vec_frac_biomass_adjustment_threshold,
             vec_frac_biomass_from_conversion_available_for_use,
+            vec_frac_dom_dead_wood,
+            vec_frac_dw_removed,
             vec_sf_nominal_initial,
             vec_demands,
             vec_young_sf_curve_specification,
@@ -5325,10 +5329,17 @@ class AFOLU:
         # fraction of converted biomass available for use
         vec_frac_biomass_from_conversion_available_for_use = self.arrays_frst.arr_frst_frac_c_converted_available
         vec_frac_rmv_priority_yf = self.arrays_frst.arr_frst_bcl_frac_rmv_priority_yf
-       
+
+        # fraction of DOM that is deadwood and fraction of deadwood removed
+        vec_frac_dom_dead_wood = self.arrays_frst.arr_frst_bcl_frac_dom_deadwood
+        vec_frac_dw_removed = self.arrays_frst.arr_frst_bcl_frac_deadwood_removed
+
+
         out = (
             vec_biomass_c_bg_to_ag_ratio,
             vec_frac_biomass_from_conversion_available_for_use,
+            vec_frac_dom_dead_wood,
+            vec_frac_dw_removed,
             vec_frac_rmv_priority_yf,
         )
 

@@ -107,6 +107,13 @@ class BiomassCarbonLedger:
         Land use conversion removes biomass between land use types; in clear-
         cutting, this is assumed to be lost to burning. Increasing this fraction
         makes this biomass available for use in HWP or fuelwood.
+    vec_frac_dom_dead_wood : Union[float, int, np.ndarray]
+        Fraction of dead organic matter (DOM) that is dead wood. The rest is 
+        assumed to be litter. DOM generation is governed by the decomposition 
+        fraction.
+    vec_frac_dw_removed : Union[float, int, np.ndarray]
+        Fraction of deadwood removed from DOM. Removals are assumed to meet
+        demands for wood.
     vec_sf_nominal_initial: np.ndarray
         Vector storing, by forest type, the initial sequestration factors 
         (annual) for each forest type.
@@ -346,7 +353,7 @@ class BiomassCarbonLedger:
             *the end* of time period i for forests planted at time j. EXCLUDES 
             CONVERSIONS FROM TIME PERIOD i.
 
-        * `arr_young_biomass_c_loss_from_decomposition` (T x T)
+        * `arr_young_biomass_c_loss_to_dom` (T x T)
             Array storing loss of C estimated to decompose at time i (from dead 
             biomass or litter) and emit C at time j. This is estimated using the
             fraction of biomass that is estimated to die as a condition for 
@@ -400,7 +407,7 @@ class BiomassCarbonLedger:
             outer product of `vec_biomass_c_ag_init_stst_storage` and 
             `arr_frac_biomass_dead_storage`.
         
-        * `vec_frac_biomass_ag_decomposition` (N x 1)
+        * `vec_frac_biomass_ag_to_dom` (N x 1)
             Estimated fraction of biomass that decomposes every year. This
             fraction is estimated using the equilibrium assumption for primary 
             forests, where total sequestration == total emission.
@@ -420,15 +427,23 @@ class BiomassCarbonLedger:
         * `vec_young_biomass_c_bg_converted` (T x 1)
             Total below-ground C converted from T x T; sum over columns.
         
-        * `vec_young_biomass_c_loss_from_decomposition` (T x 1)
+        * `vec_young_biomass_c_loss_to_dom` (T x 1)
             Vector storing loss of C estimated to decompose at time i (from dead 
             biomass or litter). This is estimated as the sum of all losses from 
-            `arr_young_biomass_c_loss_from_decomposition`
+            `arr_young_biomass_c_loss_to_dom`
             
-        * `vec_biomass_c_removals_from_forest_demanded` (T x 1)
+        * `vec_biomass_c_removals_demanded_excluding_conversion` (T x 1)
             Total demand for removals from all forested land after accounting 
             for automatic removals from available converted biomass.
         
+        * `vec_biomass_c_removals_demanded_from_forest` (T x 1)
+            Total demand for removals from all forested land after accounting 
+            for automatic removals from available converted biomass and
+            deadwood.
+
+        * `vec_biomass_c_removed_from_dw` (T x 1)
+            Vector storing biomass removed from deadwood.
+
         * `vec_biomass_c_removed_from_original_demanded` (T x 1)
             Demand for removals from original forested land after accounting for
             automatic removals from available converted biomass.
@@ -470,7 +485,7 @@ class BiomassCarbonLedger:
             Average biomass Cin original forest per unit area are the start of
             the time period (before conversion)
         
-        * `arr_biomass_c_ag_lost_decomposition` (T x N)
+        * `arr_biomass_c_ag_lost_dom` (T x N)
             Above-ground biomass C lost to decomposition in each forest type at 
             time i
 
@@ -478,7 +493,7 @@ class BiomassCarbonLedger:
             Above-ground biomass C in original forest at the start of the time
             period.
         
-        * `arr_biomass_c_bg_lost_decomposition` (T x N)
+        * `arr_biomass_c_bg_lost_dom` (T x N)
             Below-ground biomass C lost to decomposition in each forest type at 
             time i
         
@@ -502,7 +517,7 @@ class BiomassCarbonLedger:
             Total below-ground biomass in each forest type at the start of time 
             period t.
 
-        * `vec_biomass_c_removals_from_converted` (T x 1)
+        * `vec_biomass_c_removed_from_converted` (T x 1)
             Vector of actual removals from converted biomass available
 
         * `vec_total_removals_met` (T x 1)
@@ -530,6 +545,8 @@ class BiomassCarbonLedger:
         vec_biomass_c_removals_young_priority_frac: np.ndarray,
         vec_frac_biomass_adjustment_threshold: Union[float, np.ndarray],
         vec_frac_biomass_from_conversion_available_for_use: Union[float, int, np.ndarray],
+        vec_frac_dom_dead_wood: np.ndarray,
+        vec_frac_dw_removed: np.ndarray,
         vec_sf_nominal_initial: np.ndarray,
         vec_total_removals_demanded: np.ndarray,
         vec_young_sf_curve_specification: np.ndarray,
@@ -555,6 +572,8 @@ class BiomassCarbonLedger:
             vec_biomass_c_removals_young_priority_frac,
             vec_frac_biomass_adjustment_threshold,
             vec_frac_biomass_from_conversion_available_for_use,
+            vec_frac_dom_dead_wood,
+            vec_frac_dw_removed,
             vec_sf_nominal_initial,
             vec_total_removals_demanded,
             vec_young_sf_curve_specification,
@@ -596,6 +615,8 @@ class BiomassCarbonLedger:
         vec_biomass_c_removals_young_priority_frac: np.ndarray,
         vec_frac_biomass_adjustment_threshold: Union[float, np.ndarray],
         vec_frac_biomass_from_conversion_available_for_use: Union[float, int, np.ndarray],
+        vec_frac_dom_dead_wood: np.ndarray,
+        vec_frac_dw_removed: np.ndarray,
         vec_sf_nominal_initial: np.ndarray,
         vec_total_removals_demanded: np.ndarray,
     ) -> Tuple:
@@ -660,6 +681,20 @@ class BiomassCarbonLedger:
             "vec_frac_biomass_from_conversion_available_for_use",
         )
 
+        # fraction of DOM that is assumed to be deadwood
+        vec_frac_dom_dead_wood = self._verify_convert_array_input_to_array(
+            vec_frac_dom_dead_wood,
+            self.n_tp,
+            "vec_frac_dom_dead_wood",
+        )
+
+        # fraction of deadwood removed
+        vec_frac_dw_removed = self._verify_convert_array_input_to_array(
+            vec_frac_dw_removed,
+            self.n_tp,
+            "vec_frac_dw_removed",
+        )
+
         # initial annualized sequestration factors
         vec_sf_nominal_initial = self._verify_convert_array_input_to_array(
             vec_sf_nominal_initial,
@@ -702,6 +737,8 @@ class BiomassCarbonLedger:
             vec_biomass_c_removals_young_priority_frac,
             vec_frac_biomass_adjustment_threshold,
             vec_frac_biomass_from_conversion_available_for_use,
+            vec_frac_dom_dead_wood,
+            vec_frac_dw_removed,
             vec_sf_nominal_initial,
             vec_total_removals_demanded,
         )
@@ -885,14 +922,14 @@ class BiomassCarbonLedger:
 
 
         # conver to 
-        vec_frac_biomass_ag_decomposition = self._verify_convert_array_input_to_array(
+        vec_frac_biomass_ag_to_dom = self._verify_convert_array_input_to_array(
             frac_decomp,
             self.n_tp,
-            "vec_frac_biomass_ag_decomposition",
+            "vec_frac_biomass_ag_to_dom",
         )
 
         out = (
-            vec_frac_biomass_ag_decomposition,
+            vec_frac_biomass_ag_to_dom,
             vec_young_sf_curve, 
         )
 
@@ -947,6 +984,8 @@ class BiomassCarbonLedger:
         vec_biomass_c_removals_young_priority_frac: np.ndarray,
         vec_frac_biomass_adjustment_threshold: Union[float, np.ndarray],
         vec_frac_biomass_from_conversion_available_for_use: Union[float, int, np.ndarray],
+        vec_frac_dom_dead_wood: np.ndarray,
+        vec_frac_dw_removed: np.ndarray,
         vec_sf_nominal_initial: np.ndarray,
         vec_total_removals_demanded: np.ndarray,
         vec_young_sf_curve_specification: np.ndarray,
@@ -981,9 +1020,9 @@ class BiomassCarbonLedger:
         arr_biomass_c_average_ag_stock_in_conversion_targets = np.zeros(shape_by_cat, )
         arr_biomass_c_average_bg_stock_in_conversion_targets = np.zeros(shape_by_cat, )
         arr_biomass_c_ag_lost_conversion = np.zeros(shape_by_cat, )
-        arr_biomass_c_ag_lost_decomposition = np.zeros(shape_by_cat, )
+        arr_biomass_c_ag_lost_dom = np.zeros(shape_by_cat, )
         arr_biomass_c_bg_lost_conversion = np.zeros(shape_by_cat, )
-        arr_biomass_c_bg_lost_decomposition = np.zeros(shape_by_cat, )
+        arr_biomass_c_bg_lost_dom = np.zeros(shape_by_cat, )
         arr_biomass_c_bg_lost_removals = np.zeros(shape_by_cat, )
         arr_biomass_c_removals_from_converted_land_allocation = np.zeros(shape_by_cat, )
         arr_biomass_c_removed_from_forests_excluding_conversion = np.zeros(shape_by_cat, )
@@ -1016,8 +1055,10 @@ class BiomassCarbonLedger:
         vec_area_conversion_away_young_forest = np.zeros(n_tp, )
         vec_area_conversion_away_young_forest_no_protection = np.zeros(n_tp, )
         vec_area_protected_young = np.zeros(n_tp, )
-        vec_biomass_c_removals_from_converted = np.zeros(n_tp, )
-        vec_biomass_c_removals_from_forest_demanded = np.zeros(n_tp, )
+        vec_biomass_c_removals_demanded_excluding_conversion = np.zeros(n_tp, )
+        vec_biomass_c_removals_demanded_from_forest = np.zeros(n_tp, )
+        vec_biomass_c_removed_from_converted = np.zeros(n_tp, )
+        vec_biomass_c_removed_from_dw = np.zeros(n_tp, )
         vec_biomass_c_removed_from_original_demanded = np.zeros(n_tp, )
         vec_biomass_c_removed_from_original_unmet = np.zeros(n_tp, )
         vec_biomass_c_removed_from_young_post_orig = np.zeros(n_tp, )
@@ -1045,6 +1086,8 @@ class BiomassCarbonLedger:
             vec_biomass_c_removals_young_priority_frac,
             vec_frac_biomass_adjustment_threshold,
             vec_frac_biomass_from_conversion_available_for_use,
+            vec_frac_dom_dead_wood,
+            vec_frac_dw_removed,
             vec_sf_nominal_initial,
             vec_total_removals_demanded,
         ) = self._check_initialization_arrays(
@@ -1056,6 +1099,8 @@ class BiomassCarbonLedger:
             vec_biomass_c_removals_young_priority_frac,
             vec_frac_biomass_adjustment_threshold,
             vec_frac_biomass_from_conversion_available_for_use,
+            vec_frac_dom_dead_wood,
+            vec_frac_dw_removed,
             vec_sf_nominal_initial,
             vec_total_removals_demanded,
         )
@@ -1064,7 +1109,7 @@ class BiomassCarbonLedger:
         ##  GET YOUNG SEQUESTRTION CURVE AND DECOMPOSITION FRACTION
 
         (
-            vec_frac_biomass_ag_decomposition,
+            vec_frac_biomass_ag_to_dom,
             vec_young_sf_curve,
         ) = self._get_young_sf_curve(
             vec_young_sf_curve_specification,
@@ -1095,9 +1140,9 @@ class BiomassCarbonLedger:
         self.arr_biomass_c_average_ag_stock_in_conversion_targets = arr_biomass_c_average_ag_stock_in_conversion_targets
         self.arr_biomass_c_average_bg_stock_in_conversion_targets = arr_biomass_c_average_bg_stock_in_conversion_targets
         self.arr_biomass_c_ag_lost_conversion = arr_biomass_c_ag_lost_conversion
-        self.arr_biomass_c_ag_lost_decomposition = arr_biomass_c_ag_lost_decomposition
+        self.arr_biomass_c_ag_lost_dom = arr_biomass_c_ag_lost_dom
         self.arr_biomass_c_bg_lost_conversion = arr_biomass_c_bg_lost_conversion
-        self.arr_biomass_c_bg_lost_decomposition = arr_biomass_c_bg_lost_decomposition
+        self.arr_biomass_c_bg_lost_dom = arr_biomass_c_bg_lost_dom
         self.arr_biomass_c_bg_lost_removals = arr_biomass_c_bg_lost_removals
         self.arr_biomass_c_removals_from_converted_land_allocation = arr_biomass_c_removals_from_converted_land_allocation
         self.arr_biomass_c_removed_from_forests_excluding_conversion = arr_biomass_c_removed_from_forests_excluding_conversion
@@ -1129,16 +1174,20 @@ class BiomassCarbonLedger:
         self.vec_biomass_c_ag_init_stst_storage = vec_biomass_c_ag_init_stst_storage
         self.vec_biomass_c_ag_min_reqd_per_area = vec_biomass_c_ag_min_reqd_per_area
         self.vec_biomass_c_bg_to_ag_ratio = vec_biomass_c_bg_to_ag_ratio
-        self.vec_biomass_c_removals_from_converted = vec_biomass_c_removals_from_converted
-        self.vec_biomass_c_removals_from_forest_demanded = vec_biomass_c_removals_from_forest_demanded
+        self.vec_biomass_c_removals_demanded_excluding_conversion = vec_biomass_c_removals_demanded_excluding_conversion
+        self.vec_biomass_c_removals_demanded_from_forest = vec_biomass_c_removals_demanded_from_forest
         self.vec_biomass_c_removals_young_priority_frac = vec_biomass_c_removals_young_priority_frac
+        self.vec_biomass_c_removed_from_converted = vec_biomass_c_removed_from_converted
+        self.vec_biomass_c_removed_from_dw = vec_biomass_c_removed_from_dw
         self.vec_biomass_c_removed_from_original_demanded = vec_biomass_c_removed_from_original_demanded
         self.vec_biomass_c_removed_from_original_unmet = vec_biomass_c_removed_from_original_unmet
         self.vec_biomass_c_removed_from_young_post_orig = vec_biomass_c_removed_from_young_post_orig
         self.vec_biomass_c_removed_from_young_pre_orig = vec_biomass_c_removed_from_young_pre_orig
         self.vec_frac_biomass_adjustment_threshold = vec_frac_biomass_adjustment_threshold
-        self.vec_frac_biomass_ag_decomposition = vec_frac_biomass_ag_decomposition
+        self.vec_frac_biomass_ag_to_dom = vec_frac_biomass_ag_to_dom
         self.vec_frac_biomass_from_conversion_available_for_use = vec_frac_biomass_from_conversion_available_for_use
+        self.vec_frac_dom_dead_wood = vec_frac_dom_dead_wood
+        self.vec_frac_dw_removed = vec_frac_dw_removed
         self.vec_orig_biomass_c_accessible_pool = vec_orig_biomass_c_accessible_pool
         self.vec_sf_nominal_initial = vec_sf_nominal_initial
         self.vec_total_removals_demanded = vec_total_removals_demanded
@@ -1185,7 +1234,7 @@ class BiomassCarbonLedger:
         arr_young_biomass_c_available_for_removals_mask = np.zeros(shape_by_tp, )
         arr_young_biomass_c_bg_converted_by_tp_planted = np.zeros(shape_by_tp, )
         arr_young_biomass_c_bg_stock = np.zeros(shape_by_tp, )
-        arr_young_biomass_c_loss_from_decomposition = np.zeros(shape_by_tp, )
+        arr_young_biomass_c_loss_to_dom = np.zeros(shape_by_tp, )
         arr_young_biomass_c_stock_removal_allocation = np.zeros(shape_by_tp, )
         arr_young_biomass_c_stock_removal_allocation_aux = np.zeros(shape_by_tp, )
         arr_young_sf_adjusted_by_tp_planted = np.zeros(shape_by_tp, )
@@ -1196,7 +1245,7 @@ class BiomassCarbonLedger:
         vec_young_biomass_c_ag_preserved_in_conversion = np.zeros(self.n_tp, )
         vec_young_biomass_c_available_for_removals_total = np.zeros(self.n_tp, )
         vec_young_biomass_c_bg_converted = np.zeros(self.n_tp, )
-        vec_young_biomass_c_loss_from_decomposition = np.zeros(self.n_tp, )
+        vec_young_biomass_c_loss_to_dom = np.zeros(self.n_tp, )
 
         # build base sequestration factors by time period
         arr_young_sf_base_by_tp_planted = self._build_arr_young_sf_base_by_tp_planted(
@@ -1216,7 +1265,7 @@ class BiomassCarbonLedger:
         self.arr_young_biomass_c_available_for_removals_mask = arr_young_biomass_c_available_for_removals_mask
         self.arr_young_biomass_c_bg_converted_by_tp_planted = arr_young_biomass_c_bg_converted_by_tp_planted
         self.arr_young_biomass_c_bg_stock = arr_young_biomass_c_bg_stock
-        self.arr_young_biomass_c_loss_from_decomposition = arr_young_biomass_c_loss_from_decomposition
+        self.arr_young_biomass_c_loss_to_dom = arr_young_biomass_c_loss_to_dom
         self.arr_young_biomass_c_ag_preserved_in_conversion_by_tp_planted = arr_young_biomass_c_ag_preserved_in_conversion_by_tp_planted
         self.arr_young_biomass_c_stock_removal_allocation = arr_young_biomass_c_stock_removal_allocation
         self.arr_young_biomass_c_stock_removal_allocation_aux = arr_young_biomass_c_stock_removal_allocation_aux
@@ -1226,7 +1275,7 @@ class BiomassCarbonLedger:
         self.vec_young_biomass_c_ag_preserved_in_conversion = vec_young_biomass_c_ag_preserved_in_conversion
         self.vec_young_biomass_c_available_for_removals_total = vec_young_biomass_c_available_for_removals_total
         self.vec_young_biomass_c_bg_converted = vec_young_biomass_c_bg_converted
-        self.vec_young_biomass_c_loss_from_decomposition = vec_young_biomass_c_loss_from_decomposition
+        self.vec_young_biomass_c_loss_to_dom = vec_young_biomass_c_loss_to_dom
 
         return None
     
@@ -1278,6 +1327,42 @@ class BiomassCarbonLedger:
     ###    PRIMARY FUNCTIONALITY    ###
     ###                             ###
     ###################################
+
+    def _get_removals_from_deadwood(self,
+        i: int,
+    ) -> float:
+        """Get removals from deadwood at time i. Shortcut function.
+        """
+
+        # get total fraction of deadwood removed from pool
+        frac_dw_removed = self.vec_frac_dom_dead_wood[i]*self.vec_frac_dw_removed[i]
+        demand_no_conv = self.vec_biomass_c_removals_demanded_excluding_conversion[i]
+
+        # in first time period, assume removals are based on generation of DOM in that time period
+        if i == 0:
+            frac_decomp = self.vec_frac_biomass_ag_to_dom[i]
+            phi = frac_dw_removed*frac_decomp
+
+            mass_avail = max(
+                self.arr_orig_biomass_c_ag_starting[i].sum()
+                - self.arr_orig_biomass_c_ag_converted_away[i].sum()
+                - demand_no_conv,
+                0,
+            )
+
+            out = mass_avail*phi/(1 - phi)
+
+            return out
+
+        # otherwise, pull from available deadwood from previous time period
+        out = min(
+            frac_dw_removed*self.arr_biomass_c_ag_lost_dom[i - 1].sum(),
+            demand_no_conv,
+        )
+
+        return out
+
+
 
     def _update(self,
         i: int,
@@ -1601,9 +1686,9 @@ class BiomassCarbonLedger:
             for emission inventories. Updates:
 
             * arr_biomass_c_ag_lost_conversion
-            * arr_biomass_c_ag_lost_decomposition
+            * arr_biomass_c_ag_lost_dom
             * arr_biomass_c_bg_lost_conversion
-            * arr_biomass_c_bg_lost_decomposition
+            * arr_biomass_c_bg_lost_dom
             * arr_biomass_c_bg_lost_removals
             * arr_biomass_c_total_growth
             * vec_total_removals_met
@@ -1613,14 +1698,14 @@ class BiomassCarbonLedger:
 
         # shortcuts
         c_avail_conv_young = self.vec_young_biomass_c_ag_available_from_conversion[i]
-        c_decomp_young = self.vec_young_biomass_c_loss_from_decomposition[i]
+        c_decomp_young = self.vec_young_biomass_c_loss_to_dom[i]
         c_removed_young = (
             self.vec_biomass_c_removed_from_young_post_orig[i]
             + self.vec_biomass_c_removed_from_young_pre_orig[i]
         )
-        frac_decomp = self.vec_frac_biomass_ag_decomposition[i]
+        frac_decomp = self.vec_frac_biomass_ag_to_dom[i]
         ind_fs = self.ind_frst_secondary
-        removals_from_conv = self.vec_biomass_c_removals_from_converted[i]
+        removals_from_conv = self.vec_biomass_c_removed_from_converted[i]
                             
         vec_c_ag_conv = self.arr_orig_biomass_c_ag_converted_away[i]
         vec_c_ag_conv_pres = self.arr_orig_biomass_c_ag_preserved_in_conversion[i]
@@ -1647,18 +1732,18 @@ class BiomassCarbonLedger:
         self.arr_biomass_c_ag_lost_conversion[i] = vec_c_ag_lost_conv
 
 
-        # 2. above-ground biomass lost to decomposition: arr_biomass_c_ag_lost_decomposition
+        # 2. above-ground biomass lost to decomposition: arr_biomass_c_ag_lost_dom
         
         # have to add in young decomp
         vec_c_ag_lost_decomp = frac_decomp*(vec_c_ag_starting - vec_c_ag_conv - vec_c_ag_removed)
         vec_c_ag_lost_decomp[ind_fs] += c_decomp_young
-        self.arr_biomass_c_ag_lost_decomposition[i] = vec_c_ag_lost_decomp
+        self.arr_biomass_c_ag_lost_dom[i] = vec_c_ag_lost_decomp
 
 
-        # 3. below-ground biomass lost to deomposition: arr_biomass_c_bg_lost_decomposition
+        # 3. below-ground biomass lost to deomposition: arr_biomass_c_bg_lost_dom
 
         vec_c_bg_lost_decomp = vec_c_ag_lost_decomp*self.vec_biomass_c_bg_to_ag_ratio
-        self.arr_biomass_c_bg_lost_decomposition[i] = vec_c_bg_lost_decomp
+        self.arr_biomass_c_bg_lost_dom[i] = vec_c_bg_lost_decomp
 
 
         # 4. below-ground biomass lost from conversion: arr_biomass_c_bg_lost_conversion
@@ -1724,7 +1809,7 @@ class BiomassCarbonLedger:
 
             * arr_biomass_c_removed_from_forests_excluding_conversion
             * arr_orig_biomass_c_removed_from_forests
-            * vec_biomass_c_removals_from_forest_demanded
+            * vec_biomass_c_removals_demanded_excluding_conversion
             * vec_biomass_c_removed_from_original_demanded
             * vec_biomass_c_removed_from_original_unmet
             * vec_biomass_c_removed_from_young_post_orig
@@ -1739,22 +1824,39 @@ class BiomassCarbonLedger:
         c_available_orig = self.vec_orig_biomass_c_accessible_pool[i]
         c_available_young = self.vec_young_biomass_c_available_for_removals_total[i]
         c_demanded = self.vec_total_removals_demanded[i]
-        c_rmv_from_conv = self.vec_biomass_c_removals_from_converted[i]
+        c_rmv_from_conv = self.vec_biomass_c_removed_from_converted[i]
         c_rmv_priority_frac_yf = self.vec_biomass_c_removals_young_priority_frac[i]
         vec_orig_frac_removals_alloc = self.arr_orig_allocation_removals[i]
 
-
+            
         ##  UPDATES
 
-        # 1. update demand for removals from forests: vec_biomass_c_removals_from_forest_demanded
-        c_demanded_from_forest = max(c_demanded - c_rmv_from_conv, 0)
-        self.vec_biomass_c_removals_from_forest_demanded[i] = c_demanded_from_forest
+        # 1. update demand for removals from forests: vec_biomass_c_removals_demanded_excluding_conversion
+        c_demanded_from_forest_no_conv = max(c_demanded - c_rmv_from_conv, 0)
+        self.vec_biomass_c_removals_demanded_excluding_conversion[i] = c_demanded_from_forest_no_conv
 
-        # 2. get first-priority removals from young forests HEREHEREHERE
-        c_removed_from_young_pre_orig = min(c_demanded_from_forest, c_available_young*c_rmv_priority_frac_yf)
+
+        # 2. get biomass removed from deadwood
+        self.vec_biomass_c_removed_from_dw[i] = self._get_removals_from_deadwood(i, )
+
+
+        # 3. get biomass removed from forests after deadwood
+        c_demanded_from_forest = (
+            self.vec_biomass_c_removals_demanded_excluding_conversion[i]
+            - self.vec_biomass_c_removed_from_dw[i]
+        )
+        self.vec_biomass_c_removals_demanded_from_forest[i] = c_demanded_from_forest
+
+
+        # 4. get first-priority removals from young forests 
+        c_removed_from_young_pre_orig = min(
+            c_demanded_from_forest, 
+            c_available_young*c_rmv_priority_frac_yf
+        )
         self.vec_biomass_c_removed_from_young_pre_orig[i] = c_removed_from_young_pre_orig
 
-        # 3. get actual removals from original forests
+
+        # 5. get actual removals from original forests
         c_removed_from_orig = min(
             max(c_demanded_from_forest - c_removed_from_young_pre_orig, 0), 
             c_available_orig,
@@ -1762,22 +1864,22 @@ class BiomassCarbonLedger:
         self.vec_biomass_c_removed_from_original_demanded[i] = c_removed_from_orig
         
 
-        # 4. unmet demand: vec_biomass_c_removed_from_original_unmet
+        # 6. unmet demand: vec_biomass_c_removed_from_original_unmet
         c_demand_unmet = max(c_demanded_from_forest - c_removed_from_orig - c_removed_from_young_pre_orig, 0)
         self.vec_biomass_c_removed_from_original_unmet[i] = c_demand_unmet
 
 
-        # 5. biomass removed from young forests POST original: vec_biomass_c_removed_from_young_post_orig
+        # 7. biomass removed from young forests POST original: vec_biomass_c_removed_from_young_post_orig
         c_removed_from_young_post_orig = min(c_demand_unmet, c_available_young - c_removed_from_young_pre_orig, )
         self.vec_biomass_c_removed_from_young_post_orig[i] = c_removed_from_young_post_orig
 
 
-        # 6. get total biomass taken from each original forest type: arr_orig_biomass_c_removed_from_forests
+        # 8. get total biomass taken from each original forest type: arr_orig_biomass_c_removed_from_forests
         vec_orig_removals = vec_orig_frac_removals_alloc*c_removed_from_orig
         self.arr_orig_biomass_c_removed_from_forests[i] = vec_orig_removals
 
 
-        # 7. get total biomass taken from each forest type (incl. young): arr_biomass_c_removed_from_forests_excluding_conversion
+        # 9. get total biomass taken from each forest type (incl. young): arr_biomass_c_removed_from_forests_excluding_conversion
         vec_total_removals = vec_orig_removals.copy()
         vec_total_removals[ind_fs] += c_removed_from_young_pre_orig + c_removed_from_young_post_orig 
         self.arr_biomass_c_removed_from_forests_excluding_conversion[i] = vec_total_removals
@@ -1889,8 +1991,8 @@ class BiomassCarbonLedger:
         
         # shortcuts
         vec_conv_prev = self.arr_orig_biomass_c_ag_converted_away[i - 1]
-        vec_decomp_prev = self.arr_biomass_c_ag_lost_decomposition[i - 1]
-        vec_decomp_prev_young = self.vec_young_biomass_c_loss_from_decomposition[i - 1]
+        vec_decomp_prev = self.arr_biomass_c_ag_lost_dom[i - 1]
+        vec_decomp_prev_young = self.vec_young_biomass_c_loss_to_dom[i - 1]
         vec_removals_prev = self.arr_orig_biomass_c_removed_from_forests[i - 1]
         vec_seq = self.arr_orig_sf_adjusted[i]
         vec_stock_prev = self.arr_orig_biomass_c_ag_starting[i - 1]
@@ -1942,7 +2044,7 @@ class BiomassCarbonLedger:
             * arr_total_biomass_c_ag_available_from_conversion
             * arr_total_biomass_c_ag_starting
             * arr_total_biomass_c_bg_starting
-            * vec_biomass_c_removals_from_converted
+            * vec_biomass_c_removed_from_converted
         """
 
         ##  INITIALIZATION
@@ -1996,7 +2098,7 @@ class BiomassCarbonLedger:
         
 
         # 6. total removals from converted biomass
-        self.vec_biomass_c_removals_from_converted[i] = min(
+        self.vec_biomass_c_removed_from_converted[i] = min(
             vec_c_converted_available.sum(),
             c_demanded,
         )
@@ -2238,7 +2340,7 @@ class BiomassCarbonLedger:
     ) -> None:
         """Update the counterfactual "untouched" c stock array. Updates:
 
-            * arr_young_biomass_c_loss_from_decomposition
+            * arr_young_biomass_c_loss_to_dom
         """
 
         # nothing to do at first time step
@@ -2246,7 +2348,7 @@ class BiomassCarbonLedger:
             return None
 
         # shortcuts
-        rate_decomp = self.vec_frac_biomass_ag_decomposition[i - 1]
+        rate_decomp = self.vec_frac_biomass_ag_to_dom[i - 1]
         vec_conv = self.arr_young_biomass_c_ag_converted_by_tp_planted[i]
         vec_removals_cur = self.arr_young_biomass_c_stock_removal_allocation[i]
         vec_stock_prev = self.arr_young_biomass_c_ag_stock[i - 1]
@@ -2254,8 +2356,8 @@ class BiomassCarbonLedger:
         # calculation and assignment
         vec_loss = (vec_stock_prev - vec_removals_cur - vec_conv)*rate_decomp
 
-        self.arr_young_biomass_c_loss_from_decomposition[i] = vec_loss
-        self.vec_young_biomass_c_loss_from_decomposition[i] = vec_loss.sum()
+        self.arr_young_biomass_c_loss_to_dom[i] = vec_loss
+        self.vec_young_biomass_c_loss_to_dom[i] = vec_loss.sum()
 
         return None
 
@@ -2316,7 +2418,10 @@ class BiomassCarbonLedger:
         
         # shortcuts
         arr_alloc = self.arr_young_biomass_c_stock_removal_allocation
-        c_removals_demanded_from_young = self.vec_biomass_c_removed_from_young_post_orig[i]
+        c_removals_demanded_from_young = (
+            self.vec_biomass_c_removed_from_young_post_orig[i]
+            + self.vec_biomass_c_removed_from_young_pre_orig[i]
+        )
         vec_aux = self.arr_young_biomass_c_stock_removal_allocation_aux[i]
 
         # iterate to add 
@@ -2366,7 +2471,7 @@ class BiomassCarbonLedger:
 
         vec_area = self.arr_young_area_by_tp_planted[i]
         vec_conv = self.arr_young_biomass_c_ag_converted_by_tp_planted[i]
-        vec_decomp = self.arr_young_biomass_c_loss_from_decomposition[i]
+        vec_decomp = self.arr_young_biomass_c_loss_to_dom[i]
         vec_removals = self.arr_young_biomass_c_stock_removal_allocation[i]
         vec_sf_adj = self.arr_young_sf_adjusted_by_tp_planted[i]
         vec_stock_prev = self.arr_young_biomass_c_ag_stock[i - 1]
@@ -2413,7 +2518,7 @@ class BiomassCarbonLedger:
         
         
         # add as previous stock*(1 - decomp rate ) plus sequestration
-        frac_decomp = self.vec_frac_biomass_ag_decomposition[i]
+        frac_decomp = self.vec_frac_biomass_ag_to_dom[i]
         vec_ratio_areas = np.nan_to_num(
             arr_area[i]/arr_area[i - 1],
             nan = 0.0,

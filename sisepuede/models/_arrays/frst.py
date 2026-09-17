@@ -50,6 +50,33 @@ class ArraysFRST(ma.SubsectorArraysCollection):
         """Initialize FRST arrays that are carried through
         """
 
+        # fraction of deadwood removed
+        self.get_modvar_array(
+            df_trajectories,
+            self.modvar_frst_bcl_frac_deadwood_removed,
+            override_vector_for_single_mv_q = False, 
+            set_property = True,
+            var_bounds = (0, 1),
+        )
+
+        # fraction of DOM that is deadwood 
+        self.get_modvar_array(
+            df_trajectories,
+            self.modvar_frst_bcl_frac_dom_deadwood,
+            override_vector_for_single_mv_q = False, 
+            set_property = True,
+            var_bounds = (0, 1),
+        )
+
+        # priority fraction for removals from young forests
+        self.get_modvar_array(
+            df_trajectories,
+            self.modvar_frst_bcl_frac_rmv_priority_yf,
+            override_vector_for_single_mv_q = False, 
+            set_property = True,
+            var_bounds = (0, 1),
+        )
+        
         # emission factor--CH4 from methane emission
         self.get_modvar_array(
             df_trajectories,
@@ -71,15 +98,6 @@ class ArraysFRST(ma.SubsectorArraysCollection):
         self.get_modvar_array(
             df_trajectories,
             self.modvar_frst_frac_c_per_dm,
-            override_vector_for_single_mv_q = False, 
-            set_property = True,
-            var_bounds = (0, 1),
-        )
-
-        # priority fraction for removals from young forests
-        self.get_modvar_array(
-            df_trajectories,
-            self.modvar_frst_bcl_frac_rmv_priority_yf,
             override_vector_for_single_mv_q = False, 
             set_property = True,
             var_bounds = (0, 1),
