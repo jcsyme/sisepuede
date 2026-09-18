@@ -41,7 +41,6 @@ import sisepuede.utilities._toolbox as sf
 # SOME DEFAULT TRANSFORMER VALUES
 _DEFAULT_VALUE_TRANSFORMER_DECREASE_MCF = 0.5
 
-
 # SOME DEFAULT VALUES
 _DEFAULT_VALUE_VIR_ALPHA_LOGISTIC = 0.0
 _DEFAULT_VALUE_VIR_RENEWABLE_CAP_DELTA_FRAC = 0.0075
@@ -55,6 +54,11 @@ _DICT_KEYS = {
     "general": "general",
     "vec_implementation_ramp": "vec_implementation_ramp",
 }
+
+# FIELDS
+_FIELD_TRANSFORMER_KERNEL_CODE = "transformer_kernel_code"
+_FIELD_TRANSFORMER_KERNEL_ID = "transformer_kernel_id"
+_FIELD_TRANSFORMER_KERNEL_NAME = "transformer_kernel"
 
 # MODULE INFO
 _MODULE_CODE_SIGNATURE = "TFR"
@@ -152,15 +156,15 @@ def get_dict_config_default(
 #    START WITH TRANSFORMER    #
 ################################
 
-class Transformer:
-    """Create a Transformation class to support construction in sectoral 
+class TransformerKernel:
+    """Create a TransformerKernel class to support construction in sectoral 
         transformations. 
 
     Initialization Arguments
     ------------------------
     code : str
-        Transformer code used to map the transformer to the attribute table. 
-        Must be defined in attr_transfomers.table[attr_transfomers.key]
+        TransformerKernel code used to map the transformer to the attribute 
+        table. Must be defined in attr_transfomers.table[attr_transfomers.key]
     func : Callable
         The function associated with the transformation OR an ordered list of \
         functions representing compositional order, e.g., 
@@ -273,7 +277,7 @@ class Transformer:
         id_num = (
             attr_transfomer
             .field_maps
-            .get(f"{attr_transfomer.key}_to_{self.field_transformer_id}")
+            .get(f"{attr_transfomer.key}_to_{self.field_transformer_kernel_id}")
             if attr_transfomer is not None
             else None
         )
@@ -284,7 +288,7 @@ class Transformer:
         name = (
             attr_transfomer
             .field_maps
-            .get(f"{attr_transfomer.key}_to_{self.field_transformer_name}")
+            .get(f"{attr_transfomer.key}_to_{self.field_transformer_kernel_name}")
             if attr_transfomer is not None
             else None
         )
@@ -425,8 +429,7 @@ class Transformer:
     def _initialize_fields(self,
         **kwargs,
     ) -> None:
-        """
-        Set the optional and required keys used to specify a transformation.
+        """Set the optional and required keys used to specify a transformation.
             Can use keyword arguments to set keys.
         """
 
@@ -435,8 +438,8 @@ class Transformer:
         field_citations = kwargs.get("field_citations", "citations")
         field_description = kwargs.get("field_description", "description")
         field_description_units = kwargs.get("field_description_units", "units_description")
-        field_transformer_id = kwargs.get("field_transformer_id", "transformer_id")
-        field_transformer_name = kwargs.get("field_transformer_name", "transformer")
+        field_transformer_kernel_id = kwargs.get("field_transformer_kernel_id", _FIELD_TRANSFORMER_KERNEL_ID, )
+        field_transformer_kernel_name = kwargs.get("field_transformer_kernel_name", _FIELD_TRANSFORMER_KERNEL_NAME, )
         
 
         ##  SET PARAMETERS
@@ -444,8 +447,8 @@ class Transformer:
         self.field_citations = field_citations
         self.field_description = field_description
         self.field_description_units = field_description_units
-        self.field_transformer_id = field_transformer_id
-        self.field_transformer_name = field_transformer_name
+        self.field_transformer_kernel_id = field_transformer_kernel_id
+        self.field_transformer_kernel_name = field_transformer_kernel_name
 
         return None
     
@@ -460,7 +463,7 @@ class Transformer:
             * self._uuid
         """
 
-        self.is_transformer = True
+        self.is_transformer_kernel = True
         self._uuid = _MODULE_UUID
 
         return None
@@ -474,8 +477,8 @@ class Transformer:
 #    COLLECTION OF TRANSFORMERS    #
 ####################################
 
-class Transformers:
-    """Build collection of Transformers that are used to define transformations.
+class TransformerKernels:
+    """Build collection of TransformerKernals that are used to define transformations.
 
     Includes some information on
 
@@ -558,7 +561,7 @@ class Transformers:
         Initialize the model attributes object. Checks implementation and throws
             an error if issues arise. Sets the following properties
 
-            * self.attribute_transformer_code
+            * self.attribute_transformer_kernel_code
             * self.key_region
             * self.regex_code_structure
             * self.regions (support_classes.Regions object)
@@ -572,11 +575,11 @@ class Transformers:
             raise RuntimeError(f"Error: invalid specification of model_attributes in Transformers")
 
         # get transformer attribute, technology attribute
-        attribute_transformer_code = (
+        attribute_transformer_kernel_code = (
             self.model_attributes
             .get_other_attribute_table(
                 self.model_attributes
-                .dim_transformer_code
+                .dim_transformer_kernel_code
             )
         )
 
@@ -610,10 +613,10 @@ class Transformers:
         ##  SET PROPERTIES
         
         self.attribute_technology = attribute_technology
-        self.attribute_transformer_code = attribute_transformer_code
+        self.attribute_transformer_kernel_code = attribute_transformer_kernel_code
         self.key_region = field_region
         self.key_time_period = time_periods.field_time_period
-        self.key_transformer_code = attribute_transformer_code.key
+        self.key_transformer_code = attribute_transformer_kernel_code.key
         self.regex_code_structure = regex_code_structure
         self.regions_manager = regions_manager
         self.time_periods = time_periods
@@ -649,7 +652,7 @@ class Transformers:
                     self.key_region,
                     self.key_time_period
                 ],
-                msg_prepend = "Fields required in input data frame used to initialize Transformers()"
+                msg_prepend = "Fields required in input data frame used to initialize TransformerKernels()"
             )
 
             
@@ -1052,15 +1055,15 @@ class Transformers:
      
         Sets the following properties:
 
-            * self.all_transformers
-            * self.all_transformers_non_baseline
+            * self.all_tkernels
+            * self.all_tkernels_non_baseline
             * self.dict_transformers
             * self.transformer_id_baseline
             * self._trfunc_***
         """
 
-        attr_transformer_code = self.attribute_transformer_code
-        all_transformers = []
+        attr_transformer_kernel_code = self.attribute_transformer_kernel_code
+        all_tkernels = []
 
         dict_transformers = {}
 
@@ -1070,12 +1073,12 @@ class Transformers:
         #    BASELINE    #
         ##################
 
-        self.baseline = Transformer(
+        self.baseline = TransformerKernel(
             self.code_baseline, 
             self._trfunc_baseline_return, 
-            attr_transformer_code
+            attr_transformer_kernel_code
         )
-        all_transformers.append(self.baseline)
+        all_tkernels.append(self.baseline)
 
 
         ###############
@@ -1084,220 +1087,220 @@ class Transformers:
 
         ##  AGRC TRANSFORMERS
 
-        self.agrc_improve_rice_management = Transformer(
+        self.agrc_improve_rice_management = TransformerKernel(
             f"{_MODULE_CODE_SIGNATURE}:AGRC:DEC_CH4_RICE", 
             self._trfunc_agrc_improve_rice_management,
-            attr_transformer_code
+            attr_transformer_kernel_code
         )
-        all_transformers.append(self.agrc_improve_rice_management)
+        all_tkernels.append(self.agrc_improve_rice_management)
 
 
-        self.agrc_decrease_exports = Transformer(
+        self.agrc_decrease_exports = TransformerKernel(
             f"{_MODULE_CODE_SIGNATURE}:AGRC:DEC_EXPORTS", 
             self._trfunc_agrc_decrease_exports,
-            attr_transformer_code
+            attr_transformer_kernel_code
         )
-        all_transformers.append(self.agrc_decrease_exports)
+        all_tkernels.append(self.agrc_decrease_exports)
 
 
-        self.agrc_expand_conservation_agriculture = Transformer(
+        self.agrc_expand_conservation_agriculture = TransformerKernel(
             f"{_MODULE_CODE_SIGNATURE}:AGRC:INC_CONSERVATION_AGRICULTURE", 
             self._trfunc_agrc_expand_conservation_agriculture,
-            attr_transformer_code
+            attr_transformer_kernel_code
         )
-        all_transformers.append(self.agrc_expand_conservation_agriculture)
+        all_tkernels.append(self.agrc_expand_conservation_agriculture)
 
 
-        self.agrc_increase_crop_productivity = Transformer(
+        self.agrc_increase_crop_productivity = TransformerKernel(
             f"{_MODULE_CODE_SIGNATURE}:AGRC:INC_PRODUCTIVITY", 
             self._trfunc_agrc_increase_crop_productivity,
-            attr_transformer_code
+            attr_transformer_kernel_code
         )
-        all_transformers.append(self.agrc_increase_crop_productivity)
+        all_tkernels.append(self.agrc_increase_crop_productivity)
 
 
-        self.agrc_reduce_supply_chain_losses = Transformer(
+        self.agrc_reduce_supply_chain_losses = TransformerKernel(
             f"{_MODULE_CODE_SIGNATURE}:AGRC:DEC_LOSSES_SUPPLY_CHAIN", 
             self._trfunc_agrc_reduce_supply_chain_losses,
-            attr_transformer_code
+            attr_transformer_kernel_code
         )
-        all_transformers.append(self.agrc_reduce_supply_chain_losses)
+        all_tkernels.append(self.agrc_reduce_supply_chain_losses)
 
 
 
         ##  FRST TRANSFORMERS
 
-        self.frst_increase_deadwood_removals = Transformer(
+        self.frst_increase_deadwood_removals = TransformerKernel(
             f"{_MODULE_CODE_SIGNATURE}:FRST:TARGET_REMOVALS_DW", 
             self._trfunc_frst_increase_removals_deadwood,
-            attr_transformer_code
+            attr_transformer_kernel_code
         )
-        all_transformers.append(self.frst_increase_deadwood_removals, )
+        all_tkernels.append(self.frst_increase_deadwood_removals, )
 
 
-        self.frst_increase_sequestration = Transformer(
+        self.frst_increase_sequestration = TransformerKernel(
             f"{_MODULE_CODE_SIGNATURE}:FRST:INCREASE_SEQUESTRATION", 
             self._trfunc_frst_increase_sequestration,
-            attr_transformer_code
+            attr_transformer_kernel_code
         )
-        all_transformers.append(self.frst_increase_sequestration, )
+        all_tkernels.append(self.frst_increase_sequestration, )
 
         
 
         ##  LNDU TRANSFORMERS
 
-        self.lndu_bound_classes = Transformer(
+        self.lndu_bound_classes = TransformerKernel(
             f"{_MODULE_CODE_SIGNATURE}:LNDU:BOUND_CLASSES", 
             self._trfunc_lndu_bound_class,
-            attr_transformer_code
+            attr_transformer_kernel_code
         )
-        all_transformers.append(self.lndu_bound_classes)
+        all_tkernels.append(self.lndu_bound_classes)
 
 
-        self.lndu_expand_silvopasture = Transformer(
+        self.lndu_expand_silvopasture = TransformerKernel(
             f"{_MODULE_CODE_SIGNATURE}:LNDU:INC_SILVOPASTURE", 
             self._trfunc_lndu_expand_silvopasture,
-            attr_transformer_code
+            attr_transformer_kernel_code
         )
-        all_transformers.append(self.lndu_expand_silvopasture)
+        all_tkernels.append(self.lndu_expand_silvopasture)
 
 
-        self.lndu_expand_sustainable_grazing = Transformer(
+        self.lndu_expand_sustainable_grazing = TransformerKernel(
             f"{_MODULE_CODE_SIGNATURE}:LNDU:DEC_SOC_LOSS_PASTURES", 
             self._trfunc_lndu_expand_sustainable_grazing,
-            attr_transformer_code
+            attr_transformer_kernel_code
         )
-        all_transformers.append(self.lndu_expand_sustainable_grazing)
+        all_tkernels.append(self.lndu_expand_sustainable_grazing)
 
         
-        self.lndu_increase_pasture_productivity = Transformer(
+        self.lndu_increase_pasture_productivity = TransformerKernel(
             f"{_MODULE_CODE_SIGNATURE}:LNDU:INC_PRODUCTIVITY_PASTURES", 
             self._trfunc_lndu_increase_pasture_productivity,
-            attr_transformer_code
+            attr_transformer_kernel_code
         )
-        all_transformers.append(self.lndu_increase_pasture_productivity)
+        all_tkernels.append(self.lndu_increase_pasture_productivity)
 
 
-        self.lndu_increase_reforestation = Transformer(
+        self.lndu_increase_reforestation = TransformerKernel(
             f"{_MODULE_CODE_SIGNATURE}:LNDU:INC_REFORESTATION", 
             self._trfunc_lndu_increase_reforestation,
-            attr_transformer_code
+            attr_transformer_kernel_code
         )
-        all_transformers.append(self.lndu_increase_reforestation)
+        all_tkernels.append(self.lndu_increase_reforestation)
 
 
-        self.lndu_partial_reallocation = Transformer(
+        self.lndu_partial_reallocation = TransformerKernel(
             f"{_MODULE_CODE_SIGNATURE}:LNDU:PLUR", 
             self._trfunc_lndu_reallocate_land,
-            attr_transformer_code
+            attr_transformer_kernel_code
         )
-        all_transformers.append(self.lndu_partial_reallocation)
+        all_tkernels.append(self.lndu_partial_reallocation)
 
 
-        self.lndu_stop_deforestation = Transformer(
+        self.lndu_stop_deforestation = TransformerKernel(
             f"{_MODULE_CODE_SIGNATURE}:LNDU:DEC_DEFORESTATION", 
             self._trfunc_lndu_stop_deforestation,
-            attr_transformer_code
+            attr_transformer_kernel_code
         )
-        all_transformers.append(self.lndu_stop_deforestation)
+        all_tkernels.append(self.lndu_stop_deforestation)
 
 
-        self.lndu_stop_land_class_loss = Transformer(
+        self.lndu_stop_land_class_loss = TransformerKernel(
             f"{_MODULE_CODE_SIGNATURE}:LNDU:DEC_CLASS_LOSS", 
             self._trfunc_lndu_stop_land_use_class_loss,
-            attr_transformer_code
+            attr_transformer_kernel_code
         )
-        all_transformers.append(self.lndu_stop_land_class_loss)
+        all_tkernels.append(self.lndu_stop_land_class_loss)
 
 
 
 
         ##  LSMM TRANSFORMATIONS
 
-        self.lsmm_improve_manure_management_cattle_pigs = Transformer(
+        self.lsmm_improve_manure_management_cattle_pigs = TransformerKernel(
             f"{_MODULE_CODE_SIGNATURE}:LSMM:INC_MANAGEMENT_CATTLE_PIGS", 
             self._trfunc_lsmm_improve_manure_management_cattle_pigs,
-            attr_transformer_code
+            attr_transformer_kernel_code
         )
-        all_transformers.append(self.lsmm_improve_manure_management_cattle_pigs)
+        all_tkernels.append(self.lsmm_improve_manure_management_cattle_pigs)
 
 
-        self.lsmm_improve_manure_management_other = Transformer(
+        self.lsmm_improve_manure_management_other = TransformerKernel(
             f"{_MODULE_CODE_SIGNATURE}:LSMM:INC_MANAGEMENT_OTHER", 
             self._trfunc_lsmm_improve_manure_management_other,
-            attr_transformer_code
+            attr_transformer_kernel_code
         )
-        all_transformers.append(self.lsmm_improve_manure_management_other)
+        all_tkernels.append(self.lsmm_improve_manure_management_other)
         
 
-        self.lsmm_improve_manure_management_poultry = Transformer(
+        self.lsmm_improve_manure_management_poultry = TransformerKernel(
             f"{_MODULE_CODE_SIGNATURE}:LSMM:INC_MANAGEMENT_POULTRY", 
             self._trfunc_lsmm_improve_manure_management_poultry,
-            attr_transformer_code
+            attr_transformer_kernel_code
         )
-        all_transformers.append(self.lsmm_improve_manure_management_poultry)
+        all_tkernels.append(self.lsmm_improve_manure_management_poultry)
 
 
-        self.lsmm_increase_biogas_capture = Transformer(
+        self.lsmm_increase_biogas_capture = TransformerKernel(
             f"{_MODULE_CODE_SIGNATURE}:LSMM:INC_CAPTURE_BIOGAS", 
             self._trfunc_lsmm_increase_biogas_capture,
-            attr_transformer_code
+            attr_transformer_kernel_code
         )
-        all_transformers.append(self.lsmm_increase_biogas_capture)
+        all_tkernels.append(self.lsmm_increase_biogas_capture)
 
 
         
         ##  LVST TRANSFORMERS
       
-        self.lvst_decrease_exports = Transformer(
+        self.lvst_decrease_exports = TransformerKernel(
             f"{_MODULE_CODE_SIGNATURE}:LVST:DEC_EXPORTS", 
             self._trfunc_lvst_decrease_exports,
-            attr_transformer_code
+            attr_transformer_kernel_code
         )
-        all_transformers.append(self.lvst_decrease_exports)
+        all_tkernels.append(self.lvst_decrease_exports)
 
 
-        self.lvst_increase_productivity = Transformer(
+        self.lvst_increase_productivity = TransformerKernel(
             f"{_MODULE_CODE_SIGNATURE}:LVST:INC_PRODUCTIVITY", 
             self._trfunc_lvst_increase_productivity,
-            attr_transformer_code
+            attr_transformer_kernel_code
         )
-        all_transformers.append(self.lvst_increase_productivity)
+        all_tkernels.append(self.lvst_increase_productivity)
 
 
-        self.lvst_reduce_enteric_fermentation = Transformer(
+        self.lvst_reduce_enteric_fermentation = TransformerKernel(
             f"{_MODULE_CODE_SIGNATURE}:LVST:DEC_ENTERIC_FERMENTATION", 
             self._trfunc_lvst_reduce_enteric_fermentation,
-            attr_transformer_code
+            attr_transformer_kernel_code
         )
-        all_transformers.append(self.lvst_reduce_enteric_fermentation)
+        all_tkernels.append(self.lvst_reduce_enteric_fermentation)
 
 
-        self.lvst_shift_dietary_bounds = Transformer(
+        self.lvst_shift_dietary_bounds = TransformerKernel(
             f"{_MODULE_CODE_SIGNATURE}:LVST:SHIFT_DIETARY_BOUNDS", 
             self._trfunc_lvst_shift_dietary_bounds,
-            attr_transformer_code
+            attr_transformer_kernel_code
         )
-        all_transformers.append(self.lvst_shift_dietary_bounds)
+        all_tkernels.append(self.lvst_shift_dietary_bounds)
         
 
 
         ##  SOIL TRANSFORMERS
         
-        self.soil_reduce_excess_fertilizer = Transformer(
+        self.soil_reduce_excess_fertilizer = TransformerKernel(
             f"{_MODULE_CODE_SIGNATURE}:SOIL:DEC_N_APPLIED", 
             self._trfunc_soil_reduce_excess_fertilizer,
-            attr_transformer_code
+            attr_transformer_kernel_code
         )
-        all_transformers.append(self.soil_reduce_excess_fertilizer)
+        all_tkernels.append(self.soil_reduce_excess_fertilizer)
 
 
-        self.soil_reduce_excess_liming = Transformer(
+        self.soil_reduce_excess_liming = TransformerKernel(
             f"{_MODULE_CODE_SIGNATURE}:SOIL:DEC_LIME_APPLIED", 
             self._trfunc_soil_reduce_excess_lime,
-            attr_transformer_code
+            attr_transformer_kernel_code
         )
-        all_transformers.append(self.soil_reduce_excess_liming)
+        all_tkernels.append(self.soil_reduce_excess_liming)
 
 
 
@@ -1307,112 +1310,112 @@ class Transformers:
 
         ##  TRWW TRANSFORMERS
 
-        self.trww_increase_biogas_capture = Transformer(
+        self.trww_increase_biogas_capture = TransformerKernel(
             f"{_MODULE_CODE_SIGNATURE}:TRWW:INC_CAPTURE_BIOGAS", 
             self._trfunc_trww_increase_biogas_capture,
-            attr_transformer_code
+            attr_transformer_kernel_code
         )
-        all_transformers.append(self.trww_increase_biogas_capture)
+        all_tkernels.append(self.trww_increase_biogas_capture)
 
 
-        self.trww_increase_septic_compliance = Transformer(
+        self.trww_increase_septic_compliance = TransformerKernel(
             f"{_MODULE_CODE_SIGNATURE}:TRWW:INC_COMPLIANCE_SEPTIC", 
             self._trfunc_trww_increase_septic_compliance,
-            attr_transformer_code
+            attr_transformer_kernel_code
         )
-        all_transformers.append(self.trww_increase_septic_compliance)
+        all_tkernels.append(self.trww_increase_septic_compliance)
 
 
         ##  WALI TRANSFORMERS
  
-        self.wali_improve_sanitation_industrial = Transformer(
+        self.wali_improve_sanitation_industrial = TransformerKernel(
             f"{_MODULE_CODE_SIGNATURE}:WALI:INC_TREATMENT_INDUSTRIAL", 
             self._trfunc_wali_improve_sanitation_industrial,
-            attr_transformer_code
+            attr_transformer_kernel_code
         )
-        all_transformers.append(self.wali_improve_sanitation_industrial)
+        all_tkernels.append(self.wali_improve_sanitation_industrial)
 
 
-        self.wali_improve_sanitation_rural = Transformer(
+        self.wali_improve_sanitation_rural = TransformerKernel(
             f"{_MODULE_CODE_SIGNATURE}:WALI:INC_TREATMENT_RURAL", 
             self._trfunc_wali_improve_sanitation_rural,
-            attr_transformer_code
+            attr_transformer_kernel_code
         )
-        all_transformers.append(self.wali_improve_sanitation_rural)
+        all_tkernels.append(self.wali_improve_sanitation_rural)
 
 
-        self.wali_improve_sanitation_urban = Transformer(
+        self.wali_improve_sanitation_urban = TransformerKernel(
             f"{_MODULE_CODE_SIGNATURE}:WALI:INC_TREATMENT_URBAN", 
             self._trfunc_wali_improve_sanitation_urban,
-            attr_transformer_code
+            attr_transformer_kernel_code
         )
-        all_transformers.append(self.wali_improve_sanitation_urban)
+        all_tkernels.append(self.wali_improve_sanitation_urban)
 
 
         ##  WASO TRANSFORMERS
 
-        self.waso_descrease_consumer_food_waste = Transformer(
+        self.waso_descrease_consumer_food_waste = TransformerKernel(
             f"{_MODULE_CODE_SIGNATURE}:WASO:DEC_CONSUMER_FOOD_WASTE",
             self._trfunc_waso_decrease_food_waste, 
-            attr_transformer_code
+            attr_transformer_kernel_code
         )
-        all_transformers.append(self.waso_descrease_consumer_food_waste)
+        all_tkernels.append(self.waso_descrease_consumer_food_waste)
 
 
-        self.waso_descrease_mcf_landfills = Transformer(
+        self.waso_descrease_mcf_landfills = TransformerKernel(
             f"{_MODULE_CODE_SIGNATURE}:WASO:DEC_MCF_LANDFILLS",
             self._trfunc_waso_decrease_mcf_landfills, 
-            attr_transformer_code
+            attr_transformer_kernel_code
         )
-        all_transformers.append(self.waso_descrease_mcf_landfills)
+        all_tkernels.append(self.waso_descrease_mcf_landfills)
         
         
-        self.waso_increase_anaerobic_treatment_and_composting = Transformer(
+        self.waso_increase_anaerobic_treatment_and_composting = TransformerKernel(
             f"{_MODULE_CODE_SIGNATURE}:WASO:INC_ANAEROBIC_AND_COMPOST", 
             self._trfunc_waso_increase_anaerobic_treatment_and_composting, 
-            attr_transformer_code
+            attr_transformer_kernel_code
         )
-        all_transformers.append(self.waso_increase_anaerobic_treatment_and_composting)
+        all_tkernels.append(self.waso_increase_anaerobic_treatment_and_composting)
 
 
-        self.waso_increase_biogas_capture = Transformer(
+        self.waso_increase_biogas_capture = TransformerKernel(
             f"{_MODULE_CODE_SIGNATURE}:WASO:INC_CAPTURE_BIOGAS", 
             self._trfunc_waso_increase_biogas_capture, 
-            attr_transformer_code
+            attr_transformer_kernel_code
         )
-        all_transformers.append(self.waso_increase_biogas_capture)
+        all_tkernels.append(self.waso_increase_biogas_capture)
 
 
-        self.waso_energy_from_biogas = Transformer(
+        self.waso_energy_from_biogas = TransformerKernel(
             f"{_MODULE_CODE_SIGNATURE}:WASO:INC_ENERGY_FROM_BIOGAS", 
             self._trfunc_waso_increase_energy_from_biogas, 
-            attr_transformer_code
+            attr_transformer_kernel_code
         )
-        all_transformers.append(self.waso_energy_from_biogas)
+        all_tkernels.append(self.waso_energy_from_biogas)
 
 
-        self.waso_energy_from_incineration = Transformer(
+        self.waso_energy_from_incineration = TransformerKernel(
             f"{_MODULE_CODE_SIGNATURE}:WASO:INC_ENERGY_FROM_INCINERATION", 
             self._trfunc_waso_increase_energy_from_incineration, 
-            attr_transformer_code
+            attr_transformer_kernel_code
         )
-        all_transformers.append(self.waso_energy_from_incineration)
+        all_tkernels.append(self.waso_energy_from_incineration)
 
 
-        self.waso_increase_landfilling = Transformer(
+        self.waso_increase_landfilling = TransformerKernel(
             f"{_MODULE_CODE_SIGNATURE}:WASO:INC_LANDFILLING", 
             self._trfunc_waso_increase_landfilling, 
-            attr_transformer_code
+            attr_transformer_kernel_code
         )
-        all_transformers.append(self.waso_increase_landfilling)
+        all_tkernels.append(self.waso_increase_landfilling)
 
         
-        self.waso_increase_recycling = Transformer(
+        self.waso_increase_recycling = TransformerKernel(
             f"{_MODULE_CODE_SIGNATURE}:WASO:INC_RECYCLING", 
             self._trfunc_waso_increase_recycling, 
-            attr_transformer_code
+            attr_transformer_kernel_code
         )
-        all_transformers.append(self.waso_increase_recycling)
+        all_tkernels.append(self.waso_increase_recycling)
 
 
         #############################
@@ -1421,142 +1424,150 @@ class Transformers:
 
         ##  CCSQ
 
-        self.ccsq_increase_air_capture = Transformer(
+        self.ccsq_increase_air_capture = TransformerKernel(
             f"{_MODULE_CODE_SIGNATURE}:CCSQ:INC_CAPTURE", 
             self._trfunc_ccsq_increase_air_capture, 
-            attr_transformer_code
+            attr_transformer_kernel_code
         )
-        all_transformers.append(self.ccsq_increase_air_capture)
+        all_tkernels.append(self.ccsq_increase_air_capture)
 
 
         ##  ENFU
 
-        self.enfu_adjust_exports = Transformer(
+        self.enfu_adjust_exports = TransformerKernel(
             f"{_MODULE_CODE_SIGNATURE}:ENFU:ADJ_EXPORTS", 
             self._trfunc_enfu_adjust_exports,
-            attr_transformer_code
+            attr_transformer_kernel_code
         )
-        all_transformers.append(self.enfu_adjust_exports)
+        all_tkernels.append(self.enfu_adjust_exports)
 
 
-        self.enfu_adjust_prices = Transformer(
+        self.enfu_adjust_prices = TransformerKernel(
             f"{_MODULE_CODE_SIGNATURE}:ENFU:ADJ_PRICES", 
             self._trfunc_enfu_adjust_prices,
-            attr_transformer_code
+            attr_transformer_kernel_code
         )
-        all_transformers.append(self.enfu_adjust_prices)
+        all_tkernels.append(self.enfu_adjust_prices)
 
 
 
         ##  ENTC
 
-        self.entc_clean_hydrogen = Transformer(
+        self.entc_clean_hydrogen = TransformerKernel(
             f"{_MODULE_CODE_SIGNATURE}:ENTC:TARGET_CLEAN_HYDROGEN", 
             self._trfunc_entc_clean_hydrogen, 
-            attr_transformer_code
+            attr_transformer_kernel_code
         )
-        all_transformers.append(self.entc_clean_hydrogen)
+        all_tkernels.append(self.entc_clean_hydrogen)
 
 
-        self.entc_least_cost = Transformer(
-            f"{_MODULE_CODE_SIGNATURE}:ENTC:LEAST_COST_SOLUTION", 
-            self._trfunc_entc_least_cost, 
-            attr_transformer_code
+        self.entc_increase_efficiency_fuel_production = TransformerKernel(
+            f"{_MODULE_CODE_SIGNATURE}:ENTC:INCREASE_EFFICIENCY_FUEL_PROD", 
+            self._trfunc_entc_increase_efficiency_fuel_production, 
+            attr_transformer_kernel_code
         )
-        all_transformers.append(self.entc_least_cost)
+        all_tkernels.append(self.entc_increase_efficiency_fuel_production)
 
         
-        self.entc_reduce_transmission_losses = Transformer(
+        self.entc_least_cost = TransformerKernel(
+            f"{_MODULE_CODE_SIGNATURE}:ENTC:LEAST_COST_SOLUTION", 
+            self._trfunc_entc_least_cost, 
+            attr_transformer_kernel_code
+        )
+        all_tkernels.append(self.entc_least_cost)
+
+        
+        self.entc_reduce_transmission_losses = TransformerKernel(
             f"{_MODULE_CODE_SIGNATURE}:ENTC:DEC_LOSSES", 
             self._trfunc_entc_reduce_transmission_losses, 
-            attr_transformer_code
+            attr_transformer_kernel_code
         )
-        all_transformers.append(self.entc_reduce_transmission_losses)
+        all_tkernels.append(self.entc_reduce_transmission_losses)
 
 
-        self.entc_renewable_electricity = Transformer(
+        self.entc_renewable_electricity = TransformerKernel(
             f"{_MODULE_CODE_SIGNATURE}:ENTC:TARGET_RENEWABLE_ELEC", 
             self._trfunc_entc_renewables_target, 
-            attr_transformer_code
+            attr_transformer_kernel_code
         )
-        all_transformers.append(self.entc_renewable_electricity)
+        all_tkernels.append(self.entc_renewable_electricity)
 
 
         ##  FGTV
 
-        self.fgtv_maximize_flaring = Transformer(
+        self.fgtv_maximize_flaring = TransformerKernel(
             f"{_MODULE_CODE_SIGNATURE}:FGTV:INC_FLARE", 
             self._trfunc_fgtv_maximize_flaring, 
-            attr_transformer_code
+            attr_transformer_kernel_code
         )
-        all_transformers.append(self.fgtv_maximize_flaring)
+        all_tkernels.append(self.fgtv_maximize_flaring)
 
-        self.fgtv_minimize_leaks = Transformer(
+        self.fgtv_minimize_leaks = TransformerKernel(
             f"{_MODULE_CODE_SIGNATURE}:FGTV:DEC_LEAKS", 
             self._trfunc_fgtv_minimize_leaks, 
-            attr_transformer_code
+            attr_transformer_kernel_code
         )
-        all_transformers.append(self.fgtv_minimize_leaks)
+        all_tkernels.append(self.fgtv_minimize_leaks)
 
 
         ##  INEN
 
-        self.inen_fuel_switch_heat = Transformer(
+        self.inen_fuel_switch_heat = TransformerKernel(
             f"{_MODULE_CODE_SIGNATURE}:INEN:SHIFT_FUEL_HEAT", 
             self._trfunc_inen_fuel_switch_low_and_high_temp,
-            attr_transformer_code
+            attr_transformer_kernel_code
         )
-        all_transformers.append(self.inen_fuel_switch_heat)
+        all_tkernels.append(self.inen_fuel_switch_heat)
 
         
-        self.inen_maximize_energy_efficiency = Transformer(
+        self.inen_maximize_energy_efficiency = TransformerKernel(
             f"{_MODULE_CODE_SIGNATURE}:INEN:INC_EFFICIENCY_ENERGY", 
             self._trfunc_inen_maximize_efficiency_energy, 
-            attr_transformer_code
+            attr_transformer_kernel_code
         )
-        all_transformers.append(self.inen_maximize_energy_efficiency)
+        all_tkernels.append(self.inen_maximize_energy_efficiency)
 
 
-        self.inen_maximize_production_efficiency = Transformer(
+        self.inen_maximize_production_efficiency = TransformerKernel(
             f"{_MODULE_CODE_SIGNATURE}:INEN:INC_EFFICIENCY_PRODUCTION", 
             self._trfunc_inen_maximize_efficiency_production, 
-            attr_transformer_code
+            attr_transformer_kernel_code
         )
-        all_transformers.append(self.inen_maximize_production_efficiency)
+        all_tkernels.append(self.inen_maximize_production_efficiency)
 
 
         ##  SCOE
 
-        self.scoe_decrease_heat_energy_demand = Transformer(
+        self.scoe_decrease_heat_energy_demand = TransformerKernel(
             f"{_MODULE_CODE_SIGNATURE}:SCOE:DEC_DEMAND_HEAT", 
             self._trfunc_scoe_decrease_heat_energy_demand, 
-            attr_transformer_code
+            attr_transformer_kernel_code
         )
-        all_transformers.append(self.scoe_decrease_heat_energy_demand)
+        all_tkernels.append(self.scoe_decrease_heat_energy_demand)
                                 
 
-        self.scoe_fuel_switch_heat = Transformer(
+        self.scoe_fuel_switch_heat = TransformerKernel(
             f"{_MODULE_CODE_SIGNATURE}:SCOE:SHIFT_FUEL_HEAT", 
             self._trfunc_scoe_fuel_switch_heat, 
-            attr_transformer_code
+            attr_transformer_kernel_code
         )
-        all_transformers.append(self.scoe_fuel_switch_heat)
+        all_tkernels.append(self.scoe_fuel_switch_heat)
 
 
-        self.scoe_increase_efficiency_appliances = Transformer(
+        self.scoe_increase_efficiency_appliances = TransformerKernel(
             f"{_MODULE_CODE_SIGNATURE}:SCOE:INC_EFFICIENCY_APPLIANCE", 
             self._trfunc_scoe_increase_applicance_efficiency, 
-            attr_transformer_code
+            attr_transformer_kernel_code
         )
-        all_transformers.append(self.scoe_increase_efficiency_appliances)
+        all_tkernels.append(self.scoe_increase_efficiency_appliances)
 
 
-        self.scoe_increase_efficiency_heat = Transformer(
+        self.scoe_increase_efficiency_heat = TransformerKernel(
             f"{_MODULE_CODE_SIGNATURE}:SCOE:INC_EFFICIENCY_HEAT", 
             self._trfunc_scoe_increase_heat_efficiency,
-            attr_transformer_code
+            attr_transformer_kernel_code
         )
-        all_transformers.append(self.scoe_increase_efficiency_heat)
+        all_tkernels.append(self.scoe_increase_efficiency_heat)
 
 
 
@@ -1565,165 +1576,165 @@ class Transformers:
         #    TRNS/TRDE    #
         ###################
 
-        self.trde_reduce_demand = Transformer(
+        self.trde_reduce_demand = TransformerKernel(
             f"{_MODULE_CODE_SIGNATURE}:TRDE:DEC_DEMAND", 
             self._trfunc_trde_reduce_demand, 
-            attr_transformer_code
+            attr_transformer_kernel_code
         )
-        all_transformers.append(self.trde_reduce_demand)
+        all_tkernels.append(self.trde_reduce_demand)
 
         
-        self.trns_electrify_light_duty_road = Transformer(
+        self.trns_electrify_light_duty_road = TransformerKernel(
             f"{_MODULE_CODE_SIGNATURE}:TRNS:SHIFT_FUEL_LIGHT_DUTY", 
             self._trfunc_trns_electrify_road_light_duty, 
-            attr_transformer_code
+            attr_transformer_kernel_code
         )
-        all_transformers.append(self.trns_electrify_light_duty_road)
+        all_tkernels.append(self.trns_electrify_light_duty_road)
 
         
-        self.trns_electrify_rail = Transformer(
+        self.trns_electrify_rail = TransformerKernel(
             f"{_MODULE_CODE_SIGNATURE}:TRNS:SHIFT_FUEL_RAIL", 
             self._trfunc_trns_electrify_rail, 
-            attr_transformer_code
+            attr_transformer_kernel_code
         )
-        all_transformers.append(self.trns_electrify_rail)
+        all_tkernels.append(self.trns_electrify_rail)
 
         
-        self.trns_fuel_switch_maritime = Transformer(
+        self.trns_fuel_switch_maritime = TransformerKernel(
             f"{_MODULE_CODE_SIGNATURE}:TRNS:SHIFT_FUEL_MARITIME", 
             self._trfunc_trns_fuel_switch_maritime, 
-            attr_transformer_code
+            attr_transformer_kernel_code
         )
-        all_transformers.append(self.trns_fuel_switch_maritime)
+        all_tkernels.append(self.trns_fuel_switch_maritime)
 
 
-        self.trns_fuel_switch_medium_duty_road = Transformer(
+        self.trns_fuel_switch_medium_duty_road = TransformerKernel(
             f"{_MODULE_CODE_SIGNATURE}:TRNS:SHIFT_FUEL_MEDIUM_DUTY", 
             self._trfunc_trns_fuel_switch_road_medium_duty, 
-            attr_transformer_code
+            attr_transformer_kernel_code
         )
-        all_transformers.append(self.trns_fuel_switch_medium_duty_road)
+        all_tkernels.append(self.trns_fuel_switch_medium_duty_road)
 
 
-        self.trns_increase_efficiency_electric = Transformer(
+        self.trns_increase_efficiency_electric = TransformerKernel(
             f"{_MODULE_CODE_SIGNATURE}:TRNS:INC_EFFICIENCY_ELECTRIC", 
             self._trfunc_trns_increase_efficiency_electric,
-            attr_transformer_code
+            attr_transformer_kernel_code
         )
-        all_transformers.append(self.trns_increase_efficiency_electric)
+        all_tkernels.append(self.trns_increase_efficiency_electric)
 
 
-        self.trns_increase_efficiency_non_electric = Transformer(
+        self.trns_increase_efficiency_non_electric = TransformerKernel(
             f"{_MODULE_CODE_SIGNATURE}:TRNS:INC_EFFICIENCY_NON_ELECTRIC", 
             self._trfunc_trns_increase_efficiency_non_electric,
-            attr_transformer_code
+            attr_transformer_kernel_code
         )
-        all_transformers.append(self.trns_increase_efficiency_non_electric)
+        all_tkernels.append(self.trns_increase_efficiency_non_electric)
 
 
-        self.trns_increase_occupancy_light_duty = Transformer(
+        self.trns_increase_occupancy_light_duty = TransformerKernel(
             f"{_MODULE_CODE_SIGNATURE}:TRNS:INC_OCCUPANCY_LIGHT_DUTY", 
             self._trfunc_trns_increase_occupancy_light_duty, 
-            attr_transformer_code
+            attr_transformer_kernel_code
         )
-        all_transformers.append(self.trns_increase_occupancy_light_duty)
+        all_tkernels.append(self.trns_increase_occupancy_light_duty)
 
 
-        self.trns_mode_shift_freight = Transformer(
+        self.trns_mode_shift_freight = TransformerKernel(
             f"{_MODULE_CODE_SIGNATURE}:TRNS:SHIFT_MODE_FREIGHT", 
             self._trfunc_trns_mode_shift_freight, 
-            attr_transformer_code
+            attr_transformer_kernel_code
         )
-        all_transformers.append(self.trns_mode_shift_freight)
+        all_tkernels.append(self.trns_mode_shift_freight)
 
 
-        self.trns_mode_shift_public_private = Transformer(
+        self.trns_mode_shift_public_private = TransformerKernel(
             f"{_MODULE_CODE_SIGNATURE}:TRNS:SHIFT_MODE_PASSENGER", 
             self._trfunc_trns_mode_shift_public_private, 
-            attr_transformer_code
+            attr_transformer_kernel_code
         )
-        all_transformers.append(self.trns_mode_shift_public_private)
+        all_tkernels.append(self.trns_mode_shift_public_private)
 
 
-        self.trns_mode_shift_regional = Transformer(
+        self.trns_mode_shift_regional = TransformerKernel(
             f"{_MODULE_CODE_SIGNATURE}:TRNS:SHIFT_MODE_REGIONAL", 
             self._trfunc_trns_mode_shift_regional, 
-            attr_transformer_code
+            attr_transformer_kernel_code
         )
-        all_transformers.append(self.trns_mode_shift_regional)
+        all_tkernels.append(self.trns_mode_shift_regional)
 
 
         ###########################
         #    IPPU TRANSFORMERS    #
         ###########################
 
-        self.ippu_demand_managment = Transformer(
+        self.ippu_demand_managment = TransformerKernel(
             f"{_MODULE_CODE_SIGNATURE}:IPPU:DEC_DEMAND", 
             self._trfunc_ippu_reduce_demand,
-            attr_transformer_code
+            attr_transformer_kernel_code
         )
-        all_transformers.append(self.ippu_demand_managment)
+        all_tkernels.append(self.ippu_demand_managment)
 
 
-        self.ippu_reduce_cement_clinker = Transformer(
+        self.ippu_reduce_cement_clinker = TransformerKernel(
             f"{_MODULE_CODE_SIGNATURE}:IPPU:DEC_CLINKER", 
             self._trfunc_ippu_reduce_cement_clinker,
-            attr_transformer_code
+            attr_transformer_kernel_code
         )
-        all_transformers.append(self.ippu_reduce_cement_clinker)
+        all_tkernels.append(self.ippu_reduce_cement_clinker)
 
 
-        self.ippu_reduce_hfcs = Transformer(
+        self.ippu_reduce_hfcs = TransformerKernel(
             f"{_MODULE_CODE_SIGNATURE}:IPPU:DEC_HFCS", 
             self._trfunc_ippu_reduce_hfcs,
-            attr_transformer_code
+            attr_transformer_kernel_code
         )
-        all_transformers.append(self.ippu_reduce_hfcs)
+        all_tkernels.append(self.ippu_reduce_hfcs)
 
 
-        self.ippu_reduce_other_fcs = Transformer(
+        self.ippu_reduce_other_fcs = TransformerKernel(
             f"{_MODULE_CODE_SIGNATURE}:IPPU:DEC_OTHER_FCS", 
             self._trfunc_ippu_reduce_other_fcs,
-            attr_transformer_code
+            attr_transformer_kernel_code
         )
-        all_transformers.append(self.ippu_reduce_other_fcs)
+        all_tkernels.append(self.ippu_reduce_other_fcs)
 
 
-        self.ippu_reduce_n2o = Transformer(
+        self.ippu_reduce_n2o = TransformerKernel(
             f"{_MODULE_CODE_SIGNATURE}:IPPU:DEC_N2O", 
             self._trfunc_ippu_reduce_n2o,
-            attr_transformer_code
+            attr_transformer_kernel_code
         )
-        all_transformers.append(self.ippu_reduce_n2o)
+        all_tkernels.append(self.ippu_reduce_n2o)
 
 
-        self.ippu_reduce_pfcs = Transformer(
+        self.ippu_reduce_pfcs = TransformerKernel(
             f"{_MODULE_CODE_SIGNATURE}:IPPU:DEC_PFCS", 
             self._trfunc_ippu_reduce_pfcs,
-            attr_transformer_code
+            attr_transformer_kernel_code
         )
-        all_transformers.append(self.ippu_reduce_pfcs)
+        all_tkernels.append(self.ippu_reduce_pfcs)
 
 
         ######################################
         #    CROSS-SECTOR TRANSFORMATIONS    #
         ######################################
 
-        self.plfo_healthier_diets = Transformer(
+        self.plfo_healthier_diets = TransformerKernel(
             f"{_MODULE_CODE_SIGNATURE}:PFLO:INC_HEALTHIER_DIETS", 
             self._trfunc_pflo_healthier_diets, 
-            attr_transformer_code
+            attr_transformer_kernel_code
         )
-        all_transformers.append(self.plfo_healthier_diets)
+        all_tkernels.append(self.plfo_healthier_diets)
 
 
 
-        self.pflo_industrial_ccs = Transformer(
+        self.pflo_industrial_ccs = TransformerKernel(
             f"{_MODULE_CODE_SIGNATURE}:PFLO:INC_IND_CCS", 
             self._trfunc_pflo_industrial_ccs, 
-            attr_transformer_code
+            attr_transformer_kernel_code
         )
-        all_transformers.append(self.pflo_industrial_ccs)
+        all_tkernels.append(self.pflo_industrial_ccs)
 
 
         ## specify dictionary of transformations and get all transformations + baseline/non-baseline
@@ -1731,19 +1742,19 @@ class Transformers:
         dict_transformers.update(
             dict(
                 (x.code, x) 
-                for x in all_transformers
-                if x.code in attr_transformer_code.key_values
+                for x in all_tkernels
+                if x.code in attr_transformer_kernel_code.key_values
             )
         )
-        all_transformers = sorted(list(dict_transformers.keys()))
-        all_transformers_non_baseline = [
-            x for x in all_transformers 
+        all_tkernels = sorted(list(dict_transformers.keys()))
+        all_tkernels_non_baseline = [
+            x for x in all_tkernels 
             if not dict_transformers.get(x).baseline
         ]
 
         transformer_id_baseline = [
-            x for x in all_transformers 
-            if x not in all_transformers_non_baseline
+            x for x in all_tkernels 
+            if x not in all_tkernels_non_baseline
         ]
         transformer_id_baseline = (
             transformer_id_baseline[0] 
@@ -1752,18 +1763,18 @@ class Transformers:
         )
 
         # get some other properties
-        tr_tmp = dict_transformers.get(all_transformers[0])
-        field_transformer_id = tr_tmp.field_transformer_id
-        field_transformer_name = tr_tmp.field_transformer_name
+        tr_tmp = dict_transformers.get(all_tkernels[0])
+        field_transformer_kernel_id = tr_tmp.field_transformer_kernel_id
+        field_transformer_kernel_name = tr_tmp.field_transformer_kernel_name
 
 
         ##  SET ADDDITIONAL PROPERTIES
 
-        self.all_transformers = all_transformers
-        self.all_transformers_non_baseline = all_transformers_non_baseline
+        self.all_tkernels = all_tkernels
+        self.all_tkernels_non_baseline = all_tkernels_non_baseline
         self.dict_transformers = dict_transformers
-        self.field_transformer_id = field_transformer_id
-        self.field_transformer_name = field_transformer_name
+        self.field_transformer_kernel_id = field_transformer_kernel_id
+        self.field_transformer_kernel_name = field_transformer_kernel_name
         self.transformer_id_baseline = transformer_id_baseline
 
         return None
@@ -1775,11 +1786,11 @@ class Transformers:
         """
         Initialize the following properties:
         
-            * self.is_transformers
+            * self.is_transformer_kernels
             * self._uuid
         """
 
-        self.is_transformers = True
+        self.is_transformer_kernels = True
         self._uuid = _MODULE_UUID
         
         return None
@@ -2393,12 +2404,12 @@ class Transformers:
 
         
 
-    def get_transformer(self,
-        transformer: Union[int, str, None],
+    def get_tkernel(self,
+        transformer_kernel: Union[int, str, None],
         return_code: bool = False,
     ) -> None:
         """
-        Get `transformer` based on transformer code, id, or name
+        Get `transformer_kernel` based on TransformerKernel code, id, or name
         
         If strat is None or an invalid valid of strat is entered, returns None; 
             otherwise, returns the Transformer object. 
@@ -2415,30 +2426,30 @@ class Transformers:
         """
 
         # skip these types
-        is_int = sf.isnumber(transformer, integer = True)
+        is_int = sf.isnumber(transformer_kernel, integer = True)
         return_none = not is_int
-        return_none &= not isinstance(transformer, str)
+        return_none &= not isinstance(transformer_kernel, str)
         if return_none:
             return None
 
         # Transformer objects are tied to the attribute table, so these field maps work
-        dict_id_to_code = self.attribute_transformer_code.field_maps.get(
-            f"{self.field_transformer_id}_to_{self.attribute_transformer_code.key}"
+        dict_id_to_code = self.attribute_transformer_kernel_code.field_maps.get(
+            f"{self.field_transformer_kernel_id}_to_{self.attribute_transformer_kernel_code.key}"
         )
-        dict_name_to_code = self.attribute_transformer_code.field_maps.get(
-            f"{self.field_transformer_name}_to_{self.attribute_transformer_code.key}"
+        dict_name_to_code = self.attribute_transformer_kernel_code.field_maps.get(
+            f"{self.field_transformer_kernel_name}_to_{self.attribute_transformer_kernel_code.key}"
         )
 
         # check strategy by trying both dictionaries
-        if isinstance(transformer, str):
+        if isinstance(transformer_kernel, str):
             code = (
-                transformer
-                if transformer in self.attribute_transformer_code.key_values
-                else dict_name_to_code.get(transformer)
+                transformer_kernel
+                if transformer_kernel in self.attribute_transformer_kernel_code.key_values
+                else dict_name_to_code.get(transformer_kernel)
             )
         
         elif is_int:
-            code = dict_id_to_code.get(transformer)
+            code = dict_id_to_code.get(transformer_kernel)
 
         # check returns
         if code is None:
@@ -2454,11 +2465,10 @@ class Transformers:
     
 
 
-    def get_transformer_codes_by_sector(self,
+    def get_tkernel_codes_by_sector(self,
         key_other: str = "other",
     ) -> dict:
-        """
-        Map transformers to the sector they are associated with (by code). If
+        """Map transformers to the sector they are associated with (by code). If
             not associated with any sector, adds to `key_other` key
         """
         
@@ -2476,7 +2486,7 @@ class Transformers:
         
         
         # check all transformer codes
-        for code in self.all_transformers:
+        for code in self.all_tkernels:
             
             # try to match the code; skip baseline
             code_match = self.regex_code_structure.match(code)
@@ -2495,10 +2505,10 @@ class Transformers:
     
 
 
-    def get_transformer_variable_fields(self,
+    def get_tkernel_variable_fields(self,
         error_thresh: float = 10**(-3), 
         field_sample_group: str = "sample_group",
-        field_transformer_code: str = "transformer_code",
+        field_tkernel_code: str = _FIELD_TRANSFORMER_KERNEL_CODE,
         field_variable: str = "variable",
         field_variable_field: str = "variable_field",
         include_all_variable_fields_by_modvar: bool = False, 
@@ -2509,18 +2519,21 @@ class Transformers:
             following columns:
 
             field_sample_group:         Optional field storing a sample group.
-                                        Sample groups are defined by all 
-                                        variable fields that share transformer 
-                                        codes. In general, a variable is only 
-                                        affected by one transformer, but there 
-                                        are some cases of overlap. 
-            field_transformer_code:     Field storing the transformer code.
+                                            Sample groups are defined by all 
+                                            variable fields that share 
+                                            transformer kernel codes. In 
+                                            general, a variable is only 
+                                            affected by one transformer, but 
+                                            there are some cases of overlap. 
+            field_tkernel_code:         Field storing the transformer kernel 
+                                            code.
             field_variable:             Field storing the SISEPUEDE variable 
-                                        name associated with the variable field 
-                                        that responds to the transformer
+                                            name associated with the variable 
+                                            field that responds to the 
+                                            transformer
             field_variable_field:       Field storing the variable field that 
-                                        responds to the transformer specified in 
-                                        field_transformer_code.
+                                            responds to the transformer 
+                                            specified in field_tkernel_code.
 
         Keyword Arguments
         -----------------
@@ -2530,7 +2543,7 @@ class Transformers:
             transformed) will be considered equal
         field_sample_group : str
             Field storing the sample group
-        field_transformer_code : str
+        field_tkernel_code : str
             Field storing the transformer code
         field_variable : str
             Field name for SISEPUEDE variable
@@ -2553,12 +2566,12 @@ class Transformers:
         fields_compare = matt.all_variable_fields_input
 
         # iterate through codes
-        for code in self.all_transformers:
+        for code in self.all_tkernels:
             # skip baseline
             if code == self.code_baseline: continue
 
             # get current transformer and run
-            tr_cur = self.get_transformer(code)
+            tr_cur = self.get_tkernel(code)
             df_cur = tr_cur()
 
 
@@ -2593,7 +2606,7 @@ class Transformers:
             if not include_all_variable_fields_by_modvar: 
                 df_out_cur = pd.DataFrame(
                     {
-                        field_transformer_code: [code for x in range(len(fields_change))],
+                        field_tkernel_code: [code for x in range(len(fields_change))],
                         field_variable: modvar_names,
                         field_variable_field: fields_change
                     }
@@ -2609,7 +2622,7 @@ class Transformers:
                 mv = matt.get_variable(mv)
                 df_out_cur = pd.DataFrame(
                     {
-                        field_transformer_code: [code for x in mv.fields],
+                        field_tkernel_code: [code for x in mv.fields],
                         field_variable: [mv.name for x in mv.fields],
                         field_variable_field: mv.fields
                     }
@@ -6108,6 +6121,90 @@ class Transformers:
 
 
 
+    def _trfunc_entc_increase_efficiency_fuel_production(self,
+        df_input: Union[pd.DataFrame, None] = None,
+        dict_magnitudes: Union[Dict[str, Dict[str, float]], None] = None,
+        strat: Union[int, None] = None,
+        vec_implementation_ramp: Union[np.ndarray, None] = None,
+        **kwargs,
+    ) -> pd.DataFrame:
+        """Implement "Increase Fuel Production Efficiency" transformer.
+
+        Parameters
+        ----------
+        categories_source : Union[List[str], None]
+            Hydrogen-producing technology categories that are reduced in response to increases in green hydrogen. 
+            * If None, defaults to 
+                [
+                    "fp_hydrogen_gasification", 
+                    "fp_hydrogen_reformation",
+                    "fp_hydrogen_reformation_ccs"
+                ]
+
+        categories_target : Union[List[str], None]
+            Hydrogen-producing technology categories that are considered green; they will produce `magnitude` of hydrogen by 100% implementation. 
+            * If None, defaults to 
+                [
+                    "fp_hydrogen_electrolysis"
+                ]
+
+        df_input : pd.DataFrame
+            Optional data frame containing trajectories to modify
+        magnitude : 
+            Target fraction of hydrogen from clean (categories_source) sources. In general, this is 95% from electrolysis.
+        strat : int
+            Optional strategy value to specify for the transformation
+        vec_implementation_ramp : Union[np.ndarray, Dict[str, int], None]
+            Optional vector or dictionary specifying the implementation scalar ramp for the transformation. If None, defaults to a uniform ramp that starts at the time specified in the configuration.
+        """
+        # check input dataframe
+        df_input = (
+            self.baseline_inputs
+            if not isinstance(df_input, pd.DataFrame) 
+            else df_input
+        )
+
+        # check implementation ramp
+        vec_implementation_ramp = self.check_implementation_ramp(
+            vec_implementation_ramp,
+            df_input,
+        )
+
+        # check magnitudes
+        if not isinstance(dict_magnitudes, dict):
+            return df_input
+
+        # filter 
+        dict_magnitudes_run = {}
+        for k, v in dict_magnitudes.items():
+            # check and skip; if not, init a dictionary
+            if not isinstance(v, dict): continue
+            if k not in dict_magnitudes_run.keys():
+                dict_magnitudes_run.update({k: {}, })
+
+            # iterate
+            for j, val in v.items():
+                if not sf.isnumber(val): continue
+                magnitude = max(0, val)
+                dict_magnitudes_run[k].update({j: magnitude, })
+
+
+        ##  VERIFY CATEGORIES
+
+        df_strat_cur = tbe.transformation_entc_increase_efficiency_of_fuel_production(
+            df_input,
+            dict_magnitudes_run,
+            vec_implementation_ramp,
+            self.model_enerprod,
+            field_region = self.key_region,
+            strategy_id = strat,
+            **kwargs
+        )
+
+        return df_strat_cur
+
+
+
     def _trfunc_entc_least_cost(self,
         acceleration_factor : Union[float, int] = 2.0,
         df_input: Union[pd.DataFrame, None] = None,
@@ -8220,7 +8317,7 @@ class Transformers:
 
 def extract_variable_field_group(
     df: pd.DataFrame,
-    field_code: str = "transformer_code",
+    field_code: str = _FIELD_TRANSFORMER_KERNEL_CODE,
     field_variable: str = "variable",
     field_variable_field: str = "variable_field",
     field_sample_group: str = "sample_group",
@@ -8290,13 +8387,13 @@ def extract_variable_field_group(
 
 
 
-def is_transformer(
+def is_transformer_kernel(
     obj: Any,
 ) -> bool:
     """
     Determine if the object is a Transformer
     """
-    out = hasattr(obj, "is_transformer")
+    out = hasattr(obj, "is_transformer_kernel")
     uuid = getattr(obj, "_uuid", None)
 
     out &= (
@@ -8309,13 +8406,13 @@ def is_transformer(
 
 
 
-def is_transformers(
+def is_transformer_kernels(
     obj: Any,
 ) -> bool:
     """
     Determine if the object is a Transformers
     """
-    out = hasattr(obj, "is_transformers")
+    out = hasattr(obj, "is_transformer_kernels")
     uuid = getattr(obj, "_uuid", None)
 
     out &= (

@@ -10,7 +10,7 @@ from typing import *
 from sisepuede.core.attribute_table import *
 from sisepuede.core.model_attributes import *
 import sisepuede.core.support_classes as sc
-import sisepuede.transformers.transformers as trs
+import sisepuede.transformers.transformer_kernels as trs
 import sisepuede.utilities._toolbox as sf
 
 
@@ -65,8 +65,8 @@ class Transformation:
         * str: file path to configuration file to read
         * YAMLConfiguration: existing YAMLConfiguration
 
-    transformers : trs.Transformer
-        Transformers object used to validate input parameters and call function
+    transformer_kernels : trs.TransformerKernels
+        TransformerKernels object used to validate input parameters and call function
 
     **kwargs:
         Optional keyword arguments, which can include the following elements
@@ -86,7 +86,7 @@ class Transformation:
     
     def __init__(self,
         config: Union[dict, str, sc.YAMLConfiguration],
-        transformers: trs.Transformer,
+        transformer_kernels: trs.TransformerKernels,
         **kwargs,
     ) -> None:
 
@@ -96,11 +96,11 @@ class Transformation:
 
         self._initialize_config(
             config,
-            transformers,
+            transformer_kernels,
         )
 
         self._initialize_identifiers()
-        self._initialize_function(transformers, )
+        self._initialize_function(transformer_kernels, )
 
         self._initialize_uuid()
         
@@ -125,7 +125,7 @@ class Transformation:
     
     def _initialize_config(self,
         config: Union[dict, str, sc.YAMLConfiguration],
-        transformers: trs.Transformer,
+        transformer_kernels: trs.TransformerKernels,
     ) -> None:
         """
         Set the configuration used to parameterize the transformer as well as
@@ -175,13 +175,13 @@ class Transformation:
         ##  CHECK THE TRANFORMER CODE AND GET PARAMETERS
 
         transformer_code = config.get(self.key_transformer)
-        if transformer_code not in transformers.all_transformers:
+        if transformer_code not in transformer_kernels.all_tkernels:
             msg = f"Transformer code '{transformer_code}' not found in the Transformers. The Transformation cannot be instantiated."
             raise KeyError(msg)
 
 
         # check parameter specification
-        dict_parameters = self.get_parameters_dict(config, transformers, )
+        dict_parameters = self.get_parameters_dict(config, transformer_kernels, )
         
 
         ##  SET PROPERTIES
@@ -195,7 +195,7 @@ class Transformation:
 
 
     def _initialize_function(self,
-        transformers: trs.Transformer,
+        transformer_kernels: trs.TransformerKernels,
     ) -> None:
         """
         Assign the transformer function with configuration-specified keyword
@@ -204,7 +204,7 @@ class Transformation:
             * self.function
         """
 
-        transformer = transformers.get_transformer(self.transformer_code, )
+        transformer = transformer_kernels.get_tkernel(self.transformer_code, )
         
         # build the output function
         def func(
@@ -319,7 +319,7 @@ class Transformation:
 
     def get_parameters_dict(self,
         config: sc.YAMLConfiguration,
-        transformers: trs.Transformers,
+        transformer_kernels: trs.TransformerKernels,
     ) -> None:
         """
         Get the parameters dictionary associated with the specified Transformer.
@@ -334,8 +334,8 @@ class Transformation:
 
         # get transformer
         transformer_code = config.get(self.key_transformer)
-        transformer = transformers.get_transformer(transformer_code)
-        if not trs.is_transformer(transformer, ):
+        transformer = transformer_kernels.get_tkernel(transformer_code)
+        if not trs.is_transformer_kernel(transformer, ):
             raise RuntimeError(f"Invalid transformation '{transformer_code}' found in Transformers")
 
         # get arguments to the function 
@@ -438,10 +438,10 @@ class Transformations:
         regular expression used to match transformation configuration files
     stop_on_error : bool
         throw an error if a transformation fails? Otherwise, will skip transformation configuration files that fail. 
-    transformers : Union[trs.Transformers, None]
+    transformer_kernels : Union[trs.TransformerKernels, None]
         optional existing Transformers object. If None is available, initializes one.
 
-        NOTE: If a transformers object is NOT specified (i.e., if transformers is None), then you must include the following keywords to generate dataframes of inputs. 
+        NOTE: If a transformer_kernels object is NOT specified (i.e., if transformer_kernels is None), then you must include the following keywords to generate dataframes of inputs. 
 
             * `df_input`: the input dataframe of base SISEPUEDE inputs
         
@@ -456,7 +456,7 @@ class Transformations:
         logger: Union[logging.Logger, None] = None,
         regex_transformation_config: re.Pattern = re.compile(f"{_TRANSFORMATION_REGEX_FLAG_PREPEND}_(.\w*).yaml"),
         stop_on_error: bool = True,
-        transformers: Union[trs.Transformers, None] = None,
+        transformer_kernels: Union[trs.TransformerKernels, None] = None,
         **kwargs,
     ) -> None:
         
@@ -474,8 +474,8 @@ class Transformations:
         self._initialize_citations()
 
         # initialize transformation components
-        self._initialize_transformers(
-            transformers,
+        self._initialize_transformer_kernels(
+            transformer_kernels,
             **kwargs,
         )
 
@@ -635,7 +635,7 @@ class Transformations:
                 # try building the transformation and verify the code
                 transformation = Transformation(
                     fp,
-                    self.transformers,
+                    self.transformer_kernels,
                 )
 
                 if transformation.code in dict_all_transformations.keys():
@@ -688,16 +688,16 @@ class Transformations:
         
 
 
-    def _initialize_transformers(self,
-        transformers: Union[trs.Transformers, None] = None,
+    def _initialize_transformer_kernels(self,
+        transformer_kernels: Union[trs.TransformerKernels, None] = None,
         **kwargs,
     ) -> None:
         """Initialize the transformer used to build transformations.     
         """
 
         # check inputs
-        if not trs.is_transformers(transformers):
-            transformers = trs.Transformers(
+        if not trs.is_transformer_kernels(transformer_kernels):
+            transformer_kernels = trs.TransformerKernels(
                 self.config.dict_yaml,
                 attr_time_period = kwargs.get("attr_time_period"),
                 df_input = kwargs.get("df_input"),
@@ -707,21 +707,21 @@ class Transformations:
         
         else:
             # update the configuration, ramp, and then update the data
-            transformers._initialize_config(
+            transformer_kernels._initialize_config(
                 self.config.dict_yaml,
-                transformers.code_baseline,
+                transformer_kernels.code_baseline,
             )
 
-            transformers._initialize_ramp()
+            transformer_kernels._initialize_ramp()
 
-            transformers._initialize_baseline_inputs(
-                transformers.inputs_raw,
+            transformer_kernels._initialize_baseline_inputs(
+                transformer_kernels.inputs_raw,
             )
 
 
         ##  SET PROPERTIES
 
-        self.transformers = transformers
+        self.transformer_kernels = transformer_kernels
 
         return None
 
@@ -994,23 +994,23 @@ class Transformations:
         key_id = _DICT_KEYS.get("identifiers")
         key_name = _DICT_KEYS.get("name")
 
-        # set the default to be the transformers base with the new Transformations signature
+        # set the default to be the transformer_kernels base with the new Transformations signature
         code_def = (
             self
-            .transformers
+            .transformer_kernels
             .code_baseline
             .replace(
                 trs._MODULE_CODE_SIGNATURE,
                 _MODULE_CODE_SIGNATURE,
             )
         )
-        code = f"{self.transformers.key_config_baseline}.{key_id}.{key_code}"
+        code = f"{self.transformer_kernels.key_config_baseline}.{key_id}.{key_code}"
         code = self.config.get(
             code, 
             return_on_none = code_def, 
         )
 
-        name = f"{self.transformers.key_config_baseline}.{key_id}.{key_name}"
+        name = f"{self.transformer_kernels.key_config_baseline}.{key_id}.{key_name}"
         name = self.config.get(name)
 
 
@@ -1022,12 +1022,12 @@ class Transformations:
                 key_name: name,
             },
             "parameters": {},
-            "transformer": self.transformers.code_baseline,
+            "transformer": self.transformer_kernels.code_baseline,
         }
 
         trfmn = Transformation(
             dict_tr,
-            self.transformers
+            self.transformer_kernels
         )
 
 
@@ -1161,7 +1161,7 @@ class Transformations:
         df_base = self.get_transformation_baseline()
         df_base = df_base()
 
-        matt = self.transformers.model_attributes
+        matt = self.transformer_kernels.model_attributes
         fields_compare = matt.all_variable_fields_input
 
         # get codes
@@ -1267,12 +1267,12 @@ class Transformations:
 
 
     def get_transformation_codes_by_transformer_code(self,
-        include_missing_transformers: bool = False,
+        include_missing_transformer_kernels: bool = False,
     ) -> dict: 
         """
         Build a dictionary of all transformation codes associated with available
-            transformer codes. Set `include_missing_transformers = True` to 
-            include transformers that are not associated with any 
+            transformer codes. Set `include_missing_transformer_kernels = True` to 
+            include transformer_kernels that are not associated with any 
             Transformations.
         """
         
@@ -1288,9 +1288,9 @@ class Transformations:
         )
 
         # 
-        if include_missing_transformers:
+        if include_missing_transformer_kernels:
             dict_update = dict(
-                (x, []) for x in self.transformers.all_transformers
+                (x, []) for x in self.transformer_kernels.all_tkernels
                 if x not in dict_out.keys()
             )
 

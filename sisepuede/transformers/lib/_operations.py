@@ -11,7 +11,7 @@ import sisepuede.core.model_attributes as ma
 import sisepuede.utilities._toolbox as sf
 import sisepuede.transformers.strategies as st
 import sisepuede.transformers.transformations as trn
-import sisepuede.transformers.transformers as trs
+import sisepuede.transformers.transformer_kernels as trs
 
 
 
@@ -170,7 +170,7 @@ def build_default_strategies(
     dict_transformer_codes_by_sector = (
         transformations
         .transformers
-        .get_transformer_codes_by_sector()
+        .get_tkernel_codes_by_sector()
     )
     
     # - dict_transformation_codes_by_sector stores
@@ -577,14 +577,14 @@ def instantiate_default_strategy_directory(
     
     dict_transformations = {}
     
-    for code in transformers.all_transformers:
+    for code in transformers.all_tkernels:
         
         # ignore the baseline; that's set in the general config
         if code == transformers.code_baseline:
             continue
         
         # get the transformer, file name, and dictionary
-        transformer = transformers.get_transformer(code)
+        transformer = transformers.get_transformer_kernel(code)
         dict_export = build_default_transformation_config_dict(transformer, ) # fn, dict
         
         # add to output dict

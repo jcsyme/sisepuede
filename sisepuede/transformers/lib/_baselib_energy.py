@@ -505,8 +505,8 @@ def transformation_entc_increase_efficiency_of_electricity_production(
     field_region: str = "region",
     **kwargs
 ) -> pd.DataFrame:
-    """
-    Implement the "Increase efficiency of electricity production" transformation
+    """Implement the "Increase efficiency of electricity production" 
+        transformation
 
     Function Arguments
     ------------------
@@ -554,6 +554,121 @@ def transformation_entc_increase_efficiency_of_electricity_production(
         field_region = field_region,
         **kwargs
     )
+
+    return df_out
+
+
+
+def transformation_entc_increase_efficiency_of_fuel_production(
+    df_input: pd.DataFrame,
+    dict_magnitudes: Dict[str, Dict[str, float]],
+    vec_ramp: np.ndarray,
+    model_enerprod: ml.EnergyProduction,
+    field_region: str = "region",
+    **kwargs
+) -> pd.DataFrame:
+    """Implementation for transformers that increase the efficiency of fuel
+        production (excluding electricity). Restrict to use for technologies
+        that produce 1 fuel.
+
+    *IMPORTANT*: This should not be used for fuel production in petroleum
+        refinement, which produces multiple fuels. 
+
+    Function Arguments
+    ------------------
+    df_input : DataFrame
+        Input DataFrame containing baseline trajectories
+    dict_magnitudes : Dict[str, Dict[str, float]]
+        Dictionary mapping fuel production technologies to input fuels and
+        associated target efficiencies. Note that the sum of all input fuel
+        input activity ratios cannot be less than 1 (conservation of energy)
+    model_enerprod : EnergyProduction
+        EnergyProduction model used to define variables
+    vec_ramp : 
+        Implementation ramp vector
+
+    Keyword Arguments
+    -----------------
+    bounds : Tuple[float]
+        Otional bounds on the efficiency. Defau
+    field_region : field in df_input that specifies the region
+    magnitude : final magnitude of generation capacity.
+    regions_apply : optional set of regions to use to define strategy. If None,
+        applies to all regions.
+    strategy_id : optional specification of strategy id to add to output
+        dataframe (only added if integer)
+    """
+
+    ##  INITIALIZATION
+
+    # some shortcuts
+    matt = model_enerprod.model_attributes
+    attr_enfu = matt.get_attribute_table(
+        matt.subsec_name_enfu,
+    )
+
+    # verify type
+    if not isinstance(dict_magnitudes, dict):
+        return df_input
+
+
+    ##  ITERATE
+
+    df_out = df_input.copy()
+
+    for fuel_out, v in dict_magnitudes.items():
+
+        # check fuel
+        if fuel_out not in attr_enfu.key_values: continue
+
+        # value must be a dictionary
+        if not isinstance(v, dict): continue
+
+        for fuel_in, magnitude in v.items():
+
+            # check values
+            continue_q = fuel_in not in attr_enfu.key_values
+            continue_q |= not sf.isnumber(magnitude, )
+            if continue_q: continue
+
+            # get the OAR variable associated with the fuel (which tech produces it?)
+            modvar_oar = (
+                model_enerprod.dict_entc_fuel_categories_to_fuel_variables
+                .get(fuel_out, )
+                .get(model_enerprod.key_oar, )
+            )
+
+            # get the category, then try to build for the input fuel--assume 1:1
+            cat_entc = matt.get_variable_categories(modvar_oar, )[0]
+            field_oar = modvar_oar.fields[0]
+
+            # associated input activity ratio
+            modvar_iar = (
+                model_enerprod.dict_entc_fuel_categories_to_fuel_variables
+                .get(fuel_in, )
+                .get(model_enerprod.key_iar, )
+            )
+
+            # get the target magnitude
+            target_magnitude = df_input[field_oar].iloc[-1]/magnitude
+
+            # iterate over categories to modify output data frame -- will use to copy into new variables
+            df_out = transformation_general(
+                df_out,
+                matt,
+                {
+                    modvar_iar: {
+                        "bounds": (1, np.inf),
+                        "categories": [cat_entc],
+                        "magnitude": target_magnitude,
+                        "magnitude_type": "final_value",
+                        "vec_ramp": vec_ramp,
+                        "time_period_baseline": get_time_period(matt, "max", )
+                    }
+                },
+                field_region = field_region,
+                **kwargs
+            )
 
     return df_out
 
