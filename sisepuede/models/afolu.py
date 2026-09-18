@@ -2106,6 +2106,52 @@ class AFOLU:
 
 
 
+    def check_tss_arrays(self,
+        arr: np.ndarray,
+        dict_vec_scalars: Dict[int, np.ndarray],
+        copy: bool = True,
+        shift_factor: float = 0.001,
+    ) -> np.ndarray:
+        """Deal with any TSS rows that have all mass at one. If so, it 
+            needs to be shifted out.
+        """
+
+        arr_out = arr.copy() if copy else arr
+
+        w_row, w_col = np.where(arr_out == 1)
+        if len(w_row) == 0:
+            return arr
+
+        # only matters if they're being shifted out of
+
+        inds_red = np.where([x in dict_vec_scalars.keys() for x in w_col])[0]
+        if len(inds_red) == 0:
+            return arr
+
+        for i, row in enumerate(w_row):
+            if i not in inds_red: continue
+
+            row_min = [
+                (
+                    np.abs(x - row) 
+                    if x not in w_row
+                    else np.inf
+                ) for x in np.arange(arr_out.shape[0]) 
+            ]
+            
+            row_min = np.argmin(row_min)
+
+            # inds of columns to distribute small shift to 
+            cols_dist = [
+                x for x in np.where(arr_out[row_min] > 0)[0] if x != w_col[i]
+            ]
+            arr[row, w_col[i]] -= shift_factor
+            arr[row, cols_dist] = shift_factor/len(cols_dist)
+
+        return arr
+
+
+
     def convert_fuelwood_to_biomass_c_equivalent(self,
         df_afolu_trajectories: pd.DataFrame,
         vec_energy_demand_fuelwood: Union[float, np.ndarray],
@@ -7351,10 +7397,11 @@ class AFOLU:
                 )
             )
 
-            
+    
             for cat, arr in dict_cat_to_fuel_shares.items():
-
+                
                 # get a shifter
+                arr = self.check_tss_arrays(arr, dict_vec_scalars, )
                 tss = suc.TimeSeriesSimplexShifter(arr, )
                 arr_out = tss.shift_mass_scalar_vectors(arr, dict_vec_scalars, )
                 
