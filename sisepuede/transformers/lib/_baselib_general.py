@@ -372,7 +372,7 @@ def transformation_general(
 
         if verified_modvar:
 
-            subsector = model_attributes.dict_model_variable_to_subsector.get(modvar)
+            subsector = model_attributes.get_variable_subsector(modvar, )
 
             # check categories against subsector
             verify_categories = (categories is not None)
@@ -435,7 +435,7 @@ def transformation_general(
         df_in_new = df_in.copy()
         vec_tp = list(df_in[model_attributes.dim_time_period])
         n_tp = len(df_in)
-
+        
         if region in regions_apply:
             
             for modvar in modvars:

@@ -616,7 +616,7 @@ class TransformerKernels:
         self.attribute_transformer_kernel_code = attribute_transformer_kernel_code
         self.key_region = field_region
         self.key_time_period = time_periods.field_time_period
-        self.key_transformer_code = attribute_transformer_kernel_code.key
+        self.key_transformer_kernel_code = attribute_transformer_kernel_code.key
         self.regex_code_structure = regex_code_structure
         self.regions_manager = regions_manager
         self.time_periods = time_periods
@@ -6128,30 +6128,16 @@ class TransformerKernels:
         vec_implementation_ramp: Union[np.ndarray, None] = None,
         **kwargs,
     ) -> pd.DataFrame:
-        """Implement "Increase Fuel Production Efficiency" transformer.
+        """Implement "Increase Fuel Production Efficiency" transformer. Restrict to use for technologies that produce only one fuel.
+
+        *IMPORTANT*: This should not be used for fuel production in petroleum refinement, which produces multiple fuels. 
 
         Parameters
         ----------
-        categories_source : Union[List[str], None]
-            Hydrogen-producing technology categories that are reduced in response to increases in green hydrogen. 
-            * If None, defaults to 
-                [
-                    "fp_hydrogen_gasification", 
-                    "fp_hydrogen_reformation",
-                    "fp_hydrogen_reformation_ccs"
-                ]
-
-        categories_target : Union[List[str], None]
-            Hydrogen-producing technology categories that are considered green; they will produce `magnitude` of hydrogen by 100% implementation. 
-            * If None, defaults to 
-                [
-                    "fp_hydrogen_electrolysis"
-                ]
-
         df_input : pd.DataFrame
             Optional data frame containing trajectories to modify
-        magnitude : 
-            Target fraction of hydrogen from clean (categories_source) sources. In general, this is 95% from electrolysis.
+        dict_magnitudes : Dict[str, Dict[str, float]]
+            Dictionary mapping fuel production technologies to input fuels and associated target efficiencies. Note that the sum of all input fuel input activity ratios cannot be less than 1 (conservation of energy)
         strat : int
             Optional strategy value to specify for the transformation
         vec_implementation_ramp : Union[np.ndarray, Dict[str, int], None]
@@ -7643,7 +7629,7 @@ class TransformerKernels:
             }
         )
         
-        df_out = tbe.transformation_general(
+        df_out = tbg.transformation_general(
             df_input,
             self.model_attributes,
             {
@@ -7727,7 +7713,7 @@ class TransformerKernels:
         )
 
 
-        df_out = tbe.transformation_general(
+        df_out = tbg.transformation_general(
             df_input,
             self.model_attributes,
             {
@@ -7815,7 +7801,7 @@ class TransformerKernels:
 
         for (cat, mag) in dict_categories_out.items():
    
-            df_out = tbe.transformation_general(
+            df_out = tbg.transformation_general(
                 df_out,
                 self.model_attributes,
                 {
