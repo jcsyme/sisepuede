@@ -1,7 +1,7 @@
 import numpy as np
 import pandas as pd
 import sisepuede.core.support_classes as sc
-import sisepuede.transformers.transformers as trs
+import sisepuede.transformers.transformer_kernels as trs
 import sisepuede.utilities._toolbox as sf
 
 from sisepuede.transformers.strategies import is_strategies
@@ -242,7 +242,7 @@ class LeversImplementationTable:
             Optional value to return if no value is present
         """
 
-        base_transformer = self.transformers.get_transformer(
+        base_transformer = self.transformers.get_tkernel(
             transformation.transformer_code,
         )
 
@@ -664,7 +664,7 @@ class LeversImplementationTable:
         for transformation in transformation_objs:
 
             # get the transformer for relevant information
-            transformer = self.transformers.get_transformer(
+            transformer = self.transformers.get_tkernel(
                 transformation.transformer_code,
             )
 
@@ -718,7 +718,7 @@ class LeversImplementationTable:
         Set uppercase_subsector = False to return a lower case subsector_abbreviation
         """
         # get the associated transformer
-        transformer = self.transformers.get_transformer(
+        transformer = self.transformers.get_tkernel(
             transformation.transformer_code,
         )
 
@@ -743,7 +743,7 @@ class LeversImplementationTable:
             transformation.
         """
         # get the associated transformer
-        transformer = self.transformers.get_transformer(
+        transformer = self.transformers.get_tkernel(
             transformation.transformer_code,
         )
 
@@ -1106,7 +1106,7 @@ class TransformationSummarizer:
         prefix_transformer_code = trs._MODULE_CODE_SIGNATURE
         
         # get the transformer and look for magnitude etc.
-        base_transformer = self.transformers.get_transformer(
+        base_transformer = self.transformers.get_tkernel(
             transformation.transformer_code
         )
         

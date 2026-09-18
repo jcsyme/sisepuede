@@ -54,7 +54,7 @@ class VariableCodeError(Exception):
 _MODULE_UUID = "823CC6A2-0A23-4AB8-8324-0692DF4AE4A0"   
 
 # dimensions
-_DIM_CODE_TRANSFORMER = "transformer_code"
+_DIM_CODE_TRANSFORMER_KERNEL = "transformer_kernel_code"
 _DIM_ID_DESIGN = "design_id"
 _DIM_ID_FUTURE = "future_id"
 _DIM_ID_PRIMARY = "primary_id"
@@ -661,7 +661,7 @@ class ModelAttributes:
             * self.dim_strategy_id
             * self.dim_time_period
             * self.dim_time_series_id
-            * self.dim_transformer_code
+            * self.dim_transformer_kernel_code
             * self.field_dim_year
             * self.sort_ordered_dimensions_of_analysis
 
@@ -675,7 +675,7 @@ class ModelAttributes:
         self.dim_strategy_id = _DIM_ID_STRATEGY
         self.dim_time_period = _DIM_TIME_PERIOD
         self.dim_time_series_id = _DIM_ID_TIME_SERIES
-        self.dim_transformer_code = _DIM_CODE_TRANSFORMER
+        self.dim_transformer_kernel_code = _DIM_CODE_TRANSFORMER_KERNEL
         self.dim_primary_id = _DIM_ID_PRIMARY
 
         # setup dtypes
