@@ -2,7 +2,7 @@
 import logging
 import numpy as np
 import pandas as pd
-import pyDOE2 as pyd
+import scipy.stats.qmc as sqmc
 from typing import *
 
 from sisepuede.core.attribute_table import AttributeTable
@@ -337,9 +337,9 @@ class LHSDesign:
         n_factors_x: Union[int, None] = None,
         n_trials: Union[int, None] = None,
         random_seed: Union[int, None] = None
-    ):
-        """
-        Generate LHC Sample tables for Xs and Ls to use in generating a database of output trajectories
+    ) -> Tuple[np.ndarray]:
+        """Generate LHC Sample tables for Xs and Ls to use in generating a 
+            database of output trajectories.
 
         Function Arguments
         ------------------
@@ -347,11 +347,14 @@ class LHSDesign:
 
         Keyword Arguments
         -----------------
-        - field_lhs_key: field used to as key for each lhs trial. Defaults to "future_id"
-        - n_trials: number of LHS trials to generate
-        - n_factors_x: number of factors associated with uncertainties
-        - n_factors_l: number of factors associated with levers
-        - random_seed: optional random seed to specify for generating LHC trials
+        n_trials : Union[int, None]
+            Number of LHS trials to generate
+        n_factors_x : Union[int, None]
+            Number of factors associated with uncertainties
+        n_factors_l : Union[int, None]
+            Number of factors associated with levers
+        random_seed : Union[int, None]
+            Optional random seed to specify for generating LHC trials
 
         """
 
@@ -374,12 +377,30 @@ class LHSDesign:
 
         # generate trials
         rs_l = random_seed
-        rs_x = random_seed + 1 if (random_seed is not None) else None
+        rs_x = random_seed + 1 if sf.isnumber(random_seed, integer = True, ) else None
 
-        df_lhs_l = pyd.lhs(n_factors_l, n_trials, random_state = rs_l) if (n_factors_l is not None) else None
-        df_lhs_x = pyd.lhs(n_factors_x, n_trials, random_state = rs_x) if (n_factors_x is not None) else None
+        # build LHC samplers for L/X
+        lhs_l = sqmc.LatinHypercube(n_factors_l, seed = rs_l, )
+        lhs_x = sqmc.LatinHypercube(n_factors_x, seed = rs_l, )
 
-        return df_lhs_l, df_lhs_x
+        # sample
+        arr_lhs_l = (
+            lhs_l.random(n_trials, ) 
+            if (n_factors_l is not None) 
+            else None
+        )
+        arr_lhs_x = (
+            lhs_x.random(n_trials, ) 
+            if (n_factors_x is not None) 
+            else None
+        )
+
+        out = (
+            arr_lhs_l,
+            arr_lhs_x,
+        )
+
+        return out
 
 
 
