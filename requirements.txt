@@ -1,7 +1,7 @@
 geopandas==1.0.1
 geopy==2.1.0
-juliacall==0.9.25
-juliapkg==0.1.17
+juliacall==0.9.35
+juliapkg==0.1.26
 jupyterlab==4.6.3
 matplotlib==3.10.1
 munch==4.0.0
