@@ -235,7 +235,8 @@ class ModelAttributes:
 
         # add a new field
         df_tmp = dict_attr[table_name_attr_subsector].table
-
+        global df_tmp2
+        df_tmp2 = df_tmp.copy()
         vec = sf.clean_field_names(df_tmp[field_category])
         df_tmp[field_category_py] = [x.replace(f"{key_cat}_", "") for x in vec]
 
@@ -413,7 +414,6 @@ class ModelAttributes:
             att_table = AttributeTable(fp_attribute, nm)
             key = nm.replace(f"{group}_", "")
             dict_to_update[group].update({key: att_table})
-
 
         else:
             msg = f"""Invalid attribute at '{fp_attribute}': No attribute group or expression was found to support its addition.
@@ -4075,7 +4075,7 @@ class ModelAttributes:
         dict_subsector_abv_to_pycat = attr_subsector.field_maps.get(
             f"{attr_subsector.key}_to_{self.subsector_field_category_py}"
         )
-
+        
         
         for k, v in dict_vardefs.items():
 
@@ -4102,8 +4102,7 @@ class ModelAttributes:
 
                 dict_row = row.to_dict()
                 dict_row.update(dict_sector_info)
-                
-                ROWCUR = dict_row
+
                 modvar = mv.ModelVariable(
                     dict_row,
                     attr_cats,

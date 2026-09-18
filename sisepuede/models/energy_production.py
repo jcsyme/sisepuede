@@ -2666,12 +2666,15 @@ class EnergyProduction:
     def get_dummy_fuel_name(self,
         return_type: str = "fuel"
     ) -> str:
-        """
-        To accurately track productionbytechnology from dummy (supply) techs,
+        """To accurately track productionbytechnology from dummy (supply) techs,
             a dummy fuel is used, defined here. Set return_type = "tech" to
             generate the name for the supply tech.
         """
-        return_val = "fuel_QUANTITY_PRODUCED" if (return_type == "fuel") else "supply_QUANTITY_PRODUCED"
+        return_val = (
+            "fuel_QUANTITY_PRODUCED" 
+            if return_type == "fuel"
+            else "supply_QUANTITY_PRODUCED"
+        )
 
         return return_val
 
@@ -11490,10 +11493,8 @@ class EnergyProduction:
                 reportzeros = False,
                 varstosave = vars_to_save,
             )
-            print("successfully run")
 
         except Exception as e:
-            print(e)
             # LOG THE ERROR HERE
             self._log(
                 f"Error in EnergyProduction when trying to run NemoMod: {e}", 

@@ -13,4 +13,4 @@ from sisepuede.transformers.lib._operations import (
 
 from sisepuede.transformers.strategies import *
 from sisepuede.transformers.transformations import *
-from sisepuede.transformers.transformers import *
+from sisepuede.transformers.transformer_kernels import *

@@ -296,8 +296,6 @@ class ModelVariable:
                 continue
             
             dict_category_key_space.update({root_elem: attr.key_values})
-        global DCKS
-        DCKS = dict_category_key_space
 
         # get categories 
         dict_category_keys = self.get_categories_by_element(
@@ -696,7 +694,7 @@ class ModelVariable:
             if category_subspace is None
             else category_subspace
         )
-
+        
 
         ##  CHECK SPECIFICATION OF category_subspace AND CONVERT TO DICTIONARY
 
@@ -719,7 +717,7 @@ class ModelVariable:
                     (elem, category_subspace)
                     for elem in self.schema.mutable_elements_clean_ordered
                 )
-           
+
         
         ##  BUILD OUTPUT DICTIONARY MAPPING CLEANED MUTABLE ELEMENTS TO LISTS OF CATEGORIES
 
@@ -740,7 +738,7 @@ class ModelVariable:
             dict_category_space,
             return_on_none = {},
         )
-
+        
        
         ##  ITERATE
 
@@ -1264,7 +1262,7 @@ class ModelVariable:
         if isinstance(category_restrictions, str):
             category_restrictions = [category_restrictions]
             return_type = "str"
-        
+
         # if categories are entered as a list, ensure that there is only 
         # one mutable element; if there are none, then just proceed without the 
         # restrictions
@@ -1347,7 +1345,7 @@ class ModelVariable:
         
 
         ##  ITERATE 
-        
+
         for dim in dims:
             
             # try the input dictionary, return internal restrictions if not defined
@@ -1355,12 +1353,6 @@ class ModelVariable:
                 dim,
                 self.dict_category_keys.get(dim)
             )
-            global DIM
-            global DCK
-            global RESTRICT
-            DIM = dim
-            DCK = self.dict_category_keys
-            RESTRICT = restrictions
 
             fields_new = []
             for field_elem in fields:

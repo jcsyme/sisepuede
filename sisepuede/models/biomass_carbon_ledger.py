@@ -2720,13 +2720,16 @@ def estimate_decomposition_fraction(
 
 
 def get_fraction_error(
-    frac_decomp: float,
+    frac_decomp: np.ndarray,
     vec_sf: np.ndarray,
 ) -> float:
-    """Get the long term equilibrium error associated with a 
-        fraction frac_decomp.
+    """Get the long term equilibrium error associated with a fraction 
+        frac_decomp. Note that sco.minimize now passes x0 as a numpy array, so
+        frac_decomp is a vector of length 1.
     """
-    vec_cm = calculate_cumulative_mass(vec_sf, frac_decomp, )
+
+    frac_in = frac_decomp[0] if sf.islistlike(frac_decomp) else frac_decomp
+    vec_cm = calculate_cumulative_mass(vec_sf, frac_in, )
     out = summarize_cumulative_change(vec_cm, )
 
     return out

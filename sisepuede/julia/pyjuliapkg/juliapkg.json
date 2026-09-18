@@ -32,8 +32,8 @@
         "NemoMod": {
             "uuid": "a3c327a0-d2f0-11e8-37fd-d12fd35c3c72", 
             "url": "https://github.com/sei-international/NemoMod.jl.git", 
-            "rev": "57dc98d", 
-            "version": "2.6.0"
+            "rev": "d53e932", 
+            "version": "2.3.0"
         }, 
         "PythonCall": {
             "uuid": "6099a3de-0909-46bc-b1f4-468b9a2dfc0d",

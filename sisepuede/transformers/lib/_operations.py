@@ -24,7 +24,7 @@ import sisepuede.transformers.transformer_kernels as trs
 
 
 def build_default_general_config_dict(
-    transformers: trs.Transformers,
+    transformers: trs.TransformerKernels,
 ) -> dict:
     """
     Build the default general configuration dictionary for a new transformation
@@ -330,7 +330,7 @@ def build_default_strategies(
 
 
 def build_default_transformation_config_dict(
-    transformer: trs.Transformer,
+    transformer: trs.TransformerKernel,
     dict_code_prepenage_map: dict = {
         trs._MODULE_CODE_SIGNATURE: trn._MODULE_CODE_SIGNATURE,
     },
@@ -646,7 +646,7 @@ def instantiate_default_strategy_directory(
 
 
 def spawn_args_dict(
-    transformer: Union[callable, trs.Transformer],
+    transformer: Union[callable, trs.TransformerKernel],
     args_ignore: Union[List[str], None] = None,
     include_kwargs: bool = True,
 ) -> Union[dict, None]:
