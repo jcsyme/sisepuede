@@ -1100,8 +1100,7 @@ class EnergyProduction:
         key_mpi_frac_msp: str = "max_prod_increase_frac_msp",
         key_oar: str = "output_activity_ratio"
     ) -> None:
-        """
-        Set dictionaries mapping fuel categories to input variables in Energy 
+        """Set dictionaries mapping fuel categories to input variables in Energy 
             Technology. Sets the following properties:
         
             * self.dict_entc_fuel_categories_to_fuel_variables
