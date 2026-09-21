@@ -2020,27 +2020,37 @@ class EnergyProduction:
 
         # loop over output emissions in electricity by gas - map emissions to export variable
         dict_modvars_emission_to_allocate = {
-            self.modvar_entc_nemomod_emissions_ch4_elec: modvar_entc_nemomod_emissions_export_ch4,
-            self.modvar_entc_nemomod_emissions_co2_elec: modvar_entc_nemomod_emissions_export_co2,
-            self.modvar_entc_nemomod_emissions_n2o_elec: modvar_entc_nemomod_emissions_export_n2o
+            (self.modvar_entc_nemomod_emissions_ch4_elec, ): modvar_entc_nemomod_emissions_export_ch4,
+            (self.modvar_entc_nemomod_emissions_co2_elec, self.modvar_entc_nemomod_emissions_co2_elec_biomass): modvar_entc_nemomod_emissions_export_co2,
+            (self.modvar_entc_nemomod_emissions_n2o_elec, ): modvar_entc_nemomod_emissions_export_n2o
         }
 
-        for modvar in dict_modvars_emission_to_allocate.keys():
-            # get gas, pivot key, and export variable
-            gas = self.model_attributes.get_variable_characteristic(
-                modvar, 
-                self.model_attributes.varchar_str_emission_gas
-            )
-            key_dict_emissions = f"emissions_{gas}"
-            modvar_emissions_export = dict_modvars_emission_to_allocate.get(modvar)
+        for modvars_to_alloc, modvar_emissions_export in dict_modvars_emission_to_allocate.items():
 
-            # get the total emissions in configuration units 
-            vec_entc_emissions_total = self.model_attributes.extract_model_variable(#
-                df_retrieval_trajectories,
-                modvar,
-                expand_to_all_cats = True,
-                return_type = "array_base",
-            ).sum(axis = 1)
+            vec_entc_emissions_total = 0
+            
+            for modvar in modvars_to_alloc:
+
+                # get gas, pivot key, and export variable
+                gas = self.model_attributes.get_variable_characteristic(
+                    modvar, 
+                    self.model_attributes.varchar_str_emission_gas
+                )
+                
+                key_dict_emissions = f"emissions_{gas}"
+
+                #print("here5")
+                # get the total emissions in configuration units 
+                vec_entc_emissions_total += (
+                    self.model_attributes.extract_model_variable(#
+                        df_retrieval_trajectories,
+                        modvar,
+                        expand_to_all_cats = True,
+                        return_type = "array_base",
+                    )
+                    .sum(axis = 1, )
+                )
+
 
             # allocate exports
             df_out.append(
@@ -2052,18 +2062,22 @@ class EnergyProduction:
 
             # allocate ENTC emissions based on demands within each energy subsector
             for subsec in dict_entc_subsectors_to_emission_variables.keys():
+
                 # get model variable and emissions 
                 modvar_emission_cur_subsec = dict_entc_subsectors_to_emission_variables.get(subsec)
-                modvar_emission_cur_subsec = modvar_emission_cur_subsec.get(key_dict_emissions) if (modvar_emission_cur_subsec is not None) else None
-                vec_emissions = dict_subsector_to_energy_demand_proportions.get(subsec) if (modvar_emission_cur_subsec is not None) else None
-        
-                if vec_emissions is not None:
-                    df_out.append(
-                        self.model_attributes.array_to_df(
-                            vec_emissions*vec_entc_emissions_total, 
-                            modvar_emission_cur_subsec
-                        )
+                if modvar_emission_cur_subsec is None: continue
+
+                modvar_emission_cur_subsec = modvar_emission_cur_subsec.get(key_dict_emissions)
+                vec_emissions = dict_subsector_to_energy_demand_proportions.get(subsec)
+                if vec_emissions is None: continue
+
+                # add to output
+                df_out.append(
+                    self.model_attributes.array_to_df(
+                        vec_emissions*vec_entc_emissions_total, 
+                        modvar_emission_cur_subsec
                     )
+                )
 
 
         df_out = pd.concat(df_out, axis = 1).reset_index(drop = True)
@@ -9822,7 +9836,7 @@ class EnergyProduction:
         vector_reference_time_period: Union[list, np.ndarray],
         dict_scale_values: Union[Dict[str, float], None] = None,
         table_name: str = None,
-        transform_time_period: bool = True
+        transform_time_period: bool = True,
     ) -> pd.DataFrame:
         """Retrieves NemoMod vannualtechnologyemission output table and 
             reformats for SISEPUEDE (wide format data)
@@ -9855,7 +9869,7 @@ class EnergyProduction:
         )
 
 
-        ##  NON-BIOMASS VARIABLS
+        ##  NON-BIOMASS VARIABLES (ONE BMASS)
 
         # focus on non-biomass CO2 emissions first, which include:
         #   - CH4
@@ -9863,6 +9877,7 @@ class EnergyProduction:
         modvars_emit = [
             self.modvar_entc_nemomod_emissions_ch4_elec,
             self.modvar_entc_nemomod_emissions_co2_elec,
+            self.modvar_entc_nemomod_emissions_co2_elec_biomass,
             self.modvar_entc_nemomod_emissions_n2o_elec,
             self.modvar_entc_nemomod_emissions_ch4_fpr,
             self.modvar_entc_nemomod_emissions_co2_fpr_non_biomass,
@@ -9876,9 +9891,12 @@ class EnergyProduction:
 
 
         for modvar in modvars_emit:
-
+            
             # get the gas, global warming potential (to scale output by), and the query
-            gas = self.model_attributes.get_variable_characteristic(modvar, self.model_attributes.varchar_str_emission_gas)
+            gas = self.model_attributes.get_variable_characteristic(
+                modvar, 
+                self.model_attributes.varchar_str_emission_gas,
+            )
             gwp = self.model_attributes.get_gwp(gas)
 
             # filter the table
@@ -9892,7 +9910,6 @@ class EnergyProduction:
                 query_append = f"{query_append} and {self.field_nemomod_technology} not in {query_filt}"
             """;
 
-                
             # retrieve and scale
             df_tmp = self.retrieve_and_pivot_nemomod_table(
                 engine,
@@ -9903,6 +9920,7 @@ class EnergyProduction:
                 query_append = query_append,
                 techs_to_pivot = None
             )
+            
             df_tmp *= gwp
 
             df_out.append(df_tmp)
@@ -10725,7 +10743,10 @@ class EnergyProduction:
 
         # build renaming dictionary
         cats_valid = self.model_attributes.get_variable_categories(modvar)
-        dict_cats_to_varname = [x for x in attr.key_values if (x in list(df_source[field_pivot])) and (x in cats_valid)]
+        dict_cats_to_varname = [
+            x for x in attr.key_values
+            if (x in list(df_source[field_pivot])) and (x in cats_valid)
+        ]
         varnames = self.model_attributes.build_variable_fields(
             modvar, 
             restrict_to_category_values = dict_cats_to_varname,
@@ -11530,6 +11551,7 @@ class EnergyProduction:
                 self.modvar_enst_nemomod_discounted_operating_costs_storage,
                 self.modvar_entc_nemomod_emissions_ch4_elec,
                 self.modvar_entc_nemomod_emissions_co2_elec,
+                self.modvar_entc_nemomod_emissions_co2_elec_biomass,
                 self.modvar_entc_nemomod_emissions_n2o_elec,
                 self.modvar_enfu_energy_demand_by_fuel_entc,
                 self.modvar_entc_nemomod_generation_capacity,
@@ -11543,6 +11565,7 @@ class EnergyProduction:
                     blank_val = missing_vals_on_error
                 ) for modvar in modvars_instantiate
             ]
+
 
         msg = (
             f"NemoMod ran successfully with the following status: {result}" 
