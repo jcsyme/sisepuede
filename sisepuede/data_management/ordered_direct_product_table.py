@@ -6,10 +6,9 @@ import sisepuede.utilities._toolbox as sf
 
 
 class OrderedDirectProductTable:
-    """
-    Define an index table to map the direct product of multiple dimensions to a
-        key. There are four key methods (among others) used to identify scenario
-        dimension information:
+    """Define an index table to map the direct product of multiple dimensions to 
+        a key. There are four key methods (among others) used to identify 
+        scenario dimension information:
 
         * OrderedDirectProductTable.get_dims_from_key()
             Get dimensional values associated with a key (inverse of
@@ -30,12 +29,15 @@ class OrderedDirectProductTable:
 
     Function Arguments
     ------------------
-    - dict_dims: dictionary mapping dimensions to all available values
-    - list_dims_ordered: list of available
+    dict_dims : Dict[str, List[Any]]
+        Dictionary mapping dimensions to all available values
+    list_dims_ordered : List[str]
+        List of ordered dimensions
 
     Keyword Arguments
     -----------------
-    - key_primary: key field to use for product of dims
+    key_primary : str
+        Field to use for product of dims, i.e., dimensional key
     """
 
     def __init__(self,
@@ -52,6 +54,8 @@ class OrderedDirectProductTable:
         self._initialize_cumulative_dim_products()
         self._initialize_moving_cardinality()
 
+        return None
+    
 
 
     ##################################

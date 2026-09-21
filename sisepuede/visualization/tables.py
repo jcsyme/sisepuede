@@ -76,7 +76,7 @@ class LeversImplementationTable:
             * self.strategies
             * self.time_periods
             * self.transformations
-            * self.transformers
+            * self.transformer_kernels
         """
 
         if not is_strategies(strategies):
@@ -88,7 +88,7 @@ class LeversImplementationTable:
         key_vir = (
             strategies
             .transformations
-            .transformers
+            .transformer_kernels
             .key_config_vec_implementation_ramp
         )
 
@@ -101,7 +101,7 @@ class LeversImplementationTable:
         self.strategies = strategies
         self.time_periods = time_periods
         self.transformations = strategies.transformations
-        self.transformers = strategies.transformations.transformers
+        self.transformer_kernels = strategies.transformations.transformer_kernels
 
         return None
 
@@ -116,7 +116,7 @@ class LeversImplementationTable:
         """
 
         transformation_summarizer = TransformationSummarizer(
-            self.transformers,
+            self.transformer_kernels,
         )
 
 
@@ -242,7 +242,7 @@ class LeversImplementationTable:
             Optional value to return if no value is present
         """
 
-        base_transformer = self.transformers.get_tkernel(
+        base_transformer = self.transformer_kernels.get_tkernel(
             transformation.transformer_code,
         )
 
@@ -463,12 +463,12 @@ class LeversImplementationTable:
 
         # get the ramp
         vir_try = transformation.dict_parameters.get(self.key_vir, )
-        vir_try = self.transformers.check_implementation_ramp(vir_try, )
+        vir_try = self.transformer_kernels.check_implementation_ramp(vir_try, )
 
         vec_implementation_ramp = (
             vir_try.copy()
             if isinstance(vir_try, np.ndarray)
-            else self.transformers.vec_implementation_ramp.copy()
+            else self.transformer_kernels.vec_implementation_ramp.copy()
         )
             
         vec_implementation_ramp *= magnitude
@@ -664,7 +664,7 @@ class LeversImplementationTable:
         for transformation in transformation_objs:
 
             # get the transformer for relevant information
-            transformer = self.transformers.get_tkernel(
+            transformer = self.transformer_kernels.get_tkernel(
                 transformation.transformer_code,
             )
 
@@ -718,7 +718,7 @@ class LeversImplementationTable:
         Set uppercase_subsector = False to return a lower case subsector_abbreviation
         """
         # get the associated transformer
-        transformer = self.transformers.get_tkernel(
+        transformer = self.transformer_kernels.get_tkernel(
             transformation.transformer_code,
         )
 
@@ -743,7 +743,7 @@ class LeversImplementationTable:
             transformation.
         """
         # get the associated transformer
-        transformer = self.transformers.get_tkernel(
+        transformer = self.transformer_kernels.get_tkernel(
             transformation.transformer_code,
         )
 
@@ -787,10 +787,10 @@ class LeversImplementationTable:
 class TransformationSummarizer:
 
     def __init__(self,
-        transformers: 'Transformers',
+        tkernels: 'TransformerKernels',
     ) -> None:
         
-        self._initialize_transformers(transformers)
+        self._initialize_tkernels(tkernels)
         
         return None
 
@@ -807,17 +807,17 @@ class TransformationSummarizer:
 
 
     
-    def _initialize_transformers(self,
-        transformers: 'Transformers',               
+    def _initialize_tkernels(self,
+        tkernels: 'TransformerKernels',               
     ) -> None:
-        """Initialize the transformers object
+        """Initialize the TransformerKernels object
         """
-        if not trs.is_transformers(transformers):
-            tp = type(transformers)
+        if not trs.is_transformer_kernels(tkernels):
+            tp = type(tkernels)
             raise TypeError(f"Invalid type '{tp}': must be a Transformers object.")
 
 
-        self.transformers = transformers
+        self.transformer_kernels = tkernels
 
         return None
     
@@ -1106,7 +1106,7 @@ class TransformationSummarizer:
         prefix_transformer_code = trs._MODULE_CODE_SIGNATURE
         
         # get the transformer and look for magnitude etc.
-        base_transformer = self.transformers.get_tkernel(
+        base_transformer = self.transformer_kernels.get_tkernel(
             transformation.transformer_code
         )
         

@@ -1057,7 +1057,7 @@ class TransformerKernels:
 
             * self.all_tkernels
             * self.all_tkernels_non_baseline
-            * self.dict_transformers
+            * self.dict_tkernels
             * self.transformer_id_baseline
             * self._trfunc_***
         """
@@ -1065,7 +1065,7 @@ class TransformerKernels:
         attr_transformer_kernel_code = self.attribute_transformer_kernel_code
         all_tkernels = []
 
-        dict_transformers = {}
+        dict_tkernels = {}
 
 
 
@@ -1739,17 +1739,17 @@ class TransformerKernels:
 
         ## specify dictionary of transformations and get all transformations + baseline/non-baseline
 
-        dict_transformers.update(
+        dict_tkernels.update(
             dict(
                 (x.code, x) 
                 for x in all_tkernels
                 if x.code in attr_transformer_kernel_code.key_values
             )
         )
-        all_tkernels = sorted(list(dict_transformers.keys()))
+        all_tkernels = sorted(list(dict_tkernels.keys()))
         all_tkernels_non_baseline = [
             x for x in all_tkernels 
-            if not dict_transformers.get(x).baseline
+            if not dict_tkernels.get(x).baseline
         ]
 
         transformer_id_baseline = [
@@ -1763,7 +1763,7 @@ class TransformerKernels:
         )
 
         # get some other properties
-        tr_tmp = dict_transformers.get(all_tkernels[0])
+        tr_tmp = dict_tkernels.get(all_tkernels[0])
         field_transformer_kernel_id = tr_tmp.field_transformer_kernel_id
         field_transformer_kernel_name = tr_tmp.field_transformer_kernel_name
 
@@ -1772,7 +1772,7 @@ class TransformerKernels:
 
         self.all_tkernels = all_tkernels
         self.all_tkernels_non_baseline = all_tkernels_non_baseline
-        self.dict_transformers = dict_transformers
+        self.dict_tkernels = dict_tkernels
         self.field_transformer_kernel_id = field_transformer_kernel_id
         self.field_transformer_kernel_name = field_transformer_kernel_name
         self.transformer_id_baseline = transformer_id_baseline
@@ -2459,7 +2459,7 @@ class TransformerKernels:
             return code
 
 
-        out = self.dict_transformers.get(code)
+        out = self.dict_tkernels.get(code)
         
         return out
     

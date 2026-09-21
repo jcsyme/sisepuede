@@ -24,7 +24,7 @@ import sisepuede.transformers.transformer_kernels as trs
 
 
 def build_default_general_config_dict(
-    transformers: trs.TransformerKernels,
+    tkernels: trs.TransformerKernels,
 ) -> dict:
     """
     Build the default general configuration dictionary for a new transformation
@@ -39,7 +39,7 @@ def build_default_general_config_dict(
     # add the implementation vector
 
     dict_vir = spawn_args_dict(
-        transformers.build_implementation_ramp_vector,
+        tkernels.build_implementation_ramp_vector,
     )
 
     # clean tuples
@@ -65,7 +65,7 @@ def build_default_general_config_dict(
     ##  BASELINE
 
     dict_update = spawn_args_dict(
-        transformers._trfunc_baseline,
+        tkernels._trfunc_baseline,
         args_ignore = [
             "n_tp_ramp",
             "tp_0_ramp",
@@ -501,7 +501,7 @@ def code_to_file_name(
 
 
 def instantiate_default_strategy_directory(
-    transformers: 'Transformers',
+    tkernels: 'Transformers',
     path_transformations: Union[str, pathlib.Path],
     export_transformations: bool = True,
     fn_citations: str = trn._DICT_FILE_NAME_DEFAULTS.get("citations"),
@@ -516,8 +516,8 @@ def instantiate_default_strategy_directory(
         
     Function Arguments
     ------------------
-    transformers : Transformers
-        Transformers objects used to export
+    tkernels : TransformerKernels
+        TransformerKernels objects used to export
     path_transformations : Union[str, pathlib.Path]
         Output directory where default transformations are to be spawned
         
@@ -544,9 +544,9 @@ def instantiate_default_strategy_directory(
     ##  VERIFY INPUTS
     
     # check transformers
-    if not trs.is_transformers(transformers):
-        tp = str(type(transformers))
-        msg = f"Invalid input type '{tp}' specified for transformers. Must be a Transformers object."
+    if not trs.is_transformer_kernels(tkernels):
+        tp = str(type(tkernels))
+        msg = f"Invalid input type '{tp}' specified for tkernels. Must be a TransformerKernels object."
         raise RuntimeError(msg)
         
     # check input path
@@ -556,14 +556,14 @@ def instantiate_default_strategy_directory(
     except Exception as e:
         
         msg = f"Unable to instantiate transformation export directory '{path_transformations}': {e}"
-        transformers._log(msg, type_log = "error", )
+        tkernels._log(msg, type_log = "error", )
         raise RuntimeError(msg)
     
     # build it if it doesn't exist?
     if (not path_transformations.exists()) & export_transformations:
         if not mk_path:
             msg = f"Export directory '{path_transformations}' does not exist. Set 'mk_path = True' to build the directory in this case."
-            transformers._log(msg, type_log = "error", )
+            tkernels._log(msg, type_log = "error", )
             raise RuntimeError(msg)
         
         # build
@@ -573,18 +573,18 @@ def instantiate_default_strategy_directory(
     ##  BUILD OUTPUT FILES 
     
     # get default general configuration
-    dict_default_general = build_default_general_config_dict(transformers, )
+    dict_default_general = build_default_general_config_dict(tkernels, )
     
     dict_transformations = {}
     
-    for code in transformers.all_tkernels:
+    for code in tkernels.all_tkernels:
         
         # ignore the baseline; that's set in the general config
-        if code == transformers.code_baseline:
+        if code == tkernels.code_baseline:
             continue
         
         # get the transformer, file name, and dictionary
-        transformer = transformers.get_transformer_kernel(code)
+        transformer = tkernels.get_transformer_kernel(code)
         dict_export = build_default_transformation_config_dict(transformer, ) # fn, dict
         
         # add to output dict
@@ -620,7 +620,7 @@ def instantiate_default_strategy_directory(
         
         transformations = trn.Transformations(
             path_transformations,
-            transformers = transformers,
+            transformer_kernels = tkernels,
         )
         # generate the output default strategy definitions file
         df_strategy_def = build_default_strategies(
@@ -669,7 +669,7 @@ def spawn_args_dict(
     """
     
     # if not a transformer, return None
-    if not trs.is_transformer(transformer) | callable(transformer):
+    if not trs.is_transformer_kernel(transformer) | callable(transformer):
         return None
     
     
@@ -677,7 +677,7 @@ def spawn_args_dict(
     
     full_arg_spec = (
         inspect.getfullargspec(transformer.function)
-        if trs.is_transformer(transformer)
+        if trs.is_transformer_kernel(transformer)
         else inspect.getfullargspec(transformer)
     )
     

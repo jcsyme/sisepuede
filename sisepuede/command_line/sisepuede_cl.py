@@ -252,10 +252,10 @@ def get_strategies(
     df_examples = examples("input_data_frame")
 
     # set up transformers/transformations
-    transformers = trf.TransformerKernels({}, df_input = df_examples,)
+    tkernels = trf.TransformerKernels({}, df_input = df_examples, )
     transformations = trf.Transformations(
         path_strategies,
-        transformers = transformers,
+        transformer_kernels = tkernels,
     )
 
     # get strategies and attribute (includes verification steps etc.)

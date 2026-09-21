@@ -5002,7 +5002,7 @@ class ModelAttributes:
         # field initialization
         fields_dat = [
             x for x in df_project.columns 
-            if (x not in self.sort_ordered_dimensions_of_analysis)
+            if x in self.all_variable_fields
         ]
         fields_dims_notime = [
             x for x in self.sort_ordered_dimensions_of_analysis 
@@ -5082,22 +5082,36 @@ class ModelAttributes:
         elif len(df_project[fields_dat].dropna()) != len(df_project):
             interpolate_q = True
 
+
         ##  FINALLY, GET INFORMATION TO PASS BACK TO CALL
 
         # set some information on time series
-        projection_time_periods = list(set_times_keep)
-        projection_time_periods.sort()
+        projection_time_periods = sorted(list(set_times_keep))
         n_projection_time_periods = len(projection_time_periods)
         
-        # format data frame
-        df_project = df_project.interpolate() if interpolate_q else df_project
-        df_project = df_project[df_project[self.dim_time_period].isin(set_times_keep)]
-        df_project.sort_values(by = [self.dim_time_period], inplace = True)
-        
+        # interpolate data fields if presented
+        if interpolate_q:
+            df_project[fields_dat] = (
+                df_project[fields_dat]
+                .interpolate()
+                .ffill()
+                .bfill()
+            )
+
+
+        # get ordered fields out
+        fields_ord_out = [self.dim_time_period] + fields_dat
+        if not strip_dims:
+            fields_ord_out = fields_dims_notime + fields_ord_out
+
+        # clean up formatting
         df_project = (
-            df_project[[self.dim_time_period] + fields_dat] 
-            if strip_dims 
-            else df_project[fields_dims_notime + [self.dim_time_period] + fields_dat]
+            df_project[
+                df_project[self.dim_time_period].isin(set_times_keep)
+            ]
+            .get(fields_ord_out, )
+            .sort_values(by = [self.dim_time_period], )
+            .reset_index(drop = True, )
         )
 
         out = (

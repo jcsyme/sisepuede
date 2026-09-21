@@ -279,7 +279,7 @@ class Strategy:
             
         key_strategy = (
             transformations
-            .transformers
+            .transformer_kernels
             .model_attributes
             .dim_strategy_id
         )
@@ -639,10 +639,10 @@ class Strategies:
 
         # get regions
         regions = (
-            self.transformations.transformers.regions
+            self.transformations.transformer_kernels.regions
             if not sf.islistlike(regions)
             else [
-                x for x in self.transformations.transformers.regions_manager.all_regions
+                x for x in self.transformations.transformer_kernels.regions_manager.all_regions
                 if x in regions
             ]
         )
@@ -777,7 +777,7 @@ class Strategies:
         self.file_struct = (
             self
             .transformations
-            .transformers
+            .transformer_kernels
             .file_struct
         )
 
@@ -934,7 +934,7 @@ class Strategies:
 
         ##  set properties
 
-        self.model_attributes = transformations.transformers.model_attributes # shortcut
+        self.model_attributes = transformations.transformer_kernels.model_attributes # shortcut
         self.transformations = transformations
 
         return None
@@ -986,7 +986,7 @@ class Strategies:
 
             * self.file_struct.model_attributes
             * self.model_attributess
-            * self.transformations.transformers.model_attributes
+            * self.transformations.transformer_kernels.model_attributes
         """
 
         # update dictionary in model attributes object
@@ -1007,8 +1007,8 @@ class Strategies:
 
         self.file_struct.model_attributes = model_attributes
         self.model_attributes = model_attributes
-        self.transformations.transformers.file_struct.model_attributes = model_attributes
-        self.transformations.transformers.model_attributes = model_attributes
+        self.transformations.transformer_kernels.file_struct.model_attributes = model_attributes
+        self.transformations.transformer_kernels.model_attributes = model_attributes
 
         return None
     

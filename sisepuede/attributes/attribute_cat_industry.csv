@@ -52,7 +52,7 @@ Lime and Carbonites,``lime_and_carbonite``,"Includes
   * Others",none,0,0,0,0,,," | Default :math:`\text{CO}_2` lime production emission factor from V3, C2, EQ 2.8 2006 IPCC GNGHGI); range from Table 2.4.
  | 
  | "
-mining,``mining``," | Industrial mining for raw materials. **EXCLUDES COAL (see ENFU)** 
+Mining,``mining``," | Industrial mining for raw materials. **EXCLUDES COAL (see ENFU)** 
  | 
  | Inlcudes mining for ores and materials critical to global supply chains, including
 
