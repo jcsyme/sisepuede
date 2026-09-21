@@ -11,7 +11,7 @@ Input,:math:`\text{CO}_2` FGTV Production Venting Emission Factor,ef_co2_product
 Input,:math:`\text{CO}_2` FGTV Transmission Emission Factor,ef_co2_transmission,,"``ef_fgtv_transmission_$UNIT-MASS$_$EMISSION-GAS$_per_$UNIT-VOLUME$_$CAT-FUEL$`` (``$EMISSION-GAS$ = co2``, ``$UNIT-MASS$ = tonne``, ``$UNIT-VOLUME$ = m3``)",``fuel_natural_gas``|``fuel_oil``,,0,1,1,,0,,,
 Input,:math:`\text{N}_2\text{O}` FGTV Production Flaring Emission Factor,ef_n2o_production_flaring,,"``ef_fgtv_production_flaring_$UNIT-MASS$_$EMISSION-GAS$_per_$UNIT-VOLUME$_$CAT-FUEL$`` (``$EMISSION-GAS$ = n2o``, ``$UNIT-MASS$ = tonne``, ``$UNIT-VOLUME$ = m3``)",``fuel_natural_gas``|``fuel_oil``,,0,1,1,,0,,,
 Input,:math:`\text{N}_2\text{O}` FGTV Production Fugitive Emission Factor,ef_n2o_production_fugitive,,"``ef_fgtv_production_fugitive_$UNIT-MASS$_$EMISSION-GAS$_per_$UNIT-VOLUME$_$CAT-FUEL$`` (``$EMISSION-GAS$ = n2o``, ``$UNIT-MASS$ = tonne``, ``$UNIT-VOLUME$ = m3``)",``fuel_oil``,,0,1,1,,0,,,
-Input,:math:`\text{N}_2\text{O}` FGTV Production Venting Emission Factor,ef_n2o_production_venting,,"``ef_fgtv_production_venting_$UNIT-MASS$_$EMISSION-GAS$_per_$UNIT-VOLUME$_$CAT-FUEL$`` (``$EMISSION-GAS$ = n2o``, ``$UNIT-MASS$ = tonne``, ``$UNIT-VOLUME$ = m3``)",``fuel_oil``,,0,1,1,,307708,,,
+Input,:math:`\text{N}_2\text{O}` FGTV Production Venting Emission Factor,ef_n2o_production_venting,,"``ef_fgtv_production_venting_$UNIT-MASS$_$EMISSION-GAS$_per_$UNIT-VOLUME$_$CAT-FUEL$`` (``$EMISSION-GAS$ = n2o``, ``$UNIT-MASS$ = tonne``, ``$UNIT-VOLUME$ = m3``)",``fuel_oil``,,0,1,1,,0,,,
 Input,:math:`\text{N}_2\text{O}` FGTV Transmission Emission Factor,ef_n2o_transmission,,"``ef_fgtv_transmission_$UNIT-MASS$_$EMISSION-GAS$_per_$UNIT-VOLUME$_$CAT-FUEL$`` (``$EMISSION-GAS$ = n2o``, ``$UNIT-MASS$ = tonne``, ``$UNIT-VOLUME$ = m3``)",``fuel_oil``,,0,1,1,,0,,,
 Input,Fraction Non-Fugitive :math:`\text{CH}_4` Flared,frac_non_fugitive_flared,Fraction of emissions that can be flared that are flared. Replaces venting emissions. ,``frac_fgtv_drained_and_waste_$EMISSION-GAS$_flared_$CAT-FUEL$``  (``$EMISSION-GAS$ = ch4``),``fuel_coal``|``fuel_oil``,,0,1,1,,0,,,
 Input,NMVOC FGTV Distribution Emission Factor,ef_nmvoc_distribution,,"``ef_fgtv_distribution_$UNIT-MASS$_nmvoc_per_$UNIT-VOLUME$_$CAT-FUEL$`` (``$UNIT-MASS$ = tonne``, ``$UNIT-VOLUME$ = m3``)",``fuel_natural_gas``,,0,1,1,,0,,,
@@ -20,13 +20,33 @@ Input,NMVOC FGTV Production Fugitive Emission Factor,ef_nmvoc_production_fugitiv
 Input,NMVOC FGTV Production Venting Emission Factor,ef_nmvoc_production_venting,,"``ef_fgtv_production_venting_$UNIT-MASS$_nmvoc_per_$UNIT-VOLUME$_$CAT-FUEL$`` (``$UNIT-MASS$ = tonne``, ``$UNIT-VOLUME$ = m3``)",``fuel_oil``,,0,1,1,,0,,,
 Input,NMVOC FGTV Transmission Emission Factor,ef_nmvoc_transmission,,"``ef_fgtv_transmission_$UNIT-MASS$_nmvoc_per_$UNIT-VOLUME$_$CAT-FUEL$`` (``$UNIT-MASS$ = tonne``, ``$UNIT-VOLUME$ = m3``)",``fuel_natural_gas``|``fuel_oil``,,0,1,1,,0,,,
 Input,Reduction in Fugitive Leaks,frac_reduction_fugitive_leaks,Fractional reduction in fugitive leaks. Between 0 and 1. Applied to all mining industries.,``frac_fgtv_reduction_in_fugitive_leaks``,none,,0,1,1,,0,,,
-Output,:math:`\text{CH}_4` Fugitive Emissions,emissions_ch4,,``emission_co2e_$EMISSION-GAS$_fgtv_$CAT-FUEL$`` (``$EMISSION-GAS$ = ch4``),``fuel_coal``|``fuel_natural_gas``|``fuel_oil``,,0,1,1,,1,"``fuel_coal``: 1.B.1
+Output,":math:`\text{CH}_4` Fugitive Emissions from Distribution, Transmission, and Production Leaks",emissions_ch4_dtp,,``emission_co2e_$EMISSION-GAS$_fgtv_dtp_$CAT-FUEL$`` (``$EMISSION-GAS$ = ch4``),``fuel_coal``|``fuel_crude``|``fuel_natural_gas``|``fuel_oil``,,0,1,1,,1,"``fuel_coal``: 1.B.1
 ``fuel_natural_gas``: 1.B.2.b
 ``fuel_oil``: 1.B.2.a",,
-Output,:math:`\text{CO}_2` Fugitive Emissions,emissions_co2,,``emission_co2e_$EMISSION-GAS$_fgtv_$CAT-FUEL$`` (``$EMISSION-GAS$ = co2``),``fuel_coal``|``fuel_natural_gas``|``fuel_oil``,,0,1,1,,1,"``fuel_coal``: 1.B.1
+Output,:math:`\text{CH}_4` Fugitive Emissions from Flaring,emissions_ch4_flaring,,``emission_co2e_$EMISSION-GAS$_fgtv_flaring_$CAT-FUEL$`` (``$EMISSION-GAS$ = ch4``),``fuel_coal``|``fuel_crude``|``fuel_natural_gas``|``fuel_oil``,,0,1,1,,1,"``fuel_coal``: 1.B.1
 ``fuel_natural_gas``: 1.B.2.b
 ``fuel_oil``: 1.B.2.a",,
-Output,:math:`\text{N}_2\text{O}` Fugitive Emissions,emissions_n2o,,``emission_co2e_$EMISSION-GAS$_fgtv_$CAT-FUEL$`` (``$EMISSION-GAS$ = n2o``),``fuel_coal``|``fuel_natural_gas``|``fuel_oil``,,0,1,1,,1,"``fuel_coal``: 1.B.1
+Output,:math:`\text{CH}_4` Fugitive Emissions from Venting,emissions_ch4_venting,,``emission_co2e_$EMISSION-GAS$_fgtv_venting_$CAT-FUEL$`` (``$EMISSION-GAS$ = ch4``),``fuel_coal``|``fuel_crude``|``fuel_natural_gas``|``fuel_oil``,,0,1,1,,1,"``fuel_coal``: 1.B.1
 ``fuel_natural_gas``: 1.B.2.b
 ``fuel_oil``: 1.B.2.a",,
-Output,NMVOC Fugitive Emissions,emissions_nmvoc,Emissions of non-methane volatile organic compounds,``emission_nongas_fgtv_$UNIT-MASS$_nmvoc_$CAT-FUEL$`` (``$UNIT-MASS$ = kt``),``fuel_coal``|``fuel_natural_gas``|``fuel_oil``,,0,1,1,,0,,,
+Output,":math:`\text{CO}_2` Fugitive Emissions from Distribution, Transmission, and Production Leaks",emissions_co2_dtp,,``emission_co2e_$EMISSION-GAS$_fgtv_dtp_$CAT-FUEL$`` (``$EMISSION-GAS$ = co2``),``fuel_coal``|``fuel_crude``|``fuel_natural_gas``|``fuel_oil``,,0,1,1,,1,"``fuel_coal``: 1.B.1
+``fuel_natural_gas``: 1.B.2.b
+``fuel_oil``: 1.B.2.a",,
+Output,:math:`\text{CO}_2` Fugitive Emissions from Flaring,emissions_co2_flaring,,``emission_co2e_$EMISSION-GAS$_fgtv_flaring_$CAT-FUEL$`` (``$EMISSION-GAS$ = co2``),``fuel_coal``|``fuel_crude``|``fuel_natural_gas``|``fuel_oil``,,0,1,1,,1,"``fuel_coal``: 1.B.1
+``fuel_natural_gas``: 1.B.2.b
+``fuel_oil``: 1.B.2.a",,
+Output,:math:`\text{CO}_2` Fugitive Emissions from Venting,emissions_co2_venting,,``emission_co2e_$EMISSION-GAS$_fgtv_venting_$CAT-FUEL$`` (``$EMISSION-GAS$ = co2``),``fuel_coal``|``fuel_crude``|``fuel_natural_gas``|``fuel_oil``,,0,1,1,,1,"``fuel_coal``: 1.B.1
+``fuel_natural_gas``: 1.B.2.b
+``fuel_oil``: 1.B.2.a",,
+Output,":math:`\text{N}_2\text{O}` Fugitive Emissions from Distribution, Transmission, and Production Leaks",emissions_n2o_dtp,,``emission_co2e_$EMISSION-GAS$_fgtv_dtp_$CAT-FUEL$`` (``$EMISSION-GAS$ = n2o``),``fuel_coal``|``fuel_crude``|``fuel_natural_gas``|``fuel_oil``,,0,1,1,,1,"``fuel_coal``: 1.B.1
+``fuel_natural_gas``: 1.B.2.b
+``fuel_oil``: 1.B.2.a",,
+Output,:math:`\text{N}_2\text{O}` Fugitive Emissions from Flaring,emissions_n2o_flaring,,``emission_co2e_$EMISSION-GAS$_fgtv_flaring_$CAT-FUEL$`` (``$EMISSION-GAS$ = n2o``),``fuel_coal``|``fuel_crude``|``fuel_natural_gas``|``fuel_oil``,,0,1,1,,1,"``fuel_coal``: 1.B.1
+``fuel_natural_gas``: 1.B.2.b
+``fuel_oil``: 1.B.2.a",,
+Output,:math:`\text{N}_2\text{O}` Fugitive Emissions from Venting,emissions_n2o_venting,,``emission_co2e_$EMISSION-GAS$_fgtv_venting_$CAT-FUEL$`` (``$EMISSION-GAS$ = n2o``),``fuel_coal``|``fuel_crude``|``fuel_natural_gas``|``fuel_oil``,,0,1,1,,1,"``fuel_coal``: 1.B.1
+``fuel_natural_gas``: 1.B.2.b
+``fuel_oil``: 1.B.2.a",,
+Output,"NMVOC Fugitive Emissions from Distribution, Transmission, and Production Leaks",emissions_nmvoc_dtp,Emissions of non-methane volatile organic compounds,``emission_nongas_fgtv_$UNIT-MASS$_nmvoc_dtp_$CAT-FUEL$`` (``$UNIT-MASS$ = kt``),``fuel_coal``|``fuel_crude``|``fuel_natural_gas``|``fuel_oil``,,0,1,1,,0,,,
+Output,NMVOC Fugitive Emissions from Flaring,emissions_nmvoc_flaring,Emissions of non-methane volatile organic compounds,``emission_nongas_fgtv_$UNIT-MASS$_nmvoc_flaring_$CAT-FUEL$`` (``$UNIT-MASS$ = kt``),``fuel_coal``|``fuel_crude``|``fuel_natural_gas``|``fuel_oil``,,0,1,1,,0,,,
+Output,NMVOC Fugitive Emissions from Venting,emissions_nmvoc_venting,Emissions of non-methane volatile organic compounds,``emission_nongas_fgtv_$UNIT-MASS$_nmvoc_venting_$CAT-FUEL$`` (``$UNIT-MASS$ = kt``),``fuel_coal``|``fuel_crude``|``fuel_natural_gas``|``fuel_oil``,,0,1,1,,0,,,

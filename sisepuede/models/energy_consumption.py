@@ -2796,7 +2796,9 @@ class EnergyConsumption:
         n_projection_time_periods: int = None,
         projection_time_periods: list = None
     ) -> pd.DataFrame:
-        """SISEPUEDE model for Fugitive Emissions (FGTV). Calculate fugitive 
+
+        """
+        SISEPUEDE model for Fugitive Emissions (FGTV). Calculate fugitive 
             emissions of gasses due to the production, transmission, and 
             distribution of coal, oil, and gas. Excludes process and combustion 
             emissions from mining, exploration, processing, and/or refinement of 
@@ -2846,10 +2848,7 @@ class EnergyConsumption:
         ## ATTRIBUTE INITIALIZATION
         
         attr_enfu = self.attr_enfu
-        attr_fgtv = self.model_attributes.get_attribute_table(self.subsec_name_fgtv)
-        attr_inen = self.model_attributes.get_attribute_table(self.subsec_name_inen)
-        attr_ippu = self.model_attributes.get_attribute_table(self.subsec_name_ippu)
-        
+
 
         ##  OUTPUT INITIALIZATION
 
@@ -2883,7 +2882,11 @@ class EnergyConsumption:
 
         # define a dictionary to relate aggregate emissions to the components
         dict_emission_to_fugitive_components = {
-            self.modvar_fgtv_emissions_ch4: {
+            (
+                self.modvar_fgtv_emissions_ch4_dtp,
+                self.modvar_fgtv_emissions_ch4_flaring,
+                self.modvar_fgtv_emissions_ch4_venting,
+            ): {
                 "distribution": self.modvar_fgtv_ef_ch4_distribution,
                 "production_flaring": self.modvar_fgtv_ef_ch4_production_flaring,
                 "production_fugitive": self.modvar_fgtv_ef_ch4_production_fugitive,
@@ -2891,7 +2894,11 @@ class EnergyConsumption:
                 "transmission": self.modvar_fgtv_ef_ch4_transmission
             },
 
-            self.modvar_fgtv_emissions_co2: {
+            (
+                self.modvar_fgtv_emissions_co2_dtp,
+                self.modvar_fgtv_emissions_co2_flaring,
+                self.modvar_fgtv_emissions_co2_venting,
+            ): {
                 "distribution": self.modvar_fgtv_ef_co2_distribution,
                 "production_flaring":self.modvar_fgtv_ef_co2_production_flaring,
                 "production_fugitive": self.modvar_fgtv_ef_co2_production_fugitive,
@@ -2899,7 +2906,11 @@ class EnergyConsumption:
                 "transmission": self.modvar_fgtv_ef_co2_transmission
             },
 
-            self.modvar_fgtv_emissions_n2o: {
+            (
+                self.modvar_fgtv_emissions_n2o_dtp,
+                self.modvar_fgtv_emissions_n2o_flaring,
+                self.modvar_fgtv_emissions_n2o_venting,
+            ): {
                 "distribution": None,
                 "production_flaring": self.modvar_fgtv_ef_n2o_production_flaring,
                 "production_fugitive": self.modvar_fgtv_ef_n2o_production_fugitive,
@@ -2907,7 +2918,11 @@ class EnergyConsumption:
                 "transmission": self.modvar_fgtv_ef_n2o_transmission
             },
 
-            self.modvar_fgtv_emissions_nmvoc: {
+            (
+                self.modvar_fgtv_emissions_nmvoc_dtp,
+                self.modvar_fgtv_emissions_nmvoc_flaring,
+                self.modvar_fgtv_emissions_nmvoc_venting,
+            ): {
                 "distribution": self.modvar_fgtv_ef_nmvoc_distribution,
                 "production_flaring": self.modvar_fgtv_ef_nmvoc_production_flaring,
                 "production_fugitive": self.modvar_fgtv_ef_nmvoc_production_fugitive,
@@ -2945,40 +2960,46 @@ class EnergyConsumption:
 
         ##  LOOP OVER OUTPUT EMISSIONS TO GENERATE EMISSIONS
 
-        for modvar_emission in dict_emission_to_fugitive_components.keys():
+        for modvars_emission, dict_components in dict_emission_to_fugitive_components.items():
+            
+            (
+                modvar_dtp,
+                modvar_flaring,
+                modvar_venting,
+            ) = modvars_emission
 
             # get the key emission factor arrays in terms of mass/energy
             arr_ef_distribution = self.get_fgtv_array_for_fugitive_emissions(
                 df_neenergy_trajectories,
-                dict_emission_to_fugitive_components[modvar_emission]["distribution"],
+                dict_components.get("distribution"),
                 arr_enfu_energy_density_volumetric
             )
 
             # production - flaring
             arr_ef_production_flaring = self.get_fgtv_array_for_fugitive_emissions(
                 df_neenergy_trajectories,
-                dict_emission_to_fugitive_components[modvar_emission]["production_flaring"],
+                dict_components.get("production_flaring"),
                 arr_enfu_energy_density_volumetric
             )
 
             # production - fugitive/leaks
             arr_ef_production_fugitive = self.get_fgtv_array_for_fugitive_emissions(
                 df_neenergy_trajectories,
-                dict_emission_to_fugitive_components[modvar_emission]["production_fugitive"],
+                dict_components.get("production_fugitive"),
                 arr_enfu_energy_density_volumetric
             )
 
             # production - venting
             arr_ef_production_venting = self.get_fgtv_array_for_fugitive_emissions(
                 df_neenergy_trajectories,
-                dict_emission_to_fugitive_components[modvar_emission]["production_venting"],
+                dict_components.get("production_venting"),
                 arr_enfu_energy_density_volumetric
             )
 
             # production - transmission
             arr_ef_transmission = self.get_fgtv_array_for_fugitive_emissions(
                 df_neenergy_trajectories,
-                dict_emission_to_fugitive_components[modvar_emission]["transmission"],
+                dict_components.get("transmission"),
                 arr_enfu_energy_density_volumetric
             )
 
@@ -2998,17 +3019,21 @@ class EnergyConsumption:
                 else 0.0
             )
             
-            arr_fgtv_ef_fv = arr_fgtv_ef_fv_flare + arr_fgtv_ef_fv_vent
-            arr_fgtv_ef_fv += sf.do_array_mult(arr_ef_production_fugitive, 1 - vec_fgtv_reduction_leaks)
+            #arr_fgtv_ef_fv = arr_fgtv_ef_fv_flare + arr_fgtv_ef_fv_vent
+            arr_fgtv_ef_prod = sf.do_array_mult(arr_ef_production_fugitive, 1 - vec_fgtv_reduction_leaks)
             
+            # add in flaring and venting
+            arr_fgtv_emissions_flaring = arr_fgtv_production*arr_fgtv_ef_fv_flare
+            arr_fgtv_emit_production_leaks = arr_fgtv_production*arr_fgtv_ef_prod
+            arr_fgtv_emissions_venting = arr_fgtv_production*arr_fgtv_ef_fv_vent
+
+
             # distribution, production, and transmission emissions
             arr_fgtv_emit_distribution = (
                 sf.do_array_mult(arr_demands_distribution*arr_ef_distribution, 1 - vec_fgtv_reduction_leaks) 
                 if (arr_ef_distribution is not None) 
                 else arr_enfu_zeros
             )
-
-            arr_fgtv_emit_production = arr_fgtv_production*arr_fgtv_ef_fv
             
             arr_fgtv_emit_transmission = (
                 sf.do_array_mult(
@@ -3020,26 +3045,44 @@ class EnergyConsumption:
             )
 
             # get total and determine scalar
-            arr_fgtv_emissions_cur = arr_fgtv_emit_distribution + arr_fgtv_emit_production + arr_fgtv_emit_transmission
-            emission = self.model_attributes.get_variable_characteristic(
-                modvar_emission,
-                self.model_attributes.varchar_str_emission_gas,
-            )
+            arr_fgtv_emissions_dtp = arr_fgtv_emit_distribution + arr_fgtv_emit_production_leaks + arr_fgtv_emit_transmission
 
-            arr_fgtv_emissions_cur *= (
-                1/self.model_attributes.get_scalar(modvar_emission, "mass") 
-                if (emission is None) 
-                else 1
-            )
 
-            df_out.append(
-                self.model_attributes.array_to_df(
-                    arr_fgtv_emissions_cur,
-                    modvar_emission,
-                    include_scalars = False,
-                    reduce_from_all_cats_to_specified_cats = True,
+            ##  APPLY ANY SCALARS AND ADD TO OUTPUT
+
+            arrs = [
+                arr_fgtv_emissions_dtp,
+                arr_fgtv_emissions_flaring,
+                arr_fgtv_emissions_venting
+            ]
+            modvars = [
+                modvar_dtp,
+                modvar_flaring,
+                modvar_venting
+            ]
+
+            for i, arr in enumerate(arrs):
+                modvar = modvars[i]
+
+                emission = self.model_attributes.get_variable_characteristic(
+                    modvar,
+                    self.model_attributes.varchar_str_emission_gas,
                 )
-            )
+
+                arr *= (
+                    1/self.model_attributes.get_scalar(modvar, "mass") 
+                    if (emission is None) 
+                    else 1
+                )
+
+                df_out.append(
+                    self.model_attributes.array_to_df(
+                        arr,
+                        modvar,
+                        include_scalars = False,
+                        reduce_from_all_cats_to_specified_cats = True,
+                    )
+                )
 
         """
         # set additional output
@@ -3058,9 +3101,7 @@ class EnergyConsumption:
             )
         ]
         """;
-    
-        global df_out_exp
-        df_out_exp = df_out
+  
 
         # concatenate and add subsector emission totals
         df_out = sf.merge_output_df_list(
@@ -4801,7 +4842,6 @@ class EnergyConsumption:
             merge_type = "concatenate",
         )
 
-        
         return df_out
 
 
@@ -4832,3 +4872,4 @@ def is_sisepuede_model_nfp_energy(
     )
 
     return out
+
