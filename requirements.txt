@@ -1,4 +1,4 @@
-geopandas==1.0.1
+geopandas==1.1.4
 geopy==2.1.0
 juliacall==0.9.25
 juliapkg==0.1.17
