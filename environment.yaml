@@ -6,8 +6,6 @@ dependencies:
   - python==3.11
   - geopandas>=1.1.4
   - geopy>=2.1.0
-  - juliacall=0.9.25
-  - juliapkg=0.1.17
   - matplotlib=3.10.1
   - munch=4.0.0
   - numpy>=2.2.2
