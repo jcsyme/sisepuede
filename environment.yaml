@@ -1,4 +1,4 @@
-name: sisepuede
+name: sisepuede_v1
 channels:
   - conda-forge
 dependencies:
