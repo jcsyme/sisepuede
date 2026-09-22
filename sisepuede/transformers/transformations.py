@@ -481,6 +481,7 @@ class Transformations:
 
         self._initialize_transformations(
             baseline_id = baseline_id,
+            stop_on_error = stop_on_error,
             **kwargs,
         )
         self._initialize_uuid()

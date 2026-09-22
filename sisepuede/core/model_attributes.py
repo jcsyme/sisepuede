@@ -5783,6 +5783,15 @@ class ModelAttributes:
     
 
 
+    def build_emission_total_fields(self,
+    ) -> List[str]:
+        """
+        """
+        out = sum(list(self.dict_gas_to_total_emission_fields.values()), [])
+        return out
+
+
+    
     def build_emission_total_fields_info_df(self,
     ) -> pd.DataFrame:
         """Build a DataFrame mapping emission total fields to model variable 

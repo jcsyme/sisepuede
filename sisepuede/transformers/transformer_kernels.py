@@ -59,6 +59,9 @@ _DICT_KEYS = {
 _FIELD_TRANSFORMER_KERNEL_CODE = "transformer_kernel_code"
 _FIELD_TRANSFORMER_KERNEL_ID = "transformer_kernel_id"
 _FIELD_TRANSFORMER_KERNEL_NAME = "transformer_kernel"
+_FIELD_TRANSFORMER_KERNEL_FP_FLAG_DESCRIPTION = "description_of_fp_model_interaction"
+_FIELD_TRANSFORMER_KERNEL_FP_FLAG_FULL = "requires_fp_model_for_full_effect"
+_FIELD_TRANSFORMER_KERNEL_FP_FLAG_PRIMARY = "requires_fp_model_for_primary_effect"
 
 # MODULE INFO
 _MODULE_CODE_SIGNATURE = "TFR"
@@ -1081,6 +1084,21 @@ class TransformerKernels:
         all_tkernels.append(self.baseline)
 
 
+        #################
+        #    GENERAL    #
+        #################
+
+        ##  GNRL TRANSFORMERS
+        
+        self.gnrl_increase_urban_density = TransformerKernel(
+            f"{_MODULE_CODE_SIGNATURE}:GNRL:INC_DENSITY_URBAN", 
+            self._trfunc_gnrl_increase_density_urban,
+            attr_transformer_kernel_code
+        )
+        all_tkernels.append(self.gnrl_increase_urban_density)
+
+
+
         ###############
         #    AFOLU    #
         ###############
@@ -1103,14 +1121,6 @@ class TransformerKernels:
         all_tkernels.append(self.agrc_decrease_exports)
 
 
-        self.agrc_expand_conservation_agriculture = TransformerKernel(
-            f"{_MODULE_CODE_SIGNATURE}:AGRC:INC_CONSERVATION_AGRICULTURE", 
-            self._trfunc_agrc_expand_conservation_agriculture,
-            attr_transformer_kernel_code
-        )
-        all_tkernels.append(self.agrc_expand_conservation_agriculture)
-
-
         self.agrc_increase_crop_productivity = TransformerKernel(
             f"{_MODULE_CODE_SIGNATURE}:AGRC:INC_PRODUCTIVITY", 
             self._trfunc_agrc_increase_crop_productivity,
@@ -1125,6 +1135,14 @@ class TransformerKernels:
             attr_transformer_kernel_code
         )
         all_tkernels.append(self.agrc_reduce_supply_chain_losses)
+
+
+        self._trfunc_agrc_target_residue_management = TransformerKernel(
+            f"{_MODULE_CODE_SIGNATURE}:AGRC:TARGET_RESIDUE_MANAGEMENT", 
+            self._trfunc_agrc_target_residue_management,
+            attr_transformer_kernel_code
+        )
+        all_tkernels.append(self._trfunc_agrc_target_residue_management)
 
 
 
@@ -3161,13 +3179,80 @@ class TransformerKernels:
 
 
 
+    ###########################################
+    ###                                     ###
+    ###    GENERAL TRANSFORMER FUNCTIONS    ###
+    ###                                     ###
+    ###########################################
+    
+    def _trfunc_gnrl_increase_density_urban(self,
+        df_input: Union[pd.DataFrame, None] = None,
+        magnitude: float = 0.2,
+        strat: Union[int, None] = None,
+        vec_implementation_ramp: Union[np.ndarray, Dict[str, int], None] = None,
+    ) -> pd.DataFrame:
+        """Implement the "Increase Urban Density" GNRL transformer on input DataFrame df_input, which increases the average population density of settlements. Note that "force_lurf_for_settlements" must be False or True with a value of lurf > 0 to reflect land use changes.
+        
+        Parameters
+        ----------
+        df_input : pd.DataFrame
+            Optional data frame containing trajectories to modify
+        magnitude : float
+            Fractional increase in average density; for example, a 10% increase in population density in urban areas is specified as 0.1. Negative numbers (>= -1) can be specified to decrease urban density.
+        strat : int
+            Optional strategy value to specify for the transformation
+        vec_implementation_ramp : Union[np.ndarray, Dict[str, int], None]
+            Optional vector or dictionary specifying the implementation scalar ramp for the transformation. If None, defaults to a uniform ramp that starts at the time specified in the configuration.
+        """
+        # check input dataframe
+        df_input = (
+            self.baseline_inputs
+            if not isinstance(df_input, pd.DataFrame) 
+            else df_input
+        )
+        
+        # set the magnitude in case of none
+        magnitude = self.bounded_real_magnitude(
+            magnitude, 
+            0.2, 
+            bounds = (-1, np.inf),
+        )
+        magnitude += 1
+
+        # check implementation ramp
+        vec_implementation_ramp = self.check_implementation_ramp(
+            vec_implementation_ramp,
+            df_input,
+        )
+        
+        df_out = tbg.transformation_general(
+            df_input,
+            self.model_attributes,
+            {
+                self.model_afolu.model_socioeconomic.modvar_gnrl_scalar_pop_density: {
+                    "bounds": (0.0, np.inf),
+                    "magnitude": magnitude,
+                    "magnitude_type": "final_value",
+                    "vec_ramp": vec_implementation_ramp
+                }
+            },
+            field_region = self.key_region,
+            strategy_id = strat,
+        )
+
+        return df_out
+
+
+
+
+
     #########################################
     ###                                   ###
     ###    AFOLU TRANSFORMER FUNCTIONS    ###
     ###                                   ###
     #########################################
     
-    ###################################
+    ####################################
     #    AGRC TRANSFORMER FUNCTIONS    #
     ####################################
 
@@ -3229,7 +3314,7 @@ class TransformerKernels:
 
 
 
-    def _trfunc_agrc_expand_conservation_agriculture(self,
+    def _trfunc_deprecated_agrc_expand_conservation_agriculture(self,
         df_input: Union[pd.DataFrame, None] = None,
         dict_categories_to_magnitude: Union[Dict[str, float], None] = None,
         magnitude_burned: float = 0.0,
@@ -3556,6 +3641,129 @@ class TransformerKernels:
             strategy_id = strat,
         )
 
+        return df_out
+
+
+
+    def _trfunc_agrc_target_residue_management(self,
+        df_input: Union[pd.DataFrame, None] = None,
+        dict_categories_to_magnitude: Union[Dict[str, float], None] = None,
+        include_conservation_agriculture: bool = True,
+        magnitude_burned: float = 0.0,
+        magnitude_removed: float = 0.5,
+        return_dict_magnitude: bool = False,
+        strat: Union[int, None] = None,
+        vec_implementation_ramp: Union[np.ndarray, Dict[str, int], None] = None,
+    ) -> pd.DataFrame:
+        """Implement the "Target Residue Management" AGRC transformer on input DataFrame df_input. Can be used to:
+
+            * increase or change residue streams to livestock feed
+            * increase or change residue streams to energy systems
+            * implement conservation agriculture (specify )
+            
+        NOTE: Sets a new floor for F_MG (as described in in V4 Equation 2.25 (2019R)) to reduce losses of soil organic carbon through no-till in cropland + reduces removals and burning of crop residues, increasing residue covers on fields.
+        
+        Parameters
+        ----------
+        df_input : pd.DataFrame
+            Optional data frame containing trajectories to modify
+        dict_categories_to_magnitude : Union[Dict[str, float], None]
+            Conservation agriculture is practically applied to only select crop types. Use the dictionary to map SISEPUEDE crop categories to target implementation magnitudes.
+            * If None, maps to the following dictionary:
+
+                {
+                    "cereals": 0.8,
+                    "fibers": 0.8,
+                    "other_annual": 0.8,
+                    "pulses": 0.5,
+                    "tubers": 0.5,
+                    "vegetables_and_vines": 0.5,
+                }
+
+        include_conservation_agriculture : bool
+            If True, will implement no-till agriculture if residues left on field are >= 30% and less than NEED LOWER BOUND.
+        magnitude_burned : float
+            Target fraction of residues that are burned
+        magnitude_removed : float
+            Maximum fraction of residues that are removed
+        return_pathways : bool
+            Return the magnitude dictionary only? NOTE: DO NOT SPECIFY IN CONFIGURATION YAMLS
+        strat : int
+            Optional strategy value to specify for the transformation
+        vec_implementation_ramp : Union[np.ndarray, Dict[str, int], None]
+            Optional vector or dictionary specifying the implementation scalar ramp for the transformation. If None, defaults to a uniform ramp that starts at the time specified in the configuration.
+        """
+        # check input dataframe
+        df_input = (
+            self.baseline_inputs
+            if not isinstance(df_input, pd.DataFrame) 
+            else df_input
+        )
+        
+        # specify dictionary
+        dict_categories_to_magnitude = (
+            {
+                "cereals": 0.8,
+                "fibers": 0.8,
+                "other_annual": 0.8,
+                "pulses": 0.5,
+                "tubers": 0.5,
+                "vegetables_and_vines": 0.5,
+            }
+            if not isinstance(dict_categories_to_magnitude, dict)
+            else dict_categories_to_magnitude
+        )
+
+        if return_dict_magnitude:
+            return dict_categories_to_magnitude
+
+
+        # check implementation ramp
+        vec_implementation_ramp = self.check_implementation_ramp(
+            vec_implementation_ramp,
+            df_input,
+        )
+
+
+        # COMBINES SEVERAL COMPONENTS - NO TILL + REDUCTIONS IN RESIDUE REMOVAL AND BURNING
+        
+        # 1. increase no till
+        if include_conservation_agriculture:
+
+            print("note in _trfunc_agrc_target_residue_management: conservation ag not fully implemented. Depends on residue management as well.")
+            df_out = tba.transformation_agrc_increase_no_till(
+                df_input,
+                dict_categories_to_magnitude,
+                vec_implementation_ramp,
+                self.model_attributes,
+                field_region = self.key_region,
+                model_afolu = self.model_afolu,
+                strategy_id = strat,
+            )
+        """
+        # 2. reduce burning and removals
+        df_out = tbg.transformation_general(
+            df_out,
+            self.model_attributes,
+            {
+                self.model_afolu.modvar_agrc_frac_residues_burned: {
+                    "bounds": (0.0, 1.0),
+                    "magnitude": magnitude_burned,
+                    "magnitude_type": "final_value",
+                    "vec_ramp": vec_implementation_ramp
+                },
+
+                self.model_afolu.modvar_agrc_frac_residues_removed: {
+                    "bounds": (0.0, 1.0),
+                    "magnitude": magnitude_removed,
+                    "magnitude_type": "final_value_ceiling",
+                    "vec_ramp": vec_implementation_ramp
+                },
+            },
+            field_region = self.key_region,
+            strategy_id = strat,
+        )
+        """
         return df_out
 
 
