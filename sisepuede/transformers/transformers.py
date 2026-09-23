@@ -6207,7 +6207,7 @@ class Transformers:
             strat: Union[int, None] = None,
             vec_implementation_ramp: Union[np.ndarray, None] = None,
         ) -> pd.DataFrame:
-            """Reduce venting emission factors.
+            """Scale venting emission factors by magnitude provided.
             
             Parameters
             ----------
