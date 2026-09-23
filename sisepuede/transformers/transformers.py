@@ -6203,7 +6203,7 @@ class Transformers:
 
     def _trfunc_fgtv_minimize_venting(self,
             df_input: Union[pd.DataFrame, None] = None,
-            magnitude: float = 0.8,
+            magnitude: float = 0.2,
             strat: Union[int, None] = None,
             vec_implementation_ramp: Union[np.ndarray, None] = None,
         ) -> pd.DataFrame:
@@ -6237,7 +6237,7 @@ class Transformers:
 
             
             # verify magnitude
-            magnitude = self.bounded_real_magnitude(magnitude, 0.8)
+            magnitude = self.bounded_real_magnitude(magnitude, 0.2)
 
             modvars_vent = [
                 ":math:\\text{CO}_2 FGTV Production Venting Emission Factor",
@@ -6250,10 +6250,12 @@ class Transformers:
             for modvar in modvars_vent:
                 dict_magnitude.update(
                     {
-                        "bounds": (0, 1),
-                        "magnitude": magnitude,
-                        "magnitude_type": "baseline_scalar",
-                        "vec_ramp": vec_implementation_ramp
+                        modvar: {
+                            "bounds": (0, 1),
+                            "magnitude": magnitude,
+                            "magnitude_type": "baseline_scalar",
+                            "vec_ramp": vec_implementation_ramp,
+                        }
                     }
                 )
 
