@@ -1467,6 +1467,7 @@ class Transformers:
         )
         all_transformers.append(self.fgtv_maximize_flaring)
 
+
         self.fgtv_minimize_leaks = Transformer(
             f"{_MODULE_CODE_SIGNATURE}:FGTV:DEC_LEAKS", 
             self._trfunc_fgtv_minimize_leaks, 
@@ -1474,6 +1475,14 @@ class Transformers:
         )
         all_transformers.append(self.fgtv_minimize_leaks)
 
+
+        self.fgtv_minimize_venting = Transformer(
+            f"{_MODULE_CODE_SIGNATURE}:FGTV:DEC_VENTING", 
+            self._trfunc_fgtv_minimize_venting, 
+            attr_transformer_code
+        )
+        all_transformers.append(self.fgtv_minimize_venting)
+        
 
         ##  INEN
 
@@ -6189,6 +6198,75 @@ class Transformers:
         )
 
         return df_strat_cur
+
+
+
+    def _trfunc_fgtv_minimize_venting(self,
+            df_input: Union[pd.DataFrame, None] = None,
+            magnitude: float = 0.8,
+            strat: Union[int, None] = None,
+            vec_implementation_ramp: Union[np.ndarray, None] = None,
+        ) -> pd.DataFrame:
+            """Reduce venting emission factors.
+            
+            Parameters
+            ----------
+            df_input : pd.DataFrame
+                Optional data frame containing trajectories to modify
+            magnitude : float
+                Fraction of vented methane that is flared.
+            strat : int
+                Optional strategy value to specify for the transformation
+            vec_implementation_ramp : Union[np.ndarray, Dict[str, int], None]
+                Optional vector or dictionary specifying the implementation scalar ramp for the transformation. If None, defaults to a uniform ramp that starts at the time specified in the configuration.
+            """
+            # check input dataframe
+            df_input = (
+                self.baseline_inputs
+                if not isinstance(df_input, pd.DataFrame) 
+                else df_input
+            )
+    
+            # check implementation ramp
+            vec_implementation_ramp = self.check_implementation_ramp(
+                vec_implementation_ramp,
+                df_input,
+            )
+
+            df_strat_cur = df_input.copy()
+
+            
+            # verify magnitude
+            magnitude = self.bounded_real_magnitude(magnitude, 0.8)
+
+            modvars_vent = [
+                ":math:\\text{CO}_2 FGTV Production Venting Emission Factor",
+                ":math:\\text{CH}_4 FGTV Production Venting Emission Factor",
+                ":math:\\text{N}_2\\text{O} FGTV Production Venting Emission Factor",
+            ]
+
+            dict_magnitude = {}
+
+            for modvar in modvars_vent:
+                dict_magnitude.update(
+                    {
+                        "bounds": (0, 1),
+                        "magnitude": magnitude,
+                        "magnitude_type": "baseline_scalar",
+                        "vec_ramp": vec_implementation_ramp
+                    }
+                )
+
+            # setup output
+            df_strat_cur = tbg.transformation_general(
+                df_input,
+                self.model_attributes,
+                dict_magnitude,
+                field_region = self.key_region,
+                strategy_id = strat
+            )
+
+            return df_strat_cur
 
 
 
