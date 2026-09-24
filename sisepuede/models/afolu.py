@@ -33,6 +33,7 @@ import sisepuede.models._arrays as coll_arrays
 _DEFAULT_LDE_SOLVER = "highs"
 _DEFAULT_FORCE_LURF_FOR_SETTLEMENTS = False
 _DEFAULT_PROHIBIT_FOREST_TRANSITIONS = True
+_DEFAULT_REMOVALS_LOGISTIC_WINDOW = (-3, 3)
 
 # some dummy fields--used for ordering sequestration numbers 
 _FIELD_NPP_ORD_1 = "young"
@@ -173,6 +174,8 @@ class AFOLU:
         - Secondary to Primary
         These transitions are generally reasonable to avoid. If False, allows
         specification of transitions between those forest classes to hold.
+    removals_logistic_window : Union[Tuple[int], None]
+        Logistic window to use for BCL removals. Defaults to (-3, 3)
     """
 
     def __init__(self,
@@ -185,6 +188,7 @@ class AFOLU:
         npp_include_primary_forest: bool = True,
         npp_integration_windows: Union[list, tuple, np.ndarray] = _NPP_INTEGRATION_WINDOWS,
         prohibit_forest_transitions: bool = _DEFAULT_PROHIBIT_FOREST_TRANSITIONS,
+        removals_logistic_window: Union[Tuple[int], None] = _DEFAULT_REMOVALS_LOGISTIC_WINDOW,
         **kwargs,
     ) -> None:
 
@@ -196,6 +200,7 @@ class AFOLU:
         self._initialize_other_properties(
             force_lurf_for_settlements = force_lurf_for_settlements,
             prohibit_forest_transitions = prohibit_forest_transitions,
+            removals_logistic_window = removals_logistic_window,
         )
 
         self._initialize_attribute_tables()
@@ -823,6 +828,7 @@ class AFOLU:
     def _initialize_other_properties(self,
         force_lurf_for_settlements: bool = _DEFAULT_FORCE_LURF_FOR_SETTLEMENTS,
         prohibit_forest_transitions: bool = _DEFAULT_PROHIBIT_FOREST_TRANSITIONS,
+        removals_logistic_window: Union[Tuple[int], None] = None,
     ) -> None:
         """
         Initialize other properties that don't fit elsewhere. Sets the 
@@ -854,6 +860,13 @@ class AFOLU:
             else prohibit_forest_transitions
         )
 
+        # check removals window
+        removals_logistic_window = (
+            removals_logistic_window
+            if self.check_removals_logistic_window(removals_logistic_window)
+            else _DEFAULT_REMOVALS_LOGISTIC_WINDOW
+        )
+
 
         ##  SET PROPERTIES
 
@@ -865,6 +878,7 @@ class AFOLU:
         self.time_periods = time_periods
         self.n_time_periods = n_time_periods
         self.prohibit_forest_transitions = prohibit_forest_transitions
+        self.removals_logistic_window = removals_logistic_window
         self.time_dependence_stock_change = time_dependence_stock_change
 
         return None
@@ -2104,6 +2118,22 @@ class AFOLU:
 
         return None
 
+
+
+    def check_removals_logistic_window(
+        removals_logistic_window: Union[Tuple[int], None] = None,
+    ) -> Tuple[int]:
+        """Get the removals logistic window
+        """ 
+        valid = isinstance(removals_logistic_window, Tuple)
+        valid &= (len(removals_logistic_window) == 2) if valid else valid
+        valid &= sf.isnumber(removals_logistic_window[0]) if valid else valid
+        valid &= sf.isnumber(removals_logistic_window[1]) if valid else valid
+        valid &= (removals_logistic_window[0] < 0) if valid else valid
+        valid &= (removals_logistic_window[1] > 0) if valid else valid
+        
+        return valid
+    
 
 
     def check_tss_arrays(self,
@@ -3767,7 +3797,7 @@ class AFOLU:
 
         return df_return
     
-
+    
 
     def get_agrc_cropland_area(self,
         df_land_use: Union[np.ndarray, pd.DataFrame],
@@ -4315,6 +4345,7 @@ class AFOLU:
     def get_bcl(self,
         df_afolu_trajectories: pd.DataFrame,
         mangroves: bool = False,
+        removals_logistic_window: Union[Tuple[int], None] = None,
         vec_rates_gdp: Union[np.ndarray, None] = None,
         **kwargs,
     ) -> None:
@@ -4399,7 +4430,12 @@ class AFOLU:
             if mangroves
             else vec_biomass_total
         )
-        
+
+        # verify the removals_logistic_window
+        removals_logistic_window = self.get_removals_logistic_window(
+            removals_logistic_window,
+        )
+
         # build the ledger
         ledger = bcl.BiomassCarbonLedger(
             n,
@@ -4417,6 +4453,7 @@ class AFOLU:
             vec_demands,
             vec_young_sf_curve_specification,
             n_tps_no_withdrawals_new_growth = self.n_tps_no_withdrawals_new_growth,
+            removals_logistic_window = removals_logistic_window,
         )
         
        
@@ -10300,7 +10337,23 @@ class AFOLU:
         )
 
         return out
+
+
+
+    def get_removals_logistic_window(self,
+        removals_logistic_window: Union[Tuple[int], None] = None,
+    ) -> Tuple[int]:
+        """Get the removals logistic window
+        """
     
+        removals_logistic_window = (
+            removals_logistic_window
+            if self.check_removals_logistic_window(removals_logistic_window)
+            else self.removals_logistic_window
+        )
+
+        return removals_logistic_window
+
 
 
     def get_soil_arrs_ef_c_drained_organic_soils(self,
@@ -12133,6 +12186,7 @@ class AFOLU:
         lde_method: str = _DEFAULT_LDE_SOLVER,
         n_tp: Union[int, None] = None,
         prohibit_forest_transitions: Union[bool, None] = None,
+        removals_logistic_window: Union[Tuple[int], None] = None,
         residues_to_entc_only: bool = True,
         vec_rates_gdp: Union[np.ndarray, None] = None,
     ) -> Tuple:
@@ -12415,6 +12469,7 @@ class AFOLU:
             vec_biomass_demands_total,
         ) = self.get_bcl(
             df_afolu_trajectories, 
+            removals_logistic_window = removals_logistic_window,
             vec_rates_gdp = vec_rates_gdp, 
         )
         self.ledger = ledger
@@ -12429,6 +12484,7 @@ class AFOLU:
         ) = self.get_bcl(
             df_afolu_trajectories, 
             mangroves = True, 
+            removals_logistic_window = removals_logistic_window,
             vec_rates_gdp = vec_rates_gdp, 
         )
         
@@ -14278,6 +14334,7 @@ class AFOLU:
         df_afolu_trajectories: pd.DataFrame,
         lde_method: str = _DEFAULT_LDE_SOLVER,
         passthrough_tmp: str = None,
+        removals_logistic_window: Union[Tuple[int], None] = None,
     ) -> pd.DataFrame:
         """Project the SISEPUEDE AFOLU model forward in time. The project() 
             method takes a data frame of input variables (ordered by time 
@@ -14556,6 +14613,7 @@ class AFOLU:
             vec_area,
             lde_method = lde_method,
             n_tp = n_projection_time_periods,
+            removals_logistic_window = removals_logistic_window,
             vec_rates_gdp = vec_rates_gdp,
         )
 
