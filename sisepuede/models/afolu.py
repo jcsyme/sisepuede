@@ -175,7 +175,11 @@ class AFOLU:
         These transitions are generally reasonable to avoid. If False, allows
         specification of transitions between those forest classes to hold.
     removals_logistic_window : Union[Tuple[int], None]
-        Logistic window to use for BCL removals. Defaults to (-3, 3)
+        Logistic window to use for BCL removal adjustments in buffer zone. 
+        Defaults to (-3, 3). Wider windows (e.g., (6, 6)) lead to steeper 
+        declines in satisfiability in the buffer zone, while narrower ones are
+        more gradual. Windows do not have to be symmetric, but the first value
+        must be less than 0 and the second must be greater than zero.
     """
 
     def __init__(self,

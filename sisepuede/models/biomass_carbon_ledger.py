@@ -138,6 +138,15 @@ class BiomassCarbonLedger:
 
     n_tps_no_withdrawals_new_growth : int
         Number of time periods without removals while new growth occurs. 
+    removals_logistic_window : Tuple[int, int]
+        Tuple giving the window for shaping the logistic curve used to slow
+        removals. Smaller windows will lead to more gradual shifts in removals
+        reduction.
+    vec_removals_behavioral_response_factor: Union[np.array, float, int]
+        Optional endogenous response factor. Defaults to 0. If 0, demands are 
+        not reduced in response to changing supply availabilit. If 1, demands in 
+        period t + 1 are scaled by s(t)/d(t) (supply provided out of demand at 
+        time 1).
     **kwargs: 
         Passed to initialize arrays. Can be used to pass arguments to 
         estimate_decomposition_fraction()
@@ -226,6 +235,17 @@ class BiomassCarbonLedger:
             conversion. Any wood made available here reduces demand for removals
             from live forest.
 
+        * `vec_removals_behavioral_response_factor` (T x 1)
+            Optional endogenous response factor. Defaults to 0. If 0, demands
+            are not reduced in response to changing supply availabilit. If 1,
+            demands in period t + 1 are scaled by s(t)/d(t) (supply provided out
+            of demand at time 1).
+
+        * `vec_removals_fraction_satisfiable_from_dw` (T x 1)
+            Vector storing fraction demand removals that can be satisfied from 
+            the deadwood pool. For example, harvested wood products may not be 
+            satisiable from the deadwood pool, where fuelwoods may be.
+        
         * `vec_sf_nominal_initial` (N x 1)
             Nominal initial sequestration factors for original forests.
 
@@ -238,6 +258,8 @@ class BiomassCarbonLedger:
             forests; entries at time t are the sequestration factors t time 
             periods after planting. If entered as a single number, uses one 
             value for every time period.
+        
+        
         
 
 
@@ -462,7 +484,14 @@ class BiomassCarbonLedger:
         * `vec_orig_biomass_c_accessible_pool` (T x 1)
             Vector storing the total mass of biomass accessible. Used to
             constrain removals.
-            
+        
+        * `vec_total_removals_demanded_adjustment_factor` (T x 1)
+            Vector storing adjustment to demands in response to behaviorial 
+            change. Depends on $\beta(t)$. 
+        
+        * `vec_total_removals_demanded_adjustments` (T x 1)
+            Vector storing adjustment to demands made from inputs to the 
+            _update() method. Allows the user to track adjustments implemented.
 
 
         ##  OUTPUT VARIABLES
@@ -520,6 +549,11 @@ class BiomassCarbonLedger:
         * `vec_biomass_c_removed_from_converted` (T x 1)
             Vector of actual removals from converted biomass available
 
+        * `vec_total_removals_demanded_adjusted`: (T x 1)
+            Vector (n_time_periods) of exogenous demands for removals (from fuelwood
+            and harvested wood products) adjusted in response to Behavioral Change 
+            Factor. If None, sets to 0.
+            
         * `vec_total_removals_met` (T x 1)
             Total removals actually met
 
@@ -533,6 +567,8 @@ class BiomassCarbonLedger:
             at time t. Column sums of `arr_young_biomass_c_ag_stock`
 
     """
+
+
 
 
     def __init__(self,
@@ -552,6 +588,7 @@ class BiomassCarbonLedger:
         vec_young_sf_curve_specification: np.ndarray,
         n_tps_no_withdrawals_new_growth: int = 20,
         removals_logistic_window: tuple = _REMOVALS_LOGISTIC_WINDOW_DEFAULT,
+        vec_removals_behavioral_response_factor: Union[float, int, np.ndarray] = 0.0,
         **kwargs,
     ) -> None:
         
@@ -574,6 +611,7 @@ class BiomassCarbonLedger:
             vec_frac_biomass_from_conversion_available_for_use,
             vec_frac_dom_dead_wood,
             vec_frac_dw_removed,
+            vec_removals_behavioral_response_factor,
             vec_sf_nominal_initial,
             vec_total_removals_demanded,
             vec_young_sf_curve_specification,
@@ -617,6 +655,7 @@ class BiomassCarbonLedger:
         vec_frac_biomass_from_conversion_available_for_use: Union[float, int, np.ndarray],
         vec_frac_dom_dead_wood: np.ndarray,
         vec_frac_dw_removed: np.ndarray,
+        vec_removals_behavioral_response_factor: Union[float, int, np.ndarray],
         vec_sf_nominal_initial: np.ndarray,
         vec_total_removals_demanded: np.ndarray,
     ) -> Tuple:
@@ -695,6 +734,19 @@ class BiomassCarbonLedger:
             "vec_frac_dw_removed",
         )
 
+        # removals behavioral response factor
+        vec_removals_behavioral_response_factor = self._verify_convert_array_input_to_array(
+            vec_removals_behavioral_response_factor,
+            self.n_tp,
+            "vec_removals_behavioral_response_factor",
+        )
+        vec_removals_behavioral_response_factor = np.clip(
+            vec_removals_behavioral_response_factor,
+            0.0,
+            1.0,
+        )
+
+
         # initial annualized sequestration factors
         vec_sf_nominal_initial = self._verify_convert_array_input_to_array(
             vec_sf_nominal_initial,
@@ -739,6 +791,7 @@ class BiomassCarbonLedger:
             vec_frac_biomass_from_conversion_available_for_use,
             vec_frac_dom_dead_wood,
             vec_frac_dw_removed,
+            vec_removals_behavioral_response_factor,
             vec_sf_nominal_initial,
             vec_total_removals_demanded,
         )
@@ -986,6 +1039,7 @@ class BiomassCarbonLedger:
         vec_frac_biomass_from_conversion_available_for_use: Union[float, int, np.ndarray],
         vec_frac_dom_dead_wood: np.ndarray,
         vec_frac_dw_removed: np.ndarray,
+        vec_removals_behavioral_response_factor: Union[float, int, np.ndarray],
         vec_sf_nominal_initial: np.ndarray,
         vec_total_removals_demanded: np.ndarray,
         vec_young_sf_curve_specification: np.ndarray,
@@ -1048,7 +1102,6 @@ class BiomassCarbonLedger:
         arr_total_biomass_c_bg_starting = np.zeros(shape_by_cat, )
 
 
-
         ##  INITIALIZE VECTORS
 
         # by time period
@@ -1064,6 +1117,10 @@ class BiomassCarbonLedger:
         vec_biomass_c_removed_from_young_post_orig = np.zeros(n_tp, )
         vec_biomass_c_removed_from_young_pre_orig = np.zeros(n_tp, )
         vec_orig_biomass_c_accessible_pool = np.zeros(n_tp, )
+        vec_removals_fraction_satisfiable_from_dw = np.zeros(n_tp, )
+        vec_total_removals_demanded_adjusted = np.zeros(n_tp, )
+        vec_total_removals_demanded_adjustment_factor = np.zeros(n_tp, )
+        vec_total_removals_demanded_adjustments = np.zeros(n_tp, )
         vec_total_removals_met = np.zeros(n_tp, )
         vec_young_biomass_c_ag_available_from_conversion = np.zeros(n_tp, )
         vec_young_biomass_c_ag_starting = np.zeros(n_tp, )
@@ -1088,6 +1145,7 @@ class BiomassCarbonLedger:
             vec_frac_biomass_from_conversion_available_for_use,
             vec_frac_dom_dead_wood,
             vec_frac_dw_removed,
+            vec_removals_behavioral_response_factor,
             vec_sf_nominal_initial,
             vec_total_removals_demanded,
         ) = self._check_initialization_arrays(
@@ -1101,6 +1159,7 @@ class BiomassCarbonLedger:
             vec_frac_biomass_from_conversion_available_for_use,
             vec_frac_dom_dead_wood,
             vec_frac_dw_removed,
+            vec_removals_behavioral_response_factor,
             vec_sf_nominal_initial,
             vec_total_removals_demanded,
         )
@@ -1189,8 +1248,13 @@ class BiomassCarbonLedger:
         self.vec_frac_dom_dead_wood = vec_frac_dom_dead_wood
         self.vec_frac_dw_removed = vec_frac_dw_removed
         self.vec_orig_biomass_c_accessible_pool = vec_orig_biomass_c_accessible_pool
+        self.vec_removals_behavioral_response_factor = vec_removals_behavioral_response_factor
+        self.vec_removals_fraction_satisfiable_from_dw = vec_removals_fraction_satisfiable_from_dw
         self.vec_sf_nominal_initial = vec_sf_nominal_initial
         self.vec_total_removals_demanded = vec_total_removals_demanded
+        self.vec_total_removals_demanded_adjusted = vec_total_removals_demanded_adjusted
+        self.vec_total_removals_demanded_adjustment_factor = vec_total_removals_demanded_adjustment_factor
+        self.vec_total_removals_demanded_adjustments = vec_total_removals_demanded_adjustments
         self.vec_total_removals_met = vec_total_removals_met
         self.vec_young_biomass_c_ag_available_from_conversion = vec_young_biomass_c_ag_available_from_conversion
         self.vec_young_biomass_c_ag_starting = vec_young_biomass_c_ag_starting
@@ -1335,8 +1399,9 @@ class BiomassCarbonLedger:
         """
 
         # get total fraction of deadwood removed from pool
-        frac_dw_removed = self.vec_frac_dom_dead_wood[i]*self.vec_frac_dw_removed[i]
         demand_no_conv = self.vec_biomass_c_removals_demanded_excluding_conversion[i]
+        frac_dw_removed = self.vec_frac_dom_dead_wood[i]*self.vec_frac_dw_removed[i]
+        frac_removals_satsifiable_from_dw = self.vec_removals_fraction_satisfiable_from_dw[i]
 
         # in first time period, assume removals are based on generation of DOM in that time period
         if i == 0:
@@ -1350,14 +1415,17 @@ class BiomassCarbonLedger:
                 0,
             )
 
-            out = mass_avail*phi/(1 - phi)
+            out = min(
+                mass_avail*phi/(1 - phi),
+                demand_no_conv*frac_removals_satsifiable_from_dw,
+            )
 
             return out
 
         # otherwise, pull from available deadwood from previous time period
         out = min(
             frac_dw_removed*self.arr_biomass_c_ag_lost_dom[i - 1].sum(),
-            demand_no_conv,
+            demand_no_conv*frac_removals_satsifiable_from_dw,
         )
 
         return out
@@ -1367,6 +1435,7 @@ class BiomassCarbonLedger:
     def _update(self,
         i: int,
         area_new_forest: float,
+        fraction_removals_satisfiable_from_dw: Union[list, np.ndarray],
         vec_area_converted_away: Union[list, np.ndarray],
         vec_area_protected: Union[list, np.ndarray],
         vec_biomass_c_average_ag_stock_in_conversion_targets: Union[list, np.ndarray],
@@ -1383,6 +1452,8 @@ class BiomassCarbonLedger:
         area_new_forest : float
             Area of new (planted or regenerated) forest entering the young 
             secondary pipeline
+        fraction_removals_satisfiable_from_dw: Union[list, np.ndarray]
+            Fraction of demands that are satisfiable from deadwood.
         vec_area_converted_away : Union[list, np.ndarray]
             Ordered vector of total land use area converted away from tracked 
             land use types
@@ -1413,6 +1484,7 @@ class BiomassCarbonLedger:
         # verify input types and convert to numpy arrays if necessary
         (
             biomass_c_removals_adjustment,
+            fraction_removals_satisfiable_from_dw,
             vec_area_converted_away,
             vec_area_protected,
             vec_biomass_c_average_ag_stock_in_conversion_targets,
@@ -1420,6 +1492,7 @@ class BiomassCarbonLedger:
             i,
             area_new_forest, 
             biomass_c_removals_adjustment,
+            fraction_removals_satisfiable_from_dw,
             vec_area_converted_away,
             vec_area_protected,
             vec_biomass_c_average_ag_stock_in_conversion_targets,
@@ -1434,9 +1507,10 @@ class BiomassCarbonLedger:
         ##  PERFORM UPDATES IN ORDER
         
         # update removals first since everything downstream depends on them
-        self._update_additional_biomass_removals(
+        self._update_biomass_removals(
             i, 
             biomass_c_removals_adjustment, 
+            fraction_removals_satisfiable_from_dw,
         )
 
         # update other inputs, including average stock in target classes
@@ -1472,18 +1546,45 @@ class BiomassCarbonLedger:
     
 
 
-    def _update_additional_biomass_removals(self,
+    def _update_biomass_removals(self,
         i: int,
         biomass_c_removals_adjustment: float,
+        fraction_removals_satisfiable_from_dw: float,
     ) -> None:
         """Add new demands to the specified removals demands at time i. Can be
-            used to adjust up or down.
+            used to adjust up or down. Updates the following information:
+
+            * vec_removals_fraction_satisfiable_from_dw
         """
-
+        # update unadjusted removals demanded
         val = self.vec_total_removals_demanded[i]
-        new_val = max(val + biomass_c_removals_adjustment, 0.0, )
+        new_removals_demanded_unadj = max(val + biomass_c_removals_adjustment, 0.0, )
 
-        self.vec_total_removals_demanded[i] = new_val
+        # get adjustment level and initialize adjustment factor
+        factor_behavioral_response = self.vec_removals_behavioral_response_factor[i]
+        factor_demand_adjustment = 1
+
+        # adjustment factor is dependent on previous time step if i > 0
+        if i > 0:
+            demand_adjusted_prev = self.vec_total_removals_demanded_adjusted[i - 1]
+            removals_met_prev = self.vec_total_removals_met[i - 1]
+            factor_demand_adjustment = (
+                (1 - factor_behavioral_response) 
+                + factor_behavioral_response*removals_met_prev/demand_adjusted_prev
+            )
+
+
+        # next, calculate the adjusted demand
+        demand_adjusted = factor_demand_adjustment*new_removals_demanded_unadj
+
+
+        ##  UPDATE VECTORS
+
+        self.vec_removals_fraction_satisfiable_from_dw[i] = fraction_removals_satisfiable_from_dw
+        self.vec_total_removals_demanded[i] = new_removals_demanded_unadj
+        self.vec_total_removals_demanded_adjusted[i] = demand_adjusted
+        self.vec_total_removals_demanded_adjustment_factor[i] = factor_demand_adjustment
+        self.vec_total_removals_demanded_adjustments[i] = biomass_c_removals_adjustment
 
         return None
 
@@ -1823,7 +1924,7 @@ class BiomassCarbonLedger:
         # some shortcuts
         c_available_orig = self.vec_orig_biomass_c_accessible_pool[i]
         c_available_young = self.vec_young_biomass_c_available_for_removals_total[i]
-        c_demanded = self.vec_total_removals_demanded[i]
+        c_demanded = self.vec_total_removals_demanded_adjusted[i]
         c_rmv_from_conv = self.vec_biomass_c_removed_from_converted[i]
         c_rmv_priority_frac_yf = self.vec_biomass_c_removals_young_priority_frac[i]
         vec_orig_frac_removals_alloc = self.arr_orig_allocation_removals[i]
@@ -2052,7 +2153,7 @@ class BiomassCarbonLedger:
         ind_fs = self.ind_frst_secondary
 
         # some shortcuts
-        c_demanded = self.vec_total_removals_demanded[i]
+        c_demanded = self.vec_total_removals_demanded_adjusted[i]
         frac_c_converted_avail = self.vec_frac_biomass_from_conversion_available_for_use[i]
         vec_area_conv = self.arr_area_conversion_away_mature_forest[i]
         vec_area_protected = self.arr_area_protected_original[i]
@@ -2581,6 +2682,7 @@ class BiomassCarbonLedger:
         i: int,
         area_new_forest: float,
         biomass_c_removals_adjustment: Union[float, None],
+        fraction_removals_satisfiable_from_dw: float,
         vec_area_converted_away: Union[list, np.ndarray],
         vec_area_protected: Union[list, np.ndarray],
         vec_biomass_c_average_ag_stock_in_conversion_targets: Union[list, np.ndarray],
@@ -2604,6 +2706,9 @@ class BiomassCarbonLedger:
         biomass_c_removals_adjustment : Union[float, None]
             Optional modification to base demand performed at beginning of time
             step i
+        fraction_removals_satisfiable_from_dw : float
+            Fraction of demands satisfiable from deadwood. If number is not
+            entered, returns 1.0.
         vec_area_converted_away : Union[list, np.ndarray]
             Ordered vector of total land use area converted away from tracked 
             land use types
@@ -2633,6 +2738,13 @@ class BiomassCarbonLedger:
             else biomass_c_removals_adjustment
         )
 
+        # check specification
+        fraction_removals_satisfiable_from_dw (
+            1.0
+            if not sf.isnumber(fraction_removals_satisfiable_from_dw, ) 
+            else max(min(fraction_removals_satisfiable_from_dw, 1.0, ), 0.0, )
+        )
+
         # verify conversion vector and convert to numpy array if checks are passed
         sf.check_type(
             vec_area_converted_away,
@@ -2657,15 +2769,18 @@ class BiomassCarbonLedger:
         )
         vec_biomass_c_average_ag_stock_in_conversion_targets = np.array(vec_biomass_c_average_ag_stock_in_conversion_targets, )
 
+
         # setup return
         out = (
             biomass_c_removals_adjustment,
+            fraction_removals_satisfiable_from_dw,
             vec_area_converted_away,
             vec_area_protected,
             vec_biomass_c_average_ag_stock_in_conversion_targets,
         )
 
         return out
+
 
 
 
