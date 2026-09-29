@@ -2124,7 +2124,7 @@ class AFOLU:
 
 
 
-    def check_removals_logistic_window(
+    def check_removals_logistic_window(self,
         removals_logistic_window: Union[Tuple[int], None] = None,
     ) -> Tuple[int]:
         """Get the removals logistic window
@@ -3623,6 +3623,7 @@ class AFOLU:
         arrs_lndu_land_conv_bgb: np.ndarray,
         arrs_lndu_emissions_conv_agb_matrices: np.ndarray,
         arrs_lndu_emissions_conv_bgb_matrices: np.ndarray,
+        vec_agrc_rfu_passed_to_energy_bcl_fwe_terms: np.ndarray,
         vec_biomass_demands_total: np.ndarray,
         vec_biomass_hwp_paper: np.ndarray,
         vec_biomass_hwp_wood: np.ndarray,
@@ -3683,7 +3684,17 @@ class AFOLU:
         # get the carbon fraction dry matter (copy since it's used extensively)
         # and scalar for biomass demands
         vec_frst_frac_dm = self.arrays_frst.arr_frst_frac_c_per_dm.copy()
-        vec_biomass_scalar = self.get_bcl_biomass_scalar_vec(ledger, )
+        (
+            vec_biomass_scalar_fw_for_adjustment,
+            vec_biomass_scalar_hwp_for_adjustment,
+            _,
+            _,
+            vec_removals_fw,
+            vec_removals_hwp,
+        ) = self.get_bcl_biomass_scalar_vec(
+            ledger, 
+            vec_agrc_rfu_passed_to_energy_bcl_fwe_terms,
+        )
 
         # some default args to pass to most functions
         args_default = (
@@ -3755,7 +3766,7 @@ class AFOLU:
         df_return.append(df_co2_conv_bgb, )
 
 
-        # 10. get CO2 conversion away emissions in above-grouind biomass
+        # 10. get CO2 conversion away emissions in above-ground biomass
         df_co2_conv_away_agb = self.extract_lvars_emission_co2_conversion_away(
             arrs_lndu_land_conv_agb,
             self.modvar_lndu_emissions_co2_conv_ag_away,
@@ -3764,7 +3775,7 @@ class AFOLU:
         df_return.append(df_co2_conv_away_agb, )
 
 
-        # 11. get CO2 conversion away emissions in above-grouind biomass
+        # 11. get CO2 conversion away emissions in above-ground biomass
         df_co2_conv_away_bgb = self.extract_lvars_emission_co2_conversion_away(
             arrs_lndu_land_conv_bgb,
             self.modvar_lndu_emissions_co2_conv_bg_away,
@@ -3776,13 +3787,7 @@ class AFOLU:
         # 12. get CO2 emissions from fuelwood removals
         df_co2_removals_fuelwood = self.extract_lvars_emission_co2_removals_fuelwood(
             *args_default,
-            vec_biomass_scalar*np.clip(
-                vec_biomass_demands_total
-                - vec_biomass_hwp_paper
-                - vec_biomass_hwp_wood,
-                0.0,
-                np.inf
-            ),
+            vec_removals_fw,
         )
         df_return.append(df_co2_removals_fuelwood, )
 
@@ -3790,11 +3795,12 @@ class AFOLU:
         # ACCOUNTING NOTE: These should not be part of the emission total yet; 
         #                       have to ensure they they are not being double
         #                       counted against removals
+        vec_denom = vec_biomass_hwp_paper + vec_biomass_hwp_wood
         df_return.extend(
             self.get_emissions_co2_from_hwp(
                 df_afolu_trajectories, 
-                vec_biomass_hwp_paper*vec_biomass_scalar,
-                vec_biomass_hwp_wood*vec_biomass_scalar,
+                vec_biomass_hwp_paper*vec_biomass_scalar_hwp_for_adjustment,
+                vec_biomass_hwp_wood*vec_biomass_scalar_hwp_for_adjustment,
                 units_mass = modvar_bcl_mass,
             )
         )
@@ -4413,6 +4419,7 @@ class AFOLU:
             vec_frac_dom_dead_wood,
             vec_frac_dw_removed,
             vec_frac_rmv_priority_yf,
+            vec_removals_behavioral_response_factor,
         ) = self.get_bcl_other_parameters(
             mangroves = mangroves,
         )
@@ -4458,9 +4465,9 @@ class AFOLU:
             vec_young_sf_curve_specification,
             n_tps_no_withdrawals_new_growth = self.n_tps_no_withdrawals_new_growth,
             removals_logistic_window = removals_logistic_window,
+            vec_removals_behavioral_response_factor = vec_removals_behavioral_response_factor,
         )
         
-       
         # return the ledger and the demands
         out = (
             ledger,
@@ -4480,11 +4487,19 @@ class AFOLU:
         df_afolu_trajectories: pd.DataFrame,
         ledger: 'BiomassCarbonLedger',
         arr_agrc_rfu_energy: np.ndarray,
+        vec_agrc_rfu_passed_to_energy_bcl_fwe_terms: np.ndarray,    # used to ensure total energy demand is accurately calculated
         vec_biomass_demands_fuel_entc: np.ndarray,
         vec_enfu_ged_biomass: np.ndarray,
     ) -> pd.DataFrame:
         """Using available biomass, adjust ratios in all relevant energy
             subsectors, including CCSQ, ENTC, INEN, SCOE, and TRNS.
+
+        Function Arguments
+        ------------------
+        vec_agrc_rfu_passed_to_energy_bcl_fwe_terms : np.ndarray
+            Vector storing mass of residues, in terms of BCL FWE mass, passed to
+            reduce demands. Can be combined with total adjustments (by adding)
+            to estimate FW demands for biomass in ag and livestock.
         """
         ##  INITIALIZATION
 
@@ -4494,7 +4509,17 @@ class AFOLU:
         ##  GET ADJUSTMENTS TO EnergyConsumption SUBSECTORS
 
         # total demand met
-        vec_biomass_scalar_from_bcl = self.get_bcl_biomass_scalar_vec(ledger, )
+        (
+            vec_biomass_scalar_bmass_fuel_adjustment,
+            vec_biomass_scalar_hwp_for_adjustment,
+            _,
+            vec_biomass_scalar_orig,
+            _,
+            _,
+        ) = self.get_bcl_biomass_scalar_vec(
+            ledger, 
+            vec_agrc_rfu_passed_to_energy_bcl_fwe_terms,
+        )
         
         
         ##  BUILD ADJUSTMENT DATAFRAMES HERE
@@ -4503,7 +4528,7 @@ class AFOLU:
         df_out.append(
             self.get_ilu_fuel_shifts_from_biomass(
                 df_afolu_trajectories,
-                vec_biomass_scalar_from_bcl,
+                vec_biomass_scalar_bmass_fuel_adjustment,
             )
         )
 
@@ -4511,7 +4536,7 @@ class AFOLU:
         df_out += self.get_bcl_biomass_energy_availability_variables(
             df_afolu_trajectories, 
             arr_agrc_rfu_energy,
-            vec_biomass_scalar_from_bcl,    
+            vec_biomass_scalar_bmass_fuel_adjustment,    
             vec_biomass_demands_fuel_entc,
             vec_enfu_ged_biomass,
         )
@@ -4519,14 +4544,14 @@ class AFOLU:
         # (3) get scalars for HWP demand
         df_out += self.get_bcl_adjusted_hwp_inputs(
             df_afolu_trajectories, 
-            vec_biomass_scalar_from_bcl,    
+            vec_biomass_scalar_hwp_for_adjustment,    
         )
 
 
         # (4) add scalar to output
         df_out += [
             self.model_attributes.array_to_df(
-                vec_biomass_scalar_from_bcl,
+                vec_biomass_scalar_orig,
                 self.modvar_frst_biomass_demand_scalar,
             )
         ]
@@ -4955,17 +4980,149 @@ class AFOLU:
 
     def get_bcl_biomass_scalar_vec(self,
         ledger: 'BiomassCarbonLedger',
+        vec_agrc_rfu_passed_to_energy_bcl_fwe_terms: np.ndarray,
     ) -> np.ndarray:
-        """Get the scalar vector to apply to removal demands.
+        """Get the scalar vector to apply to removal demands. Returns a tuple
+            of the following form:
+
+            (
+                demand_scalar_fuel,     # Demand scalar to apply to biomass 
+                                        #   demands. Accounts for adjustments 
+                                        #   sent to the BCL.
+
+                demand_scalar_hwp,      # Demand scalar to apply to harvested 
+                                        #   wood product demands. Estimates 
+                                        #   changes in demand satisfaction for 
+                                        #   HWP.
+                
+                demand_scalar_rc_agg,   # Aggregate fraction of demand from 
+                                        #   removals and conversion met. 
+                                        #   Includes endogenous adjustments to
+                                        #   demand as a consequence of 
+                                        #   removals behavioral adjustment 
+                                        #   factor (RBAF), so may be closer to
+                                        #   1 with a higher RBAF
+                
+                demand_scalar_rc_orig,  # Aggregate fraction of demand from 
+                                        #   removals and conversion met. 
+                                        #   EXCLUDES endogenous adjustments to
+                                        #   demand as a consequence of 
+                                        #   removals behavioral adjustment 
+                                        #   factor (RBAF), so may be closer to
+                                        #   0 with a higher RBAF
+
+                supplies_met_fw,        # Supplies met for fuelwood. Counts 
+                                        #   toward forest remaining forest
+                                        #   removals. Excludes biomass supplies
+                                        #   from residues.
+                
+                supplies_met_hwp,       # Supplies met for fuelwood. Counts 
+                                        #   toward harvested wood product
+                                        #   emissions.
+            )
+                                    
         """
-        # total demand met
-        vec_biomass_scalar_from_bcl = np.nan_to_num(
-            ledger.vec_total_removals_met/ledger.vec_total_removals_demanded,
+
+        
+        ## 
+
+        # get original demand
+        vec_demand_adjusted = ledger.vec_total_removals_demanded_adjusted       
+        vec_demand_with_exog_adjustments = ledger.vec_total_removals_demanded
+        vec_demand_adjustments = ledger.vec_total_removals_demanded_adjustments
+
+        # fraction fw
+        vec_frac_fw = ledger.vec_removals_fraction_satisfiable_from_dw
+    
+
+        # adjustments are AG/LVST dem for biomass - Residues replacing biomass 
+        #   (RRB); 
+        #   add RRB back in with vec_agrc_rfu_passed_to_energy_bcl_fwe_terms
+        #   to get total demand for biomass
+        vec_demand_total = vec_demand_with_exog_adjustments + vec_agrc_rfu_passed_to_energy_bcl_fwe_terms
+
+        # supplied values
+        vec_supplied_total = ledger.vec_total_removals_met          # total supplies
+        vec_supplied_dw = ledger.vec_biomass_c_removed_from_dw      # supplies from deadwood
+        vec_supplied_rc = vec_supplied_total - vec_supplied_dw      # supplies from removals and conversion
+
+        #
+        vec_demand_fw = vec_demand_with_exog_adjustments*vec_frac_fw + vec_agrc_rfu_passed_to_energy_bcl_fwe_terms
+        vec_demand_hwp = vec_demand_with_exog_adjustments*(1 - vec_frac_fw)
+
+
+        ##  ALLOCATE SUPPLIED FOREST REMOVALS (non-dw) TO FUELWOOD AND HWP
+
+        # demand for RC (removals and conversion) removals for fuelwood and 
+        #   harvested wood products
+        #   1. asssume that removals from forests and conversion are distributed
+        #       proportionally between FW and HWP
+        #   2. fw pulls exclusively from the DW pool
+        #   3. HWP demand is fraction exog_adjusted demand that cannot be 
+        #       satisfied from DW 
+        vec_demand_rc_fw = np.clip(
+            vec_demand_with_exog_adjustments*vec_frac_fw - vec_supplied_dw,
+            0.0,
+            np.inf,
+        )
+        vec_demand_rc_hwp = vec_demand_with_exog_adjustments*(1 - vec_frac_fw)     
+        vec_demand_rc_denom = vec_demand_rc_fw + vec_demand_rc_hwp
+
+        # get removals allocation from supplies in RC
+        vec_alloc_rc_fw = np.nan_to_num(
+            vec_supplied_rc*vec_demand_rc_fw/vec_demand_rc_denom,
+            nan = 0.0,
+            posinf = 0.0,
+        )
+        vec_alloc_rc_hwp = np.nan_to_num(
+            vec_supplied_rc*vec_demand_rc_hwp/vec_demand_rc_denom,
             nan = 0.0,
             posinf = 0.0,
         )
 
-        return vec_biomass_scalar_from_bcl
+        # total biomass, including removals + residues
+        supply_rc_met_rmv = vec_alloc_rc_fw + vec_supplied_dw
+        supply_biomass_met_fw = supply_rc_met_rmv + vec_agrc_rfu_passed_to_energy_bcl_fwe_terms
+        supply_biomass_met_hwp = vec_alloc_rc_hwp
+
+
+        ##  GET THE SCALARS
+
+        vec_scalar_agg = np.nan_to_num(
+            vec_supplied_total/vec_demand_adjusted,
+            nan = 0.0,
+            posinf = 0.0,
+        )
+
+        vec_scalar_orig = np.nan_to_num(
+            vec_supplied_total/vec_demand_with_exog_adjustments,
+            nan = 0.0,
+            posinf = 0.0,
+        )
+
+        vec_biomass_scalar_fw_for_adjustment = np.nan_to_num(
+            supply_biomass_met_fw/vec_demand_fw,
+            nan = 0.0,
+            posinf = 0.0,
+        )
+
+        vec_biomass_scalar_hwp_for_adjustment = np.nan_to_num(
+            supply_biomass_met_hwp/vec_demand_hwp,
+            nan = 0.0,
+            posinf = 0.0,
+        )
+
+        # output tuple
+        out = (
+            vec_biomass_scalar_fw_for_adjustment,
+            vec_biomass_scalar_hwp_for_adjustment,
+            vec_scalar_agg,
+            vec_scalar_orig,
+            supply_rc_met_rmv,
+            supply_biomass_met_hwp,
+        )
+
+        return out
     
 
 
@@ -5421,6 +5578,9 @@ class AFOLU:
         vec_frac_dom_dead_wood = self.arrays_frst.arr_frst_bcl_frac_dom_deadwood
         vec_frac_dw_removed = self.arrays_frst.arr_frst_bcl_frac_deadwood_removed
 
+        # removals behavioral adjutment 
+        vec_removals_behavioral_response_factor = self.arrays_frst.arr_frst_bcl_rbaf
+
 
         out = (
             vec_biomass_c_bg_to_ag_ratio,
@@ -5428,6 +5588,7 @@ class AFOLU:
             vec_frac_dom_dead_wood,
             vec_frac_dw_removed,
             vec_frac_rmv_priority_yf,
+            vec_removals_behavioral_response_factor,
         )
 
         return out
@@ -5446,10 +5607,9 @@ class AFOLU:
         vec_lvst_aggregate_animal_mass: np.ndarray,
         residues_to_entc_only: bool = True,
     ) -> Tuple[np.ndarray]:
-        """Get adjustments to demands for fuelwood removal demands
-            based on livestock residuals (which reduce demands in carbon
-            stock) and new demands from AGRC and LVST (which increase 
-            it) 
+        """Get adjustments to demands for fuelwood removal demands based on 
+            livestock residuals (which reduce demands in carbon stock) and new 
+            demands from AGRC and LVST (which increase it) 
         """
 
         # mass variables for conversion
@@ -5473,14 +5633,15 @@ class AFOLU:
             arr_agrc_yield[0:(i + 1), :],
             vec_lvst_aggregate_animal_mass[0:(i + 1)],
         )
+
         
         # assume that residues only can be used or ENTC if kwarg is True (default)--fwe is fuelwood equivalent
         mass_fwe_avail_from_residues = vec_agrc_rfu_energy_avail_in_terms_bcl_mass[i]
         sup_afr = vec_dem_total[i] + vec_additional_biomass_removals[-1]
-        sup_afr = vec_c_fuel_demands_entc[i] if residues_to_entc_only else sup_afr
-        mass_afr_passable = min(mass_fwe_avail_from_residues, sup_afr, ) 
+        sup_afr = vec_c_fuel_demands_entc[i] if residues_to_entc_only else sup_afr  # note that vec_c_fuel_demands_entc <= sup_afr
+        mass_afr_passable = min(mass_fwe_avail_from_residues, sup_afr, )            # maximum amount of adjustment from residues
 
-        # set adjustments and update RFU to be in terms of ILU mass
+        # set adjustments and update RFU--amount sent--based on how much was passed
         adjustment = vec_additional_biomass_removals[-1] - mass_afr_passable
         arr_agrc_rfu_energy[i] = np.nan_to_num(
             arr_agrc_residues_avail_energy[i]*mass_afr_passable/mass_fwe_avail_from_residues,
@@ -5491,8 +5652,8 @@ class AFOLU:
 
         out = (
             adjustment,             # adjustment to BCL demands
-            mass_afr_passable,      # residues actually passed as energy 
-                                    # (reduces) demand for fuelwood
+            mass_afr_passable,      # residues actually passed as energy in FWE equivalent
+                                    # (reduces) demand for fuelwood; if no residues, increases based on ag production
         )
 
         return out
@@ -5675,6 +5836,8 @@ class AFOLU:
 
     def get_bcl_update_args(self,
         arr_transition_adj: np.ndarray,
+        biomass_demands_fuelwood_adjusted: float,
+        biomass_demands_hwp_total: float,
         vec_lndu_area_0: np.ndarray,   # x at beginning
         vec_lndu_area_protected: np.ndarray,
         vec_lndu_biomass_c_average_ag_stock: np.ndarray,
@@ -5686,6 +5849,7 @@ class AFOLU:
         """Get the ordered input arguments to ledger._update(). Includes units
             adjustments. 
         """
+        # HEREHERE
         # get key indicies
         inds_lndu_frst = self.get_lndu_indices_fstp_fsts(include_mangroves = True, )
         ind_lndu_fstm, ind_lndu_fstp, ind_lndu_fsts = inds_lndu_frst
@@ -5749,10 +5913,18 @@ class AFOLU:
             vec_area_protected_in_ledger[0] = 0.0
             vec_avg_stock_ag_in_targets_in_ledger[0] = 0.0
             vec_avg_stock_bg_in_targets_in_ledger[0] = 0.0
-            
+
+
+        ##  REMOVAL FROM DEADWOOD POOL
+
+        fraction_removals_satisfiable_from_dw = biomass_demands_fuelwood_adjusted/(
+            biomass_demands_fuelwood_adjusted + biomass_demands_hwp_total
+        )
+
 
         out = (
             area_into_fsts,
+            fraction_removals_satisfiable_from_dw,
             vec_area_converted_away_fsts,
             vec_area_protected_in_ledger,
             vec_avg_stock_ag_in_targets_in_ledger,
@@ -11670,6 +11842,8 @@ class AFOLU:
         arr_c_agb: np.ndarray,
         arr_c_bgb: np.ndarray,
         arr_transition_adj: np.ndarray,
+        biomass_demands_fuelwood_total: float,
+        biomass_demands_hwp_total: float,
         vec_area_start_of_period: np.ndarray,
         vec_c_lndu_agb: np.ndarray,
         vec_c_lndu_ratio_bg_to_ag: np.ndarray,
@@ -11688,9 +11862,13 @@ class AFOLU:
 
         ##  UPDATE STANDARD LEDGER
 
+        biomass_demands_fuelwood_adjusted = max(biomass_demands_fuelwood_total - c_removals_additional, 0)
+
         # get arguments in order
         args_bcl = self.get_bcl_update_args(
             arr_transition_adj,
+            biomass_demands_fuelwood_adjusted,      # total fuelwood demand
+            biomass_demands_hwp_total,              # total hwp demand
             vec_area_start_of_period,
             vec_lndu_constraints_inf,
             vec_c_lndu_agb,
@@ -11698,7 +11876,6 @@ class AFOLU:
             scalar_int_area_to_bcl_area,
             scalar_int_mass_to_bcl_mass,
         )
-
 
         ledger._update(
             i, 
@@ -11729,6 +11906,8 @@ class AFOLU:
         # get arguments in order
         args_bcl_mangroves = self.get_bcl_update_args(
             arr_transition_adj,
+            biomass_demands_fuelwood_adjusted,
+            biomass_demands_hwp_total,
             vec_area_start_of_period,
             vec_lndu_constraints_inf,
             vec_c_lndu_agb,
@@ -12436,9 +12615,9 @@ class AFOLU:
         # residue final use vectors
         vec_agrc_rfu_energy_avail = np.zeros(n_tp, )
         vec_agrc_rfu_energy_avail_in_terms_bcl_mass = np.zeros(n_tp, )#attr_agrc.n_key_values)
-        
+        vec_agrc_rfu_passed_to_energy_bcl_fwe_terms = np.zeros(n_tp, )
 
-        # LNDU VARS
+        #  LNDU VARS
         arr_emissions_conv_ag = np.zeros((n_tp, attr_lndu.n_key_values))
         arr_emissions_conv_bg = np.zeros((n_tp, attr_lndu.n_key_values))
         arr_emissions_conv_agb_matrices = np.zeros(arrs_transitions.shape)
@@ -12476,7 +12655,12 @@ class AFOLU:
             removals_logistic_window = removals_logistic_window,
             vec_rates_gdp = vec_rates_gdp, 
         )
+
+        # ledger assignment is TEMP
+        vec_biomass_demands_hwp_total = vec_biomass_demands_hwp_paper + vec_biomass_demands_hwp_wood
+        vec_biomass_demands_fuelwood_total = vec_biomass_demands_total - vec_biomass_demands_hwp_total
         self.ledger = ledger
+
         (
             ledger_mangroves,
             _,
@@ -12913,7 +13097,7 @@ class AFOLU:
             #   residue availability and *increase* removals based on AGRC and
             #   LVST demands 
 
-            adjustment_bcl, mass_ilu_residuals_to_energy = self.get_bcl_removal_adjustment(
+            adjustment_bcl, mass_residuals_to_energy_fwe = self.get_bcl_removal_adjustment(
                 i,
                 df_afolu_trajectories,
                 ledger,
@@ -12925,6 +13109,7 @@ class AFOLU:
                 vec_lvst_aggregate_animal_mass,
                 residues_to_entc_only = residues_to_entc_only,
             )
+            vec_agrc_rfu_passed_to_energy_bcl_fwe_terms[i] = mass_residuals_to_energy_fwe
 
 
             ##  CALCULATE FINAL LAND CONVERSION AND EMISSIONS 
@@ -12939,6 +13124,8 @@ class AFOLU:
                 arrs_c_agb[i],
                 arrs_c_bgb[i],
                 arr_transition_adj,
+                vec_biomass_demands_fuelwood_total[i],
+                vec_biomass_demands_hwp_total[i],
                 x,
                 arr_c_lndu_agb[i],
                 arr_c_lndu_ratio_bg_to_ag[i],
@@ -12978,7 +13165,7 @@ class AFOLU:
         
         ##  MUST UPDATE THE LEDGER IN THE FINAL TIME PERIOD
 
-        adjustment_bcl, mass_ilu_residuals_to_energy = self.get_bcl_removal_adjustment(
+        adjustment_bcl, mass_residuals_to_energy_fwe = self.get_bcl_removal_adjustment(
             i,
             df_afolu_trajectories,
             ledger,
@@ -12990,7 +13177,8 @@ class AFOLU:
             vec_lvst_aggregate_animal_mass,
             residues_to_entc_only = residues_to_entc_only,
         )
-    
+        vec_agrc_rfu_passed_to_energy_bcl_fwe_terms[i] = mass_residuals_to_energy_fwe
+        
         (
             arr_emissions_agb_conv_matrix,
             arr_emissions_bgb_conv_matrix,
@@ -13001,6 +13189,8 @@ class AFOLU:
             arrs_c_agb[i],
             arrs_c_bgb[i],
             arr_transition_adj,  
+            vec_biomass_demands_fuelwood_total[i],
+            vec_biomass_demands_hwp_total[i],
             x,
             arr_c_lndu_agb[i],
             arr_c_lndu_ratio_bg_to_ag[i],
@@ -13048,6 +13238,7 @@ class AFOLU:
             df_afolu_trajectories,
             ledger,
             arr_agrc_rfu_energy, # total energy from residues in terms of ILU mass
+            vec_agrc_rfu_energy_avail_in_terms_bcl_mass,
             vec_biomass_demands_fuel_entc,
             vec_enfu_ged_biomass,
         )
@@ -13078,6 +13269,7 @@ class AFOLU:
             df_out_pop_density,
             ledger,
             ledger_mangroves,
+            vec_agrc_rfu_passed_to_energy_bcl_fwe_terms,
             vec_biomass_demands_hwp_paper,
             vec_biomass_demands_hwp_wood,
             vec_biomass_demands_total,
@@ -14287,7 +14479,7 @@ class AFOLU:
                 arr_agrc_yield_factors[j],
             )
 
-            # update residues available for energy and feed
+            # update residues available for energy and feed in terms of ILU
             arr_agrc_residues_avail_for_energy[j] = vec_agrc_residues_gen_available_for_energy
             arr_agrc_rfu_feed[j] = vec_agrc_residues_gen_feed
             arr_agrc_residues_non_feed[j] = vec_agrc_residues_gen_not_feed
@@ -14593,6 +14785,7 @@ class AFOLU:
             df_out_pop_density,                         # population density
             ledger,
             ledger_mangroves,
+            vec_agrc_rfu_passed_to_energy_bcl_fwe_terms,
             vec_biomass_hwp_paper,
             vec_biomass_hwp_wood,
             vec_biomass_demands_total,
@@ -14640,6 +14833,7 @@ class AFOLU:
             arr_lndu_emissions_conv_bg,
             arrs_lndu_emissions_conv_agb_matrices,
             arrs_lndu_emissions_conv_bgb_matrices,
+            vec_agrc_rfu_passed_to_energy_bcl_fwe_terms,
             vec_biomass_demands_total,
             vec_biomass_hwp_paper,
             vec_biomass_hwp_wood,

@@ -1531,13 +1531,16 @@ class BiomassCarbonLedger:
         )
         
         # update young biomass
-        self._update_forest_biomass_young(i, )
+        self._update_forest_biomass_young_pre_removals(i, )
 
         # update original
-        self._update_forest_biomass_original(i, )
+        self._update_forest_biomass_original(i, ) 
 
         # update removals
         self._update_forest_c_removals(i, )
+
+        # update young biomass post removals
+        self._update_forest_biomass_young_post_removals(i, )
 
         # finally, add key losses of interest for emissions (incl conversion)
         self._update_forest_c_losses_and_growth_outputs(i, )
@@ -1557,25 +1560,35 @@ class BiomassCarbonLedger:
             * vec_removals_fraction_satisfiable_from_dw
         """
         # update unadjusted removals demanded
-        val = self.vec_total_removals_demanded[i]
-        new_removals_demanded_unadj = max(val + biomass_c_removals_adjustment, 0.0, )
+        demand_cur = self.vec_total_removals_demanded[i]
+        new_removals_demanded_unadj = max(demand_cur + biomass_c_removals_adjustment, 0.0, )
 
         # get adjustment level and initialize adjustment factor
         factor_behavioral_response = self.vec_removals_behavioral_response_factor[i]
         factor_demand_adjustment = 1
 
         # adjustment factor is dependent on previous time step if i > 0
+        demand_adjusted_prev = np.inf
         if i > 0:
             demand_adjusted_prev = self.vec_total_removals_demanded_adjusted[i - 1]
+            factor_adj_prev = self.vec_total_removals_demanded_adjustment_factor[i - 1]
             removals_met_prev = self.vec_total_removals_met[i - 1]
+
+            # strictly monotonically decreasing
+            factor_demand_adjustment = min(
+                factor_adj_prev,
+                removals_met_prev/demand_adjusted_prev,
+            )
             factor_demand_adjustment = (
                 (1 - factor_behavioral_response) 
-                + factor_behavioral_response*removals_met_prev/demand_adjusted_prev
+                + factor_behavioral_response*factor_demand_adjustment
             )
 
-
-        # next, calculate the adjusted demand
+        # get adjusted demand; if new demand is less than the previous*the adjustment factor, reset
         demand_adjusted = factor_demand_adjustment*new_removals_demanded_unadj
+        if new_removals_demanded_unadj < demand_adjusted_prev*factor_demand_adjustment:
+            demand_adjusted = new_removals_demanded_unadj
+            factor_demand_adjustment = 1
 
 
         ##  UPDATE VECTORS
@@ -1749,7 +1762,28 @@ class BiomassCarbonLedger:
     
 
 
-    def _update_forest_biomass_young(self,
+    def _update_forest_biomass_young_post_removals(self,
+        i: int,
+    ) -> None:
+        """Update the young biomass matrices.
+        """
+        # allocation of removals from young forests
+        self._update_yf_biomass_removals_allocations(i, )
+        
+        # sequestration factors that are adjusted by previous time period carbon stock in yf
+        self._update_yf_dynamic_sequestration(i, )
+
+        # loss from decomposition
+        self._update_yf_biomass_loss_from_decomposition(i, )
+
+        # finally, update stock in young forests
+        self._update_yf_c_stock(i, )
+
+        return None
+
+
+
+    def _update_forest_biomass_young_pre_removals(self,
         i: int,
     ) -> None:
         """Update the young biomass matrices.
@@ -1764,17 +1798,8 @@ class BiomassCarbonLedger:
         # conversions of biomass, including amount that remains, for AG/BG
         self._update_yf_biomass_conversions(i, )
 
-        # allocation of removals from young forests
-        self._update_yf_biomass_removals_allocations(i, )
-
-        # sequestration factors that are adjusted by previous time period carbon stock in yf
-        self._update_yf_dynamic_sequestration(i, )
-
-        # loss from decomposition
-        self._update_yf_biomass_loss_from_decomposition(i, )
-
-        # finally, update stock in young forests
-        self._update_yf_c_stock(i, )
+        # availability of removals from young forests
+        self._update_yf_biomass_removals_availability(i, )
 
         return None
     
@@ -1796,26 +1821,32 @@ class BiomassCarbonLedger:
             
         """
 
+        ##  SHORTCUT VARIABLES
 
-        # shortcuts
-        c_avail_conv_young = self.vec_young_biomass_c_ag_available_from_conversion[i]
-        c_decomp_young = self.vec_young_biomass_c_loss_to_dom[i]
-        c_removed_young = (
+        bmass_avail_conv_young = self.vec_young_biomass_c_ag_available_from_conversion[i]
+        bmass_decomp_young = self.vec_young_biomass_c_loss_to_dom[i]
+
+        # removed quantities
+        bmass_removed_conv = self.vec_biomass_c_removed_from_converted[i]
+        bmass_removed_dw = self.vec_biomass_c_removed_from_dw[i]
+        bmass_removed_young = (
             self.vec_biomass_c_removed_from_young_post_orig[i]
             + self.vec_biomass_c_removed_from_young_pre_orig[i]
         )
+        
         frac_decomp = self.vec_frac_biomass_ag_to_dom[i]
         ind_fs = self.ind_frst_secondary
-        removals_from_conv = self.vec_biomass_c_removed_from_converted[i]
-                            
-        vec_c_ag_conv = self.arr_orig_biomass_c_ag_converted_away[i]
-        vec_c_ag_conv_pres = self.arr_orig_biomass_c_ag_preserved_in_conversion[i]
-        vec_c_ag_removed = self.arr_orig_biomass_c_removed_from_forests[i]
-        vec_c_ag_starting = self.arr_orig_biomass_c_ag_starting[i]
-        vec_frac_c_rmv_alloc = self.arr_biomass_c_removals_from_converted_land_allocation[i]
-        
+
+        # sabove ground biomass vecs
+        vec_agb_conv = self.arr_orig_biomass_c_ag_converted_away[i]
+        vec_agb_conv_pres = self.arr_orig_biomass_c_ag_preserved_in_conversion[i]
+        vec_agb_removed = self.arr_orig_biomass_c_removed_from_forests[i]
+        vec_agb_starting = self.arr_orig_biomass_c_ag_starting[i]
+
+        # other vecs
         vec_area_in_targs = self.arr_area_conversion_away_total[i]
-        vec_c_bg_avg_in_targs = self.arr_biomass_c_average_bg_stock_in_conversion_targets[i]
+        vec_frac_c_rmv_alloc = self.arr_biomass_c_removals_from_converted_land_allocation[i]
+        vec_bgb_avg_in_targs = self.arr_biomass_c_average_bg_stock_in_conversion_targets[i]
 
         
         ##  UPDATES
@@ -1823,39 +1854,39 @@ class BiomassCarbonLedger:
         # 1. above-ground biomass lost to conversion: arr_biomass_c_ag_lost_conversion
         # Note that the removals from forests *includes* removals from young forests in 
         # secondary; we have to add total converted C from young back in 
-        vec_c_ag_lost_conv = (
-            vec_c_ag_conv 
-            - vec_c_ag_conv_pres 
-            - removals_from_conv*vec_frac_c_rmv_alloc
+        vec_agb_lost_conv = (
+            vec_agb_conv 
+            - vec_agb_conv_pres 
+            - bmass_removed_conv*vec_frac_c_rmv_alloc
         )
-        vec_c_ag_lost_conv[ind_fs] += c_avail_conv_young
+        vec_agb_lost_conv[ind_fs] += bmass_avail_conv_young
 
-        self.arr_biomass_c_ag_lost_conversion[i] = vec_c_ag_lost_conv
+        self.arr_biomass_c_ag_lost_conversion[i] = vec_agb_lost_conv
 
 
         # 2. above-ground biomass lost to decomposition: arr_biomass_c_ag_lost_dom
         
         # have to add in young decomp
-        vec_c_ag_lost_decomp = frac_decomp*(vec_c_ag_starting - vec_c_ag_conv - vec_c_ag_removed)
-        vec_c_ag_lost_decomp[ind_fs] += c_decomp_young
-        self.arr_biomass_c_ag_lost_dom[i] = vec_c_ag_lost_decomp
+        vec_agb_lost_decomp = frac_decomp*(vec_agb_starting - vec_agb_conv - vec_agb_removed)
+        vec_agb_lost_decomp[ind_fs] += bmass_decomp_young
+        self.arr_biomass_c_ag_lost_dom[i] = vec_agb_lost_decomp
 
 
         # 3. below-ground biomass lost to deomposition: arr_biomass_c_bg_lost_dom
 
-        vec_c_bg_lost_decomp = vec_c_ag_lost_decomp*self.vec_biomass_c_bg_to_ag_ratio
+        vec_c_bg_lost_decomp = vec_agb_lost_decomp*self.vec_biomass_c_bg_to_ag_ratio
         self.arr_biomass_c_bg_lost_dom[i] = vec_c_bg_lost_decomp
 
 
         # 4. below-ground biomass lost from conversion: arr_biomass_c_bg_lost_conversion
 
-        vec_c_bg_conv = vec_c_ag_conv.copy() - vec_c_ag_conv_pres
-        vec_c_bg_conv[ind_fs] += c_avail_conv_young 
+        vec_c_bg_conv = vec_agb_conv.copy() - vec_agb_conv_pres
+        vec_c_bg_conv[ind_fs] += bmass_avail_conv_young 
         vec_c_bg_conv *= self.vec_biomass_c_bg_to_ag_ratio
 
         # eliminate conversions associatied with the target 
         vec_c_bg_conv = np.clip(
-            vec_c_bg_conv - vec_area_in_targs*vec_c_bg_avg_in_targs,
+            vec_c_bg_conv - vec_area_in_targs*vec_bgb_avg_in_targs,
             0,
             np.inf,
         )
@@ -1865,8 +1896,8 @@ class BiomassCarbonLedger:
 
         # 5. below-ground biomass lost due to removals: arr_biomass_c_bg_lost_removals
         
-        vec_c_bg_rmv = vec_c_ag_removed.copy()
-        vec_c_bg_rmv[ind_fs] += c_removed_young
+        vec_c_bg_rmv = vec_agb_removed.copy()
+        vec_c_bg_rmv[ind_fs] += bmass_removed_young
         vec_c_bg_rmv *= self.vec_biomass_c_bg_to_ag_ratio
 
         self.arr_biomass_c_bg_lost_removals[i] = vec_c_bg_rmv
@@ -1875,7 +1906,10 @@ class BiomassCarbonLedger:
         # 6. total removals met
 
         self.vec_total_removals_met[i] = (
-            removals_from_conv + c_removed_young + vec_c_ag_removed.sum()
+            bmass_removed_conv 
+            + bmass_removed_dw
+            + bmass_removed_young 
+            + vec_agb_removed.sum()
         )
 
 
@@ -2467,12 +2501,11 @@ class BiomassCarbonLedger:
     def _update_yf_biomass_removals_allocations(self,
         i: int,
     ) -> None:
-        """Update the counterfactual "untouched" c stock array. Updates:
+        """Update the allocations of removals from young forests (which plots).
+            Updates:
 
-            * arr_young_biomass_c_available_for_removals_mask
             * arr_young_biomass_c_stock_removal_allocation
             * arr_young_biomass_c_stock_removal_allocation_aux
-            * vec_young_biomass_c_available_for_removals_total
         """
         
         # no action is taken if withdrawals aren't available
@@ -2480,22 +2513,70 @@ class BiomassCarbonLedger:
             return None
         
 
+        ##  UPDATE ALLOCATIONS
+
+        # first, use arr_young_biomass_c_stock_removal_allocation_aux for cumulative biomass
+        vec_mask_cur = self.arr_young_biomass_c_available_for_removals_mask[i]
+        vec_aux = np.cumsum(vec_mask_cur, )
+        self.arr_young_biomass_c_stock_removal_allocation_aux[i] = vec_aux
+        
+        
+        # shortcuts
+        arr_alloc = self.arr_young_biomass_c_stock_removal_allocation
+        c_removals_demanded_from_young = (
+            self.vec_biomass_c_removed_from_young_post_orig[i]
+            + self.vec_biomass_c_removed_from_young_pre_orig[i]
+        )
+        
+        # iterate to add 
+        for j in range(i):
+            
+            # if the cumulative area to this point is less than the total 
+            # demanded, that means ALL of the available removals will have to be
+            # sent for satisfaction
+            if vec_aux[j] < c_removals_demanded_from_young:
+                arr_alloc[i, j] = vec_mask_cur[j]
+                continue
+            
+            # otherwise, only some portion of availble removals will actually
+            # be removed--or NONE, if the previous step has already been met
+            base = vec_aux[j - 1] if j > 0 else 0
+            arr_alloc[i, j] = max(c_removals_demanded_from_young - base, 0)
+
+        # reassign 
+        self.arr_young_biomass_c_stock_removal_allocation = arr_alloc
+
+        return None
+
+
+
+    def _update_yf_biomass_removals_availability(self,
+        i: int,
+    ) -> None:
+        """Update availability of young forest biomass stock, needed for 
+            estimating removals.
+
+            * arr_young_biomass_c_available_for_removals_mask
+            * vec_young_biomass_c_available_for_removals_total
+        """
+        
+        # no action is taken if withdrawals aren't available
+        if i <= self.n_tps_no_withdrawals_new_growth:
+            return None
+
         ##  UPDATE arr_young_biomass_c_available_for_removals_mask
         #      and vec_young_biomass_c_available_for_removals_total
-
         arr_mask = self.arr_young_biomass_c_available_for_removals_mask
 
         # calculation for each time period for which biomass are available
         ind_fs = self.ind_frst_secondary
-
-        
         inds_col = list(
             range(
                 0,
                 i - self.n_tps_no_withdrawals_new_growth,
             )
         )
- 
+    
         # shortcuts
         biomass_ag_min_per_area = self.vec_biomass_c_ag_min_reqd_per_area[ind_fs]
         vec_areas_planted = self.arr_young_area_by_tp_planted[i - 1, inds_col]
@@ -2507,45 +2588,12 @@ class BiomassCarbonLedger:
         mask_new -= vec_biomass_converted
         arr_mask[i, inds_col] = np.clip(mask_new, 0, np.inf)
 
+
+        ##  SET PROPERTIES
+
         self.arr_young_biomass_c_available_for_removals_mask = arr_mask
         self.vec_young_biomass_c_available_for_removals_total[i] = arr_mask[i].sum()
 
-
-        ##  UPDATE arr_young_biomass_c_stock_removal_allocation
-
-        # first, use arr_young_biomass_c_stock_removal_allocation_aux for cumulative biomass
-        vec_mask_cur = self.arr_young_biomass_c_available_for_removals_mask[i]
-        self.arr_young_biomass_c_stock_removal_allocation_aux[i] = np.cumsum(vec_mask_cur, )
-        
-        # shortcuts
-        arr_alloc = self.arr_young_biomass_c_stock_removal_allocation
-        c_removals_demanded_from_young = (
-            self.vec_biomass_c_removed_from_young_post_orig[i]
-            + self.vec_biomass_c_removed_from_young_pre_orig[i]
-        )
-        vec_aux = self.arr_young_biomass_c_stock_removal_allocation_aux[i]
-
-        # iterate to add 
-        for j in range(i):
-
-            # if the cumulative area to this point is less than the total 
-            # demanded, that means ALL of the available removals will have to be
-            # sent for satisfaction
-            if vec_aux[j] < c_removals_demanded_from_young:
-                arr_alloc[i, j] = vec_mask_cur[j]
-                continue
-            
-            # otherwise, only some portion of availble removals will actually
-            # be removed--or NONE, if the previous step has already been met
-            base = vec_aux[j - 1] if j > 1 else 0
-            arr_alloc[i, j] = (
-                c_removals_demanded_from_young - base
-                if base < c_removals_demanded_from_young
-                else 0 
-            )
-
-        # reassign 
-        self.arr_young_biomass_c_stock_removal_allocation = arr_alloc
 
         return None
     
@@ -2739,7 +2787,7 @@ class BiomassCarbonLedger:
         )
 
         # check specification
-        fraction_removals_satisfiable_from_dw (
+        fraction_removals_satisfiable_from_dw = (
             1.0
             if not sf.isnumber(fraction_removals_satisfiable_from_dw, ) 
             else max(min(fraction_removals_satisfiable_from_dw, 1.0, ), 0.0, )
