@@ -5084,7 +5084,7 @@ class AFOLU:
         supply_rc_met_rmv = vec_alloc_rc_fw + vec_supplied_dw
         supply_biomass_met_fw = supply_rc_met_rmv + vec_agrc_rfu_passed_to_energy_bcl_fwe_terms
         supply_biomass_met_hwp = vec_alloc_rc_hwp
-
+        print(f"supply_biomass_met_hwp = {supply_biomass_met_hwp}")
 
         ##  GET THE SCALARS
 
