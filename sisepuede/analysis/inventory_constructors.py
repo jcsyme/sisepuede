@@ -55,7 +55,7 @@ _PREFIX_FIELD_IPCC_CATEGORIES_LEVEL = "ipcc_categories_level_"
 _PREFIX_FIELD_EMISSIONS_OUT = "emission_co2e_"
 
 # regular expression
-_REGEX_PATTERN_INVENTORY_TABLES = re.compile("GHG Emissions_(.*\d)_Complete File.xlsx")
+# _REGEX_PATTERN_INVENTORY_TABLES = re.compile("GHG Emissions_(.*\d)_Complete File.xlsx")
 
 # unit info
 _UNITS_MASS_INV = "kt"
@@ -728,6 +728,7 @@ def get_emissions_deforestation(
 
 def get_files(
     path: pathlib.Path,
+    regex_tables: re.Pattern,
 ) -> Dict[str, Dict[str, pd.DataFrame]]:
     """Get inventory tables as a dictionary mapping years to the inventory 
         dictionaries (sheets to DataFrame)
@@ -736,7 +737,7 @@ def get_files(
     dict_out = {}
 
     for path_file in path.iterdir():
-        year = get_year_from_file_path(path_file, )
+        year = get_year_from_file_path(path_file, regex_tables, )
         if year is None: continue
 
         dict_dfs = pd.read_excel(
@@ -823,12 +824,13 @@ def get_matchstrings(
 
 def get_year_from_file_path(
     path: pathlib.Path,
+    regex_tables: re.Pattern,
 ) -> Union[int, None]:
     """Checks a file name to see if it matches the regular expression for 
         inventory tables; if so, gets year. Otherwise, returns None.
     """
     file_name = path.parts[-1]
-    match = _REGEX_PATTERN_INVENTORY_TABLES.match(file_name, )
+    match = regex_tables.match(file_name, )
     if match is None:
         return None
     
@@ -1141,6 +1143,7 @@ def main(
     path_in_inv_excels: pathlib.Path,
     path_out_cw_new: pathlib.Path,
     path_out_trajectories: pathlib.Path,
+    regex_tables: re.Pattern,
     model_attributes: 'ModelAttributes',
     time_periods: 'TimePeriods',
     dict_overwrite_category_to_value: Union[Dict[str, float], None] = None,
@@ -1183,6 +1186,8 @@ def main(
     path_out_trajectories: pathlib.Path
         Output path for new trajectories file is located
         and SISEPUEDE fields is stored
+    regex_tables : re.Pattern
+        Regular expression for pattern matching inventory tables
     model_attributes : ModelAttributes
         ModelAttributes used for GHG conversion etc.
     time_periods : TimePeriods
@@ -1204,7 +1209,7 @@ def main(
     ##  INITIALIZATION
 
     # get files
-    dict_dfs = get_files(path_in_inv_excels)
+    dict_dfs = get_files(path_in_inv_excels, regex_tables, )
     df_cw = pd.read_csv(path_in_cw_inv_excels)
     df_emissions_deforestation = get_emissions_deforestation(path_in_emissions_deforestation, )
     
