@@ -1811,6 +1811,7 @@ def transformation_entc_specify_transmission_losses(
                 df[
                     df[model_attributes.dim_time_period] == get_time_period(model_attributes, "max")
                 ][var_bound]
+                .iloc[0]
             )
             magnitude = min(magnitude, val_final)
 
@@ -2742,17 +2743,11 @@ def transformation_scoe_electrify_category_to_target(
     
     ##  SET SOURCE CATEGORIES
 
-    modvars = [
-        model_enercons.modvar_scoe_frac_heat_en_coal,
-        model_enercons.modvar_scoe_frac_heat_en_diesel,
-        model_enercons.modvar_scoe_frac_heat_en_electricity,
-        model_enercons.modvar_scoe_frac_heat_en_gasoline,
-        model_enercons.modvar_scoe_frac_heat_en_hydrogen,
-        model_enercons.modvar_scoe_frac_heat_en_kerosene,
-        model_enercons.modvar_scoe_frac_heat_en_natural_gas,
-        model_enercons.modvar_scoe_frac_heat_en_hgl,
-        model_enercons.modvar_scoe_frac_heat_en_solid_biomass
-    ]
+    # get the model variables
+    modvars = []
+    for k, v in model_enercons.get_scoe_dict_fuel_categories_to_fuel_variables()[0].items():
+        modvar = v.get("fuel_fraction")
+        if modvar is not None: modvars.append(modvar)
     
     # fuel attributes
     attr_enfu = model_attributes.get_attribute_table(
