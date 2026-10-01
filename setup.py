@@ -40,6 +40,7 @@ setup(
     name = "SISEPUEDE",
     packages = [
         "sisepuede",
+        "sisepuede.analysis",
         "sisepuede.calibration",
         "sisepuede.command_line",
         "sisepuede.core",
