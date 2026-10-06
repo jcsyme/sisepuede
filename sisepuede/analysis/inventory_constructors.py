@@ -73,11 +73,12 @@ _UNITS_MASS_INV = "kt"
 #####################################
 
 # delimiters
-_DELIM_IPCC = "."
+_DELIM_IPCC_CODE_WITHIN = "."
 
 # field storing ipcc codes
 _FIELD_EMISSION_TOTAL_EST = "emission_co2e_total_kt"
 _FIELD_IPCC_CODE = "ipcc_code"
+_FIELD_SSP_FIELDS = "sisepuede_fields"
 
 # ipcc crt sectors
 _IPCC_CRT_SECTOR_AGRICULTURE = "AGRICULTURE"
@@ -340,7 +341,7 @@ class CommonReportingTable:
                 continue
 
             # get components of the IPCC code
-            components = code.split(_DELIM_IPCC)
+            components = code.split(_DELIM_IPCC_CODE_WITHIN)
             n_comp = len(components)
             if n_comp == 1:
                 dict_emissions = get_emissions(row, field_code, )
@@ -349,7 +350,7 @@ class CommonReportingTable:
                     dict_emissions = dict_emissions,
                     memo = memo,    
                 )
-                
+
                 continue
 
 
@@ -374,7 +375,7 @@ class CommonReportingTable:
             # try getting parent
             while (node_parent is None) & (len(parent_code) > 0):
                 i += 1
-                parent_code = _DELIM_IPCC.join(components[0:(n_comp - i)])
+                parent_code = _DELIM_IPCC_CODE_WITHIN.join(components[0:(n_comp - i)])
                 node_parent = it.get_node_dfs(tree, parent_code, )
 
             # if no parent is found, something's gone terible wrong
@@ -384,7 +385,7 @@ class CommonReportingTable:
 
             # Otherwise, build downward
             for k in range(n_comp - i + 1, n_comp + 1):
-                code_new = _DELIM_IPCC.join(components[0:k])
+                code_new = _DELIM_IPCC_CODE_WITHIN.join(components[0:k])
 
                 # if not n_comp, then we're adding parents that we haven't seem yet, 
                 #    so emissions can be set as a blank {}
@@ -472,7 +473,7 @@ class CommonReportingTable:
 
     def get_ippc_code_from_row(self,
         row: pd.Series,
-        delim: str = _DELIM_IPCC,
+        delim: str = _DELIM_IPCC_CODE_WITHIN,
         field: str = _FIELD_IPCC_CODE,
     ) -> Union[str, None]:
         """Split the row
@@ -549,7 +550,7 @@ class CommonReportingTable:
         # some bespoke fixes included in the CRT
         df_table[field_tmp] = df_table[field_tmp].replace(
             {
-                "Total Energy": f"1{_DELIM_IPCC} Total Energy",     # Energy is missing the 1.
+                "Total Energy": f"1{_DELIM_IPCC_CODE_WITHIN} Total Energy",     # Energy is missing the 1.
             }
         )
 

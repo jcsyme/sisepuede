@@ -100,6 +100,50 @@ def describe_tree_dfs(
 
 
 
+def get_inventory_tree_sum_dfs(
+    tree: 'InventoryNode',
+    include_memo: bool = False,
+) -> Union[str, None]:
+    """Using an inventory tree, get the sum of emissions across components.
+    """
+
+    dict_sum = {}
+
+    # case if reach the bottom
+    if len(tree.children) == 0:
+        if tree.memo:
+            out = (
+                {}
+                if not include_memo
+                else tree.emissions
+            )
+
+            return out
+
+        return tree.emissions
+        
+
+    ##  OTHERWISE, RECURSE
+    
+    for node in tree.children:
+        if node.memo and not include_memo: continue
+            
+        dict_out = get_inventory_tree_sum_dfs(
+            node,
+            include_memo = include_memo,
+        )
+
+        for k, v in dict_out.items():
+            if k in dict_sum.keys():
+                dict_sum[k] += v
+
+            else:
+                dict_sum.update({k: v, })
+
+    return dict_sum
+
+
+
 def get_node_dfs(
     node: 'InventoryNode',
     name: str,
