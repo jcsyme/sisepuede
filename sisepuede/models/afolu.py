@@ -1064,7 +1064,14 @@ class AFOLU:
             * self.modvar_lsmm_****
             * self.modvar_dict_lsmm_****
         """
-        
+
+        # assign names
+        self.model_attributes.assign_subsector_variable_names_from_varcodes(
+            self,
+            self.model_attributes.subsec_name_lsmm,
+            stop_on_error = True, 
+        )
+        """
         # manure management variables
         self.modvar_lsmm_dung_incinerated = "Dung Incinerated"
         self.modvar_lsmm_ef_direct_n2o = ":math:\\text{N}_2\\text{O} Manure Management Emission Factor"
@@ -1085,7 +1092,8 @@ class AFOLU:
         self.modvar_lsmm_ratio_n2_to_n2o = "Ratio of :math:\\text{N}_2 to :math:\\text{N}_2\\text{O}"
         self.modvar_lsmm_recovered_biogas = "LSMM Biogas Recovered from Anaerobic Digesters"
         self.modvar_lsmm_rf_biogas = "Biogas Recovery Factor at LSMM Anaerobic Facilities"
-
+        """
+        
         # some categories
         self.cat_lsmm_incineration = self.model_attributes.filter_keys_by_attribute(
             self.subsec_name_lsmm, 
