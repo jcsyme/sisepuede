@@ -182,8 +182,7 @@ class Strategy:
             def function_out(
                 **kwargs
             ) -> Any:
-                f"""
-                Composite Transformer function for {self.name}
+                f"""Composite Transformer function for {self.name}
                 """
                 # out = None
                 out = kwargs.get("df_input")
@@ -365,23 +364,23 @@ class Strategy:
         delim: str = "|",
         stop_on_error: bool = False,
     ) -> List[str]:
-        """
-        Get a list of codes to try to read. 
+        """Get a list of codes to try to read. 
 
         Function Arguments
         ------------------
-        - code_specification: 
+        code_specification : Union[int, str, List[Union[str, int]]]
             * string: either individual code of delim-delimited string of codes
             * integer: a strategy
             * list: list of string or integer values as above
-        - transformations: tranformations object used to access Transformation
-            objects
+        transformations : trn.Transformations
+            Tranformations object used to access Transformation objects
 
         Keyword Arguments
         -----------------
-        - delim: optional delimiter to split codes
-        - stop_on_error: if False, returns empty list if code_specification is
-            invalid
+        delim : str
+            Optional delimiter to split codes
+        stop_on_error : bool
+            If False, returns empty list if code_specification is invalid
         """
         
         # verify input type
@@ -445,13 +444,11 @@ class Strategy:
 
 
 class Strategies:
-    """
-    A collection of Strategy objects. Coordinate strategies, build an attribute
-        table, test builds, and generate templates and hash_ids for build. 
+    """A collection of Strategy objects. Coordinate strategies, build an 
+        attribute table, test builds, and generate templates and hash_ids for 
+        build. Defined using
 
-
-
-        `strategy_definitions.csv`
+            `strategy_definitions.csv`
         
         though this can be modified ysing the `fn_strategy_definition` 
         keyword argument.

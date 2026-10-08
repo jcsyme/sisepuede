@@ -1566,6 +1566,7 @@ class BiomassCarbonLedger:
         # get adjustment level and initialize adjustment factor
         factor_behavioral_response = self.vec_removals_behavioral_response_factor[i]
         factor_demand_adjustment = 1
+        factor_demand_adjustment_applied = 1
 
         # adjustment factor is dependent on previous time step if i > 0
         demand_adjusted_prev = np.inf
@@ -1579,13 +1580,13 @@ class BiomassCarbonLedger:
                 factor_adj_prev,
                 removals_met_prev/demand_adjusted_prev,
             )
-            factor_demand_adjustment = (
+            factor_demand_adjustment_applied = (
                 (1 - factor_behavioral_response) 
                 + factor_behavioral_response*factor_demand_adjustment
             )
 
         # get adjusted demand; if new demand is less than the previous*the adjustment factor, reset
-        demand_adjusted = factor_demand_adjustment*new_removals_demanded_unadj
+        demand_adjusted = factor_demand_adjustment_applied*new_removals_demanded_unadj
         if new_removals_demanded_unadj < demand_adjusted_prev*factor_demand_adjustment:
             demand_adjusted = new_removals_demanded_unadj
             factor_demand_adjustment = 1
