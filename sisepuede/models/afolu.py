@@ -5498,7 +5498,7 @@ class AFOLU:
 
         
         ##  GET NORM?
-
+        
         if normalize_sfs:
 
             # get the stock implied by NPP
@@ -5512,7 +5512,9 @@ class AFOLU:
             # adjust
             factors_initial *= scalar
             vec_young_sf *= scalar
-            
+
+        self.vec_young_sf = vec_young_sf
+        self.frac_decomp = frac_decomp
 
         # build outputs, ordered for direct entrance to ledger
         # vec_biomass_c_ag_init_stst_storage
