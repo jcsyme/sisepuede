@@ -3678,7 +3678,7 @@ class EnergyConsumption:
         # get demand for electricity driven by GDP
         arr_scoe_growth_demand_mmmgdp_elec = sf.project_growth_scalar_from_elasticity(
             vec_rates_gdp_per_capita, 
-            arr_scoe_enerdem_elasticity_hh_elec, 
+            arr_scoe_enerdem_elasticity_mmmgdp_elec, 
             False, 
             "standard",
         )
