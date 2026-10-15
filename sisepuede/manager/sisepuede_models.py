@@ -65,7 +65,9 @@ class SISEPUEDEModels:
         methods and properties, which is often useful for accesing methods and 
         variables, but does not allow the model to run.
     logger : Union[logging.Logger, None]
-        optional logging.Logger object used to log model events
+        Optional logging.Logger object used to log model events
+    **kwargs : 
+        Passed to AFOLU
     """
     def __init__(self,
         model_attributes: ModelAttributes,
@@ -75,6 +77,7 @@ class SISEPUEDEModels:
         fp_nemomod_temp_sqlite_db: Union[str, None] = None,
         initialize_julia: bool = True,
         logger: Union[logging.Logger, None] = None,
+        **kwargs,
     ) -> None:
         # initialize input objects
         self._initialize_attributes(
@@ -94,6 +97,7 @@ class SISEPUEDEModels:
         # initialize models
         self._initialize_models(
             initialize_julia = initialize_julia,
+            **kwargs,
         )
 
         # set the UUID
@@ -143,6 +147,7 @@ class SISEPUEDEModels:
 
     def _initialize_models(self,
         initialize_julia: bool = True,
+        **kwargs,
     ) -> None:
         """Initialize the path to NemoMod reference files required for ingestion. 
             Initializes the following properties:
@@ -154,6 +159,7 @@ class SISEPUEDEModels:
         self.model_afolu = AFOLU(
             self.model_attributes, 
             logger = self.logger,
+            **kwargs,
         )
         self.model_circecon = CircularEconomy(
             self.model_attributes, 
