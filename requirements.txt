@@ -15,3 +15,4 @@ quadprog==0.1.13
 rioxarray==0.15.5
 scipy==1.18.1
 SQLAlchemy==2.0.37
+xlsxwriter==3.2.9
