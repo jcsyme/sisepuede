@@ -229,11 +229,20 @@ def bounded_logistic_on_uniform(
     if x >= d + b:
         return 1
 
+    
     # otherwise 
     w0, w1 = window_logistic
+    y1 = logistic(w1)
+    y0 = logistic(w0)
+
+    #y = logistic(
+    #    (x - d)*(w1 - w0)/b + w1, 
+    #)/(y1 - y0)
     y = logistic(
-        (x - d)*(w1 - w0)/b + w0, 
+        (x - d)*(w1 - w0)/b + w0
     )
+
+    y = (y - y0)/(y1 - y0)
 
     return y
 

@@ -1967,6 +1967,7 @@ class LivestockDietEstimator:
             nan = 0.0,
             posinf = 1.0,
         )
+        
 
         # add in the scalar
         A_cc[:, -1] = -1*np.sign(vec_demands, )
