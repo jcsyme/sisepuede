@@ -1,5 +1,6 @@
 
 import logging
+import numpy as np
 import os, os.path
 import pandas as pd
 import re
@@ -193,8 +194,7 @@ class InputTemplate:
     def _initialize_attribute_strategy(self,
         attribute_strategy: Union[AttributeTable, str, None]
     ) -> None:
-        """
-        Initialize the strategy attribute table based on one of two potential 
+        """Initialize the strategy attribute table based on one of two potential 
             inputs. Sets two InputTemplate parameters:
 
         self.attribute_strategy
@@ -202,21 +202,31 @@ class InputTemplate:
 
         Function Arguments
         ------------------
-        - attribute_strategy: One of the following:
-            * None: no strategy table is passed, and templates are read without 
-                consideration of defined strategies
-            * AttributeTable: any attribute table with a key that matches
-            self.model_attributes.dict_attributes(
-                f"dim_{self.model_attributes.dim_strategy_id}"
-            ). 
+        attribute_strategy : Union[AttributeTable, str, None]
+            One of the following:
+                * None:             no strategy table is passed, and templates 
+                                        are read without consideration of 
+                                        defined strategies
+                * AttributeTable:   any attribute table with a key that matches
+                        
+                            self.model_attributes.dict_attributes(
+                                f"dim_{self.model_attributes.dim_strategy_id}"
+                            ). 
 
-            The AttributeTable should also include the following fields:
-                * baseline_scenario: binary field denoting the baseline 
-                    scenario. Only one should exist per
+                                    The AttributeTable should also include 
+                                    the following fields:
+                                    
+                                    * baseline_scenario:    binary field 
+                                                            denoting the 
+                                                            baseline scenario. 
+                                                            Only one should 
+                                                            exist per
 
         """
         # default to model attributes designation
-        self.baseline_strategy = self.model_attributes.get_baseline_scenario_id(self.model_attributes.dim_strategy_id)
+        self.baseline_strategy = self.model_attributes.get_baseline_scenario_id(
+            self.model_attributes.dim_strategy_id,
+        )
 
         if is_attribute_table(attribute_strategy, ):
             out = attribute_strategy
@@ -536,7 +546,7 @@ class InputTemplate:
         dict_strategies_to_sheet: Union[dict, None] = None,
         strategies_include: Union[list, None] = None,
     ) -> pd.DataFrame:
-        """Built a sectoral input variable database for SISEPUEDE based on the 
+        """Build a sectoral input variable database for SISEPUEDE based on the 
             input template. This database can be combined across multiple 
             templates and used to create a SampleUnit object to explore 
             uncertainty.
@@ -614,7 +624,7 @@ class InputTemplate:
 
         # do some conversions
         df_out = pd.concat(df_out, axis = 0)
-        df_out = self.clean_inputs(df_out)
+        df_out = self.clean_inputs(df_out, )
 
         return df_out
     
@@ -627,12 +637,21 @@ class InputTemplate:
         """
 
         # clean up the normalization group field
+        df_in[self.field_req_normalize_group] = np.nan_to_num(
+            pd.to_numeric(
+                df_in[self.field_req_normalize_group], 
+                errors = "coerce", 
+            ),
+            nan = 0.0,
+            posinf = 0.0,
+        )
+
         df_in[self.field_req_normalize_group] = (
             df_in[self.field_req_normalize_group]
-            .replace({" ": 0})
             .fillna(0)
             .astype(int)
         )
+        
 
         # clean up other fields as type integer
         flds_clean = [
@@ -641,7 +660,11 @@ class InputTemplate:
         ]
         
         #for fld in flds_clean:
-        df_in[flds_clean] = df_in[flds_clean].astype(int)
+        df_in[flds_clean] = (
+            df_in[flds_clean]
+            .fillna(0)
+            .astype(int)
+        )
 
         return df_in
     
@@ -830,7 +853,8 @@ class InputTemplate:
             if len(all_time_period_fields_max) > 1:
                 raise SheetReadError(f"Encountered inconsistent definition of fields specifying maximum and minimum scalars in sheet {k}.")
 
-            # check binary fields HEREHERE
+            # clean inputs and then check binary fields
+            df_template_sheet = self.clean_inputs(df_template_sheet, )
             for fld in self.list_fields_required_binary:
                 df_template_sheet = sf.check_binary_fields(df_template_sheet, fld)
 
@@ -1593,8 +1617,7 @@ class BaseInputDatabase:
     def get_regions(self,
         regions: Union[str,  None],
     ) -> list:
-        """
-        Import regions for the BaseInputDatabase class from BaseInputDatabase
+        """Import regions for the BaseInputDatabase class from BaseInputDatabase
         """
         attr_region = (
             self
@@ -1621,8 +1644,7 @@ class BaseInputDatabase:
     def get_sectors(self, 
         sectors: Union[str, None],
     ) -> list:
-        """
-        Import regions for the BaseInputDatabase class from BaseInputDatabase
+        """Import regions for the BaseInputDatabase class from BaseInputDatabase
         """
         attr_sector = self.model_attributes.get_sector_attribute_table()
         key_dict = f"{attr_sector.key}_to_sector"
@@ -1644,18 +1666,20 @@ class BaseInputDatabase:
         type_log: str = "log",
         **kwargs
     ) -> None:
-        """
-        Clean implementation of sf._optional_log in-line using default logger. 
-            See ?sf._optional_log for more information
+        """Clean implementation of sf._optional_log in-line using default  
+            logger. See ?sf._optional_log for more information
 
         Function Arguments
         ------------------
-        - msg: message to log
+        msg : str
+            Message to log
 
         Keyword Arguments
         -----------------
-        - type_log: type of log to use
-        - **kwargs: passed as logging.Logger.METHOD(msg, **kwargs)
+        type_log : str
+            type of log to use
+        **kwargs : 
+            passed as logging.Logger.METHOD(msg, **kwargs)
         """
         sf._optional_log(self.logger, msg, type_log = type_log, **kwargs)
 
@@ -1670,9 +1694,8 @@ class BaseInputDatabase:
         sectors: Union[list, None] = None,
         **kwargs,
     ) -> Union[pd.DataFrame, None]:
-        """
-        Load templates and generate a base input database.
-            * Returns None if no valid templates are found.
+        """Load templates and generate a base input database. Returns None if no 
+            valid templates are found.
 
         Function Arguments
         ------------------
@@ -1685,6 +1708,7 @@ class BaseInputDatabase:
             BaseInputDatabase.sectors
         **kwargs: passed to BaseInputDatabase.get_template_path()
         """
+        
         # initialize output
         all_fields = None
         df_out = []
@@ -1734,7 +1758,6 @@ class BaseInputDatabase:
                 except Exception as e:
 
                     msg = f"Warning in generate_database--template read for sector '{sector}' in region '{region}' failed. The following error was returned: {e}"
-
                     self._log(
                         msg, 
                         type_log = "warning"
