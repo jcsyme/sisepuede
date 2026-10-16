@@ -21,6 +21,9 @@ import sisepuede.utilities._toolbox as sf
 #    SOME GLOBALS    #
 ######################
 
+# delimiters
+_DELIM_CODES_DEFAULT = ":"
+
 # some dictionaries
 _DICT_FILE_NAME_DEFAULTS = {
     "strategy_definitions": "strategy_definitions.csv",
@@ -40,8 +43,13 @@ _FLAG_EXPORT_TO_TRANSFORMATIONS = "transformations"
 # module id
 _MODULE_UUID = "BEE85F6C-6BA3-4382-9A8C-5C2D8691DE4E" 
 
+# prefixes
+_PREFIX_STRAT_CODE_PERT_TORNADO = "TORNADO"
+_PREFIX_STRAT_CODE_PERT_WHIRLPOOL = "WHIRLPOOL"
+
 
 ##  ERROR CLASSES
+
 class UndefinedStrategy(Exception):
     pass
 
@@ -1178,6 +1186,129 @@ class Strategies:
     #    CORE FUNCTIONALITY    #
     ############################
 
+    def build_map_tornado_whirlpool(self,
+        drop_missing: bool = True, 
+        flag_missing: int = -999,
+    ) -> Tuple[pd.DataFrame, str, str]:
+        """Build a map from tornado strategies to whirlpool. Assumes only one 
+            strategy is tornado/whirlpooled per strategy table (WEAK 
+            ASSUMPTION). Returns a Tuple of the form:
+            
+            (
+                df_map,         # DataFrame long by transformation code with 
+                                #   a map of transformation code to associated
+                                #   tornado and whirlpool strategy ids
+                field_id_torn,  # String denoting field in df_map that stores
+                                #   the strategy id associated with the tornado 
+                                #   experiment
+                field_id_whir,  # String denoting field in df_map that stores
+                                #   the strategy id associated with the  
+                                #   whirlpool experiment
+            )
+
+        Keyword Arguments
+        -----------------
+        drop_missing : bool
+            Drop rows associated with a missing strategy id?
+        flag_missing : int
+            Flag to fill missing strategies with
+        """
+
+        ##  INITIALIZATION
+
+        # shortcuts
+        attr = self.attribute_table
+        field_code = self.field_strategy_code
+        tab = attr.table
+
+        # initialize dictionary and some keys
+        dict_map = {}
+        key_tornado = _PREFIX_STRAT_CODE_PERT_TORNADO
+        key_tornado_l = key_tornado.lower()
+        key_whirlpool = _PREFIX_STRAT_CODE_PERT_WHIRLPOOL
+        key_whirlpool_l = key_whirlpool.lower()
+
+        # some fields
+        field_tcode = self.transformations.field_attr_code
+        field_out_scode_torn = f"{attr.key}_{key_tornado_l}"
+        field_out_scode_whir = f"{attr.key}_{key_whirlpool_l}"
+        
+
+        ##  BUILD DICTIONARY
+        
+        for i, row in tab.iterrows():
+            # get code and id
+            id_strat = int(row[attr.key])
+            code = str(row[field_code])
+
+            # try getting whirlpool/tornado information
+            try_tup = self.get_tw_strategy_codes(
+                code,
+                None,
+                invert = True,
+            )
+
+            if try_tup is None: continue
+
+            ##  NOTE: WHEN EXPANDED TO MULTIPLE STRATS THAT CAN BE TORN/WHIR, 
+            ##        ADD CODE HERE (FUNC CALL) TO GET BASE TORN/WHIR SPEC
+            ##        IN ADDITION TO STRATEGY PERTURBATION INFO
+
+            # verify transformation exists
+            tw_type, code_transformation = try_tup
+            transformation = self.transformations.get_transformation(code_transformation, )
+            if transformation is None: continue
+            
+            # check if exists already
+            dict_cur = {tw_type: id_strat, }
+            (
+                dict_map[code_transformation].update(dict_cur, )
+                if code_transformation in dict_map.keys()
+                else dict_map.update({code_transformation: dict_cur, })
+            )
+
+            # otherwise, init
+
+
+        ##  NEXT, UNWRAP
+
+        rows = []
+        for k, v in dict_map.items():
+            # build new row
+            row_new = [
+                k,
+                v.get(key_tornado, flag_missing, ),
+                v.get(key_whirlpool, flag_missing, )
+            ]
+
+            # skip a row if anything is missing
+            if drop_missing and (flag_missing in row_new): continue
+
+            # otherwise, append and move on
+            rows.append(row_new)
+
+
+        ##  SET FINAL OUTPUT
+
+        # build dataframe
+        fields_out = [
+            field_tcode,
+            field_out_scode_torn,
+            field_out_scode_whir
+        ]
+        df_out = pd.DataFrame(rows, columns = fields_out, )
+
+        # set the output tuple
+        out = (
+            df_out,
+            field_out_scode_torn,
+            field_out_scode_whir,
+        )
+
+        return out
+
+
+
     def build_strategies_long(self,
         df_input: Union[pd.DataFrame, None] = None,
         include_base_df: bool = True,
@@ -1748,14 +1879,14 @@ class Strategies:
 
         return dict_update
     
-
+        
 
     def build_tornado_strategies(self,
         strategy_base: Union[int, str, None],
-        code_prepend: str = "TORNADO",
+        code_prepend: str = _PREFIX_STRAT_CODE_PERT_TORNADO,
         code_prependages_skip: Union[str, List[str]] = "PFLO",
         delim: Union[str, None] = None,
-        delim_code: str = ":",
+        delim_code: str = _DELIM_CODES_DEFAULT,
         max_length_intersection: Union[int, None] = 0, 
         strategy_stress: Union[int, str, None] = None,
         **kwargs,
@@ -1875,8 +2006,12 @@ class Strategies:
             spec_new = delim.join(spec_new)
             
             # new code and id
-            code_new = f"{code_prepend}{delim_code}{code}"
-            name_new = f"Add {code} to {strat.name}"
+            code_new = self.get_tw_strategy_codes(code, "tornado", )
+            name_new = self.get_tw_strategy_names(
+                code,
+                strat.name,
+                "tornado",
+            )
             id_new += 1
             
             codes_new.append(code_new, )
@@ -1905,7 +2040,7 @@ class Strategies:
 
     def build_whirlpool_strategies(self,
         strategy: Union[int, str, None],
-        code_prepend: str = "WHIRLPOOL",
+        code_prepend: str = _PREFIX_STRAT_CODE_PERT_WHIRLPOOL,
         delim: Union[str, None] = None,
         ids: Union[None, List[int]] = None,
         **kwargs,
@@ -1964,8 +2099,12 @@ class Strategies:
         for i, code in enumerate(codes):
             
             # verify that the new code and name are unique
-            code_new = f"{code_prepend}:{code}"
-            name_new = f"Remove {code} from {strat.name}"
+            code_new = self.get_tw_strategy_codes(code, "whirlpool", )
+            name_new = self.get_tw_strategy_names(
+                code,
+                strat.name,
+                "whirlpool",
+            )
 
             continue_q = (code_new in all_codes + trans_code) 
             continue_q |= (name_new in all_names + trans_name)
@@ -2162,6 +2301,97 @@ class Strategies:
 
         strat = self.get_strategy(strategy_specification)
         out = None if (strat is None) else strat.id_num
+
+        return out
+
+
+
+    def get_tw_strategy_codes(self,
+        code: str,
+        return_type: str,
+        delim_code: str = _DELIM_CODES_DEFAULT,
+        invert: bool = False,
+    ) -> Union[str, Tuple[str], None]:
+        """Get names for tornado and whirlpool strategies. 
+
+        Function Arguments
+        ------------------
+        code : str
+            transformation code to build strategy code for
+        return_type : str
+            "tornado" or "whirlpool". Ignored if invert = True
+
+        Keyword Arguments
+        -----------------
+        delim_code : str
+            Optional delimiter. Defaults to ":"
+        invert : bool 
+            * True:     reads the code and ignores the return type; tests for 
+                            whirlpool or tornado prependage;
+                * True (found):         Returns tuple with prependage and 
+                                            transformation code
+                * False (not found):    Returns None
+            
+            * False:    returns the built strategy code
+        """
+
+        # some components
+        code_prepend = (
+            _PREFIX_STRAT_CODE_PERT_WHIRLPOOL
+            if return_type == "whirlpool"
+            else _PREFIX_STRAT_CODE_PERT_TORNADO
+        )
+
+        # return the name
+        if not invert:
+            out = f"{code_prepend}{delim_code}{code}"
+            return out
+
+        # otherwise, split and check--if first doesn't match, return None
+        codes = code.split(delim_code, )
+        if codes[0] not in [
+            _PREFIX_STRAT_CODE_PERT_TORNADO,
+            _PREFIX_STRAT_CODE_PERT_WHIRLPOOL
+        ]:
+            return None
+
+        # rejoin and return
+        out = (
+            codes[0],
+            delim_code.join(codes[1:]),
+        )
+
+        return out
+
+
+
+    def get_tw_strategy_names(self,
+        code: str,
+        name_strategy: str,
+        return_type: str,
+    ) -> str:
+        """Get names for tornado and whirlpool strategies. 
+
+        Function Arguments
+        ------------------
+        code : str
+            Transformation code to 
+        name_strategy : str
+            Name of the strategy adding to or removing from
+        return_type : str
+            "tornado" or "whirlpool"
+
+        Keyword Arguments
+        -----------------
+        """
+
+        # some components
+        is_whirl = return_type == "whirlpool"
+        action = "Remove" if is_whirl else "Add"
+        prep = "from" if is_whirl else "to"
+
+        # return the name
+        out = f"{action} {code} {prep} {name_strategy}"
 
         return out
 
