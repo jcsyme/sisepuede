@@ -2827,7 +2827,7 @@ class LivestockDietEstimator:
             msg = f"Error retrieving costs values in {class_name}: {e}"
             raise RuntimeError(msg)
 
-
+        
         # try to retrieve constraint components
         try:
             A, b, G, h = self.get_problem_components_constraints(

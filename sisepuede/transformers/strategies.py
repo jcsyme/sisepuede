@@ -1314,8 +1314,7 @@ class Strategies:
         include_base_df: bool = True,
         strategies: Union[List[str], List[int], None] = None,
     ) -> pd.DataFrame:
-        """
-        Return a long (by model_attributes.dim_strategy_id) concatenated
+        """Return a long (by model_attributes.dim_strategy_id) concatenated
             DataFrame of transformations.
 
         Function Arguments
@@ -1323,14 +1322,16 @@ class Strategies:
 
         Keyword Arguments
 		-----------------
-        - df_input: baseline (untransformed) data frame to use to build 
-            strategies. Must contain self.key_region and 
-            self.model_attributes.dim_time_period in columns. If None, defaults
-            to self.baseline_inputs
-        - include_base_df: include df_input in the output DataFrame? If False,
-            only includes strategies associated with transformation 
-        - strategies: strategies to build for. Can be a mixture of strategy_ids
-            and names. If None, runs all available. 
+        df_input : Union[pd.DataFrame, None]
+            Baseline (untransformed) data frame to use to build strategies. Must 
+            contain self.key_region and self.model_attributes.dim_time_period in 
+            columns. If None, defaults to self.baseline_inputs
+        include_base_df : bool
+            Include df_input in the output DataFrame? If False, only includes 
+            strategies associated with transformation
+        strategies : Union[List[str], List[int], None]
+            Strategies to build for. Can be a mixture of strategy_ids and names. 
+            If None, runs all available. 
         """
 
         # INITIALIZE STRATEGIES TO LOOP OVER

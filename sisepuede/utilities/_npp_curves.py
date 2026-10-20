@@ -321,11 +321,11 @@ class NPPCurves:
 
 
         NPP is the net carbon gain by plants. It is the balance between the 
-        carbon gained by gross primary production (GPP – i.e., net 
+        carbon gained by gross primary production (GPP - i.e., net 
         photosynthesis measured at the ecosystem scale) and carbon released by 
         plant mitochondrial respiration, both expressed per unit land area. Like 
         GPP, NPP is generally measured at the ecosystem scale over relatively 
-        long time intervals, such as a year (g biomass or g C m −2 year− 1). NPP 
+        long time intervals, such as a year (g biomass or g C m-2 year-1). NPP 
         includes the new biomass produced by plants, the soluble organic 
         compounds that diffuse or are secreted into the environment (root or 
         phytoplankton exudation), the carbon transfers to microbes that are 
