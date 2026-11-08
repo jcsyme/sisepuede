@@ -2246,7 +2246,7 @@ class LivestockDietEstimator:
         rho_cc = vec_residue_generation_factor[0]
         rho_cnc = vec_residue_generation_factor[1]
         
-        # crop residuals supplies are increased by these factors*new yields
+        # crop residuals supplies ares increased by these factors*new yields
         A[ind_cr, inds_cc_new] = -rho_cc
         A[ind_cr, inds_cnc_new] = -rho_cnc
 
@@ -2280,6 +2280,7 @@ class LivestockDietEstimator:
         let:
             S  = supply
             x  = use of crop x
+
             x* = new crops
 
             Note that 
@@ -2736,7 +2737,7 @@ class LivestockDietEstimator:
         Function Arguments
         ------------------
         vec_costs : np.ndarray
-            Vector (n_sources x 1) of costs per each crop
+            Vector (n_sources x 1) of costs per each source pathway.
         vec_demand : np.ndarray
             Vector (n_livstock_categories x 1) of total feed demands from each
             livetock type

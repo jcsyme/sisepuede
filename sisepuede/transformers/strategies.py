@@ -9,6 +9,7 @@ from typing import *
 from copy import deepcopy
 from sisepuede.core.attribute_table import *
 from sisepuede.core.model_attributes import *
+from typing import *
 import sisepuede.core.support_classes as sc
 import sisepuede.data_management.ingestion as ing
 import sisepuede.transformers.transformations as trn
@@ -1186,7 +1187,117 @@ class Strategies:
     #    CORE FUNCTIONALITY    #
     ############################
 
+    def build_map_shared_tkernels(self,
+        strategy_spec_a: Union[int, str],
+        strategy_spec_b: Union[int, str],
+        flag_missing: str = "NONE",
+    ) -> Tuple[pd.DataFrame, str, str]:
+        """Using two strategies, build a map between transformations that share 
+            a TransformationKernel. Returns a Tuple with the following elements:
+            
+            (
+                df_out,         # DataFrame mapping each TransformerKernel to 
+                                #   any associated transformations in each 
+                                #   strategy. Strategy a is associated with 
+                                #   field_key_tr_a and Strategy b is associated 
+                                #   with field_key_tr_b
+                field_key_tr_a, # Field storing transformations for Strategy a
+                field_key_tr_b, # Field storing transformations for Strategy b
+            )
+            
+        
+        Function Arguments
+        ------------------
+        strategy_spec_a : Union[int, str]
+            Strategy specification (id or code) for the first strategy. Fed to 
+            Strategies.get_strategy
+        strategy_spec_b : Union[int, str]
+            Strategy specification (id or code) for the first strategy. Fed to 
+            Strategies.get_strategy
+
+        Keyword Arguments
+        -----------------
+        flag_missing : str
+            String flag to use for strategies that don't have a transformation 
+            associated with a given tkernel
+        """
+
+        ##  INITIALIZATION
+        
+        # shortcuts
+        matt = self.model_attributes
+        transformations = self.transformations
+        tkernels = transformations.transformer_kernels
+        
+        # try getting strategies
+        strategy_a = self.get_strategy(strategy_spec_a, stop_on_error = True, )
+        strategy_b = self.get_strategy(strategy_spec_b, stop_on_error = True, )
+
+        # field shortcuts
+        field_key_tk = tkernels.attribute_transformer_kernel_code.key
+        field_key_tr = transformations.field_attr_code
+        field_key_tr_a = f"{field_key_tr}_{strategy_a.id_num}"
+        field_key_tr_b = f"{field_key_tr}_{strategy_b.id_num}"
+
+
+        ##  START BUILDING DF
+
+        # next, retrieve all transformations for each strategy
+        transformation_list_a = strategy_a.get_transformation_list(
+            strategy_a.transformation_specification,
+            transformations,
+        )
+        transformation_list_b = strategy_a.get_transformation_list(
+            strategy_b.transformation_specification,
+            transformations,
+        )
+
+        # next, build data frames
+        df_a = pd.DataFrame(
+            [
+                [x.code, tkernels.get_tkernel(x.transformer_code).code]
+                for x in transformation_list_a
+            ],
+            columns = [
+                field_key_tr_a,
+                field_key_tk,
+            ]
+        )
+
+        df_b = pd.DataFrame(
+            [
+                [x.code, tkernels.get_tkernel(x.transformer_code).code]
+                for x in transformation_list_b
+            ],
+            columns = [
+                field_key_tr_b,
+                field_key_tk,
+            ]
+        )
+
+        df_out = (
+            pd.merge(
+                df_a,
+                df_b,
+                how = "outer",
+            )
+            .fillna(flag_missing, )
+            .astype(str)
+        )
+
+        # set output tuple
+        out = (
+            df_out,
+            field_key_tr_a,
+            field_key_tr_b,
+        )
+
+        return out
+
+
+
     def build_map_tornado_whirlpool(self,
+        attribute_strategy: Union[pd.DataFrame, None] = None,
         drop_missing: bool = True, 
         flag_missing: int = -999,
     ) -> Tuple[pd.DataFrame, str, str]:
@@ -1206,6 +1317,11 @@ class Strategies:
                                 #   whirlpool experiment
             )
 
+        Function Arguments
+        ------------------
+        strat_id : int
+            Strategy ID used to set tornado and whirlpool experiments
+
         Keyword Arguments
         -----------------
         drop_missing : bool
@@ -1219,7 +1335,11 @@ class Strategies:
         # shortcuts
         attr = self.attribute_table
         field_code = self.field_strategy_code
-        tab = attr.table
+        tab = (
+            attr.table
+            if not isinstance(attribute_strategy, pd.DataFrame)
+            else attribute_strategy
+        )
 
         # initialize dictionary and some keys
         dict_map = {}
@@ -1229,6 +1349,7 @@ class Strategies:
         key_whirlpool_l = key_whirlpool.lower()
 
         # some fields
+        field_sid = attr.key
         field_tcode = self.transformations.field_attr_code
         field_out_scode_torn = f"{attr.key}_{key_tornado_l}"
         field_out_scode_whir = f"{attr.key}_{key_whirlpool_l}"
@@ -1237,6 +1358,7 @@ class Strategies:
         ##  BUILD DICTIONARY
         
         for i, row in tab.iterrows():
+            
             # get code and id
             id_strat = int(row[attr.key])
             code = str(row[field_code])
@@ -1244,6 +1366,7 @@ class Strategies:
             # try getting whirlpool/tornado information
             try_tup = self.get_tw_strategy_codes(
                 code,
+                -1,
                 None,
                 invert = True,
             )
@@ -1255,28 +1378,30 @@ class Strategies:
             ##        IN ADDITION TO STRATEGY PERTURBATION INFO
 
             # verify transformation exists
-            tw_type, code_transformation = try_tup
+            tw_type, s_code_base, code_transformation = try_tup
             transformation = self.transformations.get_transformation(code_transformation, )
             if transformation is None: continue
             
             # check if exists already
+            key = (code_transformation, s_code_base, )
             dict_cur = {tw_type: id_strat, }
-            (
-                dict_map[code_transformation].update(dict_cur, )
-                if code_transformation in dict_map.keys()
-                else dict_map.update({code_transformation: dict_cur, })
-            )
 
-            # otherwise, init
+            (
+                dict_map[key].update(dict_cur, )
+                if key in dict_map.keys()
+                else dict_map.update({key: dict_cur, })
+            )
 
 
         ##  NEXT, UNWRAP
 
         rows = []
         for k, v in dict_map.items():
+
             # build new row
             row_new = [
-                k,
+                k[0],
+                k[1],
                 v.get(key_tornado, flag_missing, ),
                 v.get(key_whirlpool, flag_missing, )
             ]
@@ -1293,6 +1418,7 @@ class Strategies:
         # build dataframe
         fields_out = [
             field_tcode,
+            field_sid,
             field_out_scode_torn,
             field_out_scode_whir
         ]
@@ -1888,12 +2014,14 @@ class Strategies:
         code_prependages_skip: Union[str, List[str]] = "PFLO",
         delim: Union[str, None] = None,
         delim_code: str = _DELIM_CODES_DEFAULT,
-        max_length_intersection: Union[int, None] = 0, 
+        max_length_intersection: Union[int, None] = 0,
         strategy_stress: Union[int, str, None] = None,
         **kwargs,
     ) -> Union[pd.DataFrame, None]:
         """Build strategies designed by adding transformations 1-by-1 to a 
-            strategy
+            strategy.
+
+        NOTE: the strategy code uses "0" if ALL strategies are stressed.
 
         Function Arguments
         ------------------
@@ -1906,11 +2034,17 @@ class Strategies:
             Code to prepend to new strategies
         delim : str 
             Delimiter used to split transformation specifications
+
         delim_code : str
             Delimiter used to track transformation code hierarchy 
         max_length_intersection : Union[int, None]
             Optional specification of maximum size of intersection between 
             strategy_base and potential strategies
+        strategy_id_stress_all : int
+            Strategy ID to use in new strategy code to denote that
+            transformation set was unrestricted. E.g, if strategy_stress is
+            None, then this id will be used to denote the strategy set that was
+            used. 
         strategy_stress : Union[int, str, None]
             Optional strategy to decompose into tornado; if None, will build
             tornado design for each defined transformation
@@ -1956,9 +2090,12 @@ class Strategies:
         # set transformation codes to iterate over
         codes_iter = self.transformations.all_transformation_codes
 
-        # restrict to one strategy's set?
+        # restrict to one strategy's set? set default strat_id stresse
         strategy_stress = self.get_strategy(strategy_stress, )
+        strat_id_stress = strat.id_num 
+
         if is_strategy(strategy_stress, ):
+            strat_id_stress = strategy_stress.id_num
             transformations_restrict = strategy_stress.get_transformation_list(
                 strategy_stress.transformation_specification,
                 self.transformations,
@@ -2007,7 +2144,11 @@ class Strategies:
             spec_new = delim.join(spec_new)
             
             # new code and id
-            code_new = self.get_tw_strategy_codes(code, "tornado", )
+            code_new = self.get_tw_strategy_codes(
+                code, 
+                strat_id_stress,
+                "tornado", 
+            )
             name_new = self.get_tw_strategy_names(
                 code,
                 strat.name,
@@ -2041,7 +2182,6 @@ class Strategies:
 
     def build_whirlpool_strategies(self,
         strategy: Union[int, str, None],
-        code_prepend: str = _PREFIX_STRAT_CODE_PERT_WHIRLPOOL,
         delim: Union[str, None] = None,
         ids: Union[None, List[int]] = None,
         **kwargs,
@@ -2100,7 +2240,11 @@ class Strategies:
         for i, code in enumerate(codes):
             
             # verify that the new code and name are unique
-            code_new = self.get_tw_strategy_codes(code, "whirlpool", )
+            code_new = self.get_tw_strategy_codes(
+                code, 
+                strat.id_num,
+                "whirlpool", 
+            )
             name_new = self.get_tw_strategy_names(
                 code,
                 strat.name,
@@ -2309,6 +2453,7 @@ class Strategies:
 
     def get_tw_strategy_codes(self,
         code: str,
+        strategy_id_exp: int,
         return_type: str,
         delim_code: str = _DELIM_CODES_DEFAULT,
         invert: bool = False,
@@ -2321,6 +2466,12 @@ class Strategies:
             transformation code to build strategy code for
         return_type : str
             "tornado" or "whirlpool". Ignored if invert = True
+        strategy_id_base : int
+            Strategy id that is pertubred in the experiment; e.g. in a 
+            whirlpool, this is the upper from which transformations are removed.
+            In the tornado, is the strategy to which transformations are added
+            1 x 1.
+
 
         Keyword Arguments
         -----------------
@@ -2345,7 +2496,7 @@ class Strategies:
 
         # return the name
         if not invert:
-            out = f"{code_prepend}{delim_code}{code}"
+            out = f"{code_prepend}{delim_code}{strategy_id_exp}{delim_code}{code}"
             return out
 
         # otherwise, split and check--if first doesn't match, return None
@@ -2356,10 +2507,24 @@ class Strategies:
         ]:
             return None
 
+        # get components
+        strat_id = (
+            int(codes[1])
+            if len(codes) > 2
+            else None
+        )
+
+        code_transformation = (
+            delim_code.join(codes[2:])
+            if len(codes) > 2
+            else delim_code.join(codes[1:])
+        )
+        
         # rejoin and return
         out = (
             codes[0],
-            delim_code.join(codes[1:]),
+            strat_id,
+            code_transformation,
         )
 
         return out

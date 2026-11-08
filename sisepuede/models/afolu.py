@@ -2285,6 +2285,7 @@ class AFOLU:
         df_energy_trajectories: pd.DataFrame,
         vec_fuel_demand_electricity: np.ndarray,
         kludge_inflation_factor: float = 0.0,
+        thresh_sum: float = 1e-7,
         **kwargs,
     ) -> np.ndarray:
         """Estimate the demand for biomass coming from ENTC. Returns vector of
@@ -2440,7 +2441,7 @@ class AFOLU:
         ]
 
         vec_sums = arr_msp[:, inds_check_pp].sum(axis = 1, )
-        if (vec_sums.max() > 1) or (vec_sums.min() < 0):
+        if (vec_sums.max() > 1 + thresh_sum) or (vec_sums.min() < 0):
             raise RuntimeError(f"Invalid {modvar_entc_msp.name} values found: sum must not exceed 1 or be below 0.")
         
         # get biomass residual potential and specified share of production
