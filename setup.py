@@ -43,6 +43,7 @@ setup(
         "sisepuede.analysis",
         "sisepuede.calibration",
         "sisepuede.command_line",
+        "sisepuede.comparisons",
         "sisepuede.core",
         "sisepuede.data_management",
         "sisepuede.geo",
