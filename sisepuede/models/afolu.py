@@ -4132,18 +4132,22 @@ class AFOLU:
             arr_w_non_cereals,
             thresh_correction = None,
         )
-        
+
         # case where any rows are 0
         w = np.where(np.isnan(arr_w_non_cereals[:, 0]))[0]
         if len(w) > 0:
-            arr_w_non_cereals[w, :] = np.nan_to_num(
+            inds_col = self.inds_agrc_non_cereal
+            arr_ow = np.nan_to_num(
                 sf.check_row_sums(
-                    arr_agrc_yield[w, :]*arr_agrc_frac_animal_feed[w, :],
+                    arr_agrc_yield[np.ix_(w, inds_col)]*arr_agrc_frac_animal_feed[np.ix_(w, inds_col)],
                     thresh_correction = None,
                 ),
                 nan = 1/n_non_cereal,
                 posinf = 1/n_non_cereal,
             )
+
+            for row in w:
+                arr_w_non_cereals[row, :] = arr_ow[row, :]
 
 
         ##  ASSIGN TO IMPORTS OUT
@@ -6558,7 +6562,7 @@ class AFOLU:
             ratio_yield,
             vec_import_fracs_for_lvst,
         )
-        
+
         return out
     
 
@@ -6807,6 +6811,11 @@ class AFOLU:
         # update output vector
         vec_agrc_area_target_for_lvst[ind_agrc_c] = area_target_cereals
         vec_agrc_area_target_for_lvst[inds_agrc_nc] = vec_area_target_non_cereals
+        vec_agrc_area_target_for_lvst = np.nan_to_num(
+            vec_agrc_area_target_for_lvst,
+            nan = 0.0,
+            posinf = 0.0,
+        )
 
         # set out
         out = (
@@ -7621,11 +7630,12 @@ class AFOLU:
 
     
             for cat, arr in dict_cat_to_fuel_shares.items():
-                
+
                 # get a shifter
                 arr_out = self.check_tss_arrays(arr, dict_vec_scalars, )
                 tss = suc.TimeSeriesSimplexShifter(arr_out, )
                 arr_out = tss.shift_mass_scalar_vectors(arr_out, dict_vec_scalars, )
+
                 
                 # output array is set for every fuel category; iterate to build
                 #   fields and extraction column indices
@@ -12762,6 +12772,7 @@ class AFOLU:
         #   vec_agrc_frac_imports_for_lvst:
         #       estimated fraction of imports that are used for feed
 
+
         (
             sol_init,
             factor_lvst_dietary_mass_balance_adjustment,
@@ -12780,9 +12791,7 @@ class AFOLU:
             arr_lvst_dem[i],
             method = lde_method,
         )
-        # print(f"factor_lvst_dietary_mass_balance_adjustment = {factor_lvst_dietary_mass_balance_adjustment}")
-        # print(f"factor_lvst_graze_rate = {factor_lvst_graze_rate}")
-        # print(f"vec_agrc_frac_imports_for_lvst = {vec_agrc_frac_imports_for_lvst.astype(int)}")
+
         
         # initialize imports
         self._update_lde_tracking_vectors(
@@ -14184,7 +14193,7 @@ class AFOLU:
             i, 
             vec_agrc_area*vec_agrc_yield_factors, 
         )
-        # print(f"vec_lde_imports = {vec_lde_imports}")
+
         if isinstance(vec_agrc_frac_imports_for_lvst, np.ndarray):
             vec_lde_imports = vec_lde_imports*vec_agrc_frac_imports_for_lvst
 
