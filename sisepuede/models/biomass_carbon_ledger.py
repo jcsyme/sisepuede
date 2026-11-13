@@ -565,6 +565,12 @@ class BiomassCarbonLedger:
         * `vec_young_biomass_c_ag_starting` (T x 1)
             Vector storing the total above-ground biomass in young forests 
             at time t. Column sums of `arr_young_biomass_c_ag_stock`
+s
+        * `vec_young_biomass_c_bg_starting` (T x 1)
+            Vector storing the total below-ground biomass in young forests 
+            at time t; for reporting. `vec_young_biomass_c_ag_starting` 
+            multiplied by `vec_biomass_c_bg_to_ag_ratio[1]` (secondary forest
+            ratio)
 
     """
 
@@ -973,7 +979,6 @@ class BiomassCarbonLedger:
 
         vec_young_sf_curve = vec_young_sf_curve_specification[0:self.n_tp]
 
-
         # conver to 
         vec_frac_biomass_ag_to_dom = self._verify_convert_array_input_to_array(
             frac_decomp,
@@ -1124,6 +1129,7 @@ class BiomassCarbonLedger:
         vec_total_removals_met = np.zeros(n_tp, )
         vec_young_biomass_c_ag_available_from_conversion = np.zeros(n_tp, )
         vec_young_biomass_c_ag_starting = np.zeros(n_tp, )
+        vec_young_biomass_c_bg_starting = np.zeros(n_tp, )
 
 
 
@@ -1258,6 +1264,7 @@ class BiomassCarbonLedger:
         self.vec_total_removals_met = vec_total_removals_met
         self.vec_young_biomass_c_ag_available_from_conversion = vec_young_biomass_c_ag_available_from_conversion
         self.vec_young_biomass_c_ag_starting = vec_young_biomass_c_ag_starting
+        self.vec_young_biomass_c_bg_starting = vec_young_biomass_c_bg_starting
         self.vec_young_sf_curve = vec_young_sf_curve
         self.vec_young_sf_curve_cumulative = vec_young_sf_curve_cumulative
 
@@ -1821,6 +1828,7 @@ class BiomassCarbonLedger:
             * arr_total_biomass_c_ag_starting
             * arr_total_biomass_c_bg_starting
             * vec_total_removals_met
+            * vec_young_biomass_c_bg_starting
             
         """
 
@@ -1915,12 +1923,20 @@ class BiomassCarbonLedger:
         self.arr_total_biomass_c_ag_starting[i] = vec_c_ag_total_update
 
 
-        # 7. update total below-ground biomass by type: arr_total_biomass_c_bg_starting
+        # 7. update below-ground biomass in young secondary forests for reporting
+
+        self.vec_young_biomass_c_bg_starting[i] = (
+            self.vec_young_biomass_c_ag_starting[i]
+            *self.vec_biomass_c_bg_to_ag_ratio[self.ind_frst_secondary]
+        )
+
+
+        # 8. update total below-ground biomass by type: arr_total_biomass_c_bg_starting
 
         self.arr_total_biomass_c_bg_starting[i] = vec_c_ag_total_update*self.vec_biomass_c_bg_to_ag_ratio
 
 
-        # 8. total removals met
+        # 9. total removals met
         
         self.vec_total_removals_met[i] = (
             bmass_removed_conv 
@@ -1930,7 +1946,7 @@ class BiomassCarbonLedger:
         )
 
 
-        # 9. finally, add in total new biomass growth
+        # 10. finally, add in total new biomass growth
         if i > 0:
 
             # shortcuts

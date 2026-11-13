@@ -54,6 +54,12 @@ Output,:math:`\text{CO}_2` Sequestration Potential from Forest Biomass Conversio
  | **NOTE**: This should **not** be used in emission totals. It is for calibration purposes and comparison to inventories only. ",``emission_potential_co2e_$EMISSION-GAS$_frst_sequestration_potential_$CAT-FOREST$`` (``$EMISSION-GAS$ = co2``),``mangroves``|``secondary``,,0,1,1,,0,none,none,,,
 Output,Above Ground C Stock in Forests,c_stock_ag,Above-ground estimated C stock in forests at the start of each time period,``c_stock_frst_ag_$UNIT-MASS$_$CAT-FOREST$`` (``$UNIT-MASS$ = mt``),all,,0,1,1,,0,none,none,,,
 Output,Below Ground C Stock in Forests,c_stock_bg,Below-ground estimated C stock in forests at the start of each time period,``c_stock_frst_bg_$UNIT-MASS$_$CAT-FOREST$`` (``$UNIT-MASS$ = mt``),all,,0,1,1,,0,none,none,,,
+Output,Above Ground C Stock in Young Forests,c_stock_young_ag," | Above-ground estimated C stock in young forests at the start of each time period. 
+ | 
+ | Note that this amount will be less than or equal to the total in the associated forest class as that class already contains young forests; this is for reporting only.",``c_stock_frst_young_ag_$UNIT-MASS$_$CAT-FOREST$`` (``$UNIT-MASS$ = mt``),``mangroves``|``secondary``,,0,1,1,,0,none,none,,,
+Output,Below Ground C Stock in Young Forests,c_stock_young_bg," | Below-ground estimated C stock in young forests at the start of each time period. 
+ | 
+ | Note that this amount will be less than or equal to the total in the associated forest class as that class already contains young forests; this is for reporting only.",``c_stock_frst_young_bg_$UNIT-MASS$_$CAT-FOREST$`` (``$UNIT-MASS$ = mt``),``mangroves``|``secondary``,,0,1,1,,0,none,none,,,
 Output,Forest Biomass Demand Scalar,biomass_demand_scalar,"Biomass demand is estimated from all energy sectors, then availability is determined by resources in forests. Demand satisfied is then characterized by a scalar, which is returned in this vector.",``c_stock_frst_demand_scalar``,none,,0,1,1,,0,none,none,,,
 Output,Total C Stock in Forests,c_stock_total,Total C (above- and below-ground) stock in primary and secondary forests at the start of each time period,``c_stock_frst_total_$UNIT-MASS$`` (``$UNIT-MASS$ = mt``),none,,0,1,1,,0,none,none,,,
 Output,Total C Stock Lost to Decomposition,c_stock_decomposition,Total C stock lost to decomposition of biomass,``c_stock_frst_decomposition_$UNIT-MASS$`` (``$UNIT-MASS$ = mt``),none,,0,1,1,,0,none,none,,,

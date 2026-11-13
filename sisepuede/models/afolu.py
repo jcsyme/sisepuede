@@ -3287,6 +3287,48 @@ class AFOLU:
 
 
 
+    def extract_lvars_c_stock_ag_young(self,
+        ind_m: int,
+        ind_s: np.ndarray,
+        ledger: bcl.BiomassCarbonLedger,
+        ledger_mangroves: bcl.BiomassCarbonLedger,
+        vec_frst_frac_dm: np.ndarray,
+    ) -> pd.DataFrame:
+        """Extract total above ground C stock by type in young forests from 
+            each ledger
+        """
+        # get 
+        (
+            arr_frst_c_stock_young_ag,
+            modvar_frst_c_stock_young_ag,
+            scalar_frst_c_stock_young_ag,
+        ) = self.evl_support_get_c_stock_mass_var_info(
+            ledger, 
+            self.modvar_frst_c_stock_young_ag, 
+        )
+
+        # assign to applicable rows and convert to C
+        arr_frst_c_stock_young_ag[:, ind_s] = ledger.vec_young_biomass_c_ag_starting.copy()
+        arr_frst_c_stock_young_ag[:, ind_m] = ledger_mangroves.vec_young_biomass_c_ag_starting.copy()
+
+        arr_frst_c_stock_young_ag = sf.do_array_mult(
+            arr_frst_c_stock_young_ag,
+            vec_frst_frac_dm,
+        )
+
+        # add to output data frame (scale here so array can be used for total)
+        df_out = self.model_attributes.array_to_df(
+            arr_frst_c_stock_young_ag*scalar_frst_c_stock_young_ag, 
+            modvar_frst_c_stock_young_ag,
+            reduce_from_all_cats_to_specified_cats = True,
+        )
+
+        out = (df_out,  arr_frst_c_stock_young_ag, )
+
+        return out
+
+
+
     def extract_lvars_c_stock_bg_by_type(self,
         ind_m: int,
         inds_ps: np.ndarray,
@@ -3294,7 +3336,7 @@ class AFOLU:
         ledger_mangroves: bcl.BiomassCarbonLedger,
         vec_frst_frac_dm: np.ndarray,
     ) -> pd.DataFrame:
-        """Extract total above ground C stock by type from each ledger
+        """Extract total below-ground C stock by type from each ledger
         """
         (
             arr_frst_c_stock_bg,
@@ -3323,6 +3365,48 @@ class AFOLU:
         )
 
         out = (df_out,  arr_frst_c_stock_bg, )
+
+        return out
+
+
+
+    def extract_lvars_c_stock_bg_young(self,
+        ind_m: int,
+        ind_s: np.ndarray,
+        ledger: bcl.BiomassCarbonLedger,
+        ledger_mangroves: bcl.BiomassCarbonLedger,
+        vec_frst_frac_dm: np.ndarray,
+    ) -> pd.DataFrame:
+        """Extract total below-ground C stock by type in young forests from 
+            each ledger
+        """
+        (
+            arr_frst_c_stock_young_bg,
+            modvar_frst_c_stock_young_bg,
+            scalar_frst_c_stock_young_bg,
+        ) = self.evl_support_get_c_stock_mass_var_info(
+            ledger, 
+            self.modvar_frst_c_stock_young_bg, 
+            #vec_frst_frac_dm,
+        )
+
+        # get from ledger and convert to C
+        arr_frst_c_stock_young_bg[:, ind_s] = ledger.vec_young_biomass_c_bg_starting.copy()
+        arr_frst_c_stock_young_bg[:, ind_m] = ledger_mangroves.vec_young_biomass_c_bg_starting.copy()
+
+        arr_frst_c_stock_young_bg = sf.do_array_mult(
+            arr_frst_c_stock_young_bg,
+            vec_frst_frac_dm,
+        )
+
+        # add to output data frame (scale here so array can be used for total)
+        df_out = self.model_attributes.array_to_df(
+            arr_frst_c_stock_young_bg*scalar_frst_c_stock_young_bg, 
+            modvar_frst_c_stock_young_bg,
+            reduce_from_all_cats_to_specified_cats = True,
+        )
+
+        out = (df_out,  arr_frst_c_stock_young_bg, )
 
         return out
     
@@ -3685,6 +3769,7 @@ class AFOLU:
 
         df_return = []
         ind_m = self.ind_frst_mang
+        ind_s = self.ind_frst_scnd
         inds_ps = [self.ind_frst_prim, self.ind_frst_scnd]
         
         # get BCL mass modvar
@@ -3713,6 +3798,13 @@ class AFOLU:
             ledger_mangroves,
             vec_frst_frac_dm,
         )
+        args_default_young_stock = (
+            ind_m,
+            ind_s,
+            ledger,
+            ledger_mangroves,
+            vec_frst_frac_dm,
+        )
 
 
         ##  BUILD IN ORDER
@@ -3722,12 +3814,22 @@ class AFOLU:
         df_return.append(df_ag_c, )
 
 
-        # 2. below-ground C stock by type
+        # 2. above ground C stock in young forests
+        df_young_ag_c, _ = self.extract_lvars_c_stock_ag_young(*args_default_young_stock, )
+        df_return.append(df_young_ag_c, )
+
+
+        # 3. below-ground C stock by type
         df_bg_c, arr_frst_c_stock_bg = self.extract_lvars_c_stock_bg_by_type(*args_default, )
         df_return.append(df_bg_c, )
 
 
-        # 3. total C stock at start of each period
+        # 4. below ground C stock in young forests
+        df_young_bg_c, _ = self.extract_lvars_c_stock_bg_young(*args_default_young_stock, )
+        df_return.append(df_young_bg_c, )
+
+
+        # 5. total C stock at start of each period (young forests are already included in these vars)
         df_c_total = self.extract_lvars_c_stock_total(
             arr_frst_c_stock_ag,
             arr_frst_c_stock_bg,
@@ -3737,27 +3839,27 @@ class AFOLU:
         df_return.append(df_c_total, )
 
 
-        # 4. total C stock loss from decomposition
+        # 6. total C stock loss from decomposition
         df_c_decomp = self.extract_lvars_c_stock_decomposition(*args_default, )
         df_return.append(df_c_decomp, )
 
 
-        # 5. total CO2 emissions from decomposition
+        # 7. total CO2 emissions from decomposition
         df_co2_decomp = self.extract_lvars_emission_co2_decomposition(*args_default, )
         df_return.append(df_co2_decomp, )
     
 
-        # 6. total C stock removals met
+        # 8. total C stock removals met
         df_c_removals = self.extract_lvars_c_stock_removals(*args_default, )
         df_return.append(df_c_removals, )
 
         
-        # 7. get CO2 sequestration in new biomass
+        # 9. get CO2 sequestration in new biomass
         df_co2_seq = self.extract_lvars_emission_co2_sequestration(*args_default, )
         df_return.append(df_co2_seq, )
 
 
-        # 8. get CO2 conversion emissions in above-ground biomass
+        # 10. get CO2 conversion emissions in above-ground biomass
         df_co2_conv_agb = self.extract_lvars_emission_co2_conversion(
             arrs_lndu_emissions_conv_agb_matrices,
             self.modvar_lndu_emissions_co2_conv_ag,   
@@ -3766,7 +3868,7 @@ class AFOLU:
         df_return.append(df_co2_conv_agb, )
 
 
-        # 9. get CO2 conversion emissions in above-ground biomass
+        # 11. get CO2 conversion emissions in above-ground biomass
         df_co2_conv_bgb = self.extract_lvars_emission_co2_conversion(
             arrs_lndu_emissions_conv_bgb_matrices,
             self.modvar_lndu_emissions_co2_conv_bg,
@@ -3775,7 +3877,7 @@ class AFOLU:
         df_return.append(df_co2_conv_bgb, )
 
 
-        # 10. get CO2 conversion away emissions in above-ground biomass
+        # 12. get CO2 conversion away emissions in above-ground biomass
         df_co2_conv_away_agb = self.extract_lvars_emission_co2_conversion_away(
             arrs_lndu_land_conv_agb,
             self.modvar_lndu_emissions_co2_conv_ag_away,
@@ -3784,7 +3886,7 @@ class AFOLU:
         df_return.append(df_co2_conv_away_agb, )
 
 
-        # 11. get CO2 conversion away emissions in above-ground biomass
+        # 13. get CO2 conversion away emissions in above-ground biomass
         df_co2_conv_away_bgb = self.extract_lvars_emission_co2_conversion_away(
             arrs_lndu_land_conv_bgb,
             self.modvar_lndu_emissions_co2_conv_bg_away,
@@ -3793,14 +3895,14 @@ class AFOLU:
         df_return.append(df_co2_conv_away_bgb, )
         
 
-        # 12. get CO2 emissions from fuelwood removals
+        # 14. get CO2 emissions from fuelwood removals
         df_co2_removals_fuelwood = self.extract_lvars_emission_co2_removals_fuelwood(
             *args_default,
             vec_removals_fw,
         )
         df_return.append(df_co2_removals_fuelwood, )
 
-        # 13. CO2 Emissions from HWP
+        # 15. CO2 Emissions from HWP
         # ACCOUNTING NOTE: These should not be part of the emission total yet; 
         #                       have to ensure they they are not being double
         #                       counted against removals
