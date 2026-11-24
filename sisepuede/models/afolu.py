@@ -7738,7 +7738,6 @@ class AFOLU:
                 arr_out = self.check_tss_arrays(arr, dict_vec_scalars, )
                 tss = suc.TimeSeriesSimplexShifter(arr_out, )
                 arr_out = tss.shift_mass_scalar_vectors(arr_out, dict_vec_scalars, )
-
                 
                 # output array is set for every fuel category; iterate to build
                 #   fields and extraction column indices

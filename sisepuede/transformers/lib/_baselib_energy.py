@@ -25,6 +25,34 @@ import sisepuede.utilities._toolbox as sf
 #    SUPPORT FUNCTIONS    #
 ###########################
 
+def get_fuel_cats_to_fuel_vars(
+    subsec: str,
+    model_enercons: 'EnergyConsumption',
+    key_fuel_frac: str = "fuel_fraction",
+) -> dict:
+    """Get a dictionary mapping fuel categories to 
+    """
+
+    # get 
+    matt = model_enercons.model_attributes
+    dict_func = {
+        matt.subsec_name_inen: model_enercons.get_inen_dict_fuel_categories_to_fuel_variables(),
+        matt.subsec_name_scoe: model_enercons.get_scoe_dict_fuel_categories_to_fuel_variables(),
+        matt.subsec_name_trns: model_enercons.get_trns_dict_fuel_categories_to_fuel_variables()
+    }
+
+    dict_out = dict_func.get(subsec, )
+    if dict_out is None:
+        return None
+
+    dict_out = dict(
+        (k, v.get(key_fuel_frac, )) for k, v in dict_out[0].items()
+    )
+
+    return dict_out
+
+
+
 def get_renewable_categories_from_inputs_final_tp(
     df_input: pd.DataFrame,
     model_enerprod: ml.EnergyProduction,
@@ -2756,16 +2784,14 @@ def transformation_scoe_electrify_category_to_target(
     subsec = model_attributes.subsec_name_scoe
 
     # used for filtering
-    dict_enercons, _ = model_enercons.get_scoe_dict_fuel_categories_to_fuel_variables()
+    #dict_enercons, _ = model_enercons.get_scoe_dict_fuel_categories_to_fuel_variables()
+    dict_enercons = get_fuel_cats_to_fuel_vars(subsec, model_enercons, )
 
     
     ##  SET SOURCE CATEGORIES
 
-    # get the model variables
-    modvars = []
-    for k, v in model_enercons.get_scoe_dict_fuel_categories_to_fuel_variables()[0].items():
-        modvar = v.get("fuel_fraction")
-        if modvar is not None: modvars.append(modvar)
+    modvars_all = list(dict_enercons.values())
+    modvars = modvars_all.copy()
     
     # fuel attributes
     attr_enfu = model_attributes.get_attribute_table(
@@ -2779,24 +2805,18 @@ def transformation_scoe_electrify_category_to_target(
         else None
     )
 
+
     # filter valid fuel fracs
     if sf.islistlike(cats_enfu_source):
         modvars_filt = []
 
-        for cat in cats_enfu_source:
-            # get first dictionary mapping fuel categories to SCOE variables
-            modvar_name_fuel_frac = dict_enercons.get(cat)
-            if modvar_name_fuel_frac is None: continue
-
-            # try getting the fuel fraction variable
-            modvar_name_fuel_frac = modvar_name_fuel_frac.get("fuel_fraction")
-            if modvar_name_fuel_frac is None: continue
-
+        for cat_enfu in cats_enfu_source + [cat_enfu_target]:
+            modvar_name_fuel_frac = dict_enercons.get(cat_enfu, )
             if modvar_name_fuel_frac in modvars:
-                modvars_filt.append(modvar_name_fuel_frac)
+                modvars_filt.append(modvar_name_fuel_frac, )
 
         modvars = modvars_filt
-
+    
 
     ##  CHECK TARGET CATEGORY
 
@@ -2805,11 +2825,10 @@ def transformation_scoe_electrify_category_to_target(
         if not cat_enfu_target in attr_enfu.key_values
         else cat_enfu_target
     )
-    
-    # get modvar name associated with target
-    modvar_name_enfu_targ = dict_enercons.get(cat_enfu_target)
-    modvar_name_enfu_targ = modvar_name_enfu_targ.get("fuel_fraction")
 
+    modvar_fuel_target = model_attributes.get_variable(
+        dict_enercons.get(cat_enfu_target, )
+    )
 
 
     ##  ITERATE OVER REGIONS AND MODVARS TO BUILD TRANSFORMATION
@@ -2822,12 +2841,19 @@ def transformation_scoe_electrify_category_to_target(
             .reset_index(drop = True)
         )
         df_in_new = df_in.copy()
+
+        # skip?
+        if region not in regions_apply:
+            df_out.append(df_in_new)
+            continue
+
+
         vec_tp = list(df_in[model_attributes.dim_time_period])
         n_tp = len(df_in)
 
         # get electric categories and build dictionary of target values
         cats_scoe_all_met_by_target = model_attributes.get_variable_categories(
-            modvar_name_enfu_targ,
+            modvar_fuel_target,
         )
 
         cats_scoe_apply = (
@@ -2835,30 +2861,44 @@ def transformation_scoe_electrify_category_to_target(
             if isinstance(cats_scoe_apply, list) 
             else cats_scoe_all_met_by_target
         )
-        dict_targets_final_tp = dict((x, magnitude) for x in cats_scoe_apply)
+        dict_targets_final_tp = dict((x, max(min(magnitude, 1), 0)) for x in cats_scoe_apply)
 
-        # skip?
-        if region not in regions_apply:
-            df_out.append(df_in_new)
-            continue
-
+        
+        ##  ITERATE OVER TARGET CATGORIES
         
         for cat in dict_targets_final_tp.keys():
             
+            # get model variables that are adjusted and the total source mass available
+            modvars_adjust = []
+            vec_total_avail = 0
+
+            for modvar in modvars:
+                
+                modvar = model_attributes.get_variable(modvar, )
+
+                if cat in model_attributes.get_variable_categories(modvar):
+                    field_modvar_adjust = modvar.build_fields(
+                        category_restrictions = cat,
+                    )
+                    modvars_adjust.append(modvar)
+                    if modvar.name == modvar_fuel_target.name: continue
+
+                    # add to total available to transfer if not target fuel
+                    vec_total_avail += df_in[field_modvar_adjust].to_numpy()
+            
+
+            # get target field
             field_enfu_target = model_attributes.build_variable_fields(
-                modvar_name_enfu_targ,
+                modvar_fuel_target,
                 restrict_to_category_values = cat,
             )
 
-            val_final_elec = float(df_in[field_enfu_target].iloc[n_tp - 1])
-            target_value = min(max(dict_targets_final_tp.get(cat) + val_final_elec, 0), 1)
-            scale_non_elec = 1 - target_value
+            # some key values
+            vec_final_preadj_targ = df_in[field_enfu_target].to_numpy()
+            vec_target_shift = vec_total_avail*dict_targets_final_tp.get(cat)
+            vec_target_final = vec_final_preadj_targ + vec_target_shift
+            vec_scale_non_elec = 1 - dict_targets_final_tp.get(cat)
 
-            # get model variables that need to be adjusted
-            modvars_adjust = []
-            for modvar in modvars:
-                if cat in model_attributes.get_variable_categories(modvar):
-                    modvars_adjust.append(modvar)
 
             # loop over adjustment variables to build new trajectories
             for modvar in modvars_adjust:
@@ -2868,12 +2908,10 @@ def transformation_scoe_electrify_category_to_target(
                 )
 
                 vec_old = np.array(df_in[field_cur])
-                val_final = vec_old[n_tp - 1]
-
                 val_new = (
-                    (val_final/(1 - val_final_elec))*scale_non_elec 
+                    vec_old*vec_scale_non_elec
                     if (field_cur != field_enfu_target) 
-                    else target_value
+                    else vec_target_final
                 )
                 vec_new = vec_ramp*val_new + (1 - vec_ramp)*vec_old
 
@@ -2882,8 +2920,10 @@ def transformation_scoe_electrify_category_to_target(
         df_out.append(df_in_new)
 
 
-    # concatenate and add strategy if applicable
+    ##  CONCATENATE AN ADD STRATEGY IF APPLICABLE
+
     df_out = pd.concat(df_out, axis = 0).reset_index(drop = True)
+
     if isinstance(strategy_id, int):
         df_out = sf.add_data_frame_fields_from_dict(
             df_out,
