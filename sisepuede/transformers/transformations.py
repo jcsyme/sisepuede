@@ -14,9 +14,19 @@ import sisepuede.transformers.transformer_kernels as trs
 import sisepuede.utilities._toolbox as sf
 
 
+###############################
+#    SOME GLOBAL VARIABLES    #
+###############################
 
+# error classes
+class TransformationCompilationError(Exception):
+    pass
+
+# module variables
 _MODULE_CODE_SIGNATURE = "TX"
 _MODULE_UUID = "5FF5362F-3DE2-4A58-9CB8-01CB851D3CDC" 
+
+# transformation information
 _TRANSFORMATION_REGEX_FLAG_PREPEND = "transformation"
 
 
@@ -446,6 +456,10 @@ class Transformations:
             * `df_input`: the input dataframe of base SISEPUEDE inputs
         
         Additionally, "field_region" can be included if the region field differs from `model_attributes.dim_region`
+    verify_compilation : bool
+        Verify that the tranformation builds correctly? If True, slows initialization by testing all transformations at build. 
+        * False:    Doesn't try to build the transformation DataFrame on instantiation. Can lead to errors when building strategies.
+        * True:     Tries to build the transformation after initializing the transformation object. If fails, depends on stop_on_error.
     """
 
     def __init__(self,
@@ -457,6 +471,7 @@ class Transformations:
         regex_transformation_config: re.Pattern = re.compile(f"{_TRANSFORMATION_REGEX_FLAG_PREPEND}_(.\w*).yaml"),
         stop_on_error: bool = True,
         transformer_kernels: Union[trs.TransformerKernels, None] = None,
+        verify_compilation: bool = True,
         **kwargs,
     ) -> None:
         
@@ -482,6 +497,7 @@ class Transformations:
         self._initialize_transformations(
             baseline_id = baseline_id,
             stop_on_error = stop_on_error,
+            verify_compilation = verify_compilation,
             **kwargs,
         )
         self._initialize_uuid()
@@ -590,6 +606,7 @@ class Transformations:
         baseline_id: int = 0,
         default_nm_prepend: str = "Transformation",
         stop_on_error: bool = True,
+        verify_compilation: bool = True,
         **kwargs,
     ) -> None:
         """Initialize the transformer used to build transformations. 
@@ -604,8 +621,17 @@ class Transformations:
             String prepended to the id to generate names for transformations 
             that have invalid names specified
         stop_on_error : bool
-            Stop if a transformation fails? If False, logs and skips the failed 
-            transformation
+            Stop if a transformation fails to build? If False, logs and skips 
+            the failed transformation
+        verify_compilation : bool
+            Verify that the tranformation builds correctly? If True, slows 
+            initialization by testing all transformations at build. 
+            * False:    Doesn't try to build the transformation DataFrame on
+                        instantiation. Can lead to errors when building 
+                        strategies.
+            * True:     Tries to build the transformation after initializing the
+                        transformation object. If fails, depends on 
+                        stop_on_error.
         """
 
         ## INIT
@@ -627,6 +653,7 @@ class Transformations:
         dict_transformation_code_to_fp = {
             transformation_baseline.code: None,
         }
+
 
         # iterate over available files 
         for fp in files_transformation_build:
@@ -654,6 +681,19 @@ class Transformations:
                 # warn and skip if there's a problem and we're not stopping
                 self._log(msg, type_log = "warning", )
                 continue
+
+            if verify_compilation:
+                try:
+                    transformation()
+
+                except Exception as e:
+                    msg = f"DataFrame compilation for transformation {transformation.code} failed: {e}"
+                    if stop_on_error:
+                        TransformationCompilationError(msg)
+                    else:
+                        self._log(msg, type_log = "warning", )
+            
+
             
             # otherwise, update dictionaries
             dict_all_transformations.update({transformation.code: transformation})
@@ -1298,6 +1338,68 @@ class Transformations:
             dict_out.update(dict_update)
         
         return dict_out
+
+
+
+    def identify_failing_tranformations(self,
+        codes: Union[List[str], None] = None,
+        stop_on_error: bool = False,
+        verbose: bool = False,
+    ) -> List[str]:
+        """Returns a list of transformation codes that FAILED. If None are 
+            found, returns an empty list.
+
+        Function Arguments
+        ------------------
+
+        Keyword Arguments
+        -----------------
+        codes : Union[List[str], None]
+            Optional list of transformation codes to operate on
+        stop_on_error : bool
+            Stop on error when trying to build transformation DataFrame? If 
+            True, will stop on the first transformation that fails and print the 
+            code + the error.
+        verbose : bool
+            Only applies if !stop_on_error; if True, prints the same error 
+            message, but will continue. This behavior means that the error 
+            message will be printed for all transformation codes that fail.
+        """
+
+        ##  INITIALIZATION 
+
+        # get transformation codes to iterate over
+        codes = (
+            self.all_transformation_codes
+            if not sf.islistlike(codes)
+            else [x for x in self.all_transformation_codes if x in codes]
+        )
+
+        if len(codes) == 0:
+            return []
+
+
+        ##  ITERATE WITH CHECKS
+
+        codes_fail = []
+        
+        for code in codes:
+            transformation = self.get_transformation(code, )
+
+            try:
+                transformation()
+
+            except Exception as e:
+                msg = f"Unable to build transformation '{code}': {e}"
+                if stop_on_error: 
+                    raise TransformationCompilationError(msg)
+
+                if verbose: print(msg)
+
+                codes_fail.append(code)
+
+
+        return codes_fail
     
 
 

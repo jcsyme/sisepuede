@@ -818,6 +818,71 @@ def clean_row_stochastic_matrix(
 
 
 
+def compare_df_cols(
+    df1: pd.DataFrame,
+    df2: pd.DataFrame,
+    fields_ignore: Union[List[str], None] = None,
+    stop_on_error: bool = False, 
+    thresh: float = 1e-6,
+    verbose: bool = False,
+) -> List[str]:
+    """Compare columns in two dfs to see which differ. Differences are based on 
+        maximum error fraction thresh.
+    
+    Function Arguments
+    ------------------
+    df1 : pd.DataFrame
+        First DataFrame to compare
+    df2 : pd.DataFrame
+        Second DataFrame to compare
+    
+    Keyword Arguments
+    -----------------
+    fields_ignore: Union[List[str], None]
+        Fields to ignore. If None, compares all columns
+    stop_on_error : bool
+        Stop if column comparison fails? Happens often with non-integer or float
+        columns.
+    thresh : float
+        Threshold for errors. If max(|(c1 - c2)/c2|) > thresh, then the columns 
+        are considered to be different. If c2 = 0, then the metric is |c1 - c2|
+    verbose : bool
+        Print if there are errors in comparison. Only active if !stop_on_error
+    """
+
+    # verify fields to ignore
+    fields_ignore = [] if not islistlike(fields_ignore) else fields_ignore
+    fields_out = []
+
+    # iterate over shared columns
+    for k in df1:
+        if (k not in df2) or (k in fields_ignore): continue
+
+        v1 = df1[k].to_numpy()
+        v2 = df2[k].to_numpy()
+
+        try:
+            err = np.nan_to_num(
+                (v1 - v2)/v1,
+                nan = v1 - v2,
+            )
+
+        except Exception as e:
+            msg = f"Unable to compare column {k}: {e}"
+            if stop_on_error:
+                raise RuntimeError(msg)
+            
+            if verbose: print(msg)
+            continue
+
+        test = np.abs(err).max() > thresh
+        if test: fields_out.append(k)
+
+
+    return fields_out
+
+
+
 def _concat_df(
     dfs: Union[pd.DataFrame, List[pd.DataFrame]],
     axis: int = 0,
@@ -1564,8 +1629,8 @@ def get_args(
     func: callable,
     include_defaults: bool = False,
 ) -> Union[Tuple[List[str], Union[List[str], Dict[str, Any]]], None]:
-    """
-    Return the arguments (*args) and keyword arguments (**kwargs) of a function. 
+    """Return the arguments (*args) and keyword arguments (**kwargs) of a 
+        function. 
     
     Returns a tuple of the form `(args, kwargs)`, where `args` and `kwargs` are 
         lists of argument names. 
@@ -1576,12 +1641,14 @@ def get_args(
             
     Function Arguments
     ------------------
-    - func: callable with arguments and keyword arguments
+    func : Callable
+        Callable with arguments and keyword arguments
     
     Keyword Arguments
     -----------------
-    - include_defaults: If true, then `kwargs` is a dictionary mapping each 
-        keyword argument to its default value instead of a list.
+    include_defaults : bool
+        If true, then `kwargs` is a dictionary mapping each keyword argument to 
+        its default value instead of a list.
     """
 
     if not callable(func):

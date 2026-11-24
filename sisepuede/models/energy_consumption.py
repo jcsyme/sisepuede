@@ -2090,18 +2090,16 @@ class EnergyConsumption:
             raise ValueError(msg)
 
 
-        ##  estimate demand at point of use (account for heat delivery efficiency)
+        ##  ESTIMATE DEMAN AT POINT OF USE (ACCOUNT FOR HEAT DEMAND EFFICIENCY HERE) 
 
         # loop over the different fuels to generate the true demand
         arr_frac_norm = 0
 
         # use fractions of demand + efficiencies to calculate fraction of consumption
-        for modvar_fuel_frac in dict_fuel_fracs.keys():
+        for modvar_fuel_frac, arr_frac in dict_fuel_fracs.items():
 
-            # get efficiency, then fuel fractions
+            # get efficiency variable 
             modvar_fuel_eff = dict_fuel_frac_to_eff.get(modvar_fuel_frac, )
-            arr_frac = dict_fuel_fracs.get(modvar_fuel_frac, )
-
             arr_efficiency = self.model_attributes.extract_model_variable(#
                 df_neenergy_trajectories,
                 modvar_fuel_eff,
@@ -2125,7 +2123,7 @@ class EnergyConsumption:
                 False, 
                 "standard",
             )
-            arr_demand = sf.do_array_mult(arr_demand[0]*arr_growth_demand, arr_activity)
+            arr_demand = sf.do_array_mult(arr_demand[0]*arr_growth_demand, arr_activity, )
 
         else:
             self._log(
@@ -3719,6 +3717,7 @@ class EnergyConsumption:
             vec_rates_gdp_per_capita,
             dict_arrs_scoe_frac_energy
         )
+
         arr_scoe_demand_heat_energy_mmgdp, dict_scoe_demands_by_fuel_heat_mmmgdp = self.project_energy_consumption_by_fuel_from_effvars(
             df_neenergy_trajectories,
             self.modvar_scoe_consumpinit_energy_per_mmmgdp_heat,
@@ -4669,8 +4668,7 @@ class EnergyConsumption:
         df_neenergy_trajectories: pd.DataFrame,
         subsectors_project: Union[list, str, None] = None
     ) -> pd.DataFrame:
-        """
-        Run the EnergyConsumption model. Take a data frame of input variables 
+        """Run the EnergyConsumption model. Take a data frame of input variables 
             (ordered by time series) and return a data frame of output variables 
             (model projections for energy--including carbon capture and 
             sequestration (CCSQ), fugitive emission (FGTV), industrial energy 
@@ -4717,9 +4715,21 @@ class EnergyConsumption:
 
         # make sure socioeconomic variables are added and
         df_neenergy_trajectories, df_se_internal_shared_variables = self.model_socioeconomic.project(df_neenergy_trajectories)
+        
         # check that all required fields are contained—assume that it is ordered by time period
         self.check_df_fields(df_neenergy_trajectories)
-        dict_dims, df_neenergy_trajectories, n_projection_time_periods, projection_time_periods = self.model_attributes.check_projection_input_df(df_neenergy_trajectories, True, True, True)
+        (
+            dict_dims, 
+            df_neenergy_trajectories, 
+            n_projection_time_periods, 
+            projection_time_periods,
+        ) = self.model_attributes.check_projection_input_df(
+            df_neenergy_trajectories, 
+            True, 
+            True, 
+            True,
+        )
+        
         subsectors_project = self.get_projection_subsectors(subsectors_project = subsectors_project)
 
 

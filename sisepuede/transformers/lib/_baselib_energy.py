@@ -2574,32 +2574,49 @@ def transformation_scoe_decrease_demand_for_appliance_energy(
     magnitude: float,
     vec_ramp: np.ndarray,
     model_attributes: ma.ModelAttributes,
+    categories: Union[List[str], None] = None,
     model_enercons: Union[me.EnergyConsumption, None] = None,
     **kwargs
 ) -> pd.DataFrame:
-    """
-    Implement the "Increase appliance efficiency" transformation in SCOE
+    """Implement the "Increase appliance efficiency" transformation in SCOE
 
     Function Arguments
     ------------------
-    - df_input: input data frame containing baseline trajectories
-    - magnitude: magnitude of reduction in electric energy demand relative to 
-        final time period (interpreted as an proportional scalar--e.g., a 30% 
-        retuction in  electric energy demand in the final time period is entered 
-        as 0.3).
-    - model_attributes: ModelAttributes object used to call strategies/variables
-    - vec_ramp: ramp vec used for implementation
+    df_input : DataFrame
+        Input data frame containing baseline trajectories
+    magnitude : float
+        Magnitude of reduction in electric energy demand relative to final time 
+        period (interpreted as an proportional scalar--e.g., a 30% reduction in  
+        electric energy demand in the final time period is entered as 0.3)
+    model_attributes : ModelAttributes 
+        ModelAttributes object used to call strategies/variables
+    vec_ramp : np.darray
+        Ramp vector used for implementation
 
     Keyword Arguments
     -----------------
-    - field_region: field in df_input that specifies the region
-    - model_enercons: optional EnergyConsumption object to pass for variable 
-        access
-    - regions_apply: optional set of regions to use to define strategy. If None,
-        applies to all regions.
-    - strategy_id: optional specification of strategy id to add to output
-        dataframe (only added if integer)
+    categories : Union[List[str], None]
+        Optional list of categories to which the transformation is applied.
+        * If None, applies to all SCOE categories
+    field_region : Union[str, None]
+        Field in df_input that specifies the region
+    model_enercons : Union[me.EnergyConsumption, None]
+        Optional EnergyConsumption object to pass for variable access
+    regions_apply : Union[List[str], None]
+        Optional set of regions to use to define strategy. 
+        * If None, applies to all regions.
+    strategy_id : Union[int, None]
+        Optional specification of strategy id to add to output DataFrame (only 
+        added if integer)
     """
+    model_enercons = (
+        me.EnergyConsumption(model_attributes)
+        if not me.is_sisepuede_model_nfp_energy(model_enercons)
+        else model_enercons
+    )
+
+    matt = model_enercons.model_attributes
+    categories = matt.get_valid_categories(categories, matt.subsec_name_scoe, )
 
     # call general transformation
     df_out = transformation_general(
@@ -2608,6 +2625,7 @@ def transformation_scoe_decrease_demand_for_appliance_energy(
         {
             model_enercons.modvar_scoe_demscalar_elec_energy_demand : {
                 "bounds": (0, np.inf),
+                "categories": categories,
                 "magnitude": float(sf.vec_bounds(1 - magnitude, (0, np.inf))),
                 "magnitude_type": "baseline_scalar",
                 "time_period_baseline": get_time_period(model_attributes, "max"),

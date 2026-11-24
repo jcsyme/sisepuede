@@ -2610,6 +2610,7 @@ class AFOLU:
             fill_value = 0.0,
         )     
 
+
         # try to run the energy consumption model 
         try:
             df_energy_cons_out = self.model_enercons(df_for_enercons, )
@@ -12574,7 +12575,7 @@ class AFOLU:
         vec_rates_gdp : np.ndarray
             Vector of GDP growth rates
 
-        Keyword Arguments
+        Keyword Argumentss
         ------------------
         n_tp : int
             Number of time periods to run. If None, runs AFOLU.n_time_periods
@@ -13945,9 +13946,8 @@ class AFOLU:
         x_proj_unadj: Union[np.ndarray, None] = None,
         **kwargs,
     ) -> Dict:
-        """Format adjustment problem inputs
+        """Run the transition adjustment solver from self.q_adjuster.
 
-        
         Function Arguments
         ------------------
         Q : np.ndarray
@@ -14002,7 +14002,7 @@ class AFOLU:
         )
 
         prohibited_transitions = self.qadj_get_prohibited_transitions(prohibit_forest_transitions, )
-        
+
         # run the optimization
         out = self.q_adjuster.solve(
             Q,

@@ -459,8 +459,9 @@ class Strategies:
 
             `strategy_definitions.csv`
         
-        though this can be modified ysing the `fn_strategy_definition` 
-        keyword argument.
+        though this can be modified using the 
+        `strategy_definition_specification` keyword argument, which allows for 
+        passing a different file name or any properly formatted DataFrame.
 
         The strategy definition table *must* include the following columns:
 
@@ -490,32 +491,41 @@ class Strategies:
             
     Initialization Arguments
     ------------------------
-    - transformations: the Transformations object used to define strategies. All
+    transformations : Transformations
+        The Transformations object used to define strategies. All
         strategies that are defined in the `transformation_specification` field
         must be defined in the Transformations object. 
 
     Optional Arguments
     ------------------
-    - baseline_id: optional specification of an ID as baseline. Default is 0.
-    - export_path: optional export path specification.
-        - If "transformations", writes to 
+    baseline_id : int
+        Optional specification of an ID as baseline. Default is 0.
+    export_path : Union[str, pathlib.Path, None]
+        Optional export path specification.
+        * If "transformations", writes to 
             os.path.join(transformations.dir_init, "templates")
-        - If pathlib.Path, writes to that directory (must be a directory)
-        - If None, exports to SISEPUEDE default (in ref)
-    - fn_strategy_definition: file name of strategy definiton file in 
-        transformations.dir_init *OR* pathlib.Path giving a full path to a
-        strategy definitions CSV file.
-    - logger: optional logger to use
-    - prebuild: prebuild the tables?
-    - stop_on_error: stop if a strategy fails to initialize
-    - **kwargs: can be used to pass 
+        * If pathlib.Path, writes to that directory (must be a directory)
+        * If None, exports to SISEPUEDE default (in ref)
+    strategy_definition_specification: Union[str, pd.DataFrame, pathlib.Path]
+        * str:          File name of strategy definiton file in 
+                        transformations.dir_init
+        * pathlib.Path: Full path to a strategy definitions CSV file
+        * pd.DataFrame: Direct definition of strategies in a DataFrame
+    logger : Union[logging.Logger, None]
+        Optional logger to use
+    prebuild : bool
+        Prebuild the tables?
+    stop_on_error : bool
+        Stop if a strategy fails to initialize
+    **kwargs : 
+        Can be used to pass keyword arguents
     """
 
     def __init__(self,
         transformations: trn.Transformations,
         baseline_id: int = 0,
         export_path: Union[str, pathlib.Path, None] = "transformations",
-        fn_strategy_definition: Union[str, pathlib.Path] = _DICT_FILE_NAME_DEFAULTS.get("strategy_definitions"),
+        strategy_definition_specification: Union[str, pd.DataFrame, pathlib.Path] = _DICT_FILE_NAME_DEFAULTS.get("strategy_definitions"),
         logger: Union[logging.Logger, None] = None,
         prebuild: bool = True,
         stop_on_error: bool = False,
@@ -533,7 +543,7 @@ class Strategies:
             **kwargs,
         )
         self._initialize_strategies(
-            fn_strategy_definition,
+            strategy_definition_specification,
             baseline_id,
             prebuild = prebuild,
             stop_on_error = stop_on_error,
@@ -792,13 +802,12 @@ class Strategies:
     
 
     def _initialize_strategies(self,
-        fn_strategy_definition: Union[str, pathlib.Path],
+        strategy_definition_specification: Union[str, pathlib.Path, pd.DataFrame],
         baseline_id: int,
         prebuild: bool = True,
         stop_on_error: bool = False,
     ) -> None:
-        """
-        Initialize the strategy objects and the attribute table. Sets the 
+        """Initialize the strategy objects and the attribute table. Sets the 
             following properties:
 
             * self.all_strategies
@@ -809,11 +818,14 @@ class Strategies:
         """
         # get the path to the strategy definition and the derived attribute table
         # - NOTE: the get_attribute_table() will check the baseline_id, so it can be set as a property
-        path = self.get_strategy_definition_path(fn_strategy_definition, )
+        attr_specification = self.get_strategy_definition_path(strategy_definition_specification, )
         attribute_table = self.get_attribute_table(
-            path, 
+            attr_specification, 
             baseline_id,
         )
+
+        # allow definition from an attribute table directly
+        path = None if isinstance(attr_specification, pd.DataFrame) else attr_specification
 
         
         ##  ITERATE OVER THE ATTRIBUTE TABLE TO BUILD STRATEGIES
@@ -823,11 +835,11 @@ class Strategies:
         for i, row in attribute_table.table.iterrows():
             
             # get components
-            id_num = row.get(self.key_strategy)
-            code = row.get(self.field_strategy_code)
-            desc = row.get(self.field_description)
-            name = row.get(self.field_strategy_name)
-            tspec = row.get(self.field_transformation_specification)
+            id_num = row.get(self.key_strategy, )
+            code = row.get(self.field_strategy_code, )
+            desc = row.get(self.field_description, )
+            name = row.get(self.field_strategy_name, )
+            tspec = row.get(self.field_transformation_specification, )
             
             strat = None
             
@@ -1101,20 +1113,28 @@ class Strategies:
 
 
     def get_attribute_table(self,
-        fp: Union[str, pathlib.Path],
+        strategy_definition_specification: Union[str, pathlib.Path, pd.DataFrame],
         baseline_id: int,
     ) -> None:
         """
         Read in the strategy definition file and build an attribute table
         """
 
-        path = str(fp) if isinstance(fp, pathlib.Path) else fp
+        if isinstance(strategy_definition_specification, pd.DataFrame):
+            df = strategy_definition_specification
+
+        else:
+            path = (
+                str(strategy_definition_specification) 
+                if isinstance(strategy_definition_specification, pathlib.Path) 
+                else strategy_definition_specification
+            )
+                
+            try:
+                df = pd.read_csv(path, )
             
-        try:
-            df = pd.read_csv(path)
-        
-        except Exception as e:
-            raise RuntimeError(f"Error reading strategies definition table from '{fp}': {e}")
+            except Exception as e:
+                raise RuntimeError(f"Error reading strategies definition table from '{strategy_definition_specification}': {e}")
 
 
         ##  CHECK FIELDS
@@ -1160,9 +1180,11 @@ class Strategies:
     def get_strategy_definition_path(self,
         path_specification: Union[str, pathlib.Path],
     ) -> pathlib.Path:
+        """Get the path to strategy definition file
         """
-        Get the path to strategy definition file
-        """
+        # pass through a data frame
+        if isinstance(path_specification, pd.DataFrame):
+            return path_specification
 
         # check specification of path
         if isinstance(path_specification, str):
@@ -1171,12 +1193,12 @@ class Strategies:
         
         if not isinstance(path_specification, pathlib.Path):
             tp = str(type(path_specification))
-            msg = f"Invalid fn_strategy_definition specification in Strategies: input must be of type str or pathlib.Path"
+            msg = f"Invalid strategy_definition_specification specification in Strategies: input must be of type str or pathlib.Path"
             raise ValueError(msg)
         
         # verify that path exists
         if not path_specification.exists():
-            msg = f"Invalid fn_strategy_definition specification in Strategies: strategy definition table '{path_specification}' not found."
+            msg = f"Invalid strategy_definition_specification specification in Strategies: strategy definition table '{path_specification}' not found."
             raise RuntimeError(msg)
 
         return path_specification
