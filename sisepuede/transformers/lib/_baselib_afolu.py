@@ -713,7 +713,7 @@ def transformation_frst_increase_reforestation(
 
 
 
-def transformation_frst_increase_sequestration(
+def transformation_frst_change_sequestration_profile(
     df_input: pd.DataFrame,
     magnitude: Union[Dict[str, float], float],
     vec_ramp: np.ndarray,
@@ -724,7 +724,7 @@ def transformation_frst_increase_sequestration(
     **kwargs
 ) -> pd.DataFrame:
     """Increase sequestration in forests. Default category is only secondary
-        forest.
+        forest. The change represents planting different tree types.  
 
     Function Arguments
     ------------------
@@ -790,7 +790,10 @@ def transformation_frst_increase_sequestration(
 
     cats_frst = [cats_frst] if isinstance(cats_frst, str) else cats_frst
     cats_frst = (
-        [model_afolu.cat_frst_scnd]
+        [
+            model_afolu.cat_frst_scnd, 
+            model_afolu.cat_frst_prim
+        ]
         if not sf.islistlike(cats_frst)
         else cats_frst
     )
@@ -815,6 +818,13 @@ def transformation_frst_increase_sequestration(
                 model_afolu.modvar_frst_biomass_growth_rate: {
                     "bounds": bounds,
                     "categories": cats_frst,
+                    "magnitude": magnitude,
+                    "magnitude_type": "baseline_scalar",
+                    "vec_ramp": vec_ramp
+                },
+
+                model_afolu.modvar_frst_biomass_growth_rate_young_secondary: {
+                    "bounds": bounds,
                     "magnitude": magnitude,
                     "magnitude_type": "baseline_scalar",
                     "vec_ramp": vec_ramp

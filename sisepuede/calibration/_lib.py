@@ -51,10 +51,13 @@ def scale_inputs_single_value(
     fields_output: List[str],
     target_value: Union[Dict[int, float], int],
     models: 'SISEPUEDEModels',
+    time_periods_base: np.ndarray,
     error_function: str = "proportional_deviation",
     include_energy_production: bool = False,
     return_projected: bool = False,
     threshold: float = 0.000001,
+    time_periods_run: Union[np.ndarray, None] = None,
+    verbose: bool = False,
     **kwargs,
 ) -> Union[pd.DataFrame, Tuple[pd.DataFrame]]:
     """Scale inputs to align output (sum) with target
@@ -72,6 +75,8 @@ def scale_inputs_single_value(
         If an integer, assumes only time_period 0.
     models : SISEPUEDEModels
         SISEPUEDEModels object used for calibration
+    time_periods_base : np.ndarray
+        Base time periods to run
         
     Keyword Arguments
     -----------------
@@ -90,6 +95,10 @@ def scale_inputs_single_value(
 
     threshold : float
         Acceptance threshold for acceptance of candidate
+    time_periods_run : Union[np.ndarray, None] 
+        Optional specification of time periods to run
+    verbose : bool
+        Print errors and scalars?
     **kwargs :
         Passed to error function 
     """
@@ -129,11 +138,13 @@ def scale_inputs_single_value(
         raise RuntimeError(f"Time period {time_period_target} not found in the DataFrame.")
         
     ind = ind[0]
-    
+
     # project the model onces
     df_projected_initial = models.project(
         df_candidate,
         include_nemo_fuel_production = include_energy_production,
+        time_periods_base = time_periods_base,
+        time_periods_run = time_periods_run,
     )
 
     # get index to compare
@@ -144,6 +155,7 @@ def scale_inputs_single_value(
         else 0
     )
     df_candidate[fields_input] = df_candidate[fields_input]*scalar
+    if verbose: print(f"scalar = {scalar}")
 
     # project again and recalculate
     df_projected_final = models.project(
@@ -165,6 +177,7 @@ def scale_inputs_single_value(
     if error > threshold:
         raise RuntimeError(f"Unable to rescale inputs: error {error} exceeds acceptance threshold {threshold}.")
 
+    if verbose: print(f"Error: {error}")
 
     out = (
         (df_candidate, df_projected_final, )

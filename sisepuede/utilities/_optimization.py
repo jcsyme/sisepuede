@@ -11,8 +11,9 @@ import sisepuede.utilities._toolbox as sf
 
 ######################
 #    SOME GLOBALS    #
-#####################3#`
+######################
 
+# error classes
 class ConstraintError(Exception):
     pass
 
@@ -20,9 +21,13 @@ class ShapeError(Exception):
     pass
 
 
-# 
-#
-#
+# default lists
+_SOLVERS_DEFAULT_QADJ = ["quadprog", "scs"]
+
+
+#################
+#    CLASSES    #
+#################
 
 class QAdjuster:
     """Adjust a transition matrix Q to match requirements from land use 
@@ -1058,7 +1063,7 @@ class QAdjuster:
         #perturbation_diag: float = 0.000001,
         prohibited_transitions: Union[List[Tuple[int]], None] = None,
         return_unadj_on_infeas: bool = True,
-        solver: str = "quadprog",
+        solver: Union[str, List[str]] = _SOLVERS_DEFAULT_QADJ,
         stop_on_error: bool = False,
         verbose: bool = False,
         **kwargs,
@@ -1100,7 +1105,7 @@ class QAdjuster:
             None, no restriction is included.
         return_unadj_on_infeas : bool
             If both 
-        solver : str
+        solver : Union[str, List[str]]
             Valid solver passed to qpsolvers.solve_qp()
         stop_on_error : bool
             Stop if errors occur in solutions?
@@ -1126,14 +1131,20 @@ class QAdjuster:
         global M2
         global Q2
         global c2
+        global pt
         global x02
         global xt2
+        global v0
+        global v1
 
         M2 = M
         Q2 = Q
         c2 = c
+        pt = prohibited_transitions
         x02 = x_0
         xt2 = x_target
+        v0 = vec_infima
+        v1 = vec_suprema
 
         # try to retrieve constraint components
         try:
@@ -1167,39 +1178,59 @@ class QAdjuster:
         }
         """;
 
-        try:
-
-            sol = qpsolvers.solve_qp(
-                M, 
-                c, 
-                A = A,
-                b = b,
-                G = G,
-                h = h,
-                lb = np.zeros(M.shape[0]),
-                ub = np.ones(M.shape[0]),
-                solver = solver,
-                verbose = verbose,
-            )
-
-            # print("QP SUCCEEDED!")
-
-        except Exception as e:
-            msg = f"Error trying to solve 'Minimize Calibration Error' problem in QCorrector using qpsolvers.solve_qp: {e}."
-            if stop_on_error:
-                raise RuntimeError(msg)
-            
-            warnings.warn(f"{msg} Trying scipy.optimize.minimize...")
+        # try all solvers specified (in order)
+        solver = [solver] if not sf.islistlike(solver) else solver
         
+        i = 0
+        n_solvers = len(solver)
+        sol = None
 
-        if sol is not None:
-            sol = self.clean_and_reshape_solver_output(
-                Q,
-                sol,
-                **kwargs, # optional passing of thresh_to_zero
-            )
+        while (sol is None) & (i < n_solvers):
 
-            return sol
+            solve = solver[i]
+
+            try:
+
+                sol = qpsolvers.solve_qp(
+                    M, 
+                    c, 
+                    A = A,
+                    b = b,
+                    G = G,
+                    h = h,
+                    lb = np.zeros(M.shape[0]),
+                    ub = np.ones(M.shape[0]),
+                    solver = solve,
+                    verbose = verbose,
+                )
+
+                # print("QP SUCCEEDED!")
+
+            except Exception as e:
+                msg = f"Error trying to solve 'Minimize Calibration Error' problem in QCorrector using qpsolvers.solve_qp and solver {solve}: {e}."
+                if stop_on_error:
+                    raise RuntimeError(msg)
+                
+                warnings.warn(msg)
+            
+
+            if sol is not None:
+                warnings.warn(f"Successfully found solution with solver {solve}.")
+                sol = self.clean_and_reshape_solver_output(
+                    Q,
+                    sol,
+                    **kwargs, # optional passsing of thresh_to_zero
+                )
+
+                return sol
+
+            msg = f"No feasible solution found with solver {solve}. Trying next..."
+            warnings.warn(msg)
+            
+            i += 1
+
+
+        warnings.warn("No qpsolvers succeeded. Trying sco.minimize...")
 
 
 

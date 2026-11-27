@@ -1158,7 +1158,7 @@ class TransformerKernels:
 
         self.frst_increase_sequestration = TransformerKernel(
             f"{_MODULE_CODE_SIGNATURE}:FRST:INCREASE_SEQUESTRATION", 
-            self._trfunc_frst_increase_sequestration,
+            self._trfunc_frst_increase_biomass_growth_rates,
             attr_transformer_kernel_code
         )
         all_tkernels.append(self.frst_increase_sequestration, )
@@ -3826,7 +3826,7 @@ class TransformerKernels:
 
     
 
-    def _trfunc_frst_increase_sequestration(self,
+    def _trfunc_frst_increase_biomass_growth_rates(self,
         cats_frst: Union[List[str], None] = None,
         df_input: Union[pd.DataFrame, None] = None,
         magnitude: float = 0.05,
@@ -3834,7 +3834,7 @@ class TransformerKernels:
         strat: Union[int, None] = None,
         vec_implementation_ramp: Union[np.ndarray, Dict[str, int], None] = None,
     ) -> pd.DataFrame:
-        """Implement the "Adjust Exports" ENFU transformer on input DataFrame df_input (decrease by 20%). Allows for increases in exports (positive magnitude) or decreases (negative magnitude).
+        """Implement the "Adjust Exports" ENFU transformer on input DataFrame df_input (decrease by 20%). Allows for increases in exports (positive magnitude) or decreases (negative magnitude). This transformation is best used to represent planting new types of trees, not increasing net sequestration through deadwood removals or shifts to soil carbon.
 
         Parameters
         ----------
@@ -3868,7 +3868,7 @@ class TransformerKernels:
         )
 
 
-        df_out = tba.transformation_frst_increase_sequestration(
+        df_out = tba.transformation_frst_change_sequestration_profile(
             df_input,
             magnitude,
             vec_implementation_ramp,
@@ -4104,7 +4104,11 @@ class TransformerKernels:
         )
         
         # set the magnitude in case of none
-        magnitude = self.bounded_real_magnitude(magnitude, 0.2)
+        magnitude = self.bounded_real_magnitude(
+            magnitude, 
+            0.2, 
+            bounds = (0.0, np.inf),
+        )
 
         # check implementation ramp
         vec_implementation_ramp = self.check_implementation_ramp(
