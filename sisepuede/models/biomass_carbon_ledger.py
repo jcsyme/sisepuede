@@ -120,15 +120,21 @@ class BiomassCarbonLedger:
     vec_total_removals_demanded: np.ndarray
         Vector (n_time_periods) of exogenous demands for removals (from fuelwood
         and harvested wood products). If None, sets to 0.
-    vec_young_sf_curve_specification: Union[np.ndarray, npp.NPPCurve]
+    young_sf_curve_specification: Union[np.ndarray, npp.NPPCurve]
         Vector storing sequestration rates (mass C/area/time_period) for new
         growth. Different behaviors can be expected depending on the 
         specifiction:
-            * vec_young_sf_curve_specification: np.ndarray
+            * np.ndarray (K x 1 vector):
                 If specified as a vector, it must be specified far enough out to 
-                be considered in equilibrium; the estimated fraction of biomass 
-                that is lost to decomposition annually will depend on it. 
-            * vec_young_sf_curve_specification: npp.NPPCurve
+                be considered in equilibrium (K periods); the estimated fraction 
+                of biomass that is lost to decomposition annually will depend on 
+                it UNLESS the decomposition fractions are specified exogenously. 
+            * np.ndarray (T x T array):
+                If specified as 2D array, decomposition fractions must be 
+                specified exogenously, and thus only values out to time period
+                T must be specified. This array stores the curve to use for 
+                forests planted at time i in row i.
+            * npp.NPPCurve:
                 If specified as an NPPCurve, then the curve *must* be fit an 
                 include parameters. If parameters are not fit, then an error 
                 will be thrown.
@@ -142,6 +148,18 @@ class BiomassCarbonLedger:
         Tuple giving the window for shaping the logistic curve used to slow
         removals. Smaller windows will lead to more gradual shifts in removals
         reduction.
+    vec_frac_decomposition : Union[np.ndarray, float, None]
+        Optional specification of the vector of decomposition fraction. 
+            * np.ndarray:   (T x 1) Vector of decomposition fractions, where
+                            element i stores the decomposition fraction to use
+                            for forests planted at time i (i = 0 is used for
+                            original forests).
+                            NOTE:   Required if young_sf_curve_specification is 
+                                    a T x T array
+            * float:        Single, uniform value to use for all time periods.
+                            NOTE:   Not recommended if curves change over time.
+            * None:         The fraction will be estimated. Only valid if 
+                            young_sf_curve_specification is a vector.
     vec_removals_behavioral_response_factor: Union[np.array, float, int]
         Optional endogenous response factor. Defaults to 0. If 0, demands are 
         not reduced in response to changing supply availabilit. If 1, demands in 
@@ -207,6 +225,14 @@ class BiomassCarbonLedger:
             that land use type. At or below this level, sequestration does not 
             occur (due to total degredation). This is required to prevent
             conversions that are separate from the land use model.
+        
+        * `arr_young_sf_curve` (T x T)
+            Array of sequestration factors, over time, for newly planted
+            forests; entries in column t are the sequestration factors t time 
+            periods after planting for those planted in time period i (row). If 
+            entered as a single number, uses one value for every time period.
+            
+            Defined via `young_sf_curve_specification`.
 
         * `vec_biomass_c_ag_init_stst_storage` (N x 1)
             Array giving initial biomass C stock, i.e., mass of biomass c per 
@@ -252,15 +278,8 @@ class BiomassCarbonLedger:
         * `vec_total_removals_demanded` (T x 1)
             Vector of total removals demanded, including HWP and fuelwood
             removals.
-
-        * `vec_young_sf_curve` (T x 1)
-            Vector of sequestration factors, over time, for newly planted
-            forests; entries at time t are the sequestration factors t time 
-            periods after planting. If entered as a single number, uses one 
-            value for every time period.
         
-        
-        
+    
 
 
         ##  INTERNAL CALCULATION VARIABLES
@@ -591,9 +610,10 @@ s
         vec_frac_dw_removed: np.ndarray,
         vec_sf_nominal_initial: np.ndarray,
         vec_total_removals_demanded: np.ndarray,
-        vec_young_sf_curve_specification: np.ndarray,
+        young_sf_curve_specification: Union[np.ndarray, 'NPPCurve'],
         n_tps_no_withdrawals_new_growth: int = 20,
         removals_logistic_window: tuple = _REMOVALS_LOGISTIC_WINDOW_DEFAULT,
+        vec_frac_decomposition: Union[np.ndarray, float, None] = None,
         vec_removals_behavioral_response_factor: Union[float, int, np.ndarray] = 0.0,
         **kwargs,
     ) -> None:
@@ -620,7 +640,8 @@ s
             vec_removals_behavioral_response_factor,
             vec_sf_nominal_initial,
             vec_total_removals_demanded,
-            vec_young_sf_curve_specification,
+            young_sf_curve_specification,
+            vec_frac_decomposition = vec_frac_decomposition,
             **kwargs,
         )
 
@@ -635,7 +656,7 @@ s
     ##################################
 
     def _build_arr_young_sf_base_by_tp_planted(self,
-        vec_young_sf_curve: np.ndarray,
+        arr_young_sf_curve: np.ndarray,
     ) -> np.ndarray:
         """Build the arr_young_biomass_c_ag_converted_by_tp_planted array
         """
@@ -644,7 +665,7 @@ s
 
         for i in range(self.n_tp):
             n_end = self.n_tp - i
-            arr_young_sf_base_by_tp_planted[i:self.n_tp, i] = vec_young_sf_curve[0:n_end]
+            arr_young_sf_base_by_tp_planted[i:self.n_tp, i] = arr_young_sf_curve[i, 0:n_end]
 
         return arr_young_sf_base_by_tp_planted
     
@@ -920,75 +941,92 @@ s
     
 
 
-    def _get_young_sf_curve(self,
-        vec_young_sf_curve_specification: np.ndarray,
+    def _get_young_sf_curves(self,
+        young_sf_curve_specification: np.ndarray,
+        vec_frac_decomposition: Union[np.ndarray, None],
         **kwargs,
     ) -> None:
-        """Get the young sf curve and the decomposition fractions; must pass
-            vec_young_sf_curve_specification as a vector to equilibrium (time
+        """Get the young sf curves and the decomposition fractions; must pass
+            young_sf_curve_specification as a vector to equilibrium (time
             period).
 
             out = (
-                vec_young_sf_curve,
+                arr_young_sf_curve,             # (T x T) array of curves
+                vec_frac_biomass_ag_to_dom,     # vector of decomp fractions
             )
         """
 
-        if not isinstance(vec_young_sf_curve_specification, np.ndarray):
-            tp = str(type(vec_young_sf_curve_specification))
-            raise TypeError(f"Invalid type {tp} for vec_young_sf_curve_specification: must be a NumPy array.")
-        
+        if not isinstance(young_sf_curve_specification, np.ndarray):
+            tp = str(type(young_sf_curve_specification))
+            raise TypeError(f"Invalid type {tp} for young_sf_curve_specification: must be a NumPy array.")
 
-        """
-        # check if error should be tossed
-        is_npp = isinstance(vec_young_sf_curve_specification, tuple)
-        is_npp &= (
-            (
-                npp.is_npp_curve(vec_young_sf_curve_specification[0])
-                & sf.isnumber(vec_young_sf_curve_specification[1], integer = True, )
-                & (len(vec_young_sf_curve_specification) == 2)
+
+        ##  CHECK BASED ON SHAPE
+
+        dim = len(young_sf_curve_specification.shape)
+        if dim == 1:
+
+            est_frac = not isinstance(vec_frac_decomposition, np.ndarray)
+            est_frac = sf.isnumber(vec_frac_decomposition)
+
+            if est_frac:
+                vec_frac_biomass_ag_to_dom = estimate_decomposition_fraction(
+                    young_sf_curve_specification, 
+                    return_frac = True,
+                    **kwargs,
+                )
+            else:
+                # otherwise, take either the number itself or the first element of the array (must be constant)
+                vec_frac_biomass_ag_to_dom = (
+                    est_frac
+                    if sf.isnumber(vec_frac_decomposition)
+                    else vec_frac_decomposition[0]
+                )
+
+            # build array
+            arr_young_sf_curve = (
+                np.ones((self.n_tp, self.n_tp))
+                *young_sf_curve_specification[0:self.n_tp]
             )
-            if is_npp3
-            else False
-        )
-       
-        is_numpy = isinstance(vec_young_sf_curve_specification, np.ndarray)
 
-        if not (is_npp | is_numpy):
-            tp = str(type(vec_young_sf_curve_specification))
-            raise TypeError(f"Invalid type {tp} for vec_young_sf_curve_specification: must be a NumPy array or a tuple with (NPPCurve, N_TP_EQUILIBRIUM)")
+
+        elif dim == 2:
+
+            ##  CHECK ALL RELEVANT SHAPES
+
+            dim_req = (self.n_tp, self.n_tp)
+
+            if min(young_sf_curve_specification.shape) < self.n_tp:
+                raise ShapeError(f"Invalid shape {young_sf_curve_specification.shape} specified for young_sf_curve_specification. Must be reducable to {dim_req}.")
+
+            if not isinstance(vec_frac_decomposition, np.ndarray):
+                msg = f"""If young_sf_curve_specification has shape (T x T), vec_frac_decomposition must 
+                be specified exogenously as a NumPy array of length T. Check the input.
+                """
+                raise TypeError(msg)
+
+            if vec_frac_decomposition.shape != (self.n_tp, ):
+                raise ShapeError(f"Invalid shape {vec_frac_decomposition.shape} specified; must be a vector of length {self.n_tp}.")
+
+            vec_frac_biomass_ag_to_dom = np.clip(
+                vec_frac_decomposition, 0.0, 1.0,
+            )
+
+            arr_young_sf_curve = young_sf_curve_specification[0:self.n_tp, 0:self.n_tp]
+
         
-
-        # case where npp
-        if is_npp:
-            if npp.defaults is None:
-                raise npp.MissingNPPParameters("Parameters in NPPCurve vec_young_sf_curve_specification should not be None. Must be tuple.")
-            
-            #
-            curve_npp, n_eq = vec_young_sf_curve_specification
-            params_def = curve_npp.defaults
-            vec_young_sf_curve_specification = np.array([curve_npp(x, *params_def) for x in range(n_eq)])
-        """
-
         ##  GET DECOMPOSITION FRACTION 
 
-        frac_decomp = estimate_decomposition_fraction(
-            vec_young_sf_curve_specification, 
-            return_frac = True,
-            **kwargs,
-        )
-
-        vec_young_sf_curve = vec_young_sf_curve_specification[0:self.n_tp]
-
-        # conver to 
+        # convert to an array
         vec_frac_biomass_ag_to_dom = self._verify_convert_array_input_to_array(
-            frac_decomp,
+            vec_frac_biomass_ag_to_dom,
             self.n_tp,
             "vec_frac_biomass_ag_to_dom",
         )
 
         out = (
+            arr_young_sf_curve, 
             vec_frac_biomass_ag_to_dom,
-            vec_young_sf_curve, 
         )
 
         return out
@@ -1047,7 +1085,8 @@ s
         vec_removals_behavioral_response_factor: Union[float, int, np.ndarray],
         vec_sf_nominal_initial: np.ndarray,
         vec_total_removals_demanded: np.ndarray,
-        vec_young_sf_curve_specification: np.ndarray,
+        young_sf_curve_specification: np.ndarray,
+        vec_frac_decomposition: Union[np.ndarray, None] = None,
         **kwargs,
     ) -> None:
         """Initialize the arrays needed for tracking Carbon stock. Stores the
@@ -1174,15 +1213,15 @@ s
         ##  GET YOUNG SEQUESTRTION CURVE AND DECOMPOSITION FRACTION
 
         (
+            arr_young_sf_curve,
             vec_frac_biomass_ag_to_dom,
-            vec_young_sf_curve,
-        ) = self._get_young_sf_curve(
-            vec_young_sf_curve_specification,
+        ) = self._get_young_sf_curves(
+            young_sf_curve_specification,
+            vec_frac_decomposition,
             **kwargs,
         )
 
-        vec_young_sf_curve_cumulative = np.cumsum(vec_young_sf_curve, )
-        self._initialize_young_forest_internal_arrays(vec_young_sf_curve, )
+        self._initialize_young_forest_internal_arrays(arr_young_sf_curve, )
 
 
         ##  DO ANY UPDATES TO INITIAL ARRAYS
@@ -1231,6 +1270,7 @@ s
         self.arr_total_biomass_c_ag_available_from_conversion = arr_total_biomass_c_ag_available_from_conversion
         self.arr_total_biomass_c_ag_starting = arr_total_biomass_c_ag_starting
         self.arr_total_biomass_c_bg_starting = arr_total_biomass_c_bg_starting
+        self.arr_young_sf_curve = arr_young_sf_curve
         self.vec_area_conversion_away_young_forest = vec_area_conversion_away_young_forest
         self.vec_area_conversion_away_young_forest_no_protection = vec_area_conversion_away_young_forest_no_protection
         self.vec_area_init = vec_area_init
@@ -1265,8 +1305,6 @@ s
         self.vec_young_biomass_c_ag_available_from_conversion = vec_young_biomass_c_ag_available_from_conversion
         self.vec_young_biomass_c_ag_starting = vec_young_biomass_c_ag_starting
         self.vec_young_biomass_c_bg_starting = vec_young_biomass_c_bg_starting
-        self.vec_young_sf_curve = vec_young_sf_curve
-        self.vec_young_sf_curve_cumulative = vec_young_sf_curve_cumulative
 
         return None
     
@@ -1286,7 +1324,7 @@ s
 
 
     def _initialize_young_forest_internal_arrays(self,
-        vec_young_sf_curve: np.ndarray,
+        arr_young_sf_curve: np.ndarray,
         **kwargs,
     ) -> None:
         """Init
@@ -1320,7 +1358,7 @@ s
 
         # build base sequestration factors by time period
         arr_young_sf_base_by_tp_planted = self._build_arr_young_sf_base_by_tp_planted(
-            vec_young_sf_curve, 
+            arr_young_sf_curve, 
         )
 
 
@@ -1845,7 +1883,7 @@ s
             + self.vec_biomass_c_removed_from_young_pre_orig[i]
         )
         
-        frac_decomp = self.vec_frac_biomass_ag_to_dom[i]
+        frac_decomp_orig = self.vec_frac_biomass_ag_to_dom[0]
         ind_fs = self.ind_frst_secondary
 
         # sabove ground biomass vecs
@@ -1878,7 +1916,7 @@ s
         # 2. above-ground biomass lost to decomposition: arr_biomass_c_ag_lost_dom
         
         # have to add in young decomp
-        vec_agb_lost_decomp = frac_decomp*(vec_agb_starting - vec_agb_conv - vec_agb_removed)
+        vec_agb_lost_decomp = frac_decomp_orig*(vec_agb_starting - vec_agb_conv - vec_agb_removed)
         vec_agb_lost_decomp[ind_fs] += bmass_decomp_young
         self.arr_biomass_c_ag_lost_dom[i] = vec_agb_lost_decomp
 
@@ -2501,8 +2539,8 @@ s
         if i == 0:
             return None
 
-        # shortcuts
-        rate_decomp = self.vec_frac_biomass_ag_to_dom[i - 1]
+        # shortcutss
+        rate_decomp = self.vec_frac_biomass_ag_to_dom
         vec_conv = self.arr_young_biomass_c_ag_converted_by_tp_planted[i]
         vec_removals_cur = self.arr_young_biomass_c_stock_removal_allocation[i]
         vec_stock_prev = self.arr_young_biomass_c_ag_stock[i - 1]
@@ -2677,7 +2715,7 @@ s
         """
 
         arr_area = self.arr_young_area_by_tp_planted
-        vec_sf = self.vec_young_sf_curve
+        vec_sf = self.arr_young_sf_curve[i]
 
         # case for init
         if i == 0:
@@ -2686,7 +2724,7 @@ s
         
         
         # add as previous stock*(1 - decomp rate ) plus sequestration
-        frac_decomp = self.vec_frac_biomass_ag_to_dom[i]
+        # frac_decomp = self.vec_frac_biomass_ag_to_dom[i - 1]
         vec_ratio_areas = np.nan_to_num(
             arr_area[i]/arr_area[i - 1],
             nan = 0.0,
@@ -2694,7 +2732,9 @@ s
         )
 
         self.arr_young_biomass_c_ag_stock_if_untouched[i] = (
-            self.arr_young_biomass_c_ag_stock_if_untouched[i - 1] * (1 - frac_decomp) * vec_ratio_areas
+            self.arr_young_biomass_c_ag_stock_if_untouched[i - 1] 
+            * (1 - self.vec_frac_biomass_ag_to_dom) 
+            * vec_ratio_areas
             + arr_area[i] * self.arr_young_sf_base_by_tp_planted[i]
         )
         

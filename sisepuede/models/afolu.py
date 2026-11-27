@@ -4577,9 +4577,10 @@ class AFOLU:
             vec_frac_dw_removed,
             vec_sf_nominal_initial,
             vec_demands,
-            vec_young_sf_curve_specification,
+            arr_young_sf_curve_specification,
             n_tps_no_withdrawals_new_growth = self.n_tps_no_withdrawals_new_growth,
             removals_logistic_window = removals_logistic_window,
+            vec_frac_decomposition = vec_frac_decomposition,
             vec_removals_behavioral_response_factor = vec_removals_behavioral_response_factor,
         )
         
@@ -5588,7 +5589,6 @@ class AFOLU:
 
             # note that 0 is always in the breakpoints
             if ind_decomp in vec_breakpoints: 
-                
                 frac_decomp = bcl.estimate_decomposition_fraction(
                     arr_young_sf[ind_decomp], 
                     return_frac = True, 
@@ -5947,7 +5947,7 @@ class AFOLU:
             maxiter = maxiter,
         )
 
-        
+
         ##  GET THE CURVES AND PROJECT
         
         curve = self.curves_npp.get_curve(self.npp_curve, )
@@ -5957,7 +5957,10 @@ class AFOLU:
         n_row = matt.get_dimensional_attribute_table(matt.dim_time_period).n_key_values
 
         # initialize array of curves and vector of breakpoints
+        widths = self.npp_integration_windows
+        n_row = int(sum(widths[0:2]) + widths[-1]/2)
         arr_sf_curves = np.zeros((n_row, n_row), )
+
         vec_breakpoints = []
 
         for i in range(n_row):
@@ -5982,7 +5985,7 @@ class AFOLU:
             n_tp_to_eq += widths[-1]/2
             vec_sf = np.array([curve(x, *params) for x in range(int(n_tp_to_eq))])
 
-            arr_sf_curves[i] = vec_sf[0:n_row]
+            arr_sf_curves[i] = vec_sf#[0:n_row]
 
 
         # get base initial sequestration factors

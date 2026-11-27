@@ -828,7 +828,15 @@ def transformation_frst_change_sequestration_profile(
                     "magnitude": magnitude,
                     "magnitude_type": "baseline_scalar",
                     "vec_ramp": vec_ramp
-                }
+                },
+
+                model_afolu.modvar_lndu_biomass_stock_factor_ag: {
+                    "bounds": bounds,
+                    "categories": [model_afolu.cat_lndu_fstp],
+                    "magnitude": magnitude,
+                    "magnitude_type": "baseline_scalar",
+                    "vec_ramp": vec_ramp
+                },
             },
             **kwargs
         )

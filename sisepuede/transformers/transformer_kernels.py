@@ -3834,7 +3834,7 @@ class TransformerKernels:
         strat: Union[int, None] = None,
         vec_implementation_ramp: Union[np.ndarray, Dict[str, int], None] = None,
     ) -> pd.DataFrame:
-        """Implement the "Adjust Exports" ENFU transformer on input DataFrame df_input (decrease by 20%). Allows for increases in exports (positive magnitude) or decreases (negative magnitude). This transformation is best used to represent planting new types of trees, not increasing net sequestration through deadwood removals or shifts to soil carbon.
+        """Implement the "Adjust Exports" ENFU transformer on input DataFrame df_input (decrease by 20%). Allows for increases in exports (positive magnitude) or decreases (negative magnitude). This transformation is best used to represent planting new types of trees, not increasing net sequestration through deadwood removals or shifts to soil carbon. Increases growth rates for secondary, primary and young secondary forest as well as the initial value of primary forest stock (in target time periods; does not affect storage in original forests), which is used to estimate NPP curves for newly planted forests. 
 
         Parameters
         ----------
