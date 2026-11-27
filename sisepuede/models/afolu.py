@@ -4255,8 +4255,6 @@ class AFOLU:
 
         ##  ASSIGN TO IMPORTS OUT
 
-        # print(f"vec_lde_imports_cereals = {vec_lde_imports_cereals.astype(int)}")
-        # print(f"vec_lde_imports_non_cereals = {vec_lde_imports_non_cereals.astype(int)}")
         arr_agrc_imports_feed = np.zeros(arr_agrc_frac_animal_feed.shape, )
         arr_agrc_imports_feed[:, self.inds_agrc_non_cereal] = sf.do_array_mult(
             arr_w_non_cereals,
@@ -4522,7 +4520,8 @@ class AFOLU:
         (
             vec_biomass_ag_init_stst_storage,
             vec_sf_nominal_initial,
-            vec_young_sf_curve_specification,
+            arr_young_sf_curve_specification, ## HEREHEREHERE
+            vec_frac_decomposition,
         ) = self.get_bcl_growth_rates_and_stocks(
             df_afolu_trajectories, 
             mangroves = mangroves,
@@ -5552,7 +5551,7 @@ class AFOLU:
         mangroves : bool
             Get rate and stocks for mangroves?
         normalize_sfs : bool
-            Normalize sequetration? If True, uses best fit NPP curve fit to
+            Normalize sequestration? If True, uses best fit NPP curve fit to
             estimate stock in equilibrium (x_est) from NPP curve and compares 
             to primary forest starting stock (x_p(0)). Then, the sequestration 
             factors--secondary, primary, and young--are scaled by x_p(0)/x_est
@@ -5570,17 +5569,32 @@ class AFOLU:
         ##  GET BIOMASS GROWTH RATES AND DECOMP
 
         # primary, secondary, and young sequestration factors
-        factors_initial, vec_young_sf = self.get_bcl_sequestration_factors(
+        (
+            factors_initial, 
+            arr_young_sf, 
+            vec_young_sf,
+            vec_breakpoints,
+        ) = self.get_bcl_sequestration_factors(
             df_afolu_trajectories, 
             mangroves = mangroves,
             **kwargs,
         )
         
         # get decomposition fraction
-        frac_decomp = bcl.estimate_decomposition_fraction(
-            vec_young_sf, 
-            return_frac = True, 
-        )
+        vec_fraction_decomp = np.zeros(df_afolu_trajectories.shape[0], )
+        frac_decomp = None
+
+        for ind_decomp in range(vec_fraction_decomp.shape[0]):
+
+            # note that 0 is always in the breakpoints
+            if ind_decomp in vec_breakpoints: 
+                
+                frac_decomp = bcl.estimate_decomposition_fraction(
+                    arr_young_sf[ind_decomp], 
+                    return_frac = True, 
+                )
+
+            vec_fraction_decomp[ind_decomp] = frac_decomp
 
 
         ##  GET INITIAL STOCK FACTORS
@@ -5607,19 +5621,28 @@ class AFOLU:
         
         ##  GET NORM?
         
+        scalar = 1
+
         if normalize_sfs:
+            for ind_decomp in range(vec_fraction_decomp.shape[0]):
+                # note that 0 is always in the breakpoints
+                if ind_decomp in vec_breakpoints: 
+                    # get the stock implied by NPP
+                    vec_cm = bcl.calculate_cumulative_mass(
+                        arr_young_sf[ind_decomp], 
+                        vec_fraction_decomp[ind_decomp], 
+                    )
+                    stock_npp = vec_cm.max()
 
-            # get the stock implied by NPP
-            vec_cm = bcl.calculate_cumulative_mass(vec_young_sf, frac_decomp, )
-            stock_npp = vec_cm.max()
+                    # primary stock
+                    stock_primary = arr_stock_init[ind_decomp, ind_fstp]
+                    scalar = stock_primary/stock_npp
 
-            # primary stock
-            stock_primary = arr_stock_init[0, ind_fstp]
-            scalar = stock_primary/stock_npp
+                # adjust
+                if ind_decomp == 0:
+                    factors_initial *= scalar
 
-            # adjust
-            factors_initial *= scalar
-            vec_young_sf *= scalar
+                arr_young_sf[ind_decomp] = arr_young_sf[ind_decomp]*scalar
 
 
         # build outputs, ordered for direct entrance to ledger
@@ -5630,7 +5653,8 @@ class AFOLU:
         out = (
             arr_stock_init[0, [ind_fstp, ind_fsts]],
             factors_initial,
-            vec_young_sf,
+            arr_young_sf,
+            vec_fraction_decomp,
         )
         
         return out
@@ -5897,6 +5921,8 @@ class AFOLU:
         """
         ##  BUILD SF CURVE
 
+        matt = self.model_attributes
+
         # get target units
         modvar_targunits_area, modvar_targunits_mass = self.get_modvars_for_unit_targets_bcl()
 
@@ -5915,25 +5941,49 @@ class AFOLU:
 
         # fit, even if we don't use the dictionary
         dict_curves = self.get_npp_biomass_sequestration_curves(
-            df_sf_groups.iloc[0:1],
-            first_only = True,
+            df_sf_groups,#.iloc[0:1],
+            first_only = False,#True,
             force_convergence = True, 
             maxiter = maxiter,
         )
+
         
-            
-        ##  GET THE CURVE AND PROJECT
+        ##  GET THE CURVES AND PROJECT
         
         curve = self.curves_npp.get_curve(self.npp_curve, )
         params = curve.defaults
 
-        # project out sequestration factor; should be in equilibrium in primary phase
-        # note that vec_sf is in:
-        #                        - mass terms of self.modvar_frst_biomass_growth_rate
-        #                        - area terms of self.modvar_gnrl_area
-        n_tp_to_eq = sum(self.curves_npp.widths[0:2]) 
-        n_tp_to_eq += self.curves_npp.widths[-1]/2
-        vec_sf = np.array([curve(x, *params) for x in range(int(n_tp_to_eq))])
+        ind = 0   # curve to pull from
+        n_row = matt.get_dimensional_attribute_table(matt.dim_time_period).n_key_values
+
+        # initialize array of curves and vector of breakpoints
+        arr_sf_curves = np.zeros((n_row, n_row), )
+        vec_breakpoints = []
+
+        for i in range(n_row):
+
+            v = dict_curves.get((i, self.npp_curve, ))
+            if v is None:
+                v = dict_curves.get((ind, self.npp_curve, ))
+            else:
+                # if the value is defined, update ind so the next one pulls from the closest change point
+                ind = i
+                vec_breakpoints.append(ind)
+
+            params = v.get("params").x
+            widths = v.get("widths")
+
+            # project out sequestration factor; should be in equilibrium in primary phase
+            # note that vec_sf is in:
+            #                        - mass terms of self.modvar_frst_biomass_growth_rate
+            #                        - area terms of self.modvar_gnrl_area
+            #n_tp_to_eq = sum(self.curves_npp.widths[0:2]) 
+            n_tp_to_eq = sum(widths[0:2]) 
+            n_tp_to_eq += widths[-1]/2
+            vec_sf = np.array([curve(x, *params) for x in range(int(n_tp_to_eq))])
+
+            arr_sf_curves[i] = vec_sf[0:n_row]
+
 
         # get base initial sequestration factors
         factors_initial = (
@@ -5942,9 +5992,17 @@ class AFOLU:
             .to_numpy()
             .copy()
         )
-        
+
+        vec_breakpoints = np.array(vec_breakpoints).astype(int)
+
+
         # return as tuple
-        out = (factors_initial, vec_sf, )
+        out = (
+            factors_initial, 
+            arr_sf_curves, 
+            vec_sf, 
+            vec_breakpoints,
+        )
 
         return out
     
@@ -10324,7 +10382,9 @@ class AFOLU:
         force_convergence: bool = False,
         include_primary_forest_in_npp: Union[bool, None] = None,
         key_cmf: str = "cmf",
+        key_factors: str = "factors",
         key_params: str = "params",
+        key_widths: str = "widths",
         maxiter: int = 500,
         method: str = "SLSQP",
         params_init: Union[np.ndarray, None] = None,
@@ -10371,8 +10431,12 @@ class AFOLU:
             to self.npp_include_primary_forest
         key_cmf : str
             Key in subdictionaries storing cmf
+        key_factors : str
+            Key in subdictionaries storing factors used to fit
         key_params : str
             Key in subdictionaries storing parameters
+        key_widths : str
+            Key in subdictionaries storing the integration widths
         maxiter : int
             maximum number of iterations of solver
         method : str
@@ -10470,7 +10534,9 @@ class AFOLU:
                 {
                     (tp, curve_npp.name, ): {
                         key_cmf: arr_cmf,
+                        key_factors: vec_factors,
                         key_params: params, 
+                        key_widths: vec_widths,
                     }
                 }
             )
@@ -12417,10 +12483,9 @@ class AFOLU:
         gdp_per_capita_rates: np.ndarray, 
         elast: np.ndarray,
         dem_pc_scalar_exog: Union[float, None] = None, 
-        return_type: type = float # return type of array
+        return_type: type = float, # return type of array
     ) -> np.ndarray:
-        """
-        Project per capita demand for agriculture and/or livestock
+        """Project per capita demand for agriculture and/or livestock
 
         Function Arguments
         ------------------
@@ -12490,6 +12555,7 @@ class AFOLU:
         lde_method: str = _DEFAULT_LDE_SOLVER,
         n_tp: Union[int, None] = None,
         prohibit_forest_transitions: Union[bool, None] = None,
+        quadprog_solver: Union[str, List[str]] = suo._SOLVERS_DEFAULT_QADJ,
         removals_logistic_window: Union[Tuple[int], None] = None,
         residues_to_entc_only: bool = True,
         vec_rates_gdp: Union[np.ndarray, None] = None,
@@ -12593,6 +12659,9 @@ class AFOLU:
             - Secondary to Primary
             These transitions are generally reasonable to avoid. 
             * If None, defaults to self.prohibit_forest_transitions.
+        quadprog_solver : Union[str, List[str]]
+            Specificaiton of solvers to try using with qpsolvers. Defaults to 
+            ["quadprog", "scs"]
         residues_to_entc_only : bool
             Send crop residues for energy ONLY to ENTC? If not True, can be
             used to offset fuelwood demands in other subsecotrs then
@@ -13045,6 +13114,7 @@ class AFOLU:
                 self.ind_lndu_stlm: area_target_stlm,
             }
 
+
             # though math *ideally* works if lurf==0, why go through the 
             #   computational hassle if not needed? 
             #   Additionally, numerical issues can lead to some differences in
@@ -13059,12 +13129,12 @@ class AFOLU:
                     area = vec_gnrl_area[i],
                     prohibit_forest_transitions = prohibit_forest_transitions,
                     x_proj_unadj = x_proj_unadj,
-                    solver = "quadprog",
+                    solver = quadprog_solver,
                 )
                 if lurf > 0 
                 else arrs_transitions[i_tr]
             )
-
+            
             x_next  = np.matmul(x, arr_transition_adj)
 
 
@@ -14000,6 +14070,7 @@ class AFOLU:
             x_proj_unadj = x_proj_unadj,
         )
 
+
         prohibited_transitions = self.qadj_get_prohibited_transitions(prohibit_forest_transitions, )
 
         # run the optimization
@@ -14015,7 +14086,7 @@ class AFOLU:
             #thresh_to_zero = 0.0001
             **kwargs,
         )
-            
+        self.q_adjusted_out = out
         return out
 
 
@@ -14649,6 +14720,7 @@ class AFOLU:
         df_afolu_trajectories: pd.DataFrame,
         lde_method: str = _DEFAULT_LDE_SOLVER,
         passthrough_tmp: str = None,
+        quadprog_solver: Union[str, List[str]] = suo._SOLVERS_DEFAULT_QADJ,
         removals_logistic_window: Union[Tuple[int], None] = None,
     ) -> pd.DataFrame:
         """Project the SISEPUEDE AFOLU model forward in time. The project() 
@@ -14669,6 +14741,9 @@ class AFOLU:
         lde_method : str
             Method to pass to sco.linprog. Default is "highs". See ?sco.linprog 
             for options.
+        quadprog_solver : Union[str, List[str]]
+            Specificaiton of solvers to try using with qpsolvers. Defaults to 
+            ["quadprog", "scs"]
 
         Notes
         -----
@@ -14929,6 +15004,7 @@ class AFOLU:
             vec_area,
             lde_method = lde_method,
             n_tp = n_projection_time_periods,
+            quadprog_solver = quadprog_solver,
             removals_logistic_window = removals_logistic_window,
             vec_rates_gdp = vec_rates_gdp,
         )
