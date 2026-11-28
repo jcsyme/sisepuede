@@ -18,7 +18,7 @@ dependencies:
   - pyxlsb=1.0.10
   - PyYAML>=6.0
   - qpsolvers>=4.4.0
-  - quadprog=0.1.13
+  - quadprog>=0.1.13
   - rioxarray=0.15.5
   - scipy>=1.18.1
   - SQLAlchemy=2.0.37
