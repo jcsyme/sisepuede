@@ -2062,9 +2062,11 @@ class SISEPUEDE:
                                 x for x in df_input_cur[self.key_time_period].to_numpy()
                                 if x <= self.time_period_u0
                             ]
+                            global df_input_cur1
+                            df_input_cur1 = df_input_cur.copy()
 
                             while (df_output is None) & (i < max_attempts):
-                                
+
                                 df_output = self.models.project(
                                     df_input_cur, 
                                     check_results = check_results,

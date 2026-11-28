@@ -4037,6 +4037,36 @@ def rgbtup_from_ctup(
 
 
 
+def round_data_fields(
+    df: pd.DataFrame,
+    decimals: int,
+    fields_filter: Union[List[Any], None] = None,
+) -> pd.DataFrame:
+    """For a DataFrame, round *float/double* column types to some number of 
+        decimals. Can help with some stability in numerical solutions.
+
+    Keyword Arguments
+    -----------------
+    fields_filter : Union[List[Any], None]
+        Optional specification of subset of fields to apply to. If not a 
+        listlike, applies rounding to all float columns in df.
+    """
+
+    # get fields to round
+    fields_round = [x for x in df if pd.api.types.is_float_dtype(df[x])]
+    fields_round = (
+        fields_round
+        if not islistlike(fields_filter)
+        else [x for x in fields_filter if x in fields_round]
+    )
+
+    # use np.round
+    df[fields_round] = df[fields_round].round(decimals = decimals, )
+
+    return df
+
+
+
 def scalar_bounds(
     scalar: Union[float, int],
     bounds: tuple

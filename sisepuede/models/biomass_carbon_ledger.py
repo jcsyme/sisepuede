@@ -1460,9 +1460,12 @@ s
                 0,
             )
 
-            out = min(
-                mass_avail*phi/(1 - phi),
-                demand_no_conv*frac_removals_satsifiable_from_dw,
+            plausible_rem = demand_no_conv*frac_removals_satsifiable_from_dw
+
+            out = (
+                min(mass_avail*phi/(1 - phi), plausible_rem, )
+                if phi < 1
+                else plausible_rem
             )
 
             return out
@@ -1621,10 +1624,15 @@ s
             removals_met_prev = self.vec_total_removals_met[i - 1]
 
             # strictly monotonically decreasing
-            factor_demand_adjustment = min(
-                factor_adj_prev,
-                removals_met_prev/demand_adjusted_prev,
+            factor_demand_adjustment = (
+                min(
+                    factor_adj_prev,
+                    removals_met_prev/demand_adjusted_prev,
+                )
+                if demand_adjusted_prev > 0
+                else factor_adj_prev
             )
+
             factor_demand_adjustment_applied = (
                 (1 - factor_behavioral_response) 
                 + factor_behavioral_response*factor_demand_adjustment
@@ -2290,14 +2298,20 @@ s
         
 
         # 4. total removals from converted biomass
+        c_converted_available = vec_c_converted_available.sum()
         self.vec_biomass_c_removed_from_converted[i] = min(
-            vec_c_converted_available.sum(),
+            c_converted_available,
             c_demanded,
         )
 
 
         # 5. allocation fractions for removed from original conversions: arr_biomass_c_removals_from_converted_land_allocation
-        self.arr_biomass_c_removals_from_converted_land_allocation[i] = vec_c_converted_available/vec_c_converted_available.sum()
+        vec_c_converted_available_alloc = np.nan_to_num(
+            vec_c_converted_available/c_converted_available,
+            nan = 1/vec_c_converted_available.shape[0],
+            posinf = 1/vec_c_converted_available.shape[0],
+        )
+        self.arr_biomass_c_removals_from_converted_land_allocation[i] = vec_c_converted_available_alloc
 
 
         # 6. C that is allocated to forest types but excluding conversions: arr_orig_biomass_c_allocation_excluding_conversion

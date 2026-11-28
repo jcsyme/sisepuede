@@ -30,6 +30,7 @@ import sisepuede.models._arrays as coll_arrays
 ##########################
 
 # some defaults
+_DEFAULT_DECIMALS_ROUND_Q = 12
 _DEFAULT_LDE_SOLVER = "highs"
 _DEFAULT_FORCE_LURF_FOR_SETTLEMENTS = False
 _DEFAULT_PROHIBIT_FOREST_TRANSITIONS = True
@@ -5311,8 +5312,19 @@ class AFOLU:
         arr_alloc_biomass_to_target_stocks_bg[inds_lndu_frst, :] = 0
 
         # normalize
-        arr_alloc_biomass_to_target_stocks_ag /= arr_alloc_biomass_to_target_stocks_ag.sum(axis = 0, )
-        arr_alloc_biomass_to_target_stocks_bg /= arr_alloc_biomass_to_target_stocks_bg.sum(axis = 0, )
+        # arr_alloc_biomass_to_target_stocks_ag /= arr_alloc_biomass_to_target_stocks_ag.sum(axis = 0, )
+        # arr_alloc_biomass_to_target_stocks_bg /= arr_alloc_biomass_to_target_stocks_bg.sum(axis = 0, )
+        arr_alloc_biomass_to_target_stocks_ag = np.nan_to_num(
+            arr_alloc_biomass_to_target_stocks_ag/arr_alloc_biomass_to_target_stocks_ag.sum(axis = 0, ),
+            nan = 0.0,
+            posinf = 0.0,
+        )
+
+        arr_alloc_biomass_to_target_stocks_bg = np.nan_to_num(
+            arr_alloc_biomass_to_target_stocks_bg/arr_alloc_biomass_to_target_stocks_bg.sum(axis = 0, ),
+            nan = 0.0,
+            posinf = 0.0,
+        )
 
 
         ##  GET CONVERSION MASS FROM LEDGER AND OVERWRITE BASIC MATRIX
@@ -9838,10 +9850,11 @@ class AFOLU:
 
     def get_markov_matrices(self,
         df_ordered_trajectories: pd.DataFrame,
-        n_tp: Union[int, None] = None,
-        return_c_stock_conversion_factors: bool = True,
+        decimals_round_default: Union[int, None] = _DEFAULT_DECIMALS_ROUND_Q,
         modvar_target_units_area: Union[str, 'ModelVariable', None] = None,
         modvar_target_units_mass: Union[str, 'ModelVariable', None] = None,
+        n_tp: Union[int, None] = None,
+        return_c_stock_conversion_factors: bool = True,
         thresh_correct: float = 0.0001,
     ) -> Union[np.ndarray, Tuple[np.ndarray, np.ndarray]]:
         """Get the transition and emission factors matrices from the data frame 
@@ -9856,6 +9869,26 @@ class AFOLU:
 
         Keyword Arguments
         -----------------
+        decimals_round_default: Union[int, None]
+            Decimal rounding to apply to transition matrices; note that very
+            small values (esp. for eps ≈ 0) can lead to unintended solutions
+            since non-zero transitions are allowed to reallocate.
+            * NOTE:     If entered as an integer, must be > 6. Cannot be 5 or
+                        less.
+        modvar_target_units_area : Union[str, 'ModelVariable', None]
+            ModelVariable used to identify target area units for output
+            * If None:  no adjustment is made (remain in terms of 
+                        self.modvar_lndu_biomass_stock_factor_ag)
+        modvar_target_units_mass : Union[str, 'ModelVariable', None]
+            ModelVariable used to identify target mass units for the outputs
+            * If None:  no adjustment is made (remain in terms of 
+                        self.modvar_lndu_biomass_stock_factor_ag)
+        modvar_target_units_mass : Union[str, 'ModelVariable', None]
+            ModelVariable used to identify target mass units for the
+            BiomassCarbonLedger and all associated 
+        n_tp : Union[int, None]
+            The number of time periods. Default value is None, which implies all 
+            time periods
         return_c_stock_conversion_factors : bool
             Return C stock converion factors as well?
             * False:    Returns ONLY the array of transition probabilities (not
@@ -9870,21 +9903,6 @@ class AFOLU:
                                             # i -> j for below-ground biomass
                             arr_c_lndu_agb, # array of c above ground biomass
                         )
-
-        modvar_target_units_area : Union[str, 'ModelVariable', None]
-            ModelVariable used to identify target area units for output
-            *   If None, no adjustment is made (remain in terms of 
-                self.modvar_lndu_biomass_stock_factor_ag)
-        modvar_target_units_mass : Union[str, 'ModelVariable', None]
-            ModelVariable used to identify target mass units for the outputs
-            *   If None, no adjustment is made (remain in terms of 
-                self.modvar_lndu_biomass_stock_factor_ag)
-        modvar_target_units_mass : Union[str, 'ModelVariable', None]
-            ModelVariable used to identify target mass units for the
-            BiomassCarbonLedger and all associated 
-        n_tp : Union[int, None]
-            The number of time periods. Default value is None, which implies all 
-            time periods
         thresh_correct : float 
             Used to decide whether or not to correct the transition matrix 
             (assumed to be row stochastic) to sum to 1; if the absolute value of 
@@ -9895,7 +9913,7 @@ class AFOLU:
         fields_pij and fields_efc will be properly ordered by categories for 
             this transformation
         """
-        
+
         attr_lndu = self.attr_lndu
         n_cats = attr_lndu.n_key_values
         n_tp = n_tp if sf.isnumber(n_tp, integer = True) else self.n_time_periods
@@ -9926,8 +9944,20 @@ class AFOLU:
         # if not return C factors, return on the transition probabilities
         arr_pr = np.array(df_ordered_trajectories[fields_pij])
         arr_pr = arr_pr.reshape((n_tp, n_cats, n_cats))
+
+        # round the transition probabilities?
+        if sf.isnumber(decimals_round_default, integer = True, ):
+            if decimals_round_default > 6:
+                self._log(
+                    f"Rounding transition matrices to {decimals_round_default} decimals", 
+                    type_log = "debug", 
+                )
+                arr_pr = np.round(arr_pr, decimals_round_default, )
+
+        # if not returning anything else, we can stop
         if not return_c_stock_conversion_factors:
             return arr_pr
+
         
 
         ##  GET C CONVERSION FACTORS
@@ -9962,7 +9992,7 @@ class AFOLU:
             arrs_c_agb *= scalar
             arrs_c_bgb *= scalar
             arr_c_lndu_agb *= scalar
-    
+        
         # build output tuple
         out = (
             arr_pr,
@@ -12869,8 +12899,10 @@ class AFOLU:
             vec_rates_gdp = vec_rates_gdp, 
         )
         
-        
-        ##  INITIALIZE SOME INPUT VARIABLES
+
+        ######################################### 
+        #    INITIALIZE SOME INPUT VARIABLES    #
+        #########################################
 
         arr_agrc_bagasse_factor = self.arrays_agrc.arr_agrc_bagasse_yield_factor
         arr_agrc_frac_feed = self.arrays_agrc.arr_agrc_frac_animal_feed
@@ -14721,6 +14753,7 @@ class AFOLU:
 
     def project(self,
         df_afolu_trajectories: pd.DataFrame,
+        decimals_round_default_q: Union[int, None] = _DEFAULT_DECIMALS_ROUND_Q,
         lde_method: str = _DEFAULT_LDE_SOLVER,
         passthrough_tmp: str = None,
         quadprog_solver: Union[str, List[str]] = suo._SOLVERS_DEFAULT_QADJ,
@@ -14741,6 +14774,12 @@ class AFOLU:
 
         Keyword Arguments
         -----------------
+        decimals_round_default_q: Union[int, None]
+            Decimal rounding to apply to transition matrices; note that very
+            small values (esp. for eps ≈ 0) can lead to unintended solutions
+            since non-zero transitions are allowed to reallocate.
+            * NOTE:     If entered as an integer, must be > 6. Cannot be 5 or
+                        less.
         lde_method : str
             Method to pass to sco.linprog. Default is "highs". See ?sco.linprog 
             for options.
@@ -14892,10 +14931,11 @@ class AFOLU:
             arr_lndu_c_init_agb,
         ) = self.get_markov_matrices(
             df_afolu_trajectories, 
-            n_tp = n_projection_time_periods,
-            return_c_stock_conversion_factors = True,
+            decimals_round_default = decimals_round_default_q,
             modvar_target_units_area = modvar_ilu_area,
             modvar_target_units_mass = modvar_ilu_mass,
+            n_tp = n_projection_time_periods,
+            return_c_stock_conversion_factors = True,
         )
 
         # land use reallocation factor
@@ -15012,7 +15052,7 @@ class AFOLU:
             vec_rates_gdp = vec_rates_gdp,
         )
 
-        
+        """
         #return ledger
         self.arr_agrc_production_nonfeed_unadj = arr_agrc_production_nonfeed_unadj.copy()
         self.arr_agrc_yield = arr_agrc_yield
@@ -15020,7 +15060,8 @@ class AFOLU:
         self.arrs_lndu_land_conv = arrs_lndu_land_conv
         self.vec_lvst_aggregate_animal_mass = vec_lvst_aggregate_animal_mass
         self.arr_lvst_pop = arr_lvst_pop
-        
+        """
+
         # get some output variables
         df_out += [df_out_pop_density]
         df_out += df_out_energy_ippu_adjustments
